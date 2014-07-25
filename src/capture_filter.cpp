@@ -1,14 +1,12 @@
-/*
- * FILE:    capture_filter.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   capture_filter.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @brief  This is an umbrella header for video functions.
+ */
+/*
+ * Copyright (c) 2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,14 +19,9 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of CESNET nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -42,8 +35,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,6 +44,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
+#include "debug.h"
+#include "lib_common.h"
 #include "module.h"
 #include "utils/list.h"
 #include "video.h"
@@ -62,20 +55,33 @@
 #include "capture_filter/logo.h"
 #include "capture_filter/none.h"
 #include "capture_filter/scale.h"
-#ifdef HAVE_OPENCV
-#include "capture_filter/resize.h"
-#endif
 
-static struct capture_filter_info *capture_filters[] = {
-        &capture_filter_blank,
-#ifdef HAVE_OPENCV
-        &capture_filter_resize,
-#endif
-        &capture_filter_every,
-        &capture_filter_logo,
-        &capture_filter_none,
-        &capture_filter_scale,
+#include <vector>
+
+using namespace std;
+
+static vector<struct capture_filter_info *> *capture_filters = nullptr;
+
+/**
+ * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()
+ * may be called before static members are initialized (it is __attribute__((constructor)))
+ */
+struct init_capture_filters {
+        init_capture_filters() {
+                if (capture_filters == nullptr) {
+                        capture_filters = new vector<struct capture_filter_info *>;
+                        *capture_filters = {
+                                &capture_filter_blank,
+                                &capture_filter_every,
+                                &capture_filter_logo,
+                                &capture_filter_none,
+                                &capture_filter_scale,
+                        };
+                }
+        }
 };
+
+static struct init_capture_filters loader;
 
 struct capture_filter {
         struct module mod;
@@ -87,6 +93,23 @@ struct capture_filter_instance {
         void *state;
 };
 
+void register_video_capture_filter(struct capture_filter_info *filter)
+{
+        struct init_capture_filters loader;
+        capture_filters->push_back(filter);
+}
+
+#ifdef BUILD_LIBRARIES
+static void load_libraries(void)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "vcapfilter_*.so.%d", VCAPTURE_FILTER_ABI_VERSION);
+
+        open_all(name);
+}
+static pthread_once_t libraries_initialized = PTHREAD_ONCE_INIT;
+#endif
+
 static int create_filter(struct capture_filter *s, char *cfg)
 {
         unsigned int i;
@@ -96,12 +119,12 @@ static int create_filter(struct capture_filter *s, char *cfg)
                 options = strchr(filter_name, ':') + 1;
                 *strchr(filter_name, ':') = '\0';
         }
-        for(i = 0; i < sizeof(capture_filters) / sizeof(struct capture_filter_info *); ++i) {
-                if(strcasecmp(capture_filters[i]->name, filter_name) == 0) {
-                        struct capture_filter_instance *instance =
+        for(i = 0; i < capture_filters->size(); ++i) {
+                if(strcasecmp((*capture_filters)[i]->name, filter_name) == 0) {
+                        struct capture_filter_instance *instance = (struct capture_filter_instance *)
                                 malloc(sizeof(struct capture_filter_instance));
                         instance->index = i;
-                        int ret = capture_filters[i]->init(&s->mod, options, &instance->state);
+                        int ret = (*capture_filters)[i]->init(&s->mod, options, &instance->state);
                         if(ret < 0) {
                                 fprintf(stderr, "Unable to initialize capture filter: %s\n",
                                                 filter_name);
@@ -113,7 +136,7 @@ static int create_filter(struct capture_filter *s, char *cfg)
                         break;
                 }
         }
-        if(i == sizeof(capture_filters) / sizeof(struct capture_filter_info *)) {
+        if(i == capture_filters->size()) {
                 fprintf(stderr, "Unable to find capture filter: %s\n",
                                 filter_name);
                 return -1;
@@ -123,11 +146,15 @@ static int create_filter(struct capture_filter *s, char *cfg)
 
 int capture_filter_init(struct module *parent, const char *cfg, struct capture_filter **state)
 {
-        struct capture_filter *s = calloc(1, sizeof(struct capture_filter));
+        struct capture_filter *s = (struct capture_filter *) calloc(1, sizeof(struct capture_filter));
         char *item, *save_ptr;
         assert(s);
         char *filter_list_str = NULL,
              *tmp = NULL;
+
+#ifdef BUILD_LIBRARIES
+        pthread_once(&libraries_initialized, load_libraries);
+#endif
 
         s->filters = simple_linked_list_init();
 
@@ -139,8 +166,8 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                 if(strcasecmp(cfg, "help") == 0) {
                         printf("Available capture filters:\n");
                         for(unsigned int i = 0;
-                                        i < sizeof(capture_filters) / sizeof(struct capture_filter_info *); ++i) {
-                                printf("\t%s\n", capture_filters[i]->name);
+                                        i < capture_filters->size(); ++i) {
+                                printf("\t%s\n", (*capture_filters)[i]->name);
                         }
                         module_done(&s->mod);
                         free(s);
@@ -174,8 +201,8 @@ void capture_filter_destroy(struct capture_filter *state)
         struct capture_filter *s = state;
 
         while(simple_linked_list_size(s->filters) > 0) {
-                struct capture_filter_instance *inst = simple_linked_list_pop(s->filters);
-                capture_filters[inst->index]->done(inst->state);
+                struct capture_filter_instance *inst = (struct capture_filter_instance *) simple_linked_list_pop(s->filters);
+                (*capture_filters)[inst->index]->done(inst->state);
                 free(inst);
         }
 
@@ -190,20 +217,20 @@ static void process_message(struct capture_filter *s, struct msg_universal *msg)
 {
         if (strncmp("delete ", msg->text, strlen("delete ")) == 0) {
                 int index = atoi(msg->text + strlen("delete "));
-                struct capture_filter_instance *inst =
+                struct capture_filter_instance *inst = (struct capture_filter_instance *)
                         simple_linked_list_remove_index(s->filters, index);
                 if (!inst) {
                         fprintf(stderr, "Unable to remove capture filter index %d.\n",
                                         index);
                 } else {
                         printf("Capture filter #%d removed successfully.\n", index);
-                        capture_filters[inst->index]->done(inst->state);
+                        (*capture_filters)[inst->index]->done(inst->state);
                         free(inst);
                 }
         } else if (strcmp("flush", msg->text) == 0) {
                 while(simple_linked_list_size(s->filters) > 0) {
-                        struct capture_filter_instance *inst = simple_linked_list_pop(s->filters);
-                        capture_filters[inst->index]->done(inst->state);
+                        struct capture_filter_instance *inst = (struct capture_filter_instance *) simple_linked_list_pop(s->filters);
+                        (*capture_filters)[inst->index]->done(inst->state);
                         free(inst);
                 }
         } else {
@@ -231,8 +258,8 @@ struct video_frame *capture_filter(struct capture_filter *state, struct video_fr
         for(void *it = simple_linked_list_it_init(s->filters);
                         it != NULL;
            ) {
-                struct capture_filter_instance *inst = simple_linked_list_it_next(&it);
-                frame = capture_filters[inst->index]->filter(inst->state, frame);
+                struct capture_filter_instance *inst = (struct capture_filter_instance *) simple_linked_list_it_next(&it);
+                frame = (*capture_filters)[inst->index]->filter(inst->state, frame);
                 if(!frame)
                         return NULL;
         }

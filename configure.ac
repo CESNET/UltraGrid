@@ -437,6 +437,7 @@ fi
 
 video_display_abi_version=6
 video_capture_abi_version=3
+vcapture_filter_abi_version=1
 video_compress_abi_version=3
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
@@ -446,6 +447,7 @@ audio_codec_abi_version=1
 vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
+AC_DEFINE_UNQUOTED([VCAPTURE_FILTER_ABI_VERSION], $vcapture_filter_abi_version, [Specifies ABI version for video capture filters])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
@@ -1334,16 +1336,18 @@ case $host in
 		if test $opencv_req != no -a $FOUND_OPENCV_H = yes  
 		then
 			AC_DEFINE([HAVE_OPENCV], [1], [OpenCV support - resize capture filter dependency])
-	        SAVED_CFLAGS=$CFLAGS
-	        CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
-	        SAVED_CXXFLAGS=$CXXFLAGS
-	        CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"	        
+                        SAVED_CFLAGS=$CFLAGS
+                        CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
+                        SAVED_CXXFLAGS=$CXXFLAGS
+                        CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
 			OPENCV_INC=
-			OPENCV_LIB="${OPENCV_LIBS}"
-			OPENCV_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-                        AC_SUBST(OPENCV_LIB_TARGET, "lib/ultragrid/vidcapfilter_opencv.so.$video_capture_abi_version")
-                        LIB_TARGETS="$LIB_TARGETS $OPENCV_LIB_TARGET"
-                        LIB_OBJS="$LIB_OBJS $OPENCV_OBJ"
+                        RESIZE_LIB="${OPENCV_LIBS}"
+                        RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
+                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/vcapfilter_resize.so.$vcapture_filter_abi_version")
+
+                        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
+                        LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
+
                         opencv=yes
 		fi
     ;;
@@ -1353,11 +1357,10 @@ if test $opencv_req = yes -a $opencv = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
 
-LIB_MODULES="$LIB_MODULES $OPENCV_LIB"
+LIB_MODULES="$LIB_MODULES $RESIZE_LIB"
 
-AC_SUBST(OPENCV_INC)
-AC_SUBST(OPENCV_LIB)
-AC_SUBST(OPENCV_OBJ)
+AC_SUBST(RESIZE_LIB)
+AC_SUBST(RESIZE_OBJ)
 
 
 

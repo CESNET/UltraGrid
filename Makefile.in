@@ -655,6 +655,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIB@ -o $@
 
+@VCAPTURE_FILTER_RESIZE_LIB_TARGET@: @RESIZE_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_resize.so.@vcapture_filter_abi_version@ $^ @RESIZE_LIB@ -o $@
+
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
