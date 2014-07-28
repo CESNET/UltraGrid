@@ -80,7 +80,6 @@ struct testcard_state2 {
         int size;
         int pan;
         SDL_Surface *surface;
-        char *data;
         struct timeval t0;
         struct video_frame *frame;
         struct tile *tile;
@@ -282,6 +281,7 @@ void *vidcap_testcard2_init(const struct vidcap_params *params)
         printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, bpp);
 
         s->tile->data_len = s->size;
+        s->tile->data = (char *) malloc(s->size);
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
@@ -315,7 +315,7 @@ void vidcap_testcard2_done(void *state)
         s->should_exit = true;
         pthread_join(s->thread_id, NULL);
 
-        free(s->data);
+        free(s->tile->data);
         
         free(s->audio_tone);
         free(s->audio_silence);
@@ -328,8 +328,6 @@ void * vidcap_testcard2_thread(void *arg)
         s = (struct testcard_state2 *)arg;
         struct timeval curr_time;
         struct timeval next_frame_time;
-        SDL_Surface *copy;
-        SDL_Surface *old = NULL;
         unsigned int seed = time(NULL);
         int prev_x1 = rand_r(&seed) % (s->tile->width - 300);
         int prev_y1 = rand_r(&seed) % (s->tile->height - 300);
@@ -368,7 +366,7 @@ void * vidcap_testcard2_thread(void *arg)
         while(!s->should_exit)
         {
                 SDL_Rect r;
-                copy = SDL_ConvertSurface(s->surface, s->surface->format, SDL_SWSURFACE);
+                SDL_Surface *surf = SDL_ConvertSurface(s->surface, s->surface->format, SDL_SWSURFACE);
                 
                 r.w = 300;
                 r.h = 300;
@@ -381,7 +379,7 @@ void * vidcap_testcard2_thread(void *arg)
                 prev_x1 = r.x;
                 prev_y1 = r.y;
                 
-                SDL_FillRect(copy, &r, 0x00000000);
+                SDL_FillRect(surf, &r, 0x00000000);
                 
                 r.w = 100;
                 r.h = 100;
@@ -394,13 +392,13 @@ void * vidcap_testcard2_thread(void *arg)
                 prev_x2 = r.x;
                 prev_y2 = r.y;
                 
-                SDL_FillRect(copy, &r, 0xffff00aa);
+                SDL_FillRect(surf, &r, 0xffff00aa);
                 
                 r.w = s->tile->width;
                 r.h = 150;
                 r.x = 0;
                 r.y = s->tile->height - r.h - 30;
-                SDL_FillRect(copy, &r, 0xffffffff);
+                SDL_FillRect(surf, &r, 0xffffffff);
                 
 #ifdef HAVE_LIBSDL_TTF                
                 char frames[20];
@@ -421,29 +419,28 @@ void * vidcap_testcard2_thread(void *arg)
                 r.x = (s->tile->width - src_rect.w) / 2;
                 src_rect.w=text->w;
                 src_rect.h=text->h;
-                SDL_BlitSurface(text,  &src_rect,  copy, &r);
+                SDL_BlitSurface(text,  &src_rect,  surf, &r);
                 SDL_FreeSurface(text);
 #endif
                             
                 if (s->frame->color_spec == UYVY || s->frame->color_spec == v210) {
-                        rgb2yuv422((unsigned char *) copy->pixels, s->aligned_x,
+                        rgb2yuv422((unsigned char *) surf->pixels, s->aligned_x,
                                    s->tile->height);
                 }
 
                 if (s->frame->color_spec == v210) {
-                        copy->pixels =
-                            (char *)tov210((unsigned char *) copy->pixels, s->aligned_x,
+                        surf->pixels =
+                            (char *)tov210((unsigned char *) surf->pixels, s->aligned_x,
                                            s->aligned_x, s->tile->height, get_bpp(s->frame->color_spec));
                 }
 
                 if (s->frame->color_spec == R10k) {
-                        toR10k((unsigned char *) copy->pixels, s->tile->width, s->tile->height);
+                        toR10k((unsigned char *) surf->pixels, s->tile->width, s->tile->height);
                 }
                 
-                s->tile->data = copy->pixels;
+                memcpy(s->tile->data, surf->pixels, s->tile->data_len);
 
-                SDL_FreeSurface(old);
-                old = copy;
+                SDL_FreeSurface(surf);
                 
                 int since_start_usec;
 next_frame:
