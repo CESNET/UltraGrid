@@ -435,7 +435,6 @@ int main(int argc, char *argv[])
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
-        rtsp_serv_t* rtsp_server = NULL;
         int rtsp_port = 0;
         bool isStd = FALSE;
         int recv_port_number = PORT_BASE;
@@ -1109,10 +1108,6 @@ cleanup:
                 vidcap_params_head = next;
         }
 
-#ifdef HAVE_RTSP_SERVER
-        if(rtsp_server) c_stop_server(rtsp_server);
-#endif
-
         module_done(&root_mod);
         free(uv);
 
@@ -1121,7 +1116,7 @@ cleanup:
 #endif
 
 #ifdef WIN32
-    WSACleanup();
+        WSACleanup();
 #endif
 
         printf("Exit\n");
