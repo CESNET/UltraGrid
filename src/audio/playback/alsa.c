@@ -1,35 +1,26 @@
+/**
+ * @file audio/playback/alsa.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/playback/alsa.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,10 +33,7 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
-
 
 /*
  * Changes should use Safe ALSA API (http://0pointer.de/blog/projects/guide-to-sound-apis).
@@ -272,6 +260,39 @@ void audio_play_alsa_help(const char *driver_name)
         }
 }
 
+static bool is_default_pulse(void)
+{
+        void **hints;
+        bool default_pulse = false;
+        bool pulse_present = false;
+
+        snd_device_name_hint(-1, "pcm", &hints);
+        while(*hints != NULL) {
+                char *tmp = strdup(*(char **) hints);
+                char *save_ptr = NULL;
+                char *name_part = NULL;
+                char *desc = NULL;
+
+                name_part = strtok_r(tmp + 4, "|", &save_ptr);
+                desc = strtok_r(NULL, "|", &save_ptr);
+
+                if (strcmp(name_part, "default") == 0) {
+                        if (desc && strstr(desc, "PulseAudio")) {
+                                default_pulse = true;
+                        }
+                }
+
+                if (strcmp(name_part, "pulse") == 0) {
+                        pulse_present = true;
+                }
+
+                hints++;
+                free(tmp);
+        }
+
+        return default_pulse && pulse_present;
+}
+
 /* Work around PulseAudio ALSA plugin bug where the PA server forces a
    higher than requested latency, but the plugin does not update its (and
    ALSA's) internal state to reflect that, leading to an immediate underrun
@@ -365,7 +386,11 @@ void * audio_play_alsa_init(char *cfg)
                 }
                 name = cfg;
         } else {
-                name = "default";
+                if (is_default_pulse()) {
+                        name = "pulse";
+                } else {
+                        name = "default";
+                }
         }
 
         char device[1024] = "pcm.";
