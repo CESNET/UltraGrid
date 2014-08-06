@@ -64,7 +64,7 @@ unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state);
 unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state);
 void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
 		unsigned numBytesNeeded);
-u_int8_t get1Byte(struct rtpenc_h264_state *rtpench264state);
+uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state);
 void setFromState(struct rtpenc_h264_state *rtpench264state);
 void setToState(struct rtpenc_h264_state *rtpench264state);
 void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numBytes);
@@ -166,7 +166,7 @@ void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
 		rtpench264state->haveSeenEOF = true;
 	}
 }
-u_int8_t get1Byte(struct rtpenc_h264_state *rtpench264state) { // byte-aligned
+uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state) { // byte-aligned
 	checkEndOfFrame(rtpench264state, 1);
 	return startOfFrame(rtpench264state)[rtpench264state->curParserIndex++];
 }
