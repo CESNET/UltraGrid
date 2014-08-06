@@ -112,7 +112,7 @@ protected:
         unsigned char rtpChannelId,
         unsigned char rtcpChannelId,
         netAddressBits& destinationAddress,
-        u_int8_t& destinationTTL,
+        uint8_t& destinationTTL,
         Boolean& isMulticast,
         Port& serverRTPPort,
         Port& serverRTCPPort,
