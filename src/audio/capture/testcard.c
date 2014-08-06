@@ -87,7 +87,7 @@ struct state_audio_capture_testcard {
 void audio_cap_testcard_help(const char *driver_name)
 {
         UNUSED(driver_name);
-        printf("\ttestcard : Testing sound signal (sine at 440 Hz)\n");
+        printf("\ttestcard : Testing sound signal\n");
 }
 
 /**
