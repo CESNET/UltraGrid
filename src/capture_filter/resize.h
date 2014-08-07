@@ -1,14 +1,9 @@
 /*
- * FILE:    control_socket.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ * FILE:    capture_filter/resize.h
+ * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
+ *          Marc Palau          <marc.palau@i2cat.net>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -24,10 +19,12 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *
- *      This product includes software developed by CESNET z.s.p.o.
+ *      This product includes software developed by the Fundació i2CAT,
+ *      Internet I Innovació Digital a Catalunya. This product also includes
+ *      software developed by CESNET z.s.p.o.
  *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
- *    used to endorse or promote products derived from this software without
+ * 4. Neither the name of the University nor of the Institute may be used
+ *    to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
@@ -45,26 +42,10 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#ifndef CAPTURE_FILTER_RESIZE_H_
+#define CAPTURE_FILTER_RESIZE_H_
 
-struct control_state;
-struct module;
-struct stats;
+struct capture_filter_info;
+extern struct capture_filter_info capture_filter_resize;
 
-#define CONTROL_DEFAULT_PORT 5054
-
-/**
- * @retval 0 if success
- */
-int control_init(int port, int connection_type, struct control_state **state, struct module *root_module);
-void control_start(struct control_state *state);
-void control_done(struct control_state *s);
-void control_add_stats(struct control_state *state, struct stats *stats);
-void control_remove_stats(struct control_state *state, struct stats *stats);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
-
+#endif // CAPTURE_FILTER_RESIZE_H_

@@ -91,7 +91,7 @@ static int init(struct module *parent, const char *cfg, void **state)
     UNUSED(parent);
 
     int n;
-    int denom = 1;;
+    int denom = 1;
     if(cfg) {
         if(strcasecmp(cfg, "help") == 0) {
             usage();
@@ -107,15 +107,20 @@ static int init(struct module *parent, const char *cfg, void **state)
     }
 
     if(n <= 0 || denom <= 0){
-        printf("\n[RESIZE ERROR] numerator and denominator resize factors must be greater than zero!\n");
+        printf("\n[RESIZE ERROR] resize factors must be greater than zero!\n");
         usage();
         return -1;
     }
     if(n/denom > 1.0){
-        printf("\n[RESIZE ERROR] numerator and denominator resize factors must be lower than 1 (only downscaling is supported)\n");
+        printf("\n[RESIZE ERROR] resize factors must be lower than 1 (only downscaling is supported)\n");
         usage();
         return -1;
     }
+	if(n == denom){
+        printf("\n[RESIZE ERROR] resize factors must be lower than 1 (only downscaling is supported)\n");
+		usage();
+		return -1;
+	}
 
     struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
     s->reinit = 1;
@@ -150,7 +155,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     for(i=0; i<s->frame->tile_count;i++){
         if(s->reinit==1){
-        	//TODO: all tiles could have different sizes and other color specs different than UYVY and RGB
+        	//TODO: all tiles could have different sizes and other color specs different than UYVY, YUYV and RGB
             s->orig_width = s->frame->tiles[i].width;
             s->orig_height = s->frame->tiles[i].height;
             s->frame->tiles[i].width *= s->num;
@@ -175,22 +180,17 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }
     }
 
+    VIDEO_FRAME_DISPOSE(in);
+
     return s->frame;
 }
 
-static struct capture_filter_info capture_filter_resize = {
+struct capture_filter_info capture_filter_resize = {
     "resize",
     init,
     done,
     filter,
 };
-
-static void init(void)  __attribute__((constructor));
-
-static void init(void)
-{
-        register_video_capture_filter(&capture_filter_resize);
-}
 
 #ifdef __cplusplus
 }
