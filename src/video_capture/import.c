@@ -1118,7 +1118,7 @@ static void * reading_thread(void *args)
                         data->o_direct = s->o_direct;
                         data->tile_count = s->video_desc.tile_count;
                         snprintf(data->file_name_prefix, sizeof(data->file_name_prefix),
-                                        "%s/%08d", s->directory, index + i);
+                                        "%s/%08d", s->directory, index + i + 1);
                         strncpy(data->file_name_suffix,
                                         get_codec_file_extension(s->video_desc.color_spec),
                                         sizeof(data->file_name_suffix));

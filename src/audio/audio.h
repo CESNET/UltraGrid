@@ -55,7 +55,7 @@ extern "C" {
 
 #define PORT_AUDIO              5006
 
-#define MAX_AUDIO_CHANNELS      8
+#define MAX_AUDIO_CHANNELS      32
 
 extern int audio_init_state_ok;
 
