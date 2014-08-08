@@ -782,22 +782,22 @@ int main(int argc, char *argv[])
                         requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
-						if (strchr(optarg, ':')) {
-							char *save_ptr = NULL;
-							char *tok;
-							control_port = atoi(strtok_r(optarg, ":", &save_ptr));
-							connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
-							if(connection_type < 0 || connection_type > 1){
-								usage();
-								return EXIT_FAIL_USAGE;
-							}
-							if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-								usage();
-								return EXIT_FAIL_USAGE;
-							}
-						} else {
-							control_port = atoi(optarg);
-						}
+                        if (strchr(optarg, ':')) {
+                                char *save_ptr = NULL;
+                                char *tok;
+                                control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+                                if(connection_type < 0 || connection_type > 1){
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                        } else {
+                                control_port = atoi(optarg);
+                        }
                         break;
                 case OPT_VERBOSE:
                         verbose = true;

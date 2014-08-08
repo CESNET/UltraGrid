@@ -59,7 +59,7 @@
 #include "video_frame.h"
 
 //UTILS DECLARATIONS
-u_int32_t test4Bytes(struct rtpenc_h264_state *rtpench264state);
+uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state);
 unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state);
 unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state);
 void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
@@ -86,7 +86,7 @@ struct rtpenc_h264_state * rtpenc_h264_init_state() {
 
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint8_t *buf_in, int size) {
 
-	u_int32_t next4Bytes = NULL;
+	uint32_t next4Bytes = NULL;
 
 	if (!rtpench264state->haveSeenFirstStartCode) {
 		//reset pointers and params of interest for this new frame to parse and send
@@ -146,7 +146,7 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 }
 
 //UTILS
-u_int32_t test4Bytes(struct rtpenc_h264_state *rtpench264state) {
+uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state) {
 	checkEndOfFrame(rtpench264state, 4);
 
 	unsigned char const* ptr = nextToParse(rtpench264state);

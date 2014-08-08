@@ -1343,8 +1343,9 @@ case $host in
 			OPENCV_INC=
                         RESIZE_LIB="${OPENCV_LIBS}"
                         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
+                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/vcapfilter_resize.so.$vcapture_filter_abi_version")
 
-                        LIB_TARGETS="$LIB_TARGETS"
+                        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
 
                         opencv=yes
