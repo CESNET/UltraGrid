@@ -547,7 +547,7 @@ int main(int argc, char **argv)
         module_register(&state.replicas[i].mod, &state.mod);
     }
 
-    if(control_init(control_port, &control_state, &state.mod) != 0) {
+    if(control_init(control_port, 0, &control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
         if(control_port != CONTROL_DEFAULT_PORT) {
             return EXIT_FAILURE;

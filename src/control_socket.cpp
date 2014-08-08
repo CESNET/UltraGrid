@@ -161,7 +161,7 @@ static fd_t create_internal_port(int *port)
 }
 
 
-int control_init(int port, struct control_state **state, struct module *root_module)
+int control_init(int port, int connection_type, struct control_state **state, struct module *root_module)
 {
         control_state *s = new control_state;
 
@@ -174,8 +174,8 @@ int control_init(int port, struct control_state **state, struct module *root_mod
         s->mod.cls = MODULE_CLASS_CONTROL;
         s->mod.priv_data = s;
 
-        if(port == -1) {
-                s->network_port = DEFAULT_CONTROL_PORT;
+        if(connection_type == 0) {
+                s->network_port = port;
                 s->connection_type = SERVER;
         } else {
                 s->network_port = port;
