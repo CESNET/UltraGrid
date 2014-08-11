@@ -151,7 +151,7 @@ const struct line_decode_from_to line_decoders[] = {
 /**
  * This struct specifies alias FourCC used for another FourCC
  */
-struct alternate_fourcc {
+struct alternative_fourcc {
         uint32_t alias;
         uint32_t primary_fcc;
 };
@@ -159,7 +159,7 @@ struct alternate_fourcc {
 /**
  * This array contains FourCC aliases mapping
  */
-const struct alternate_fourcc fourcc_aliases[] = {
+const struct alternative_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
@@ -172,7 +172,15 @@ const struct alternate_fourcc fourcc_aliases[] = {
         {to_fourcc('D', 'V', 'S', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'v', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'V', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
-        {0,0}
+};
+
+struct alternative_codec_name {
+        const char *alias;
+        const char *primary_name;
+};
+
+const struct alternative_codec_name codec_name_aliases[] = {
+        {"2vuy", "UYVY"},
 };
 
 void show_codec_help(char *module)
@@ -246,7 +254,6 @@ uint32_t get_fcc_from_codec(codec_t codec)
 codec_t get_codec_from_fcc(uint32_t fourcc)
 {
         int i = 0;
-
         while (codec_info[i].name != NULL) {
                 if (fourcc == codec_info[i].fcc)
                         return codec_info[i].codec;
@@ -254,8 +261,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
         }
 
         // try to look through aliases
-        i = 0;
-        while (fourcc_aliases[i].alias != 0) {
+        for (size_t i = 0; i < sizeof(fourcc_aliases) / sizeof(struct alternative_fourcc); ++i) {
                 if (fourcc == fourcc_aliases[i].alias) {
                         int j = 0;
                         while (codec_info[j].name != NULL) {
@@ -264,18 +270,43 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
                                 j++;
                         }
                 }
-                i++;
         }
         return VIDEO_CODEC_NONE;
 }
 
-codec_t get_codec_from_name(const char *name)
+/**
+ * Helper codec finding function
+ *
+ * Iterates through codec list and finds appropriate codec.
+ *
+ * @returns codec
+ */
+static codec_t get_codec_from_name_wo_alias(const char *name)
 {
         for (int i = 0; codec_info[i].name != NULL; i++) {
                 if (strcmp(codec_info[i].name, name) == 0) {
                         return codec_info[i].codec;
                 }
+        }
 
+        return VIDEO_CODEC_NONE;
+}
+
+codec_t get_codec_from_name(const char *name)
+{
+        codec_t ret = get_codec_from_name_wo_alias(name);
+        if (ret != VIDEO_CODEC_NONE) {
+                return ret;
+        }
+
+        // try to find if this is not an alias
+        for (size_t i = 0; i < sizeof(codec_name_aliases) / sizeof(struct alternative_codec_name); ++i) {
+                if (strcmp(name, codec_name_aliases[i].alias) == 0) {
+                        ret = get_codec_from_name_wo_alias(name);
+                        if (ret != VIDEO_CODEC_NONE) {
+                                return ret;
+                        }
+                }
         }
         return VIDEO_CODEC_NONE;
 }
