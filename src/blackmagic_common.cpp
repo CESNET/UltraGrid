@@ -41,6 +41,8 @@
 #include "config_win32.h"
 #endif
 
+#include "debug.h"
+
 #include "blackmagic_common.h"
 #include <unordered_map>
 
@@ -68,5 +70,35 @@ string bmd_hresult_to_string(HRESULT res)
                 return it->second;
         }
         return {};
+}
+
+/**
+ * returned c-sring needs to be freed when not used
+ */
+const char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
+{
+       const  char *cstr;
+#ifdef HAVE_MACOSX
+        cstr = (char *) malloc(128);
+        CFStringGetCString(bmd_string, (char *) cstr, 128, kCFStringEncodin
+                        gMacRoman);
+#elif defined WIN32
+        cstr = (char *) malloc(128);
+        wcstombs((char *) cstr, bmd_string, 128);
+#else // Linux
+        cstr = bmd_string;
+#endif
+
+        return cstr;
+}
+
+void release_bmd_api_str(BMD_STR string)
+{
+        /// @todo what about MSW?
+#ifdef HAVE_MACOSX
+        CFRelease(deviceNameString);
+#else
+        UNUSED(string);
+#endif
 }
 

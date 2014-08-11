@@ -87,14 +87,6 @@ extern "C" {
 
 #define MAX_DEVICES 4
 
-#ifdef HAVE_MACOSX
-#define STRING CFStringRef
-#elif defined WIN32
-#define STRING BSTR
-#else
-#define STRING const char *
-#endif
-
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
@@ -243,7 +235,7 @@ public:
 /* DeckLink SDK objects */
 
 static void print_input_modes (IDeckLink* deckLink);
-static int blackmagic_api_version_check(STRING *current_version);
+static int blackmagic_api_version_check(BMD_STR *current_version);
 
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, IDeckLinkAudioInputPacket *audioPacket)
@@ -342,7 +334,7 @@ void VideoDelegate::set_device_state(struct vidcap_decklink_state *state, int in
         i = index;
 }
 
-static int blackmagic_api_version_check(STRING *current_version)
+static int blackmagic_api_version_check(BMD_STR *current_version)
 {
         int ret = TRUE;
         *current_version = NULL;
@@ -411,26 +403,16 @@ decklink_help()
 	// Enumerate all cards in this system
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
-		STRING		deviceNameString = NULL;
+		BMD_STR                 deviceNameString = NULL;
 		const char *		deviceNameCString = NULL;
 		
 		// *** Print the model name of the DeckLink card
-		result = deckLink->GetModelName((STRING *) &deviceNameString);
-#ifdef HAVE_MACOSX
-                deviceNameCString = (char *) malloc(128);
-                CFStringGetCString(deviceNameString, (char *)deviceNameCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                deviceNameCString = (char *) malloc(128);
-		wcstombs((char *) deviceNameCString, deviceNameString, 128);
-#else
-                deviceNameCString = deviceNameString;
-#endif
+		result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
+                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
 		if (result == S_OK)
 		{
 			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
-#ifdef HAVE_MACOSX
-			CFRelease(deviceNameString);
-#endif
+			release_bmd_api_str(deviceNameString);
                         free((void *)deviceNameCString);
 		}
 		
@@ -628,7 +610,7 @@ vidcap_decklink_probe(void)
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
-        STRING displayModeString = NULL;
+        BMD_STR displayModeString = NULL;
         const char *displayModeCString;
         HRESULT result;
 
@@ -675,21 +657,11 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                                 break;
                 }
 
-                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
+                displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeCString,
                                 tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */
-#ifdef HAVE_MACOSX
-                displayModeCString = (char *) malloc(128);
-                CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                displayModeCString = (char *) malloc(128);
-		wcstombs((char *) displayModeCString, displayModeString, 128);
-#else
-                displayModeCString = displayModeString;
-#endif
                 printf("Enable video input: %s\n", displayModeCString);
-#ifdef HAVE_MACOSX
-                        CFRelease(displayModeString);
-#endif
+                        release_bmd_api_str(displayModeString);
                         free((void *)displayModeCString);
         }
 
@@ -736,27 +708,16 @@ vidcap_decklink_init(const struct vidcap_params *params)
 #endif
 
 
-        STRING current_version;
+        BMD_STR current_version;
         if(!blackmagic_api_version_check(&current_version)) {
 		fprintf(stderr, "\nThe DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled against DeckLink drivers %s. You should have at least this version.\n\n",
                                 BLACKMAGIC_DECKLINK_API_VERSION_STRING);
                 fprintf(stderr, "Vendor download page is http://http://www.blackmagic-design.com/support/ \n");
                 if(current_version) {
-                        const char *currentVersionCString;
-#ifdef HAVE_MACOSX
-                        currentVersionCString = (char *) malloc(128);
-                        CFStringGetCString(current_version, (char *) currentVersionCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                        currentVersionCString = (char *) malloc(128);
-			wcstombs((char *) currentVersionCString, current_version, 128);
-#else
-                        currentVersionCString = current_version;
-#endif
+                        const char *currentVersionCString = get_cstr_from_bmd_api_str(current_version);
                         fprintf(stderr, "Currently installed version is: %s\n", currentVersionCString);
-#ifdef HAVE_MACOSX
-                        CFRelease(current_version);
-#endif
+                        release_bmd_api_str(current_version);
                         free((void *)currentVersionCString);
                 } else {
                         fprintf(stderr, "No installed drivers detected\n");
@@ -872,34 +833,24 @@ vidcap_decklink_init(const struct vidcap_params *params)
 
                         s->state[i].deckLink = deckLink;
 
-                        STRING deviceNameString = NULL;
+                        BMD_STR deviceNameString = NULL;
                         const char* deviceNameCString = NULL;
 
                         // Print the model name of the DeckLink card
                         result = deckLink->GetModelName(&deviceNameString);
                         if (result == S_OK)
                         {	
-#ifdef HAVE_MACOSX
-                                deviceNameCString = (char *) malloc(128);
-                                CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
 
-#elif defined WIN32
-                                deviceNameCString = (char *) malloc(128);
-				wcstombs((char *) deviceNameCString, deviceNameString, 128);
-#else
-                                deviceNameCString = deviceNameString;
-#endif
                                 printf("Using device [%s]\n", deviceNameCString);
-#ifdef HAVE_MACOSX
-                                CFRelease(deviceNameString);
-#endif
+                                release_bmd_api_str(deviceNameString);
                                 free((void *) deviceNameCString);
 
                                 // Query the DeckLink for its configuration interface
                                 result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
-                                string err_msg = bmd_hresult_to_string(result);
                                 if (result != S_OK)
                                 {
+                                        string err_msg = bmd_hresult_to_string(result);
                                         fprintf(stderr, "Could not obtain the IDeckLinkInput interface: %s\n",
                                                         err_msg.c_str());
                                         goto error;
@@ -1165,8 +1116,8 @@ vidcap_decklink_done(void *state)
 
                 if(s->grab_audio && i == 0) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
-                        string err_msg = bmd_hresult_to_string(result);
                         if (result != S_OK) {
+                                string err_msg = bmd_hresult_to_string(result);
                                 fprintf(stderr, MODULE_NAME "Could disable audio input: %s\n", err_msg.c_str());
                         }
                 }
@@ -1444,20 +1395,11 @@ static void print_input_modes (IDeckLink* deckLink)
 	printf("display modes:\n");
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
-		STRING			displayModeString = NULL;
+		BMD_STR displayModeString = NULL;
                 const char *displayModeCString;
 		
-		result = displayMode->GetName((STRING *) &displayModeString);
-#ifdef HAVE_MACOSX
-                displayModeCString = (char *) malloc(128);
-                CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                displayModeCString = (char *) malloc(128);
-		wcstombs((char *) displayModeCString, displayModeString, 128);
-#else
-                displayModeCString = displayModeString;
-#endif
-
+		result = displayMode->GetName((BMD_STR *) &displayModeString);
+                displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 
 		if (result == S_OK)
 		{
@@ -1476,9 +1418,7 @@ static void print_input_modes (IDeckLink* deckLink)
 			printf("%d.) %-20s \t %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
-#ifdef HAVE_MACOSX
-                        CFRelease(displayModeString);
-#endif
+                        release_bmd_api_str(displayModeString);
 			free((void *)displayModeCString);
 		}
 		

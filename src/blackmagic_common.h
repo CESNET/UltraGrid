@@ -48,5 +48,15 @@
 
 std::string bmd_hresult_to_string(HRESULT res);
 
+#ifdef HAVE_MACOSX
+#define BMD_STR CFStringRef
+#elif defined WIN32
+#define BMD_STR BSTR
+#else
+#define BMD_STR const char *
+#endif
+const char *get_cstr_from_bmd_api_str(BMD_STR string);
+void release_bmd_api_str(BMD_STR string);
+
 #endif // defined BLACKMAGIC_COMMON_H
 
