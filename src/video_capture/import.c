@@ -408,7 +408,7 @@ vidcap_import_init(const struct vidcap_params *params)
                         uint32_t fourcc;
                         memcpy((void *) &fourcc, ptr, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
-                        if(desc.color_spec == (codec_t) -1) {
+                        if(desc.color_spec == VIDEO_CODEC_NONE) {
                                 fprintf(stderr, "[import] Requested codec not known.\n");
                                 goto error;
                         }

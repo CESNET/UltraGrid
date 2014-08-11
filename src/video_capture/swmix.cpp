@@ -928,7 +928,6 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 
         tmp = parse_string = strdup(fmt);
         while((item = strtok_r(tmp, ":", &save_ptr))) {
-                bool found = false;
                 switch (token_nr) {
                         case 0:
                                 if(strcasecmp(item, "file") == 0)
@@ -949,13 +948,8 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 }
                                 break;
                         case 3:
-                                for (int i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(item, codec_info[i].name) == 0) {
-                                                *color_spec = codec_info[i].codec;
-                                                found = true;
-                                        }
-                                }
-                                if(!found) {
+                                *color_spec = get_codec_from_name(item);
+                                if (*color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
                                         return PARSE_ERROR;
                                 }

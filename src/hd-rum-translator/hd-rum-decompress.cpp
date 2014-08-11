@@ -453,7 +453,7 @@ static bool decode_video_header(uint32_t *hdr, struct video_desc *desc, int *buf
         desc->width = ntohl(hdr[3]) >> 16;
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
-        if(desc->color_spec == (codec_t) -1) {
+        if(desc->color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
                 return false;
         }

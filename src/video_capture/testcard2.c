@@ -186,14 +186,12 @@ void *vidcap_testcard2_init(const struct vidcap_params *params)
         int h_align = 0;
         double bpp = 0;
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if (strcmp(tmp, codec_info[i].name) == 0) {
-                        h_align = codec_info[i].h_align;
-                        bpp = codec_info[i].bpp;
-                        codec = codec_info[i].codec;
-                        break;
-                }
+        codec = get_codec_from_name(tmp);
+        if (codec == VIDEO_CODEC_NONE) {
+                codec = UYVY;
         }
+        h_align = get_halign(codec);
+        bpp = get_bpp(codec);
 
         s->frame->color_spec = codec;
 

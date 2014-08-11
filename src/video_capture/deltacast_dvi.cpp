@@ -475,8 +475,6 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         bool              have_preset = false;
         VHD_DVI_MODE      DviMode = NB_VHD_DVI_MODES;
 
-        int               i;
-
 	printf("vidcap_deltacast_dvi_init\n");
 
         s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
@@ -509,13 +507,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                         } else if(strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
                                 char *codec_str = tok + strlen("codec=");
 
-                                for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(codec_str, codec_info[i].name) == 0) {
-                                                s->codec = codec_info[i].codec;
-                                                break;
-                                        }
-                                }
-                                if(codec_info[i].name == NULL) {
+                                s->codec = get_codec_from_name(codec_str);
+                                if (s->codec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unable to find codec: %s\n",
                                                         codec_str);
                                         goto error;

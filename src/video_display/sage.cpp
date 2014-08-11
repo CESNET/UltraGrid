@@ -170,7 +170,6 @@ void *display_sage_init(const char *fmt, unsigned int flags)
         assert(s != NULL);
 
         s->confName = NULL;
-        s->requestedDisplayCodec = (codec_t) -1;
 
         if(fmt) {
                 if(strcmp(fmt, "help") == 0) {
@@ -198,7 +197,7 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                                          }
                                          memcpy((void *) &fourcc, item + strlen("codec="), sizeof(fourcc));
                                          s->requestedDisplayCodec = get_codec_from_fcc(fourcc);
-                                         if(s->requestedDisplayCodec == (codec_t) -1) {
+                                         if(s->requestedDisplayCodec == VIDEO_CODEC_NONE) {
                                                  fprintf(stderr, "Codec not found according to FourCC.\n");
                                                  free(s); return NULL;
                                          }

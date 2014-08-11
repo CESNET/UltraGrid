@@ -65,27 +65,6 @@ extern "C" {
 typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
-/**
- * Defines codec metadata
- * @note
- * Members that are not relevant for specified codec (eg. bpp, rgb for opaque
- * and interframe for not opaque) should be zero.
- * @todo This should be perhaps private in .c file and properties should be
- * queried by functions.
- */
-struct codec_info_t {
-        codec_t codec;                ///< codec descriptor
-        const char *name;             ///< displayed name
-        uint32_t fcc;                 ///< FourCC
-        int h_align;                  ///< Number of pixels each line is aligned to
-        double bpp;                   ///< Number of bytes per pixel
-        int block_size;               ///< Bytes per pixel block (pixelformats only)
-        unsigned rgb:1;               ///< Whether pixelformat is RGB
-        unsigned opaque:1;            ///< If codec is opaque (= compressed)
-        unsigned interframe:1;        ///< Indicates if compression is interframe
-        const char *file_extension;   ///< Extension that should be added to name if frame is saved to file.
-};
-
 /** Defines decoder from one pixel format to another */
 struct line_decode_from_to {
         codec_t from;           ///< source pixel format
@@ -93,8 +72,6 @@ struct line_decode_from_to {
         decoder_t line_decoder; ///< decoding function
 };
 
-/** @brief 0-terminated list of UltraGrid supported codecs' metadata */
-extern const struct codec_info_t codec_info[];           /* defined int .c */
 /** @brief 0-terminated list of available supported pixelformat decoders */
 extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 
@@ -104,10 +81,12 @@ extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 void             show_codec_help(char *module);
 double           get_bpp(codec_t codec) __attribute__((pure));
 uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
+int              get_halign(codec_t codec) __attribute__((pure));
 const char      *get_codec_name(codec_t codec) __attribute__((pure));
 int              is_codec_opaque(codec_t codec) __attribute__((pure));
 int              is_codec_interframe(codec_t codec) __attribute__((pure));
 codec_t          get_codec_from_fcc(uint32_t fourcc) __attribute__((pure));
+codec_t          get_codec_from_name(const char *name) __attribute__((pure));
 const char      *get_codec_file_extension(codec_t codec) __attribute__((pure));
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) __attribute__((pure));
 

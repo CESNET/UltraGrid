@@ -121,7 +121,7 @@ struct vidcap_decklink_state {
 	unsigned int		next_frame_time; // avarege time between frames
         struct video_frame     *frame;
         struct audio_frame      audio;
-        const struct codec_info_t *c_info;
+        codec_t                 codec;
         BMDVideoInputFlags flags;
 
 	pthread_mutex_t	 	lock;
@@ -193,7 +193,6 @@ public:
 	};
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(BMDVideoInputFormatChangedEvents, IDeckLinkDisplayMode* mode, BMDDetectedVideoInputFormatFlags flags)
 	{
-                codec_t codec;
                 BMDPixelFormat pf;
                 HRESULT result;
 
@@ -202,21 +201,14 @@ public:
                 pthread_mutex_lock(&(s->lock));
                 switch(flags) {
                         case bmdDetectedVideoInputYCbCr422:
-                                codec = UYVY;
+                                s->codec = UYVY;
                                 break;
                         case bmdDetectedVideoInputRGB444:
-                                codec = RGBA;
+                                s->codec = RGBA;
                                 break;
                         default:
                                 fprintf(stderr, "[Decklink] Unhandled color spec!\n");
                                 abort();
-                }
-                int i;
-                for(i=0; codec_info[i].name != NULL; i++) {
-                    if(codec_info[i].codec == codec) {
-                        s->c_info = &codec_info[i];
-                        break;
-                    }
                 }
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->DisableVideoInput();
@@ -519,13 +511,7 @@ settings_init(void *state, char *fmt)
 {
 	struct vidcap_decklink_state *s = (struct vidcap_decklink_state *) state;
 
-        int i;
-        for(i=0; codec_info[i].name != NULL; i++) {
-            if(codec_info[i].codec == UYVY) {
-                s->c_info = &codec_info[i];
-                break;
-            }
-        }
+        s->codec = UYVY; // default
 
         if(fmt) {
 		char *save_ptr_top = NULL;
@@ -561,24 +547,9 @@ settings_init(void *state, char *fmt)
                         s->mode = atoi(tmp);
 
                         tmp = strtok_r(NULL, ":", &save_ptr_top);
-                        s->c_info = 0;
-                        if(!tmp) {
-                                int i;
-                                for(i=0; codec_info[i].name != NULL; i++) {
-                                    if(codec_info[i].codec == UYVY) {
-                                        s->c_info = &codec_info[i];
-                                        break;
-                                    }
-                                }
-                        } else {
-                                int i;
-                                for(i=0; codec_info[i].name != NULL; i++) {
-                                    if(strcmp(codec_info[i].name, tmp) == 0) {
-                                         s->c_info = &codec_info[i];
-                                         break;
-                                    }
-                                }
-                                if(s->c_info == 0) {
+                        if (tmp) {
+                                s->codec = get_codec_from_name(tmp);
+                                if(s->codec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
                                         return 0;
                                 }
@@ -661,7 +632,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         result = displayMode->GetName(&displayModeString);
         if (result == S_OK)
         {
-                switch(s->c_info->codec) {
+                switch (s->codec) {
                   case RGBA:
                         *pf = bmdFormat8BitBGRA;
                         break;
@@ -675,7 +646,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         *pf = bmdFormat10BitYUV;
                         break;
                   default:
-                        printf("Unsupported codec! %s\n", s->c_info->name);
+                        printf("Unsupported codec! %s\n", get_codec_name(s->codec));
                 }
                 // get avarage time between frames
                 BMDTimeValue	frameRateDuration;
@@ -683,7 +654,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 
                 tile->width = displayMode->GetWidth();
                 tile->height = displayMode->GetHeight();
-                s->frame->color_spec = s->c_info->codec;
+                s->frame->color_spec = s->codec;
 
                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                 s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
@@ -1360,13 +1331,13 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 if (s->state[0].delegate->pixelFrame != NULL &&
                                 s->state[0].delegate->pixelFrameRight != NULL) {
                         s->frame->tiles[0].data = (char*)s->state[0].delegate->pixelFrame;
-                        if(s->c_info->codec == RGBA) {
+                        if (s->codec == RGBA) {
                             vc_copylineRGBA((unsigned char*) s->frame->tiles[0].data,
                                         (unsigned char*)s->frame->tiles[0].data,
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                         }
                         s->frame->tiles[1].data = (char*)s->state[0].delegate->pixelFrameRight;
-                        if(s->c_info->codec == RGBA) {
+                        if (s->codec == RGBA) {
                             vc_copylineRGBA((unsigned char*) s->frame->tiles[1].data,
                                         (unsigned char*)s->frame->tiles[1].data,
                                         s->frame->tiles[i].data_len, 16, 8, 0);
@@ -1377,7 +1348,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 for (i = 0; i < s->devices_cnt; ++i) {
                         if (s->state[i].delegate->pixelFrame != NULL) {
                                 s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
-                                if(s->c_info->codec == RGBA) {
+                                if (s->codec == RGBA) {
                                     vc_copylineRGBA((unsigned char*) s->frame->tiles[i].data,
                                                 (unsigned char*)s->frame->tiles[i].data,
                                                 s->frame->tiles[i].data_len, 16, 8, 0);

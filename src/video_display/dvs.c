@@ -684,13 +684,8 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
                         tmp = strtok(NULL, ":");
                         
                         if (tmp) {
-                                s->frame->color_spec = 0xffffffff;
-                                for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(tmp, codec_info[i].name) == 0) {
-                                                s->frame->color_spec = codec_info[i].codec;
-                                        }
-                                }
-                                if (s->frame->color_spec == (codec_t) 0xffffffff) {
+                                s->frame->color_spec = get_codec_from_name(tmp);
+                                if (s->frame->color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                         free(s);
                                         return 0;

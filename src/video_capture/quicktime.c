@@ -565,16 +565,14 @@ static unsigned long get_color_spec(uint32_t pixfmt) {
                 }
         }
 
-        // ...if it fails, try to match agains FourCC directly
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if ((unsigned)pixfmt == codec_info[i].fcc ||
-                                // try also the other endianity (QT codecs aren't
-                                // entirely consistent in this regard)
-                                ntohl(pixfmt) == codec_info[i].fcc) {
-                        return codec_info[i].codec;
-                }
+        codec_t codec = get_codec_from_name(pixfmt);
+        if (codec != VIDEO_CODEC_NONE) {
+                return codec;
+        } else {
+                // try also the other endianity (QT codecs aren't
+                // entirely consistent in this regard)
+                return get_codec_from_name(ntohl(pixfmt));
         }
-        return 0xffffffff;
 }
 
 /* Initialize the QuickTime grabber */
@@ -892,7 +890,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 goto error;
         }
 
-        if (get_color_spec(pixfmt) == 0xffffffff) {
+        if (get_color_spec(pixfmt) == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
 				pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff, (pixfmt) & 0xff);
                 goto error;

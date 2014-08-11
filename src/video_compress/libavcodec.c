@@ -192,14 +192,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 return 1;
                         } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
                                 char *codec = item + strlen("codec=");
-                                int i;
-                                for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcasecmp(codec, codec_info[i].name) == 0) {
-                                                s->selected_codec_id = codec_info[i].codec;
-                                                break;
-                                        }
-                                }
-                                if(codec_info[i].name == NULL) {
+                                s->selected_codec_id = get_codec_from_name(codec);
+                                if (s->selected_codec_id == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "[lavd] Unable to find codec: \"%s\"\n", codec);
                                         return -1;
                                 }
@@ -268,7 +262,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 
         platform_spin_init(&s->spin);
 
-        printf("[Lavc] Using codec: %s\n", codec_info[s->selected_codec_id].name);
+        printf("[Lavc] Using codec: %s\n", get_codec_name(s->selected_codec_id));
 
         s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN) / 4; // take conservatively only one fourth of cores
         if(s->cpu_count < 1) {

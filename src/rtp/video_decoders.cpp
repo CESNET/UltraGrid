@@ -991,7 +991,7 @@ bool init_decompress(codec_t in_codec, codec_t out_codec,
 static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, struct video_desc desc,
                                 decoder_t *decode_line)
 {
-        codec_t out_codec = (codec_t) -1;
+        codec_t out_codec = VIDEO_CODEC_NONE;
         *decode_line = NULL;
 
         size_t native;
@@ -1069,7 +1069,7 @@ after_decoder_lookup:
         if(decoder->decoder_type == UNSET) {
                 fprintf(stderr, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
                 exit_uv(128);
-                return (codec_t) -1;
+                return VIDEO_CODEC_NONE;
         }
 
         return out_codec;
@@ -1146,7 +1146,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         * get_video_mode_tiles_y(decoder->video_mode);
 
         out_codec = choose_codec_and_decoder(decoder, desc, &decode_line);
-        if(out_codec == (codec_t) -1)
+        if(out_codec == VIDEO_CODEC_NONE)
                 return false;
         else
                 decoder->out_codec = out_codec;
@@ -1376,7 +1376,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         desc->width = ntohl(hdr[3]) >> 16;
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
-        if(desc->color_spec == (codec_t) -1) {
+        if(desc->color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
                 return false;
         }
