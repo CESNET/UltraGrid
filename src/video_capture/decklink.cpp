@@ -73,6 +73,7 @@ extern "C" {
 
 #ifdef HAVE_DECKLINK		/* From config.h */
 
+#include "blackmagic_common.h"
 #include "video_capture/decklink.h"
 
 #ifdef WIN32
@@ -97,6 +98,8 @@ extern "C" {
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
+
+using namespace std;
 
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
@@ -725,8 +728,9 @@ vidcap_decklink_init(const struct vidcap_params *params)
 	// Initialize COM on this thread
 	result = CoInitialize(NULL);
 	if(FAILED(result)) {
-		fprintf(stderr, "Initialization of COM failed - result = "
-				"08x.\n", result);
+                string err_msg = bmd_hresult_to_string(result);
+		fprintf(stderr, "Initialization of COM failed: "
+				"%s.\n", err_msg.c_str());
 		return NULL;
 	}
 #endif
@@ -893,9 +897,11 @@ vidcap_decklink_init(const struct vidcap_params *params)
 
                                 // Query the DeckLink for its configuration interface
                                 result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
+                                string err_msg = bmd_hresult_to_string(result);
                                 if (result != S_OK)
                                 {
-                                        printf("Could not obtain the IDeckLinkInput interface - result = %08x\n", (int) result);
+                                        fprintf(stderr, "Could not obtain the IDeckLinkInput interface: %s\n",
+                                                        err_msg.c_str());
                                         goto error;
                                 }
 
@@ -905,7 +911,9 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                 result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
                                 if (result != S_OK)
                                 {
-                                        printf("Could not obtain the video input display mode iterator - result = %08x\n", (int) result);
+                                        string err_msg = bmd_hresult_to_string(result);
+                                        fprintf(stderr, "Could not obtain the video input display mode iterator: %s\n",
+                                                        err_msg.c_str());
                                         goto error;
                                 }
 
@@ -943,8 +951,10 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                        result = deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
                                         if (result != S_OK)
                                         {
-                                                printf("Could not query device attributes.\n");
-                                                printf("Could not enable video input: %08x\n", (int) result);
+                                                string err_msg = bmd_hresult_to_string(result);
+
+                                                fprintf(stderr, "Could not query device attributes: %s\n",
+                                                                err_msg.c_str());
                                                 goto error;
                                         }
 
@@ -972,8 +982,18 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                         result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
                                         if (result != S_OK)
                                         {
-                                                printf("You have required invalid video mode and pixel format combination.\n");
-                                                printf("Could not enable video input: %08x\n", (int) result);
+                                                switch (result) {
+                                                case E_INVALIDARG:
+                                                        fprintf(stderr, "You have required invalid video mode and pixel format combination.\n");
+                                                        break;
+                                                case E_ACCESSDENIED:
+                                                        fprintf(stderr, "Unable to access the hardware or input "
+                                                                        "stream currently active (another application using it?).\n");
+                                                        break;
+                                                }
+                                                string err_msg = bmd_hresult_to_string(result);
+                                                fprintf(stderr, "Could not enable video input: %s\n",
+                                                                err_msg.c_str());
                                                 goto error;
                                         }
 
@@ -981,7 +1001,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                         result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
                                         if (result != S_OK)
                                         {
-                                                printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
+                                                string err_msg = bmd_hresult_to_string(result);
+                                                fprintf(stderr, "Could not obtain the IDeckLinkConfiguration interface: %s\n", err_msg.c_str());
                                                 goto error;
                                         }
 
@@ -1048,12 +1069,14 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                         result = deckLinkInput->StartStreams();
                                         if (result != S_OK)
                                         {
-                                                printf("Could not start stream: %08x\n", (int) result);
+                                                string err_msg = bmd_hresult_to_string(result);
+                                                fprintf(stderr, "Could not start stream: %s\n", err_msg.c_str());
                                                 goto error;
                                         }
 
                                 }else{
-                                        printf("Could not : %08x\n", (int) result);
+                                        string err_msg = bmd_hresult_to_string(result);
+                                        fprintf(stderr, "Could not set display mode properties: %s\n", err_msg.c_str());
                                         goto error;
                                 }
 
@@ -1136,18 +1159,21 @@ vidcap_decklink_done(void *state)
         {
 		result = s->state[i].deckLinkInput->StopStreams();
 		if (result != S_OK) {
-			fprintf(stderr, MODULE_NAME "Could not stop stream: %08x\n", (int) result);
+                        string err_msg = bmd_hresult_to_string(result);
+			fprintf(stderr, MODULE_NAME "Could not stop stream: %s\n", err_msg.c_str());
 		}
 
                 if(s->grab_audio && i == 0) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
+                        string err_msg = bmd_hresult_to_string(result);
                         if (result != S_OK) {
-                                fprintf(stderr, MODULE_NAME "Could disable audio input: %08x\n", (int) result);
+                                fprintf(stderr, MODULE_NAME "Could disable audio input: %s\n", err_msg.c_str());
                         }
                 }
 		result = s->state[i].deckLinkInput->DisableVideoInput();
                 if (result != S_OK) {
-                        fprintf(stderr, MODULE_NAME "Could disable video input: %08x\n", (int) result);
+                        string err_msg = bmd_hresult_to_string(result);
+                        fprintf(stderr, MODULE_NAME "Could disable video input: %s\n", err_msg.c_str());
                 }
 
 		if(s->state[i].deckLinkConfiguration != NULL) {
@@ -1397,7 +1423,8 @@ static void print_input_modes (IDeckLink* deckLink)
 	result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the IDeckLinkInput interface - result = %08x\n", (int) result);
+                string err_msg = bmd_hresult_to_string(result);
+		fprintf(stderr, "Could not obtain the IDeckLinkInput interface: %s\n", err_msg.c_str());
                 if (result == E_NOINTERFACE) {
                         printf("Device doesn't support video capture.\n");
                 }
@@ -1408,7 +1435,8 @@ static void print_input_modes (IDeckLink* deckLink)
 	result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the video input display mode iterator - result = %08x\n", (int) result);
+                string err_msg = bmd_hresult_to_string(result);
+		fprintf(stderr, "Could not obtain the video input display mode iterator: %s\n", err_msg.c_str());
 		goto bail;
 	}
 	

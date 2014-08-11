@@ -48,6 +48,7 @@ GENERATED_HEADERS              = @GENERATED_HEADERS@
 ALL_INCLUDES	= $(wildcard src/*.h) $(wildcard src/*/*.h)
 
 OBJS	      = @OBJS@ \
+	        src/blackmagic_common.o \
 	        src/bitstream.o \
 		src/control_socket.o \
 		src/debug.o \
