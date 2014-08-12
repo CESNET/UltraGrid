@@ -6,13 +6,11 @@
 
 #include "hd-rum-translator/hd-rum-recompress.h"
 
-extern "C" {
 #include "debug.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
 #include "tv.h"
-}
 
 #include "module.h"
 

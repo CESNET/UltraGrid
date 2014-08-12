@@ -54,9 +54,6 @@
 #include <audio/audio.h>
 
 #ifdef __cplusplus
-extern "C" {
-#endif
-
 audio_frame2 *audio_frame2_init(void);
 void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
 void audio_frame2_free(audio_frame2 *);
@@ -65,14 +62,19 @@ void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
 int audio_frame2_get_sample_count(audio_frame2 *frame);
 void audio_frame2_reset(audio_frame2 *frame);
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
+struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
+void audio_channel_demux(audio_frame2 *, int, audio_channel*);
+void audio_channel_mux(audio_frame2 *, int, audio_channel*);
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *);
-struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
 struct audio_desc audio_desc_from_audio_channel(audio_channel *);
-
-void audio_channel_demux(audio_frame2 *, int, audio_channel*);
-void audio_channel_mux(audio_frame2 *, int, audio_channel*);
 
 /**
  * Changes bps for everey sample.
@@ -94,7 +96,7 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
 /*
  * Multiplexes channel into interleaved stream
  */
-void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
+void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
 
 /*
@@ -102,7 +104,7 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
  *
  * @return avareage volume
  */
-void mux_and_mix_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
+void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
 
 /**

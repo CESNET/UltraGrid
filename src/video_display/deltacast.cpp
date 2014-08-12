@@ -50,10 +50,6 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "host.h"
 #include "debug.h"
 #include "config.h"
@@ -73,10 +69,6 @@ extern "C" {
 #include "VideoMasterHD_Sdi_Audio.h"
 
 #define DELTACAST_MAGIC DISPLAY_DELTACAST_ID
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz",

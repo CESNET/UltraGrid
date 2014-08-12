@@ -11,14 +11,12 @@
 #include <map>
 #include <queue>
 
-extern "C" {
 #include "debug.h"
 #include "rtp/video_decoders.h" // init_decompress()
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
 #include "tv.h"
-}
 
 #include "video.h"
 #include "video_codec.h"

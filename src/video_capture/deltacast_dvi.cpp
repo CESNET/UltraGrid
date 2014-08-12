@@ -44,9 +44,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include "host.h"
 #include "config.h"
@@ -73,10 +70,6 @@ extern "C" {
 #endif
 #include <sys/time.h>
 #include <semaphore.h>
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 #include "video_capture/deltacast_dvi.h"
 

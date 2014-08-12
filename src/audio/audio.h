@@ -49,13 +49,7 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define PORT_AUDIO              5006
-
-#define MAX_AUDIO_CHANNELS      32
 
 extern int audio_init_state_ok;
 
@@ -98,23 +92,52 @@ typedef struct
 {
         int bps;                /* bytes per sample */
         int sample_rate;
-        char *data[MAX_AUDIO_CHANNELS]; /* data should be at least 4B aligned */
-        int data_len[MAX_AUDIO_CHANNELS];           /* size of useful data in buffer */
-        int ch_count;		/* count of channels */
-        unsigned int max_size;  /* maximal size of data in buffer */
-        audio_codec_t codec;
-} audio_frame2;
-
-typedef struct
-{
-        int bps;                /* bytes per sample */
-        int sample_rate;
         char *data; /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         audio_codec_t codec;
 } audio_channel;
 
 struct module;
+
+#ifdef __cplusplus
+#include <memory>
+#include <utility>
+#include <vector>
+
+class audio_frame2
+{
+public:
+        audio_frame2();
+        audio_frame2(struct audio_frame *);
+        audio_frame2& operator=(audio_frame2&& other) = default;
+        void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
+        void append(audio_frame2 const &frame);
+        void append(int channel, const char *data, size_t length);
+        void replace(int channel, size_t offset, const char *data, size_t length);
+        void resize(int channel, size_t len);
+        void reset();
+        int get_bps();
+        audio_codec_t get_codec();
+        const char *get_data(int channel);
+        size_t get_data_len(int channel);
+        int get_channel_count();
+        int get_sample_count();
+        int get_sample_rate();
+        bool has_same_prop_as(audio_frame2 const &frame);
+private:
+        int bps;                /* bytes per sample */
+        int sample_rate;
+        std::vector<std::pair<std::unique_ptr<char []>, size_t> > channels; /* data should be at least 4B aligned */
+        audio_codec_t codec;
+        int sample_count; ///< number of samples stored in this buffer
+                          ///< assuming that all channels has same count...
+};
+#endif
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,

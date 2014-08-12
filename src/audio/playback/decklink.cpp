@@ -50,10 +50,6 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "host.h"
 #include "debug.h"
 #include "config.h"
@@ -73,10 +69,6 @@ extern "C" {
 #include "DeckLinkAPI.h"
 #endif
 #include "DeckLinkAPIVersion.h"
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 #ifdef WIN32
 #include <objbase.h>

@@ -47,10 +47,6 @@
 
 #define MODULE_NAME "[Decklink capture] "
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "host.h"
 #include "config.h"
 #include "config_unix.h"
@@ -62,10 +58,6 @@ extern "C" {
 #include "video_capture.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 #ifdef WIN32
 #include <objbase.h>

@@ -639,9 +639,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         unsigned int pos = 0u,
                      m = 0u;
         int channel;
-        char *chan_data;
+        const char *chan_data;
         int data_len;
-        char *data;
+        const char *data;
         // see definition in rtp_callback.h
         uint32_t hdr_data[100];
         uint32_t *audio_hdr = hdr_data;
@@ -673,9 +673,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 pt = PT_AUDIO; /* PT set for audio in our packet format */
         }
 
-        for(channel = 0; channel < buffer->ch_count; ++channel)
+        for(channel = 0; channel < buffer->get_channel_count(); ++channel)
         {
-                chan_data = buffer->data[channel];
+                chan_data = buffer->get_data(channel);
                 pos = 0u;
 
                 if(tx->fec_scheme == FEC_MULT) {
@@ -691,15 +691,15 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 tmp |= tx->buffer; /* bits 10-31 */
                 audio_hdr[0] = htonl(tmp);
 
-                audio_hdr[2] = htonl(buffer->data_len[channel]);
+                audio_hdr[2] = htonl(buffer->get_data_len(channel));
 
                 /* fourth word */
-                tmp = (buffer->bps * 8) << 26;
-                tmp |= buffer->sample_rate;
+                tmp = (buffer->get_bps() * 8) << 26;
+                tmp |= buffer->get_sample_rate();
                 audio_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                audio_hdr[4] = htonl(get_audio_tag(buffer->codec));
+                audio_hdr[4] = htonl(get_audio_tag(buffer->get_codec()));
 
                 int packet_rate = tx->packet_rate;
                 if (packet_rate == RATE_AUTO) {
@@ -715,9 +715,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 
                         data = chan_data + pos;
                         data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
-                        if(pos + data_len >= (unsigned int) buffer->data_len[channel]) {
-                                data_len = buffer->data_len[channel] - pos;
-                                if(channel == buffer->ch_count - 1)
+                        if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
+                                data_len = buffer->get_data_len(channel) - pos;
+                                if(channel == buffer->get_channel_count() - 1)
                                         m = 1;
                         }
                         audio_hdr[1] = htonl(pos);
@@ -730,7 +730,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 if(tx->encryption) {
                                         crypto_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
                                         data_len = openssl_encrypt(tx->encryption,
-                                                        data, data_len,
+                                                        const_cast<char *>(data), data_len,
                                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                                         encrypted_data);
                                         data = encrypted_data;
@@ -739,7 +739,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
                                       0,        /* contributing sources length */
                                       (char *) audio_hdr, rtp_hdr_len,
-                                      data, data_len,
+                                      const_cast<char *>(data), data_len,
                                       0, 0, 0);
                         }
 
@@ -763,7 +763,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                         }
 
                       
-                } while (pos < (unsigned int) buffer->data_len[channel]);
+                } while (pos < (unsigned int) buffer->get_data_len(channel));
         }
 
         tx->buffer ++;
@@ -778,7 +778,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		audio_frame2 * buffer) {
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
-	assert(buffer->codec == AC_MULAW || buffer->codec == AC_ALAW);
+	assert(buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW);
 
 	int pt;
 	uint32_t ts;
@@ -789,20 +789,20 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
 	// Other channels or Hz goes to DynRTP-Type97
-	if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
-		if (buffer->codec == AC_MULAW)
+	if (buffer->get_channel_count() == 1 && buffer->get_sample_rate() == 8000) {
+		if (buffer->get_codec() == AC_MULAW)
 			pt = PT_ITU_T_G711_PCMU;
-		if (buffer->codec == AC_ALAW)
+		if (buffer->get_codec() == AC_ALAW)
 			pt = PT_ITU_T_G711_PCMA;
 	} else {
 		pt = PT_DynRTP_Type97;
 	}
 
 	// The sizes for the different audio_frame2 channels must be the same.
-	for (int i = 1; i < buffer->ch_count; i++)
-		assert(buffer->data_len[0] == buffer->data_len[i]);
+	for (int i = 1; i < buffer->get_channel_count(); i++)
+		assert(buffer->get_data_len(0) == buffer->get_data_len(i));
 
-	int data_len = buffer->data_len[0] * buffer->ch_count; 	/* Number of samples to send 			*/
+	int data_len = buffer->get_data_len(0) * buffer->get_channel_count(); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40; 						/* Max size of an RTP payload field 	*/
 
 	init_tx_mulaw_buffer();
@@ -810,17 +810,17 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	int ch, pos = 0, count = 0, pointerToSend = 0;
 
 	do {
-		for (ch = 0; ch < buffer->ch_count; ch++) {
-			memcpy(curr_sample, buffer->data[ch] + pos,
-					buffer->bps * sizeof(char));
-			curr_sample += buffer->bps * sizeof(char);
-			count += buffer->bps * sizeof(char);
+		for (ch = 0; ch < buffer->get_channel_count(); ch++) {
+			memcpy(curr_sample, buffer->get_data(ch) + pos,
+					buffer->get_bps() * sizeof(char));
+			curr_sample += buffer->get_bps() * sizeof(char);
+			count += buffer->get_bps() * sizeof(char);
 		}
-		pos += buffer->bps * sizeof(char);
+		pos += buffer->get_bps() * sizeof(char);
 
-		if ((pos * buffer->ch_count) % payload_size == 0) {
+		if ((pos * buffer->get_channel_count()) % payload_size == 0) {
 			// Update first sample timestamp
-			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->ch_count);
+			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->get_channel_count());
 			gettimeofday(&curr_time, NULL);
 			rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
 			ts_prev = ts;
@@ -832,9 +832,9 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		}
 	} while (count < data_len);
 
-	if ((pos * buffer->ch_count) % payload_size != 0) {
+	if ((pos * buffer->get_channel_count()) % payload_size != 0) {
 		// Update first sample timestamp
-		ts =	get_std_audio_local_mediatime((double)((pos * buffer->ch_count) % payload_size) / (double)buffer->ch_count);
+		ts =	get_std_audio_local_mediatime((double)((pos * buffer->get_channel_count()) % payload_size) / (double)buffer->get_channel_count());
 		gettimeofday(&curr_time, NULL);
 		rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
 		ts_prev = ts;
@@ -842,7 +842,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		rtp_send_data(rtp_session, ts, pt, 0, 0, 	/* contributing sources 		*/
 		0, 													/* contributing sources length 	*/
 		data_buffer_mulaw + pointerToSend,
-				(pos * buffer->ch_count) % payload_size, 0, 0, 0);
+				(pos * buffer->get_channel_count()) % payload_size, 0, 0, 0);
 	}
 
 	platform_spin_unlock(&tx->spin);

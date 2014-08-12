@@ -62,6 +62,7 @@ extern "C" {
 #include <libavutil/mem.h>
 }
 
+#include <unordered_map>
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
@@ -93,21 +94,16 @@ static void register_module(void)
         register_audio_codec(&libavcodec_audio_codec);
 }
 
-typedef struct {
-        enum AVCodecID codec_id;
-} audio_codec_t_to_codec_id_mapping_t;
-
-static const audio_codec_t_to_codec_id_mapping_t mapping[] = 
-{
-        [AC_ALAW] = { .codec_id = AV_CODEC_ID_PCM_ALAW },
-        [AC_MULAW] = { .codec_id = AV_CODEC_ID_PCM_MULAW },
-        [AC_ADPCM_IMA_WAV] = { .codec_id = AV_CODEC_ID_ADPCM_IMA_WAV },
-        [AC_SPEEX] = { .codec_id = AV_CODEC_ID_SPEEX },
+std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
+        { AC_ALAW, AV_CODEC_ID_PCM_ALAW },
+        { AC_MULAW, AV_CODEC_ID_PCM_MULAW },
+        { AC_ADPCM_IMA_WAV, AV_CODEC_ID_ADPCM_IMA_WAV },
+        { AC_SPEEX, AV_CODEC_ID_SPEEX },
 #if LIBAVCODEC_VERSION_MAJOR >= 54
-        [AC_OPUS] = { .codec_id = AV_CODEC_ID_OPUS },
+        { AC_OPUS, AV_CODEC_ID_OPUS },
 #endif
-        [AC_G722] = { .codec_id = AV_CODEC_ID_ADPCM_G722 },
-        [AC_G726] = { .codec_id = AV_CODEC_ID_ADPCM_G726 },
+        { AC_G722, AV_CODEC_ID_ADPCM_G722 },
+        { AC_G726, AV_CODEC_ID_ADPCM_G726 },
 };
 
 struct libavcodec_codec_state {
@@ -143,16 +139,17 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 int bitrate)
 {
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
+
+        auto it = mapping.find(audio_codec);
         
-        if(audio_codec <= sizeof(mapping) / sizeof(audio_codec_t_to_codec_id_mapping_t)) {
-                codec_id = mapping[audio_codec].codec_id;
-        }
-        if(codec_id == 0) {
+        if (it == mapping.end()) {
                 if (!try_init) {
                         fprintf(stderr, "[Libavcodec] Cannot find mapping for codec \"%s\"!\n",
                                         get_name_to_audio_codec(audio_codec));
                 }
                 return NULL;
+        } else {
+                codec_id = it->second;
         }
 
         avcodec_register_all();
@@ -472,9 +469,12 @@ static void libavcodec_done(void *state)
         free(s);
 }
 
+static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_NONE };
+static int supported_bytes_per_second[] = { 2, 0 };
+
 struct audio_codec libavcodec_audio_codec = {
-        .supported_codecs = (audio_codec_t[]){ AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_NONE },
-        .supported_bytes_per_second = (int[]){ 2, 0 },
+        .supported_codecs = supported_codecs,
+        .supported_bytes_per_second = supported_bytes_per_second,
         .init = libavcodec_init,
         .compress = libavcodec_compress,
         .decompress = libavcodec_decompress,

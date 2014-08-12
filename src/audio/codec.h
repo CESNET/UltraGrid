@@ -51,9 +51,6 @@
 
 #include "audio/audio.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 typedef enum {
         AUDIO_CODER,
@@ -78,6 +75,7 @@ typedef struct {
         uint32_t    tag;
 } audio_codec_info_t;
 
+#ifdef __cplusplus
 extern audio_codec_info_t audio_codec_info[];
 extern int audio_codec_info_len;
 
@@ -100,9 +98,6 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg);
 const char *get_name_to_audio_codec(audio_codec_t codec);
 uint32_t get_audio_tag(audio_codec_t codec);
 audio_codec_t get_audio_codec_to_tag(uint32_t audio_tag);
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif /* AUDIO_CODEC_H */
