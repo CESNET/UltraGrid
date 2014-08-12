@@ -69,8 +69,7 @@ struct audio_codec {
         void (*done)(void *);
 };
 
-extern void (*register_audio_codec)(struct audio_codec *);
-
+void register_audio_codec(struct audio_codec *);
 typedef struct {
         const char *name;
         /** @var tag

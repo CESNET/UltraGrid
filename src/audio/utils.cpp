@@ -82,7 +82,7 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
         frame->ch_count = nr_channels;
 
         for(int i = 0; i < nr_channels; ++i) {
-                frame->data[i] = malloc(max_size);
+                frame->data[i] = (char *) malloc(max_size);
         }
 }
 
@@ -101,7 +101,7 @@ void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src)
                 dest->max_size = new_max_size;
                 dest->ch_count = src->ch_count;
                 for (int i = 0; i < src->ch_count; ++i) {
-                        dest->data[i] = realloc(dest->data[i], new_max_size);
+                        dest->data[i] = (char *) realloc(dest->data[i], new_max_size);
                 }
         }
 

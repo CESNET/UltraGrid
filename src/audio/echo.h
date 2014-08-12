@@ -51,6 +51,10 @@
 
 #include "audio/audio.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct echo_cancellation;
 
 typedef struct echo_cancellation echo_cancellation_t;
@@ -61,5 +65,8 @@ void echo_play(struct echo_cancellation *state, struct audio_frame *frame);
 
 struct audio_frame * echo_cancel(struct echo_cancellation *state, struct audio_frame *frame);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ECHO_H_ */

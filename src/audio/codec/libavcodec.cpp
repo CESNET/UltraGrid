@@ -54,11 +54,13 @@
 
 #include "audio/codec/libavcodec.h"
 
+extern "C" {
 #include <libavcodec/avcodec.h>
 #if LIBAVCODEC_VERSION_MAJOR >= 54
 #include <libavutil/channel_layout.h>
 #endif
 #include <libavutil/mem.h>
+}
 
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -92,7 +94,7 @@ static void register_module(void)
 }
 
 typedef struct {
-        int codec_id;
+        enum AVCodecID codec_id;
 } audio_codec_t_to_codec_id_mapping_t;
 
 static const audio_codec_t_to_codec_id_mapping_t mapping[] = 
@@ -140,7 +142,7 @@ struct libavcodec_codec_state {
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
                 int bitrate)
 {
-        int codec_id = 0;
+        enum AVCodecID codec_id = AV_CODEC_ID_NONE;
         
         if(audio_codec <= sizeof(mapping) / sizeof(audio_codec_t_to_codec_id_mapping_t)) {
                 codec_id = mapping[audio_codec].codec_id;
@@ -155,7 +157,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         avcodec_register_all();
 
-        struct libavcodec_codec_state *s = calloc(1, sizeof(struct libavcodec_codec_state));
+        struct libavcodec_codec_state *s = (struct libavcodec_codec_state *)
+                calloc(1, sizeof(struct libavcodec_codec_state));
         if(direction == AUDIO_CODER) {
                 s->codec = avcodec_find_encoder(codec_id);
         } else {
@@ -191,8 +194,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         memset(&s->tmp, 0, sizeof(audio_channel));
         memset(&s->output_channel, 0, sizeof(audio_channel));
-        s->tmp.data = malloc(1024*1024);
-        s->output_channel.data = malloc(1024*1024);
+        s->tmp.data = (char *) malloc(1024*1024);
+        s->output_channel.data = (char *) malloc(1024*1024);
 
         if(direction == AUDIO_CODER) {
                 s->output_channel.codec = audio_codec;

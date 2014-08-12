@@ -16,10 +16,10 @@ struct resampler
 
 struct resampler *resampler_init(int dst_sample_rate)
 {
-        struct resampler *s = calloc(1, sizeof(struct resampler));
+        struct resampler *s = (struct resampler *) calloc(1, sizeof(struct resampler));
 
-        s->resample_buffer = malloc(1024 * 1024);
-        s->muxed = malloc(1024 * 1024);
+        s->resample_buffer = (char *) malloc(1024 * 1024);
+        s->muxed = (char *) malloc(1024 * 1024);
         s->resampled = audio_frame2_init();
         s->resample_to = dst_sample_rate;
 

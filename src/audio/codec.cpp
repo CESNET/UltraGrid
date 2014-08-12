@@ -89,11 +89,8 @@ static struct audio_codec *audio_codecs[MAX_AUDIO_CODECS] = {
 };
 static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_cfg,
                 audio_codec_direction_t direction, bool try_init);
-static void register_audio_codec_real(struct audio_codec *);
 
-void (*register_audio_codec)(struct audio_codec *) = register_audio_codec_real;
-
-static void register_audio_codec_real(struct audio_codec *codec)
+void register_audio_codec(struct audio_codec *codec)
 {
         for(int i = 0; i < MAX_AUDIO_CODECS; ++i) {
                 if(audio_codecs[i] == 0) {

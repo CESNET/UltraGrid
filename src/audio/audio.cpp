@@ -243,7 +243,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 return NULL;
         }
         
-        s = calloc(1, sizeof(struct state_audio));
+        s = (struct state_audio *) calloc(1, sizeof(struct state_audio));
 
         module_init_default(&s->mod);
         s->mod.priv_data = s;
@@ -495,7 +495,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
                         params->send_port, 255, rtcp_bw,
                         FALSE, rtp_recv_callback,
-                        (void *) params->participants,
+                        (uint8_t *) params->participants,
                         params->use_ipv6, false);
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
@@ -509,7 +509,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
 
 static void *audio_receiver_thread(void *arg)
 {
-        struct state_audio *s = arg;
+        struct state_audio *s = (struct state_audio *) arg;
         // rtp variables
         struct timeval timeout, curr_time;
         uint32_t ts;
@@ -520,7 +520,7 @@ static void *audio_receiver_thread(void *arg)
         memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
         memset(&device_desc, 0, sizeof(struct audio_desc));
 
-        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
+        pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");
@@ -686,7 +686,7 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 
         if(buffer->sample_rate == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
                 memcpy(&s->resampled, buffer, sizeof(s->resampled));
-                s->resampled.data = malloc(buffer->data_len);
+                s->resampled.data = (char *) malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
                 /**
@@ -695,7 +695,7 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
                 assert(set_contains(s->codec_supported_bytes_per_sample, 2));
                 // expect that we may got as much as 12-times more data (eg 8 kHz to 96 kHz
                 uint32_t write_frames = 12 * (buffer->data_len / buffer->ch_count / buffer->bps);
-                s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
+                s->resampled.data = (char *) malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
                         s->resample_from = buffer->sample_rate;
                         s->resample_ch_count = buffer->ch_count;
@@ -806,7 +806,7 @@ static void *audio_sender_thread(void *arg)
 
         memset(&resample_state, 0, sizeof(resample_state));
         resample_state.resample_to = s->resample_to;
-        resample_state.resample_buffer = malloc(1024 * 1024);
+        resample_state.resample_buffer = (char *) malloc(1024 * 1024);
         resample_state.codec_supported_bytes_per_sample =
                 audio_codec_get_supported_bps(s->audio_coder);
         
@@ -894,7 +894,7 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
         if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
-        sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
+        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_put_callback(sdi_playback, callback, udata);
 }
 
@@ -906,7 +906,7 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
         if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
-        sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
+        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_reconfigure_callback(sdi_playback, callback, udata);
 }
 
