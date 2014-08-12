@@ -753,13 +753,13 @@ void *display_quicktime_init(const char *fmt, unsigned int flags)
                         tile->height = (**gWorldImgDesc).height;
 
                         tile->data_len = tile->height *
-                                vc_get_linesize(tile->width, s->cinfo->codec);
+                                vc_get_linesize(tile->width, s->codec);
                         s->buffer[0] = calloc(1, tile->data_len);
                         s->buffer[1] = calloc(1, tile->data_len);
                         tile->data = s->buffer[0];
         
                         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", tile->width,
-                                tile->height, s->cinfo->bpp);
+                                tile->height, get_bpp(s->codec));
                 }
                 reconf_common(s);
         } else {
