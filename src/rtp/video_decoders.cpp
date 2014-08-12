@@ -374,7 +374,7 @@ static void *fec_thread(void *args) {
 
                                 if(fec_out_len == 0) {
                                         ret = FALSE;
-                                        fprintf(stderr, "[decoder] FEC: unable to reconstruct data.\n");
+                                        verbose_msg("[decoder] FEC: unable to reconstruct data.\n");
                                         decoder->fec_nok += 1;
                                         goto cleanup;
                                 }
