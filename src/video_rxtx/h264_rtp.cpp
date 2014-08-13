@@ -92,9 +92,9 @@ video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &par
         return new h264_rtp_video_rxtx(params);
 }
 
-static void init(void)  __attribute__((constructor));
+static void register_module(void)  __attribute__((constructor));
 
-static void init(void)
+static void register_module(void)
 {
         register_video_rxtx(H264_STD, {"H264 standard", create_video_rxtx_h264_std});
 }

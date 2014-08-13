@@ -185,9 +185,9 @@ static struct capture_filter_info capture_filter_resize = {
     filter,
 };
 
-static void init(void)  __attribute__((constructor));
+static void register_module(void)  __attribute__((constructor));
 
-static void init(void)
+static void register_module(void)
 {
         register_video_capture_filter(&capture_filter_resize);
 }

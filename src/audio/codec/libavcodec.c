@@ -84,9 +84,9 @@ static audio_channel *libavcodec_compress(void *, audio_channel *);
 static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
 
-static void init(void) __attribute__((constructor));
+static void register_module(void) __attribute__((constructor));
 
-static void init(void)
+static void register_module(void)
 {
         register_audio_codec(&libavcodec_audio_codec);
 }
