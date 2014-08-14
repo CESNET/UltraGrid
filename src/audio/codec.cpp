@@ -239,6 +239,7 @@ audio_frame2 *audio_codec_compress(struct audio_codec_state *s, audio_frame2 *fr
 
         audio_channel channel;
         int nonzero_channels = 0;
+        bool out_frame_initialized = false;
         for (int i = 0; i < s->state_count; ++i) {
                 audio_channel *encode_channel = NULL;
                 if(frame) {
@@ -247,13 +248,14 @@ audio_frame2 *audio_codec_compress(struct audio_codec_state *s, audio_frame2 *fr
                 }
                 audio_channel *out = audio_codecs[s->index]->compress(s->state[i], encode_channel);
                 if (out) {
-                        if (i == 0) {
+                        if (!out_frame_initialized) {
                                 if (frame) {
                                         s->out->init(frame->get_channel_count(), s->codec, out->bps, out->sample_rate);
                                 } else {
                                         s->out->reset();
                                 }
                                 s->out->set_duration(out->duration);
+                                out_frame_initialized = true;
                         } else {
                                 assert(out->bps == s->out->get_bps()
                                                 && out->sample_rate == s->out->get_sample_rate());
@@ -292,12 +294,14 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
 
         audio_channel channel;
         int nonzero_channels = 0;
+        bool out_frame_initialized = false;
         for (int i = 0; i < frame->get_channel_count(); ++i) {
                 audio_channel_demux(frame, i, &channel);
                 audio_channel *out = audio_codecs[s->index]->decompress(s->state[i], &channel);
-                if(out) {
-                        if (i == 0) {
+                if (out) {
+                        if (!out_frame_initialized) {
                                 s->out->init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);
+                                out_frame_initialized = true;
                         } else {
                                 assert(out->bps == s->out->get_bps()
                                                 && out->sample_rate == s->out->get_sample_rate());
