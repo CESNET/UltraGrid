@@ -253,6 +253,7 @@ audio_frame2 *audio_codec_compress(struct audio_codec_state *s, audio_frame2 *fr
                                 } else {
                                         s->out->reset();
                                 }
+                                s->out->set_duration(out->duration);
                         } else {
                                 assert(out->bps == s->out->get_bps()
                                                 && out->sample_rate == s->out->get_sample_rate());

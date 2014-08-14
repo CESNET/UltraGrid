@@ -353,6 +353,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         int bps = s->output_channel.bps;
         int offset = 0;
         s->output_channel.data_len = 0;
+        s->output_channel.duration = 0.0;
         int chunk_size = s->codec_ctx->frame_size * bps;
         //while(offset + chunk_size <= s->tmp.data_len) {
         while(offset + chunk_size <= s->tmp.data_len) {
@@ -370,6 +371,10 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 }
                 if(got_packet) {
                         s->output_channel.data_len += s->pkt.size;
+                        ///@ todo
+                        /// well, this is wrong, denominator should be actually AVStream::time_base. Where do
+                        /// we get this?? Anyway, seems like it equals sample rate.
+                        s->output_channel.duration += s->pkt.duration / (double) s->output_channel.sample_rate;
                 }
                 offset += chunk_size;
                 if(!(s->codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE))

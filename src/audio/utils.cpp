@@ -72,7 +72,7 @@ using namespace std;
  * @brief Creates empty audio_frame2
  */
 audio_frame2::audio_frame2() :
-        bps(0), sample_rate(0), codec(AC_PCM)
+        bps(0), sample_rate(0), codec(AC_PCM), duration(0.0)
 {
 }
 
@@ -100,6 +100,7 @@ void audio_frame2::init(int nr_channels, audio_codec_t c, int b, int sr)
         bps = b;
         codec = c;
         sample_rate = sr;
+        duration = 0.0;
 }
 
 void audio_frame2::append(audio_frame2 const &src)
@@ -171,6 +172,7 @@ void audio_frame2::reset()
                 channels[i].first = unique_ptr<char []>(new char[0]);
                 channels[i].second = 0;
         }
+        duration = 0.0;
 }
 
 int audio_frame2::get_bps()
@@ -193,6 +195,16 @@ size_t audio_frame2::get_data_len(int channel)
         return channels[channel].second;
 }
 
+double audio_frame2::get_duration()
+{
+        if (codec == AC_PCM) {
+                int samples = get_sample_count();
+                return (double) samples / get_sample_rate();
+        } else {
+                return duration;
+        }
+}
+
 int audio_frame2::get_channel_count()
 {
         return channels.size();
@@ -200,10 +212,6 @@ int audio_frame2::get_channel_count()
 
 int audio_frame2::get_sample_count()
 {
-        if (channels.size() == 0) {
-                throw logic_error("zero channels!");
-        }
-
         // for PCM, we can deduce samples count from length of the data
         if (codec == AC_PCM) {
                 return channels[0].second / channels.size() / get_bps();
@@ -222,6 +230,11 @@ bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) {
                 sample_rate == frame.sample_rate &&
                 codec == frame.codec &&
                 channels.size() == frame.channels.size();
+}
+
+void audio_frame2::set_duration(double new_duration)
+{
+        duration = new_duration;
 }
 
 static double get_normalized(const char *in, int bps) {

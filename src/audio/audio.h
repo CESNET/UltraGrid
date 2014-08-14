@@ -95,6 +95,7 @@ typedef struct
         char *data; /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         audio_codec_t codec;
+        double duration;
 } audio_channel;
 
 struct module;
@@ -120,17 +121,18 @@ public:
         audio_codec_t get_codec();
         const char *get_data(int channel);
         size_t get_data_len(int channel);
+        double get_duration();
         int get_channel_count();
         int get_sample_count();
         int get_sample_rate();
         bool has_same_prop_as(audio_frame2 const &frame);
+        void set_duration(double duration);
 private:
         int bps;                /* bytes per sample */
         int sample_rate;
         std::vector<std::pair<std::unique_ptr<char []>, size_t> > channels; /* data should be at least 4B aligned */
         audio_codec_t codec;
-        int sample_count; ///< number of samples stored in this buffer
-                          ///< assuming that all channels has same count...
+        double duration;
 };
 #endif
 

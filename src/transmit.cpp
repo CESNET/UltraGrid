@@ -703,8 +703,24 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 
                 int packet_rate = tx->packet_rate;
                 if (packet_rate == RATE_AUTO) {
-                        /// @todo add automatic packet rate management also for audio. We currently don't
-                        /// know actual audio buffer length (if compressed)
+                        /**
+                         * @todo
+                         * Following code would actually work but seems to be useless in most of cases (eg.
+                         * PCM 2 channels 2 Bps takes 5 std. Eth frames). On the other hand it could cause
+                         * unexpectable problems (I'd write them here but if I'd expect them they wouldn't
+                         * be unexpectable.)
+                         */
+#if 0
+                        double time_for_frame = buffer->get_duration() / buffer->get_channel_count();
+                        if (time_for_frame > 0.0) {
+                                long long req_bitrate = buffer->get_data_len(channel) * 8 / time_for_frame * tx->mult_count;
+                                // adjust computed value to 3
+                                req_bitrate = req_bitrate * 3;
+                                packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
+                        } else {
+                                packet_rate = 0;
+                        }
+#endif
                         packet_rate = 0;
                 }
 
@@ -750,12 +766,14 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                                 mult_index = (mult_index + 1) % tx->mult_count;
                         }
 
-                        do {
-                                GET_STOPTIME;
-                                GET_DELTA;
-                                if (delta < 0)
-                                        delta += 1000000000L;
-                        } while (packet_rate - delta > 0);
+                        if (pos < buffer->get_data_len(channel)) {
+                                do {
+                                        GET_STOPTIME;
+                                        GET_DELTA;
+                                        if (delta < 0)
+                                                delta += 1000000000L;
+                                } while (packet_rate - delta > 0);
+                        }
 
                         /* when trippling, we need all streams goes to end */
                         if(tx->fec_scheme == FEC_MULT) {
@@ -763,7 +781,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                         }
 
                       
-                } while (pos < (unsigned int) buffer->get_data_len(channel));
+                } while (pos < buffer->get_data_len(channel));
         }
 
         tx->buffer ++;
