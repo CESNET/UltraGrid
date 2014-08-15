@@ -55,7 +55,7 @@ void     tv_add(struct timeval *ts, double offset_secs);
 void     tv_add_usec(struct timeval *ts, double offset);
 int      tv_gt(struct timeval a, struct timeval b);
 uint32_t get_std_audio_local_mediatime(double samples);
-uint32_t get_std_video_local_mediatime();
+uint32_t get_std_video_local_mediatime(void);
 
 #ifdef __cplusplus
 }

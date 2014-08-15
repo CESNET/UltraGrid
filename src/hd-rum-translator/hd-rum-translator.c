@@ -75,6 +75,7 @@ static int buffer_size(int sock, int optname, int size);
 static void *writer(void *arg);
 static void signal_handler(int signal);
 static void usage();
+void exit_uv(int status);
 
 static volatile int should_exit = false;
 

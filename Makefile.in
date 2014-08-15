@@ -207,23 +207,24 @@ $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 %.cu.lib: %.cu $(ALL_INCLUDES)
 	"$(NVCC)" $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
+SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations
 src/audio/resample.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
 
 src/audio/preprocess.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
 
 src/audio/filterbank.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
 
 src/audio/fftwrap.o:
-	$(CC) $(CFLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
 
 src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h

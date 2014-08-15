@@ -72,6 +72,8 @@ struct state_scale {
 
 static int init(struct module *parent, const char *cfg, void **state)
 {
+        UNUSED(parent);
+        UNUSED(cfg);
         struct video_desc desc;
 
         struct state_scale *s = (struct state_scale *) calloc(1, sizeof(struct state_scale));

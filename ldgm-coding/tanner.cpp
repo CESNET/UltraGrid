@@ -27,7 +27,7 @@ using namespace std;
 /*-----------------------------------------------------------------------------
  *  Implementation of class Node
  *-----------------------------------------------------------------------------*/
-Node::Node(Tanner_graph *tanner, Node::Node_type t, char *d) {
+Node::Node(Tanner_graph * /* tanner */, Node::Node_type t, char *d) {
 //    int size = tanner->data_size;
     this->type = t;
     data = d;

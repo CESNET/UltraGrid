@@ -66,6 +66,7 @@ void vf_split(struct video_frame *out, struct video_frame *src,
         src_linesize = vc_get_linesize(src->tiles[0].width,
                         src->color_spec);
 
+        assert(x_count * y_count > 0);
         for(tile_idx = 0u; tile_idx < x_count * y_count; ++tile_idx) {
                 out->tiles[tile_idx].width = vf_get_tile(src, 0)->width / x_count;
                 out->tiles[tile_idx].height = vf_get_tile(src, 0)->height / y_count;

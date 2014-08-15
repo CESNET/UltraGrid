@@ -93,7 +93,7 @@
 #include <iostream>
 #include <string>
 
-#if defined DEBUG && defined HAVE_LINUX
+#ifdef USE_MTRACE
 #include <mcheck.h>
 #endif
 
@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
 
         int bitrate = RATE_AUTO;
 
-#if defined DEBUG && defined HAVE_LINUX
+#ifdef USE_MTRACE
         mtrace();
 #endif
 
@@ -1015,7 +1015,10 @@ int main(int argc, char *argv[])
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
                         else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
-                        else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                        else {
+                                printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                                avType = none;
+                        }
 
                         params["avType"].l = avType;
                 }
@@ -1111,7 +1114,7 @@ cleanup:
         module_done(&root_mod);
         free(uv);
 
-#if defined DEBUG && defined HAVE_LINUX
+#ifdef USE_MTRACE
         muntrace();
 #endif
 

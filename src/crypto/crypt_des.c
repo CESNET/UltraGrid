@@ -564,8 +564,8 @@ qfDES(unsigned char *key,
         static unsigned char desKey[8], desKeys[128];
         static Word *oldKey = (Word *) desKey, *keys = (Word *) desKeys;
         static QFDES_what oldWhat;
-        static QFDES_mode oldMode;
-        unsigned char b0[8], b1[8];     /* feedback blocks */
+        static QFDES_mode oldMode __attribute__((unused));
+        unsigned char b0[8] = "", b1[8];     /* feedback blocks */
         Word *newKey = (Word *) key,    /* key from user */
             *text,              /* text to be [en|de]crypted */
             *cb = (Word *) b0,  /* the chained block in CBC mode */

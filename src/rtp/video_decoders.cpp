@@ -99,6 +99,7 @@
 
 using std::map;
 using std::queue;
+using std::unique_ptr;
 
 struct state_video_decoder;
 
@@ -164,18 +165,16 @@ struct fec_msg : public msg {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
-                pckt_list = 0;
         }
         ~fec_msg() {
                 delete [] buffer_len;
                 delete [] buffer_num;
                 delete [] recv_buffers;
-                delete [] pckt_list;
         }
         int *buffer_len;
         int *buffer_num;
         char **recv_buffers;
-        map<int, int> *pckt_list;
+        unique_ptr<map<int, int>[]> pckt_list;
         fec_desc fec_description;
         int substream_count;
         bool poisoned;
@@ -1459,14 +1458,13 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         int max_substreams = decoder->max_substreams;
 
         int i;
-        map<int, int> *pckt_list;
         uint32_t buffer_len[max_substreams];
         uint32_t buffer_num[max_substreams];
         // the following is just LDGM related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of LDGM, there
         // is just the LDGM buffer present, so we point to it instead to copying
         char *recv_buffers[max_substreams]; // for FEC or compressed data
-        pckt_list = new map<int, int>[max_substreams];
+        unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
         for (i = 0; i < (int) max_substreams; ++i) {
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
@@ -1753,8 +1751,7 @@ next_packet:
         }
 
         if(!pckt) {
-                ret = FALSE;
-                goto cleanup;
+                return FALSE;
         }
 
         if (decoder->frame == NULL && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
@@ -1772,7 +1769,7 @@ next_packet:
         memcpy(fec_msg->buffer_len, buffer_len, sizeof(buffer_len));
         memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
-        fec_msg->pckt_list = pckt_list;
+        fec_msg->pckt_list = std::move(pckt_list);
 
         if(decoder->fec_queue.size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
@@ -1788,10 +1785,6 @@ cleanup:
                 }
 
                 frame_size += buffer_len[i];
-        }
-
-        if(ret != TRUE) {
-                delete [] pckt_list;
         }
 
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);

@@ -180,7 +180,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Packing;
         ULONG             Status = 0;
         int               i;
-        ULONG             Interface;
+        ULONG             Interface = 0;
 
         /* Wait for channel locked */
         Result = VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_STATUS, &Status);

@@ -95,7 +95,6 @@ void *
 vidcap_switcher_init(const struct vidcap_params *params)
 {
 	struct vidcap_switcher_state *s;
-        int i;
 
 	printf("vidcap_switcher_init\n");
 
@@ -142,13 +141,12 @@ vidcap_switcher_init(const struct vidcap_params *params)
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        i = 0;
         tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
                 if (!s->excl_init || i == s->selected_device) {
-                        int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+                        int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
                         if(ret != 0) {
                                 fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
                                                 i, vidcap_params_get_driver(tmp),
@@ -214,7 +212,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 int ret = initialize_video_capture(NULL,
-                                                vidcap_params_get_nth(s->params, new_selected_device + 1),
+                                                vidcap_params_get_nth((struct vidcap_params *) s->params, new_selected_device + 1),
                                                 &s->devices[new_selected_device]);
                                 assert(ret == 0);
                         }

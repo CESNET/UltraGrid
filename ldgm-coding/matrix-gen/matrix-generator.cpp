@@ -23,9 +23,6 @@
 
 #include "ldpc-matrix.h"
 
-using namespace std;
-
-
 int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned int column_weight,
                 unsigned int seed) 
 {
@@ -40,7 +37,7 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
     char **pc_matrix;
 
     pc_matrix = (char**)malloc(m*sizeof(char*));
-    for ( int i = 0; i < m; i++)
+    for ( unsigned int i = 0; i < m; i++)
 	pc_matrix[i] = (char*)calloc(k, sizeof(char));
 
 
@@ -48,8 +45,8 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
     if (random)
     {
 	srand(time(NULL));
-	for ( int i = 0; i < k; ++i ) {
-	    for ( int j = 0; j < column_weight; ++j) {
+	for ( unsigned int i = 0; i < k; ++i ) {
+	    for ( unsigned int j = 0; j < column_weight; ++j) {
 		pc_matrix[rand()%m][i] = 1;
 	    }
 	}
@@ -61,10 +58,10 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
     }
     int max_weight = 0;
     //Compute maximum row weight
-    for ( int i = 0; i < m; i++)
+    for ( unsigned int i = 0; i < m; i++)
     {
 	int m = 0;
-	for ( int j = 0; j < k; j++)
+	for ( unsigned int j = 0; j < k; j++)
 	    if( pc_matrix[i][j])
 		m++;
 	if ( m > max_weight )
@@ -82,15 +79,15 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
 
     int **pcm;
     pcm = (int**)malloc(m*sizeof(int*));
-    for ( int i = 0; i < m; i++)
+    for ( unsigned int i = 0; i < m; i++)
 	pcm[i] = (int*)malloc((max_weight+2) * sizeof(int));
 
     
     int columns = max_weight + 2;
     int counter = 0;
-    for ( int i = 0; i < m; i++ )
+    for ( unsigned int i = 0; i < m; i++ )
     {
-	for ( int j = 0; j < k; j++)
+	for ( unsigned int j = 0; j < k; j++)
 	    if( pc_matrix[i][j])
 	    {
 		pcm[i][counter] = j;
@@ -129,12 +126,14 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
 	fprintf( out, "%d ", k); 
 	fprintf( out, "%d ", m);  
 	fprintf( out, "%d\n", columns);  
-	for ( int i = 0; i < m; i++)
+	for ( unsigned int i = 0; i < m; i++)
 	{ 
 	    for ( int j = 0; j < columns; j++)
 	    {
 		int t = pcm[i][j];
 		tmp = fwrite(&t, sizeof(int), 1, out);
+                if (tmp != 1)
+                    fprintf(stderr, "Cannot write to output file!");
 	    }
 //	    printf ( "fwrite: %d\n", tmp );
 	}
@@ -186,10 +185,10 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
  */
 
 
-    for ( int i = 0; i < m; i++)
+    for ( unsigned int i = 0; i < m; i++)
 	free(pc_matrix[i]);
     free(pc_matrix);
-    for ( int i = 0; i < m; i++)
+    for ( unsigned int i = 0; i < m; i++)
 	free(pcm[i]);
     free(pcm);
 

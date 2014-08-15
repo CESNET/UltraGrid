@@ -2617,7 +2617,7 @@ rtp_send_data_hdr(struct rtp *session,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
-        int vlen, buffer_len, i, rc, pad, pad_len;
+        int vlen, buffer_len, i, rc, pad, pad_len __attribute__((unused));
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -2743,10 +2743,10 @@ rtp_send_data_hdr(struct rtp *session,
         /* ...and the media data... */
         if (data_len > 0) {
 #ifdef WIN32
-                send_vector[send_vector_len].buf = data;
+                send_vector[send_vector_len].buf = (void *) data;
                 send_vector[send_vector_len].len = data_len;
 #else
-                send_vector[send_vector_len].iov_base = data;
+                send_vector[send_vector_len].iov_base = (void *) data;
                 send_vector[send_vector_len].iov_len = data_len;
 #endif
                 send_vector_len++;
@@ -3912,7 +3912,7 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
                                 /* Much of this is taken from A.3 of draft-ietf-avt-rtp-new-01.txt */
                                 int extended_max = s->cycles + s->max_seq;
                                 int expected = extended_max - s->base_seq + 1;
-                                int lost = expected - s->received;
+                                //int lost = expected - s->received;
                                 int expected_interval =
                                     expected - s->expected_prior;
                                 int received_interval =
@@ -3920,8 +3920,8 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
                                 int lost_interval =
                                     expected_interval - received_interval;
                                 int fraction;
-                                uint32_t lsr;
-                                uint32_t dlsr;
+                                //uint32_t lsr;
+                                //uint32_t dlsr;
 
                                 //printf("lost_interval %d\n", lost_interval);
                                 s->expected_prior = expected;

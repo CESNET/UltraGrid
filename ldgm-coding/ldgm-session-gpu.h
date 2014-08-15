@@ -47,7 +47,7 @@ class LDGM_session_gpu : public LDGM_session
 	    encode ( char* data_ptr, char* parity_ptr );
 	
 	void 
-	    encode_naive ( char* data_ptr, char* parity_ptr ) {}
+	    encode_naive ( char* /* data_ptr */, char* /* parity_ptr */ ) {}
 
 	void
 	    decode();

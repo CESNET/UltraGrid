@@ -65,7 +65,7 @@ struct rtpenc_h264_state {
 	bool haveSeenEOF;
 };
 
-struct rtpenc_h264_state * rtpenc_h264_init_state();
+struct rtpenc_h264_state * rtpenc_h264_init_state(void);
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, uint8_t *buf_in, int size);
 
 #ifdef __cplusplus

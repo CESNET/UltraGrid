@@ -401,6 +401,9 @@ AC_ARG_ENABLE(debug,
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
                 debug_output=yes
+                DEBUG_FLAGS="-Werror -Wno-error=strict-aliasing -Wno-error=cast-align -Wno-error=unused-result"
+                CFLAGS="$CFLAGS $DEBUG_FLAGS"
+                CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
 	fi])
 
 AC_ARG_ENABLE(ipv6,

@@ -328,7 +328,8 @@ save_arrival(struct tfrc *state, struct timeval curr_time, uint16_t seq)
 static double compute_loss_event(struct tfrc *state)
 {
         int i;
-        uint32_t t, temp, I_tot0 = 0, I_tot1 = 0, I_tot = 0;
+        uint32_t t __attribute__((unused));
+        uint32_t temp, I_tot0 = 0, I_tot1 = 0, I_tot = 0;
         struct timeval now;
         double I_mean, p;
 

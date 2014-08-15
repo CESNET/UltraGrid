@@ -12,7 +12,6 @@
 
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
-        char buf[1024];
         /**
          * @invariant
          * either receiver is NULL or receiver->lock is locked (exactly once)

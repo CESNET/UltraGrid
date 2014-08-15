@@ -96,7 +96,6 @@ void *
 vidcap_aggregate_init(const struct vidcap_params *params)
 {
 	struct vidcap_aggregate_state *s;
-        int i;
 
 	printf("vidcap_aggregate_init\n");
 
@@ -127,12 +126,11 @@ vidcap_aggregate_init(const struct vidcap_params *params)
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        i = 0;
         tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
-                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+                int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
                                         i, vidcap_params_get_driver(tmp),
