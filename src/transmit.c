@@ -778,7 +778,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		audio_frame2 * buffer) {
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
-	assert(buffer->codec == AC_MULAW || buffer->codec == AC_ALAW);
+	assert(buffer->codec == AC_MULAW || buffer->codec == AC_ALAW || buffer->codec == AC_OPUS);
 
 	int pt;
 	uint32_t ts;
@@ -792,8 +792,9 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
 		if (buffer->codec == AC_MULAW)
 			pt = PT_ITU_T_G711_PCMU;
-		if (buffer->codec == AC_ALAW)
+		else if (buffer->codec == AC_ALAW)
 			pt = PT_ITU_T_G711_PCMA;
+		else pt = PT_DynRTP_Type97;
 	} else {
 		pt = PT_DynRTP_Type97;
 	}

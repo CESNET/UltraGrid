@@ -137,8 +137,9 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		if (audio_sample_rate == 8000 && audio_channels == 1) { //NOW NOT COMPUTING 1 BPS BECAUSE RESAMPLER FORCES TO 2 BPS...
 			if (audio_codec == AC_MULAW)
 				rtpPayloadType = 0;
-			if (audio_codec == AC_ALAW)
+			else if (audio_codec == AC_ALAW)
 				rtpPayloadType = 8;
+			else rtpPayloadType = 97;
 		} else {
 			rtpPayloadType = 97;
 		}
@@ -167,7 +168,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				//rtpmapLine, // a=rtpmap:... (if present)
 				rtp_port_audio + 1,
 				rtpPayloadType,
-				audio_codec == AC_MULAW ? "PCMU" : "PCMA",
+				audio_codec == AC_MULAW ? "PCMU" : audio_codec == AC_ALAW ? "PCMA" : "OPUS",
 				audio_sample_rate,
 				audio_channels,
 				trackId()); // a=control:<track-id>
