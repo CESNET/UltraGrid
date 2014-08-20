@@ -40,12 +40,12 @@ Node::~Node() {
 }
 
 int Node::setDataPtr(char *d) {
-    
+
     if ( d != 0 ) {
-	sprintf(data, d, tanner->data_size);
-	return 0;
-    } else 
-	return 1;
+        sprintf(data, d, tanner->data_size);
+        return 0;
+    } else
+        return 1;
 }
 
 
@@ -71,11 +71,11 @@ void Tanner_graph::add_node(Node::Node_type type, int index, char *data) {
 
     if(data == NULL) {
 //	void *d = calloc(data_size, sizeof(char));
-	Node n(this, type, data);
-	nodes.insert(std::pair <int, Node>(index, n));
+        Node n(this, type, data);
+        nodes.insert(std::pair <int, Node>(index, n));
     } else {
-	Node n(this, type, data);
-	nodes.insert(std::pair <int, Node>(index, n));
+        Node n(this, type, data);
+        nodes.insert(std::pair <int, Node>(index, n));
     }
 }
 

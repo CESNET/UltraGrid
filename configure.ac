@@ -401,7 +401,7 @@ AC_ARG_ENABLE(debug,
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
                 debug_output=yes
-                DEBUG_FLAGS="-Werror -Wno-error=strict-aliasing -Wno-error=cast-qual -Wno-error=cast-align -Wno-error=unused-result"
+                DEBUG_FLAGS="-Werror -Wno-error=strict-aliasing -Wno-error=cast-qual -Wno-error=cast-align"
                 CFLAGS="$CFLAGS $DEBUG_FLAGS"
                 CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
 	fi])
@@ -1891,6 +1891,11 @@ CUDA_LIB_PATH=
 FOUND_CUDA=no
 CUDA_PATH=$CUDA_DIRECTORY
 
+AC_ARG_ENABLE(cuda,
+              AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
+              [cuda_req=$enableval],
+              [cuda_req=auto])
+
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
@@ -1899,7 +1904,7 @@ AC_ARG_WITH(cuda,
 AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
-if test -n "$NVCC"
+if test -n "$NVCC" -a $cuda_req != no
 then
         CUDA_PATH=`dirname "$NVCC"`
         CUDA_PATH=`dirname "$CUDA_PATH"`
@@ -2670,6 +2675,33 @@ if test $crypto_req = yes -a $crypto = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# GPU accelerated LDGM
+# -------------------------------------------------------------------------------------------------
+ldgm_gpu=no
+AC_ARG_ENABLE(ldgm-gpu,
+[  --enable-ldgm-gpu       enable GPU accelerated LDGM (default is disable)]
+[                          Requires: CUDA],
+    [ldgm_gpu_req=$enableval],
+    [ldgm_gpu_req=no]
+    )
+
+if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
+then
+        OBJS="$OBJS ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.cu.o"
+        DEFINE_CUDA
+        CUDA_MESSAGE
+        AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
+        ldgm_gpu=yes
+else
+        ldgm_gpu=no
+fi
+
+if test $ldgm_gpu_req = yes -a $ldgm_gpu = no; then
+        AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
+fi
+
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 
@@ -2702,6 +2734,7 @@ RESULT=\
   License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
+  CUDA support ................ $FOUND_CUDA
 
   AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
@@ -2735,6 +2768,7 @@ RESULT=\
   RTSP Server ................. $rtsp_server
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
+  GPU accelerated LDGM ........ $ldgm_gpu
   "
 
 AC_MSG_RESULT(

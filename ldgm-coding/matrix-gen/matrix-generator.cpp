@@ -22,10 +22,12 @@
 #include <string.h>
 
 #include "ldpc-matrix.h"
+ #include "rand_pmms.h"
 
 int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned int column_weight,
-                unsigned int seed) 
+                unsigned int seed,unsigned int extend_rows) 
 {
+
     int random = 0;
     int rfc = 1;
 
@@ -56,6 +58,34 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
     {
 	left_matrix_init ( pc_matrix, k, k+m, column_weight, seed );
     }
+
+    //Extend the matrix if necessary:
+	//Each additional row is computed as follows: pseudorandomly choose a row of parity matrix
+	//and shift it circularly one step to the right
+	if (extend_rows > 0)
+	{
+	    Rand_pmms rand_gen;
+	    rand_gen.seedi(seed);
+
+		for ( unsigned int i = m; i < m + extend_rows; i++ )
+		{
+			int row = rand_gen.pmms_rand(m - 1);
+			for ( unsigned int j = 1; j < k; j++)
+			{
+				if (pc_matrix[row][j - 1])
+				{
+					pc_matrix[i][j] = 1;
+				}
+			}
+			if (pc_matrix[row][k - 1])
+			{
+				pc_matrix[i][0] = 1;
+			}
+		}
+	}
+
+	m += extend_rows;
+
     int max_weight = 0;
     //Compute maximum row weight
     for ( unsigned int i = 0; i < m; i++)

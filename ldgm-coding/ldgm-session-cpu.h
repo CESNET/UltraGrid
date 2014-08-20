@@ -33,8 +33,14 @@ class LDGM_session_cpu : public LDGM_session
 {
     public:
 	/* ====================  LIFECYCLE     ======================================= */
-	LDGM_session_cpu () { }                            /* constructor */
-	~LDGM_session_cpu () { }                            /* constructor */
+	LDGM_session_cpu () {
+		printf("CPU LDGM in progress .... \n");
+		elapsed_sum=0.0;
+		no_frames=0;
+	}                            /* constructor */
+	~LDGM_session_cpu () {
+		printf("LDGM TIME CPU: %f ms\n",this->elapsed_sum2/(double)this->no_frames2 );
+	 }                            /* constructor */
 
 	void
 	    encode (char*, char*);
@@ -52,11 +58,16 @@ class LDGM_session_cpu : public LDGM_session
 	void
 	    free_out_buf (char *buf);
 
+	void *
+		alloc_buf(int size);
+
     protected:
 	/* ====================  DATA MEMBERS  ======================================= */
 
     private:
 	/* ====================  DATA MEMBERS  ======================================= */
+    double elapsed_sum;
+	long no_frames;
 
 }; /* -----  end of class LDGM_session_cpu  ----- */
 
