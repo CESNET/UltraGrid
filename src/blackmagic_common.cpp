@@ -80,8 +80,7 @@ const char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
        const  char *cstr;
 #ifdef HAVE_MACOSX
         cstr = (char *) malloc(128);
-        CFStringGetCString(bmd_string, (char *) cstr, 128, kCFStringEncodin
-                        gMacRoman);
+        CFStringGetCString(bmd_string, (char *) cstr, 128, kCFStringEncodingMacRoman);
 #elif defined WIN32
         cstr = (char *) malloc(128);
         wcstombs((char *) cstr, bmd_string, 128);
@@ -96,7 +95,7 @@ void release_bmd_api_str(BMD_STR string)
 {
         /// @todo what about MSW?
 #ifdef HAVE_MACOSX
-        CFRelease(deviceNameString);
+        CFRelease(string);
 #else
         UNUSED(string);
 #endif

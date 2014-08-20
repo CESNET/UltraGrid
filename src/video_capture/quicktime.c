@@ -565,13 +565,13 @@ static unsigned long get_color_spec(uint32_t pixfmt) {
                 }
         }
 
-        codec_t codec = get_codec_from_name(pixfmt);
+        codec_t codec = get_codec_from_fcc(pixfmt);
         if (codec != VIDEO_CODEC_NONE) {
                 return codec;
         } else {
                 // try also the other endianity (QT codecs aren't
                 // entirely consistent in this regard)
-                return get_codec_from_name(ntohl(pixfmt));
+                return get_codec_from_fcc(ntohl(pixfmt));
         }
 }
 
@@ -777,7 +777,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         char *deviceName;
         char *inputName;
         short  inputNumber;
-        TimeScale scale;
+        Fixed milliSecPerFrameIgnore, framesPerSecond, bytesPerSecondIgnore;
 
         if ((SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) ||
             (SGGetChannelDeviceAndInputNames(s->video_channel, NULL, NULL, &inputNumber)!=noErr)) {
@@ -996,8 +996,13 @@ AFTER_AUDIO:
                 return 0;
         }
 
-        SGGetChannelTimeScale(s->video_channel, &scale);
-        s->frame->fps = scale / 100.0;
+        if (VDGetDataRate(SGGetVideoDigitizerComponent(s->video_channel),
+                                &milliSecPerFrameIgnore, &framesPerSecond, &bytesPerSecondIgnore) != noErr) {
+                fprintf(stderr, "VDGetDataRate\n");
+                return 0;
+        }
+
+        s->frame->fps = FixedToFloat(framesPerSecond);
 
         return 1;
 error:

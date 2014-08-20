@@ -69,6 +69,14 @@
 
 #include "audio/audio.h"
 
+/*
+ * These QuickDraw prototypes were removed from headers but are still present in library so
+ * we provide our declarations as a workaround.
+ */
+PixMapHandle GetGWorldPixMap(GWorldPtr offscreenGWorld) __attribute__((deprecated));
+void InitCursor() __attribute__((deprecated));
+void DisposeGWorld(GWorldPtr offscreenGWorld) __attribute__((deprecated));
+
 #define MAGIC_QT_DISPLAY        DISPLAY_QUICKTIME_ID
 
 #define MAX_DEVICES     4
@@ -951,7 +959,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 display_quicktime_done(s);
                 
         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", desc.width,
-                        desc.height, s->cinfo->bpp);
+                        desc.height, get_bpp(desc.color_spec));
         s->frame->color_spec = desc.color_spec;
         s->frame->fps = desc.fps;
         s->frame->interlacing = desc.interlacing;
