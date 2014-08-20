@@ -13,7 +13,7 @@ NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
-INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @CURSES_CFLAGS@
 DECKLINK_PATH = @DECKLINK_PATH@
@@ -522,7 +522,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 @RTSP_LIB_TARGET@: @RTSP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIBS@ -o $@
 	
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
@@ -655,11 +655,11 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 @RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIBS@ -o $@
 
 @VCAPTURE_FILTER_RESIZE_LIB_TARGET@: @RESIZE_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_resize.so.@vcapture_filter_abi_version@ $^ @RESIZE_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_resize.so.@vcapture_filter_abi_version@ $^ @RESIZE_LIBS@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
