@@ -112,7 +112,7 @@ void audio_cap_jack_help(const char *driver_name)
         int channel_count;
 
         client = jack_client_open(PACKAGE_STRING, JackNullOption, &status);
-        if(status == JackFailure) {
+        if(status & JackFailure) {
                 fprintf(stderr, "[JACK capture] Opening JACK client failed.\n");
                 return;
         }
@@ -172,7 +172,7 @@ void * audio_cap_jack_init(char *cfg)
         }
 
         s->client = jack_client_open(PACKAGE_STRING, JackNullOption, &status);
-        if(status == JackFailure) {
+        if(status & JackFailure) {
                 fprintf(stderr, "[JACK capture] Opening JACK client failed.\n");
                 goto error;
         }
