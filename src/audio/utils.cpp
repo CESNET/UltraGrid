@@ -175,27 +175,27 @@ void audio_frame2::reset()
         duration = 0.0;
 }
 
-int audio_frame2::get_bps()
+int audio_frame2::get_bps() const
 {
         return bps;
 }
 
-audio_codec_t audio_frame2::get_codec()
+audio_codec_t audio_frame2::get_codec() const
 {
         return codec;
 }
 
-const char *audio_frame2::get_data(int channel)
+const char *audio_frame2::get_data(int channel) const
 {
         return channels[channel].first.get();
 }
 
-size_t audio_frame2::get_data_len(int channel)
+size_t audio_frame2::get_data_len(int channel) const
 {
         return channels[channel].second;
 }
 
-double audio_frame2::get_duration()
+double audio_frame2::get_duration() const
 {
         if (codec == AC_PCM) {
                 int samples = get_sample_count();
@@ -205,12 +205,12 @@ double audio_frame2::get_duration()
         }
 }
 
-int audio_frame2::get_channel_count()
+int audio_frame2::get_channel_count() const
 {
         return channels.size();
 }
 
-int audio_frame2::get_sample_count()
+int audio_frame2::get_sample_count() const
 {
         // for PCM, we can deduce samples count from length of the data
         if (codec == AC_PCM) {
@@ -220,12 +220,13 @@ int audio_frame2::get_sample_count()
         }
 }
 
-int audio_frame2::get_sample_rate()
+int audio_frame2::get_sample_rate() const
 {
         return sample_rate;
 }
 
-bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) {
+bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) const
+{
         return bps == frame.bps &&
                 sample_rate == frame.sample_rate &&
                 codec == frame.codec &&
@@ -514,9 +515,9 @@ void signed2unsigned(char *out, char *in, int in_len)
         }
 }
 
-void audio_channel_demux(audio_frame2 *frame, int index, audio_channel *channel)
+void audio_channel_demux(const audio_frame2 *frame, int index, audio_channel *channel)
 {
-        channel->data = (char *) frame->get_data(index);
+        channel->data = frame->get_data(index);
         channel->data_len = frame->get_data_len(index);
         channel->codec = frame->get_codec();
         channel->bps = frame->get_bps();

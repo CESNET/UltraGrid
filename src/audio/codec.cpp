@@ -223,7 +223,7 @@ struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
  * @retval pointer pointing to data
  * @retval NULL indicating that there are no data left
  */
-audio_frame2 *audio_codec_compress(struct audio_codec_state *s, audio_frame2 *frame)
+const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audio_frame2 *frame)
 {
         if(frame && s->state_count < frame->get_channel_count()) {
                 s->state = (void **) realloc(s->state, sizeof(void **) * frame->get_channel_count());

@@ -513,7 +513,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 return FALSE;
         }
 
-        audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
+        const audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
 
         size_t new_data_len = s->buffer.data_len + resampled->get_data_len(0) * output_channels;
         if(s->buffer.max_size < new_data_len) {

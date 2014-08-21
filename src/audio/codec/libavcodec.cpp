@@ -341,11 +341,11 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 }
 
                 if(s->change_bps_to) {
-                        change_bps(s->tmp.data, s->saved_desc.bps, channel->data,
+                        change_bps((char *) s->tmp.data, s->saved_desc.bps, channel->data,
                                         s->change_bps_to, channel->data_len);
                         s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->change_bps_to;
                 } else {
-                        memcpy(s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
+                        memcpy((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
                         s->tmp.data_len += channel->data_len;
                 }
         }
@@ -382,7 +382,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         }
 
         s->tmp.data_len -= offset;
-        memmove(s->tmp.data, s->tmp.data + offset, s->tmp.data_len);
+        memmove((char *) s->tmp.data, s->tmp.data + offset, s->tmp.data_len);
 
         ///fprintf(stderr, "%d %d\n", i++% 2, s->output_channel.data_len);
         if(s->output_channel.data_len) {
@@ -425,7 +425,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         int data_size = av_samples_get_buffer_size(NULL, channels,
                                         s->av_frame->nb_samples,
                                         s->codec_ctx->sample_fmt, 1);
-                        memcpy(s->output_channel.data + offset, s->av_frame->data[0],
+                        memcpy((char *) s->output_channel.data + offset, s->av_frame->data[0],
                                         data_size);
                         offset += len;
                         s->output_channel.data_len += data_size;
@@ -461,8 +461,8 @@ static void libavcodec_done(void *state)
         pthread_mutex_unlock(s->libav_global_lock);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
-        free(s->output_channel.data);
-        free(s->tmp.data);
+        free((void *) s->output_channel.data);
+        free((void *) s->tmp.data);
         av_free_packet(&s->pkt);
         av_freep(&s->samples);
 #if LIBAVCODEC_VERSION_MAJOR >= 54

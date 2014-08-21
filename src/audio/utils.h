@@ -63,7 +63,7 @@ int audio_frame2_get_sample_count(audio_frame2 *frame);
 void audio_frame2_reset(audio_frame2 *frame);
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
 struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
-void audio_channel_demux(audio_frame2 *, int, audio_channel*);
+void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
 void audio_channel_mux(audio_frame2 *, int, audio_channel*);
 #endif
 

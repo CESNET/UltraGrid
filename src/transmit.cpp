@@ -67,7 +67,6 @@
 #include "perf.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
-#include "audio/utils.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
 #include "rtp/fec.h"
@@ -633,7 +632,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
  * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
  * not sensitive to packet duplication. Otherwise, we can get into serious problems.
  */
-void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
+void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer)
 {
         int pt; /* PT set for audio in our packet format */
         unsigned int pos = 0u,
@@ -794,7 +793,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  *                       	as the mulaw and A-law standards (dynamic or std PT).
  */
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
-		audio_frame2 * buffer) {
+		const audio_frame2 * buffer) {
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
 	assert(buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW);
 

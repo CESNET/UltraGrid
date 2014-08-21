@@ -841,7 +841,7 @@ static void *audio_sender_thread(void *arg)
                                 process_statistics(s, &buffer_new);
                                 free(resample_state.resampled.data);
                                 audio_frame2 *uncompressed = &buffer_new;
-                                audio_frame2 *compressed = NULL;
+                                const audio_frame2 *compressed = NULL;
                                 while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
                                         audio_tx_send(s->tx_session, s->audio_network_device, compressed);
                                         uncompressed = NULL;
@@ -853,7 +853,7 @@ static void *audio_sender_thread(void *arg)
                             buffer_new = audio_frame2(&resample_state.resampled);
                             free(resample_state.resampled.data);
                             audio_frame2 *uncompressed = &buffer_new;
-                            audio_frame2 *compressed = NULL;
+                            const audio_frame2 *compressed = NULL;
                             while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_standard(s->tx_session, s->audio_network_device, compressed);

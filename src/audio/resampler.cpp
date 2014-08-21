@@ -34,7 +34,7 @@ void resampler_done(struct resampler *s)
         free(s);
 }
 
-audio_frame2 *resampler_resample(struct resampler *s, audio_frame2 *frame)
+const audio_frame2 *resampler_resample(struct resampler *s, const audio_frame2 *frame)
 {
         if(s->resample_to == frame->get_sample_rate()) {
                 return frame;

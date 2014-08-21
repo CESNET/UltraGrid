@@ -92,7 +92,7 @@ typedef struct
 {
         int bps;                /* bytes per sample */
         int sample_rate;
-        char *data; /* data should be at least 4B aligned */
+        const char *data; /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         audio_codec_t codec;
         double duration;
@@ -109,6 +109,7 @@ class audio_frame2
 {
 public:
         audio_frame2();
+        audio_frame2(audio_frame2&& other) = default;
         audio_frame2(struct audio_frame *);
         audio_frame2& operator=(audio_frame2&& other) = default;
         void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
@@ -117,15 +118,15 @@ public:
         void replace(int channel, size_t offset, const char *data, size_t length);
         void resize(int channel, size_t len);
         void reset();
-        int get_bps();
-        audio_codec_t get_codec();
-        const char *get_data(int channel);
-        size_t get_data_len(int channel);
-        double get_duration();
-        int get_channel_count();
-        int get_sample_count();
-        int get_sample_rate();
-        bool has_same_prop_as(audio_frame2 const &frame);
+        int get_bps() const;
+        audio_codec_t get_codec() const;
+        const char *get_data(int channel) const;
+        size_t get_data_len(int channel) const;
+        double get_duration() const;
+        int get_channel_count() const;
+        int get_sample_count() const;
+        int get_sample_rate() const;
+        bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
 private:
         int bps;                /* bytes per sample */
