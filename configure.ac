@@ -1063,6 +1063,7 @@ AC_SUBST(QUICKTIME_OBJ)
 # -------------------------------------------------------------------------------------------------
 # AV Foundation capture
 # -------------------------------------------------------------------------------------------------
+avfoundation=no
 
 if test $system = MacOSX
 then
@@ -1223,7 +1224,7 @@ AC_SUBST(SDL_LIBS)
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
 RTSP_INC=
-RTSP_LIB=
+RTSP_LIBS=
 RTSP_OBJ=
 rtsp=no
 
@@ -1261,7 +1262,7 @@ if test $rtsp_req = yes -a $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RTSP_LIB"
+LIB_MODULES="$LIB_MODULES $RTSP_LIBS"
 
 AC_SUBST(RTSP_INC)
 AC_SUBST(RTSP_LIBS)
@@ -1294,8 +1295,8 @@ case $host in
 		if test $rtsp_server_req != no -a $HAVE_RTSP_SERVER_DEP = yes 
 		then
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-                        CFLAGS="$CFLAGS -I$RTSP_SERVER_CFLAGS"
-                        CXXFLAGS="$CXXFLAGS -I$RTSP_SERVER_CFLAGS"
+                        CFLAGS="$CFLAGS $RTSP_SERVER_CFLAGS"
+                        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_CFLAGS"
 			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
                         AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
@@ -1352,7 +1353,7 @@ if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RESIZE_LIB"
+LIB_MODULES="$LIB_MODULES $RESIZE_LIBS"
 
 AC_SUBST(RESIZE_LIBS)
 AC_SUBST(RESIZE_OBJ)
