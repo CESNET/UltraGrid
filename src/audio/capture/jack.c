@@ -73,6 +73,7 @@ struct state_jack_capture {
         char *tmp;
 
         struct ring_buffer *data;
+        bool can_process;
 };
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
@@ -89,6 +90,10 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         struct state_jack_capture *s = (struct state_jack_capture *) arg;
         int i;
         int channel_size = nframes * sizeof(int32_t);
+
+        if (!s->can_process) {
+                return 0;
+        }
 
         for (i = 0; i < s->frame.ch_count; ++i) {
                 jack_default_audio_sample_t *in = jack_port_get_buffer(s->input_ports[i], nframes);
@@ -233,6 +238,8 @@ void * audio_cap_jack_init(char *cfg)
         }
 
         free(ports);
+
+        s->can_process = true;
 
         return s;
 
