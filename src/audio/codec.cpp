@@ -60,21 +60,23 @@
 
 #include "lib_common.h"
 
+#include <unordered_map>
+
 static constexpr int MAX_AUDIO_CODECS = 20;
 
-audio_codec_info_t audio_codec_info[] = {
-        [AC_NONE] = { "(none)", 0 },
-        [AC_PCM] = { "PCM", 0x0001 },
-        [AC_ALAW] = { "A-law", 0x0006 },
-        [AC_MULAW] = { "u-law", 0x0007 },
-        [AC_ADPCM_IMA_WAV] = { "ADPCM", 0x0011 },
-        [AC_SPEEX] = { "speex", 0xA109 },
-        [AC_OPUS] = { "OPUS", 0x7375704F }, // == Opus, the TwoCC isn't defined
-        [AC_G722] = { "G.722", 0x028F },
-        [AC_G726] = { "G.726", 0x0045 },
-};
+using namespace std;
 
-int audio_codec_info_len = sizeof(audio_codec_info)/sizeof(audio_codec_info_t);
+unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
+        {AC_NONE, { "(none)", 0 }},
+        {AC_PCM, { "PCM", 0x0001 }},
+        {AC_ALAW, { "A-law", 0x0006 }},
+        {AC_MULAW, { "u-law", 0x0007 }},
+        {AC_ADPCM_IMA_WAV, { "ADPCM", 0x0011 }},
+        {AC_SPEEX, { "speex", 0xA109 }},
+        {AC_OPUS, { "OPUS", 0x7375704F }}, // == Opus, the TwoCC isn't defined
+        {AC_G722, { "G.722", 0x028F }},
+        {AC_G726, { "G.726", 0x0045 }},
+};
 
 #ifdef BUILD_LIBRARIES
 static pthread_once_t libraries_initialized = PTHREAD_ONCE_INIT;
@@ -114,11 +116,11 @@ void list_audio_codecs(void) {
         printf("\t--audio-codec <audio_codec>[:sample_rate=<sampling_rate>][:bitrate=<bitrate>]\n");
         printf("\n");
         printf("Supported audio codecs:\n");
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(i != AC_NONE) {
-                        printf("\t%s", audio_codec_info[i].name);
+        for (auto const &it : audio_codec_info) {
+                if(it.first != AC_NONE) {
+                        printf("\t%s", it.second.name);
                         struct audio_codec_state *st = (struct audio_codec_state *)
-                                audio_codec_init_real(get_name_to_audio_codec((audio_codec_t) i),
+                                audio_codec_init_real(get_name_to_audio_codec(it.first),
                                                 AUDIO_CODER, true);
                         if(!st) {
                                 printf(" - unavailable");
@@ -349,10 +351,10 @@ audio_codec_t get_audio_codec(const char *codec_str) {
         if (strchr(codec, ':')) {
                 *strchr(codec, ':') = '\0';
         }
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(strcasecmp(audio_codec_info[i].name, codec) == 0) {
+        for (auto const &it : audio_codec_info) {
+                if(strcasecmp(it.second.name, codec) == 0) {
                         free(codec);
-                        return (audio_codec_t) i;
+                        return it.first;
                 }
         }
         free(codec);
@@ -415,9 +417,9 @@ uint32_t get_audio_tag(audio_codec_t codec)
 
 audio_codec_t get_audio_codec_to_tag(uint32_t tag)
 {
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(audio_codec_info[i].tag == tag) {
-                        return (audio_codec_t) i;
+        for (auto const &it : audio_codec_info) {
+                if(it.second.tag == tag) {
+                        return it.first;
                 }
         }
         return AC_NONE;

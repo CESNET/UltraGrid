@@ -76,9 +76,6 @@ typedef struct {
 } audio_codec_info_t;
 
 #ifdef __cplusplus
-extern audio_codec_info_t audio_codec_info[];
-extern int audio_codec_info_len;
-
 struct audio_codec_state;
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec, audio_codec_direction_t);

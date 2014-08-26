@@ -62,6 +62,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <stdexcept>
+
 #ifdef WORDS_BIGENDIAN
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 #endif // WORDS_BIGENDIAN
@@ -301,26 +303,26 @@ bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
 }
 
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *frame) {
-        return (struct audio_desc) { .bps = frame->bps,
-                .sample_rate = frame->sample_rate,
-                .ch_count = frame->ch_count,
-                .codec = AC_PCM
+        return audio_desc { frame->bps,
+                frame->sample_rate,
+                frame->ch_count,
+                AC_PCM
         };
 }
 
 struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *frame) {
-        return (struct audio_desc) { .bps = frame->get_bps(),
-                .sample_rate = frame->get_sample_rate(),
-                .ch_count = frame->get_channel_count(),
-                .codec = frame->get_codec()
+        return audio_desc { frame->get_bps(),
+                frame->get_sample_rate(),
+                frame->get_channel_count(),
+                frame->get_codec()
         };
 }
 
 struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
-        return (struct audio_desc) { .bps = channel->bps,
-                .sample_rate = channel->sample_rate,
-                .ch_count = 1,
-                .codec = channel->codec
+        return audio_desc { channel->bps,
+                channel->sample_rate,
+                1,
+                channel->codec
         };
 }
 

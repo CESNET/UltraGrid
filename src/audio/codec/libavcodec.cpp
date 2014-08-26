@@ -46,6 +46,8 @@
  *
  */
 
+#define __STDC_CONSTANT_MACROS
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -478,11 +480,11 @@ static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV,
 static int supported_bytes_per_second[] = { 2, 0 };
 
 struct audio_codec libavcodec_audio_codec = {
-        .supported_codecs = supported_codecs,
-        .supported_bytes_per_second = supported_bytes_per_second,
-        .init = libavcodec_init,
-        .compress = libavcodec_compress,
-        .decompress = libavcodec_decompress,
-        .done = libavcodec_done
+        supported_codecs,
+        supported_bytes_per_second,
+        libavcodec_init,
+        libavcodec_compress,
+        libavcodec_decompress,
+        libavcodec_done
 };
 
