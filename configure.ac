@@ -2650,12 +2650,11 @@ AC_SUBST(CURSES_LIBS)
 # OpenSSL-libcrypto
 # -------------------------------------------------------------------------------------------------
 crypto=no
-crypto_req=auto
 AC_ARG_ENABLE(openssl,
-[  --disable-openssl       disable OpenSSL support (default is auto)]
+[  --enable-openssl        enable OpenSSL support (default is disable)]
 [                          Requires: crypto],
     [crypto_req=$enableval],
-    [crypto_req=auto]
+    [crypto_req=no]
     )
 
 PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
