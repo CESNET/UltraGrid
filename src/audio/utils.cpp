@@ -216,7 +216,7 @@ int audio_frame2::get_sample_count() const
 {
         // for PCM, we can deduce samples count from length of the data
         if (codec == AC_PCM) {
-                return channels[0].second / channels.size() / get_bps();
+                return channels[0].second / get_bps();
         } else {
                 throw logic_error("Unknown sample count for compressed audio!");
         }
