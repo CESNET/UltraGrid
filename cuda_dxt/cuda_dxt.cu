@@ -81,10 +81,10 @@ struct vec3 : public vec2 {
     }
 };
 
-uvec3::uvec3(const vec3 & v) : r(v.r), g(v.g), b(v.b) {}
-uvec2::uvec2(const vec2 & v) : r(v.r), g(v.g) {}
-vec2::vec2(const vec3 & v) : r(v.r), g(v.g) {}
-vec2::vec2(const uvec2 & v) : r(v.r), g(v.g) {}
+__device__ uvec3::uvec3(const vec3 & v) : r(v.r), g(v.g), b(v.b) {}
+__device__ uvec2::uvec2(const vec2 & v) : r(v.r), g(v.g) {}
+__device__ vec2::vec2(const vec3 & v) : r(v.r), g(v.g) {}
+__device__ vec2::vec2(const uvec2 & v) : r(v.r), g(v.g) {}
 
 
 __device__ static vec3 min(const vec3 & a, const vec3 & b) {
