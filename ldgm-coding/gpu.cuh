@@ -1,8 +1,3 @@
-#include <cuda.h>
-#include <cuda_runtime.h>
-
-
-
 struct coding_params {
     int num_lost;
     int k;

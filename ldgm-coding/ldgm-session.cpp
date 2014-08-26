@@ -32,7 +32,6 @@
 #include <string.h>
 #include "crypto/crc.h"
 #include "ldgm-session.h"
-#include "gpu.cuh"
 #include "timer-util.h"
 
 using namespace std;

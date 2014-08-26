@@ -22,8 +22,6 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
 #include "ldgm-session.h"
 
 #include <map>
@@ -59,46 +57,9 @@ class LDGM_session_gpu : public LDGM_session
 
 
 	/* ====================  LIFECYCLE     ======================================= */
-	LDGM_session_gpu () {
-		printf("GPU LDGM in progress .... \n");
-
-		error_vec=NULL;
-		sync_vec=NULL;
-
-		ERROR_VEC=NULL;
-		SYNC_VEC=NULL;
-
-		PCM=NULL;
-
-		OUTBUF_SIZE=0;
-		OUTBUF=NULL;
-
-
-	}                             /* constructor      */
+	LDGM_session_gpu ();                                  /* constructor      */
 	LDGM_session_gpu ( const LDGM_session_gpu &other );   /* copy constructor */
-	~LDGM_session_gpu () {
-		printf("LDGM TIME GPU: %f ms\n",this->elapsed_sum2/(double)this->no_frames2 );
-		cudaError_t error;
-                while (!freeBuffers.empty()) {
-                        char *buf = freeBuffers.front();
-                        freeBuffers.pop();
-                        error = cudaFreeHost(buf);
-                        if(error != cudaSuccess)printf("memoryPool: %s\n", cudaGetErrorString(error));
-                }
-
-		error = cudaFreeHost(error_vec);
-		cuda_check_error("error_vec");
-		error = cudaFreeHost(sync_vec);
-		cuda_check_error("sync_vec");
-
-
-  //   	cudaFree(OUTBUF);
-    	cudaFree(PCM);
-
-    	cudaFree(ERROR_VEC);
-    	cudaFree(SYNC_VEC);
-
-	}                           /* destructor       */
+	~LDGM_session_gpu ();                                 /* destructor       */
 
 	/* ====================  ACCESSORS     ======================================= */
 

@@ -20,6 +20,8 @@
 #include <signal.h>
 #include <emmintrin.h>
 #include <sys/time.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "timer-util.h"
 #include "gpu.cuh"
 #include "ldgm-session-gpu.h"
