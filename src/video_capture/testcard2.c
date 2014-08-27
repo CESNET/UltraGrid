@@ -526,11 +526,12 @@ struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame **audio)
         return s->frame;
 }
 
-struct vidcap_type *vidcap_testcard2_probe(void)
+struct vidcap_type *vidcap_testcard2_probe(bool verbose)
 {
+        UNUSED(verbose);
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_TESTCARD2_ID;
                 vt->name = "testcard2";

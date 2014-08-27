@@ -37,7 +37,7 @@
 
 #define VIDCAP_SCREEN_ID 0x5645ba22
 
-struct vidcap_type      *vidcap_screen_x11_probe(void);
+struct vidcap_type      *vidcap_screen_x11_probe(bool verbose);
 void                    *vidcap_screen_x11_init(const struct vidcap_params *params);
 void                     vidcap_screen_x11_done(void *state);
 struct video_frame      *vidcap_screen_x11_grab(void *state, struct audio_frame **audio);

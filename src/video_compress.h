@@ -112,8 +112,16 @@ const char *get_compress_name(struct compress_state *);
 void compress_frame(struct compress_state *, struct video_frame*);
 struct video_frame *compress_pop(struct compress_state *);
 
+
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#include <list>
+#include <string>
+#include <tuple>
+std::list<std::tuple<std::string, int, long>> get_compress_capabilities();
 #endif
 
 #endif /* __video_compress_h */

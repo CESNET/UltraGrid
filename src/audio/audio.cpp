@@ -90,8 +90,6 @@
 
 static volatile bool should_exit_audio = false;
 
-int audio_init_state_ok;
-
 struct audio_device_t {
         int index;
         void *state;

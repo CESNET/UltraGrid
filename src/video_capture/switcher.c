@@ -78,11 +78,12 @@ struct vidcap_switcher_state {
 
 
 struct vidcap_type *
-vidcap_switcher_probe(void)
+vidcap_switcher_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = 0x1D3E1956;
 		vt->name        = "switcher";

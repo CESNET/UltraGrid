@@ -50,7 +50,7 @@
 extern "C" {
 #endif
 
-struct vidcap_type	*vidcap_decklink_probe(void);
+struct vidcap_type	*vidcap_decklink_probe(bool verbose);
 void			*vidcap_decklink_init(const struct vidcap_params *params);
 void			 vidcap_decklink_done(void *state);
 struct video_frame	*vidcap_decklink_grab(void *state, struct audio_frame **audio);

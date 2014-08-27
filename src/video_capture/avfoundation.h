@@ -41,7 +41,7 @@ extern "C" {
 
         struct audio_frame;
 
-        struct vidcap_type	*vidcap_avfoundation_probe(void);
+        struct vidcap_type	*vidcap_avfoundation_probe(bool verbose);
         void			*vidcap_avfoundation_init(const struct vidcap_params *params);
         void			 vidcap_avfoundation_done(void *state);
         struct video_frame	*vidcap_avfoundation_grab(void *state, struct audio_frame **audio);

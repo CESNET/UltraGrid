@@ -106,6 +106,8 @@ extern char *sage_network_device;
 #define RATE_AUTO -1
 #define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)
 
+void print_capabilities(void);
+
 #ifdef __cplusplus
 }
 #endif

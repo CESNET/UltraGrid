@@ -375,18 +375,8 @@ decklink_help()
 	printf("\t\t(You can omit device index, mode and color space provided that your cards supports format autodetection.)\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-#ifdef WIN32
-	result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
-		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
-	if (FAILED(result))
-#else
-	deckLinkIterator = CreateDeckLinkIteratorInstance();
-	if (deckLinkIterator == NULL)
-#endif
-	{
-		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
-		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
-                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
+	deckLinkIterator = create_decklink_iterator();
+	if (deckLinkIterator == NULL) {
 		return 0;
 	}
 	
@@ -584,17 +574,59 @@ settings_init(void *state, char *fmt)
 /* External API ***************************************************************/
 
 struct vidcap_type *
-vidcap_decklink_probe(void)
+vidcap_decklink_probe(bool verbose)
 {
-
 	struct vidcap_type*		vt;
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DECKLINK_ID;
 		vt->name        = "decklink";
 		vt->description = "Blackmagic DeckLink card";
-	}
+
+                IDeckLinkIterator*		deckLinkIterator{};
+                IDeckLink*			deckLink;
+                int				numDevices = 0;
+                HRESULT				result;
+
+                if (verbose) {
+                        // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+                        deckLinkIterator = create_decklink_iterator(false);
+                        if (deckLinkIterator != NULL) {
+                                // Enumerate all cards in this system
+                                while (deckLinkIterator->Next(&deckLink) == S_OK)
+                                {
+                                        vt->card_count = numDevices + 1;
+                                        vt->cards = (struct vidcap_card *)
+                                                realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                        memset(&vt->cards[numDevices], 0, sizeof(struct vidcap_card));
+                                        snprintf(vt->cards[numDevices].id, sizeof vt->cards[numDevices].id,
+                                                        "%d", numDevices);
+                                        BMD_STR                 deviceNameString = NULL;
+                                        const char *		deviceNameCString = NULL;
+
+                                        // *** Print the model name of the DeckLink card
+                                        result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
+                                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                        if (result == S_OK)
+                                        {
+                                                snprintf(vt->cards[numDevices].name, sizeof vt->cards[numDevices].name,
+                                                                "%s", deviceNameCString);
+                                                release_bmd_api_str(deviceNameString);
+                                                free((void *)deviceNameCString);
+                                        }
+
+                                        // Increment the total number of DeckLink cards found
+                                        numDevices++;
+
+                                        // Release the IDeckLink instance when we've finished with it to prevent leaks
+                                        deckLink->Release();
+                                }
+
+                                deckLinkIterator->Release();
+                        }
+                }
+        }
 	return vt;
 }
 
@@ -799,19 +831,9 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 dnum = 0;
                 deckLink = NULL;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-#ifdef WIN32
-		result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
-			IID_IDeckLinkIterator, (void **) &deckLinkIterator);
-		if (FAILED(result))
-#else
-		deckLinkIterator = CreateDeckLinkIteratorInstance();
-                if (deckLinkIterator == NULL)
-#endif
-                {
-                        fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
-                        fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
-                                        BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                        goto error;
+                deckLinkIterator = create_decklink_iterator();
+                if (deckLinkIterator == NULL) {
+                        return NULL;
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                 {

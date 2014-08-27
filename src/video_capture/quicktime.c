@@ -1012,11 +1012,12 @@ error:
 /*******************************************************************************
  * Public API
  ******************************************************************************/
-struct vidcap_type *vidcap_quicktime_probe(void)
+struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 {
+        UNUSED(verbose);
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_QUICKTIME_ID;
                 vt->name = "quicktime";

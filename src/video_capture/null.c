@@ -77,11 +77,12 @@ struct video_frame *vidcap_null_grab(void *state, struct audio_frame **audio)
         return NULL;
 }
 
-struct vidcap_type *vidcap_null_probe(void)
+struct vidcap_type *vidcap_null_probe(bool verbose)
 {
+        UNUSED(verbose);
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_NULL_ID;
                 vt->name = "none";

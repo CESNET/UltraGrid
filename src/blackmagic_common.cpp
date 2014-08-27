@@ -44,6 +44,7 @@
 #include "debug.h"
 
 #include "blackmagic_common.h"
+#include "DeckLinkAPIVersion.h"
 #include <unordered_map>
 
 using namespace std;
@@ -99,5 +100,28 @@ void release_bmd_api_str(BMD_STR string)
 #else
         UNUSED(string);
 #endif
+}
+
+IDeckLinkIterator *create_decklink_iterator(bool verbose)
+{
+        IDeckLinkIterator *deckLinkIterator{};
+#ifdef WIN32
+        HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+                        IID_IDeckLinkIterator, (void **) &deckLinkIterator);
+        if (FAILED(result)) {
+                deckLinkIterator = nullptr;
+        }
+#else
+        deckLinkIterator = CreateDeckLinkIteratorInstance();
+#endif
+
+        if (!deckLinkIterator && verbose) {
+                fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+                fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
+
+        }
+
+        return deckLinkIterator;
 }
 

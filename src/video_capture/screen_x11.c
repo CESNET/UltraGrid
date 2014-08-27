@@ -235,15 +235,22 @@ static void *grab_thread(void *args)
         return NULL;
 }
 
-struct vidcap_type * vidcap_screen_x11_probe(void)
+struct vidcap_type * vidcap_screen_x11_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id          = VIDCAP_SCREEN_ID;
                 vt->name        = "screen";
                 vt->description = "Grabbing screen";
+
+                if (verbose) {
+                        vt->card_count = 1;
+                        vt->cards = calloc(vt->card_count, sizeof(struct vidcap_card));
+                        // vt->cards[0].id can be "" since screen cap. doesn't require parameters
+                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+                }
         }
         return vt;
 }

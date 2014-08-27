@@ -1073,10 +1073,11 @@ get_sdp_filename(const char *url, char *sdp_filename) {
 }
 
 struct vidcap_type *
-vidcap_rtsp_probe(void) {
+vidcap_rtsp_probe(bool verbose) {
+    UNUSED(verbose);
     struct vidcap_type *vt;
 
-    vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+    vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
     if (vt != NULL) {
         vt->id = VIDCAP_RTSP_ID;
         vt->name = "rtsp";

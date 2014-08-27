@@ -129,6 +129,7 @@
 #define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_LDGM_DEVICE (('L' << 8) | 'D')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
+#define OPT_CAPABILITIES (('C' << 8) | 'C')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -505,6 +506,7 @@ int main(int argc, char *argv[])
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
+                {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -781,6 +783,10 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_WINDOW_TITLE:
                         window_title = optarg;
+                        break;
+                case OPT_CAPABILITIES:
+                        print_capabilities();
+                        return EXIT_SUCCESS;
                         break;
                 case '?':
                 default:

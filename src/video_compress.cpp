@@ -43,8 +43,11 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <list>
 #include <stdio.h>
+#include <string>
 #include <string.h>
+#include <tuple>
 #include <vector>
 
 #include "messaging.h"
@@ -62,9 +65,10 @@
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
 
-using std::vector;
+using namespace std;
 
 namespace {
+
 /* *_str are symbol names inside library */
 /**
  * @brief This struct describes individual compress module
@@ -95,6 +99,7 @@ struct compress_t {
         const char         *compress_pop_str;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
+        list<tuple<string, int, long>> presets; ///< list of available presets
 };
 
 /**
@@ -156,7 +161,11 @@ struct compress_t compress_modules[] = {
                 MK_NAME(dxt_glsl_compress),
                 MK_NAME(NULL),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {
+                        make_tuple(string("DXT1"), 35, 250*1000*1000 ),
+                        make_tuple(string("DXT5"), 50, 500*1000*1000 ),
+                },
         },
 #endif
 #if defined HAVE_JPEG || defined  BUILD_LIBRARIES
@@ -167,7 +176,12 @@ struct compress_t compress_modules[] = {
                 MK_NAME(jpeg_compress),
                 MK_NAME(NULL),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {
+                        make_tuple("60", 60, 30*1000*1000 ),
+                        make_tuple("80", 70, 36*1000*1000 ),
+                        make_tuple("90", 80, 44*1000*1000 ),
+                },
         },
 #endif
 #if defined HAVE_COMPRESS_UYVY || defined  BUILD_LIBRARIES
@@ -178,7 +192,8 @@ struct compress_t compress_modules[] = {
                 MK_NAME(uyvy_compress),
                 MK_NAME(NULL),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {},
         },
 #endif
 #if defined HAVE_LAVC || defined  BUILD_LIBRARIES
@@ -189,7 +204,13 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_tile),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {
+                        make_tuple("codec=H.264:bitrate=5M", 20, 5*1000*1000),
+                        make_tuple("codec=H.264:bitrate=10M", 30, 10*1000*1000),
+                        make_tuple("codec=H.264:bitrate=15M", 50, 15*1000*1000),
+                        make_tuple("codec=MJPEG", 40, 50*1000*1000),
+                },
         },
 #endif
 #if defined HAVE_CUDA_DXT || defined  BUILD_LIBRARIES
@@ -200,7 +221,11 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 MK_NAME(cuda_dxt_compress_tile),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {
+                        make_tuple("DXT1", 35, 250*1000*1000),
+                        make_tuple("DXT5", 50, 500*1000*1000),
+                }
         },
 #endif
 #endif
@@ -211,7 +236,8 @@ struct compress_t compress_modules[] = {
                 MK_STATIC(none_compress),
                 MK_STATIC(NULL),
                 MK_NAME(NULL),
-                NULL
+                NULL,
+                {},
         },
 };
 
@@ -292,6 +318,22 @@ void show_compress_help()
         for(i = 0; i < compress_modules_count; ++i) {
                 printf("\t%s\n", available_compress_modules[i]->name);
         }
+}
+
+list<tuple<string, int, long>> get_compress_capabilities()
+{
+        list<tuple<string, int, long>> ret;
+
+        pthread_once(&compression_list_initialized, init_compressions);
+
+        for (int i = 0; i < compress_modules_count; ++i) {
+                for (auto const & it : available_compress_modules[i]->presets) {
+                        ret.emplace_back(string(available_compress_modules[i]->name) + ":" + get<0>(it),
+                                        get<1>(it), get<2>(it));
+                }
+        }
+
+        return ret;
 }
 
 /**

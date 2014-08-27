@@ -635,15 +635,22 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
         return NULL;
 }
 
-struct vidcap_type *vidcap_testcard_probe(void)
+struct vidcap_type *vidcap_testcard_probe(bool verbose)
 {
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_TESTCARD_ID;
                 vt->name = "testcard";
                 vt->description = "Video testcard";
+
+                if (verbose) {
+                        vt->card_count = 1;
+                        vt->cards = calloc(vt->card_count, sizeof(struct vidcap_card));
+                        snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "1920:1080:25:UYVY:i");
+                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing 1080@50i signal");
+                }
         }
         return vt;
 }

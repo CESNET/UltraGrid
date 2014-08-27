@@ -147,9 +147,13 @@ static void show_help()
                 int fd = open(name, O_RDWR);
                 if(fd == -1) continue;
 
-                printf("\t%sDevice %s:\n", 
+                struct v4l2_capability capab;
+                memset(&capab, 0, sizeof capab);
+                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+
+                printf("\t%sDevice %s (%s):\n",
                                 (i == 0 ? "(*) " : "    "),
-                                name);
+                                name, capab.card);
 
 
                 struct v4l2_fmtdesc format;
@@ -233,15 +237,39 @@ static void show_help()
         }
 }
 
-struct vidcap_type * vidcap_v4l2_probe(void)
+struct vidcap_type * vidcap_v4l2_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id          = VIDCAP_V4L2_ID;
                 vt->name        = "v4l2";
                 vt->description = "V4L2 capture";
+
+                vt->card_count = 0;
+                vt->cards = 0;
+
+                if (verbose) {
+                        for (int i = 0; i < 64; ++i) {
+                                char name[32];
+
+                                snprintf(name, 32, "/dev/video%d", i);
+                                int fd = open(name, O_RDWR);
+                                if(fd == -1) continue;
+
+                                vt->card_count += 1;
+                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
+                                struct v4l2_capability capab;
+                                memset(&capab, 0, sizeof capab);
+                                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+                                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
+
+                                close(fd);
+                        }
+                }
         }
         return vt;
 }

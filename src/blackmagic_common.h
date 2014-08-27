@@ -58,5 +58,7 @@ std::string bmd_hresult_to_string(HRESULT res);
 const char *get_cstr_from_bmd_api_str(BMD_STR string);
 void release_bmd_api_str(BMD_STR string);
 
+IDeckLinkIterator *create_decklink_iterator(bool verbose = true);
+
 #endif // defined BLACKMAGIC_COMMON_H
 

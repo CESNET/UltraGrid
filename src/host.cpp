@@ -9,6 +9,12 @@
 
 #include "host.h"
 
+#include "video_capture.h"
+#include "video_compress.h"
+#include <iostream>
+
+using namespace std;
+
 unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 1;
 
@@ -32,4 +38,15 @@ bool ldgm_device_gpu = false;
 const char *window_title = NULL;
 
 int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
+
+void print_capabilities(void)
+{
+        cout << "Compressions:" << endl;
+        auto const & compress_capabilities = get_compress_capabilities();
+        for (auto const & it : compress_capabilities) {
+                cout << "(" << get<0>(it) << ";" << get<1>(it) << ";" << get<2>(it) <<")\n";
+        }
+        cout << "Capturers:" << endl;
+        print_available_capturers();
+}
 

@@ -144,15 +144,28 @@ static void usage(void)
 }
 
 struct vidcap_type *
-vidcap_deltacast_probe(void)
+vidcap_deltacast_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DELTACAST_ID;
 		vt->name        = "deltacast";
 		vt->description = "DELTACAST card";
+
+                if (verbose) {
+                        ULONG             Result,DllVersion,NbBoards;
+                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+                        if (Result == VHDERR_NOERROR) {
+                                vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
+                                vt->card_count = NbBoards;
+                                for (ULONG i = 0; i < NbBoards; ++i) {
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %d", i);
+                                }
+                        }
+                }
 	}
 	return vt;
 }

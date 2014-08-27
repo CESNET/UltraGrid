@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-struct vidcap_type      *vidcap_switcher_probe(void);
+struct vidcap_type      *vidcap_switcher_probe(bool verbose);
 void                    *vidcap_switcher_init(const struct vidcap_params *params);
 void                     vidcap_switcher_done(void *state);
 struct video_frame      *vidcap_switcher_grab(void *state, struct audio_frame **audio);

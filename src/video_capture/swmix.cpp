@@ -267,11 +267,12 @@ struct vidcap_swmix_state {
 
 
 struct vidcap_type *
-vidcap_swmix_probe(void)
+vidcap_swmix_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_SWMIX_ID;
 		vt->name        = "swmix";

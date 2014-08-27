@@ -47,7 +47,7 @@
 
 struct audio_frame;
 
-struct vidcap_type	*vidcap_null_probe(void);
+struct vidcap_type	*vidcap_null_probe(bool verbose);
 void			*vidcap_null_init(const struct vidcap_params *params);
 void			 vidcap_null_done(void *state);
 struct video_frame	*vidcap_null_grab(void *state, struct audio_frame **audio);

@@ -76,6 +76,23 @@
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Dvi.h>
 
+#include <string>
+#include <unordered_map>
+
+using namespace std;
+
+unordered_map<ULONG, string> board_type_map = {
+        { VHD_BOARDTYPE_HD, "HD board type" },
+        { VHD_BOARDTYPE_HDKEY, "HD key board type" },
+        { VHD_BOARDTYPE_SD, "SD board type"},
+        { VHD_BOARDTYPE_SDKEY, "SD key board type"},
+        { VHD_BOARDTYPE_DVI, "DVI board type"},
+        { VHD_BOARDTYPE_CODEC, "CODEC board type"},
+        { VHD_BOARDTYPE_3G, "3G board type"},
+        { VHD_BOARDTYPE_3GKEY, "3G key board type"},
+        { VHD_BOARDTYPE_HDMI, "HDMI board type"},
+};
+
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
 
 struct vidcap_deltacast_dvi_state {
@@ -100,7 +117,7 @@ static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused))
 static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
-        printf("-t deltacast[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
+        printf("-t deltacast-dvi[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
                         "[:edid=<edid>|preset=<format>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
@@ -125,21 +142,12 @@ static void usage(void)
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
                 if (Result == VHDERR_NOERROR)
                 {
-                        printf("\t\tBoard %d: ", i);
-                        switch(BoardType)
-                        {
-                                case VHD_BOARDTYPE_HD :    printf("HD board type"); break;
-                                case VHD_BOARDTYPE_HDKEY : printf("HD key board type"); break;
-                                case VHD_BOARDTYPE_SD :    printf("SD board type"); break;
-                                case VHD_BOARDTYPE_SDKEY : printf("SD key board type"); break;
-                                case VHD_BOARDTYPE_DVI :   printf("DVI board type"); break;
-                                case VHD_BOARDTYPE_CODEC : printf("CODEC board type"); break;
-                                case VHD_BOARDTYPE_3G :    printf("3G board type"); break;
-                                case VHD_BOARDTYPE_3GKEY : printf("3G key board type"); break;
-                                case VHD_BOARDTYPE_HDMI  : printf("HDMI board type"); break;
-                                default :                  printf("Unknown board type"); break;
+                        string board{"Unknown board type"};
+                        auto it = board_type_map.find(BoardType);
+                        if (it != board_type_map.end()) {
+                                board = it->second;
                         }
-                        printf("\n");
+                        printf("\t\tBoard %d: %s\n", i, board.c_str());
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }
@@ -233,15 +241,43 @@ static const char * GetErrorDescription(ULONG CodeError)
 }
 
 struct vidcap_type *
-vidcap_deltacast_dvi_probe(void)
+vidcap_deltacast_dvi_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DELTACAST_DVI_ID;
 		vt->name        = "deltacast-dvi";
-		vt->description = "DELTACAST DVI card";
+		vt->description = "DELTACAST DVI/HDMI card";
+
+                if (verbose) {
+                        ULONG Result,DllVersion,NbBoards;
+                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+                        if (Result == VHDERR_NOERROR) {
+                                vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
+                                vt->card_count = NbBoards;
+                                for (ULONG i = 0; i < NbBoards; ++i) {
+                                        string board{"Unknown board type"};
+                                        ULONG BoardType;
+                                        HANDLE BoardHandle = NULL;
+                                        Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
+                                        VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                                        if (Result == VHDERR_NOERROR)
+                                        {
+                                                auto it = board_type_map.find(BoardType);
+                                                if (it != board_type_map.end()) {
+                                                        board = it->second;
+                                                }
+                                        }
+                                        VHD_CloseBoardHandle(BoardHandle);
+
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%d",
+                                                        board.c_str(), i);
+                                }
+                        }
+                }
 	}
 	return vt;
 }

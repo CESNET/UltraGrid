@@ -44,7 +44,7 @@ struct audio_frame;
 #define VIDCAP_RTSP_ID	0x45b3d828  //md5 hash of VIDCAP_RTSP_ID string == a208d26f519a2664a48781c845b3d828
 
 struct vidcap_type *
-vidcap_rtsp_probe(void);
+vidcap_rtsp_probe(bool verbose);
 void *
 vidcap_rtsp_init(const struct vidcap_params *params);
 void

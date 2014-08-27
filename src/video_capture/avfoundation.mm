@@ -432,15 +432,30 @@ fromConnection:(AVCaptureConnection *)connection
 }
 @end
 
-struct vidcap_type *vidcap_avfoundation_probe(void)
+struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
 {
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_AVFOUNDATION_ID;
                 vt->name = "avfoundation";
                 vt->description = "AV Foundation capture device";
+
+                if (verbose) {
+                        int i = 0;
+                        NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+                        for (AVCaptureDevice *device in devices) {
+                                vt->card_count += 1;
+                                vt->cards = (struct vidcap_card *) realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                                "device=%d", i);
+                                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                                "AV Foundation %s", [[device localizedName] UTF8String]);
+                                i++;
+                        }
+                }
         }
 
         return vt;

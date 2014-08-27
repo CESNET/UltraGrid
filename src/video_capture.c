@@ -87,6 +87,9 @@
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
+static int vidcap_init_devices(bool verbose);
+static void vidcap_free_devices(void);
+
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help).
  */
@@ -128,7 +131,7 @@ struct vidcap_device_api {
 
         const char              *library_name; ///< @copydoc decoder_table_t::library_name
 
-        struct vidcap_type    *(*func_probe) (void);
+        struct vidcap_type    *(*func_probe) (bool verbose);
         const char              *func_probe_str;
         void                  *(*func_init) (const struct vidcap_params *param);
         const char              *func_init_str;
@@ -408,7 +411,7 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
  * Figure out where to close libraries. vidcap_free_devices() is not the right place because
  * it is called to early.
  */
-int vidcap_init_devices(void)
+static int vidcap_init_devices(bool verbose)
 {
         unsigned int i;
         struct vidcap_type *dt;
@@ -432,7 +435,7 @@ int vidcap_init_devices(void)
                 }
 #endif
 
-                dt = vidcap_device_table[i].func_probe();
+                dt = vidcap_device_table[i].func_probe(verbose);
                 if (dt != NULL) {
                         vidcap_device_table[i].id = dt->id;
                         available_vidcap_devices[available_vidcap_device_count++] = dt;
@@ -443,11 +446,12 @@ int vidcap_init_devices(void)
 }
 
 /** Should be called after video capture is initialized. */
-void vidcap_free_devices(void)
+static void vidcap_free_devices(void)
 {
         int i;
 
         for (i = 0; i < available_vidcap_device_count; i++) {
+                free(available_vidcap_devices[i]->cards);
                 free(available_vidcap_devices[i]);
                 available_vidcap_devices[i] = NULL;
         }
@@ -481,10 +485,22 @@ void list_video_capture_devices()
         struct vidcap_type *vt;
 
         printf("Available capture devices:\n");
-        vidcap_init_devices();
+        vidcap_init_devices(false);
         for (i = 0; i < vidcap_get_device_count(); i++) {
                 vt = vidcap_get_device_details(i);
                 printf("\t%s\n", vt->name);
+        }
+        vidcap_free_devices();
+}
+
+void print_available_capturers()
+{
+        vidcap_init_devices(true);
+        for (int i = 0; i < vidcap_get_device_count(); i++) {
+                struct vidcap_type *vt = vidcap_get_device_details(i);
+                for (int i = 0; i < vt->card_count; ++i) {
+                        printf("(%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
+                }
         }
         vidcap_free_devices();
 }
@@ -504,7 +520,7 @@ int initialize_video_capture(struct module *parent,
         pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
         pthread_mutex_lock(vidcap_lock);
 
-        vidcap_init_devices();
+        vidcap_init_devices(false);
         for (i = 0; i < vidcap_get_device_count(); i++) {
                 vt = vidcap_get_device_details(i);
                 if (strcmp(vt->name, vidcap_params_get_driver(params)) == 0) {
