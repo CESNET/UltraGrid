@@ -1,41 +1,28 @@
+/**
+ * @file   video_display/decklink.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_display/decklink.cpp
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Colin Perkins    <csp@isi.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
- * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -46,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -69,6 +54,8 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
+#include <mutex>
+#include <queue>
 #include <vector>
 
 #ifdef WIN32
@@ -130,6 +117,8 @@ public:
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
+class DeckLinkFrame;
+typedef pair<queue<DeckLinkFrame *> , mutex> buffer_pool_t;
 
 class DeckLinkTimecode : public IDeckLinkTimecode{
                 BMDTimecodeBCD timecode;
@@ -154,27 +143,28 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
                 
                 void STDMETHODCALLTYPE SetBCD(BMDTimecodeBCD timecode) { this->timecode = timecode; }
-        };
+};
 
-class DeckLinkFrame;
 class DeckLinkFrame : public IDeckLinkMutableVideoFrame
 {
                 long width;
                 long height;
                 long rawBytes;
                 BMDPixelFormat pixelFormat;
-                char *data;
+                unique_ptr<char []> data;
 
                 IDeckLinkTimecode *timecode;
 
                 long ref;
 
+                buffer_pool_t &buffer_pool;
         protected:
-                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf); 
-                virtual ~DeckLinkFrame();
+                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool);
 
         public:
-        	static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat);                
+                virtual ~DeckLinkFrame();
+                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool);
+
                 /* IUnknown */
                 virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
                 virtual ULONG STDMETHODCALLTYPE AddRef();
@@ -203,13 +193,12 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame
 class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtensions
 {
         private:
-                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf); 
-                ~DeckLink3DFrame();
-                
-                DeckLinkFrame *rightEye;
+                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool);
+                unique_ptr<DeckLinkFrame> rightEye; // rightEye ref count is always >= 1 therefore deleted by owner (this class)
 
         public:
-                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat);
+                ~DeckLink3DFrame();
+                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool);
                 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
@@ -257,6 +246,8 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat;
 
         enum link           link;
+
+        buffer_pool_t       buffer_pool;
  };
 
 static void show_help(void);
@@ -355,36 +346,57 @@ display_decklink_getf(void *state)
         assert(s->magic == DECKLINK_MAGIC);
 
         if (s->initialized) {
-                if(s->stereo) {
-                        IDeckLinkMutableVideoFrame *deckLinkFrame;
-                        IDeckLinkVideoFrame     *deckLinkFrameRight;
-                        assert(s->devices_cnt == 1);
-                        deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
-                                        s->vid_desc.height,
-                                        vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec),
-                                        s->pixelFormat);
-                        (*deckLinkFrames)[0] = deckLinkFrame;
-                                
-                        deckLinkFrame->GetBytes((void **) &out->tiles[0].data);
-                        
-                        dynamic_cast<DeckLink3DFrame *>(deckLinkFrame)->GetFrameForRightEye(&deckLinkFrameRight);
-                        deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
-                        // release immedieatelly (parent still holds the reference)
-                        deckLinkFrameRight->Release();
-                } else {
-                        for(int i = 0; i < s->devices_cnt; ++i) {
-                                IDeckLinkMutableVideoFrame *deckLinkFrame;
-                                deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width, s->vid_desc.height,
-                                                vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec),
-                                                s->pixelFormat);
-                                (*deckLinkFrames)[i] = deckLinkFrame;
-                                
-                                deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
+                for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
+                        const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
+                        IDeckLinkMutableVideoFrame *deckLinkFrame{};
+                        lock_guard<mutex> lg(s->buffer_pool.second);
+
+                        while (!s->buffer_pool.first.empty()) {
+                                auto tmp = s->buffer_pool.first.front();
+                                IDeckLinkMutableVideoFrame *frame;
+                                if (s->stereo)
+                                        frame = dynamic_cast<DeckLink3DFrame *>(tmp);
+                                else
+                                        frame = dynamic_cast<DeckLinkFrame *>(tmp);
+                                s->buffer_pool.first.pop();
+                                if (!frame || // wrong type
+                                                frame->GetWidth() != s->vid_desc.width ||
+                                                frame->GetHeight() != s->vid_desc.height ||
+                                                frame->GetRowBytes() != linesize ||
+                                                frame->GetPixelFormat() != s->pixelFormat) {
+                                        delete tmp;
+                                } else {
+                                        deckLinkFrame = frame;
+                                        deckLinkFrame->AddRef();
+                                        break;
+                                }
+                        }
+                        if (!deckLinkFrame) {
+                                if (s->stereo)
+                                        deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
+                                                        s->vid_desc.height, linesize,
+                                                        s->pixelFormat, s->buffer_pool);
+                                else
+                                        deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width,
+                                                        s->vid_desc.height, linesize,
+                                                        s->pixelFormat, s->buffer_pool);
+                        }
+                        (*deckLinkFrames)[i] = deckLinkFrame;
+
+                        deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
+
+                        if (s->stereo) {
+                                IDeckLinkVideoFrame     *deckLinkFrameRight{};
+                                dynamic_cast<DeckLink3DFrame *>(deckLinkFrame)->GetFrameForRightEye(&deckLinkFrameRight);
+                                deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
+                                // release immedieatelly (parent still holds the reference)
+                                deckLinkFrameRight->Release();
+
+                                ++i;
                         }
                 }
         }
 
-        /* stub -- real frames are taken with get_sub_frame call */
         return out;
 }
 
@@ -733,7 +745,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         }
 
 
-        s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
+        s = new state_decklink{};
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
@@ -1025,7 +1037,13 @@ void display_decklink_done(void *state)
                 }
         }
 
-        free(s);
+        while (!s->buffer_pool.first.empty()) {
+                auto tmp = s->buffer_pool.first.front();
+                s->buffer_pool.first.pop();
+                delete tmp;
+        }
+
+        delete s;
 }
 
 display_type_t *display_decklink_probe(void)
@@ -1211,27 +1229,26 @@ ULONG DeckLinkFrame::AddRef()
 
 ULONG DeckLinkFrame::Release()
 {
-        if(--ref == 0)
-                delete this;
+        if (--ref == 0) {
+                lock_guard<mutex> lg(buffer_pool.second);
+                buffer_pool.first.push(this);
+        }
 	return ref;
 }
 
-DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf)
-	: width(w), height(h), rawBytes(rb), pixelFormat(pf), ref(1l)
+DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp)
+	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL), ref(1l),
+        buffer_pool(bp)
 {
-        data = new char[rb * h];
-        timecode = NULL;
 }
 
-DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat)
+DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool)
 {
-        return new DeckLinkFrame(width, height, rawBytes, pixelFormat);
+        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool);
 }
-
 
 DeckLinkFrame::~DeckLinkFrame() 
 {
-	delete[] data;
 }
 
 long DeckLinkFrame::GetWidth ()
@@ -1261,7 +1278,7 @@ BMDFrameFlags DeckLinkFrame::GetFlags ()
 
 HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
 {
-        *buffer = static_cast<void *>(data);
+        *buffer = static_cast<void *>(data.get());
         return S_OK;
 }
 
@@ -1307,21 +1324,19 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
 
 
 
-DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf) 
-        : DeckLinkFrame(w, h, rb, pf)
+DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool)
+        : DeckLinkFrame(w, h, rb, pf, buffer_pool), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool))
 {
-        rightEye = DeckLinkFrame::Create(w, h, rb, pf);        
 }
 
-DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat)
+DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool)
 {
-        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat);
+        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool);
         return frame;
 }
 
 DeckLink3DFrame::~DeckLink3DFrame()
 {
-	rightEye->Release();
 }
 
 ULONG DeckLink3DFrame::AddRef()
@@ -1354,7 +1369,7 @@ BMDVideo3DPackingFormat DeckLink3DFrame::Get3DPackingFormat()
 
 HRESULT DeckLink3DFrame::GetFrameForRightEye(IDeckLinkVideoFrame ** frame) 
 {
-        *frame = rightEye;
+        *frame = rightEye.get();
         rightEye->AddRef();
         return S_OK;
 }
