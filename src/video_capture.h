@@ -143,6 +143,10 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
 struct module;
 struct vidcap;
 
+void                     list_video_capture_devices(void);
+int initialize_video_capture(struct module *parent,
+                struct vidcap_params *params,
+                struct vidcap **state);
 int                      vidcap_init(struct module *parent, vidcap_id_t id,
                 struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);

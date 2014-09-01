@@ -153,8 +153,6 @@ static struct state_uv *uv_state;
 //
 // prototypes
 //
-static void list_video_display_devices(void);
-static void list_video_capture_devices(void);
 static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
@@ -280,34 +278,6 @@ static void usage(void)
         printf("\t                         \tand chunks are sent/received\n");
         printf("\t                         \tindependently.\n");
         printf("\n");
-}
-
-static void list_video_display_devices()
-{
-        int i;
-        display_type_t *dt;
-
-        printf("Available display devices:\n");
-        display_init_devices();
-        for (i = 0; i < display_get_device_count(); i++) {
-                dt = display_get_device_details(i);
-                printf("\t%s\n", dt->name);
-        }
-        display_free_devices();
-}
-
-static void list_video_capture_devices()
-{
-        int i;
-        struct vidcap_type *vt;
-
-        printf("Available capture devices:\n");
-        vidcap_init_devices();
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                printf("\t%s\n", vt->name);
-        }
-        vidcap_free_devices();
 }
 
 static void uncompressed_frame_dispose(struct video_frame *frame)

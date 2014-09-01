@@ -62,6 +62,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "utils/config_file.h"
+#include "utils/resource_manager.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
@@ -472,6 +473,56 @@ struct vidcap_type *vidcap_get_device_details(int index)
 vidcap_id_t vidcap_get_null_device_id(void)
 {
         return VIDCAP_NULL_ID;
+}
+
+void list_video_capture_devices()
+{
+        int i;
+        struct vidcap_type *vt;
+
+        printf("Available capture devices:\n");
+        vidcap_init_devices();
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
+                printf("\t%s\n", vt->name);
+        }
+        vidcap_free_devices();
+}
+
+int initialize_video_capture(struct module *parent,
+                struct vidcap_params *params,
+                struct vidcap **state)
+{
+        struct vidcap_type *vt;
+        vidcap_id_t id = 0;
+        int i;
+
+        if(!strcmp(vidcap_params_get_driver(params), "none"))
+                id = vidcap_get_null_device_id();
+
+        // locking here is because listing of the devices is not really thread safe
+        pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
+        pthread_mutex_lock(vidcap_lock);
+
+        vidcap_init_devices();
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
+                if (strcmp(vt->name, vidcap_params_get_driver(params)) == 0) {
+                        id = vt->id;
+                        break;
+                }
+        }
+        if(i == vidcap_get_device_count()) {
+                fprintf(stderr, "WARNING: Selected '%s' capture card "
+                        "was not found.\n", vidcap_params_get_driver(params));
+                return -1;
+        }
+        vidcap_free_devices();
+
+        pthread_mutex_unlock(vidcap_lock);
+        rm_release_shared_lock("VIDCAP_LOCK");
+
+        return vidcap_init(parent, id, params, state);
 }
 
 /** @brief Initializes video capture

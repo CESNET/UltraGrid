@@ -99,18 +99,6 @@ extern const char *window_title;
 #define MODE_RECEIVER 2
 extern int rxtx_mode;
 
-// for aggregate.c
-struct vidcap;
-struct display;
-struct module;
-int initialize_video_display(const char *requested_display,
-                                                const char *fmt, unsigned int flags,
-                                                struct display **);
-
-int initialize_video_capture(struct module *parent,
-                struct vidcap_params *params,
-                struct vidcap **);
-
 // if not NULL, data should be exported
 extern char *export_dir;
 extern char *sage_network_device;

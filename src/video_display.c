@@ -356,6 +356,59 @@ static int display_fill_symbols(display_table_t *device)
 }
 #endif
 
+void list_video_display_devices()
+{
+        int i;
+        display_type_t *dt;
+
+        printf("Available display devices:\n");
+        display_init_devices();
+        for (i = 0; i < display_get_device_count(); i++) {
+                dt = display_get_device_details(i);
+                printf("\t%s\n", dt->name);
+        }
+        display_free_devices();
+}
+
+int initialize_video_display(const char *requested_display,
+                const char *fmt, unsigned int flags,
+                struct display **out)
+{
+        display_type_t *dt;
+        display_id_t id = 0;
+        int i;
+
+        if(!strcmp(requested_display, "none"))
+                 id = display_get_null_device_id();
+
+        if (display_init_devices() != 0) {
+                printf("Unable to initialise devices\n");
+                abort();
+        } else {
+                debug_msg("Found %d display devices\n",
+                          display_get_device_count());
+        }
+        for (i = 0; i < display_get_device_count(); i++) {
+                dt = display_get_device_details(i);
+                if (strcmp(requested_display, dt->name) == 0) {
+                        id = dt->id;
+                        debug_msg("Found device\n");
+                        break;
+                } else {
+                        debug_msg("Device %s does not match %s\n", dt->name,
+                                  requested_display);
+                }
+        }
+        if(i == display_get_device_count()) {
+                fprintf(stderr, "WARNING: Selected '%s' display card "
+                        "was not found.\n", requested_display);
+                return -1;
+        }
+        display_free_devices();
+
+        return display_init(id, fmt, flags, out);
+}
+
 /**
  * Must be called to initialize list of display devices before actual
  * video display initialization.
