@@ -89,6 +89,7 @@ struct state_sdl {
 
         bool                    deinterlace;
         bool                    fs;
+        bool                    nodecorate;
 
         int                     screen_w, screen_h;
         
@@ -110,7 +111,7 @@ struct state_sdl {
         volatile bool           should_exit;
 
         state_sdl() : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr),
-                      deinterlace(false), fs(false),
+                      deinterlace(false), fs(false), nodecorate(false),
                       screen_w(0), screen_h(0), audio_buffer(nullptr), play_audio(false),
 #ifdef HAVE_MACOSX
                       autorelease_pool(nullptr),
@@ -355,7 +356,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 		x_res_y = desc.height;
 		s->sdl_screen =
 		    SDL_SetVideoMode(x_res_x, x_res_y, bpp,
-				     SDL_HWSURFACE | SDL_DOUBLEBUF);
+				     SDL_HWSURFACE | SDL_DOUBLEBUF | (s->nodecorate ? SDL_NOFRAME : 0));
 	}
 	if (s->sdl_screen == NULL) {
 		fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
@@ -446,6 +447,8 @@ void *display_sdl_init(const char *fmt, unsigned int flags)
                                 s->fs = 1;
                         } else if (strcmp(fmt, "d") == 0) {
                                 s->deinterlace = 1;
+                        } else if (strcmp(fmt, "nodecorate") == 0) {
+                                s->nodecorate = true;
                         }
                         ptr = NULL;
                 }
