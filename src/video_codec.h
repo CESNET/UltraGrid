@@ -125,6 +125,8 @@ void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
+bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
+
 #ifdef __cplusplus
 }
 #endif

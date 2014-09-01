@@ -1324,3 +1324,45 @@ bool codec_is_in_set(codec_t codec, codec_t *set)
         return false;
 }
 
+bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec)
+{
+        uint32_t pattern[4];
+
+        switch (color_spec) {
+                case BGR:
+                case RGB:
+                case RGBA:
+                        memset(pattern, 0, sizeof(pattern));
+                        break;
+                case UYVY:
+                        for (int i = 0; i < 4; i++) {
+                                pattern[i] = 0x00800080;
+                        }
+                        break;
+                case v210:
+                        pattern[0] = 0x20000200;
+                        pattern[1] = 0x00080000;
+                        pattern[2] = 0x20000200;
+                        pattern[3] = 0x00080000;
+                        break;
+                default:
+                        return false;
+        }
+
+        for (size_t y = 0; y < height; ++y) {
+                uintptr_t i;
+                for( i = 0; i < (linesize & (~15)); i+=16)
+                {
+                        memcpy(data + i, pattern, 16);
+                }
+                for( ; i < linesize; i++ )
+                {
+                        ((char*)data)[i] = ((char*)pattern)[i&15];
+                }
+
+                data += pitch;
+        }
+
+        return true;
+}
+
