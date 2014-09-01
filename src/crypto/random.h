@@ -46,6 +46,14 @@
  * Communications of the ACM, Jan 1990, Vol 33 No 1.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void      lbl_srandom(uint32_t seed);
 uint32_t lbl_random(void);
+
+#ifdef __cplusplus
+}
+#endif
 

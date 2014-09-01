@@ -1925,7 +1925,7 @@ then
         nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
-        CUDA_INC=-I$CUDA_PATH/include
+        CUDA_INC="\"-I$CUDA_PATH/include\""
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
