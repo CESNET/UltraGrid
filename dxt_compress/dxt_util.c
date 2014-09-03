@@ -68,6 +68,7 @@ dxt_shader_create_from_file(const char* filename, GLenum type)
     char* program = (char*)malloc((data_size  + 1) * sizeof(char));
     if ( (size_t) data_size != fread(program, sizeof(char), data_size, file) ) {
         fprintf(stderr, "Failed to load program [%d bytes] from file %s!\n", data_size, filename);
+        fclose(file);
         return 0;
     }
     fclose(file);

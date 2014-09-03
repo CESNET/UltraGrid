@@ -323,6 +323,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                                         &s->audio_network_parameters))
                         == NULL) {
                 printf("Unable to open audio network\n");
+                free(tmp);
                 goto error;
         }
         free(tmp);

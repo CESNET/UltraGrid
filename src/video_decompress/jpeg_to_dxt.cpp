@@ -192,17 +192,15 @@ void * jpeg_to_dxt_decompress_init(void)
                 int ret = gpujpeg_init_device(cuda_devices[i], TRUE);
                 if(ret != 0) {
                         fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
-                        free(s);
+                        delete s;
                         return NULL;
                 }
         }
 
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                 s->thread_data[i].cuda_dev_index = i;
-                if(pthread_create(&s->thread_id[i], NULL, worker_thread,  &s->thread_data[i]) != 0) {
-                        fprintf(stderr, "Error creating thread.\n");
-                        return NULL;
-                }
+                int ret = pthread_create(&s->thread_id[i], NULL, worker_thread,  &s->thread_data[i]);
+                assert(ret == 0);
         }
 
         return s;

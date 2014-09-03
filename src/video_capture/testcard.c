@@ -306,31 +306,27 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         tmp = strtok_r(fmt, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return NULL;
+                goto error;
         }
         vf_get_tile(s->frame, 0)->width = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return NULL;
+                goto error;
         }
         vf_get_tile(s->frame, 0)->height = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
-                free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                goto error;
         }
 
         s->frame->fps = atof(tmp);
 
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
-                free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                goto error;
         }
 
         int h_align = 0;
@@ -382,6 +378,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                                 "computed size %d\n", (int)sb.st_size, s->size);
                         free(s->data);
                         free(s);
+                        fclose(in);
                         return NULL;
                 }
 
@@ -443,6 +440,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->data =
                             (char *)tov210((unsigned char *) s->data, aligned_x,
                                            aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
+                        free(s->pixmap.data);
                 }
 
                 if (codec == R10k) {
@@ -454,23 +452,17 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->data =
                             (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height);
+                        free(s->pixmap.data);
                 }
                 
-                if(codec == RGBA) {
-                        toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height);
-                }
                 tmp = filename;
 
                 vf_get_tile(s->frame, 0)->data = malloc(2 * s->size);
 
                 memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
                 memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
-                if(s->pixmap.data)
-                        free(s->pixmap.data);
-                else
-                        free(vf_get_tile(s->frame, 0)->data);
 
+                free(s->data);
                 s->data = vf_get_tile(s->frame, 0)->data;
         }
 
@@ -499,8 +491,9 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         vf_get_tile(s->frame, 0)->data_len = s->size;
 
         if(strip_fmt != NULL) {
-                if(configure_tiling(s, strip_fmt) != 0)
-                        return NULL;
+                if(configure_tiling(s, strip_fmt) != 0) {
+                        goto error;
+                }
         }
         
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
@@ -517,6 +510,11 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         free(fmt);
 
         return s;
+
+error:
+        free(fmt);
+        free(s);
+        return NULL;
 }
 
 void vidcap_testcard_done(void *state)

@@ -216,11 +216,6 @@ struct main_msg_reconfigure : public main_msg {
  */
 struct state_video_decoder
 {
-        state_video_decoder() :
-                decompress_queue(1), fec_queue(1)
-        {}
-        virtual ~state_video_decoder() {}
-
         struct module *parent;
 
         pthread_t decompress_thread_id,
@@ -254,7 +249,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        message_queue     decompress_queue;
+        message_queue     decompress_queue{1};
 
         codec_t           out_codec;
         // display or postprocessor
@@ -268,7 +263,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        message_queue     fec_queue;
+        message_queue     fec_queue{1};
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -472,6 +467,7 @@ static void *fec_thread(void *args) {
 
 cleanup:
                 if(ret == FALSE) {
+                        delete decompress_msg;
                         for(int i = 0; i < data->substream_count; ++i) {
                                 free(data->recv_buffers[i]);
                         }
@@ -637,8 +633,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 {
         struct state_video_decoder *s;
 
-        s = (state_video_decoder *) calloc(1, sizeof(state_video_decoder));
-        s = new(s) state_video_decoder; // call the constructor
+        s = new state_video_decoder{}; // call the constructor
 
         s->parent = parent;
 
@@ -669,19 +664,22 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                 s->postprocess = vo_postprocess_init(tmp_pp_config);
                 free(tmp_pp_config);
                 if(strcmp(postprocess, "help") == 0) {
+                        delete s;
                         exit_uv(0);
                         return NULL;
                 }
                 if(!s->postprocess) {
                         fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", postprocess);
-                        free(s);
+                        delete s;
                         exit_uv(129);
                         return NULL;
                 }
         }
 
-        if(!video_decoder_register_display(s, display))
+        if(!video_decoder_register_display(s, display)) {
+                delete s;
                 return NULL;
+        }
 
         return s;
 }
@@ -1158,7 +1156,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
                         &display_mode, &len);
         if(!ret) {
-                debug_msg("Failed to get video display mode.");
+                debug_msg("Failed to get video display mode.\n");
                 display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         }
 

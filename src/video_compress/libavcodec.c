@@ -206,7 +206,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 if(s->requested_subsampling != 422 &&
                                                 s->requested_subsampling != 420) {
                                         fprintf(stderr, "[lavc] Supported subsampling is only 422 or 420.\n");
-                                        free(s);
                                         return -1;
                                 }
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
@@ -559,6 +558,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
         int got_output;
 #endif
         unsigned char *decoded;
+        struct video_frame *out = NULL;
 
         platform_spin_lock(&s->spin);
 
@@ -571,7 +571,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
                 }
         }
 
-        struct video_frame *out = vf_alloc_desc(s->compressed_desc);
+        out = vf_alloc_desc(s->compressed_desc);
         out->dispose = libavcodec_vid_enc_frame_dispose;
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         AVPacket *pkt = (AVPacket *) malloc(sizeof(AVPacket));
@@ -671,6 +671,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
 error:
         VIDEO_FRAME_DISPOSE(tx);
+        VIDEO_FRAME_DISPOSE(out);
         platform_spin_unlock(&s->spin);
         return NULL;
 }

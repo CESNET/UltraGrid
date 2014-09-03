@@ -168,6 +168,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                         fprintf(stderr, "Your Libavcodec build doesn't contain codec \"%s\".\n",
                                 get_name_to_audio_codec(audio_codec));
                 }
+                free(s);
                 return NULL;
         }
 
@@ -178,6 +179,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 if (!try_init) {
                         fprintf(stderr, "Could not allocate audio codec context\n");
                 }
+                free(s);
                 return NULL;
         }
 

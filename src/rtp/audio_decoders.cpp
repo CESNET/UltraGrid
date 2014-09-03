@@ -180,6 +180,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         struct state_audio_decoder *s;
         bool scale_auto = false;
         double scale_factor = 1.0;
+        char *tmp = nullptr;
 
         assert(audio_scale != NULL);
 
@@ -211,7 +212,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         if(audio_channel_map) {
                 char *save_ptr = NULL;
                 char *item;
-                char *tmp;
                 char *ptr;
                 tmp = ptr = strdup(audio_channel_map);
 
@@ -249,7 +249,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                         }
                         if(!isdigit(strchr(item, ':')[1])) {
                                 fprintf(stderr, "Audio destination channel not entered!\n");
-                                return NULL;
+                                goto error;
                         }
                         int dst = atoi(strchr(item, ':') + 1);
                         if(src >= 0) {
@@ -266,14 +266,14 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
 
                 if(!validate_mapping(&s->channel_map)) {
-                        free(s);
                         fprintf(stderr, "Wrong audio mapping.\n");
-                        return NULL;
+                        goto error;
                 } else {
                         s->channel_remapping = TRUE;
                 }
 
                 free (tmp);
+                tmp = NULL;
         } else {
                 s->channel_remapping = FALSE;
                 s->channel_map.map = NULL;
@@ -297,8 +297,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 scale_factor = atof(audio_scale);
                 if(scale_factor <= 0.0) {
                         fprintf(stderr, "Invalid audio scaling factor!\n");
-                        free(s);
-                        return NULL;
+                        goto error;
                 }
         }
 
@@ -314,6 +313,14 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         return s;
+
+error:
+        free(tmp);
+        if (s) {
+                audio_decoder_destroy(s);
+                free(s);
+        }
+        return NULL;
 }
 
 void audio_decoder_destroy(void *state)

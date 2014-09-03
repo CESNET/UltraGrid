@@ -195,7 +195,7 @@ struct separate_tiles_dispose_udata {
                                         sizeof(void (*)(struct video_frame *frame)));
                 m_frame = (struct video_frame **) calloc(max_count, sizeof(struct video_frame *));
         }
-        separate_tiles_dispose_udata() {
+        ~separate_tiles_dispose_udata() {
                 free((void *) m_dispose);
                 free(m_frame);
         }

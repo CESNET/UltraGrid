@@ -193,6 +193,7 @@ static int replace_line_suffix(struct config_file *s, const char *prefix, const 
         }
 
         if (!truncate_for_writing(s)) {
+                free(new_file_content);
                 return 0;
         }
 

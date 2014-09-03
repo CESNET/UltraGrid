@@ -106,6 +106,7 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 } else {
                         printf("usage:\n"
                                "\t-c cuda_dxt[:DXT1|:DXT5]\n");
+                        delete s;
                         return NULL;
                 }
         }
@@ -274,6 +275,7 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                                 out->tiles[0].data_len,
                                 CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) != CUDA_WRAPPER_SUCCESS) {
                 fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
+                VIDEO_FRAME_DISPOSE(out);
                 return NULL;
         }
 

@@ -2007,6 +2007,8 @@ static void process_rtcp_app(struct rtp *session, rtcp_t * packet)
                 event.type = RX_APP;
                 event.data = (void *)app;       /* The callback function MUST free this! */
                 session->callback(session, &event);
+        } else {
+                free(app);
         }
 }
 
@@ -3655,6 +3657,7 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         } else {
                 debug_msg("Encryption algorithm \"%s\" not found\n",
                           session->encryption_algorithm);
+                free(canonical_passphrase);
                 return FALSE;
         }
 }

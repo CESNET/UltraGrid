@@ -432,7 +432,7 @@ void *display_sdl_init(const char *fmt, unsigned int flags)
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
                         show_help();
-                        free(s);
+                        delete s;
                         return &display_init_noerr;
                 }
                 
@@ -468,6 +468,7 @@ void *display_sdl_init(const char *fmt, unsigned int flags)
         
         if (ret < 0) {
                 printf("Unable to initialize SDL.\n");
+                delete s;
                 return NULL;
         }
         

@@ -346,7 +346,7 @@ void *glx_init(glx_opengl_version_t version)
             " ... using old-style GLX context\n" );
     context->ctx = glXCreateNewContext( display, bestFbc, GLX_RGBA_TYPE, 0, True );
     if(!VERSION_IS_UNSPECIFIED(version)) {
-            return NULL;
+            goto error;
     }
   }
  

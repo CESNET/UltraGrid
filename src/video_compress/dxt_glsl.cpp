@@ -57,6 +57,10 @@
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 
+#include <memory>
+
+using namespace std;
+
 struct state_video_compress_rtdxt {
         struct module module_data;
 
@@ -64,7 +68,7 @@ struct state_video_compress_rtdxt {
         int encoder_count;
 
         decoder_t decoder;
-        char *decoded;
+        unique_ptr<char []> decoded;
         unsigned int configured:1;
         unsigned int interlaced_input:1;
         codec_t color_spec;
@@ -73,7 +77,7 @@ struct state_video_compress_rtdxt {
 
         struct gl_context gl_context;
 
-        video_frame_pool<default_data_allocator> *pool;
+        video_frame_pool<default_data_allocator> pool;
 };
 
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame);
@@ -192,9 +196,9 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         } else {
                 s->interlaced_input = FALSE;
         }
-        s->pool->reconfigure(compressed_desc, data_len);
+        s->pool.reconfigure(compressed_desc, data_len);
 
-        s->decoded = (char *) malloc(4 * compressed_desc.width * compressed_desc.height);
+        s->decoded = unique_ptr<char []>(new char[4 * compressed_desc.width * compressed_desc.height]);
 
         s->configured = TRUE;
         return TRUE;
@@ -214,16 +218,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
                 return &compress_init_noerr;
         }
 
-        s = (struct state_video_compress_rtdxt *) calloc(1, sizeof(struct state_video_compress_rtdxt));
-
-        s->decoded = NULL;
-
-        s->pool = new video_frame_pool<default_data_allocator>();
-
-        if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
-                fprintf(stderr, "[RTDXT] Error initializing GL context");
-                return NULL;
-        }
+        s = new state_video_compress_rtdxt{};
 
         if (strcasecmp(opts, "DXT5") == 0) {
                 s->color_spec = DXT5;
@@ -233,10 +228,15 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
                 s->color_spec = DXT1;
         } else {
                 fprintf(stderr, "Unknown compression: %s\n", opts);
+                delete s;
                 return NULL;
         }
 
-        s->configured = FALSE;
+        if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
+                fprintf(stderr, "[RTDXT] Error initializing GL context");
+                delete s;
+                return NULL;
+        }
 
         gl_context_make_current(NULL);
 
@@ -268,14 +268,14 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
                         return NULL;
         }
 
-        struct video_frame *out_frame = s->pool->get_frame();
+        struct video_frame *out_frame = s->pool.get_frame();
 
         for (x = 0; x < tx->tile_count; ++x) {
                 struct tile *in_tile = vf_get_tile(tx, x);
                 struct tile *out_tile = vf_get_tile(out_frame, x);
 
                 line1 = (unsigned char *) in_tile->data;
-                line2 = (unsigned char *) s->decoded;
+                line2 = (unsigned char *) s->decoded.get();
 
                 for (i = 0; i < (int) in_tile->height; ++i) {
                         s->decoder(line2, line1, s->encoder_input_linesize,
@@ -285,11 +285,11 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
                 }
 
                 if(s->interlaced_input)
-                        vc_deinterlace((unsigned char *) s->decoded, s->encoder_input_linesize,
+                        vc_deinterlace((unsigned char *) s->decoded.get(), s->encoder_input_linesize,
                                         in_tile->height);
 
                 dxt_encoder_compress(s->encoder[x],
-                                (unsigned char *) s->decoded,
+                                (unsigned char *) s->decoded.get(),
                                 (unsigned char *) out_tile->data);
         }
 
@@ -309,12 +309,7 @@ static void dxt_glsl_compress_done(struct module *mod)
                 }
         }
 
-        free(s->decoded);
-
-        delete s->pool;
-
         destroy_gl_context(&s->gl_context);
-
-        free(s);
+        delete s;
 }
 

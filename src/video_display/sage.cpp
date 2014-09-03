@@ -181,12 +181,13 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
                         return &display_init_noerr;
                 } else {
-                        char *tmp = strdup(fmt);
+                        char *tmp, *parse_str;
+                        tmp = parse_str = strdup(fmt);
                         char *save_ptr = NULL;
                         char *item;
 
-                        while((item = strtok_r(tmp, ":", &save_ptr))) {
-                                tmp = NULL;
+                        while((item = strtok_r(parse_str, ":", &save_ptr))) {
+                                parse_str = NULL;
                                 if(strncmp(item, "config=", strlen("config=")) == 0) {
                                         s->confName = item + strlen("config=");
                                 } else if(strncmp(item, "codec=", strlen("codec=")) == 0) {
@@ -233,6 +234,7 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                 if(s->confName) {
                         if(stat(s->confName, &sb)) {
                                 perror("Unable to use SAGE config file");
+                                free(s);
                                 return NULL;
                         }
                 } else if(stat("ultragrid.conf", &sb) == 0) {
@@ -246,6 +248,7 @@ void *display_sage_init(const char *fmt, unsigned int flags)
         if(s->confName == NULL && s->fsIP == NULL) {
                 fprintf(stderr, "[SAGE] Unable to locate FS manager address. "
                                 "Set either in config file or from command line.\n");
+                free(s);
                 return NULL;
         }
 
@@ -357,10 +360,10 @@ static sail *initSage(const char *confName, const char *fsIP, int appID, int nod
 
         // default values
         if(fsIP) {
-                strncpy(sailCfg.fsIP, fsIP, SAGE_IP_LEN);
+                strncpy(sailCfg.fsIP, fsIP, SAGE_IP_LEN - 1);
         }
         sailCfg.fsPort = 20002;
-        strncpy(sailCfg.masterIP, "127.0.0.1", SAGE_IP_LEN);
+        strncpy(sailCfg.masterIP, "127.0.0.1", SAGE_IP_LEN - 1);
         sailCfg.nwID = 1;
         sailCfg.msgPort = 23010;
         sailCfg.syncPort = 13010;

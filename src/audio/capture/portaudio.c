@@ -226,6 +226,7 @@ void * portaudio_capture_init(char *cfg)
 	{
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                free(s);
 		return NULL;
 	}
 

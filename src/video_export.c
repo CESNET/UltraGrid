@@ -254,6 +254,8 @@ void video_export(struct video_export *s, struct video_frame *frame)
                                                 MAX_QUEUE_SIZE,
                                                 s->total++); // we increment total size to keep the index
                                 pthread_mutex_unlock(&s->lock);
+                                free(entry->data);
+                                free(entry);
                                 return;
                         }
 

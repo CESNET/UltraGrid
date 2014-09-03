@@ -130,6 +130,7 @@ static int create_filter(struct capture_filter *s, char *cfg)
                                                 filter_name);
                         }
                         if(ret != 0) {
+                                free(instance);
                                 return ret;
                         }
                         simple_linked_list_append(s->filters, instance);
@@ -177,11 +178,12 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
 
                 while((item = strtok_r(filter_list_str, ",", &save_ptr))) {
                         char filter_name[128];
-                        strncpy(filter_name, item, sizeof(filter_name));
+                        strncpy(filter_name, item, sizeof filter_name - 1);
 
                         int ret = create_filter(s, filter_name);
                         if (ret != 0) {
                                 module_done(&s->mod);
+                                free(tmp);
                                 free(s);
                                 return ret;
                         }

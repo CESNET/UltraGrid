@@ -112,6 +112,7 @@ vidcap_aggregate_init(const struct vidcap_params *params)
 
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
                 show_help();
+                free(s);
                 return &vidcap_init_noerr;
         }
 

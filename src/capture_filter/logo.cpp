@@ -138,12 +138,11 @@ static int init(struct module *parent, const char *cfg, void **state)
         char *item;
         if ((item = strtok_r(tmp, ":", &save_ptr)) == NULL) {
                 fprintf(stderr, "File name with logo required!\n");
-                return -1;
+                goto error;
         }
 
         if (!load_logo_data_from_file(s, item)) {
-                free(s);
-                return -1;
+                goto error;
         }
 
         if ((item = strtok_r(tmp, ":", &save_ptr))) {
@@ -153,9 +152,14 @@ static int init(struct module *parent, const char *cfg, void **state)
                 }
         }
         free(tmp);
+        tmp = nullptr;
 
         *state = s;
         return 0;
+error:
+        free(tmp);
+        free(s);
+        return -1;
 }
 
 static void done(void *state)

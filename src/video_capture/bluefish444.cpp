@@ -945,7 +945,7 @@ error:
         for(int i = 0; i < s->attachedDevices; ++i) {
                 BailOut(s->pSDK[i]);
         }
-        free(s);
+        delete s;
         return NULL;
 }
 

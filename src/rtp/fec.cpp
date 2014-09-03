@@ -51,8 +51,8 @@ using namespace std;
 
 fec *fec::create_from_config(const char *c_str)
 {
-        char *str = strdup(c_str);
-        if (strncmp(str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
+        if (strncmp(c_str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
+                char *str = strdup(c_str);
                 int mtu_len, data_len;
                 double loss_pct;
                 char *ptr = str + strlen("LDGM percents ");
@@ -66,10 +66,11 @@ fec *fec::create_from_config(const char *c_str)
                 item = strtok_r(NULL, " ", &save_ptr);
                 assert (item != NULL);
                 loss_pct = atof(item);
-                return new ldgm(mtu_len, data_len,
-                                loss_pct);
-        } else if (strncmp(str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
-                return new ldgm(str + strlen("LDGM cfg "));
+                fec *ret = new ldgm(mtu_len, data_len, loss_pct);
+                free(str);
+                return ret;
+        } else if (strncmp(c_str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
+                return new ldgm(c_str + strlen("LDGM cfg "));
         } else {
                 throw string("Unrecognized FEC configuration!");
         }

@@ -951,6 +951,7 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 *color_spec = get_codec_from_name(item);
                                 if (*color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
+                                        free(parse_string);
                                         return PARSE_ERROR;
                                 }
                                 break;
@@ -1091,6 +1092,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         char *init_fmt = strdup(vidcap_params_get_fmt(params));
         if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
+                free(init_fmt);
                 goto error;
         }
         free(init_fmt);
@@ -1127,11 +1129,14 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
+                free(s);
                 return NULL;
         }
 
-        if(config_file)
+        if (config_file) {
                 fclose(config_file);
+                config_file = nullptr;
+        }
 
         format = GL_RGBA;
         if(desc.color_spec == RGB) {
@@ -1180,6 +1185,9 @@ vidcap_swmix_init(const struct vidcap_params *params)
 	return s;
 
 error:
+        if (config_file) {
+                fclose(config_file);
+        }
         if(s->slaves) {
                 free(s->slaves);
         }

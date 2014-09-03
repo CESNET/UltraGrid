@@ -28,6 +28,8 @@ struct resampler *resampler_init(int dst_sample_rate)
 
 void resampler_done(struct resampler *s)
 {
+        if (!s)
+                return;
         free(s->resample_buffer);
         free(s->muxed);
         delete s->resampled;

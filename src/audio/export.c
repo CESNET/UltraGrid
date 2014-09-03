@@ -250,13 +250,16 @@ static void finalize(struct audio_export *s)
 {
         int padding_byte_len = 0;
         if((s->saved_format.ch_count * s->saved_format.bps * s->total) % 2 == 1) {
-                char padding_byte;
+                char padding_byte = '\0';
                 padding_byte_len = 1;
                 fwrite(&padding_byte, sizeof(padding_byte), 1, s->output);
         }
 
 
-        fseek(s->output, CK_MASTER_SIZE_OFFSET, SEEK_SET);
+        int ret = fseek(s->output, CK_MASTER_SIZE_OFFSET, SEEK_SET);
+        if (ret != 0) {
+                goto error;
+        }
         uint32_t ck_master_size = 4 + 24 + (8 + s->saved_format.bps *
                         s->saved_format.ch_count * s->total + padding_byte_len);
         size_t res;
@@ -265,7 +268,10 @@ static void finalize(struct audio_export *s)
                 goto error;
         }
 
-        fseek(s->output, CK_DATA_SIZE_OFFSET, SEEK_SET);
+        ret = fseek(s->output, CK_DATA_SIZE_OFFSET, SEEK_SET);
+        if (ret != 0) {
+                goto error;
+        }
         uint32_t ck_data_size = s->saved_format.bps *
                         s->saved_format.ch_count * s->total;
         res = fwrite(&ck_data_size, sizeof(ck_data_size), 1, s->output);

@@ -653,8 +653,14 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
 {
         struct state_hdsp *s;
         int i;
-        char *name = "";
+        char *name = strdup("");
         int res;
+        char *fmt = NULL;
+
+        if (strcmp(cfg, "help") == 0) {
+                show_help();
+                return &display_init_noerr;
+        }
 
         s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));
         s->magic = HDSP_MAGIC;
@@ -667,13 +673,10 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
         gettimeofday(&s->t0, NULL);
 
         if (cfg != NULL) {
-                char *fmt = strdup(cfg);
-                if (strcmp(fmt, "help") == 0) {
-			show_help();
-                        return &display_init_noerr;
-                }
+                fmt = strdup(cfg);
                 if(strncmp(fmt, "PCI", 3) == 0) {
-                        name = fmt;
+                        free(name);
+                        name = strdup(fmt);
                 } else {
                         char *tmp;
                         int mode_index;
@@ -687,8 +690,7 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
                                 s->frame->color_spec = get_codec_from_name(tmp);
                                 if (s->frame->color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
-                                        free(s);
-                                        return 0;
+                                        goto error;
                                 }
                                 for(i=0; hdsp_mode_table[i].width != 0; i++) {
                                         if(hdsp_mode_table[i].mode == mode_index) {
@@ -698,18 +700,25 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
                                 }
                                 if(s->mode == NULL) {
                                         fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
-                                        free(s);
-                                        return 0;
+                                        goto error;
                                }
                                 tmp = strtok(NULL, ":");
                                 if(tmp)
                                 {
-                                        name = tmp;
-                                        tmp[strlen(name)] = ':';
+                                        if (strtok(NULL, ":") != NULL) { // DVS device name contains ':'
+                                                                         // which was removed by strtok
+                                                tmp[strlen(tmp)] = ':';
+                                                free(name);
+                                                name = strdup(tmp);
+                                        } else {
+                                                fprintf(stderr, "dvs: Malformed device name!");
+                                                goto error;
+                                        }
                                 }
                         }
                 }
                 free(fmt);
+                fmt = NULL;
         }
 
         s->audio.data = NULL;
@@ -728,7 +737,7 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot open DVS display device.\n");
                 fprintf(stderr, "Error %s\n", sv_geterrortext(res));
-                return NULL;
+                goto error;
         }
 
         s->worker_waiting = TRUE;
@@ -781,7 +790,17 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
                 return NULL;
         }*/
         
+        free(name);
         return (void *)s;
+
+error:
+        free(name);
+        free(fmt);
+        if (s) {
+                vf_free(s->frame);
+                free(s);
+        }
+        return NULL;
 }
 
 void display_dvs_done(void *state)

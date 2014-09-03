@@ -316,7 +316,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 
                 resp =
                         send_message(s->root_module, path, (struct message *) msg);
-                send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                struct response *resp_audio =
+                        send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                resp_audio->deleter(resp_audio);
         } else if (prefix_matches(message, "receiver-port ")) {
                 struct msg_receiver *msg =
                         (struct msg_receiver *)
@@ -341,6 +343,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                         strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else {
                         resp = new_response(RESPONSE_NOT_FOUND, strdup("unknown media type"));
+                        free(msg);
                 }
 
                 if(!resp) {
@@ -654,9 +657,13 @@ void control_done(struct control_state *s)
         module_done(&s->mod);
 
         if(s->started) {
-                write_all(s->internal_fd[0], "quit\r\n", 6);
-                pthread_join(s->thread_id, NULL);
-                close(s->internal_fd[0]);
+                int ret = write_all(s->internal_fd[0], "quit\r\n", 6);
+                if (ret > 0) {
+                        pthread_join(s->thread_id, NULL);
+                        close(s->internal_fd[0]);
+                } else {
+                        fprintf(stderr, "Cannot exit control thread!\n");
+                }
         }
         if(s->connection_type == SERVER) {
                 // for client, the socket has already been closed

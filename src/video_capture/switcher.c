@@ -104,21 +104,26 @@ vidcap_switcher_init(const struct vidcap_params *params)
 		return NULL;
 	}
 
-        if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
-                char *cfg = strdup(vidcap_params_get_fmt(params));
+        const char *cfg_c = vidcap_params_get_fmt(params);
+        if (cfg_c && strcmp(cfg_c, "") != 0) {
+                char *cfg = strdup(cfg_c);
                 char *save_ptr, *item;
                 char *tmp = cfg;
                 while ((item = strtok_r(cfg, ":", &save_ptr))) {
                         if (strcmp(item, "help") == 0) {
                                 show_help();
+                                free(tmp);
+                                free(s);
                                 return &vidcap_init_noerr;
                         } else if (strcmp(item, "excl_init") == 0) {
                                 s->excl_init = true;
                         } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
                                 s->selected_device = atoi(item + strlen("select="));
                         } else {
-                                show_help();
                                 fprintf(stderr, "[switcher] Unknown initialization option!\n");
+                                show_help();
+                                free(tmp);
+                                free(s);
                                 return NULL;
                         }
                         cfg = NULL;

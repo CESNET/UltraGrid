@@ -290,14 +290,15 @@ void * display_gl_init(const char *fmt, unsigned int flags) {
 	if (fmt != NULL) {
 		if (strcmp(fmt, "help") == 0) {
 			gl_show_help();
-			free(s);
+			delete s;
 			return &display_init_noerr;
 		}
 
-		char *tmp = strdup(fmt);
+		char *tmp, *ptr;
+                tmp = ptr = strdup(fmt);
 		char *tok, *save_ptr = NULL;
 		
-		while((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+		while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
                         if(!strcmp(tok, "d")) {
                                 s->deinterlace = true;
                         } else if(!strcmp(tok, "fs")) {
@@ -317,7 +318,7 @@ void * display_gl_init(const char *fmt, unsigned int flags) {
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
-                        tmp = NULL;
+                        ptr = NULL;
                 }
 
 		free(tmp);

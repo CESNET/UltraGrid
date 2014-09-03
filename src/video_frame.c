@@ -302,13 +302,13 @@ struct video_frame *vf_get_copy(struct video_frame *original) {
 
 bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 {
-        unsigned char *data = NULL, *tmp = NULL;
+        unsigned char *data = NULL, *tmp_data = NULL;
         struct tile *tile = &frame->tiles[0];
         int len = tile->width * tile->height * 3;
         if (frame->color_spec == RGB) {
                 data = (unsigned char *) tile->data;
         } else {
-                data = tmp = (unsigned char *) malloc(len);
+                data = tmp_data = (unsigned char *) malloc(len);
                 if (frame->color_spec == UYVY) {
                         vc_copylineUYVYtoRGB(data, (const unsigned char *)
                                         tile->data, len);
@@ -316,6 +316,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                         vc_copylineRGBAtoRGB(data, (const unsigned char *)
                                         tile->data, len, 0, 8, 16);
                 } else {
+                        free(tmp_data);
                         return false;
                 }
         }
@@ -330,7 +331,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 fwrite(data, 1, len, out);
                 fclose(out);
         }
-        free(tmp);
+        free(tmp_data);
 
         return true;
 }

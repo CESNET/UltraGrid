@@ -362,8 +362,11 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     //glActiveTexture(GL_TEXTURE0);
     
     if(format == DXT_FORMAT_YUV422) {
-            if(!dxt_prepare_yuv422_shader(encoder))
+            if(!dxt_prepare_yuv422_shader(encoder)) {
+                /// @todo What about generated textures etc. ?
+                free(encoder);
                 return NULL;
+            }
     }
 
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);

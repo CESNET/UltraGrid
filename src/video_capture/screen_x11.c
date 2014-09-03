@@ -281,6 +281,7 @@ void * vidcap_screen_x11_init(const struct vidcap_params *params)
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
+                        free(s);
                         return &vidcap_init_noerr;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));

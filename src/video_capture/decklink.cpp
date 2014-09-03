@@ -128,9 +128,7 @@ struct vidcap_decklink_state {
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
-
-
-
+static void cleanup_common(struct vidcap_decklink_state *s);
 
 class VideoDelegate : public IDeckLinkInputCallback
 {
@@ -748,6 +746,12 @@ vidcap_decklink_init(const struct vidcap_params *params)
 		return &vidcap_init_noerr;
 	}
 
+        // init mutex
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+
+        s->boss_waiting = FALSE;
+
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
                 switch(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
@@ -807,7 +811,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
                         fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
                         fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
                                         BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                        return NULL;
+                        goto error;
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                 {
@@ -1042,12 +1046,6 @@ vidcap_decklink_init(const struct vidcap_params *params)
 		deckLinkIterator->Release();
         }
 
-        // init mutex
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-
-        s->boss_waiting = FALSE;        	
-
 	// check if any mode was found
         for (int i = 0; i < s->devices_cnt; ++i)
         {
@@ -1064,27 +1062,52 @@ vidcap_decklink_init(const struct vidcap_params *params)
 	debug_msg("vidcap_decklink_init - END\n"); /* TOREMOVE */
 
 	return s;
-error:
 
+error:
 	if(displayMode != NULL)
 	{
 		displayMode->Release();
 		displayMode = NULL;
 	}
 
-	if(deckLinkInput != NULL)
-	{
-		deckLinkInput->Release();
-		deckLinkInput = NULL;
-	}
+        if (displayModeIterator != NULL){
+                displayModeIterator->Release();
+                displayModeIterator = NULL;
+        }
 
-	if(deckLink != NULL)
-	{
-		deckLink->Release();
-		deckLink = NULL;
-	}
+        if (s) {
+                cleanup_common(s);
+        }
 
 	return NULL;
+}
+
+static void cleanup_common(struct vidcap_decklink_state *s) {
+        for (int i = 0; i < s->devices_cnt; ++i) {
+		if(s->state[i].deckLinkConfiguration != NULL) {
+			s->state[i].deckLinkConfiguration->Release();
+                }
+
+		if(s->state[i].deckLinkInput != NULL)
+		{
+			s->state[i].deckLinkInput->Release();
+			s->state[i].deckLinkInput = NULL;
+		}
+
+		if(s->state[i].deckLink != NULL)
+		{
+			s->state[i].deckLink->Release();
+			s->state[i].deckLink = NULL;
+		}
+	}
+
+        free(s->audio.data);
+
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->boss_cv);
+
+        vf_free(s->frame);
+        free(s);
 }
 
 void
@@ -1118,26 +1141,9 @@ vidcap_decklink_done(void *state)
                         string err_msg = bmd_hresult_to_string(result);
                         fprintf(stderr, MODULE_NAME "Could disable video input: %s\n", err_msg.c_str());
                 }
+        }
 
-		if(s->state[i].deckLinkConfiguration != NULL) {
-			s->state[i].deckLinkConfiguration->Release();
-                }
-
-		if(s->state[i].deckLinkInput != NULL)
-		{
-			s->state[i].deckLinkInput->Release();
-			s->state[i].deckLinkInput = NULL;
-		}
-
-		if(s->state[i].deckLink != NULL)
-		{
-			s->state[i].deckLink->Release();
-			s->state[i].deckLink = NULL;
-		}
-	}
-
-        vf_free(s->frame);
-        free(s);
+        cleanup_common(s);
 }
 
 /**

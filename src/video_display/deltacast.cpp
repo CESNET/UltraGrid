@@ -372,6 +372,7 @@ void *display_deltacast_init(const char *fmt, unsigned int flags)
                 tok = strtok_r(tmp, ":", &save_ptr);
                 if(!tok)
                 {
+                        free(tmp);
                         show_help();
                         goto error;
                 }

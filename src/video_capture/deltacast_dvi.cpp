@@ -470,24 +470,24 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
 	printf("vidcap_deltacast_dvi_init\n");
 
+        char *init_fmt = NULL;
+        if (vidcap_params_get_fmt(params) != NULL)
+                init_fmt = strdup(vidcap_params_get_fmt(params));
+        if(init_fmt && strcmp(init_fmt, "help") == 0) {
+                free(init_fmt);
+                usage();
+                return &vidcap_init_noerr;
+        }
+
         s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
-        s->codec = BGR;
-        s->configured = false;
-        
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
 		return NULL;
 	}
 
+        s->codec = BGR;
+        s->configured = false;
         s->BoardHandle = s->StreamHandle = NULL;
-
-        char *init_fmt = NULL;
-        if (vidcap_params_get_fmt(params) != NULL)
-                init_fmt = strdup(vidcap_params_get_fmt(params));
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
-                usage();
-                return &vidcap_init_noerr;
-        }
 
         if(init_fmt)
         {

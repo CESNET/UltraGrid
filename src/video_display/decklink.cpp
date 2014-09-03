@@ -857,7 +857,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         for(int i = 0; i < s->devices_cnt; ++i) {
                 if(s->state[i].deckLink == NULL) {
                         fprintf(stderr, "No DeckLink PCI card #%d found\n", cardIdx[i]);
-                        return NULL;
+                        goto error;
                 }
         }
 
@@ -890,10 +890,8 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if (s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput) != S_OK) {
-                        if(s->state[i].deckLinkOutput != NULL)
-                                s->state[i].deckLinkOutput->Release();
-                        s->state[i].deckLink->Release();
-                        return NULL;
+                        printf("Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
+                        goto error;
                 }
 
                 // Query the DeckLink for its configuration interface
@@ -902,7 +900,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
                 if (result != S_OK)
                 {
                         printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
-                        return NULL;
+                        goto error;
                 }
 
 #ifdef DECKLINK_LOW_LATENCY
@@ -983,6 +981,9 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         s->initialized = false;
 
         return (void *)s;
+error:
+        display_decklink_done(s);
+        return NULL;
 }
 
 void display_decklink_run(void *state)

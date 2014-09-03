@@ -179,7 +179,9 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM percents %d %d %f",
                                                 data_len, tx->avg_len, tx->max_loss);
                                 msg->type = SENDER_MSG_CHANGE_FEC;
-                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
+                                                (struct message *) msg);
+                                resp->deleter(resp);
                                 tx->avg_len_last = tx->avg_len;
                         }
                 }
@@ -295,7 +297,9 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
                                                 fec_cfg ? fec_cfg : "");
                                 msg->type = SENDER_MSG_CHANGE_FEC;
-                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
+                                                (struct message *) msg);
+                                resp->deleter(resp);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }

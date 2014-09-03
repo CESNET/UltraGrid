@@ -161,7 +161,7 @@ static void *worker(void *arg)
         memset(&last_desc, 0, sizeof(last_desc));
         memset(&last_fec_desc, 0, sizeof(last_fec_desc));
 
-        struct video_desc video_header;
+        struct video_desc video_header{};
 
         pthread_mutex_unlock(&s->lock);
 

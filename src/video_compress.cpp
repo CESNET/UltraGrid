@@ -439,6 +439,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
                         return 1;
                 }
         } else {
+                free(s);
                 return -1;
         }
 

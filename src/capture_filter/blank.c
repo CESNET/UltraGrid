@@ -90,7 +90,7 @@ static bool parse(struct state_blank *s, char *cfg)
                 s->in_relative_units = false;
         }
 
-        char *item, *save_ptr;
+        char *item, *save_ptr = NULL;
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
                 if (s->in_relative_units) {
                         vals_relative[counter] = atof(item) / 100.0;

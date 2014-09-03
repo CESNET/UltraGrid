@@ -161,7 +161,7 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
 {
     int s;
     struct addrinfo hints;
-    struct addrinfo *res;
+    struct addrinfo *res = NULL;
     char saddr[INET_ADDRSTRLEN];
     char p[6];
 
@@ -200,6 +200,8 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
         perror("connect");
         exit(2);
     }
+
+    freeaddrinfo(res);
 
     return s;
 }

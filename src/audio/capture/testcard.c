@@ -189,6 +189,8 @@ void * audio_cap_testcard_init(char *cfg)
                 int ret = read_wav_header(wav, &metadata);
                 if(ret != WAV_HDR_PARSE_OK) {
                         print_wav_error(ret);
+                        fclose(wav);
+                        free(s);
                         return NULL;
                 }
                 s->audio.bps = metadata.bits_per_sample / 8;
