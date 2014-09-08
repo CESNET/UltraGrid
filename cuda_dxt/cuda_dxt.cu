@@ -462,14 +462,14 @@ __device__ static void swap(T & a, T & b) {
 
 /// Encodes and saves the block.
 template <int DXT_TYPE>
-__device__ static void dxt_encode(void * out, const int block_idx,
+__device__ void dxt_encode(void * out, const int block_idx,
                                   float r[16], float g[16], float b[16]);
 
 
 /// Encodes the block into DXT6 format (DXT5-YcOcG) and saves it into output 
 /// buffer
 template <>
-__device__ static void dxt_encode<6>(void * out, const int block_idx,
+__device__ void dxt_encode<6>(void * out, const int block_idx,
                                      float r[16], float g[16], float b[16]) {
      // Read block of data
     vec3 block[16];
@@ -510,7 +510,7 @@ __device__ static void dxt_encode<6>(void * out, const int block_idx,
 
 /// Encodes the block into DXT1 format and saves it into output buffer
 template <>
-__device__ static void dxt_encode<1>(void * out, const int block_idx,
+__device__ void dxt_encode<1>(void * out, const int block_idx,
                                      float r[16], float g[16], float b[16]) {
     // find min and max sample values for each component
     float mincol_r = r[0];
