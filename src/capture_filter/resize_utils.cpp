@@ -47,7 +47,7 @@
 using namespace cv;
 
 int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor){
-    assert(in_color == UYVY || in_color == RGB);
+    assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
 
     int res = 0;
     Mat out, in, rgb;
@@ -61,6 +61,12 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *da
 			in.create(height, width, CV_8UC2);
 		    in.data = (uchar*)indata;
 			cvtColor(in, rgb, CV_YUV2RGB_UYVY);
+			resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
+			break;
+		case YUYV:
+			in.create(height, width, CV_8UC2);
+		    in.data = (uchar*)indata;
+			cvtColor(in, rgb, CV_YUV2RGB_YUYV);
 			resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 			break;
 		case RGB:

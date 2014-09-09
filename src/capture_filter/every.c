@@ -134,6 +134,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 return s->frame;
         } else {
                 s->current = (s->current + 1) % s->num;
+                VIDEO_FRAME_DISPOSE(in);
                 return NULL;
         }
 }

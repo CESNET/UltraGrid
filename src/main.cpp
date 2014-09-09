@@ -199,6 +199,9 @@ static void usage(void)
         printf("          address(es)\n\n");
         printf("\t--verbose                \tprint verbose messages\n");
         printf("\n");
+        printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
+        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
+        printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -417,6 +420,7 @@ int main(int argc, char *argv[])
 
         char *sage_opts = NULL;
         int control_port = CONTROL_DEFAULT_PORT;
+        int connection_type = 0;
         struct control_state *control = NULL;
 
         const char *audio_host = NULL;
@@ -748,7 +752,22 @@ int main(int argc, char *argv[])
                         requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
-                        control_port = atoi(optarg);
+                        if (strchr(optarg, ':')) {
+                                char *save_ptr = NULL;
+                                char *tok;
+                                control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+                                if(connection_type < 0 || connection_type > 1){
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                        } else {
+                                control_port = atoi(optarg);
+                        }
                         break;
                 case OPT_VERBOSE:
                         verbose = true;
@@ -832,7 +851,7 @@ int main(int argc, char *argv[])
         }
 #endif
 
-        if(control_init(control_port, &control, &root_mod) != 0) {
+        if(control_init(control_port, connection_type, &control, &root_mod) != 0) {
                 fprintf(stderr, "%s Unable to initialize remote control!\n",
                                 control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
                 if(control_port != CONTROL_DEFAULT_PORT) {

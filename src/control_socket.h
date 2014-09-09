@@ -53,12 +53,12 @@ struct control_state;
 struct module;
 struct stats;
 
-#define CONTROL_DEFAULT_PORT -1
+#define CONTROL_DEFAULT_PORT 5054
 
 /**
  * @retval 0 if success
  */
-int control_init(int port, struct control_state **state, struct module *root_module);
+int control_init(int port, int connection_type, struct control_state **state, struct module *root_module);
 void control_start(struct control_state *state);
 void control_done(struct control_state *s);
 void control_add_stats(struct control_state *state, struct stats *stats);
