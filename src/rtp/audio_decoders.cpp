@@ -488,7 +488,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
                         received_frame.init(input_channels, audio_codec, bps, sample_rate); 
-                        decoder->decoded->init(input_channels, AC_PCM, bps, sample_rate);
+                        decoder->decoded->init(input_channels, AC_PCM, bps, device_sample_rate);
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {

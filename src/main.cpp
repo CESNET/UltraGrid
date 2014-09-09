@@ -265,7 +265,7 @@ static void usage(void)
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
-        printf("\t--audio-codec <codec>[:<sample_rate>]|help\taudio codec\n");
+        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
         printf("\n");
         printf("\t--capture-filter <filter>\tCapture filter(s), must preceed\n");
         printf("\n");
