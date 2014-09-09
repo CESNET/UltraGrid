@@ -95,11 +95,10 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <queue>
 
-using std::map;
-using std::queue;
-using std::unique_ptr;
+using namespace std;
 
 struct state_video_decoder;
 
@@ -249,7 +248,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        message_queue     decompress_queue{1};
+        unique_ptr<message_queue> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -263,7 +262,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        message_queue     fec_queue{1};
+        unique_ptr<message_queue> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -314,12 +313,12 @@ static void *fec_thread(void *args) {
 
         while(1) {
                 struct fec_msg *data = NULL;
-                data = dynamic_cast<fec_msg *>(decoder->fec_queue.pop());
+                data = dynamic_cast<fec_msg *>(decoder->fec_queue->pop());
 
                 if(data->poisoned) {
                         decompress_msg *msg = new decompress_msg(0);
                         msg->poisoned = true;
-                        decoder->decompress_queue.push(msg);
+                        decoder->decompress_queue->push(msg);
                         delete data;
                         break; // exit from loop
                 }
@@ -463,7 +462,7 @@ static void *fec_thread(void *args) {
                         decoder->buffer_swapped = false;
                 }
                 pthread_mutex_unlock(&decoder->lock);
-                decoder->decompress_queue.push(decompress_msg);
+                decoder->decompress_queue->push(decompress_msg);
 
 cleanup:
                 if(ret == FALSE) {
@@ -489,7 +488,7 @@ static void *decompress_thread(void *args) {
         struct tile *tile;
 
         while(1) {
-                decompress_msg *msg = dynamic_cast<decompress_msg *>(decoder->decompress_queue.pop());
+                decompress_msg *msg = dynamic_cast<decompress_msg *>(decoder->decompress_queue->pop());
 
                 if(msg->poisoned) {
                         delete msg;
@@ -649,6 +648,9 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
 
+        s->decompress_queue = unique_ptr<message_queue>(new message_queue(1));
+        s->fec_queue = unique_ptr<message_queue>(new message_queue(1));
+
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
@@ -801,7 +803,7 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
         if(decoder->display) {
                 fec_msg *msg = new fec_msg(0);
                 msg->poisoned = true;
-                decoder->fec_queue.push(msg);
+                decoder->fec_queue->push(msg);
 
                 pthread_join(decoder->fec_thread_id, NULL);
                 pthread_join(decoder->decompress_thread_id, NULL);
@@ -1769,10 +1771,10 @@ next_packet:
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
         fec_msg->pckt_list = std::move(pckt_list);
 
-        if(decoder->fec_queue.size() > 0) {
+        if(decoder->fec_queue->size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
         }
-        decoder->fec_queue.push(fec_msg);
+        decoder->fec_queue->push(fec_msg);
 cleanup:
         ;
         unsigned int frame_size = 0;
