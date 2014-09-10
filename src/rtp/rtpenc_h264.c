@@ -86,7 +86,7 @@ struct rtpenc_h264_state * rtpenc_h264_init_state() {
 
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint8_t *buf_in, int size) {
 
-	uint32_t next4Bytes = NULL;
+	uint32_t next4Bytes = 0l;
 
 	if (!rtpench264state->haveSeenFirstStartCode) {
 		//reset pointers and params of interest for this new frame to parse and send
