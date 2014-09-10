@@ -120,8 +120,21 @@ struct video_frame *compress_pop(struct compress_state *);
 #ifdef __cplusplus
 #include <list>
 #include <string>
-#include <tuple>
-std::list<std::tuple<std::string, int, long>> get_compress_capabilities();
+struct compress_preset {
+        struct compress_prop {
+                int latency; // ms
+                double cpu_cores;
+                double gpu_gflops;
+        };
+
+        std::string name;
+        int quality;
+        long bitrate;
+        compress_prop enc_prop;
+        compress_prop dec_prop;
+};
+
+std::list<compress_preset> get_compress_capabilities();
 #endif
 
 #endif /* __video_compress_h */

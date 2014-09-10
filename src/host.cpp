@@ -44,7 +44,10 @@ void print_capabilities(void)
         cout << "Compressions:" << endl;
         auto const & compress_capabilities = get_compress_capabilities();
         for (auto const & it : compress_capabilities) {
-                cout << "(" << get<0>(it) << ";" << get<1>(it) << ";" << get<2>(it) <<")\n";
+                cout << "(" << it.name << ";" << it.quality << ";" << it.bitrate << ";" <<
+                        it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
+                        it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
+                        ")\n";
         }
         cout << "Capturers:" << endl;
         print_available_capturers();

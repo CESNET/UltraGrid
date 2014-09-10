@@ -99,7 +99,7 @@ struct compress_t {
         const char         *compress_pop_str;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
-        list<tuple<string, int, long>> presets; ///< list of available presets
+        list<compress_preset> presets;    ///< list of available presets
 };
 
 /**
@@ -163,8 +163,8 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 NULL,
                 {
-                        make_tuple(string("DXT1"), 35, 250*1000*1000 ),
-                        make_tuple(string("DXT5"), 50, 500*1000*1000 ),
+                        { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
+                        { "DXT5", 50, 500*1000*1000, {75, 0.3, 35}, {15, 0.1, 20} },
                 },
         },
 #endif
@@ -178,9 +178,9 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 NULL,
                 {
-                        make_tuple("60", 60, 30*1000*1000 ),
-                        make_tuple("80", 70, 36*1000*1000 ),
-                        make_tuple("90", 80, 44*1000*1000 ),
+                        { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
+                        { "80", 70, 36*1000*1000, {12, 0.6, 90}, {15, 0.6, 100} },
+                        { "90", 80, 44*1000*1000, {15, 0.6, 100}, {20, 0.6, 150} },
                 },
         },
 #endif
@@ -206,10 +206,12 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 NULL,
                 {
-                        make_tuple("codec=H.264:bitrate=5M", 20, 5*1000*1000),
-                        make_tuple("codec=H.264:bitrate=10M", 30, 10*1000*1000),
-                        make_tuple("codec=H.264:bitrate=15M", 50, 15*1000*1000),
-                        make_tuple("codec=MJPEG", 40, 50*1000*1000),
+                        { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
+                        { "codec=H.264:bitrate=10M", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
+                        { "codec=H.264:bitrate=15M", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
+#if 0
+                        { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
+#endif
                 },
         },
 #endif
@@ -223,8 +225,10 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 NULL,
                 {
-                        make_tuple("DXT1", 35, 250*1000*1000),
-                        make_tuple("DXT5", 50, 500*1000*1000),
+#if 0
+                        { "DXT1", 35, 250*1000*1000, {7, 0.2, 10}, {} },
+                        { "DXT5", 50, 500*1000*1000, {10, 0.2, 20}, {} },
+#endif
                 }
         },
 #endif
@@ -320,16 +324,17 @@ void show_compress_help()
         }
 }
 
-list<tuple<string, int, long>> get_compress_capabilities()
+list<compress_preset> get_compress_capabilities()
 {
-        list<tuple<string, int, long>> ret;
+        list<compress_preset> ret;
 
         pthread_once(&compression_list_initialized, init_compressions);
 
         for (int i = 0; i < compress_modules_count; ++i) {
                 for (auto const & it : available_compress_modules[i]->presets) {
-                        ret.emplace_back(string(available_compress_modules[i]->name) + ":" + get<0>(it),
-                                        get<1>(it), get<2>(it));
+                        auto new_elem = it;
+                        new_elem.name = string(available_compress_modules[i]->name) + ":" + it.name;
+                        ret.push_back(new_elem);
                 }
         }
 
