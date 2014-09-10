@@ -500,7 +500,7 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(s->requestedDisplayCodec != (codec_t) -1) {
+                        if(s->requestedDisplayCodec != VIDEO_CODEC_NONE) {
                                 if(sizeof(codec_t) <= *len) {
                                         memcpy(val, &s->requestedDisplayCodec, sizeof(codec_t));
                                         *len = sizeof(codec_t);
