@@ -94,15 +94,6 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  * @return                      compressed frame with one tile, may be NULL if compression failed
  */
 typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame);
-/**
- * @brief Gets back tile/frame from driver
- *
- * @param[in]  state         driver internal state
- * @param[out] desc          output video desc (only for tiles - for frames this is directly in metadata_
- * @retval   !=NULL          compressed tile/frame
- * @retval     NULL          signal that queue has finished
- */
-typedef  void * (*compress_pop_t)(struct module *state, struct video_desc *desc);
 /// @}
 
 void show_compress_help(void);

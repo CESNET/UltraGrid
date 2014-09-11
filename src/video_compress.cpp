@@ -91,12 +91,6 @@ struct compress_t {
         const char         *compress_frame_str;
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
         const char         *compress_tile_str;
-        /**
-         * Async readback function.
-         * If not defined, synchronous API is supposed.
-         */
-        compress_pop_t      compress_pop_func;
-        const char         *compress_pop_str;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
         list<compress_preset> presets;    ///< list of available presets
@@ -160,7 +154,6 @@ struct compress_t compress_modules[] = {
                 MK_NAME(dxt_glsl_compress_init),
                 MK_NAME(dxt_glsl_compress),
                 MK_NAME(NULL),
-                MK_NAME(NULL),
                 NULL,
                 {
                         { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
@@ -174,7 +167,6 @@ struct compress_t compress_modules[] = {
                 "jpeg",
                 MK_NAME(jpeg_compress_init),
                 MK_NAME(jpeg_compress),
-                MK_NAME(NULL),
                 MK_NAME(NULL),
                 NULL,
                 {
@@ -191,7 +183,6 @@ struct compress_t compress_modules[] = {
                 MK_NAME(uyvy_compress_init),
                 MK_NAME(uyvy_compress),
                 MK_NAME(NULL),
-                MK_NAME(NULL),
                 NULL,
                 {},
         },
@@ -203,7 +194,6 @@ struct compress_t compress_modules[] = {
                 MK_NAME(libavcodec_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_tile),
-                MK_NAME(NULL),
                 NULL,
                 {
                         { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
@@ -222,7 +212,6 @@ struct compress_t compress_modules[] = {
                 MK_NAME(cuda_dxt_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(cuda_dxt_compress_tile),
-                MK_NAME(NULL),
                 NULL,
                 {
 #if 0
@@ -239,7 +228,6 @@ struct compress_t compress_modules[] = {
                 MK_STATIC(none_compress_init),
                 MK_STATIC(none_compress),
                 MK_STATIC(NULL),
-                MK_NAME(NULL),
                 NULL,
                 {},
         },
@@ -547,12 +535,7 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
                 return;
         }
 
-        msg_frame *frame_msg;
-        if (s->handle->compress_pop_func) {
-                abort(); // not yet implemented
-        } else {
-                frame_msg = new msg_frame(sync_api_frame);
-        }
+        msg_frame *frame_msg = new msg_frame(sync_api_frame);
         s->queue->push(frame_msg);
 }
 
@@ -696,15 +679,11 @@ struct video_frame *compress_pop(compress_state_proxy *proxy)
 
         struct compress_state_real *s = proxy->ptr;
 
-        if(s->handle->compress_pop_func) {
-                // ret = s->handle->compress_pop_func(s->state[0], frame, buffer_index);
-        } else {
-                msg *message = s->queue->pop();
-                msg_frame *frame_msg = dynamic_cast<msg_frame *>(message);
-                assert(frame_msg != NULL);
-                ret = frame_msg->frame;
-                delete frame_msg;
-        }
+        msg *message = s->queue->pop();
+        msg_frame *frame_msg = dynamic_cast<msg_frame *>(message);
+        assert(frame_msg != NULL);
+        ret = frame_msg->frame;
+        delete frame_msg;
 
         return ret;
 }
