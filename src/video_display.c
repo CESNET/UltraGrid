@@ -321,7 +321,7 @@ static int display_fill_symbols(display_table_t *device)
 
         device->func_probe = (display_type_t *(*) (void))
                 dlsym(handle, device->func_probe_str);
-        device->func_init = (void *(*) (char *, unsigned int))
+        device->func_init = (void *(*) (const char *, unsigned int))
                 dlsym(handle, device->func_init_str);
         device->func_run = (void (*) (void *))
                 dlsym(handle, device->func_run_str);

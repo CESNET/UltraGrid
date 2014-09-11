@@ -662,7 +662,7 @@ case "$host_os" in
                         DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS="$LIBS -framework CoreFoundation DeckLink/Mac/DeckLinkAPIDispatch.cpp"
+                LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
                                    ]],
@@ -720,16 +720,16 @@ then
     DECKLINK_DISP_OBJ="src/video_display/decklink.o"
     DECKLINK_SOUND_PLAY_OBJ="src/audio/playback/decklink.o"
     if test $system = "Windows"; then
-        DECKLINK_COMMON="src/video_capture/DeckLinkAPI_i.o"
+        OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
     else
-        DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
+        OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/aplay_decklink.so.$audio_playback_abi_version")
     LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
-    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ $DECKLINK_COMMON"
+    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
     decklink=yes
 else
     DECKLINK_PATH=
@@ -743,10 +743,9 @@ if test $decklink_req = yes -a $decklink = no; then
         AC_MSG_ERROR([DeckLink not found.])
 fi
 
-LIB_MODULES+=" $DECKLINK_LIB"
+LIB_MODULES="$LIB_MODULES $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
-AC_SUBST(DECKLINK_COMMON)
 AC_SUBST(DECKLINK_INC)
 AC_SUBST(DECKLINK_LIB)
 AC_SUBST(DECKLINK_CAP_OBJ)

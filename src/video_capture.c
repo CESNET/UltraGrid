@@ -388,7 +388,7 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
 {
         void *handle = device->handle;
 
-        device->func_probe = (struct vidcap_type *(*) (void))
+        device->func_probe = (struct vidcap_type *(*) (bool))
                 dlsym(handle, device->func_probe_str);
         device->func_init = (void *(*) (const struct vidcap_params *))
                 dlsym(handle, device->func_init_str);
