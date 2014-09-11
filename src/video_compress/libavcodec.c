@@ -263,7 +263,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 
         printf("[Lavc] Using codec: %s\n", get_codec_name(s->selected_codec_id));
 
-        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN) / 4; // take conservatively only one fourth of cores
+        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
         if(s->cpu_count < 1) {
                 fprintf(stderr, "Warning: Cannot get number of CPU cores!\n");
                 s->cpu_count = 1;
