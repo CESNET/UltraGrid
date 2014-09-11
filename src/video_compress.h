@@ -94,6 +94,8 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  * @return                      compressed frame with one tile, may be NULL if compression failed
  */
 typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame);
+
+typedef bool (*compress_is_supported_t)(const char *config_str);
 /// @}
 
 void show_compress_help(void);

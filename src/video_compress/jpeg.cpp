@@ -263,6 +263,10 @@ static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         return true;
 }
 
+bool jpeg_is_supported() {
+        return gpujpeg_init_device(cuda_devices[0], TRUE) == 0;
+}
+
 struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_jpeg *s;

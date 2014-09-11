@@ -225,6 +225,15 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         return 0;
 }
 
+bool libavcodec_is_supported() {
+        avcodec_register_all();
+        if (avcodec_find_encoder(AV_CODEC_ID_H264)) {
+                return true;
+        } else {
+                return false;
+        }
+}
+
 struct module * libavcodec_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_libav *s;

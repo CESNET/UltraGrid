@@ -204,6 +204,17 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         return TRUE;
 }
 
+bool dxt_is_supported()
+{
+        struct gl_context gl_context;
+        if (!init_gl_context(&gl_context, GL_CONTEXT_ANY)) {
+                return false;
+        } else {
+                destroy_gl_context(&gl_context);
+                return true;
+        }
+}
+
 struct module *dxt_glsl_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_rtdxt *s;

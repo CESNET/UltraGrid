@@ -112,7 +112,7 @@ void glx_free(void *arg)
 
         display = x11_get_display();
         if(!display) {
-                fprintf(stderr, "Unable to get shared display for GLX!\n");
+                error_msg("Unable to get shared display for GLX!\n");
                 x11_unlock();
         }
 
@@ -120,7 +120,7 @@ void glx_free(void *arg)
         glXMakeCurrent( display, context->win, context->ctx );
         
         glXDestroyContext( display, context->ctx );
-        fprintf(stderr, "GLX context destroyed\n");
+        debug_msg("GLX context destroyed\n");
 #ifdef HAVE_GPUPERFAPI
         GPA_Destroy();
 #endif
@@ -238,22 +238,22 @@ void *glx_init(glx_opengl_version_t version)
   if ( !glXQueryVersion( display, &glx_major, &glx_minor ) || 
        ( ( glx_major == 1 ) && ( glx_minor < 3 ) ) || ( glx_major < 1 ) )
   {
-    printf( "Invalid GLX version" );
+    verbose_msg( "Invalid GLX version" );
     goto error;
   }
  
-  printf( "Getting matching framebuffer configs\n" );
+  debug_msg( "Getting matching framebuffer configs\n" );
   fbc = glXChooseFBConfig( display, DefaultScreen( display ), 
                                         visual_attribs, &fbcount );
   if ( !fbc )
   {
-    printf( "Failed to retrieve a framebuffer config\n" );
+    debug_msg( "Failed to retrieve a framebuffer config\n" );
     goto error;
   }
-  printf( "Found %d matching FB configs.\n", fbcount );
+  debug_msg( "Found %d matching FB configs.\n", fbcount );
  
   // Pick the FB config/visual with the most samples per pixel
-  printf( "Getting XVisualInfos\n" );
+  debug_msg( "Getting XVisualInfos\n" );
  
   for ( int i = 0; i < fbcount; i++ )
   {
@@ -264,7 +264,7 @@ void *glx_init(glx_opengl_version_t version)
       glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
       glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
  
-      printf( "  Matching fbconfig %d, visual ID 0x%2x: SAMPLE_BUFFERS = %d,"
+      debug_msg( "  Matching fbconfig %d, visual ID 0x%2x: SAMPLE_BUFFERS = %d,"
               " SAMPLES = %d\n", 
               i, (unsigned int) vi -> visualid, samp_buf, samples );
  
@@ -283,9 +283,9 @@ void *glx_init(glx_opengl_version_t version)
  
   // Get a visual
   vi = glXGetVisualFromFBConfig( display, bestFbc );
-  printf( "Chosen visual ID = 0x%x\n", (unsigned int) vi->visualid );
+  debug_msg( "Chosen visual ID = 0x%x\n", (unsigned int) vi->visualid );
  
-  printf( "Creating colormap\n" );
+  debug_msg( "Creating colormap\n" );
   XSetWindowAttributes swa;
   swa.colormap = context->cmap = XCreateColormap( display,
                                          RootWindow( display, vi->screen ), 
@@ -294,7 +294,7 @@ void *glx_init(glx_opengl_version_t version)
   swa.border_pixel      = 0;
   swa.event_mask        = StructureNotifyMask;
  
-  printf( "Creating window\n" );
+  debug_msg( "Creating window\n" );
   context->win = XCreateWindow( display, RootWindow( display, vi->screen ), 
                               0, 0, 1920, 1080, 0, vi->depth, InputOutput, 
                               vi->visual, 
@@ -303,7 +303,7 @@ void *glx_init(glx_opengl_version_t version)
 
   if ( !context->win )
   {
-    printf( "Failed to create window.\n" );
+    debug_msg( "Failed to create window.\n" );
     goto error;
   }
  
@@ -313,7 +313,7 @@ void *glx_init(glx_opengl_version_t version)
  /* We don't need this for UG */
   /*XStoreName( display, win, "GL 3.0 Window" );
  
-  printf( "Mapping window\n" );
+  debug_msg( "Mapping window\n" );
   XMapWindow( display, win );*/
  
   // Get the default screen's GLX extension list
@@ -342,7 +342,7 @@ void *glx_init(glx_opengl_version_t version)
   if ( !isExtensionSupported( glxExts, "GLX_ARB_create_context" ) ||
        !glXCreateContextAttribsARB )
   {
-    printf( "glXCreateContextAttribsARB() not found"
+    debug_msg( "glXCreateContextAttribsARB() not found"
             " ... using old-style GLX context\n" );
     context->ctx = glXCreateNewContext( display, bestFbc, GLX_RGBA_TYPE, 0, True );
     if(!VERSION_IS_UNSPECIFIED(version)) {
@@ -366,14 +366,14 @@ void *glx_init(glx_opengl_version_t version)
             context_attribs[3] = VERSION_GET_MINOR(version);
     }
  
-    printf( "Creating context\n" );
+    debug_msg( "Creating context\n" );
     context->ctx = glXCreateContextAttribsARB( display, bestFbc, 0,
                                       True, context_attribs );
  
     // Sync to ensure any errors generated are processed.
     XSync( display, False );
     if ( !ctxErrorOccurred && context->ctx )
-      printf( "Created GL %d.%d context\n", context_attribs[1], context_attribs[3]);
+      debug_msg( "Created GL %d.%d context\n", context_attribs[1], context_attribs[3]);
     else
     {
       if(VERSION_IS_UNSPECIFIED(version)) {
@@ -388,7 +388,7 @@ void *glx_init(glx_opengl_version_t version)
    
         ctxErrorOccurred = FALSE;
    
-        printf( "Failed to create GL 3.0 context"
+        debug_msg( "Failed to create GL 3.0 context"
                 " ... using old-style GLX context\n" );
         context->ctx = glXCreateContextAttribsARB( display, bestFbc, 0, 
                                           True, context_attribs );
@@ -407,21 +407,21 @@ void *glx_init(glx_opengl_version_t version)
  
   if ( ctxErrorOccurred || !context->ctx )
   {
-    printf( "Failed to create an OpenGL context\n" );
+    debug_msg( "Failed to create an OpenGL context\n" );
     goto error;
   }
  
   // Verifying that context is a direct context
   if ( ! glXIsDirect ( display, context->ctx ) )
   {
-    printf( "Indirect GLX rendering context obtained\n" );
+    debug_msg( "Indirect GLX rendering context obtained\n" );
   }
   else
   {
-    printf( "Direct GLX rendering context obtained\n" );
+    debug_msg( "Direct GLX rendering context obtained\n" );
   }
  
-  printf( "Making context current\n" );
+  debug_msg( "Making context current\n" );
   glXMakeCurrent( display, context->win, context->ctx );
 
         glewInit();

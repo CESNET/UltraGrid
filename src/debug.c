@@ -82,9 +82,12 @@ void _dprintf(const char *format, ...)
 
 void verbose_msg(const char *format, ...)
 {
+// print verbose messages in debug mode, anyway
+#ifndef DEBUG
         if (!verbose) {
                 return;
         }
+#endif
         va_list ap;
 
         va_start(ap, format);

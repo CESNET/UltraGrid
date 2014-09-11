@@ -55,6 +55,7 @@ extern "C" {
 struct module      *dxt_glsl_compress_init(struct module *parent,
                 const struct video_compress_params *params);
 struct video_frame *dxt_glsl_compress(struct module *mod, struct video_frame * tx);
+bool dxt_is_supported(void);
 
 #ifdef __cplusplus
 }

@@ -91,6 +91,8 @@ struct compress_t {
         const char         *compress_frame_str;
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
         const char         *compress_tile_str;
+        compress_is_supported_t is_supported_func;
+        const char         *is_supported_str;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
         list<compress_preset> presets;    ///< list of available presets
@@ -154,6 +156,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(dxt_glsl_compress_init),
                 MK_NAME(dxt_glsl_compress),
                 MK_NAME(NULL),
+                MK_NAME(dxt_is_supported),
                 NULL,
                 {
                         { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
@@ -168,6 +171,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(jpeg_compress_init),
                 MK_NAME(jpeg_compress),
                 MK_NAME(NULL),
+                MK_NAME(jpeg_is_supported),
                 NULL,
                 {
                         { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
@@ -183,6 +187,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(uyvy_compress_init),
                 MK_NAME(uyvy_compress),
                 MK_NAME(NULL),
+                MK_NAME(NULL),
                 NULL,
                 {},
         },
@@ -194,6 +199,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(libavcodec_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_tile),
+                MK_NAME(libavcodec_is_supported),
                 NULL,
                 {
                         { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
@@ -212,6 +218,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(cuda_dxt_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(cuda_dxt_compress_tile),
+                MK_NAME(NULL),
                 NULL,
                 {
 #if 0
@@ -227,6 +234,7 @@ struct compress_t compress_modules[] = {
                 NULL,
                 MK_STATIC(none_compress_init),
                 MK_STATIC(none_compress),
+                MK_STATIC(NULL),
                 MK_STATIC(NULL),
                 NULL,
                 {},
@@ -265,6 +273,8 @@ static int compress_fill_symbols(struct compress_t *compression)
                 dlsym(handle, compression->compress_frame_str);
         compression->compress_tile_func = (compress_tile_t)
                 dlsym(handle, compression->compress_tile_str);
+        compression->is_supported_func = (compress_is_supported_t)
+                dlsym(handle, compression->is_supported_str);
 
         if(!compression->init_func ||
                         (compression->compress_frame_func == 0 && compression->compress_tile_func == 0)
@@ -322,7 +332,10 @@ list<compress_preset> get_compress_capabilities()
                 for (auto const & it : available_compress_modules[i]->presets) {
                         auto new_elem = it;
                         new_elem.name = string(available_compress_modules[i]->name) + ":" + it.name;
-                        ret.push_back(new_elem);
+                        if (available_compress_modules[i]->is_supported_func &&
+                                        available_compress_modules[i]->is_supported_func(new_elem.name.c_str())) {
+                                ret.push_back(new_elem);
+                        }
                 }
         }
 
