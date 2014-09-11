@@ -377,11 +377,11 @@ void *display_bluefish444_state::playback_loop() throw()
 
                                 if(NumberAudioChannels > 0)
                                         EmbAudioProp |= (blue_emb_audio_group1_enable);
-                                else if(NumberAudioChannels > 4)
+                                if(NumberAudioChannels > 4)
                                         EmbAudioProp |= (blue_emb_audio_group2_enable);
-                                else if(NumberAudioChannels > 8)
+                                if(NumberAudioChannels > 8)
                                         EmbAudioProp |= (blue_emb_audio_group3_enable);
-                                else if(NumberAudioChannels > 12)
+                                if(NumberAudioChannels > 12)
                                         EmbAudioProp |= (blue_emb_audio_group4_enable);
 
                                 int bytes = ring_buffer_read(m_AudioRingBuffer, audio_data, NrSamples *

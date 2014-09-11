@@ -155,11 +155,6 @@ static void initialize(struct vidcap_screen_x11_state *s) {
         pthread_create(&s->worker_id, NULL, grab_thread, s);
 
         return;
-
-        goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
-error:
-        fprintf(stderr, "[Screen cap.] Initialization failed!\n");
-        exit_uv(128);
 }
 
 

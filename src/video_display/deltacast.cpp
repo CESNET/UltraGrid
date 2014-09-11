@@ -546,6 +546,7 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
                                 break;
                         default:
                                 fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
+                                pthread_mutex_unlock(&s->lock);
                                 return FALSE;
                 }
                 pAudioChn->pData = new BYTE[s->audio_desc.bps * s->audio_desc.sample_rate];

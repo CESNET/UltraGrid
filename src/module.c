@@ -201,11 +201,11 @@ static void get_receiver_index(char *node_str, int *index) {
 
 struct module *get_module(struct module *root, const char *const_path)
 {
+        assert(root != NULL);
+
         struct module *receiver = root;
         char *path, *tmp;
         char *item, *save_ptr;
-
-        assert(root != NULL);
 
         pthread_mutex_lock(&root->lock);
 

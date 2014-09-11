@@ -1004,7 +1004,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	static uint32_t ts_prev = 0;
 	uint32_t ts = 0;
 
-        assert(frame->tile_count = 1); // std transmit doesn't handle more than one tile
+        assert(frame->tile_count == 1); // std transmit doesn't handle more than one tile
 	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
 	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
 

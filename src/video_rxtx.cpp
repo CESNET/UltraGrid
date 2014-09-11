@@ -219,8 +219,8 @@ void *video_rxtx::sender_loop() {
                         VIDEO_FRAME_DISPOSE(tx_frame);
                 }
 
-                if (dynamic_cast<rtp_video_rxtx *>(this)) {
-                        rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
+                rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
+                if (rtp_rxtx) {
                         stats_update_int(stat_data_sent,
                                         rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
                 }

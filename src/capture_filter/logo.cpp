@@ -195,6 +195,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         coder = get_decoder_from_to(RGB, in->color_spec, true);
         int rect_x = s->x;
         int rect_y = s->y;
+        assert(coder != NULL && decoder != NULL);
 
         if (decoder == NULL || coder == NULL)
                 return in;

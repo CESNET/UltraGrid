@@ -276,7 +276,6 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         char *filename;
         const char *strip_fmt = NULL;
         FILE *in;
-        struct stat sb;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
         codec_t codec = RGBA;
@@ -364,25 +363,28 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         && strcmp(filename, "i") != 0
                         && strcmp(filename, "sf") != 0) {
                 s->data = malloc(s->size * bpp * 2);
-                if (stat(filename, &sb)) {
-                        perror("stat");
+
+                in = fopen(filename, "r");
+                if (!in) {
+                        perror("fopen");
                         free(s);
                         return NULL;
                 }
+                fseek(in, 0L, SEEK_END);
+                long filesize = ftell(in);
+                fseek(in, 0L, SEEK_SET);
 
-                in = fopen(filename, "r");
-
-                if (s->size < sb.st_size) {
+                if (s->size < filesize) {
                         fprintf(stderr, "Error wrong file size for selected "
-                                "resolution and codec. File size %d, "
-                                "computed size %d\n", (int)sb.st_size, s->size);
+                                "resolution and codec. File size %ld, "
+                                "computed size %d\n", filesize, s->size);
                         free(s->data);
                         free(s);
                         fclose(in);
                         return NULL;
                 }
 
-                if (!in || fread(s->data, sb.st_size, 1, in) == 0) {
+                if (!in || fread(s->data, filesize, 1, in) == 0) {
                         fprintf(stderr, "Cannot read file %s\n", filename);
                         free(s->data);
                         free(s);

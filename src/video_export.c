@@ -122,7 +122,9 @@ static void *video_export_thread(void *arg)
                 }
 
                 FILE *out = fopen(current->filename, "wb");
-                fwrite(current->data, current->data_len, 1, out);
+                if (fwrite(current->data, current->data_len, 1, out) != 1) {
+                        perror("fwrite");
+                }
                 fclose(out);
                 free(current->data);
                 free(current->filename);

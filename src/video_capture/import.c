@@ -232,11 +232,6 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
                 return false;
         }
 
-        // common commands - will run in any way
-        if(!audio_file) {
-                goto error_opening;
-        }
-
         struct wav_metadata metadata;
 
         int ret = read_wav_header(audio_file, &metadata);
@@ -281,7 +276,6 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
 
 error_format:
         fprintf(stderr, "Audio format file error - unknown format\n");
-error_opening:
         fclose(audio_file);
         return false;
 }
@@ -795,10 +789,10 @@ struct client {
 static void * control_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
-        int fd;
+        fd_t fd;
 
         fd = socket(AF_INET6, SOCK_STREAM, 0);
-        assert(fd != -1);
+        assert(fd != INVALID_SOCKET);
         int val = 1;
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
         struct sockaddr_in6 s_in;
@@ -939,6 +933,7 @@ static void * audio_reading_thread(void *args)
                                 struct message *msg = pop_message(&s->audio_state.message_queue);
                                 if(msg->type == FINALIZE) {
                                         pthread_mutex_unlock(&s->lock);
+                                        pthread_mutex_unlock(&s->audio_state.lock);
                                         free(msg);
                                         goto exited;
                                 } else if (msg->type == SEEK) {
@@ -1005,11 +1000,6 @@ static void *video_reader_callback(void *arg)
                                 data->file_name_suffix);
 
                 struct stat sb;
-                if (stat(name, &sb)) {
-                        perror("stat");
-                        free_entry(data->entry);
-                        return NULL;
-                }
 
                 int flags = O_RDONLY;
                 if (data->o_direct) {
@@ -1020,6 +1010,12 @@ static void *video_reader_callback(void *arg)
                 int fd = open(name, flags);
                 if(fd == -1) {
                         perror("open");
+                        return NULL;
+                }
+                if (fstat(fd, &sb)) {
+                        perror("fstat");
+                        close(fd);
+                        free_entry(data->entry);
                         return NULL;
                 }
 

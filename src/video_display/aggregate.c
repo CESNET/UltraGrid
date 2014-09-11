@@ -357,9 +357,6 @@ err:
                                 return FALSE;
 
                         }
-                        *(int *) val = PITCH_DEFAULT;
-                        *len = sizeof(int);
-                        break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
                         if(s->devices_cnt == 1)
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;

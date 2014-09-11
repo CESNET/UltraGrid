@@ -832,15 +832,25 @@ static const char *udp_host_addr6(socket_udp * s)
         int result = 0;
 
         newsock = socket(AF_INET6, SOCK_DGRAM, 0);
+        if (newsock == -1) {
+                perror("socket");
+                return NULL;
+        }
         memset((char *)&addr6, 0, len);
         addr6.sin6_family = AF_INET6;
 #ifdef HAVE_SIN6_LEN
         addr6.sin6_len = len;
 #endif
-        bind(newsock, (struct sockaddr *)&addr6, len);
+        result = bind(newsock, (struct sockaddr *)&addr6, len);
+        if (result != 0) {
+                perror("Cannot bind");
+        }
         addr6.sin6_addr = s->addr6;
         addr6.sin6_port = htons(s->rx_port);
-        connect(newsock, (struct sockaddr *)&addr6, len);
+        result = connect(newsock, (struct sockaddr *)&addr6, len);
+        if (result != 0) {
+                perror("connect");
+        }
 
         memset((char *)&local, 0, len);
         if ((result =

@@ -301,6 +301,7 @@ static void *worker(void *arg)
 
                 // we need to decompress first
                 if(is_codec_opaque(video_header.color_spec)) {
+                        assert(decompress != NULL);
                         bool corrupted = false;
                         for(map <int, substream_frame>::iterator it = current_frame->substreams.begin();
                                         it != current_frame->substreams.end();

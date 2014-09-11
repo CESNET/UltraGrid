@@ -259,12 +259,13 @@ bool UpdateVideoMode(struct vidcap_bluefish444_state *s, uint32_t VideoMode)
                         s->video_desc.height =
                                 bluefish_frame_modes[i].height;
 
+                        streamsize ss = cout.precision();
 			cout << "[Blue cap] Format changed " <<
                                 bluefish_frame_modes[i].width << "x" << 
                                 bluefish_frame_modes[i].height <<
 				get_interlacing_suffix(bluefish_frame_modes[i].interlacing) <<
 				" @" << setprecision(2) << 
-                                bluefish_frame_modes[i].fps << endl;
+                                bluefish_frame_modes[i].fps << setprecision(ss) << endl;
                         return true;
                 }
         }

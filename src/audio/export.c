@@ -252,7 +252,9 @@ static void finalize(struct audio_export *s)
         if((s->saved_format.ch_count * s->saved_format.bps * s->total) % 2 == 1) {
                 char padding_byte = '\0';
                 padding_byte_len = 1;
-                fwrite(&padding_byte, sizeof(padding_byte), 1, s->output);
+                if (fwrite(&padding_byte, sizeof(padding_byte), 1, s->output) != 1) {
+                        goto error;
+                }
         }
 
 

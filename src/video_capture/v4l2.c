@@ -166,8 +166,7 @@ static void show_help()
                 fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 if(ioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
                         perror("[V4L2] Unable to get video formant");
-                        close(fd);
-                        continue;
+                        goto next_device;
                 }
 
                 while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
@@ -188,8 +187,7 @@ static void show_help()
 
                         if(res == -1) {
                                 fprintf(stderr, "[V4L2] Unable to get frame size iterator.\n");
-                                close(fd);
-                                continue;
+                                goto next_device;
                         }
 
                         struct v4l2_frmivalenum frame_int;
@@ -233,6 +231,7 @@ static void show_help()
 
                 printf("\n");
 
+next_device:
                 close(fd);
         }
 }

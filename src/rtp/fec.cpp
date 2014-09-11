@@ -60,12 +60,15 @@ fec *fec::create_from_config(const char *c_str)
                 item = strtok_r(ptr, " ", &save_ptr);
                 assert (item != NULL);
                 mtu_len = atoi(item);
+                assert(mtu_len > 0);
                 item = strtok_r(NULL, " ", &save_ptr);
                 assert (item != NULL);
                 data_len = atoi(item);
+                assert(data_len > 0);
                 item = strtok_r(NULL, " ", &save_ptr);
                 assert (item != NULL);
                 loss_pct = atof(item);
+                assert(loss_pct > 0.0);
                 fec *ret = new ldgm(mtu_len, data_len, loss_pct);
                 free(str);
                 return ret;

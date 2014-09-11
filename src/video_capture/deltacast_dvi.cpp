@@ -350,6 +350,9 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                                         ,Interlaced_B?"Interlaced":"Progressive");
                         Result = VHD_PresetDviAStreamProperties(s->StreamHandle, DviAStd,Width,Height,
                                         RefreshRate,Interlaced_B);
+                        if(Result != VHDERR_NOERROR) {
+                                printf("ERROR : Cannot set incoming DVI-A format. Result = 0x%08X\n", Result);
+                        }
                 }
                 else {
                         printf("ERROR : Cannot detect incoming DVI-A format. Result = 0x%08X\n",

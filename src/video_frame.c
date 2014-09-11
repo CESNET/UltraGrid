@@ -328,7 +328,9 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         FILE *out = fopen(name, "w");
         if(out) {
                 fprintf(out, "P6\n%d %d\n255\n", tile->width, tile->height);
-                fwrite(data, 1, len, out);
+                if (fwrite(data, len, 1, out) != 1) {
+                        perror("fwrite");
+                }
                 fclose(out);
         }
         free(tmp_data);

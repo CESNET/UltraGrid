@@ -64,6 +64,7 @@ dxt_shader_create_from_file(const char* filename, GLenum type)
 	}
     fseek(file, 0, SEEK_END);
     int data_size = ftell(file);
+    assert(data_size >= 0);
     rewind(file);
     char* program = (char*)malloc((data_size  + 1) * sizeof(char));
     if ( (size_t) data_size != fread(program, sizeof(char), data_size, file) ) {

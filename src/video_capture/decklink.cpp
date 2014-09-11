@@ -148,12 +148,6 @@ public:
 	
 	void set_device_state(struct vidcap_decklink_state *state, int index);
 	
-	VideoDelegate () {
-                newFrameReady = 0;
-                rightEyeFrame = NULL;
-		s = NULL;
-	};
-
         ~VideoDelegate () {
 		if(rightEyeFrame)
                         rightEyeFrame->Release();
@@ -1052,17 +1046,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                 displayMode->Release();
                                 displayMode = NULL;
 
-                                // check if any mode was found
-                                if (mode_found == false)
-                                {
-                                        printf("Mode %d wasn't found.\n", s->mode);
-                                                        goto error;
-                                }
-
-                                if (displayModeIterator != NULL){
-                                        displayModeIterator->Release();
-                                        displayModeIterator = NULL;
-                                }
+                                displayModeIterator->Release();
+                                displayModeIterator = NULL;
                         }
                 }
 		deckLinkIterator->Release();

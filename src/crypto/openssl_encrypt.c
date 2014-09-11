@@ -84,11 +84,7 @@ struct openssl_encrypt {
 int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
                 enum openssl_mode mode)
 {
-#ifndef HAVE_CRYPTO
-        fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                        "without OpenSSL support!\n");
-        return -1;
-#endif
+#ifdef HAVE_CRYPTO
         struct openssl_encrypt *s = (struct openssl_encrypt *)
                 calloc(1, sizeof(struct openssl_encrypt));
 
@@ -100,26 +96,29 @@ int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
                         strlen(passphrase));
         MD5Final(hash, &context);
 
-#ifdef HAVE_CRYPTO
         AES_set_encrypt_key(hash, 128, &s->key);
         if (!RAND_bytes(s->ivec, 8)) {
                 return -1;
         }
-#endif
         s->mode = mode;
         assert(s->mode == MODE_AES128_CTR); // only functional by now
 
         *state = s;
         return 0;
+#else
+        UNUSED(state);
+        UNUSED(passphrase);
+        UNUSED(mode);
+        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                        "without OpenSSL support!\n");
+        return -1;
+#endif
 }
 
 static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plaintext,
                 unsigned char *ciphertext, char *nonce_plus_counter, int len)
 {
-#ifndef HAVE_CRYPTO
-        UNUSED(ciphertext);
-        UNUSED(plaintext);
-#endif
+#ifdef HAVE_CRYPTO
         if(nonce_plus_counter) {
                 memcpy(nonce_plus_counter, (char *) s->ivec, 16);
                 /* We do start a new block so we zero the byte counter
@@ -135,19 +134,22 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
 
         switch(s->mode) {
                 case MODE_AES128_CTR:
-#ifdef HAVE_CRYPTO
                         AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
-#endif
                         break;
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
-#ifdef HAVE_CRYPTO
                         AES_ecb_encrypt(plaintext, ciphertext,
                                         &s->key, AES_ENCRYPT);
-#endif
                         break;
         }
+#else
+        UNUSED(s);
+        UNUSED(plaintext);
+        UNUSED(ciphertext);
+        UNUSED(nonce_plus_counter);
+        UNUSED(len);
+#endif
 }
 
 void openssl_encrypt_destroy(struct openssl_encrypt *s)

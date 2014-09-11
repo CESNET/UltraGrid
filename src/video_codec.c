@@ -374,6 +374,7 @@ int get_halign(codec_t codec)
 int get_aligned_length(int width_pixels, codec_t codec)
 {
         int h_align = get_halign(codec);
+        assert(h_align > 0);
         return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 

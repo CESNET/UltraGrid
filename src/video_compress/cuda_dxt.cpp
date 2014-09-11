@@ -68,13 +68,6 @@ struct cuda_buffer_data_allocator {
 };
 
 struct state_video_compress_cuda_dxt {
-        state_video_compress_cuda_dxt() {
-                memset(&saved_desc, 0, sizeof(saved_desc));
-                in_buffer = NULL;
-                cuda_in_buffer = NULL;
-                cuda_uyvy_buffer = NULL;
-                cuda_out_buffer = NULL;
-        }
         struct module       module_data;
         struct video_desc   saved_desc;
         char               *in_buffer;      ///< for decoded data
@@ -85,7 +78,7 @@ struct state_video_compress_cuda_dxt {
         codec_t             out_codec;
         decoder_t           decoder;
 
-        video_frame_pool<cuda_buffer_data_allocator> *pool;
+        video_frame_pool<cuda_buffer_data_allocator> pool;
 };
 
 static void cuda_dxt_compress_done(struct module *mod);
@@ -94,7 +87,7 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 const struct video_compress_params *params)
 {
         state_video_compress_cuda_dxt *s =
-                new state_video_compress_cuda_dxt;
+                new state_video_compress_cuda_dxt{};
         const char *fmt = params->cfg;
         s->out_codec = DXT1;
 
@@ -110,8 +103,6 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                         return NULL;
                 }
         }
-
-        s->pool = new video_frame_pool<cuda_buffer_data_allocator>();
 
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
@@ -178,7 +169,7 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         compressed_desc.tile_count = 1;
         size_t data_len = desc.width * desc.height / (s->out_codec == DXT1 ? 2 : 1);
 
-        s->pool->reconfigure(compressed_desc, data_len);
+        s->pool.reconfigure(compressed_desc, data_len);
 
         if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **)
                                 &s->cuda_out_buffer,
@@ -269,7 +260,7 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                 return NULL;
         }
 
-        struct video_frame *out = s->pool->get_frame();
+        struct video_frame *out = s->pool.get_frame();
         if (cuda_wrapper_memcpy(out->tiles[0].data,
                                 s->cuda_out_buffer,
                                 out->tiles[0].data_len,
@@ -288,7 +279,6 @@ static void cuda_dxt_compress_done(struct module *mod)
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
         cleanup(s);
-        delete s->pool;
 
         delete s;
 }

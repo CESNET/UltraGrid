@@ -193,7 +193,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
 
         struct audio_codec_state *s = (struct audio_codec_state *) malloc(sizeof(struct audio_codec_state));
 
-        s->state = (void **) calloc(1, sizeof(void**));
+        s->state = (void **) calloc(1, sizeof(void*));
         s->state[0] = state;
         s->state_count = 1;
         s->index = index;
@@ -228,7 +228,7 @@ struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
 const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audio_frame2 *frame)
 {
         if(frame && s->state_count < frame->get_channel_count()) {
-                s->state = (void **) realloc(s->state, sizeof(void **) * frame->get_channel_count());
+                s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
                 for(int i = s->state_count; i < frame->get_channel_count(); ++i) {
                         s->state[i] = audio_codecs[s->index]->init(s->codec, s->direction, false, s->bitrate);
                         if(s->state[i] == NULL) {
@@ -277,7 +277,7 @@ const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audi
 audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame)
 {
         if (s->state_count < frame->get_channel_count()) {
-                s->state = (void **) realloc(s->state, sizeof(void **) * frame->get_channel_count());
+                s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
                 for(int i = s->state_count; i < frame->get_channel_count(); ++i) {
                         s->state[i] = audio_codecs[s->index]->init(s->codec, s->direction, false, 0);
                         if(s->state[i] == NULL) {

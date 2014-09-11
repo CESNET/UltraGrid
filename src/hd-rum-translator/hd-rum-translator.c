@@ -219,8 +219,11 @@ static void *writer(void *arg)
             }
             for (i = 0; i < s->host_count; i++) {
                 if(s->replicas[i].type == USE_SOCK) {
-                    replica_write(&s->replicas[i],
+                    ssize_t ret = replica_write(&s->replicas[i],
                             s->qhead->buf, s->qhead->size);
+                    if (ret < 0) {
+                        perror("send");
+                    }
                 }
             }
 

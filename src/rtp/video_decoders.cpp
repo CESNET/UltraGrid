@@ -160,7 +160,7 @@ struct main_msg;
 // message definitions
 typedef char *char_p;
 struct fec_msg : public msg {
-        fec_msg(int count) : substream_count(count) {
+        fec_msg(int count, fec_desc && d) : fec_description(d), substream_count(count), poisoned(false) {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
@@ -801,7 +801,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                fec_msg *msg = new fec_msg(0);
+                fec_msg *msg = new fec_msg(0, {});
                 msg->poisoned = true;
                 decoder->fec_queue->push(msg);
 
@@ -1763,9 +1763,7 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        fec_msg = new struct fec_msg(max_substreams);
-        fec_msg->fec_description = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
-        fec_msg->poisoned = false;
+        fec_msg = new struct fec_msg(max_substreams, fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed));
         memcpy(fec_msg->buffer_len, buffer_len, sizeof(buffer_len));
         memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));

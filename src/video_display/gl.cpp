@@ -520,6 +520,7 @@ static void gl_render(struct state_gl *s, char *data)
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                         ((s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height)/2,
                                         data);
+                        break;
                 case DXT1_YUV:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->current_display_desc.width, s->current_display_desc.height,

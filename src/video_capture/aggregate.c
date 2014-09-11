@@ -188,11 +188,8 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
                 VIDEO_FRAME_DISPOSE(s->captured_frames[i]);
         }
 
-        if(audio_frame) {
-                *audio = audio_frame;
-        } else {
-                *audio = NULL;
-        }
+        *audio = NULL;
+
         for (int i = 0; i < s->devices_cnt; ++i) {
                 frame = NULL;
                 while(!frame) {
