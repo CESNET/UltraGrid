@@ -106,6 +106,7 @@ struct state_sage {
 
         volatile bool           should_exit;
         bool                    is_tx;
+        bool                    deinterlace;
 };
 
 /** Prototyping */
@@ -125,6 +126,11 @@ void display_sage_run(void *arg)
                 sem_wait(&s->semaphore);
                 if (s->should_exit)
                         break;
+
+                if (s->deinterlace) {
+                        vc_deinterlace((unsigned char *) s->tile->data, vc_get_linesize(s->tile->width,
+                                                s->frame->color_spec), s->tile->height);
+                }
 
                 s->sage_state->swapBuffer(SAGE_NON_BLOCKING);
                 sageMessage msg;
@@ -174,11 +180,12 @@ void *display_sage_init(const char *fmt, unsigned int flags)
         if(fmt) {
                 if(strcmp(fmt, "help") == 0) {
                         printf("SAGE usage:\n");
-                        printf("\tuv -t sage[:config=<config_file>|:fs=<fsIP>][:codec=<fcc>]\n");
+                        printf("\tuv -t sage[:config=<config_file>|:fs=<fsIP>][:codec=<fcc>][:d]\n");
                         printf("\t                      <config_file> - SAGE app config file, default \"ultragrid.conf\"\n");
                         printf("\t                      <fsIP> - FS manager IP address\n");
                         printf("\t                      <fcc> - FourCC of codec that will be used to transmit to SAGE\n");
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
+                        printf("\t                      d - deinterlace output\n");
                         return &display_init_noerr;
                 } else {
                         char *tmp, *parse_str;
@@ -217,6 +224,8 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                                         s->is_tx = true;
                                 } else if(strncmp(item, "fs=", strlen("fs=")) == 0) {
                                         s->fsIP = item + strlen("fs=");
+                                } else if(strcmp(item, "d") == 0) {
+                                        s->deinterlace = true;
                                 } else {
                                         fprintf(stderr, "[SAGE] unrecognized configuration: %s\n",
                                                         item);
