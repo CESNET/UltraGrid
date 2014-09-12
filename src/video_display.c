@@ -69,6 +69,7 @@
 #include "video_display/dvs.h"
 #include "video_display/gl.h"
 #include "video_display/pipe.h"
+#include "video_display/proxy.h"
 #include "video_display/quicktime.h"
 #include "video_display/sage.h"
 #include "lib_common.h"
@@ -307,6 +308,21 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_pipe_get_property),
          MK_STATIC(display_pipe_put_audio_frame),
          MK_STATIC(display_pipe_reconfigure_audio),
+         NULL
+         },
+        {
+         0,
+         "proxy",
+         MK_STATIC(display_proxy_probe),
+         MK_STATIC(display_proxy_init),
+         MK_STATIC(display_proxy_run),
+         MK_STATIC(display_proxy_done),
+         MK_STATIC(display_proxy_getf),
+         MK_STATIC(display_proxy_putf),
+         MK_STATIC(display_proxy_reconfigure),
+         MK_STATIC(display_proxy_get_property),
+         MK_STATIC(display_proxy_put_audio_frame),
+         MK_STATIC(display_proxy_reconfigure_audio),
          NULL
          },
 };

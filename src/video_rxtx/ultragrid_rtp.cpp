@@ -333,7 +333,9 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 cp->decoder_state = shared_decoder;
 #else
                                 // we are assigning our display so we make sure it is removed from other dispaly
+#if 0
                                 remove_display_from_decoders();
+#endif
                                 cp->decoder_state = new_video_decoder();
                                 cp->decoder_state_deleter = destroy_video_decoder;
 #endif // SHARED_DECODER

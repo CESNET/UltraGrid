@@ -206,6 +206,8 @@ struct video_frame {
         h264_frame_type_t h264_frame_type;
 
         struct fec_desc fec_params;
+
+        uint32_t ssrc;
 };
 
 /**

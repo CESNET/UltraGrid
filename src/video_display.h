@@ -133,7 +133,8 @@ struct video_frame      *display_get_frame(struct display *d);
 /** @brief putf blocking behavior control */
 enum display_put_frame_flags {
         PUTF_BLOCKING = 0, ///< Block until frame can be displayed.
-        PUTF_NONBLOCK = 1  ///< Do not block.
+        PUTF_NONBLOCK = 1, ///< Do not block.
+        PUTF_DISCARD  = 2,
 };
 
 int 		         display_put_frame(struct display *d, struct video_frame *frame, int nonblock);
