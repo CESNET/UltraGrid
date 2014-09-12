@@ -146,6 +146,7 @@ OBJS	      = @OBJS@ \
 		src/video_rxtx/sage.o \
 		src/video_rxtx/ultragrid_rtp.o \
 		src/vo_postprocess.o \
+		src/vo_postprocess/deinterlace.o \
 		src/vo_postprocess/3d-interlaced.o \
 		src/vo_postprocess/interlace.o \
 		src/vo_postprocess/double-framerate.o \
