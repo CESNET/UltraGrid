@@ -333,7 +333,7 @@ list<compress_preset> get_compress_capabilities()
                         auto new_elem = it;
                         new_elem.name = string(available_compress_modules[i]->name) + ":" + it.name;
                         if (available_compress_modules[i]->is_supported_func &&
-                                        available_compress_modules[i]->is_supported_func(new_elem.name.c_str())) {
+                                        available_compress_modules[i]->is_supported_func()) {
                                 ret.push_back(new_elem);
                         }
                 }
