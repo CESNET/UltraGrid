@@ -1277,30 +1277,32 @@ AC_SUBST(RTSP_OBJ)
 RTSP_SERVER_INC=
 RTSP_SERVER_OBJ=
 rtsp_server=no
-
-define(rtsp_server_dep, live555)
+livemedia=no
 
 AC_ARG_ENABLE(rtsp_server,
 [  --disable-rtsp-server   disable RTSP server support (default is auto)]
-[                          Requires: rtsp_server_dep],
+[                          Requires: live555],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=auto]
     )
 
 case $host in
     *-linux-*)
-                PKG_CHECK_MODULES(RTSP_SERVER, rtsp_server_dep, HAVE_RTSP_SERVER_DEP=yes, HAVE_RTSP_SERVER_DEP=no)
+                AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
 
 		if test $rtsp_server_req != no -a $HAVE_RTSP_SERVER_DEP = yes 
 		then
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-                        CFLAGS="$CFLAGS $RTSP_SERVER_CFLAGS"
-                        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_CFLAGS"
+                        RTSP_SERVER_FLAGS="-I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
+                        CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
+                        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
+                        RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
 			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
                         AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
                         rtsp_server=yes
+                        livemedia=yes
 		fi
     ;;
 esac
@@ -2733,6 +2735,7 @@ RESULT=\
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA
+  Library live555 ............. $livemedia
 
   AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
