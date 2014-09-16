@@ -7,11 +7,19 @@
 #ifndef LIBAVCODEC_COMMON_H_
 #define LIBAVCODEC_COMMON_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
+
+#ifdef __cplusplus
+}
+#endif
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
 #define AV_PIX_FMT_NONE PIX_FMT_NONE
