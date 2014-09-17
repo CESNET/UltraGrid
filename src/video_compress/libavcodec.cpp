@@ -625,14 +625,18 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
                         assert(s->subsampling == 422 || s->subsampling == 420);
                         data[i].callback = s->subsampling == 420 ? to_yuv420 : to_yuv422;
                         data[i].out_frame = s->in_frame_part[i];
-                        data[i].height = tx->tiles[0].height / s->cpu_count;
-                        data[i].height = data[i].height / 2 * 2;
-                        if(i == s->cpu_count - 1) {
+
+                        size_t height = tx->tiles[0].height / s->cpu_count;
+                        // height needs to be even
+                        height = height / 2 * 2;
+                        if (i < s->cpu_count - 1) {
+                                data[i].height = height;
+                        } else { // we are last so we need to do the rest
                                 data[i].height = tx->tiles[0].height -
-                                        data[i].height * (s->cpu_count - 1);
+                                        height * (s->cpu_count - 1);
                         }
                         data[i].width = tx->tiles[0].width;
-                        data[i].in_data = decoded + i * data[i].height *
+                        data[i].in_data = decoded + i * height *
                                 vc_get_linesize(tx->tiles[0].width, UYVY);
 
                         // run !
