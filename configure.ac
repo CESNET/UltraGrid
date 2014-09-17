@@ -2133,22 +2133,29 @@ AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
 	[SAGE_DIRECTORY=$withval])
 
-if test -n "$SAGE_DIRECTORY"
-then
-        SAGE_INC=$SAGE_DIRECTORY/include
-        SAGE_LIB=$SAGE_DIRECTORY/lib
-else
-        SAGE_INC=sage3.0/include
-        SAGE_LIB=sage3.0/lib
-fi
-
 if test $native_ycocg = yes
 then
         AC_DEFINE([SAGE_NATIVE_DXT5YCOCG], [1], [Assume that SAGE supports native DXT5 YCoCg])
 fi
 
-AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+# if directory not set manually, use default installation location
+if test -z "$SAGE_DIRECTORY"
+then
+        SAGE_DIRECTORY=/usr/local/sage
+fi
+
+SAGE_INC=$SAGE_DIRECTORY/include
+SAGE_LIB=$SAGE_DIRECTORY/lib64
+
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
+# if library not found in lib64/ try lib/
+if test $FOUND_SAGE_L = no
+then
+        SAGE_LIB=$SAGE_DIRECTORY/lib
+        AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
+fi
+
+AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 
 if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
