@@ -44,20 +44,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <memory>
+
 struct video_frame;
 struct module;
 struct video_compres_params;
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
-
 struct module      *dxt_glsl_compress_init(struct module *parent,
                 const struct video_compress_params *params);
-struct video_frame *dxt_glsl_compress(struct module *mod, struct video_frame * tx);
+std::shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, std::shared_ptr<video_frame> tx);
 bool dxt_is_supported(void);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
 

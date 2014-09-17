@@ -107,12 +107,7 @@ struct compress_state_real {
         unsigned int        state_count;            ///< count of compress states (equal to tiles' count)
         char                compress_options[1024]; ///< compress options (for reconfiguration)
 
-        message_queue      *queue;
-};
-
-struct msg_frame : public msg {
-        msg_frame(struct video_frame *f) : frame(f) {}
-        struct video_frame *frame;
+        message_queue<shared_ptr<video_frame>> *queue;
 };
 }
 
@@ -136,8 +131,8 @@ typedef struct compress_state compress_state_proxy; ///< Used to emphasize that 
 struct module compress_init_noerr;
 
 static void init_compressions(void);
-static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
-                struct module *parent);
+static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
+                shared_ptr<video_frame> frame, struct module *parent);
 static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
@@ -451,7 +446,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
         memset(&params, 0, sizeof(params));
 
         s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
-        s->queue = new message_queue(1);
+        s->queue = new message_queue<shared_ptr<video_frame>>(1);
 
         s->state_count = 1;
 
@@ -518,15 +513,15 @@ const char *get_compress_name(compress_state_proxy *proxy)
  * @param frame        uncompressed frame to be compressed
  * @return             compressed frame, may be NULL if compression failed
  */
-void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
+void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
 {
         if (!proxy)
                 abort();
 
         struct compress_state_real *s = proxy->ptr;
 
-        if (frame == NULL) { // pass poisoned pill
-                s->queue->push(new msg_frame(NULL));
+        if (!frame) { // pass poisoned pill
+                s->queue->push(shared_ptr<video_frame>());
                 return;
         }
 
@@ -535,23 +530,22 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
                 compress_process_message(proxy, msg);
         }
 
-        struct video_frame *sync_api_frame;
+        shared_ptr<video_frame> sync_api_frame;
         if(s->handle->compress_frame_func) {
                 sync_api_frame = s->handle->compress_frame_func(s->state[0], frame);
         } else if(s->handle->compress_tile_func) {
                 sync_api_frame = compress_frame_tiles(s, frame, &proxy->mod);
         } else {
-                sync_api_frame = NULL;
+                sync_api_frame = {};
         }
 
-        // NULL has special meaning - it is poisoned pill so we must
-        // prevent passing it further
-        if (sync_api_frame == NULL) {
+        // empty return value here represents error, but we don't want to pass it to queue, since it would
+        // be interpreted as poisoned pill
+        if (!sync_api_frame) {
                 return;
         }
 
-        msg_frame *frame_msg = new msg_frame(sync_api_frame);
-        s->queue->push(frame_msg);
+        s->queue->push(sync_api_frame);
 }
 
 /**
@@ -564,10 +558,10 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
  */
 struct compress_worker_data {
         struct module *state;      ///< compress driver status
-        struct video_frame *frame; ///< uncompressed tile to be compressed
+        shared_ptr<video_frame> frame; ///< uncompressed tile to be compressed
 
         compress_tile_t callback;  ///< tile compress callback
-        void *ret;                 ///< OUT - returned compressed tile, NULL if failed
+        shared_ptr<video_frame> ret; ///< OUT - returned compressed tile, NULL if failed
 };
 
 /**
@@ -576,7 +570,7 @@ struct compress_worker_data {
  * @return @ref compress_worker_data (same as input)
  */
 static void *compress_tile_callback(void *arg) {
-        struct compress_worker_data *s = (struct compress_worker_data *) arg;
+        compress_worker_data *s = (compress_worker_data *) arg;
 
         s->ret = s->callback(s->state, s->frame);
 
@@ -591,8 +585,8 @@ static void *compress_tile_callback(void *arg) {
  * @param         parent        parent module (for the case when there is a need to reconfigure)
  * @return                      compressed video frame, may be NULL if compression failed
  */
-static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
-                struct video_frame *frame, struct module *parent)
+static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
+                shared_ptr<video_frame> frame, struct module *parent)
 {
         struct video_compress_params params;
         memset(&params, 0, sizeof(params));
@@ -611,11 +605,11 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
 
         task_result_handle_t task_handle[frame->tile_count];
 
-        vector<struct video_frame *> separate_tiles = vf_separate_tiles(frame);
+        vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
         // frame pointer may no longer be valid
         frame = NULL;
 
-        struct compress_worker_data data_tile[separate_tiles.size()];
+        vector <compress_worker_data> data_tile(separate_tiles.size());
         for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
@@ -625,7 +619,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }
 
-        vector<struct video_frame *> compressed_tiles(separate_tiles.size(), nullptr);
+        vector<shared_ptr<video_frame>> compressed_tiles(separate_tiles.size(), nullptr);
 
         bool failed = false;
         for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
@@ -636,13 +630,10 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
                         failed = true;
                 }
 
-                compressed_tiles[i] = (struct video_frame *) data->ret;
+                compressed_tiles[i] = data->ret;
         }
 
         if (failed) {
-                for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
-                        VIDEO_FRAME_DISPOSE(compressed_tiles[i]);
-                }
                 return NULL;
         }
 
@@ -686,20 +677,13 @@ static void compress_done_real(struct compress_state_real *s)
         free(s);
 }
 
-struct video_frame *compress_pop(compress_state_proxy *proxy)
+shared_ptr<video_frame> compress_pop(compress_state_proxy *proxy)
 {
-        struct video_frame *ret = NULL;
         if(!proxy)
                 return NULL;
 
         struct compress_state_real *s = proxy->ptr;
 
-        msg *message = s->queue->pop();
-        msg_frame *frame_msg = dynamic_cast<msg_frame *>(message);
-        assert(frame_msg != NULL);
-        ret = frame_msg->frame;
-        delete frame_msg;
-
-        return ret;
+        return s->queue->pop();
 }
 

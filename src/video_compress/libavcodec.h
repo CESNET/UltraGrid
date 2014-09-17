@@ -37,21 +37,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#include <memory>
 
 struct module;
 struct tile;
 struct video_desc;
+struct video_frame;
 struct video_compress_params;
 
 struct module       *libavcodec_compress_init(struct module *parent,
                 const struct video_compress_params *params);
-struct video_frame  *libavcodec_compress_tile(struct module *mod, struct video_frame *tx);
+std::shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, std::shared_ptr<video_frame> tx);
 bool libavcodec_is_supported(void);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
 

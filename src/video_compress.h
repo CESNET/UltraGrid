@@ -71,6 +71,23 @@ struct video_compress_params {
  */
 typedef struct module *(*compress_init_t)(struct module *parent,
                 const struct video_compress_params *params);
+
+typedef bool (*compress_is_supported_t)(void);
+/// @}
+
+void show_compress_help(void);
+int compress_init(struct module *parent, const char *config_string, struct compress_state **);
+const char *get_compress_name(struct compress_state *);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+#include <list>
+#include <memory>
+#include <string>
+
 /**
  * @brief Compresses video frame
  * 
@@ -81,7 +98,8 @@ typedef struct module *(*compress_init_t)(struct module *parent,
  *                     same index.
  * @return             compressed frame, may be NULL if compression failed
  */
-typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct video_frame *frame);
+typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, std::shared_ptr<video_frame> frame);
+
 /**
  * @brief Compresses tile of a video frame
  * 
@@ -93,26 +111,10 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  *                same index.
  * @return                      compressed frame with one tile, may be NULL if compression failed
  */
-typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame);
+typedef  std::shared_ptr<video_frame> (*compress_tile_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
 
-typedef bool (*compress_is_supported_t)(void);
-/// @}
+void compress_frame(struct compress_state *, std::shared_ptr<video_frame>);
 
-void show_compress_help(void);
-int compress_init(struct module *parent, const char *config_string, struct compress_state **);
-const char *get_compress_name(struct compress_state *);
-
-void compress_frame(struct compress_state *, struct video_frame*);
-struct video_frame *compress_pop(struct compress_state *);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef __cplusplus
-#include <list>
-#include <string>
 struct compress_preset {
         struct compress_prop {
                 int latency; // ms
@@ -128,6 +130,8 @@ struct compress_preset {
 };
 
 std::list<compress_preset> get_compress_capabilities();
+std::shared_ptr<video_frame> compress_pop(struct compress_state *);
+
 #endif
 
 #endif /* __video_compress_h */

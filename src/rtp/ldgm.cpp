@@ -382,21 +382,19 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
         init(k, m, c);
 }
 
-static void ldgm_encoder_dispose_buffer(struct video_frame *frame)
+shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
 {
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                static_cast<ldgm *>(frame->dispose_udata)->freeBuffer(frame->tiles[i].data);
-        }
-        vf_free(frame);
-}
-
-struct video_frame *ldgm::encode(struct video_frame *tx_frame)
-{
-        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(tx_frame));
+        shared_ptr<video_frame> out(vf_alloc_desc(video_desc_from_frame(tx_frame.get())),
+                        [this](struct video_frame *frame) {
+                                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                                        freeBuffer(frame->tiles[i].data);
+                                }
+                                vf_free(frame);
+                        });
 
         for (unsigned int i = 0; i < tx_frame->tile_count; ++i) {
                 video_payload_hdr_t video_hdr;
-                format_video_header(tx_frame, i, 0, video_hdr);
+                format_video_header(tx_frame.get(), i, 0, video_hdr);
 
                 int out_size;
                 char *output = m_coding_session->encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
@@ -412,8 +410,6 @@ struct video_frame *ldgm::encode(struct video_frame *tx_frame)
         out->fec_params.c = m_c;
         out->fec_params.seed = m_seed;
         out->fec_params.symbol_size = m_coding_session->get_packet_size();
-        out->dispose = ldgm_encoder_dispose_buffer;
-        out->dispose_udata = this;
 
         return out;
 }

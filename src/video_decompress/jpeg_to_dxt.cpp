@@ -64,9 +64,9 @@ struct thread_data {
                 jpeg_decoder(0), desc(), out_codec(), ppb(), dxt_out_buff(0),
                 cuda_dev_index(-1)
         {}
-        message_queue            m_in;
+        message_queue<>          m_in;
         // currently only for output frames
-        message_queue            m_out;
+        message_queue<>          m_out;
 
         struct gpujpeg_decoder  *jpeg_decoder;
         struct video_desc        desc;

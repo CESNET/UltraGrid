@@ -177,7 +177,7 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
         }
 }
 
-void video_rxtx::send(struct video_frame *frame) {
+void video_rxtx::send(shared_ptr<video_frame> frame) {
         compress_frame(m_compression, frame);
 }
 
@@ -206,18 +206,16 @@ void *video_rxtx::sender_loop() {
         while(1) {
                 check_sender_messages();
 
-                struct video_frame *tx_frame = NULL;
+                shared_ptr<video_frame> tx_frame;
 
                 tx_frame = compress_pop(m_compression);
                 if (!tx_frame)
                         goto exit;
 
-                video_export(m_video_exporter, tx_frame);
+                video_export(m_video_exporter, tx_frame.get());
 
                 if (!m_paused) {
                         send_frame(tx_frame);
-                } else {
-                        VIDEO_FRAME_DISPOSE(tx_frame);
                 }
 
                 rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);

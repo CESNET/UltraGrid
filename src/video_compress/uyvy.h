@@ -37,18 +37,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#include <memory>
 
 struct module;
 struct video_frame;
 struct video_compress_params;
 
 struct module       *uyvy_compress_init(struct module *parent, const struct video_compress_params *params);
-struct video_frame  *uyvy_compress(struct module *mod, struct video_frame * tx);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+std::shared_ptr<video_frame> uyvy_compress(struct module *mod, std::shared_ptr<video_frame> tx);
 

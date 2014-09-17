@@ -67,7 +67,7 @@ public:
         sage_video_rxtx(std::map<std::string, param_u> const &);
         ~sage_video_rxtx();
 private:
-        void send_frame(struct video_frame *);
+        void send_frame(std::shared_ptr<video_frame>);
         void *(*get_receiver_thread())(void *arg) {
                 return NULL;
         }

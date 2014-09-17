@@ -38,31 +38,74 @@
 #ifndef MESSAGE_QUEUE_H_
 #define MESSAGE_QUEUE_H_
 
+#include <condition_variable>
+#include <mutex>
 #include <queue>
 
 struct msg {
         virtual ~msg() {}
 };
 
-// some common messages
 struct msg_quit : public msg {};
 
+template<typename T = struct msg *>
 class message_queue {
 public:
-        message_queue(int max_len = -1);
-        virtual ~message_queue();
 
-        int size();
-        void push(msg *);
-        msg *pop(bool nonblocking = false);
+        message_queue(int max_len = -1) :
+                m_max_len(max_len)
+        {
+        }
+
+        virtual ~message_queue()
+        {
+        }
+
+        int size()
+        {
+                std::unique_lock<std::mutex> l(m_lock);
+                return m_queue.size();
+        }
+
+        void push(T const & message)
+        {
+                std::unique_lock<std::mutex> l(m_lock);
+                if (m_max_len != -1) {
+                        m_queue_decremented.wait(l, [this]{return m_queue.size() < (unsigned int) m_max_len;});
+                }
+                m_queue.push(message);
+                l.unlock();
+                m_queue_incremented.notify_one();
+        }
+
+        T pop(bool nonblocking = false)
+        {
+                std::unique_lock<std::mutex> l(m_lock);
+                if (m_queue.size() == 0 && nonblocking) {
+                        return T();
+                }
+
+                m_queue_incremented.wait(l, [this]{return m_queue.size() > 0;});
+                T ret = m_queue.front();
+                m_queue.pop();
+
+                l.unlock();
+                m_queue_decremented.notify_one();
+                return ret;
+        }
+
 
 private:
-        int               m_max_len;
-        std::queue<msg *> m_queue;
-        pthread_mutex_t   m_lock;
-        pthread_cond_t    m_queue_decremented;
-        pthread_cond_t    m_queue_incremented;
+        int                     m_max_len;
+        std::queue<T>           m_queue;
+        std::mutex              m_lock;
+        std::condition_variable m_queue_decremented;
+        std::condition_variable m_queue_incremented;
 };
+
+#ifndef NO_EXTERN_MSGQ_MSG
+extern template class message_queue<msg *>;
+#endif
 
 #endif // MESSAGE_QUEUE_H_
 

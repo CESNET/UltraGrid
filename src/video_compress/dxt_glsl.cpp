@@ -260,10 +260,8 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
         return &s->module_data;
 }
 
-struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * tx)
+shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_frame_disposer(tx);
-
         struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
@@ -274,16 +272,16 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
 
         if(!s->configured) {
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret)
                         return NULL;
         }
 
-        struct video_frame *out_frame = s->pool.get_frame();
+        shared_ptr<video_frame> out_frame = s->pool.get_frame();
 
         for (x = 0; x < tx->tile_count; ++x) {
-                struct tile *in_tile = vf_get_tile(tx, x);
-                struct tile *out_tile = vf_get_tile(out_frame, x);
+                struct tile *in_tile = vf_get_tile(tx.get(), x);
+                struct tile *out_tile = vf_get_tile(out_frame.get(), x);
 
                 line1 = (unsigned char *) in_tile->data;
                 line2 = (unsigned char *) s->decoded.get();

@@ -563,7 +563,7 @@ void *my_task(void *arg) {
         return NULL;
 }
 
-struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_frame *tx)
+shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
@@ -573,21 +573,20 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
         AVPacket *pkt;
 #endif
         unsigned char *decoded;
-        struct video_frame *out = NULL;
+        shared_ptr<video_frame> out{};
 
         platform_spin_lock(&s->spin);
 
-        if(!video_desc_eq_excl_param(video_desc_from_frame(tx),
+        if(!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
                 cleanup(s);
-                int ret = configure_with(s, video_desc_from_frame(tx));
+                int ret = configure_with(s, video_desc_from_frame(tx.get()));
                 if(!ret) {
                         goto error;
                 }
         }
 
-        out = vf_alloc_desc(s->compressed_desc);
-        out->dispose = libavcodec_vid_enc_frame_dispose;
+        out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), libavcodec_vid_enc_frame_dispose);
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
@@ -684,13 +683,9 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
         platform_spin_unlock(&s->spin);
 
-        VIDEO_FRAME_DISPOSE(tx);
-
         return out;
 
 error:
-        VIDEO_FRAME_DISPOSE(tx);
-        VIDEO_FRAME_DISPOSE(out);
         platform_spin_unlock(&s->spin);
         return NULL;
 }

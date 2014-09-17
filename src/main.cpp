@@ -91,6 +91,7 @@
 #include "audio/utils.h"
 
 #include <iostream>
+#include <memory>
 #include <string>
 
 #ifdef USE_MTRACE
@@ -284,12 +285,6 @@ static void usage(void)
         printf("\n");
 }
 
-static void uncompressed_frame_dispose(struct video_frame *frame)
-{
-        struct wait_obj *wait_obj = (struct wait_obj *) frame->dispose_udata;
-        wait_obj_notify(wait_obj);
-}
-
 /**
  * This function captures video and possibly compresses it.
  * It then delegates sending to another thread.
@@ -314,16 +309,19 @@ static void *capture_thread(void *arg)
                         }
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
+                        shared_ptr<video_frame> frame;
                         if (!tx_frame->dispose) {
-                                tx_frame->dispose = uncompressed_frame_dispose;
-                                tx_frame->dispose_udata = wait_obj;
                                 wait_obj_reset(wait_obj);
                                 wait_for_cur_uncompressed_frame = true;
+                                frame = shared_ptr<video_frame>(tx_frame, [wait_obj](struct video_frame *) {
+                                                        wait_obj_notify(wait_obj);
+                                                });
                         } else {
                                 wait_for_cur_uncompressed_frame = false;
+                                frame = shared_ptr<video_frame>(tx_frame, tx_frame->dispose);
                         }
 
-                        uv->state_video_rxtx->send(tx_frame);
+                        uv->state_video_rxtx->send(move(frame)); // std::move really important here (!)
 
                         // wait for frame frame to be processed, eg. by compress
                         // or sender (uncompressed video). Grab invalidates previous frame

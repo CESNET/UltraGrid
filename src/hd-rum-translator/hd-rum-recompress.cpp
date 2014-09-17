@@ -100,17 +100,15 @@ static void *worker(void *arg)
                         free_message(msg);
                 }
 
-                compress_frame(s->compress, frame.get());
-                struct video_frame *tx_frame =
+                compress_frame(s->compress, frame);
+                shared_ptr<video_frame> tx_frame =
                         compress_pop(s->compress);
 
-                if(tx_frame) {
-                        tx_send(s->tx, tx_frame, s->network_device);
+                if (tx_frame) {
+                        tx_send(s->tx, tx_frame.get(), s->network_device);
                 } else {
                         fprintf(stderr, "Compress failed\n");
                 }
-
-                VIDEO_FRAME_DISPOSE(tx_frame);
 
                 frames += 1;
                 gettimeofday(&t, NULL);

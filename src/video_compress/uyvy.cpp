@@ -58,6 +58,8 @@
 
 #include "gl_context.h"
 
+using namespace std;
+
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define GL_legacy 1\n"
     "#if GL_legacy\n"
@@ -269,24 +271,22 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
         return true;
 }
 
-struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx)
+shared_ptr<video_frame> uyvy_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_disposer(tx);
-
         struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
 
         gl_context_make_current(&s->context);
 
         if(!s->configured) {
                 int ret;
-                ret = uyvy_configure_with(s, tx);
+                ret = uyvy_configure_with(s, tx.get());
                 if(!ret)
                         return NULL;
         }
 
-        assert(video_desc_eq(video_desc_from_frame(tx), s->saved_desc));
+        assert(video_desc_eq(video_desc_from_frame(tx.get()), s->saved_desc));
 
-        struct video_frame *out = s->pool->get_frame();
+        shared_ptr<video_frame> out = s->pool->get_frame();
         struct tile *tile = &out->tiles[0];
 
         glBindTexture(GL_TEXTURE_2D, s->texture_rgba);

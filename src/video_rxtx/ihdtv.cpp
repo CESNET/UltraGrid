@@ -69,11 +69,10 @@
 
 using namespace std;
 
-void ihdtv_video_rxtx::send_frame(struct video_frame *tx_frame)
+void ihdtv_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
 #ifdef HAVE_IHDTV
-        ihdtv_send(&m_tx_connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
-        VIDEO_FRAME_DISPOSE(tx_frame);
+        ihdtv_send(&m_tx_connection, tx_frame.get(), 9000000);      // FIXME: fix the use of frame size!!
 #else // IHDTV
         UNUSED(tx_frame);
 #endif // IHDTV

@@ -37,20 +37,14 @@
 
 #include "types.h"
 
-#define JPEG_TO_DXT_MAGIC 0x20BF0088
+#include <memory>
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#define JPEG_TO_DXT_MAGIC 0x20BF0088
 
 struct module;
 struct video_compress_params;
 
 struct module *cuda_dxt_compress_init(struct module *parent,
                 const struct video_compress_params *parms);
-struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+std::shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, std::shared_ptr<video_frame> tx);
 

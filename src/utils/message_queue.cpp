@@ -39,56 +39,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#include "utils/lock_guard.h"
+#define NO_EXTERN_MSGQ_MSG
 #include "utils/message_queue.h"
 
-message_queue::message_queue(int max_len) :
-        m_max_len(max_len)
-{
-        pthread_mutex_init(&m_lock, NULL);
-        pthread_cond_init(&m_queue_incremented, NULL);
-        pthread_cond_init(&m_queue_decremented, NULL);
-}
-
-message_queue::~message_queue()
-{
-        pthread_mutex_destroy(&m_lock);
-        pthread_cond_destroy(&m_queue_incremented);
-        pthread_cond_destroy(&m_queue_decremented);
-}
-
-int message_queue::size()
-{
-        lock_guard guard(m_lock);
-        return m_queue.size();
-}
-
-void message_queue::push(msg *message)
-{
-        lock_guard guard(m_lock);
-        if (m_max_len != -1) {
-                while (m_queue.size() >= (unsigned int) m_max_len) {
-                        pthread_cond_wait(&m_queue_decremented, &m_lock); 
-                }
-        }
-        m_queue.push(message);
-        pthread_cond_signal(&m_queue_incremented); 
-}
-
-msg *message_queue::pop(bool nonblocking)
-{
-        lock_guard guard(m_lock);
-        if (m_queue.size() == 0 && nonblocking) {
-                return NULL;
-        }
-
-        while (m_queue.size() == 0) {
-                pthread_cond_wait(&m_queue_incremented, &m_lock); 
-        }
-        msg *ret = m_queue.front();
-        m_queue.pop();
-
-        pthread_cond_signal(&m_queue_decremented); 
-        return ret;
-}
+template class message_queue<msg *>;
 

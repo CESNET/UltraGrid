@@ -53,6 +53,8 @@
 #include "video.h"
 #include "video_compress.h"
 
+using namespace std;
+
 struct cuda_buffer_data_allocator {
         void *allocate(size_t size) {
                 void *ptr;
@@ -181,19 +183,17 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         return true;
 }
 
-struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx)
+shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_disposer(tx);
-
         struct state_video_compress_cuda_dxt *s =
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
         cuda_wrapper_set_device(cuda_devices[0]);
 
-        if (!video_desc_eq_excl_param(video_desc_from_frame(tx),
+        if (!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
-                if(configure_with(s, video_desc_from_frame(tx))) {
-                        s->saved_desc = video_desc_from_frame(tx);
+                if(configure_with(s, video_desc_from_frame(tx.get()))) {
+                        s->saved_desc = video_desc_from_frame(tx.get());
                 } else {
                         fprintf(stderr, "[CUDA DXT] Reconfiguration failed!\n");
                         return NULL;
@@ -260,13 +260,12 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                 return NULL;
         }
 
-        struct video_frame *out = s->pool.get_frame();
+        shared_ptr<video_frame> out = s->pool.get_frame();
         if (cuda_wrapper_memcpy(out->tiles[0].data,
                                 s->cuda_out_buffer,
                                 out->tiles[0].data_len,
                                 CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) != CUDA_WRAPPER_SUCCESS) {
                 fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
-                VIDEO_FRAME_DISPOSE(out);
                 return NULL;
         }
 

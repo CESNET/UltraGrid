@@ -51,7 +51,7 @@ public:
         h264_rtp_video_rxtx(std::map<std::string, param_u> const &);
         virtual ~h264_rtp_video_rxtx();
 private:
-        virtual void send_frame(struct video_frame *);
+        virtual void send_frame(std::shared_ptr<video_frame>);
         virtual void *(*get_receiver_thread())(void *arg) {
                 return NULL;
         }

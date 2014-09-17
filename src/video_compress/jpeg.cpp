@@ -324,14 +324,11 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
         return &s->module_data;
 }
 
-struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
+shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_disposer(tx);
-
         struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
-        struct video_frame *out;
 
         unsigned int x;
 
@@ -339,30 +336,30 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
 
         if(!s->encoder) {
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret) {
                         return NULL;
                 }
         }
 
         struct video_desc desc;
-        desc = video_desc_from_frame(tx);
+        desc = video_desc_from_frame(tx.get());
 
         // if format changed, reconfigure
         if(!video_desc_eq_excl_param(s->saved_desc, desc, PARAM_INTERLACING)) {
                 cleanup_state(s);
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret) {
                         return NULL;
                 }
         }
 
-        out = s->pool.get_frame();
+        shared_ptr<video_frame> out = s->pool.get_frame();
 
         for (x = 0; x < tx->tile_count;  ++x) {
-                struct tile *in_tile = vf_get_tile(tx, x);
-                struct tile *out_tile = vf_get_tile(out, x);
+                struct tile *in_tile = vf_get_tile(tx.get(), x);
+                struct tile *out_tile = vf_get_tile(out.get(), x);
 
                 line1 = (unsigned char *) in_tile->data;
                 line2 = (unsigned char *) s->decoded.get();
@@ -394,8 +391,7 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
                 ret = gpujpeg_encoder_encode(s->encoder, &encoder_input, &compressed, &size);
 
                 if(ret != 0) {
-                        VIDEO_FRAME_DISPOSE(out);
-                        return NULL;
+                        return {};
                 }
 
                 out_tile->data_len = size;

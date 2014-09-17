@@ -44,9 +44,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#include <memory>
 
 struct module;
 struct video_frame;
@@ -54,10 +52,6 @@ struct video_compress_params;
 
 struct module      *jpeg_compress_init(struct module *parent,
                 const struct video_compress_params *params);
-struct video_frame *jpeg_compress(struct module *mod, struct video_frame * tx);
+std::shared_ptr<video_frame> jpeg_compress(struct module *mod, std::shared_ptr<video_frame> tx);
 bool jpeg_is_supported(void);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
 

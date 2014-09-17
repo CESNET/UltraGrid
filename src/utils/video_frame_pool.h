@@ -50,6 +50,7 @@
 #include "utils/lock_guard.h"
 
 #include <iostream>
+#include <memory>
 #include <queue>
 #include <stdexcept>
 
@@ -62,29 +63,8 @@ struct default_data_allocator {
         }
 };
 
-struct auto_video_frame_disposer {
-        auto_video_frame_disposer(struct video_frame *frame) :
-                m_frame(frame) {
-        }
-
-        ~auto_video_frame_disposer() {
-                VIDEO_FRAME_DISPOSE(m_frame);
-        }
-
-        struct video_frame *m_frame;
-};
-
 template <typename allocator>
 struct video_frame_pool {
-        struct vf_udata {
-                vf_udata(struct video_frame_pool<allocator> &pool,
-                                int generation) : m_pool(pool), m_generation(generation) {
-                }
-
-                struct video_frame_pool<allocator> &m_pool;
-                int                            m_generation;
-        };
-
         public:
                 video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0) {
                         pthread_mutex_init(&m_lock, NULL);
@@ -103,7 +83,7 @@ struct video_frame_pool {
                         m_generation++;
                 }
 
-                struct video_frame *get_frame() {
+                std::shared_ptr<video_frame> get_frame() {
                         assert(m_generation != 0);
                         struct video_frame *ret = NULL;
                         lock_guard guard(m_lock);
@@ -121,32 +101,21 @@ struct video_frame_pool {
                                                 }
                                                 ret->tiles[i].data_len = m_max_data_len;
                                         }
-                                        ret->dispose_udata = new vf_udata(*this, m_generation);
-                                        ret->dispose = video_frame_pool<allocator>::dispose;
                                 } catch (std::exception &e) {
                                         std::cerr << e.what() << std::endl;
                                         deallocate_frame(ret);
                                         throw e;
                                 }
                         }
-                        return ret;
-                }
+                        return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
+                                        lock_guard guard(m_lock);
 
-                static void dispose(struct video_frame *frame) {
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
-                        udata->m_pool.put_frame(frame);
-                }
-
-                void put_frame(struct video_frame *frame) {
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
-
-                        lock_guard guard(m_lock);
-
-                        if (udata->m_generation != m_generation) {
-                                deallocate_frame(frame);
-                        } else {
-                                m_free_frames.push(frame);
-                        }
+                                        if (this->m_generation != generation) {
+                                                deallocate_frame(frame);
+                                        } else {
+                                                m_free_frames.push(frame);
+                                        }
+                                }, std::placeholders::_1, m_generation));
                 }
 
                 allocator & get_allocator() {
@@ -165,11 +134,9 @@ struct video_frame_pool {
                 void deallocate_frame(struct video_frame *frame) {
                         if (frame == NULL)
                                 return;
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
                         for (unsigned int i = 0; i < frame->tile_count; ++i) {
                                 m_allocator.deallocate(frame->tiles[i].data);
                         }
-                        delete udata;
                         vf_free(frame);
                 }
 

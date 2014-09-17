@@ -248,7 +248,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        unique_ptr<message_queue> decompress_queue;
+        unique_ptr<message_queue<>> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -262,7 +262,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        unique_ptr<message_queue> fec_queue;
+        unique_ptr<message_queue<>> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -275,7 +275,7 @@ struct state_video_decoder
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
 
-        message_queue       msg_queue;
+        message_queue<>       msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
@@ -648,8 +648,8 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
 
-        s->decompress_queue = unique_ptr<message_queue>(new message_queue(1));
-        s->fec_queue = unique_ptr<message_queue>(new message_queue(1));
+        s->decompress_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
+        s->fec_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
 
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,

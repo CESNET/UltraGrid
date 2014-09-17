@@ -130,117 +130,44 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
         }
 }
 
-#include "utils/wait_obj.h"
-
 using namespace std;
 
-namespace {
-struct dispose_original_frame_udata {
-        dispose_original_frame_udata(struct video_frame *original_frame) :
-                        m_disposed(0u),
-                        m_original_frame(original_frame) {
-                pthread_mutex_init(&m_lock, NULL);
-        }
-
-        ~dispose_original_frame_udata() {
-                pthread_mutex_destroy(&m_lock);
-        }
-
-        static void dispose_tile(struct video_frame *frame) {
-                struct dispose_original_frame_udata *inst =
-                        (struct dispose_original_frame_udata *) frame->dispose_udata;
-                pthread_mutex_lock(&inst->m_lock);
-                inst->m_disposed++;
-                if (inst->m_disposed == inst->m_original_frame->tile_count) {
-                        VIDEO_FRAME_DISPOSE(inst->m_original_frame);
-                        pthread_mutex_unlock(&inst->m_lock);
-                        delete inst;
-                } else {
-                        pthread_mutex_unlock(&inst->m_lock);
-                }
-                vf_free(frame);
-        }
-
-        pthread_mutex_t m_lock;
-        unsigned int m_disposed;
-        struct video_frame *m_original_frame;
-};
-
-} // end of anonymous namespace
-
-vector<struct video_frame *> vf_separate_tiles(struct video_frame *frame)
+vector<shared_ptr<video_frame>> vf_separate_tiles(shared_ptr<video_frame> frame)
 {
-        vector<struct video_frame *> ret(frame->tile_count, 0);
-        struct video_desc desc = video_desc_from_frame(frame);
+        vector<shared_ptr<video_frame>> ret(frame->tile_count, 0);
+        struct video_desc desc = video_desc_from_frame(frame.get());
         desc.tile_count = 1;
 
-        struct dispose_original_frame_udata *udata =
-                new dispose_original_frame_udata(frame);
-
         for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                ret[i] = vf_alloc_desc(desc);
+                auto holder = new shared_ptr<video_frame>(frame);
+                ret[i] = shared_ptr<video_frame>(vf_alloc_desc(desc), [holder](struct video_frame *frame) {
+                        delete holder;
+                        vf_free(frame);
+                });
+
                 ret[i]->tiles[0].data_len = frame->tiles[i].data_len;
                 ret[i]->tiles[0].data = frame->tiles[i].data;
-                ret[i]->dispose = dispose_original_frame_udata::dispose_tile;
-                ret[i]->dispose_udata = udata;
         }
 
         return ret;
 }
 
-namespace {
-
-struct separate_tiles_dispose_udata {
-        separate_tiles_dispose_udata(size_t max_count) : m_count(0) {
-                m_dispose = (void (**)(struct video_frame *frame)) calloc(max_count,
-                                        sizeof(void (*)(struct video_frame *frame)));
-                m_frame = (struct video_frame **) calloc(max_count, sizeof(struct video_frame *));
-        }
-        ~separate_tiles_dispose_udata() {
-                free((void *) m_dispose);
-                free(m_frame);
-        }
-        void add(struct video_frame *frame) {
-                m_dispose[m_count] = frame->dispose;
-                m_frame[m_count] = frame;
-                m_count++;
-        }
-        void (**m_dispose)(struct video_frame *frame);
-        struct video_frame **m_frame;
-        size_t m_count;
-};
-
-void separate_tiles_dispose(struct video_frame *frame) {
-        struct separate_tiles_dispose_udata *dispose_udata =
-                (struct separate_tiles_dispose_udata *) frame->dispose_udata;
-
-        for (size_t i = 0; i < dispose_udata->m_count; i++) {
-                dispose_udata->m_dispose[i](dispose_udata->m_frame[i]);
-        }
-        delete dispose_udata;
-        vf_free(frame);
-}
-} // end of anonymous namespace
-
-struct video_frame * vf_merge_tiles(std::vector<struct video_frame *> const & tiles)
+shared_ptr<video_frame> vf_merge_tiles(std::vector<shared_ptr<video_frame>> const & tiles)
 {
-        struct video_desc desc = video_desc_from_frame(tiles[0]);
+        struct video_desc desc = video_desc_from_frame(tiles[0].get());
         desc.tile_count = tiles.size();
-        struct video_frame *ret = vf_alloc_desc(desc);
 
-        struct separate_tiles_dispose_udata *udata =
-                new separate_tiles_dispose_udata(tiles.size());
+        auto holder = new decay<decltype(tiles)>::type(tiles);
+        shared_ptr<video_frame> ret(vf_alloc_desc(desc),
+                        [holder](struct video_frame *frame) {
+                                delete holder;
+                                vf_free(frame);
+                        });
 
         for (unsigned int i = 0; i < tiles.size(); ++i) {
                 ret->tiles[i].data = tiles[i]->tiles[0].data;
                 ret->tiles[i].data_len = tiles[i]->tiles[0].data_len;
-                if (tiles[i]->dispose) {
-                        udata->add(tiles[i]);
-                }
         }
-
-        ret->dispose = separate_tiles_dispose;
-        ret->dispose_udata = udata;
 
         return ret;
 }

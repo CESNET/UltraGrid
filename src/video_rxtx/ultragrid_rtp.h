@@ -55,10 +55,10 @@ public:
         friend ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
 private:
         static void *receiver_thread(void *arg);
-        virtual void send_frame(struct video_frame *);
+        virtual void send_frame(std::shared_ptr<video_frame>);
         void *receiver_loop();
         static void *send_frame_async_callback(void *arg);
-        virtual void send_frame_async(struct video_frame *);
+        virtual void send_frame_async(std::shared_ptr<video_frame>);
         virtual void *(*get_receiver_thread())(void *arg);
 
         void receiver_process_messages();

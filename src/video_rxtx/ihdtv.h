@@ -70,7 +70,7 @@ public:
         ihdtv_video_rxtx(std::map<std::string, param_u> const &);
         ~ihdtv_video_rxtx();
 private:
-        void send_frame(struct video_frame *);
+        void send_frame(std::shared_ptr<video_frame>);
         static void *receiver_thread(void *arg) {
                 ihdtv_video_rxtx *s = static_cast<ihdtv_video_rxtx *>(arg);
                 return s->receiver_loop();
