@@ -322,6 +322,12 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
 
+        if (strcmp(recv_cfg, "none") == 0) {
+                // do not occupy recv port if we are not receiving (note that this disables communication with
+                // our receiver, because RTCP ports are changed as well)
+                s->audio_network_parameters.recv_port = 0;
+        }
+
         if ((s->audio_network_device = initialize_audio_network(
                                         &s->audio_network_parameters))
                         == NULL) {
