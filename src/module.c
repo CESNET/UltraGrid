@@ -87,6 +87,9 @@ void module_done(struct module *module_data)
         if(!module_data)
                 return;
 
+        if (module_data->cls == MODULE_CLASS_NONE)
+                return;
+
         assert(module_data->magic == MODULE_MAGIC);
 
         if(module_data->parent) {

@@ -959,6 +959,10 @@ int main(int argc, char *argv[])
                 rxtx_mode |= MODE_SENDER;
         }
 
+        if (rxtx_mode == 0) {
+                goto after_video_init;
+        }
+
         try {
                 map<string, param_u> params;
 
@@ -1071,6 +1075,7 @@ int main(int argc, char *argv[])
                 exit_status = i;
         }
 
+after_video_init:
 cleanup:
         if (strcmp("none", requested_display) != 0 &&
                         receiver_thread_started)

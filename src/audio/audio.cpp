@@ -243,6 +243,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         
         s = (struct state_audio *) calloc(1, sizeof(struct state_audio));
 
+        if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
+                // nothing to do, return empty state
+                return s;
+        }
+
         module_init_default(&s->mod);
         s->mod.priv_data = s;
         s->mod.cls = MODULE_CLASS_AUDIO;
