@@ -80,7 +80,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                 }
                 getline(file, line);
                 bool rgb = false;
-                int depth{};
+                int depth = 0;
                 while (!file.eof()) {
                         if (line.compare(0, strlen("WIDTH"), "WIDTH") == 0) {
                                 s->width = atoi(line.c_str() + strlen("WIDTH "));
@@ -137,7 +137,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
-        struct state_capture_filter_logo *s = new state_capture_filter_logo{};
+        struct state_capture_filter_logo *s = new state_capture_filter_logo();
 
         s->x = s->y = -1;
 

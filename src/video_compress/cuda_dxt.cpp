@@ -87,7 +87,7 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 const struct video_compress_params *params)
 {
         state_video_compress_cuda_dxt *s =
-                new state_video_compress_cuda_dxt{};
+                new state_video_compress_cuda_dxt();
         const char *fmt = params->cfg;
         s->out_codec = DXT1;
 

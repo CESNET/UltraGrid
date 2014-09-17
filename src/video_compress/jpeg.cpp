@@ -272,7 +272,7 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
         struct state_video_compress_jpeg *s;
         const char *opts = params->cfg;
 
-        s = new state_video_compress_jpeg{};
+        s = new state_video_compress_jpeg();
 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");

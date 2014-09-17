@@ -632,7 +632,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 {
         struct state_video_decoder *s;
 
-        s = new state_video_decoder{}; // call the constructor
+        s = new state_video_decoder();
 
         s->parent = parent;
 

@@ -110,10 +110,10 @@ struct state_sdl {
 #endif
         volatile bool           should_exit;
 
-        state_sdl() : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect{},
+        state_sdl() : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
                       deinterlace(false), fs(false), nodecorate(false),
-                      screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame{}, play_audio(false),
-                      current_desc{}, current_display_desc{},
+                      screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false),
+                      current_desc(), current_display_desc(),
 #ifdef HAVE_MACOSX
                       autorelease_pool(nullptr),
 #endif

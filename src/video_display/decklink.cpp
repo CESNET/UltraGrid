@@ -348,7 +348,7 @@ display_decklink_getf(void *state)
         if (s->initialized) {
                 for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
                         const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
-                        IDeckLinkMutableVideoFrame *deckLinkFrame{};
+                        IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
                         lock_guard<mutex> lg(s->buffer_pool.second);
 
                         while (!s->buffer_pool.first.empty()) {
@@ -386,7 +386,7 @@ display_decklink_getf(void *state)
                         deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
 
                         if (s->stereo) {
-                                IDeckLinkVideoFrame     *deckLinkFrameRight{};
+                                IDeckLinkVideoFrame     *deckLinkFrameRight = nullptr;
                                 dynamic_cast<DeckLink3DFrame *>(deckLinkFrame)->GetFrameForRightEye(&deckLinkFrameRight);
                                 deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
                                 // release immedieatelly (parent still holds the reference)
@@ -745,7 +745,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         }
 
 
-        s = new state_decklink{};
+        s = new state_decklink();
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
