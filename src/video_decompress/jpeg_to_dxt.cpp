@@ -61,7 +61,7 @@ namespace {
 struct thread_data {
         thread_data() :
                 m_in(1), m_out(1),
-                jpeg_decoder(0), desc{}, out_codec{}, ppb{}, dxt_out_buff(0),
+                jpeg_decoder(0), desc(), out_codec(), ppb(), dxt_out_buff(0),
                 cuda_dev_index(-1)
         {}
         message_queue            m_in;

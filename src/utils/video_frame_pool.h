@@ -86,7 +86,7 @@ struct video_frame_pool {
         };
 
         public:
-                video_frame_pool() : m_generation(0), m_desc{}, m_max_data_len(0) {
+                video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0) {
                         pthread_mutex_init(&m_lock, NULL);
                 }
 

@@ -104,7 +104,7 @@ void release_bmd_api_str(BMD_STR string)
 
 IDeckLinkIterator *create_decklink_iterator(bool verbose)
 {
-        IDeckLinkIterator *deckLinkIterator{};
+        IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef WIN32
         HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);

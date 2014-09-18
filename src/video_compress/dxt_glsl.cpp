@@ -229,7 +229,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
                 return &compress_init_noerr;
         }
 
-        s = new state_video_compress_rtdxt{};
+        s = new state_video_compress_rtdxt();
 
         if (strcasecmp(opts, "DXT5") == 0) {
                 s->color_spec = DXT5;

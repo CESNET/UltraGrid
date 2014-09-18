@@ -17,6 +17,7 @@
 #include <fcntl.h>
 
 #include "control_socket.h"
+#include "host.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"
@@ -254,7 +255,8 @@ static void usage(const char *progname) {
         printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
                 progname);
         printf("\twhere global_opts may be:\n"
-                "\t\t--control-port <port_number> - control port to connect to\n");
+                "\t\t--control-port <port_number> - control port to connect to\n"
+                "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
                 "\t\t-c <compression> - compression\n"
@@ -274,7 +276,7 @@ struct host_opts {
     int64_t packet_rate;
 };
 
-static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
+static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
         struct host_opts **host_opts, int *host_opts_count, int *control_port)
 {
     int start_index = 1;
@@ -282,6 +284,12 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     while(argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
             *control_port = atoi(argv[++start_index]);
+        } else if(strcmp(argv[start_index], "--capabilities") == 0) {
+            print_capabilities(CAPABILITY_COMPRESS);
+            return false;
+        } else if(strcmp(argv[start_index], "--help") == 0) {
+            usage(argv[0]);
+            return false;
         }
         start_index++;
     }
@@ -356,6 +364,8 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
             host_idx += 1;
         }
     }
+
+    return true;
 }
 
 static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
@@ -415,10 +425,8 @@ int main(int argc, char **argv)
 
 #endif
 
-    if (argc < 4) {
-        usage(argv[0]);
-        return EXIT_FAIL_USAGE;
-    }
+    uv_argc = argc;
+    uv_argv = argv;
 
     hd_rum_translator_state_init(&state);
 
@@ -440,7 +448,11 @@ int main(int argc, char **argv)
     signal(SIGABRT, signal_handler);
 #endif
 
-    parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
+    bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
+
+    if (ret == false) {
+        return EXIT_SUCCESS;
+    }
 
     if (host_count == 0) {
         usage(argv[0]);

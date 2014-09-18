@@ -64,7 +64,7 @@ void * deinterlace_init(char *config) {
                 return NULL;
         }
 
-        struct state_deinterlace *s = new state_deinterlace{};
+        struct state_deinterlace *s = new state_deinterlace();
 
         return s;
 }

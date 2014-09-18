@@ -785,7 +785,7 @@ int main(int argc, char *argv[])
                         window_title = optarg;
                         break;
                 case OPT_CAPABILITIES:
-                        print_capabilities();
+                        print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS);
                         return EXIT_SUCCESS;
                         break;
                 case '?':

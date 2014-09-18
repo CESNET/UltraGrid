@@ -578,7 +578,7 @@ vidcap_decklink_probe(bool verbose)
 		vt->name        = "decklink";
 		vt->description = "Blackmagic DeckLink card";
 
-                IDeckLinkIterator*		deckLinkIterator{};
+                IDeckLinkIterator*		deckLinkIterator = nullptr;
                 IDeckLink*			deckLink;
                 int				numDevices = 0;
                 HRESULT				result;

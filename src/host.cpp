@@ -39,17 +39,21 @@ const char *window_title = NULL;
 
 int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
 
-void print_capabilities(void)
+void print_capabilities(int mask)
 {
-        cout << "Compressions:" << endl;
-        auto const & compress_capabilities = get_compress_capabilities();
-        for (auto const & it : compress_capabilities) {
-                cout << "(" << it.name << ";" << it.quality << ";" << it.bitrate << ";" <<
-                        it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
-                        it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
-                        ")\n";
+        if (mask & CAPABILITY_COMPRESS) {
+                cout << "Compressions:" << endl;
+                auto const & compress_capabilities = get_compress_capabilities();
+                for (auto const & it : compress_capabilities) {
+                        cout << "(" << it.name << ";" << it.quality << ";" << it.bitrate << ";" <<
+                                it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
+                                it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
+                                ")\n";
+                }
         }
-        cout << "Capturers:" << endl;
-        print_available_capturers();
+        if (mask & CAPABILITY_CAPTURE) {
+                cout << "Capturers:" << endl;
+                print_available_capturers();
+        }
 }
 
