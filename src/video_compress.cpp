@@ -235,9 +235,11 @@ struct compress_t compress_modules[] = {
                 MK_STATIC(none_compress_init),
                 MK_STATIC(none_compress),
                 MK_STATIC(NULL),
-                MK_STATIC(NULL),
+                MK_STATIC([]{return true;}), // uncompressed video is always supported
                 NULL,
-                {},
+                {
+                        { "", 100, static_cast<long>((1920*1080*25*2*8)*1.03), {0, 1, 0}, {0, 1, 0} },
+                },
         },
 };
 
