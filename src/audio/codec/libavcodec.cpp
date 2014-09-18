@@ -56,6 +56,8 @@
 
 #include "audio/codec/libavcodec.h"
 
+#include <memory>
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #if LIBAVCODEC_VERSION_MAJOR >= 54
@@ -82,6 +84,8 @@ extern "C" {
 #define AV_CODEC_ID_ADPCM_G722 CODEC_ID_ADPCM_G722
 #define AV_CODEC_ID_ADPCM_G726 CODEC_ID_ADPCM_G726
 #endif
+
+using namespace std;
 
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
                 bool try_init, int bitrate);
@@ -326,8 +330,6 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
         s->output_channel.bps = desc.bps;
         s->saved_desc = desc;
 
-        s->output_channel.bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
-
         return true;
 }
 
@@ -450,6 +452,15 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                                 avpkt.size += len;
                 }
 #endif
+        }
+
+        const int in_bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+        if (s->output_channel.bps != in_bps) {
+                int new_data_len = s->output_channel.data_len / in_bps * s->output_channel.bps;
+                unique_ptr<char []> tmp_data(new char [new_data_len]);
+                change_bps(tmp_data.get(), s->output_channel.bps, s->output_channel.data, in_bps, s->output_channel.data_len);
+                s->output_channel.data_len = new_data_len;
+                memcpy((char *) s->output_channel.data, tmp_data.get(), new_data_len);
         }
 
         return &s->output_channel;
