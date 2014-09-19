@@ -82,7 +82,7 @@ void open_all(const char *pattern) {
 
         for(unsigned int i = 0; i < glob_buf.gl_pathc; ++i) {
                 if(!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL))
-                        fprintf(stderr, "Library opening warning: %s \n", dlerror());
+                        verbose_msg("Library opening warning: %s \n", dlerror());
         }
 
         globfree(&glob_buf);
@@ -109,7 +109,7 @@ void *open_library(const char *name)
                 if(!handle && stat(path, &buf) == 0) {
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                         if(!handle)
-                                fprintf(stderr, "Library opening warning: %s \n", dlerror());
+                                verbose_msg("Library opening warning: %s \n", dlerror());
                 }
         }
         free(tmp);
@@ -119,7 +119,7 @@ void *open_library(const char *name)
         if(!handle && stat(path, &buf) == 0) {
                 handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                 if(!handle)
-                        fprintf(stderr, "Library opening warning: %s \n", dlerror());
+                        verbose_msg("Library opening warning: %s \n", dlerror());
         }
         
         if(!handle) {
