@@ -74,6 +74,11 @@ struct audio_desc {
         audio_codec_t codec;
 };
 
+#ifdef __cplusplus
+#include <ostream>
+std::ostream& operator<<(std::ostream& os, const audio_desc& desc);
+#endif
+
 /**
  * @deprecated use audio_frame2 instead
  */

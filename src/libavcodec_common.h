@@ -21,6 +21,15 @@ extern "C" {
 }
 #endif
 
+///
+/// compat
+///
+#if LIBAVCODEC_VERSION_MAJOR < 55
+#define av_frame_alloc avcodec_alloc_frame
+#define av_frame_free avcodec_free_frame
+#define av_frame_unref avcodec_get_frame_defaults
+#endif
+
 #if LIBAVCODEC_VERSION_MAJOR < 54
 #define AV_PIX_FMT_NONE PIX_FMT_NONE
 #define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
@@ -35,6 +44,8 @@ extern "C" {
 #define AV_CODEC_ID_VP8 CODEC_ID_VP8
 #define AVPixelFormat PixelFormat
 #define AVCodecID CodecID
+#undef av_frame_free
+#define av_frame_free av_free
 #endif
 
 #define LAVCD_LOCK_NAME "lavcd_lock"

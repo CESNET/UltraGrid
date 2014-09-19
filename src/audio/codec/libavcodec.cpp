@@ -195,7 +195,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         s->pkt.size = 0;
         s->pkt.data = NULL;
 
-        s->av_frame = avcodec_alloc_frame();
+        s->av_frame = av_frame_alloc();
 
         memset(&s->tmp, 0, sizeof(audio_channel));
         memset(&s->output_channel, 0, sizeof(audio_channel));
@@ -276,6 +276,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->av_frame->format         = s->codec_ctx->sample_fmt;
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
+        s->av_frame->sample_rate    = s->codec_ctx->sample_rate;
 #endif
 
         int channels = 1;
@@ -300,7 +301,6 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         s->output_channel.sample_rate = desc.sample_rate;
         s->output_channel.bps = desc.bps;
-
         s->saved_desc = desc;
 
         return true;
@@ -355,6 +355,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         s->tmp.data_len += channel->data_len;
                 }
         }
+
 
         int bps = s->output_channel.bps;
         int offset = 0;
@@ -417,7 +418,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         while (s->pkt.size > 0) {
                 int got_frame = 0;
 
-                avcodec_get_frame_defaults(s->av_frame);
+                av_frame_unref(s->av_frame);
 
                 int len = avcodec_decode_audio4(s->codec_ctx, s->av_frame, &got_frame,
                                 &s->pkt);
@@ -480,11 +481,7 @@ static void libavcodec_done(void *state)
         free((void *) s->tmp.data);
         av_free_packet(&s->pkt);
         av_freep(&s->samples);
-#if LIBAVCODEC_VERSION_MAJOR >= 54
-        avcodec_free_frame(&s->av_frame);
-#else
-        av_free(s->av_frame);
-#endif
+        av_frame_free(&s->av_frame);
 
         free(s);
 }

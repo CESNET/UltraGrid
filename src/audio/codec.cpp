@@ -145,17 +145,17 @@ static void load_libraries(void)
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,
                 audio_codec_direction_t direction) {
-        return audio_codec_init_real(get_name_to_audio_codec(audio_codec), direction, true);
+        return audio_codec_init_real(get_name_to_audio_codec(audio_codec), direction, false);
 }
 
 struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg,
                 audio_codec_direction_t direction) {
-        return audio_codec_init_real(audio_codec_cfg, direction, true);
+        return audio_codec_init_real(audio_codec_cfg, direction, false);
 }
 
 
 static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_cfg,
-                audio_codec_direction_t direction, bool try_init) {
+                audio_codec_direction_t direction, bool silent) {
         audio_codec_t audio_codec = get_audio_codec(audio_codec_cfg);
         int bitrate = get_audio_codec_bitrate(audio_codec_cfg);
         void *state = NULL;
@@ -168,12 +168,12 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
                         continue;
                 for(unsigned int j = 0; audio_codecs[i]->supported_codecs[j] != AC_NONE; ++j) {
                         if(audio_codecs[i]->supported_codecs[j] == audio_codec) {
-                                state = audio_codecs[i]->init(audio_codec, direction, try_init, bitrate);
+                                state = audio_codecs[i]->init(audio_codec, direction, silent, bitrate);
                                 index = i;
                                 if(state) {
                                         break;
                                 } else {
-                                        if(!try_init) {
+                                        if (!silent) {
                                                 fprintf(stderr, "Error: initialization of audio codec failed!\n");
                                         }
                                 }
@@ -184,7 +184,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         }
 
         if(!state) {
-                if (!try_init) {
+                if (!silent) {
                         fprintf(stderr, "Unable to find encoder for audio codec '%s'\n",
                                         get_name_to_audio_codec(audio_codec));
                 }

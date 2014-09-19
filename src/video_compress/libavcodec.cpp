@@ -286,7 +286,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         }
         s->in_frame_part = (AVFrame **) calloc(s->cpu_count, sizeof(AVFrame *));
         for(int i = 0; i < s->cpu_count; i++) {
-                s->in_frame_part[i] = avcodec_alloc_frame();
+                s->in_frame_part[i] = av_frame_alloc();
         }
 
         s->decoded = NULL;
@@ -460,7 +460,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         pthread_mutex_unlock(s->lavcd_global_lock);
 
-        s->in_frame = avcodec_alloc_frame();
+        s->in_frame = av_frame_alloc();
         if (!s->in_frame) {
                 fprintf(stderr, "Could not allocate video frame\n");
                 return false;

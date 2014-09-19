@@ -935,4 +935,9 @@ struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
                 frame->ch_count, AC_PCM };
 }
 
+std::ostream& operator<<(std::ostream& os, const audio_desc& desc)
+{
+    os << desc.ch_count << " channels, " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_name_to_audio_codec(desc.codec);
+    return os;
+}
 

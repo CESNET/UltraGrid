@@ -179,7 +179,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         pthread_mutex_unlock(s->global_lavcd_lock);
 
-        s->frame = avcodec_alloc_frame();
+        s->frame = av_frame_alloc();
         if(!s->frame) {
                 fprintf(stderr, "[lavd] Unable allocate frame.\n");
                 return false;
