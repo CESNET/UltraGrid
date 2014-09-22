@@ -68,6 +68,7 @@
 #include "video_display/deltacast.h"
 #include "video_display/dvs.h"
 #include "video_display/gl.h"
+#include "video_display/pipe.h"
 #include "video_display/quicktime.h"
 #include "video_display/sage.h"
 #include "lib_common.h"
@@ -292,7 +293,22 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_null_put_audio_frame),
          MK_STATIC(display_null_reconfigure_audio),
          NULL
-         }
+         },
+        {
+         0,
+         "pipe",
+         MK_STATIC(display_pipe_probe),
+         MK_STATIC(display_pipe_init),
+         MK_STATIC(display_pipe_run),
+         MK_STATIC(display_pipe_done),
+         MK_STATIC(display_pipe_getf),
+         MK_STATIC(display_pipe_putf),
+         MK_STATIC(display_pipe_reconfigure),
+         MK_STATIC(display_pipe_get_property),
+         MK_STATIC(display_pipe_put_audio_frame),
+         MK_STATIC(display_pipe_reconfigure_audio),
+         NULL
+         },
 };
 
 #define DISPLAY_DEVICE_TABLE_SIZE (sizeof(display_device_table) / sizeof(display_table_t))

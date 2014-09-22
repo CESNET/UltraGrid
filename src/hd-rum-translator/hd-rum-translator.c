@@ -513,8 +513,15 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if(control_init(control_port, 0, &control_state, &state.mod) != 0) {
+        fprintf(stderr, "Warning: Unable to create remote control.\n");
+        if(control_port != CONTROL_DEFAULT_PORT) {
+            return EXIT_FAILURE;
+        }
+    }
+
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init();
+    state.decompress = hd_rum_decompress_init(&state.mod);
     if(!state.decompress) {
         return EXIT_INIT_PORT;
     }
@@ -563,13 +570,6 @@ int main(int argc, char **argv)
         }
 
         module_register(&state.replicas[i].mod, &state.mod);
-    }
-
-    if(control_init(control_port, 0, &control_state, &state.mod) != 0) {
-        fprintf(stderr, "Warning: Unable to create remote control.\n");
-        if(control_port != CONTROL_DEFAULT_PORT) {
-            return EXIT_FAILURE;
-        }
     }
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
@@ -642,7 +642,6 @@ int main(int argc, char **argv)
     pthread_mutex_unlock(&state.qempty_mtx);
 
     stats_destroy(stat_received);
-    control_done(control_state);
 
     pthread_join(thread, NULL);
 
@@ -655,6 +654,8 @@ int main(int argc, char **argv)
             replica_done(&state.replicas[i]);
         }
     }
+
+    control_done(control_state);
 
     hd_rum_translator_state_destroy(&state);
 

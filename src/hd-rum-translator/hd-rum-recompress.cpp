@@ -19,7 +19,12 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 
-extern int mtu; // defined in hd-rum-transcode.c
+#include <memory>
+#include <queue>
+
+using namespace std;
+
+static constexpr int MAX_QUEUE_SIZE = 1;
 
 struct state_recompress {
         int rx_port, tx_port;
@@ -30,7 +35,7 @@ struct state_recompress {
 
         struct timeval start_time;
 
-        struct video_frame *frame;
+        queue<shared_ptr<video_frame>> frame_queue;
 
         struct tx *tx;
 
@@ -73,13 +78,15 @@ static void *worker(void *arg)
 
         while(1) {
                 pthread_mutex_lock(&s->lock);
-                while(!s->frame) {
+                while (s->frame_queue.empty()) {
                         pthread_cond_wait(&s->have_frame_cv, &s->lock);
                 }
 
-                if(s->frame->tiles[0].data_len == 0) { // poisoned pill
-                        vf_free(s->frame);
-                        s->frame = NULL;
+                shared_ptr<video_frame> frame = s->frame_queue.front();
+                s->frame_queue.pop();
+                pthread_cond_signal(&s->frame_consumed_cv);
+
+                if (!frame) { // poisoned pill
                         pthread_mutex_unlock(&s->lock);
                         break;
                 }
@@ -93,7 +100,7 @@ static void *worker(void *arg)
                         free_message(msg);
                 }
 
-                compress_frame(s->compress, s->frame);
+                compress_frame(s->compress, frame.get());
                 struct video_frame *tx_frame =
                         compress_pop(s->compress);
 
@@ -103,10 +110,7 @@ static void *worker(void *arg)
                         fprintf(stderr, "Compress failed\n");
                 }
 
-                pthread_mutex_lock(&s->lock);
-                s->frame = NULL;
-                pthread_cond_signal(&s->frame_consumed_cv);
-                pthread_mutex_unlock(&s->lock);
+                VIDEO_FRAME_DISPOSE(tx_frame);
 
                 frames += 1;
                 gettimeofday(&t, NULL);
@@ -167,7 +171,7 @@ void *recompress_init(struct module *parent,
 
         initialize_video_decompress();
 
-        s = (struct state_recompress *) calloc(1, sizeof(struct state_recompress));
+        s = new state_recompress();
 
         s->parent = parent;
 
@@ -180,9 +184,7 @@ void *recompress_init(struct module *parent,
                 return NULL;
         }
 
-
         s->required_compress = strdup(compress);
-        s->frame = NULL;
         const char *requested_encryption = NULL;
         s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec, requested_encryption, packet_rate);
 
@@ -209,24 +211,17 @@ void *recompress_init(struct module *parent,
         return (void *) s;
 }
 
-void recompress_process_async(void *state, struct video_frame *frame)
+void recompress_process_async(void *state, shared_ptr<video_frame> frame)
 {
        struct state_recompress *s = (struct state_recompress *) state;
 
        pthread_mutex_lock(&s->lock);
-       assert(s->frame == NULL);
-       s->frame = frame;
-       pthread_cond_signal(&s->have_frame_cv);
-       pthread_mutex_unlock(&s->lock);
-}
-
-void recompress_wait_complete(void *state)
-{
-       struct state_recompress *s = (struct state_recompress *) state;
-
-       pthread_mutex_lock(&s->lock);
-       while(s->frame != NULL)
+       while (s->frame_queue.size() >= MAX_QUEUE_SIZE) {
                pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
+       }
+
+       s->frame_queue.push(frame);
+       pthread_cond_signal(&s->have_frame_cv);
        pthread_mutex_unlock(&s->lock);
 }
 
@@ -250,8 +245,7 @@ void recompress_done(void *state)
         struct state_recompress *s = (struct state_recompress *) state;
 
         pthread_mutex_lock(&s->lock);
-        assert(s->frame == NULL);
-        s->frame = vf_alloc(1);
+        s->frame_queue.push({});
         pthread_cond_signal(&s->have_frame_cv);
         pthread_mutex_unlock(&s->lock);
 
@@ -263,6 +257,6 @@ void recompress_done(void *state)
         pthread_cond_destroy(&s->have_frame_cv);
         pthread_cond_destroy(&s->frame_consumed_cv);
 
-        free(s);
+        delete s;
 }
 

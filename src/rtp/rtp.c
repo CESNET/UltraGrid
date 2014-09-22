@@ -1410,22 +1410,9 @@ void rtp_set_recv_iov(struct rtp *session, struct msghdr *m)
         session->mhdr = m;
 }
 
-int rtp_recv_push_data(struct rtp *session,
-                char *data, int buflen, uint32_t curr_rtp_ts)
+int rtp_send_raw_rtp_data(struct rtp *session, char *data, int buflen)
 {
-        rtp_packet *packet = NULL;
-        uint8_t *buffer = NULL;
-
-        if (!session->opt->reuse_bufs || (packet == NULL)) {
-                packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
-                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-        }
-
-        memcpy(buffer, data, buflen);
-
-        rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
-
-        return buflen;
+        return udp_send(session->rtp_socket, data, buflen);
 }
 
 static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)

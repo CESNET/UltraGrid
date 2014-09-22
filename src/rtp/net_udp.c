@@ -368,6 +368,18 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 socket_error("bind");
                 goto error;
         }
+
+        // if we do not set tx port, fake that is the same as we are bound to
+        if (s->tx_port == 0) {
+                struct sockaddr_in sin;
+                socklen_t addrlen = sizeof(sin);
+                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                                sin.sin_family == AF_INET &&
+                                addrlen == sizeof(sin)) {
+                        s->tx_port = ntohs(sin.sin_port);
+                }
+        }
+
         if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
 #ifndef WIN32
                 char loop = 1;
@@ -685,6 +697,17 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
                 return NULL;
+        }
+
+        // if we do not set tx port, fake that is the same as we are bound to
+        if (s->tx_port == 0) {
+                struct sockaddr_in6 sin;
+                socklen_t addrlen = sizeof(sin);
+                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                                sin.sin6_family == AF_INET6 &&
+                                addrlen == sizeof(sin)) {
+                        s->tx_port = ntohs(sin.sin6_port);
+                }
         }
 
         if (IN6_IS_ADDR_MULTICAST(&(s->addr6))) {
