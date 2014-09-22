@@ -37,8 +37,6 @@ bool ldgm_device_gpu = false;
 
 const char *window_title = NULL;
 
-int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
-
 void print_capabilities(int mask)
 {
         if (mask & CAPABILITY_COMPRESS) {

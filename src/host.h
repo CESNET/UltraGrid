@@ -95,9 +95,8 @@ extern bool ldgm_device_gpu;
 
 extern const char *window_title;
 
-#define MODE_SENDER   1
-#define MODE_RECEIVER 2
-extern int rxtx_mode;
+#define MODE_SENDER   (1<<0)
+#define MODE_RECEIVER (1<<1)
 
 // if not NULL, data should be exported
 extern char *export_dir;

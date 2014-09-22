@@ -179,7 +179,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
 
                 switch (msg->type) {
                 case RECEIVER_MSG_CHANGE_RX_PORT:
-                        assert(rxtx_mode == MODE_RECEIVER); // receiver only
+                        assert(m_rxtx_mode == MODE_RECEIVER); // receiver only
                         destroy_rtp_devices(m_network_devices);
                         m_recv_port_number = msg->new_rx_port;
                         m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number,

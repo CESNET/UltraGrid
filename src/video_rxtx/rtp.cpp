@@ -133,7 +133,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         m_ipv6 = params.at("use_ipv6").b;
         m_requested_mcast_if = (const char *) params.at("mcast_if").ptr;
 
-        if ((rxtx_mode & MODE_RECEIVER) == 0) {
+        if ((m_rxtx_mode & MODE_RECEIVER) == 0) {
                 // do not occupy recv port if we are not receiving (note that this disables communication with
                 // our receiver, because RTCP ports are changed as well)
                 m_recv_port_number = 0;

@@ -456,6 +456,8 @@ int main(int argc, char *argv[])
 
         int bitrate = RATE_AUTO;
 
+        int rxtx_mode = 0;
+
 #ifdef USE_MTRACE
         mtrace();
 #endif
@@ -970,6 +972,7 @@ int main(int argc, char *argv[])
                 params["parent"].ptr = &root_mod;
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
+                params["rxtx_mode"].i = rxtx_mode;
 
                 // iHDTV
                 params["argc"].i = argc;
