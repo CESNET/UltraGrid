@@ -158,6 +158,7 @@ struct dispose_original_frame_udata {
                 } else {
                         pthread_mutex_unlock(&inst->m_lock);
                 }
+                vf_free(frame);
         }
 
         pthread_mutex_t m_lock;
