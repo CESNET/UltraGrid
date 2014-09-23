@@ -1290,7 +1290,7 @@ case $host in
     *-linux-*)
                 AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
 
-		if test $rtsp_server_req != no -a $HAVE_RTSP_SERVER_DEP = yes 
+		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
 		then
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
                         RTSP_SERVER_FLAGS="-I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
