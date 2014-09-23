@@ -870,7 +870,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
 
         PRINT_STATISTICS
 
-        free(decoder);
+        delete decoder;
 }
 
 /**
