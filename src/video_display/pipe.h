@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DISPLAY_PIPE_ID	0xa4bfe108
+#define DISPLAY_PIPE_ID	0xa4bfe222
 
 struct audio_frame;
 struct video_desc;

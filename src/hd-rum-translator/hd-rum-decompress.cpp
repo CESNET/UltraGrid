@@ -54,6 +54,8 @@ struct state_transcoder_decompress : public frame_recv_delegate {
 
         virtual ~state_transcoder_decompress() {}
         void worker();
+
+        thread             display_thread;
 };
 
 void state_transcoder_decompress::frame_arrived(struct video_frame *f)
@@ -131,8 +133,8 @@ void *hd_rum_decompress_init(struct module *parent)
         s = new state_transcoder_decompress();
 
         char cfg[128] = "";
-        snprintf(cfg, sizeof cfg, "%p", s);
-        assert (initialize_video_display("pipe", cfg, 0, &s->display) == 0);
+        snprintf(cfg, sizeof cfg, "pipe:%p", s);
+        assert (initialize_video_display("proxy", cfg, 0, &s->display) == 0);
 
         map<string, param_u> params;
 
@@ -164,6 +166,7 @@ void *hd_rum_decompress_init(struct module *parent)
 
         s->worker_thread = thread(&state_transcoder_decompress::worker, s);
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
+        s->display_thread = thread(display_run, s->display);
 
         return (void *) s;
 }
@@ -188,6 +191,8 @@ void hd_rum_decompress_done(void *state) {
                 recompress_done(s->output_ports[i].state);
         }
 
+        display_put_frame(s->display, NULL, 0);
+        s->display_thread.join();
         display_done(s->display);
 
         delete s;
