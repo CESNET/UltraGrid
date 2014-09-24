@@ -111,7 +111,7 @@ struct video_frame_pool {
                                         lock_guard guard(m_lock);
 
                                         if (this->m_generation != generation) {
-                                                deallocate_frame(frame);
+                                                this->deallocate_frame(frame);
                                         } else {
                                                 m_free_frames.push(frame);
                                         }

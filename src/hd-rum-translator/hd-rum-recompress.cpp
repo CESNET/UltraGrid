@@ -18,10 +18,15 @@
 using namespace std;
 
 struct state_recompress {
+        state_recompress(unique_ptr<ultragrid_rtp_video_rxtx> && vr, string const & h, int tp)
+                : video_rxtx(std::move(vr)), host(h), t0(chrono::system_clock::now()),
+                frames(0), tx_port(tp) {
+        }
+
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
         string host;
 
-        chrono::steady_clock::time_point t0;
+        chrono::system_clock::time_point t0;
         int frames;
         int tx_port;
 };
@@ -56,13 +61,11 @@ void *recompress_init(struct module *parent,
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = NULL;
 
-        return new state_recompress{
+        return new state_recompress(
                 decltype(state_recompress::video_rxtx)(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params))),
                 host,
-                chrono::steady_clock::now(),
-                0,
                 tx_port
-        };
+        );
 }
 
 void recompress_process_async(void *state, shared_ptr<video_frame> frame)
@@ -71,7 +74,7 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame)
 
         s->frames += 1;
 
-        chrono::steady_clock::time_point now = chrono::steady_clock::now();
+        chrono::system_clock::time_point now = chrono::system_clock::now();
         double seconds = chrono::duration_cast<chrono::microseconds>(now - s->t0).count() / 1000000.0;
         if(seconds > 5) {
                 double fps = s->frames / seconds;
