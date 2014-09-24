@@ -146,7 +146,7 @@ void *hd_rum_decompress_init(struct module *parent)
         params["rx_port"].i = 0;
         params["tx_port"].i = 0;
         params["use_ipv6"].b = use_ipv6;
-        params["mcast_if"].ptr = (void *) "NULL";
+        params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = 0;

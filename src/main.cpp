@@ -657,7 +657,7 @@ int main(int argc, char *argv[])
                         break;
                 case 'l':
                         if(strcmp(optarg, "unlimited") == 0) {
-                                bitrate = 0;
+                                bitrate = RATE_UNLIMITED;
                         } else if(strcmp(optarg, "auto") == 0) {
                                 bitrate = RATE_AUTO;
                         } else {
@@ -833,7 +833,7 @@ int main(int argc, char *argv[])
                 video_exporter = video_export_init(export_dir);
         }
 
-        if (bitrate != RATE_AUTO && bitrate != 0) {
+        if (bitrate != RATE_AUTO && bitrate != RATE_UNLIMITED) {
                 packet_rate = compute_packet_rate(bitrate, requested_mtu);
         } else {
                 packet_rate = bitrate;

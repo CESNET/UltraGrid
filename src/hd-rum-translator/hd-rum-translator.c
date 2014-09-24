@@ -28,8 +28,6 @@
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
 
-long packet_rate = 13600;
-
 static pthread_t main_thread_id;
 struct forward;
 struct item;
@@ -69,7 +67,6 @@ struct hd_rum_translator_state {
  * Prototypes
  */
 static int output_socket(unsigned short port, const char *host, int bufsize);
-static ssize_t replica_write(struct replica *s, void *buf, size_t count);
 static void replica_done(struct replica *s);
 static struct item *qinit(int qsize);
 static int buffer_size(int sock, int optname, int size);
@@ -100,11 +97,6 @@ static void signal_handler(int signal)
 #define SIZE    10000
 
 #define REPLICA_MAGIC 0xd2ff3323
-
-static ssize_t replica_write(struct replica *s, void *buf, size_t count)
-{
-        return send(s->sock, buf, count, 0);
-}
 
 static void replica_done(struct replica *s)
 {
@@ -220,10 +212,9 @@ static void *writer(void *arg)
             }
             for (i = 0; i < s->host_count; i++) {
                 if(s->replicas[i].type == USE_SOCK) {
-                    ssize_t ret = replica_write(&s->replicas[i],
-                            s->qhead->buf, s->qhead->size);
+                    ssize_t ret = send(s->replicas[i].sock, s->qhead->buf, s->qhead->size, 0);
                     if (ret < 0) {
-                        perror("send");
+                        perror("Hd-rum-translator send");
                     }
                 }
             }
@@ -273,7 +264,7 @@ struct host_opts {
     int mtu;
     char *compression;
     char *fec;
-    int64_t packet_rate;
+    int64_t bitrate;
 };
 
 static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
@@ -322,6 +313,12 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     }
 
     *host_opts = calloc(*host_opts_count, sizeof(struct host_opts));
+    // default values
+    for(int i = 0; i < *host_opts_count; ++i) {
+        (*host_opts)[i].bitrate = RATE_UNLIMITED;
+        (*host_opts)[i].mtu = 1500;
+    }
+
     int host_idx = 0;
     for(int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
@@ -340,23 +337,16 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                     break;
                 case 'l':
                     if (strcmp(argv[i + 1], "unlimited") == 0) {
-                        (*host_opts)[host_idx].packet_rate = 0;
+                        (*host_opts)[host_idx].bitrate = RATE_UNLIMITED;
+                    } else if (strcmp(argv[i + 1], "auto") == 0) {
+                        (*host_opts)[host_idx].bitrate = RATE_AUTO;
                     } else {
-                        (*host_opts)[host_idx].packet_rate = unit_evaluate(argv[i + 1]);
+                        (*host_opts)[host_idx].bitrate = unit_evaluate(argv[i + 1]);
                     }
                     break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
                     exit(EXIT_FAIL_USAGE);
-            }
-            // make it correct
-            if ((*host_opts)[host_idx].packet_rate != 0) {
-                int mtu = (*host_opts)[host_idx].mtu;
-                if (mtu == 0) {
-                    mtu = 1500;
-                }
-                (*host_opts)[host_idx].packet_rate = 1000ull *
-                    mtu * 8 / (*host_opts)[host_idx].packet_rate;
             }
             i += 1;
         } else {
@@ -528,10 +518,13 @@ int main(int argc, char **argv)
 
     state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
-        int mtu = 1500;
-        if(hosts[i].mtu) {
-            mtu = hosts[i].mtu;
+        int packet_rate;
+        if (hosts[i].bitrate != RATE_AUTO && hosts[i].bitrate != RATE_UNLIMITED) {
+                packet_rate = compute_packet_rate(hosts[i].bitrate, hosts[i].mtu);
+        } else {
+                packet_rate = hosts[i].bitrate;
         }
+
         int tx_port = port;
         if(hosts[i].port) {
             tx_port = hosts[i].port;
@@ -544,6 +537,7 @@ int main(int argc, char **argv)
                 bufsize);
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
+        module_register(&state.replicas[i].mod, &state.mod);
 
         if(hosts[i].compression == NULL) {
             state.replicas[i].type = USE_SOCK;
@@ -551,14 +545,14 @@ int main(int argc, char **argv)
             char *fec = NULL;
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
-                    0, tx_port, mtu, fec, hosts[i].packet_rate);
+                    0, tx_port, hosts[i].mtu, fec, packet_rate);
             hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
         } else {
             state.replicas[i].type = RECOMPRESS;
 
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, hosts[i].compression,
-                    0, tx_port, mtu, hosts[i].fec, hosts[i].packet_rate);
+                    0, tx_port, hosts[i].mtu, hosts[i].fec, packet_rate);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
@@ -568,8 +562,6 @@ int main(int argc, char **argv)
             // take care about them
             hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress);
         }
-
-        module_register(&state.replicas[i].mod, &state.mod);
     }
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {

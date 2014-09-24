@@ -67,8 +67,6 @@ struct vidcap_params;
 extern int uv_argc;
 extern char **uv_argv;
 
-extern long packet_rate; // gives interval between individual packets (in ns)
-
 extern volatile bool should_exit_receiver;
 
 /* TODO: remove these variables (should be safe) */
@@ -102,6 +100,7 @@ extern const char *window_title;
 extern char *export_dir;
 extern char *sage_network_device;
 
+#define RATE_UNLIMITED 0
 #define RATE_AUTO -1
 #define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)
 
