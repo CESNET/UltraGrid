@@ -399,8 +399,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                                 debug_msg("Recv buffer adjusted to %d\n", new_size);
                                                 device++;
                                         }
+                                        last_buf_size = new_size;
                                 }
-                                last_buf_size = new_size;
                         }
 
                         pbuf_remove(cp->playout_buffer, curr_time);
