@@ -598,7 +598,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acodec_libavcodec.so.@audio_codec_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
 
-@JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@ @JPEG_COMMON_OBJ@
+@JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
@@ -610,11 +610,11 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
-@JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
+@JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@ @CUDA_COMMON_OBJ@
+@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @CUDA_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
 

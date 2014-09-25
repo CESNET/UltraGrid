@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,8 @@
 #include <memory>
 
 using namespace std;
+
+namespace {
 
 struct state_video_compress_rtdxt {
         struct module module_data;
@@ -321,4 +323,18 @@ static void dxt_glsl_compress_done(struct module *mod)
         destroy_gl_context(&s->gl_context);
         delete s;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t rtdxt_info = {
+        "RTDXT",
+        dxt_glsl_compress_init,
+        dxt_glsl_compress,
+        NULL,
+        dxt_is_supported,
+        {
+                { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
+                { "DXT5", 50, 500*1000*1000, {75, 0.3, 35}, {15, 0.1, 20} },
+        }
+};
 

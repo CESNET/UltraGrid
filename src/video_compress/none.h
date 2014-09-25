@@ -10,7 +10,7 @@
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
 /*
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014, CESNET z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -47,12 +47,6 @@
  *
  */
 
-#include <memory>
-
-struct module;
-struct video_frame;
-struct video_compress_params;
-
-struct module      *none_compress_init(struct module *parent, const struct video_compress_params *params);
-std::shared_ptr<video_frame> none_compress(struct module *mod, std::shared_ptr<video_frame> tx);
+struct compress_info_t;
+extern compress_info_t none_info;
 

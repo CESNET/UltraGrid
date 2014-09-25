@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,8 @@
 #include <stdlib.h>
 
 using namespace std;
+
+namespace {
 
 struct state_video_compress_jpeg {
         struct module module_data;
@@ -418,4 +420,19 @@ static void cleanup_state(struct state_video_compress_jpeg *s)
                 gpujpeg_encoder_destroy(s->encoder);
         s->encoder = NULL;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t jpeg_info = {
+        "JPEG",
+        jpeg_compress_init,
+        jpeg_compress,
+        NULL,
+        jpeg_is_supported,
+        {
+                { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
+                { "80", 70, 36*1000*1000, {12, 0.6, 90}, {15, 0.6, 100} },
+                { "90", 80, 44*1000*1000, {15, 0.6, 100}, {20, 0.6, 150} },
+        },
+};
 

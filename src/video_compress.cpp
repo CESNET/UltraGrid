@@ -82,20 +82,12 @@ namespace {
  * The other* shall then be NULL.
  */
 struct compress_t {
-        const char        * name;         ///< compress (unique) name
         const char        * library_name; ///< If module is dynamically loadable, this is the name of library.
 
-        compress_init_t     init_func;           ///< compress driver initialization function
-        const char        * init_str;
-        compress_frame_t    compress_frame_func; ///< compress function for Frame API
-        const char         *compress_frame_str;
-        compress_tile_t     compress_tile_func;  ///< compress function for Tile API
-        const char         *compress_tile_str;
-        compress_is_supported_t is_supported_func;
-        const char         *is_supported_str;
+        compress_info_t   * compress_info;
+        const char        * compress_info_symbol_name;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
-        list<compress_preset> presets;    ///< list of available presets
 };
 
 /**
@@ -146,95 +138,44 @@ struct compress_t compress_modules[] = {
 #ifndef UV_IN_YURI
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
         {
-                "RTDXT",
                 "rtdxt",
-                MK_NAME(dxt_glsl_compress_init),
-                MK_NAME(dxt_glsl_compress),
-                MK_NAME(NULL),
-                MK_NAME(dxt_is_supported),
+                MK_NAME_REF(rtdxt_info),
                 NULL,
-                {
-                        { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
-                        { "DXT5", 50, 500*1000*1000, {75, 0.3, 35}, {15, 0.1, 20} },
-                },
         },
 #endif
 #if defined HAVE_JPEG || defined  BUILD_LIBRARIES
         {
-                "JPEG",
                 "jpeg",
-                MK_NAME(jpeg_compress_init),
-                MK_NAME(jpeg_compress),
-                MK_NAME(NULL),
-                MK_NAME(jpeg_is_supported),
+                MK_NAME_REF(jpeg_info),
                 NULL,
-                {
-                        { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
-                        { "80", 70, 36*1000*1000, {12, 0.6, 90}, {15, 0.6, 100} },
-                        { "90", 80, 44*1000*1000, {15, 0.6, 100}, {20, 0.6, 150} },
-                },
         },
 #endif
 #if defined HAVE_COMPRESS_UYVY || defined  BUILD_LIBRARIES
         {
-                "UYVY",
                 "uyvy",
-                MK_NAME(uyvy_compress_init),
-                MK_NAME(uyvy_compress),
-                MK_NAME(NULL),
-                MK_NAME(NULL),
+                MK_NAME_REF(uyvy_info),
                 NULL,
-                {},
         },
 #endif
 #if defined HAVE_LAVC || defined  BUILD_LIBRARIES
         {
                 "libavcodec",
-                "libavcodec",
-                MK_NAME(libavcodec_compress_init),
-                MK_NAME(NULL),
-                MK_NAME(libavcodec_compress_tile),
-                MK_NAME(libavcodec_is_supported),
+                MK_NAME_REF(libavcodec_info),
                 NULL,
-                {
-                        { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
-                        { "codec=H.264:bitrate=10M", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
-                        { "codec=H.264:bitrate=15M", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
-#if 0
-                        { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
-#endif
-                },
         },
 #endif
 #if defined HAVE_CUDA_DXT || defined  BUILD_LIBRARIES
         {
                 "cuda_dxt",
-                "cuda_dxt",
-                MK_NAME(cuda_dxt_compress_init),
-                MK_NAME(NULL),
-                MK_NAME(cuda_dxt_compress_tile),
-                MK_NAME(NULL),
+                MK_NAME_REF(cuda_dxt_info),
                 NULL,
-                {
-#if 0
-                        { "DXT1", 35, 250*1000*1000, {7, 0.2, 10}, {} },
-                        { "DXT5", 50, 500*1000*1000, {10, 0.2, 20}, {} },
-#endif
-                }
         },
 #endif
 #endif
         {
-                "none",
                 NULL,
-                MK_STATIC(none_compress_init),
-                MK_STATIC(none_compress),
-                MK_STATIC(NULL),
-                MK_STATIC([]{return true;}), // uncompressed video is always supported
+                MK_STATIC_REF(none_info),
                 NULL,
-                {
-                        { "", 100, static_cast<long>((1920*1080*25*2*8)*1.03), {0, 1, 0}, {0, 1, 0} },
-                },
         },
 };
 
@@ -264,18 +205,10 @@ static int compress_fill_symbols(struct compress_t *compression)
 {
         void *handle = compression->handle;
 
-        compression->init_func = (compress_init_t)
-                dlsym(handle, compression->init_str);
-        compression->compress_frame_func = (compress_frame_t)
-                dlsym(handle, compression->compress_frame_str);
-        compression->compress_tile_func = (compress_tile_t)
-                dlsym(handle, compression->compress_tile_str);
-        compression->is_supported_func = (compress_is_supported_t)
-                dlsym(handle, compression->is_supported_str);
+        compression->compress_info = (compress_info_t *)
+                dlsym(handle, compression->compress_info_symbol_name);
 
-        if(!compression->init_func ||
-                        (compression->compress_frame_func == 0 && compression->compress_tile_func == 0)
-                        ) {
+        if(!compression->compress_info) {
                 fprintf(stderr, "Library %s opening error: %s \n", compression->library_name, dlerror());
                 return FALSE;
         }
@@ -294,11 +227,13 @@ static void init_compressions(void)
 #ifdef BUILD_LIBRARIES
                 if(compress_modules[i].library_name) {
                         int ret;
-                        compress_modules[i].handle = compress_open_library(compress_modules[i].library_name);
+                        compress_modules[i].handle = compress_open_library(
+                                        compress_modules[i].library_name);
                         if(!compress_modules[i].handle) continue;
                         ret = compress_fill_symbols(&compress_modules[i]);
                         if(!ret) {
-                                fprintf(stderr, "Opening symbols from library %s failed.\n", compress_modules[i].library_name);
+                                fprintf(stderr, "Opening symbols from library %s failed.\n",
+                                                compress_modules[i].library_name);
                                 continue;
                         }
                 }
@@ -315,7 +250,7 @@ void show_compress_help()
         pthread_once(&compression_list_initialized, init_compressions);
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
         for(i = 0; i < compress_modules_count; ++i) {
-                printf("\t%s\n", available_compress_modules[i]->name);
+                printf("\t%s\n", available_compress_modules[i]->compress_info->name);
         }
 }
 
@@ -326,11 +261,12 @@ list<compress_preset> get_compress_capabilities()
         pthread_once(&compression_list_initialized, init_compressions);
 
         for (int i = 0; i < compress_modules_count; ++i) {
-                for (auto const & it : available_compress_modules[i]->presets) {
+                for (auto const & it : available_compress_modules[i]->compress_info->presets) {
                         auto new_elem = it;
-                        new_elem.name = string(available_compress_modules[i]->name) + ":" + it.name;
-                        if (available_compress_modules[i]->is_supported_func &&
-                                        available_compress_modules[i]->is_supported_func()) {
+                        new_elem.name = string(available_compress_modules[i]->compress_info->name)
+                                + ":" + it.name;
+                        if (available_compress_modules[i]->compress_info->is_supported_func &&
+                                        available_compress_modules[i]->compress_info->is_supported_func()) {
                                 ret.push_back(new_elem);
                         }
                 }
@@ -451,12 +387,12 @@ static int compress_init_real(struct module *parent, const char *config_string,
         s->state_count = 1;
 
         for (int i = 0; i < compress_modules_count; ++i) {
-                if(strncasecmp(config_string, available_compress_modules[i]->name,
-                                strlen(available_compress_modules[i]->name)) == 0) {
+                if(strncasecmp(config_string, available_compress_modules[i]->compress_info->name,
+                                strlen(available_compress_modules[i]->compress_info->name)) == 0) {
                         s->handle = available_compress_modules[i];
-                        if(config_string[strlen(available_compress_modules[i]->name)] == ':')
+                        if (config_string[strlen(available_compress_modules[i]->compress_info->name)] == ':')
                                 compress_options = config_string +
-                                        strlen(available_compress_modules[i]->name) + 1;
+                                        strlen(available_compress_modules[i]->compress_info->name) + 1;
                         else
                                 compress_options = "";
                 }
@@ -469,9 +405,9 @@ static int compress_init_real(struct module *parent, const char *config_string,
         strncpy(s->compress_options, compress_options, sizeof(s->compress_options) - 1);
         s->compress_options[sizeof(s->compress_options) - 1] = '\0';
         params.cfg = s->compress_options;
-        if(s->handle->init_func) {
+        if(s->handle->compress_info->init_func) {
                 s->state = (struct module **) calloc(1, sizeof(struct module *));
-                s->state[0] = s->handle->init_func(parent, &params);
+                s->state[0] = s->handle->compress_info->init_func(parent, &params);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
@@ -501,7 +437,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
 const char *get_compress_name(compress_state_proxy *proxy)
 {
         if(proxy)
-                return proxy->ptr->handle->name;
+                return proxy->ptr->handle->compress_info->name;
         else
                 return NULL;
 }
@@ -531,9 +467,9 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
         }
 
         shared_ptr<video_frame> sync_api_frame;
-        if(s->handle->compress_frame_func) {
-                sync_api_frame = s->handle->compress_frame_func(s->state[0], frame);
-        } else if(s->handle->compress_tile_func) {
+        if (s->handle->compress_info->compress_frame_func) {
+                sync_api_frame = s->handle->compress_info->compress_frame_func(s->state[0], frame);
+        } else if(s->handle->compress_info->compress_tile_func) {
                 sync_api_frame = compress_frame_tiles(s, frame, &proxy->mod);
         } else {
                 sync_api_frame = {};
@@ -594,7 +530,7 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *
         if(frame->tile_count != s->state_count) {
                 s->state = (struct module **) realloc(s->state, frame->tile_count * sizeof(struct module *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
-                        s->state[i] = s->handle->init_func(parent, &params);
+                        s->state[i] = s->handle->compress_info->init_func(parent, &params);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
                                 return NULL;
@@ -614,7 +550,7 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
                 data->frame = separate_tiles[i];
-                data->callback = s->handle->compress_tile_func;
+                data->callback = s->handle->compress_info->compress_tile_func;
 
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }

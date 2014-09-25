@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include "host.h"
 #include "module.h"
 #include "utils/video_frame_pool.h"
+#include "video_compress.h"
 #include "video_compress/uyvy.h"
 #include "compat/platform_semaphore.h"
 #include "video.h"
@@ -59,6 +60,8 @@
 #include "gl_context.h"
 
 using namespace std;
+
+namespace {
 
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define GL_legacy 1\n"
@@ -340,4 +343,15 @@ static void uyvy_compress_done(struct module *mod)
 
         free(s);
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t uyvy_info = {
+        "UYVY",
+        uyvy_compress_init,
+        uyvy_compress,
+        NULL,
+        NULL,
+        {},
+};
 

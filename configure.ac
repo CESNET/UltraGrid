@@ -449,7 +449,7 @@ fi
 video_display_abi_version=6
 video_capture_abi_version=3
 vcapture_filter_abi_version=1
-video_compress_abi_version=3
+video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
 audio_capture_abi_version=4
@@ -2005,14 +2005,14 @@ then
         jpeg=yes
 
         JPEG_INC="$JPEG_INC -Igpujpeg"
-        JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_LIB="$JPEG_LIB -lgpujpeg"
+        JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
+        LIB_OBJS="$LIB_OBJS $JPEG_COMPRESS_OBJ $JPEG_DECOMPRESS_OBJ"
         CUDA_MESSAGE
 fi
 
@@ -2022,7 +2022,6 @@ fi
 
 LIB_MODULES="$LIB_MODULES $JPEG_LIB"
 
-AC_SUBST(JPEG_COMMON_OBJ)
 AC_SUBST(JPEG_COMPRESS_OBJ)
 AC_SUBST(JPEG_DECOMPRESS_OBJ)
 AC_SUBST(JPEG_INC)

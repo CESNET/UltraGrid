@@ -129,6 +129,16 @@ struct compress_preset {
         compress_prop dec_prop;
 };
 
+struct compress_info_t {
+        const char        * name;         ///< compress (unique) name
+        compress_init_t     init_func;           ///< compress driver initialization function
+        compress_frame_t    compress_frame_func; ///< compress function for Frame API
+        compress_tile_t     compress_tile_func;  ///< compress function for Tile API
+        compress_is_supported_t is_supported_func;
+
+        std::list<compress_preset> presets;    ///< list of available presets
+};
+
 std::list<compress_preset> get_compress_capabilities();
 std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 

@@ -61,6 +61,7 @@ extern "C" {
 
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
+#define MK_STATIC_REF(A) &A, NULL
 #define STRINGIFY(A) #A
 #define TOSTRING(x) STRINGIFY(x)
 
@@ -70,6 +71,7 @@ extern "C" {
 /** This macro tells that the module may be statically linked as well as
  * a standalone module. */
 #define MK_NAME(A) NULL, #A
+#define MK_NAME_REF(A) NULL, #A
 
 /* defined in video_display.c */
 void *open_library(const char *name);
@@ -80,6 +82,7 @@ void open_all(const char *pattern);
 #else /* BUILD_LIBRARIES */
 
 #define MK_NAME(A) A, NULL
+#define MK_NAME_REF(A) &A, NULL
 
 #define NULL_IF_BUILD_LIBRARIES(x) x
 

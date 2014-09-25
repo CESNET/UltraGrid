@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2011 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -60,6 +60,7 @@
 #include "video_compress.h"
 #include "video_frame.h"
 
+namespace {
 
 #define MAGIC 0x45bb3321
 
@@ -105,4 +106,17 @@ static void none_compress_done(struct module *mod)
 
         free(s);
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t none_info = {
+        "none",
+        none_compress_init,
+        none_compress,
+        NULL,
+        []{return true;}, // uncompressed video is always supported
+        {
+                { "", 100, static_cast<long>((1920*1080*25*2*8)*1.03), {0, 1, 0}, {0, 1, 0} },
+        },
+};
 

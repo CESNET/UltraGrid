@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "types.h"
-
-#include <memory>
-
-#define JPEG_TO_DXT_MAGIC 0x20BF0088
-
-struct module;
-struct video_compress_params;
-
-struct module *cuda_dxt_compress_init(struct module *parent,
-                const struct video_compress_params *parms);
-std::shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, std::shared_ptr<video_frame> tx);
+struct compress_info_t;
+extern compress_info_t cuda_dxt_info;
 

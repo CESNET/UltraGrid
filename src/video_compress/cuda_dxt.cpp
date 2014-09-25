@@ -3,7 +3,7 @@
  * @author Martin Pulec  <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * Copyright (c) 2012-2014, CESNET z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,8 @@
 #include "video_compress.h"
 
 using namespace std;
+
+namespace {
 
 struct cuda_buffer_data_allocator {
         void *allocate(size_t size) {
@@ -281,4 +283,20 @@ static void cuda_dxt_compress_done(struct module *mod)
 
         delete s;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t cuda_dxt_info = {
+        "cuda_dxt",
+        cuda_dxt_compress_init,
+        NULL,
+        cuda_dxt_compress_tile,
+        NULL,
+        {
+#if 0
+                { "DXT1", 35, 250*1000*1000, {7, 0.2, 10}, {} },
+                { "DXT5", 50, 500*1000*1000, {10, 0.2, 20}, {} },
+#endif
+        }
+};
 
