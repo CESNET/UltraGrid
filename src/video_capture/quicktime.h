@@ -55,10 +55,18 @@
 
 #define VIDCAP_QUICKTIME_ID	0xab4309e7
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct audio_frame;
 
 struct vidcap_type	*vidcap_quicktime_probe(bool verbose);
 void			*vidcap_quicktime_init(const struct vidcap_params *params);
 void			 vidcap_quicktime_done(void *state);
 struct video_frame	*vidcap_quicktime_grab(void *state, struct audio_frame **audio);
+
+#ifdef __cplusplus
+}
+#endif
 

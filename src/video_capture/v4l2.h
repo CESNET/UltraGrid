@@ -45,13 +45,11 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #define VIDCAP_V4L2_ID 0x668E0787
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct audio_frame;
 struct vidcap_type;
@@ -61,4 +59,8 @@ struct vidcap_type      *vidcap_v4l2_probe(bool verbose);
 void                    *vidcap_v4l2_init(const struct vidcap_params *params);
 void                     vidcap_v4l2_done(void *state);
 struct video_frame      *vidcap_v4l2_grab(void *state, struct audio_frame **audio);
+
+#ifdef __cplusplus
+}
+#endif
 

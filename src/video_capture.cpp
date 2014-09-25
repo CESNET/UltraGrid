@@ -85,6 +85,10 @@
 #include "video_capture/v4l2.h"
 #include "video_capture/rtsp.h"
 
+#include <string>
+
+using namespace std;
+
 #define VIDCAP_MAGIC	0x76ae98f0
 
 static int vidcap_init_devices(bool verbose);
@@ -502,6 +506,16 @@ void print_available_capturers()
                         printf("(%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
                 }
         }
+
+        char buf[1024] = "";
+        struct config_file *conf = config_file_open(default_config_file(buf, sizeof buf));
+        if (conf) {
+                auto const & from_config_file = get_configured_capture_aliases(conf);
+                for (auto const & it : from_config_file) {
+                        printf("(%s;%s)\n", it.first.c_str(), it.second.c_str());
+                }
+        }
+        config_file_close(conf);
         vidcap_free_devices();
 }
 
@@ -639,7 +653,7 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
  */
 struct vidcap_params *vidcap_params_allocate(void)
 {
-        return calloc(1, sizeof(struct vidcap_params));
+        return (struct vidcap_params *) calloc(1, sizeof(struct vidcap_params));
 }
 
 /**
@@ -693,17 +707,17 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
 {
         bool ret;
         char buf[1024];
-        char *real_capture;
+        string real_capture;
         struct config_file *conf =
                 config_file_open(default_config_file(buf,
                                         sizeof(buf)));
         if (conf == NULL)
                 return false;
         real_capture = config_file_get_alias(conf, "capture", params->name);
-        if (!real_capture) {
+        if (real_capture.empty()) {
                 ret = false;
         } else {
-                params->driver = strdup(real_capture);
+                params->driver = strdup(real_capture.c_str());
                 if (strchr(params->driver, ':')) {
                         char *delim = strchr(params->driver, ':');
                         params->fmt = strdup(delim + 1);
@@ -716,10 +730,10 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
 
 
         if (params->requested_capture_filter == NULL) {
-                char *matched_cap_filter = config_file_get_capture_filter_for_alias(conf,
+                string matched_cap_filter = config_file_get_capture_filter_for_alias(conf,
                                         params->name);
-                if (matched_cap_filter)
-                        params->requested_capture_filter = strdup(matched_cap_filter);
+                if (!matched_cap_filter.empty())
+                        params->requested_capture_filter = strdup(matched_cap_filter.c_str());
         }
 
         config_file_close(conf);
@@ -791,7 +805,7 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
         if (!params)
                 return NULL;
 
-        struct vidcap_params *ret = calloc(1, sizeof(struct vidcap_params));
+        struct vidcap_params *ret = (struct vidcap_params *) calloc(1, sizeof(struct vidcap_params));
 
         if (params->driver)
                 ret->driver = strdup(params->driver);
