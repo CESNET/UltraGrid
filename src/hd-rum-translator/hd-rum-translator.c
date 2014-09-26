@@ -285,6 +285,11 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         start_index++;
     }
 
+    if (argc < start_index + 2) {
+        usage(argv[0]);
+        return false;
+    }
+
     *bufsize = argv[start_index];
     *port = atoi(argv[start_index + 1]);
 
@@ -414,6 +419,11 @@ int main(int argc, char **argv)
     }
 
 #endif
+    if (argc == 1) {
+        usage(argv[0]);
+        return false;
+    }
+
 
     uv_argc = argc;
     uv_argv = argv;
