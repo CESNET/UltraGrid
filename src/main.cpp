@@ -202,7 +202,7 @@ static void usage(void)
         printf("\t--verbose                \tprint verbose messages\n");
         printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
+        printf("\t                         \tconnection types: 0- Server, 1- Client (default)\n");
         printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
@@ -759,6 +759,7 @@ int main(int argc, char *argv[])
                                 char *tok;
                                 control_port = atoi(strtok_r(optarg, ":", &save_ptr));
                                 connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+
                                 if(connection_type < 0 || connection_type > 1){
                                         usage();
                                         return EXIT_FAIL_USAGE;
@@ -769,6 +770,7 @@ int main(int argc, char *argv[])
                                 }
                         } else {
                                 control_port = atoi(optarg);
+                                connection_type = 1;
                         }
                         break;
                 case OPT_VERBOSE:
@@ -858,11 +860,8 @@ int main(int argc, char *argv[])
 #endif
 
         if(control_init(control_port, connection_type, &control, &root_mod) != 0) {
-                fprintf(stderr, "%s Unable to initialize remote control!\n",
-                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
-                if(control_port != CONTROL_DEFAULT_PORT) {
-                        return EXIT_FAILURE;
-                }
+                fprintf(stderr, "Error: Unable to initialize remote control!\n");
+                return EXIT_FAILURE;
         }
 
         if(!audio_host) {
