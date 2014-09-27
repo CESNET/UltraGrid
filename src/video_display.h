@@ -96,7 +96,9 @@ enum display_property {
         DISPLAY_PROPERTY_RGB_SHIFT = 1, ///< red,green,blue shift - int[3] (bits)
         DISPLAY_PROPERTY_BUF_PITCH = 2, ///< requested framebuffer pitch - int (bytes), may be @ref PITCH_DEFAULT
         DISPLAY_PROPERTY_VIDEO_MODE = 3, ///< requested video mode - int (one of @ref display_prop_vid_mode)
-        DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 4 ///< display supported interlacing modes - enum interlacing_t[]
+        DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 4, ///< display supported interlacing modes - enum interlacing_t[]
+        DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES = 5, ///< whether display supports receiving data from
+                                                     ///< multiple network sources concurrently
 };
 
 #define PITCH_DEFAULT -1 ///< default pitch, i. e. respective linesize

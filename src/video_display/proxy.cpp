@@ -285,7 +285,14 @@ display_type_t *display_proxy_probe(void)
 int display_proxy_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_proxy *s = (struct state_proxy *)state;
-        return display_get_property(s->real_display, property, val, len);
+        if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
+                *(int *) val = TRUE;
+                *len = sizeof(int);
+                return TRUE;
+
+        } else {
+                return display_get_property(s->real_display, property, val, len);
+        }
 }
 
 int display_proxy_reconfigure(void *state, struct video_desc desc)
