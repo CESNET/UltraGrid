@@ -246,7 +246,7 @@ static void usage(const char *progname) {
         printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
                 progname);
         printf("\twhere global_opts may be:\n"
-                "\t\t--control-port <port_number> - control port to connect to\n"
+                "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally server/client (default)\n"
                 "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
@@ -268,13 +268,18 @@ struct host_opts {
 };
 
 static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
-        struct host_opts **host_opts, int *host_opts_count, int *control_port)
+        struct host_opts **host_opts, int *host_opts_count, int *control_port, int *control_connection_type)
 {
     int start_index = 1;
 
     while(argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
-            *control_port = atoi(argv[++start_index]);
+            char *item = argv[++start_index];
+            *control_port = atoi(item);
+            *control_connection_type = 1;
+            if (strchr(item, ':')) {
+                *control_connection_type = atoi(strchr(item, ':') + 1);
+            }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
             print_capabilities(CAPABILITY_COMPRESS);
             return false;
@@ -403,6 +408,7 @@ int main(int argc, char **argv)
     struct host_opts *hosts;
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
+    int control_connection_type = 0;
     struct control_state *control_state = NULL;
 #ifdef WIN32
     WSADATA wsaData;
@@ -448,7 +454,8 @@ int main(int argc, char **argv)
     signal(SIGABRT, signal_handler);
 #endif
 
-    bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
+    bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port,
+            &control_connection_type);
 
     if (ret == false) {
         return EXIT_SUCCESS;
@@ -513,12 +520,11 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    if(control_init(control_port, 0, &control_state, &state.mod) != 0) {
+    if(control_init(control_port, control_connection_type, &control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
-        if(control_port != CONTROL_DEFAULT_PORT) {
-            return EXIT_FAILURE;
-        }
+        return EXIT_FAILURE;
     }
+    control_start(control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
     state.decompress = hd_rum_decompress_init(&state.mod);
