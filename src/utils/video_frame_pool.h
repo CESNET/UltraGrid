@@ -49,7 +49,9 @@
 #ifdef __cplusplus
 #include "utils/lock_guard.h"
 
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
 #include <memory>
 #include <queue>
 #include <stdexcept>
@@ -66,17 +68,19 @@ struct default_data_allocator {
 template <typename allocator>
 struct video_frame_pool {
         public:
-                video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0) {
-                        pthread_mutex_init(&m_lock, NULL);
+                video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0) {
                 }
 
                 virtual ~video_frame_pool() {
+                        std::unique_lock<std::mutex> lk(m_lock);
                         remove_free_frames();
-                        pthread_mutex_destroy(&m_lock);
+                        // wait also for all frames we gave out to return us
+                        assert(m_unreturned_frames >= 0);
+                        m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
                 }
 
                 void reconfigure(struct video_desc new_desc, size_t new_size) {
-                        lock_guard guard(m_lock);
+                        std::unique_lock<std::mutex> lk(m_lock);
                         m_desc = new_desc;
                         m_max_data_len = new_size;
                         remove_free_frames();
@@ -86,7 +90,7 @@ struct video_frame_pool {
                 std::shared_ptr<video_frame> get_frame() {
                         assert(m_generation != 0);
                         struct video_frame *ret = NULL;
-                        lock_guard guard(m_lock);
+                        std::unique_lock<std::mutex> lk(m_lock);
                         if (!m_free_frames.empty()) {
                                 ret = m_free_frames.front();
                                 m_free_frames.pop();
@@ -107,8 +111,12 @@ struct video_frame_pool {
                                         throw e;
                                 }
                         }
+                        m_unreturned_frames += 1;
                         return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
-                                        lock_guard guard(m_lock);
+                                        std::unique_lock<std::mutex> lk(m_lock);
+
+                                        m_unreturned_frames -= 1;
+                                        m_frame_returned.notify_one();
 
                                         if (this->m_generation != generation) {
                                                 this->deallocate_frame(frame);
@@ -141,10 +149,12 @@ struct video_frame_pool {
                 }
 
                 std::queue<struct video_frame *> m_free_frames;
-                pthread_mutex_t   m_lock;
+                std::mutex        m_lock;
+                std::condition_variable m_frame_returned;
                 int               m_generation;
                 struct video_desc m_desc;
                 size_t            m_max_data_len;
+                int               m_unreturned_frames;
                 allocator         m_allocator;
 };
 #endif //  __cplusplus
