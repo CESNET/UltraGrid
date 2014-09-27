@@ -44,6 +44,7 @@
 #endif // HAVE_CONFIG_H
 
 #include <list>
+#include <memory>
 #include <stdio.h>
 #include <string>
 #include <string.h>
@@ -98,8 +99,6 @@ struct compress_state_real {
         struct module     **state;                  ///< driver internal states
         unsigned int        state_count;            ///< count of compress states (equal to tiles' count)
         char                compress_options[1024]; ///< compress options (for reconfiguration)
-
-        message_queue<shared_ptr<video_frame>> *queue;
 };
 }
 
@@ -112,6 +111,7 @@ struct compress_state_real {
 struct compress_state {
         struct module mod;               ///< compress module data
         struct compress_state_real *ptr; ///< pointer to real compress state
+        unique_ptr<message_queue<shared_ptr<video_frame>>> queue;
 };
 
 typedef struct compress_state compress_state_proxy; ///< Used to emphasize that the state is actually a proxy.
@@ -332,12 +332,15 @@ int compress_init(struct module *parent, const char *config_string, struct compr
         struct compress_state_real *s;
 
         compress_state_proxy *proxy;
-        proxy = (compress_state_proxy *) malloc(sizeof(compress_state_proxy));
+        proxy = new compress_state_proxy();
 
         module_init_default(&proxy->mod);
         proxy->mod.cls = MODULE_CLASS_COMPRESS;
         proxy->mod.priv_data = proxy;
         proxy->mod.deleter = compress_done;
+
+        proxy->queue = unique_ptr<message_queue<shared_ptr<video_frame>>>(
+                        new message_queue<shared_ptr<video_frame>>(1));
 
         int ret = compress_init_real(&proxy->mod, config_string, &s);
         if(ret == 0) {
@@ -346,7 +349,7 @@ int compress_init(struct module *parent, const char *config_string, struct compr
                 *state = proxy;
                 module_register(&proxy->mod, parent);
         } else {
-                free(proxy);
+                delete proxy;
         }
 
         return ret;
@@ -382,7 +385,6 @@ static int compress_init_real(struct module *parent, const char *config_string,
         memset(&params, 0, sizeof(params));
 
         s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
-        s->queue = new message_queue<shared_ptr<video_frame>>(1);
 
         s->state_count = 1;
 
@@ -454,10 +456,8 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
         if (!proxy)
                 abort();
 
-        struct compress_state_real *s = proxy->ptr;
-
         if (!frame) { // pass poisoned pill
-                s->queue->push(shared_ptr<video_frame>());
+                proxy->queue->push(shared_ptr<video_frame>());
                 return;
         }
 
@@ -465,6 +465,8 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
         while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
                 compress_process_message(proxy, msg);
         }
+
+        struct compress_state_real *s = proxy->ptr;
 
         shared_ptr<video_frame> sync_api_frame;
         if (s->handle->compress_info->compress_frame_func) {
@@ -481,7 +483,7 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
                 return;
         }
 
-        s->queue->push(sync_api_frame);
+        proxy->queue->push(sync_api_frame);
 }
 
 /**
@@ -592,7 +594,7 @@ static void compress_done(struct module *mod)
         struct compress_state_real *s = proxy->ptr;
         compress_done_real(s);
 
-        free(proxy);
+        delete proxy;
 }
 
 /**
@@ -609,7 +611,6 @@ static void compress_done_real(struct compress_state_real *s)
                 module_done(s->state[i]);
         }
         free(s->state);
-        delete s->queue;
         free(s);
 }
 
@@ -618,8 +619,6 @@ shared_ptr<video_frame> compress_pop(compress_state_proxy *proxy)
         if(!proxy)
                 return NULL;
 
-        struct compress_state_real *s = proxy->ptr;
-
-        return s->queue->pop();
+        return proxy->queue->pop();
 }
 
