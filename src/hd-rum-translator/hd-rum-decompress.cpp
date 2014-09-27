@@ -13,6 +13,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <vector>
 
 #include "debug.h"
 #include "host.h"
@@ -26,12 +27,15 @@ static constexpr int MAX_QUEUE_SIZE = 2;
 
 using namespace std;
 
-struct state_transcoder_decompress : public frame_recv_delegate {
-        void **output_ports;
-        int output_port_count;
+struct output_port_info {
+        output_port_info(void *s, bool a) : state(s), active(a) {}
+        void *state;
+        bool active;
+};
 
-        void **output_inact_ports;
-        int output_inact_port_count;
+struct state_transcoder_decompress : public frame_recv_delegate {
+        vector<output_port_info> output_ports;
+        int active_ports;
 
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
 
@@ -64,26 +68,24 @@ void state_transcoder_decompress::frame_arrived(struct video_frame *f)
         have_frame_cv.notify_one();
 }
 
-void hd_rum_decompress_add_port(void *state, void *recompress_port)
+void hd_rum_decompress_add_port(void *state, void *recompress_port, bool active)
 {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
-        s->output_port_count += 1;
-        s->output_ports = (void **) realloc(s->output_ports,
-                        s->output_port_count * sizeof(void *));
-        s->output_ports[s->output_port_count - 1] =
-                recompress_port;
+        s->output_ports.emplace_back(recompress_port, active);
+        if (active)
+                s->active_ports += 1;
 }
 
-void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
+void hd_rum_decompress_set_active(void *state, void *recompress_port, bool active)
 {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
-        s->output_inact_port_count += 1;
-        s->output_inact_ports = (void **) realloc(s->output_inact_ports,
-                        s->output_inact_port_count * sizeof(void *));
-        s->output_inact_ports[s->output_inact_port_count - 1] =
-                recompress_port;
+        for (auto && port : s->output_ports) {
+                if (port.state == recompress_port) {
+                        port.active = active;
+                }
+        }
 }
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
@@ -91,7 +93,7 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         // if there are no active output ports, simply quit
-        if (s->output_port_count == 0) {
+        if (s->active_ports == 0) {
                 return 0;
         }
 
@@ -114,8 +116,9 @@ void state_transcoder_decompress::worker()
                         break;
                 }
 
-                for(int i = 0; i < output_port_count; ++i) {
-                        recompress_process_async(output_ports[i], current_frame);
+                for (unsigned int i = 0; i < output_ports.size(); ++i) {
+                        if (output_ports[i].active)
+                                recompress_process_async(output_ports[i].state, current_frame);
                 }
         }
 }
@@ -181,15 +184,9 @@ void hd_rum_decompress_done(void *state) {
         s->worker_thread.join();
 
         // cleanup
-        for(int i = 0; i < s->output_port_count; ++i) {
-                recompress_done(s->output_ports[i]);
+        for (unsigned int i = 0; i < s->output_ports.size(); ++i) {
+                recompress_done(s->output_ports[i].state);
         }
-        free(s->output_ports);
-
-        for(int i = 0; i < s->output_inact_port_count; ++i) {
-                recompress_done(s->output_inact_ports[i]);
-        }
-        free(s->output_inact_ports);
 
         display_done(s->display);
 

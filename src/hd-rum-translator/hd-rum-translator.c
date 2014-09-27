@@ -562,7 +562,7 @@ int main(int argc, char **argv)
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
                     0, tx_port, hosts[i].mtu, fec, packet_rate);
-            hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
+            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, false);
         } else {
             state.replicas[i].type = RECOMPRESS;
 
@@ -576,7 +576,7 @@ int main(int argc, char **argv)
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them
-            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress);
+            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, true);
         }
     }
 
