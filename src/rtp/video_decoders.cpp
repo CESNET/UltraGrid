@@ -200,13 +200,10 @@ struct decompress_msg : public msg {
         bool poisoned;
 };
 
-struct main_msg : public msg {
-        virtual ~main_msg(){}
-};
-
-struct main_msg_reconfigure : public main_msg {
-        main_msg_reconfigure(struct video_desc d) : desc(d) {}
-        struct video_desc   desc;
+struct main_msg_reconfigure {
+        main_msg_reconfigure(struct video_desc d, struct fec_msg *lf) : desc(d), last_frame(lf) {}
+        struct video_desc desc;
+        struct fec_msg *last_frame;
 };
 }
 
@@ -275,7 +272,7 @@ struct state_video_decoder
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
 
-        message_queue<>       msg_queue;
+        message_queue<main_msg_reconfigure *> msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
@@ -312,7 +309,7 @@ static void *fec_thread(void *args) {
         struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct fec_msg *data = NULL;
+                struct fec_msg *data;
                 data = dynamic_cast<fec_msg *>(decoder->fec_queue->pop());
 
                 if(data->poisoned) {
@@ -383,8 +380,8 @@ static void *fec_thread(void *args) {
                                 parse_video_hdr(video_hdr, &network_desc);
                                 if (!video_desc_eq_excl_param(decoder->received_vid_desc,
                                                         network_desc, PARAM_TILE_COUNT)) {
-                                        main_msg *msg = new main_msg_reconfigure(network_desc);
-                                        decoder->msg_queue.push(msg);
+                                        decoder->msg_queue.push(new main_msg_reconfigure(network_desc, data));
+                                        data = nullptr;
                                         ERROR_GOTO_CLEANUP
                                 }
 
@@ -467,8 +464,10 @@ static void *fec_thread(void *args) {
 cleanup:
                 if(ret == FALSE) {
                         delete decompress_msg;
-                        for(int i = 0; i < data->substream_count; ++i) {
-                                free(data->recv_buffers[i]);
+                        if (data) {
+                                for(int i = 0; i < data->substream_count; ++i) {
+                                        free(data->recv_buffers[i]);
+                                }
                         }
                         decoder->corrupted++;
                         decoder->dropped++;
@@ -1402,10 +1401,19 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                                 get_codec_name(network_desc.color_spec));
                 decoder->received_vid_desc = network_desc;
 
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
                 decoder->reconfiguration_in_progress = true;
                 decoder->reconfiguration_future = std::async(std::launch::async,
                                 [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
-
+#else
+                int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
+                if (ret) {
+                        decoder->frame = display_get_frame(decoder->display);
+                } else {
+                        fprintf(stderr, "Decoder reconfiguration failed!!!\n");
+                        decoder->frame = NULL;
+                }
+#endif
                 return TRUE;
         }
         return FALSE;
@@ -1508,15 +1516,17 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 }
         }
 
-        main_msg *msg;
-        while ((msg = dynamic_cast<main_msg *>(decoder->msg_queue.pop(true /* nonblock */)))) {
-                if (dynamic_cast<main_msg_reconfigure *>(msg)) {
-                        main_msg_reconfigure *msg_reconf = dynamic_cast<main_msg_reconfigure *>(msg);
-                        if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
-                                return FALSE;
-                        }
+        main_msg_reconfigure *msg_reconf;
+        while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
+                if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
+                        return FALSE;
+#endif
                 }
-                delete msg;
+                if (msg_reconf->last_frame) {
+                        decoder->fec_queue->push(msg_reconf->last_frame);
+                }
+                delete msg_reconf;
         }
 
         int pt;
@@ -1633,7 +1643,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                          * each thread *MUST* wait here if this condition is true
                          */
                         if (check_for_mode_change(decoder, hdr)) {
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
                                 return FALSE;
+#endif
                         }
 
                         // hereafter, display framebuffer can be used, so we
