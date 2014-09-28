@@ -46,16 +46,18 @@
 #include "video_display/proxy.h"
 
 #include <condition_variable>
+#include <chrono>
 #include <list>
 #include <map>
 #include <mutex>
 #include <queue>
-#include <set>
-
-#define TRANSITION_COUNT 10
-#define BUFFER_LEN 5
+#include <unordered_map>
 
 using namespace std;
+
+constexpr int TRANSITION_COUNT = 10;
+constexpr int BUFFER_LEN = 5;
+constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 
 struct state_proxy {
         struct display *real_display;
@@ -69,7 +71,7 @@ struct state_proxy {
 
         queue<struct video_frame *> incoming_queue;
         map<uint32_t, list<struct video_frame *> > frames;
-        set<uint32_t> disabled_ssrc;
+        unordered_map<uint32_t, chrono::system_clock::time_point> disabled_ssrc;
 
         pthread_t thread_id;
 
@@ -122,9 +124,22 @@ void display_proxy_run(void *state)
                         break;
                 }
 
-                if (s->disabled_ssrc.find(frame->ssrc) != s->disabled_ssrc.end()) {
+                chrono::system_clock::time_point now = chrono::system_clock::now();
+                auto it = s->disabled_ssrc.find(frame->ssrc);
+                if (it != s->disabled_ssrc.end()) {
+                        it->second = now;
                         vf_free(frame);
                         continue;
+                }
+
+                it = s->disabled_ssrc.begin();
+                while (it != s->disabled_ssrc.end()) {
+                        if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
+                                verbose_msg("Source 0x%08lx timeout. Deleting from proxy display.\n", it->first);
+                                s->disabled_ssrc.erase(it++);
+                        } else {
+                                ++it;
+                        }
                 }
 
                 if (frame->ssrc != s->current_ssrc && frame->ssrc != s->old_ssrc) {
@@ -222,7 +237,7 @@ void display_proxy_run(void *state)
 
                         s->frames.erase(s->old_ssrc);
 
-                        s->disabled_ssrc.insert(s->old_ssrc);
+                        s->disabled_ssrc.emplace(s->old_ssrc, chrono::system_clock::now());
                         s->old_ssrc = 0u;
                         s->transition = 0;
                 }
