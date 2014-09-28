@@ -20,6 +20,7 @@
 #include "host.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
+#include "messaging.h"
 #include "module.h"
 #include "stats.h"
 #include "utils/misc.h"
@@ -38,12 +39,15 @@ struct replica {
     const char *host;
     unsigned short port;
 
-    enum {
+    enum type_t {
+        NONE,
         USE_SOCK,
         RECOMPRESS
-    } type;
+    };
+    enum type_t type;
     int sock;
     void *recompress;
+    volatile enum type_t change_to_type;
 };
 
 struct hd_rum_translator_state {
@@ -199,6 +203,33 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
     return s;
 }
 
+static struct response *change_replica_type_callback(struct module *mod, struct message *msg)
+{
+    struct replica *s = (struct replica *) mod->priv_data;
+
+    struct msg_universal *data = (struct msg_universal *) msg;
+
+    enum type_t new_type;
+    if (strcasecmp(data->text, "sock") == 0) {
+        new_type = USE_SOCK;
+    } else if (strcasecmp(data->text, "recompress") == 0) {
+        new_type = RECOMPRESS;
+    } else {
+        new_type = NONE;
+    }
+    free_message(msg);
+
+    if (new_type == NONE) {
+        return new_response(RESPONSE_BAD_REQUEST, NULL);
+    }
+
+    while (s->change_to_type != NONE)
+        ;
+    s->change_to_type = new_type;
+
+    return new_response(RESPONSE_OK, NULL);
+}
+
 static void *writer(void *arg)
 {
     int i;
@@ -206,6 +237,15 @@ static void *writer(void *arg)
         (struct hd_rum_translator_state *) arg;
 
     while (1) {
+        for (i = 0; i < s->host_count; i++) {
+            if (s->replicas[i].change_to_type != NONE) {
+                s->replicas[i].type = s->replicas[i].change_to_type;
+                hd_rum_decompress_set_active(s->decompress, s->replicas[i].recompress,
+                        s->replicas[i].change_to_type == RECOMPRESS);
+                s->replicas[i].change_to_type = NONE;
+            }
+        }
+
         while (s->qhead != s->qtail) {
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
@@ -553,6 +593,8 @@ int main(int argc, char **argv)
                 bufsize);
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
+        state.replicas[i].mod.msg_callback = change_replica_type_callback;
+        state.replicas[i].mod.priv_data = &state.replicas[i];
         module_register(&state.replicas[i].mod, &state.mod);
 
         if(hosts[i].compression == NULL) {
