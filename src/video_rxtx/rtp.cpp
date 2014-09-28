@@ -272,6 +272,8 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
                                 TRUE);
+                        rtp_set_option(devices[index], RTP_OPT_PROMISC,
+                                TRUE);
                         rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
                                 RTCP_SDES_TOOL,
                                 PACKAGE_STRING, strlen(PACKAGE_STRING));
