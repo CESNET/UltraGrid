@@ -45,9 +45,9 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="$CFLAGS -I."
-CPPFLAGS="$CPPFLAGS -I."
-CXXFLAGS="$CXXFLAGS -I. -D__STRICT_ANSI__ -std=c++0x"
+CFLAGS="$CFLAGS -I$srcdir"
+CPPFLAGS="$CPPFLAGS -I$srcdir"
+CXXFLAGS="$CXXFLAGS -I$srcdir -D__STRICT_ANSI__ -std=c++0x"
 LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
@@ -667,7 +667,7 @@ DECKLINK_INC=
 case "$host_os" in
 	*darwin*)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Mac
+                        DECKLINK_INC=$srcdir/DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
                 LIBS="$LIBS -framework CoreFoundation"
@@ -683,7 +683,7 @@ case "$host_os" in
                 ;;
 	*mingw*)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Windows
+                        DECKLINK_INC=$srcdir/DeckLink/Windows
                 fi
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS -lOle32"
@@ -704,7 +704,7 @@ case "$host_os" in
                 ;;
         *)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Linux
+                        DECKLINK_INC=$srcdir/DeckLink/Linux
                 fi
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
@@ -2252,7 +2252,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 
 speex=yes
 SPEEX_PATH=speex-1.2rc1
-SPEEX_INC=-I${SPEEX_PATH}/include
+SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
 SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
 SPEEX_LIB=

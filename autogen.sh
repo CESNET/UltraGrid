@@ -19,6 +19,8 @@ if [ -n "$DEBUG" ]; then
         CONFIGURE_OPTS="$CONFIGURE_OPTS --enable-debug"
 fi
 
+cd $ORIGDIR
+
 $srcdir/configure $CONFIGURE_OPTS $@
 
 cd $ORIGDIR
