@@ -104,6 +104,8 @@ struct config_file *config_file_open(const char *name)
 
 void config_file_close(struct config_file *s)
 {
+        if (!s)
+                return;
         if (s->f)
                 fclose(s->f);
 
