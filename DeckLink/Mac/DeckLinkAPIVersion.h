@@ -27,7 +27,7 @@
 
 /* DeckLinkAPIVersion.h */
 
-#ifndef __DeckLink_API_Verison_h__
+#ifndef __DeckLink_API_Version_h__
 #define __DeckLink_API_Version_h__
 
 #define BLACKMAGIC_DECKLINK_API_VERSION					0x08050000

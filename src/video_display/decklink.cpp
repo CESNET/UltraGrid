@@ -360,8 +360,8 @@ display_decklink_getf(void *state)
                                         frame = dynamic_cast<DeckLinkFrame *>(tmp);
                                 s->buffer_pool.first.pop();
                                 if (!frame || // wrong type
-                                                frame->GetWidth() != s->vid_desc.width ||
-                                                frame->GetHeight() != s->vid_desc.height ||
+                                                frame->GetWidth() != (long) s->vid_desc.width ||
+                                                frame->GetHeight() != (long) s->vid_desc.height ||
                                                 frame->GetRowBytes() != linesize ||
                                                 frame->GetPixelFormat() != s->pixelFormat) {
                                         delete tmp;
@@ -529,8 +529,8 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
 #else
                         modeNameCString = modeNameString;
 #endif
-                        if (deckLinkDisplayMode->GetWidth() == desc.width &&
-                                        deckLinkDisplayMode->GetHeight() == desc.height)
+                        if (deckLinkDisplayMode->GetWidth() == (long) desc.width &&
+                                        deckLinkDisplayMode->GetHeight() == (long) desc.height)
                         {
                                 double displayFPS;
                                 BMDFieldDominance dominance;

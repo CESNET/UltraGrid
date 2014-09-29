@@ -232,6 +232,15 @@ src/audio/smallft.o:
 src/audio/mdf.o:
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
+src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
+       $(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
+
+src/audio/playback/coreaudio.o: src/audio/playback/coreaudio.c $(ALL_INCLUDES)
+       $(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
+
+src/video_display/quicktime.o: src/video_display/quicktime.c $(ALL_INCLUDES)
+       $(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
+
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 

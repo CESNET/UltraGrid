@@ -977,7 +977,7 @@ struct video_reader_data {
         bool o_direct;
 };
 
-#define ALIGN 512
+#define ALLOC_ALIGN 512
 
 static void *video_reader_callback(void *arg)
 {
@@ -1020,18 +1020,18 @@ static void *video_reader_callback(void *arg)
                 }
 
                 data->entry->tiles[i].data_len = sb.st_size;
-                const int aligned_data_len = (data->entry->tiles[i].data_len + ALIGN - 1)
-                        / ALIGN * ALIGN;
+                const int aligned_data_len = (data->entry->tiles[i].data_len + ALLOC_ALIGN - 1)
+                        / ALLOC_ALIGN * ALLOC_ALIGN;
                 // alignment needed when using O_DIRECT flag
                 data->entry->tiles[i].data = (char *)
-                        aligned_malloc(aligned_data_len, ALIGN);
+                        aligned_malloc(aligned_data_len, ALLOC_ALIGN);
                 assert(data->entry->tiles[i].data != NULL);
 
                 ssize_t bytes = 0;
                 do {
                         ssize_t res = read(fd, data->entry->tiles[i].data + bytes,
-                                        (data->entry->tiles[i].data_len - bytes + ALIGN - 1)
-                                        / ALIGN * ALIGN);
+                                        (data->entry->tiles[i].data_len - bytes + ALLOC_ALIGN - 1)
+                                        / ALLOC_ALIGN * ALLOC_ALIGN);
                         if (res <= 0) {
                                 perror("read");
                                 for (unsigned int i = 0; i < data->tile_count; i++) {

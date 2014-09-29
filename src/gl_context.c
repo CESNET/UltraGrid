@@ -55,7 +55,7 @@ bool init_gl_context(struct gl_context *context, int which) {
                         debug_msg("Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
                         context->context = mac_gl_init(MAC_GL_PROFILE_3_2);
                         if(!context->context) {
-                                debug_msg(stderr, "OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
+                                debug_msg("OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
                         } else {
                                 context->legacy = FALSE;
                         }

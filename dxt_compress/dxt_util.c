@@ -52,7 +52,7 @@ dxt_shader_create_from_source(const char* source, GLenum type)
 }
 
 /** Documented at declaration */
-GLhandleARB
+GLuint
 dxt_shader_create_from_file(const char* filename, GLenum type)
 {    
     // Load program from file
@@ -76,7 +76,7 @@ dxt_shader_create_from_file(const char* filename, GLenum type)
     program[data_size] = '\0';
  
     printf("Compiling program [%s]...\n", filename);
-    GLhandleARB shader =  dxt_shader_create_from_source(program, type);
+    GLuint shader =  dxt_shader_create_from_source(program, type);
     if ( shader == 0 )
         return 0;
     

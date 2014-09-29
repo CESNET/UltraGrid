@@ -85,7 +85,7 @@ dxt_shader_create_from_source(const char* source, GLenum type);
  * @param type  Shader type
  * @return shader handle if succeeds, otherwise zero
  */
-GLhandleARB
+GLuint
 dxt_shader_create_from_file(const char* filename, GLenum type);
 
 

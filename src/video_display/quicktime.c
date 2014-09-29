@@ -213,7 +213,7 @@ const quicktime_mode_t quicktime_modes[] = {
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         ComponentInstance 
 #else
         AudioComponentInstance
