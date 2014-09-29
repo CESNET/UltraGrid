@@ -237,7 +237,7 @@ void display_proxy_run(void *state)
 
                         s->frames.erase(s->old_ssrc);
 
-                        s->disabled_ssrc.emplace(s->old_ssrc, chrono::system_clock::now());
+                        s->disabled_ssrc[s->old_ssrc] = chrono::system_clock::now();
                         s->old_ssrc = 0u;
                         s->transition = 0;
                 }

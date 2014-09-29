@@ -584,7 +584,7 @@ int main(int argc, char **argv)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
-    if (bind(sock_in, (struct sockaddr *) &addr,
+    if (::bind(sock_in, (struct sockaddr *) &addr,
              sizeof(struct sockaddr_in))) {
         perror("bind");
         return 2;
