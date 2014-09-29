@@ -67,7 +67,6 @@ struct hd_rum_translator_state {
 
     vector<replica *> replicas;
     void *decompress;
-    int host_count;
 };
 
 /*
@@ -249,12 +248,11 @@ static struct response *change_replica_type_callback(struct module *mod, struct 
 
 static void *writer(void *arg)
 {
-    int i;
     struct hd_rum_translator_state *s =
         (struct hd_rum_translator_state *) arg;
 
     while (1) {
-        for (i = 0; i < s->host_count; i++) {
+        for (unsigned int i = 0; i < s->replicas.size(); i++) {
             if (s->replicas[i]->change_to_type != replica::type_t::NONE) {
                 s->replicas[i]->type = s->replicas[i]->change_to_type;
                 hd_rum_decompress_set_active(s->decompress, s->replicas[i]->recompress,
@@ -296,7 +294,7 @@ static void *writer(void *arg)
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
             }
-            for (i = 0; i < s->host_count; i++) {
+            for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
                     ssize_t ret = send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, 0);
                     if (ret < 0) {
@@ -547,11 +545,6 @@ int main(int argc, char **argv)
         return EXIT_SUCCESS;
     }
 
-    if (host_count == 0) {
-        usage(argv[0]);
-        return EXIT_FAIL_USAGE;
-    }
-
     if ((bufsize = atoi(bufsize_str)) <= 0) {
         fprintf(stderr, "invalid buffer size: %d\n", bufsize);
         return 1;
@@ -616,7 +609,6 @@ int main(int argc, char **argv)
         return EXIT_INIT_PORT;
     }
 
-    state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
         int packet_rate;
         if (hosts[i].bitrate != RATE_AUTO && hosts[i].bitrate != RATE_UNLIMITED) {
