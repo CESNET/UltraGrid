@@ -112,11 +112,25 @@ void state_transcoder_decompress::worker()
                 shared_ptr<video_frame> current_frame = received_frame.front();
                 received_frame.pop();
                 l.unlock();
-                frame_consumed_cv.notify_one();
 
                 if (!current_frame) { // poisoned pill
                         break;
                 }
+
+                if (current_frame->tiles == nullptr) {
+                        int index_to_remove = current_frame->tile_count;
+                        recompress_done(output_ports[index_to_remove].state);
+                        output_ports.erase(output_ports.begin() + index_to_remove);
+                        frame_consumed_cv.notify_one();
+                        continue;
+                }
+
+                if (current_frame->tile_count == 0) {
+                        output_ports.emplace_back(current_frame->tiles, true);
+                        frame_consumed_cv.notify_one();
+                        continue;
+                }
+                frame_consumed_cv.notify_one();
 
                 for (unsigned int i = 0; i < output_ports.size(); ++i) {
                         if (output_ports[i].active)
@@ -196,5 +210,31 @@ void hd_rum_decompress_done(void *state) {
         display_done(s->display);
 
         delete s;
+}
+
+void hd_rum_decompress_remove_port(void *state, int index) {
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+
+        unique_lock<mutex> l(s->lock);
+        // grrrrrrrrrrrr, this messaging is very stinky (!)
+        auto frame = new video_frame();
+        frame->tile_count = index;
+        s->received_frame.push(shared_ptr<video_frame>(frame));
+        s->have_frame_cv.notify_one();
+        s->frame_consumed_cv.wait(l, [s]{ return s->received_frame.size() == 0; });
+}
+
+
+void hd_rum_decompress_append_port(void *state, void *recompress_state)
+{
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+
+        unique_lock<mutex> l(s->lock);
+        // grrrrrrrrrrrr, this messaging is very stinky (!)
+        auto frame = new video_frame();
+        frame->tiles = (struct tile *) recompress_state;
+        s->received_frame.push(shared_ptr<video_frame>(frame));
+        s->have_frame_cv.notify_one();
+        s->frame_consumed_cv.wait(l, [s]{ return s->received_frame.size() == 0; });
 }
 

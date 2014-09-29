@@ -9,6 +9,8 @@ void *hd_rum_decompress_init(struct module *parent);
 void hd_rum_decompress_done(void *state);
 void hd_rum_decompress_add_port(void *decompress_state, void *recompress_state, bool active);
 void hd_rum_decompress_set_active(void *decompress_state, void *recompress_state, bool active);
+void hd_rum_decompress_remove_port(void *decompress_state, int index);
+void hd_rum_decompress_append_port(void *decompress_state, void *recompress_state);
 
 #ifdef __cplusplus
 }
