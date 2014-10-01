@@ -60,6 +60,20 @@ AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
 )
 
+if test "$ac_cv_prog_cc_c99" = no
+then
+        AC_MSG_ERROR([Your compiler does not accept C99.])
+fi
+
+AC_CHECK_SIZEOF([size_t])
+
+if test $ac_cv_sizeof_size_t -eq 8
+then
+        WORD_LEN=64
+else
+        WORD_LEN=32
+fi
+
 AC_DEFUN([HM_VERSION_WARNING], [
           AC_MSG_WARN([If you still want to try with unsupported version of dependency,
                        you may want to try --disable-depends-version-check option.
@@ -80,15 +94,6 @@ then
                 AC_MSG_RESULT(no);
         fi
 fi
-
-case "$host" in
-  	x86_64-*-linux-*)
-		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
-	;;
-	i*86-*-linux-*)
-		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
-	;;
-esac
 
 AC_MSG_CHECKING([OS family])
 
@@ -121,7 +126,7 @@ AC_MSG_RESULT($os_version_minor);
 
 if test $system = MacOSX
 then
-        COMMON_OSX_FLAGS="-m32 -I/opt/local/include -mmacosx-version-min=10.7"
+        COMMON_OSX_FLAGS="-I/opt/local/include -mmacosx-version-min=10.7"
         if test $os_version_major = 11
         then
                 OSX_SDK="macosx10.7"
@@ -132,7 +137,10 @@ then
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
-        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
+        NVCCFLAGS="$NVCCFLAGS -I/opt/local/include"
+        if test $WORD_LEN = 32; then
+                NVCCFLAGS="$NVCCFLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
+        fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
@@ -196,20 +204,6 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #endif // POSIX_MEMALIGN
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
 ])
-
-if test "$ac_cv_prog_cc_c99" = no
-then
-        AC_MSG_ERROR([Your compiler does not accept C99.])
-fi
-
-AC_CHECK_SIZEOF([size_t])
-
-if test $ac_cv_sizeof_size_t -eq 8
-then
-        WORD_LEN=64
-else
-        WORD_LEN=32
-fi
 
 # -------------------------------------------------------------------------------------------------
 # Licensing
@@ -1035,18 +1029,23 @@ QUICKTIME_OBJ=
 quicktime=no
 
 AC_ARG_ENABLE(quicktime,
-      AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]),
+      AS_HELP_STRING([--disable-quicktime], [enable QuickTime support(default is disable)]),
     [quicktime_req=$enableval],
-    [quicktime_req=auto]
+    [quicktime_req=no]
     )
+
+if test $WORD_LEN = 64 -a $quicktime_req = yes; then
+        AC_MSG_ERROR([QuickTime not supported in 64-bit builds, please build 32-bit UltraGrid (CFLAGS/CXXFLAGS/LDFLAGS/NVCCFLAGS=-m32)]);
+fi
 
 case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 
-		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes
+		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes -a $WORD_LEN = 32
 		then
+                        AC_DEFINE([HAVE_QUICKTIME], [1],  [Build with QuickTime support])
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
@@ -1075,7 +1074,7 @@ avfoundation=no
 if test $system = MacOSX
 then
 	AVFOUNDATION_INC=""
-	AVFOUNDATION_LIB="-framework AVFoundation -framework CoreMedia -framework CoreVideo"
+	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
 	#LIB_TARGETS not needed here since we are not building modules on Mac

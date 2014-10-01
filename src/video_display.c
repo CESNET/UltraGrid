@@ -261,7 +261,7 @@ static display_table_t display_device_table[] = {
          NULL
          },
 #endif                          /* HAVE_DVS */
-#ifdef HAVE_MACOSX
+#ifdef HAVE_QUICKTIME
         {
          0,
          "quicktime",

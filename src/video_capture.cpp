@@ -308,7 +308,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL
         },
 #endif                          /* HAVE_DELTACAST */
-#if defined HAVE_MACOSX
+#if defined HAVE_QUICKTIME
         {
          /* The QuickTime API */
          0,

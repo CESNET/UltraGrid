@@ -45,6 +45,7 @@
 #include "video_capture/avfoundation.h"
 
 #import <AVFoundation/AVFoundation.h>
+#include <AppKit/NSApplication.h>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -52,6 +53,9 @@
 #include <unordered_map>
 
 #define VIDCAP_AVFOUNDATION_ID 0x522B376F
+
+#define NSAppKitVersionNumber10_8 1187
+#define NSAppKitVersionNumber10_9 1265
 
 namespace vidcap_avfoundation {
 std::unordered_map<std::string, NSString *> preset_to_av = {
@@ -290,13 +294,10 @@ fromConnection:(AVCaptureConnection *)connection;
         }
 
 	// set device frame rate also to capture output to prevent rate oscilation
-        long minorVersion, majorVersion;
-        Gestalt(gestaltSystemVersionMajor, &majorVersion);
-        Gestalt(gestaltSystemVersionMinor, &minorVersion);
         AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
         if (conn.isVideoMinFrameDurationSupported)
                 conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
-        if (majorVersion > 10 || (majorVersion == 10 && minorVersion >= 9)) {
+        if (NSAppKitVersionNumber >= NSAppKitVersionNumber10_9) {
                 if (conn.isVideoMaxFrameDurationSupported)
                         conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
         }
