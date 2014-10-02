@@ -471,9 +471,9 @@ double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int 
         return average_vol;
 }
 
-void float2int(char *out, char *in, int len)
+void float2int(char *out, const char *in, int len)
 {
-        float *inf = (float *)(void *) in;
+        const float *inf = (const float *)(const void *) in;
         int32_t *outi = (int32_t *)(void *) out;
         int items = len / sizeof(int32_t);
 
@@ -482,9 +482,9 @@ void float2int(char *out, char *in, int len)
         }
 }
 
-void int2float(char *out, char *in, int len)
+void int2float(char *out, const char *in, int len)
 {
-        int32_t *ini = (int32_t *)(void *) in;
+        const int32_t *ini = (const int32_t *)(const void *) in;
         float *outf = (float *)(void *) out;
         int items = len / sizeof(int32_t);
 

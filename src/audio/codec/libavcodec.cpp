@@ -439,6 +439,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 }
                 s->pkt.size -= len;
                 s->pkt.data += len;
+                s->pkt.dts = s->pkt.pts = AV_NOPTS_VALUE;
 #if 0
                 if (s->pkt.size < AUDIO_REFILL_THRESH) {
                         /* Refill the input buffer, to avoid trying to decode
@@ -455,13 +456,40 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 #endif
         }
 
-        const int in_bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+        //
+        // perform needed conversions (float->int32, int32->dest_bps)
+        //
+        assert(av_get_packed_sample_fmt(s->codec_ctx->sample_fmt) != AV_SAMPLE_FMT_DBL); // not supported yet
+
+        unique_ptr<char []> int32_data;
+        unique_ptr<char []> out_bps_data;
+        const char *int_input_data;
+        const char *output_data = NULL;
+        int in_bps;
+        // convert from float if needed
+        if (av_get_packed_sample_fmt(s->codec_ctx->sample_fmt) == AV_SAMPLE_FMT_FLT) {
+                int32_data = unique_ptr<char []>(new char [s->output_channel.data_len]);
+                float2int(int32_data.get(), s->output_channel.data, s->output_channel.data_len);
+                output_data = int_input_data = int32_data.get();
+                in_bps = 4;
+        } else {
+                int_input_data = s->output_channel.data;
+                in_bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+        }
+
+        // convert to appropriate bps
         if (s->output_channel.bps != in_bps) {
                 int new_data_len = s->output_channel.data_len / in_bps * s->output_channel.bps;
-                unique_ptr<char []> tmp_data(new char [new_data_len]);
-                change_bps(tmp_data.get(), s->output_channel.bps, s->output_channel.data, in_bps, s->output_channel.data_len);
+                out_bps_data = unique_ptr<char []>(new char [new_data_len]);
+                change_bps(out_bps_data.get(), s->output_channel.bps, int_input_data, in_bps,
+                                s->output_channel.data_len);
+                output_data = out_bps_data.get();
                 s->output_channel.data_len = new_data_len;
-                memcpy((char *) s->output_channel.data, tmp_data.get(), new_data_len);
+        }
+
+        // copy back if needed
+        if (output_data) {
+                memcpy((char *) s->output_channel.data, output_data, s->output_channel.data_len);
         }
 
         return &s->output_channel;

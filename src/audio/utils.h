@@ -113,14 +113,14 @@ double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int 
  * @param[out] out 4-byte aligned output buffer
  * @param[in] in 4-byte aligned input buffer
  */
-void float2int(char *out, char *in, int len);
+void float2int(char *out, const char *in, int len);
 /**
  * This fuction converts from int32_t to normalized float
  * Input and output data may overlap.
  * @param[out] out 4-byte aligned output buffer
  * @param[in] in 4-byte aligned input buffer
  */
-void int2float(char *out, char *in, int len);
+void int2float(char *out, const char *in, int len);
 /**
  * This fuction converts from int16_t to normalized float
  * Input and output data may overlap.
