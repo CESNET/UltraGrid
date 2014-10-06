@@ -54,6 +54,10 @@
 #ifndef _JACK_H_
 #define _JACK_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct audio_frame;
 
 void * jack_start(char *cfg);
@@ -62,5 +66,9 @@ bool jack_receive(void *state, void *data);
 
 int is_jack_sender(void *state);
 int is_jack_receiver(void *state);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

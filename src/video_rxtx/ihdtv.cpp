@@ -157,7 +157,7 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
                 if (ihdtv_init_tx_session
                                 (&m_tx_connection, argv[0],
                                  (argc == 2) ? argv[1] : argv[0],
-                                 params.at("mtu").i) != 0)
+                                 params.at("mtu").i) != 0) {
                         throw string("Error initializing sender session");
                 }
         }

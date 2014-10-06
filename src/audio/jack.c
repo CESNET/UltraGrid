@@ -46,6 +46,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
 #include <jack/jack.h>
 #include <limits.h>
 #include <stdio.h>
@@ -54,7 +60,6 @@
 
 #include "audio/audio.h"
 #include "audio/jack.h"
-#include "config_unix.h"
 #include "pthread.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"
