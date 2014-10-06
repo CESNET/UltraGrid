@@ -122,8 +122,8 @@ void LDGM_session_gpu::encode ( char *source_data, char *parity )
 {
     assert(parity == source_data+param_k*get_packet_size());
 
-    int w_f = max_row_weight + 2;
-    int buf_size = (param_k + param_m) * packet_size;
+    unsigned int w_f = max_row_weight + 2;
+    unsigned int buf_size = (param_k + param_m) * packet_size;
 
     cudaError_t error;
 
@@ -135,7 +135,7 @@ void LDGM_session_gpu::encode ( char *source_data, char *parity )
         cudaMalloc(&OUTBUF,buf_size);
         OUTBUF_SIZE=buf_size;
     }
-    if(buf_size>OUTBUF_SIZE){
+    if((int)buf_size>OUTBUF_SIZE){
         // puts("cudaMalloc");
         cudaFree(OUTBUF);
         cudaMalloc(&OUTBUF,buf_size);
@@ -231,7 +231,7 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
                 map_it++;
                 found = true;
             }
-            if ( map_it->first > 0 ) map_it--;
+            if ( found ) map_it--;
 
             if ( found && (map_it->first + map_it->second) >=
                     (node_offset + p_size) )
@@ -269,7 +269,7 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
      * params.packet_size = p_size;
      * params.buf_size = buf_size;
      */
-     int w_f = max_row_weight + 2;
+     unsigned int w_f = max_row_weight + 2;
 
 
     // printf("K: %d, M: %d, max_row_weight: %d, buf_size: %d,\n", param_k, param_m, max_row_weight, buf_size );

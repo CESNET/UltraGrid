@@ -368,6 +368,8 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
+                free(init_fmt);
+                free(s);
 		return NULL;
 	}
 

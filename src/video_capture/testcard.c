@@ -126,13 +126,13 @@ static void grab_audio(int chan, void *stream, int len, void *udata)
         UNUSED(chan);
         struct testcard_state *s = (struct testcard_state *) udata;
         
-        if(s->audio_end + len <= AUDIO_BUFFER_SIZE) {
+        if(s->audio_end + len <= (int) AUDIO_BUFFER_SIZE) {
                 memcpy(s->audio_data + s->audio_end, stream, len);
                 s->audio_end += len;
         } else {
                 int offset = AUDIO_BUFFER_SIZE - s->audio_end;
                 memcpy(s->audio_data + s->audio_end, stream, offset);
-                memcpy(s->audio_data, stream + offset, len - offset);
+                memcpy(s->audio_data, (char *) stream + offset, len - offset);
                 s->audio_end = len - offset;
         }
         /* just hack - Mix_Volume doesn't mute correctly the audio */
@@ -145,7 +145,7 @@ static int configure_audio(struct testcard_state *s)
         UNUSED(s);
         
 #if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
-        char *filename;
+        char filename[1024] = "";
         int fd;
         Mix_Music *music;
         ssize_t bytes_written = 0l;
@@ -157,8 +157,12 @@ static int configure_audio(struct testcard_state *s)
                 fprintf(stderr,"[testcard] error initalizing sound\n");
                 return -1;
         }
-        filename = strdup("/tmp/uv.midiXXXXXX");
+        strncpy(filename, "/tmp/uv.midiXXXXXX", sizeof filename - 1);
         fd = mkstemp(filename);
+        if (fd < 0) {
+                perror("mkstemp");
+                return -1;
+        }
         
         do {
                 ssize_t ret;
@@ -169,7 +173,6 @@ static int configure_audio(struct testcard_state *s)
         } while (bytes_written < (ssize_t) sizeof(song1));
         close(fd);
         music = Mix_LoadMUS(filename);
-        free(filename);
 
         s->audio_data = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         s->audio_start = 0;
@@ -343,6 +346,8 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
+                free(tmp);
+                free(s);
                 return NULL;
         }
 
@@ -362,22 +367,25 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         && strncmp(filename, "s=", 2ul) != 0
                         && strcmp(filename, "i") != 0
                         && strcmp(filename, "sf") != 0) {
-                s->data = malloc(s->size * bpp * 2);
-
                 in = fopen(filename, "r");
                 if (!in) {
                         perror("fopen");
+                        free(fmt);
                         free(s);
                         return NULL;
                 }
                 fseek(in, 0L, SEEK_END);
                 long filesize = ftell(in);
+                assert(filesize >= 0);
                 fseek(in, 0L, SEEK_SET);
+
+                s->data = malloc(s->size * bpp * 2);
 
                 if (s->size < filesize) {
                         fprintf(stderr, "Error wrong file size for selected "
                                 "resolution and codec. File size %ld, "
                                 "computed size %d\n", filesize, s->size);
+                        free(fmt);
                         free(s->data);
                         free(s);
                         fclose(in);
@@ -386,8 +394,11 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
                 if (!in || fread(s->data, filesize, 1, in) == 0) {
                         fprintf(stderr, "Cannot read file %s\n", filename);
+                        free(fmt);
                         free(s->data);
                         free(s);
+                        if (in)
+                                fclose(in);
                         return NULL;
                 }
 

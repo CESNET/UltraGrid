@@ -23,7 +23,7 @@
 class Rand_pmms
 {
     public:
-	Rand_pmms() {};
+	Rand_pmms() = default;
 
 	void seedi ( unsigned long int s )
 	{

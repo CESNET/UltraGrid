@@ -657,8 +657,9 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
         int res;
         char *fmt = NULL;
 
-        if (strcmp(cfg, "help") == 0) {
+        if (cfg && strcmp(cfg, "help") == 0) {
                 show_help();
+                free(name);
                 return &display_init_noerr;
         }
 
@@ -796,10 +797,8 @@ void *display_dvs_init(const char *cfg, unsigned int flags)
 error:
         free(name);
         free(fmt);
-        if (s) {
-                vf_free(s->frame);
-                free(s);
-        }
+        vf_free(s->frame);
+        free(s);
         return NULL;
 }
 

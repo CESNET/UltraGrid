@@ -34,6 +34,7 @@ Node::Node(Tanner_graph * /* tanner */, Node::Node_type t, char *d) {
     done = false;
 //    neighbours[0] = 0;
 //    printf("Created node with data: %d\n", *data);
+    tanner = nullptr; /// @todo remove, it is no longer used
 }
 
 Node::~Node() {

@@ -931,8 +931,10 @@ static int parse_config_string(const char *fmt, unsigned int *width,
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 switch (token_nr) {
                         case 0:
-                                if(strcasecmp(item, "file") == 0)
+                                if(strcasecmp(item, "file") == 0) {
+                                        free(parse_string);
                                         return PARSE_FILE;
+                                }
                                 *width = atoi(item);
                                 break;
                         case 1:
@@ -1063,7 +1065,13 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
 	printf("vidcap_swmix_init\n");
 
-        s = new vidcap_swmix_state;
+        if(!vidcap_params_get_fmt(params) ||
+                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                show_help();
+                return &vidcap_init_noerr;
+        }
+
+        s = new vidcap_swmix_state();
 	if(s == NULL) {
 		printf("Unable to allocate swmix capture state\n");
 		return NULL;
@@ -1077,12 +1085,6 @@ vidcap_swmix_init(const struct vidcap_params *params)
         s->audio_device_index = -1;
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
-
-        if(!vidcap_params_get_fmt(params) ||
-                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                show_help();
-                return &vidcap_init_noerr;
-        }
 
         memset(&desc, 0, sizeof(desc));
         desc.tile_count = 1;
@@ -1130,7 +1132,8 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
-                free(s);
+                free(config_file);
+                delete s;
                 return NULL;
         }
 

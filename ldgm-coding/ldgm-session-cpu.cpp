@@ -345,7 +345,7 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
                 map_it++;
                 found = true;
             }
-            if ( map_it->first > 0 )
+            if ( found )
                 map_it--;
 
             //Next, find out if some interval covers this symbol

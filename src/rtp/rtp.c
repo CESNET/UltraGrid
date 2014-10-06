@@ -3634,6 +3634,7 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         MD5Update(&context, (u_char *) canonical_passphrase,
                   strlen(canonical_passphrase));
         MD5Final((u_char *) hash, &context);
+        free(canonical_passphrase);
 
         /* Initialize the encryption algorithm we've received */
 
@@ -3644,7 +3645,6 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         } else {
                 debug_msg("Encryption algorithm \"%s\" not found\n",
                           session->encryption_algorithm);
-                free(canonical_passphrase);
                 return FALSE;
         }
 }

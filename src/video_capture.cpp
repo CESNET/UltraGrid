@@ -604,6 +604,7 @@ int vidcap_init(struct module *parent, vidcap_id_t id, struct vidcap_params *par
 
                         if (ret != 0) {
                                 module_done(&d->mod);
+                                free(d);
                                 return ret;
                         }
 

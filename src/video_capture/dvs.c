@@ -234,10 +234,15 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
         int i;
         int res;
         int mode_index = 0;
-        char *card_name = "";
+        char card_name[128] = "";
 
         s = (struct vidcap_dvs_state *)
             calloc(1, sizeof(struct vidcap_dvs_state));
+
+        if (s == NULL) {
+                debug_msg("Unable to allocate DVS state\n");
+                return NULL;
+        }
             
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
@@ -245,14 +250,10 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
 
         s->detect_mode = FALSE;
         
-        if (s == NULL) {
-                debug_msg("Unable to allocate DVS state\n");
-                return NULL;
-        }
-
         if (vidcap_params_get_fmt(params) != NULL) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 			show_help();
+                        free(s);
                         return 0;
                 }
 
@@ -260,13 +261,15 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                 char *tmp;
 
                 if(strncmp(fmt, "PCI", 3) == 0) {
-                        card_name = fmt;
+                        strncat(card_name, fmt, sizeof card_name - 1);
                         printf("[DVS] Choosen card: %s.\n", card_name);
                         s->detect_mode = TRUE;
                 } else {
                         tmp = strtok(fmt, ":");
                         if (!tmp) {
                                 fprintf(stderr, "Wrong config %s\n", fmt);
+                                free(fmt);
+                                free(s);
                                 return 0;
                         }
                         mode_index = atoi(tmp);
@@ -278,6 +281,7 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         }
                         if(s->mode == NULL) {
                                 fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
+                                free(fmt);
                                 free(s);
                                 return 0;
                         }
@@ -285,20 +289,24 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         tmp = strtok(NULL, ":");
                         if (!tmp) {
                                 fprintf(stderr, "Wrong config %s\n", fmt);
+                                free(fmt);
+                                free(s);
                                 return 0;
                         }
 
                         s->frame->color_spec = get_codec_from_name(tmp);
                         if (s->frame->color_spec == VIDEO_CODEC_NONE) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
+                                free(fmt);
+                                free(s);
                                 return 0;
                         }
 
                         /* card name */
                         tmp = strtok(NULL, ":");
                         if(tmp) {
-                                card_name = tmp;
-                                tmp[strlen(card_name)] = ':';
+                                tmp[strlen(tmp)] = ':';
+                                strncat(card_name, fmt, sizeof card_name - 1);
                                 printf("[DVS] Choosen card: %s.\n", card_name);
                         }
                 }
@@ -343,6 +351,7 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                                 break;
                         default:
                                 fprintf(stderr, "[dvs] Unsupported video codec passed!");
+                                free(s);
                                 return NULL;
                 }
 
@@ -475,7 +484,6 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         );
         if (res != SV_OK) {
                 goto error;
-                abort();
         }
         res = sv_fifo_start(s->sv, s->fifo);
         if (res != SV_OK) {

@@ -758,6 +758,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
 
         } else if (strcmp(fmt, "help") == 0) {
                 show_help();
+                delete s;
                 return &display_init_noerr;
         } else  {
                 char *tmp = strdup(fmt);
@@ -829,6 +830,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
                                 BLACKMAGIC_DECKLINK_API_VERSION_STRING);
+                delete s;
                 return NULL;
         }
 
@@ -889,7 +891,7 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
-                if (s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput) != S_OK) {
+                if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
                         printf("Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
                         goto error;
                 }

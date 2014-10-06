@@ -37,10 +37,12 @@ class LDGM_session : public Coding_session
 {
     public:
 	/* ====================  LIFECYCLE     ======================================= */
-	LDGM_session (){
-    elapsed_sum2=0.0;
-	no_frames2=0;
-	}                               /* constructor **/
+	LDGM_session () :                          /* constructor **/
+                pcMatrix(NULL), pcm(NULL), param_k(0), param_m(0), row_weight(0),
+                packet_size(0), max_row_weight(0), received_ptr(NULL),
+                lost_ptr(NULL), elapsed_sum2(0.0), no_frames2(0)
+        {
+        }
 	virtual ~LDGM_session ();                      /* destructor **/
 
 	/* ====================  ACCESSORS     ======================================= */
@@ -116,7 +118,7 @@ class LDGM_session : public Coding_session
 	char *received_ptr;
 	char *lost_ptr;
 
-    double elapsed_sum2;
+	double elapsed_sum2;
 	long no_frames2;
 
         static const int HEADER_SIZE = 4;

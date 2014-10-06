@@ -304,7 +304,7 @@ vidcap_import_init(const struct vidcap_params *params)
         pthread_cond_init(&s->boss_cv, NULL);
 
         char *tmp = strdup(vidcap_params_get_fmt(params));
-        char *save_ptr;
+        char *save_ptr = NULL;
         s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
         char *suffix;
         if (!s->directory || strcmp(s->directory, "help") == 0) {
@@ -343,6 +343,7 @@ vidcap_import_init(const struct vidcap_params *params)
                 s->audio_state.has_audio = true;
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
                         fprintf(stderr, "Unable to create thread.\n");
+                        free(audio_filename);
                         goto error;
                 }
         } else {
@@ -468,6 +469,7 @@ vidcap_import_init(const struct vidcap_params *params)
         s->video_desc = desc;
 
         fclose(info);
+        info = NULL;
 
         if(items_found != (1 << 7) - 1) {
                 fprintf(stderr, "[import] Failed while reading config file - some items missing.\n");
@@ -494,9 +496,8 @@ error:
         free(tmp);
         if (info != NULL)
                 fclose(info);
-        if (s) {
-                cleanup_common(s);
-        }
+        cleanup_common(s);
+        free(s);
         return NULL;
 }
 
@@ -608,8 +609,6 @@ static void cleanup_common(struct vidcap_import_state *s) {
                 pthread_cond_destroy(&s->audio_state.boss_cv);
                 pthread_mutex_destroy(&s->audio_state.lock);
         }
-
-        free(s);
 }
 
 void vidcap_import_done(void *state)
@@ -620,6 +619,7 @@ void vidcap_import_done(void *state)
         vidcap_import_finish(state);
 
         cleanup_common(s);
+        free(s);
 }
 
 /*
@@ -790,27 +790,34 @@ static void * control_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
         fd_t fd;
+        int rc;
 
         fd = socket(AF_INET6, SOCK_STREAM, 0);
         assert(fd != INVALID_SOCKET);
         int val = 1;
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+        rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+        if (!rc) {
+                perror("Video import - setsockopt");
+        }
         struct sockaddr_in6 s_in;
         s_in.sin6_family = AF_INET6;
         s_in.sin6_addr = in6addr_any;
         s_in.sin6_port = htons(CONTROL_PORT);
 
-        bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+        rc = bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+        if (!rc) {
+                perror("Video import: unable to bind communication pipe");
+        }
         listen(fd, MAX_CLIENTS);
         struct sockaddr_storage client_addr;
         socklen_t len;
 
         unlink(PIPE);
         errno = 0;
-        int fifo_status = mkfifo(PIPE, 0777);
+        rc = mkfifo(PIPE, 0777);
 
         struct client *clients = NULL;
-        if(!fifo_status) {
+        if (!rc) {
                 clients = malloc(sizeof(struct client));
                 clients->fd = open(PIPE, O_RDONLY | O_NONBLOCK);
                 assert(clients->fd != -1);

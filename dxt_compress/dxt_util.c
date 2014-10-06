@@ -69,6 +69,7 @@ dxt_shader_create_from_file(const char* filename, GLenum type)
     char* program = (char*)malloc((data_size  + 1) * sizeof(char));
     if ( (size_t) data_size != fread(program, sizeof(char), data_size, file) ) {
         fprintf(stderr, "Failed to load program [%d bytes] from file %s!\n", data_size, filename);
+        free(program);
         fclose(file);
         return 0;
     }
@@ -77,8 +78,10 @@ dxt_shader_create_from_file(const char* filename, GLenum type)
  
     printf("Compiling program [%s]...\n", filename);
     GLuint shader =  dxt_shader_create_from_source(program, type);
-    if ( shader == 0 )
+    if ( shader == 0 ) {
+        free(program);
         return 0;
+    }
     
     free(program);
     

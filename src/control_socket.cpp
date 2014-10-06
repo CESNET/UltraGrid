@@ -187,8 +187,12 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
                 assert(s->socket_fd != INVALID_SOCKET);
                 int val = 1;
-                setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                int rc;
+                rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 (sso_val_type) &val, sizeof(val));
+                if (rc != 0) {
+                        perror("Control socket - setsockopt");
+                }
 
                 /* setting address to in6addr_any allows connections to be established
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
@@ -199,7 +203,10 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 s_in.sin6_addr = in6addr_any;
                 s_in.sin6_port = htons(s->network_port);
 
-                ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                if (rc != 0) {
+                        perror("Control socket - bind");
+                }
                 listen(s->socket_fd, MAX_CLIENTS);
         } else {
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);

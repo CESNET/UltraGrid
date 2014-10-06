@@ -149,7 +149,9 @@ static void show_help()
 
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
-                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                        perror("[V4L2] Unable to query device capabilities");
+                }
 
                 printf("\t%sDevice %s (%s):\n",
                                 (i == 0 ? "(*) " : "    "),
@@ -263,7 +265,9 @@ struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                 strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
                                 struct v4l2_capability capab;
                                 memset(&capab, 0, sizeof capab);
-                                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+                                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                                        perror("[V4L2] Unable to query device capabilities");
+                                }
                                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
 
                                 close(fd);

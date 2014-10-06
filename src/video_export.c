@@ -122,6 +122,7 @@ static void *video_export_thread(void *arg)
                 }
 
                 FILE *out = fopen(current->filename, "wb");
+                assert (out != NULL);
                 if (fwrite(current->data, current->data_len, 1, out) != 1) {
                         perror("fwrite");
                 }

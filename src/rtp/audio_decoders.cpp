@@ -316,10 +316,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
 error:
         free(tmp);
-        if (s) {
-                audio_decoder_destroy(s);
-                free(s);
-        }
+        audio_decoder_destroy(s);
+        free(s);
         return NULL;
 }
 

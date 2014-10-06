@@ -205,6 +205,7 @@ static void get_receiver_index(char *node_str, int *index) {
 struct module *get_module(struct module *root, const char *const_path)
 {
         assert(root != NULL);
+        assert(const_path != NULL);
 
         struct module *receiver = root;
         char *path, *tmp;
@@ -213,10 +214,11 @@ struct module *get_module(struct module *root, const char *const_path)
         pthread_mutex_lock(&root->lock);
 
         tmp = path = strdup(const_path);
+        assert(path != NULL);
         while ((item = strtok_r(path, ".", &save_ptr))) {
                 struct module *old_receiver = receiver;
 
-                receiver = get_matching_child(receiver, path);
+                receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
                         pthread_mutex_unlock(&old_receiver->lock);

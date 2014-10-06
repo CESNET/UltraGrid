@@ -222,7 +222,7 @@ static void print_input_modes (IDeckLink* deckLink);
 static int blackmagic_api_version_check(BMD_STR *current_version);
 
 HRESULT	
-VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, IDeckLinkAudioInputPacket *audioPacket)
+VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioPacket)
 {
         bool noSignal = false;
 	// Video
@@ -230,22 +230,28 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 	pthread_mutex_lock(&(s->lock));
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
-	if(arrivedFrame)
+	if (videoFrame)
 	{
-		if (arrivedFrame->GetFlags() & bmdFrameHasNoInputSource)
+		if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
 			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", s->frames);
                         noSignal = true;
 		}
 		else{
                         newFrameReady = 1; // The new frame is ready to grab
-			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, arrivedFrame->GetRowBytes() * arrivedFrame->GetHeight());
+			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
 			
 		}
 	}
 
-        if(newFrameReady) {
-                arrivedFrame->GetBytes(&pixelFrame);
+        /// @todo
+        /// Figure out when there are comming audio packets (if video processing is not fast enough/progressive NTSC with Intensity or 3:2 pulldown)
+        /// @todo
+        /// All the newFrameReady stuff is a bit ugly...
+
+        if (videoFrame && newFrameReady) {
+                /// @todo videoFrame should be actually retained until the data are processed
+                videoFrame->GetBytes(&pixelFrame);
 
                 if(audioPacket) {
                         audioPacket->GetBytes(&audioFrame);
@@ -271,7 +277,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
                 if(s->stereo) {
                         IDeckLinkVideoFrame3DExtensions *rightEye;
                         HRESULT result;
-                        result = arrivedFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&rightEye);
+                        result = videoFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&rightEye);
 
                         if (result == S_OK) {
                                 result = rightEye->GetFrameForRightEye(&rightEyeFrame);
@@ -293,7 +299,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
                 timecode = NULL;
                 if(s->use_timecode && !noSignal) {
                         HRESULT result;
-                        result = arrivedFrame->GetTimecode(bmdTimecodeRP188Any, &timecode);
+                        result = videoFrame->GetTimecode(bmdTimecodeRP188Any, &timecode);
                         if(result != S_OK) {
                                 fprintf(stderr, "Failed to acquire timecode from stream. Disabling sync.\n");
                                 s->use_timecode = FALSE;
@@ -807,13 +813,13 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 device_found[i] = false;
 
         if(s->stereo) {
-                s->frame = vf_alloc(2);
                 if (s->devices_cnt > 1) {
                         fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
                         free(s);
                         return NULL;
                 }
+                s->frame = vf_alloc(2);
         } else {
                 s->frame = vf_alloc(s->devices_cnt);
         }
@@ -827,6 +833,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
                 deckLinkIterator = create_decklink_iterator();
                 if (deckLinkIterator == NULL) {
+                        vf_free(s->frame);
+                        free(s);
                         return NULL;
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)

@@ -995,7 +995,7 @@ int main(int argc, char *argv[])
 
                 // UltraGrid RTP
                 params["postprocess"].ptr = (void *) postprocess;
-                params["decoder_mode"].l = decoder_mode;
+                params["decoder_mode"].l = (long) decoder_mode;
                 params["display_device"].ptr = uv->display_device;
 
                 // SAGE
@@ -1019,7 +1019,7 @@ int main(int argc, char *argv[])
                                 avType = none;
                         }
 
-                        params["avType"].l = avType;
+                        params["avType"].l = (long) avType;
                 }
 
                 uv->state_video_rxtx = video_rxtx::create(video_protocol, params);

@@ -65,6 +65,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "bluefish444_common.h"
 
@@ -92,20 +93,19 @@ static void RouteChannel(CBLUEVELVET_H pSDK, ULONG Source, ULONG Destination,
 struct av_buffer
 {
         av_buffer(int TilesCount, int GoldenSize) :
-                BufferId(0), m_TilesCount(TilesCount)
+                pVideoBuffer(TilesCount), BufferId(0)
         {
-                for(int i = 0; i < m_TilesCount; ++i) {
+                for(int i = 0; i < TilesCount; ++i) {
                         pVideoBuffer[i] = (unsigned int *) page_aligned_alloc(GoldenSize);
                 }
         }
         virtual ~av_buffer() {
-                for(int i = 0; i < m_TilesCount; ++i) {
+                for(unsigned int i = 0; i < pVideoBuffer.size(); ++i) {
                         page_aligned_free(pVideoBuffer[i]);
                 }
         }
-        unsigned int *pVideoBuffer[MAX_BLUE_OUT_CHANNELS];
+        vector<unsigned int *> pVideoBuffer;
         unsigned int  BufferId;
-        int           m_TilesCount;
 };
 
 struct display_bluefish444_state {

@@ -317,6 +317,7 @@ void *decklink_playback_init(char *cfg)
                 printf("audioConsumerLevels\n");
                 printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
                 printf("\tIf set false the selected analog input gain levels are used.\n");
+                free(s);
                 return NULL;
         } else  {
                 char *tmp = strdup(cfg);

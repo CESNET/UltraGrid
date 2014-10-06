@@ -103,6 +103,9 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                         }
                         getline(file, line);
                 }
+                if (s->width * s->height == 0) {
+                        throw string("Unspecified header field!");
+                }
                 if ((rgb && depth != 3) || depth != 4) {
                         throw string("Unsupported depth passed.");
                 }
@@ -146,7 +149,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 printf("'logo' usage:\n");
                 printf("\tlogo:<file>[:<x>[:<y>]]\n");
                 printf("\t\t<file> - is path to logo to be added in PAM format with alpha\n");
-                free(s);
+                delete s;
                 return 1;
         }
         char *tmp = strdup(cfg);
@@ -203,6 +206,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (rect_x < 0 || rect_x + s->width > in->tiles[0].width) {
                 rect_x = in->tiles[0].width - s->width;
         }
+        assert(get_pf_block_size(in->color_spec) > 0);
         rect_x = (rect_x / get_pf_block_size(in->color_spec)) * get_pf_block_size(in->color_spec);
 
         if (rect_y < 0 || rect_y + s->height > in->tiles[0].height) {

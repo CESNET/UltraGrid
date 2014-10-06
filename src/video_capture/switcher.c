@@ -110,6 +110,7 @@ vidcap_switcher_init(const struct vidcap_params *params)
                 char *cfg = strdup(cfg_c);
                 char *save_ptr, *item;
                 char *tmp = cfg;
+                assert(cfg != NULL);
                 while ((item = strtok_r(cfg, ":", &save_ptr))) {
                         if (strcmp(item, "help") == 0) {
                                 show_help();

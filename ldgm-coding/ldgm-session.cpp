@@ -68,7 +68,9 @@ LDGM_session::set_pcMatrix ( char* fname)
                 "\nReceived K = " << k_f << ", M = " << m_f << "\n";
         throw oss.str();
     }
-    fseek (f, 1, SEEK_CUR );
+    if (fseek (f, 1, SEEK_CUR ) != 0) {
+            perror("fseek");
+    }
 
     pcm = (int*) malloc(w_f*param_m*sizeof(int));
     for ( int i = 0; i < (int)w_f*param_m; i++) {

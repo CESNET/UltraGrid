@@ -274,8 +274,6 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
         struct state_video_compress_jpeg *s;
         const char *opts = params->cfg;
 
-        s = new state_video_compress_jpeg();
-
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
                 printf("\t-c JPEG[:<quality>[:<restart_interval>]]\n");
@@ -286,6 +284,8 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
                 return &compress_init_noerr;
         }
 
+        s = new state_video_compress_jpeg();
+
         s->restart_interval = -1;
 
         gpujpeg_set_default_parameters(&s->encoder_param);
@@ -293,6 +293,8 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
         if(opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
                 if (!parse_fmt(s, fmt)) {
+                        free(fmt);
+                        delete s;
                         return NULL;
                 }
                 free(fmt);

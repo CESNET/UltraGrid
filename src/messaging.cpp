@@ -42,6 +42,7 @@ struct response *send_message(struct module *root, const char *const_path, struc
                         simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
                         pthread_mutex_unlock(&old_receiver->lock);
 
+                        free(tmp);
                         return new_response(RESPONSE_ACCEPTED, NULL);
                 }
                 pthread_mutex_lock(&receiver->lock);

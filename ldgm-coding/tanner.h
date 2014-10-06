@@ -128,9 +128,6 @@ class Tanner_graph
 {
     public:
 	/* ====================  LIFECYCLE     ======================================= */
-	Tanner_graph () {}                             /* constructor      */
-	Tanner_graph ( const Tanner_graph &other );   /* copy constructor */
-	~Tanner_graph () {}                           /* destructor       */
 
 	/* ====================  ACCESSORS     ======================================= */
 

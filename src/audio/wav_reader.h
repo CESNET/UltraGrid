@@ -1,12 +1,12 @@
 #include <stdio.h> // FILE *
 
 struct wav_metadata {
-        int ch_count;
-        int sample_rate;
-        int bits_per_sample;
+        unsigned int ch_count;
+        unsigned int sample_rate;
+        unsigned int bits_per_sample;
 
-        int data_size;
-        int data_offset; // from the beginning of file
+        unsigned int data_size;
+        unsigned int data_offset; // from the beginning of file
 };
 
 #define WAV_HDR_PARSE_OK           0

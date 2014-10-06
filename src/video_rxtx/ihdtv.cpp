@@ -121,6 +121,10 @@ static void *ihdtv_sender_thread(void *arg)
 
 ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params)
+#ifdef HAVE_IHDTV
+        , m_tx_connection(), m_rx_connection()
+#endif
+
 {
 #ifdef HAVE_IHDTV
         int argc = params.at("argc").i;

@@ -183,6 +183,7 @@ void * audio_cap_testcard_init(char *cfg)
                 FILE *wav = fopen(wav_file, "r");
                 if(!wav) {
                         fprintf(stderr, "Unable to open WAV.\n");
+                        free(s);
                         return NULL;
                 }
                 struct wav_metadata metadata;

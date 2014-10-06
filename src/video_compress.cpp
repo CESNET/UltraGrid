@@ -541,11 +541,11 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *
                 s->state_count = frame->tile_count;
         }
 
-        task_result_handle_t task_handle[frame->tile_count];
-
         vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
         // frame pointer may no longer be valid
         frame = NULL;
+
+        vector<task_result_handle_t> task_handle(separate_tiles.size());
 
         vector <compress_worker_data> data_tile(separate_tiles.size());
         for(unsigned int i = 0; i < separate_tiles.size(); ++i) {

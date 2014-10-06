@@ -167,12 +167,12 @@ int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned i
 	    }
 //	    printf ( "fwrite: %d\n", tmp );
 	}
+        fflush(out);
+        fclose(out);
     } else
     {
 	fprintf(stderr, "Cannot open file for writing.");
     }
-    fflush(out);
-    fclose(out);
 
 /*     out = fopen(fname, "rb");
  *    

@@ -509,11 +509,12 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
 	printf("vidcap_deltacast_dvi_init\n");
 
-        char *init_fmt = NULL;
+        char *init_fmt = NULL,
+             *tmp = NULL;
         if (vidcap_params_get_fmt(params) != NULL)
-                init_fmt = strdup(vidcap_params_get_fmt(params));
+                tmp = init_fmt = strdup(vidcap_params_get_fmt(params));
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
-                free(init_fmt);
+                free(tmp);
                 usage();
                 return &vidcap_init_noerr;
         }
@@ -521,7 +522,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
-		return NULL;
+                goto error;
 	}
 
         s->codec = BGR;
@@ -580,7 +581,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                 BrdId = 0;
                 printf("[DELTACAST] Automatically choosen device nr. 0\n");
         }
-        free(init_fmt);
+        free(tmp);
+        tmp = NULL;
 
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
@@ -721,6 +723,7 @@ no_stream:
 bad_channel:
         VHD_CloseBoardHandle(s->BoardHandle);
 error:
+        free(tmp);
         free(s);
         return NULL;
 }

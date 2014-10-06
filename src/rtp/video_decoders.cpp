@@ -245,7 +245,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        unique_ptr<message_queue<>> decompress_queue;
+        unique_ptr<message_queue<decompress_msg*>> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -259,7 +259,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        unique_ptr<message_queue<>> fec_queue;
+        unique_ptr<message_queue<fec_msg*>> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -309,8 +309,7 @@ static void *fec_thread(void *args) {
         struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct fec_msg *data;
-                data = dynamic_cast<fec_msg *>(decoder->fec_queue->pop());
+                struct fec_msg *data = decoder->fec_queue->pop();
 
                 if(data->poisoned) {
                         decompress_msg *msg = new decompress_msg(0);
@@ -487,7 +486,7 @@ static void *decompress_thread(void *args) {
         struct tile *tile;
 
         while(1) {
-                decompress_msg *msg = dynamic_cast<decompress_msg *>(decoder->decompress_queue->pop());
+                decompress_msg *msg = decoder->decompress_queue->pop();
 
                 if(msg->poisoned) {
                         delete msg;
@@ -647,8 +646,8 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
 
-        s->decompress_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
-        s->fec_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
+        s->decompress_queue = unique_ptr<message_queue<decompress_msg*>>(new message_queue<decompress_msg*>(1));
+        s->fec_queue = unique_ptr<message_queue<fec_msg*>>(new message_queue<fec_msg*>(1));
 
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
