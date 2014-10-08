@@ -462,7 +462,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        int hdrs_len = 40; // for computing max payload size
+        int hdrs_len = 40 + 8 + 12; // IPv6 hdr size + UDP hdr size + RTP hdr size
         unsigned int fec_symbol_size = frame->fec_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
