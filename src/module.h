@@ -105,6 +105,16 @@ struct module {
         struct simple_linked_list *msg_queue_childs; ///< messages for childern that were not delivered
 
         void *priv_data;
+
+#ifdef __cplusplus
+        module() = default;
+        // don't be tempted to copy/move module because parent holds pointer to struct module
+        // which would be dangling thereafter
+        module(module const &) = delete;
+        module(module &&) = delete;
+        module &operator=(module const &) = delete;
+        module &operator=(module &&) = delete;
+#endif
 };
 
 void module_init_default(struct module *module_data);
