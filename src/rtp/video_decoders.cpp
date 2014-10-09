@@ -85,7 +85,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
-#include "utils/message_queue.h"
+#include "utils/synchronized_queue.h"
 #include "utils/timed_message.h"
 #include "video.h"
 #include "video_decompress.h"
@@ -245,7 +245,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        unique_ptr<message_queue<decompress_msg*>> decompress_queue;
+        synchronized_queue<decompress_msg*, 1> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -259,7 +259,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        unique_ptr<message_queue<fec_msg*>> fec_queue;
+        synchronized_queue<fec_msg*, 1> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -272,7 +272,7 @@ struct state_video_decoder
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
 
-        message_queue<main_msg_reconfigure *> msg_queue;
+        synchronized_queue<main_msg_reconfigure *> msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
@@ -309,12 +309,12 @@ static void *fec_thread(void *args) {
         struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct fec_msg *data = decoder->fec_queue->pop();
+                struct fec_msg *data = decoder->fec_queue.pop();
 
                 if(data->poisoned) {
                         decompress_msg *msg = new decompress_msg(0);
                         msg->poisoned = true;
-                        decoder->decompress_queue->push(msg);
+                        decoder->decompress_queue.push(msg);
                         delete data;
                         break; // exit from loop
                 }
@@ -458,7 +458,7 @@ static void *fec_thread(void *args) {
                         decoder->buffer_swapped = false;
                 }
                 pthread_mutex_unlock(&decoder->lock);
-                decoder->decompress_queue->push(decompress_msg);
+                decoder->decompress_queue.push(decompress_msg);
 
 cleanup:
                 if(ret == FALSE) {
@@ -486,7 +486,7 @@ static void *decompress_thread(void *args) {
         struct tile *tile;
 
         while(1) {
-                decompress_msg *msg = decoder->decompress_queue->pop();
+                decompress_msg *msg = decoder->decompress_queue.pop();
 
                 if(msg->poisoned) {
                         delete msg;
@@ -646,9 +646,6 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
 
-        s->decompress_queue = unique_ptr<message_queue<decompress_msg*>>(new message_queue<decompress_msg*>(1));
-        s->fec_queue = unique_ptr<message_queue<fec_msg*>>(new message_queue<fec_msg*>(1));
-
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
@@ -801,7 +798,7 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
         if(decoder->display) {
                 fec_msg *msg = new fec_msg(0, {});
                 msg->poisoned = true;
-                decoder->fec_queue->push(msg);
+                decoder->fec_queue.push(msg);
 
                 pthread_join(decoder->fec_thread_id, NULL);
                 pthread_join(decoder->decompress_thread_id, NULL);
@@ -1523,7 +1520,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 #endif
                 }
                 if (msg_reconf->last_frame) {
-                        decoder->fec_queue->push(msg_reconf->last_frame);
+                        decoder->fec_queue.push(msg_reconf->last_frame);
                 }
                 delete msg_reconf;
         }
@@ -1780,10 +1777,10 @@ next_packet:
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
         fec_msg->pckt_list = std::move(pckt_list);
 
-        if(decoder->fec_queue->size() > 0) {
+        if(decoder->fec_queue.size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
         }
-        decoder->fec_queue->push(fec_msg);
+        decoder->fec_queue.push(fec_msg);
 cleanup:
         ;
         unsigned int frame_size = 0;

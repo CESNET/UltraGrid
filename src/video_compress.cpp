@@ -53,7 +53,7 @@
 
 #include "messaging.h"
 #include "module.h"
-#include "utils/message_queue.h"
+#include "utils/synchronized_queue.h"
 #include "utils/vf_split.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -111,7 +111,7 @@ struct compress_state_real {
 struct compress_state {
         struct module mod;               ///< compress module data
         struct compress_state_real *ptr; ///< pointer to real compress state
-        unique_ptr<message_queue<shared_ptr<video_frame>>> queue;
+        synchronized_queue<shared_ptr<video_frame>, 1> queue;
 };
 
 typedef struct compress_state compress_state_proxy; ///< Used to emphasize that the state is actually a proxy.
@@ -339,9 +339,6 @@ int compress_init(struct module *parent, const char *config_string, struct compr
         proxy->mod.priv_data = proxy;
         proxy->mod.deleter = compress_done;
 
-        proxy->queue = unique_ptr<message_queue<shared_ptr<video_frame>>>(
-                        new message_queue<shared_ptr<video_frame>>(1));
-
         int ret = compress_init_real(&proxy->mod, config_string, &s);
         if(ret == 0) {
                 proxy->ptr = s;
@@ -457,7 +454,7 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
                 abort();
 
         if (!frame) { // pass poisoned pill
-                proxy->queue->push(shared_ptr<video_frame>());
+                proxy->queue.push(shared_ptr<video_frame>());
                 return;
         }
 
@@ -483,7 +480,7 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
                 return;
         }
 
-        proxy->queue->push(sync_api_frame);
+        proxy->queue.push(sync_api_frame);
 }
 
 /**
@@ -619,6 +616,6 @@ shared_ptr<video_frame> compress_pop(compress_state_proxy *proxy)
         if(!proxy)
                 return NULL;
 
-        return proxy->queue->pop();
+        return proxy->queue.pop();
 }
 

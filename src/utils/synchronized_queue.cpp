@@ -1,5 +1,5 @@
 /**
- * @file   utils/message_queue.cpp
+ * @file   utils/synchronized_queue.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -40,7 +40,8 @@
 #include "config_win32.h"
 
 #define NO_EXTERN_MSGQ_MSG
-#include "utils/message_queue.h"
+#include "utils/synchronized_queue.h"
 
-template class message_queue<msg *>;
+template class synchronized_queue<msg *, -1>;
+template class synchronized_queue<msg *, 1>;
 

@@ -1,5 +1,5 @@
 /**
- * @file   utils/message_queue.h
+ * @file   utils/synchronized_queue.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,8 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MESSAGE_QUEUE_H_
-#define MESSAGE_QUEUE_H_
+#ifndef SYNCHRONIZED_QUEUE_H_
+#define SYNCHRONIZED_QUEUE_H_
 
 #include <condition_variable>
 #include <mutex>
@@ -48,19 +48,18 @@ struct msg {
 
 struct msg_quit : public msg {};
 
-template<typename T = struct msg *>
-class message_queue {
+/**
+ * @brief simple blocking synchronized queue
+ *
+ * Queue blocks if it size is higher than max_len on push. It also blocks on pop call
+ * if there is no element in the queue.
+ *
+ * @tparam T type to be stored
+ * @tparam max_len maximal length of the queue until it bloks (-1 means unlimited)
+ */
+template<typename T = struct msg *, int max_len = 1>
+class synchronized_queue {
 public:
-
-        message_queue(int max_len = -1) :
-                m_max_len(max_len)
-        {
-        }
-
-        virtual ~message_queue()
-        {
-        }
-
         int size()
         {
                 std::unique_lock<std::mutex> l(m_lock);
@@ -70,8 +69,8 @@ public:
         void push(T const & message)
         {
                 std::unique_lock<std::mutex> l(m_lock);
-                if (m_max_len != -1) {
-                        m_queue_decremented.wait(l, [this]{return m_queue.size() < (unsigned int) m_max_len;});
+                if (max_len != -1) {
+                        m_queue_decremented.wait(l, [this]{return m_queue.size() < (unsigned int) max_len;});
                 }
                 m_queue.push(message);
                 l.unlock();
@@ -96,7 +95,6 @@ public:
 
 
 private:
-        int                     m_max_len;
         std::queue<T>           m_queue;
         std::mutex              m_lock;
         std::condition_variable m_queue_decremented;
@@ -104,8 +102,9 @@ private:
 };
 
 #ifndef NO_EXTERN_MSGQ_MSG
-extern template class message_queue<msg *>;
+extern template class synchronized_queue<msg *, -1>;
+extern template class synchronized_queue<msg *, 1>;
 #endif
 
-#endif // MESSAGE_QUEUE_H_
+#endif // SYNCHRONIZED_QUEUE_H_
 

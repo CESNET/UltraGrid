@@ -117,7 +117,7 @@ OBJS	      = @OBJS@ \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
 		src/lib_common.o \
-		src/utils/message_queue.o \
+		src/utils/synchronized_queue.o \
 		src/utils/misc.o \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
