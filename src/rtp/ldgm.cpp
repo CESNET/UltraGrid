@@ -142,7 +142,8 @@ const configuration_t suggested_configurations[] = {
         { STD1500, UNCOMPRESSED_SIZE, PCT10, 1500, 1500, 8 },
 };
 
-#define MINIMAL_VALUE 64 // reasonable minimum (seems that 32 crashes sometimes)
+#define MINIMAL_VALUE 64 ///< reasonable minimum (seems that 32 crashes sometimes)
+                         ///< @todo Check why doesn't lower values work out
 #define DEFAULT_K 256
 #define DEFAULT_M 192
 #define DEFAULT_C 5
@@ -172,11 +173,13 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
         m_seed = seed;
 
         if (ldgm_device_gpu) {
-                throw string("GPU is not yet supported");
-                // TODO: uncomment this
-                //m_coding_session = new LDGM_session_gpu();
+#ifdef HAVE_LDGM_GPU
+                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_gpu());
+#else
+                throw string("GPU accelerated LDGM support is not compiled in");
+#endif
         } else {
-                m_coding_session = new LDGM_session_cpu();
+                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_cpu());
         }
 
         m_coding_session->set_params(k, m, c);
@@ -208,7 +211,7 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
         }
         snprintf(filename, 512, "%s/ldgm_matrix-%u-%u-%u-%u.bin", path, k, m, c, seed);
         if(!file_exists(filename)) {
-                int ret = generate_ldgm_matrix(filename, k, m, c, seed);
+                int ret = generate_ldgm_matrix(filename, k, m, c, seed, 0);
                 if(ret != 0) {
                         fprintf(stderr, "[LDGM] Unable to initialize LDGM matrix.\n");
                         throw 1;
@@ -216,10 +219,6 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
         }
 
         m_coding_session->set_pcMatrix(filename);
-}
-
-ldgm::~ldgm() {
-        delete m_coding_session;
 }
 
 ldgm::ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
@@ -383,21 +382,19 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
         init(k, m, c);
 }
 
-static void ldgm_encoder_dispose_buffer(struct video_frame *frame)
+shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
 {
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                static_cast<ldgm *>(frame->dispose_udata)->freeBuffer(frame->tiles[i].data);
-        }
-        vf_free(frame);
-}
-
-struct video_frame *ldgm::encode(struct video_frame *tx_frame)
-{
-        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(tx_frame));
+        shared_ptr<video_frame> out(vf_alloc_desc(video_desc_from_frame(tx_frame.get())),
+                        [this](struct video_frame *frame) {
+                                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                                        freeBuffer(frame->tiles[i].data);
+                                }
+                                vf_free(frame);
+                        });
 
         for (unsigned int i = 0; i < tx_frame->tile_count; ++i) {
                 video_payload_hdr_t video_hdr;
-                format_video_header(tx_frame, i, 0, video_hdr);
+                format_video_header(tx_frame.get(), i, 0, video_hdr);
 
                 int out_size;
                 char *output = m_coding_session->encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
@@ -413,8 +410,6 @@ struct video_frame *ldgm::encode(struct video_frame *tx_frame)
         out->fec_params.c = m_c;
         out->fec_params.seed = m_seed;
         out->fec_params.symbol_size = m_coding_session->get_packet_size();
-        out->dispose = ldgm_encoder_dispose_buffer;
-        out->dispose_udata = this;
 
         return out;
 }

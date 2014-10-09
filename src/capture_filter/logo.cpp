@@ -51,8 +51,12 @@
 #include "video.h"
 #include "video_codec.h"
 
+#include <memory>
+
+using namespace std;
+
 struct state_capture_filter_logo {
-        unsigned char *logo;
+        unique_ptr<unsigned char []> logo;
         unsigned int width, height;
         int x, y;
 };
@@ -75,33 +79,46 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                         throw string("Only logo in PAM format is currently supported.");
                 }
                 getline(file, line);
+                bool rgb = false;
+                int depth = 0;
                 while (!file.eof()) {
                         if (line.compare(0, strlen("WIDTH"), "WIDTH") == 0) {
                                 s->width = atoi(line.c_str() + strlen("WIDTH "));
                         } else if (line.compare(0, strlen("HEIGHT"), "HEIGHT") == 0) {
                                 s->height = atoi(line.c_str() + strlen("HEIGHT "));
                         } else if (line.compare(0, strlen("DEPTH"), "DEPTH") == 0) {
-                                if (atoi(line.c_str() + strlen("DEPTH ")) != 4) {
-                                        throw string("Only depth 4 is supported.");
-                                }
+                                depth = atoi(line.c_str() + strlen("DEPTH "));
                         } else if (line.compare(0, strlen("MAXVAL"), "MAXVAL") == 0) {
                                 if (atoi(line.c_str() + strlen("MAXVAL ")) != 255) {
                                         throw string("Only supported maxval is 255.");
                                 }
                         } else if (line.compare(0, strlen("TUPLETYPE"), "MAXVAL") == 0) {
-                                if (line.compare("TUPLTYPE RGB_ALPHA") != 0) {
-                                        throw string("Only supported tuple type is RGBA_APLHA.");
+                                if (line.compare("TUPLTYPE RGB") == 0) {
+                                        rgb = true;
+                                } else if (line.compare("TUPLTYPE RGB_ALPHA") != 0) {
+                                        throw string("Only supported tuple type is either RGB or RGBA_APLHA.");
                                 }
                         } else if (line.compare(0, strlen("ENDHDR"), "ENDHDR") == 0) {
                                 break;
                         }
                         getline(file, line);
                 }
-                int datalen = 4 * s->width * s->height;
-                s->logo = (unsigned char *) malloc(datalen);
-                file.read((char *) s->logo, datalen);
+                if ((rgb && depth != 3) || depth != 4) {
+                        throw string("Unsupported depth passed.");
+                }
+                int datalen = depth * s->width * s->height;
+                auto data_read = unique_ptr<unsigned char []>(new unsigned char[datalen]);
+                file.read((char *) data_read.get(), datalen);
                 if (file.eof()) {
                         throw string("Unable to load logo data from file.");
+                }
+                if (rgb) {
+                        datalen = 4 * s->width * s->height;
+                        auto tmp = unique_ptr<unsigned char []>(new unsigned char[datalen]);
+                        vc_copylineRGBtoRGBA(tmp.get(), data_read.get(), datalen, 0, 8, 16);
+                        s->logo = move(tmp);
+                } else {
+                        s->logo = move(data_read);
                 }
                 file.close();
         } catch (string const & s) {
@@ -120,8 +137,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
-        struct state_capture_filter_logo *s = (struct state_capture_filter_logo *)
-                calloc(1, sizeof(struct state_capture_filter_logo));
+        struct state_capture_filter_logo *s = new state_capture_filter_logo();
 
         s->x = s->y = -1;
 
@@ -138,12 +154,11 @@ static int init(struct module *parent, const char *cfg, void **state)
         char *item;
         if ((item = strtok_r(tmp, ":", &save_ptr)) == NULL) {
                 fprintf(stderr, "File name with logo required!\n");
-                return -1;
+                goto error;
         }
 
         if (!load_logo_data_from_file(s, item)) {
-                free(s);
-                return -1;
+                goto error;
         }
 
         if ((item = strtok_r(tmp, ":", &save_ptr))) {
@@ -153,17 +168,21 @@ static int init(struct module *parent, const char *cfg, void **state)
                 }
         }
         free(tmp);
+        tmp = nullptr;
 
         *state = s;
         return 0;
+error:
+        free(tmp);
+        delete s;
+        return -1;
 }
 
 static void done(void *state)
 {
         struct state_capture_filter_logo *s = (struct state_capture_filter_logo *)
                 state;
-        free(s->logo);
-        free(state);
+        delete s;
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in)
@@ -176,6 +195,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         coder = get_decoder_from_to(RGB, in->color_spec, true);
         int rect_x = s->x;
         int rect_y = s->y;
+        assert(coder != NULL && decoder != NULL);
 
         if (decoder == NULL || coder == NULL)
                 return in;
@@ -202,7 +222,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }
 
         unsigned char *image_data = segment;
-        const unsigned char *overlay_data = s->logo;
+        const unsigned char *overlay_data = s->logo.get();
         for (unsigned int y = 0; y < s->height; ++y) {
                 for (unsigned int x = 0; x < s->width; ++x) {
                         int alpha = overlay_data[3];

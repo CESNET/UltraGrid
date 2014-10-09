@@ -155,11 +155,6 @@ static void initialize(struct vidcap_screen_x11_state *s) {
         pthread_create(&s->worker_id, NULL, grab_thread, s);
 
         return;
-
-        goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
-error:
-        fprintf(stderr, "[Screen cap.] Initialization failed!\n");
-        exit_uv(128);
 }
 
 
@@ -235,15 +230,22 @@ static void *grab_thread(void *args)
         return NULL;
 }
 
-struct vidcap_type * vidcap_screen_x11_probe(void)
+struct vidcap_type * vidcap_screen_x11_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id          = VIDCAP_SCREEN_ID;
                 vt->name        = "screen";
                 vt->description = "Grabbing screen";
+
+                if (verbose) {
+                        vt->card_count = 1;
+                        vt->cards = calloc(vt->card_count, sizeof(struct vidcap_card));
+                        // vt->cards[0].id can be "" since screen cap. doesn't require parameters
+                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+                }
         }
         return vt;
 }
@@ -281,6 +283,7 @@ void * vidcap_screen_x11_init(const struct vidcap_params *params)
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
+                        free(s);
                         return &vidcap_init_noerr;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));

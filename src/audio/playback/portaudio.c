@@ -206,7 +206,13 @@ void * portaudio_playback_init(char *cfg)
         } else {
                 output_device = -1;
         }
-        Pa_Initialize();
+	PaError error = Pa_Initialize();
+	if (error != paNoError)
+	{
+		printf("error initializing portaudio\n");
+		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+		return NULL;
+	}
         
         s = calloc(1, sizeof(struct state_portaudio_playback));
         assert(output_device >= -1);

@@ -50,10 +50,6 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "host.h"
 #include "debug.h"
 #include "config.h"
@@ -73,10 +69,6 @@ extern "C" {
 #include "VideoMasterHD_Sdi_Audio.h"
 
 #define DELTACAST_MAGIC DISPLAY_DELTACAST_ID
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz",
@@ -380,6 +372,7 @@ void *display_deltacast_init(const char *fmt, unsigned int flags)
                 tok = strtok_r(tmp, ":", &save_ptr);
                 if(!tok)
                 {
+                        free(tmp);
                         show_help();
                         goto error;
                 }
@@ -553,6 +546,7 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
                                 break;
                         default:
                                 fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
+                                pthread_mutex_unlock(&s->lock);
                                 return FALSE;
                 }
                 pAudioChn->pData = new BYTE[s->audio_desc.bps * s->audio_desc.sample_rate];

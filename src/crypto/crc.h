@@ -7,6 +7,10 @@
 
 #include <stdlib.h>           /* For size_t                 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 **  File: ARCCRC16.C
 */
@@ -36,6 +40,7 @@ uint16_t updcrc(uint16_t icrc, uint8_t *icp, size_t icnt);
 
 uint32_t updateCRC32(unsigned char ch, uint32_t crc);
 bool crc32file(char *name, uint32_t *crc, long *charcnt);
+
 uint32_t crc32buf(char *buf, size_t len);
 
 uint32_t crc32buf_with_oldcrc(const char *buf, size_t len, uint32_t oldcrc);
@@ -53,5 +58,8 @@ unsigned checksum(void *buffer, size_t len, unsigned int seed);
 void checkexe(char *fname);
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CRC__H */

@@ -75,10 +75,11 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
 #endif
 
 #ifdef __cplusplus
+#include <memory>
 #include <vector>
 
-std::vector<struct video_frame *> vf_separate_tiles(struct video_frame *frame);
-struct video_frame * vf_merge_tiles(std::vector<struct video_frame *> const & tiles);
+std::vector<std::shared_ptr<video_frame>> vf_separate_tiles(std::shared_ptr<video_frame> frame);
+std::shared_ptr<video_frame> vf_merge_tiles(std::vector<std::shared_ptr<video_frame>> const & tiles);
 
 #endif // __cplusplus
 

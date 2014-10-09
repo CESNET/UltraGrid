@@ -3,7 +3,7 @@
  * @author Martin Pulec  <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * Copyright (c) 2012-2014, CESNET z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,10 @@
 #include "video.h"
 #include "video_compress.h"
 
+using namespace std;
+
+namespace {
+
 struct cuda_buffer_data_allocator {
         void *allocate(size_t size) {
                 void *ptr;
@@ -68,13 +72,6 @@ struct cuda_buffer_data_allocator {
 };
 
 struct state_video_compress_cuda_dxt {
-        state_video_compress_cuda_dxt() {
-                memset(&saved_desc, 0, sizeof(saved_desc));
-                in_buffer = NULL;
-                cuda_in_buffer = NULL;
-                cuda_uyvy_buffer = NULL;
-                cuda_out_buffer = NULL;
-        }
         struct module       module_data;
         struct video_desc   saved_desc;
         char               *in_buffer;      ///< for decoded data
@@ -85,7 +82,7 @@ struct state_video_compress_cuda_dxt {
         codec_t             out_codec;
         decoder_t           decoder;
 
-        video_frame_pool<cuda_buffer_data_allocator> *pool;
+        video_frame_pool<cuda_buffer_data_allocator> pool;
 };
 
 static void cuda_dxt_compress_done(struct module *mod);
@@ -94,7 +91,7 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 const struct video_compress_params *params)
 {
         state_video_compress_cuda_dxt *s =
-                new state_video_compress_cuda_dxt;
+                new state_video_compress_cuda_dxt();
         const char *fmt = params->cfg;
         s->out_codec = DXT1;
 
@@ -106,11 +103,10 @@ struct module *cuda_dxt_compress_init(struct module *parent,
                 } else {
                         printf("usage:\n"
                                "\t-c cuda_dxt[:DXT1|:DXT5]\n");
+                        delete s;
                         return NULL;
                 }
         }
-
-        s->pool = new video_frame_pool<cuda_buffer_data_allocator>();
 
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
@@ -177,7 +173,7 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         compressed_desc.tile_count = 1;
         size_t data_len = desc.width * desc.height / (s->out_codec == DXT1 ? 2 : 1);
 
-        s->pool->reconfigure(compressed_desc, data_len);
+        s->pool.reconfigure(compressed_desc, data_len);
 
         if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **)
                                 &s->cuda_out_buffer,
@@ -189,19 +185,17 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         return true;
 }
 
-struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx)
+shared_ptr<video_frame> cuda_dxt_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_disposer(tx);
-
         struct state_video_compress_cuda_dxt *s =
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
         cuda_wrapper_set_device(cuda_devices[0]);
 
-        if (!video_desc_eq_excl_param(video_desc_from_frame(tx),
+        if (!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
-                if(configure_with(s, video_desc_from_frame(tx))) {
-                        s->saved_desc = video_desc_from_frame(tx);
+                if(configure_with(s, video_desc_from_frame(tx.get()))) {
+                        s->saved_desc = video_desc_from_frame(tx.get());
                 } else {
                         fprintf(stderr, "[CUDA DXT] Reconfiguration failed!\n");
                         return NULL;
@@ -268,7 +262,7 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                 return NULL;
         }
 
-        struct video_frame *out = s->pool->get_frame();
+        shared_ptr<video_frame> out = s->pool.get_frame();
         if (cuda_wrapper_memcpy(out->tiles[0].data,
                                 s->cuda_out_buffer,
                                 out->tiles[0].data_len,
@@ -286,8 +280,23 @@ static void cuda_dxt_compress_done(struct module *mod)
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
         cleanup(s);
-        delete s->pool;
 
         delete s;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t cuda_dxt_info = {
+        "cuda_dxt",
+        cuda_dxt_compress_init,
+        NULL,
+        cuda_dxt_compress_tile,
+        NULL,
+        {
+#if 0
+                { "DXT1", 35, 250*1000*1000, {7, 0.2, 10}, {} },
+                { "DXT5", 50, 500*1000*1000, {10, 0.2, 20}, {} },
+#endif
+        }
+};
 

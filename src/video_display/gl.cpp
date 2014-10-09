@@ -290,14 +290,15 @@ void * display_gl_init(const char *fmt, unsigned int flags) {
 	if (fmt != NULL) {
 		if (strcmp(fmt, "help") == 0) {
 			gl_show_help();
-			free(s);
+			delete s;
 			return &display_init_noerr;
 		}
 
-		char *tmp = strdup(fmt);
+		char *tmp, *ptr;
+                tmp = ptr = strdup(fmt);
 		char *tok, *save_ptr = NULL;
 		
-		while((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+		while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
                         if(!strcmp(tok, "d")) {
                                 s->deinterlace = true;
                         } else if(!strcmp(tok, "fs")) {
@@ -317,7 +318,7 @@ void * display_gl_init(const char *fmt, unsigned int flags) {
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
-                        tmp = NULL;
+                        ptr = NULL;
                 }
 
 		free(tmp);
@@ -519,6 +520,7 @@ static void gl_render(struct state_gl *s, char *data)
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                         ((s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height)/2,
                                         data);
+                        break;
                 case DXT1_YUV:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->current_display_desc.width, s->current_display_desc.height,
@@ -1000,7 +1002,13 @@ struct video_frame * display_gl_getf(void *state)
                 }
         }
 
-        return vf_alloc_desc_data(s->current_desc);
+        struct video_frame *buffer = vf_alloc_desc_data(s->current_desc);
+        clear_video_buffer(reinterpret_cast<unsigned char *>(buffer->tiles[0].data),
+                        vc_get_linesize(buffer->tiles[0].height, buffer->color_spec),
+                        vc_get_linesize(buffer->tiles[0].height, buffer->color_spec),
+                        buffer->tiles[0].height,
+                        buffer->color_spec);
+        return buffer;
 }
 
 int display_gl_putf(void *state, struct video_frame *frame, int nonblock)

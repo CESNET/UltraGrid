@@ -145,7 +145,7 @@ typedef struct { //shared struct for audio and video streams (sync.)
 	struct timeval start_time;
 } std_time_struct;
 
-std_time_struct standard_time = { true, 0, 0, 25, 0, 0 };
+std_time_struct standard_time = { true, 0, { 0, 0 }, 25, { 0, 0 }, { 0, 0 } };
 
 uint32_t get_std_audio_local_mediatime(double samples)
 {
@@ -166,7 +166,7 @@ uint32_t get_std_audio_local_mediatime(double samples)
         return (double)standard_time.atime.tv_sec + (((double)standard_time.atime.tv_usec) / 1000000.0);
 }
 
-uint32_t get_std_video_local_mediatime()
+uint32_t get_std_video_local_mediatime(void)
 {
 	    double vrate = 90000; //default and standard video sample rate (Hz)
 	    double nextFraction;

@@ -66,6 +66,7 @@ extern "C" {
 
 #define VIDEO_FRAME_DISPOSE(frame) if (frame && frame->dispose) \
         frame->dispose(frame)
+void video_frame_dispose(struct video_frame *);
 
 /**
  * @brief Allocates blank video frame

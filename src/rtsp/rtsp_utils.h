@@ -15,7 +15,7 @@ typedef enum {
 #define EXTERNC
 #endif
 
-EXTERNC void rtps_server_usage();
+EXTERNC void rtps_server_usage(void);
 EXTERNC int get_rtsp_server_port(char *config);
 
 #endif

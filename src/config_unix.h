@@ -208,5 +208,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 
 #define platform_mkdir(a) mkdir(a, 0777)
 
+#define INVALID_SOCKET -1
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */

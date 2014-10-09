@@ -122,7 +122,9 @@ static void *video_export_thread(void *arg)
                 }
 
                 FILE *out = fopen(current->filename, "wb");
-                fwrite(current->data, current->data_len, 1, out);
+                if (fwrite(current->data, current->data_len, 1, out) != 1) {
+                        perror("fwrite");
+                }
                 fclose(out);
                 free(current->data);
                 free(current->filename);
@@ -254,6 +256,8 @@ void video_export(struct video_export *s, struct video_frame *frame)
                                                 MAX_QUEUE_SIZE,
                                                 s->total++); // we increment total size to keep the index
                                 pthread_mutex_unlock(&s->lock);
+                                free(entry->data);
+                                free(entry);
                                 return;
                         }
 

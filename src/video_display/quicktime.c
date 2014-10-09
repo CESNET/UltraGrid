@@ -69,6 +69,14 @@
 
 #include "audio/audio.h"
 
+/*
+ * These QuickDraw prototypes were removed from headers but are still present in library so
+ * we provide our declarations as a workaround.
+ */
+PixMapHandle GetGWorldPixMap(GWorldPtr offscreenGWorld) __attribute__((deprecated));
+void InitCursor() __attribute__((deprecated));
+void DisposeGWorld(GWorldPtr offscreenGWorld) __attribute__((deprecated));
+
 #define MAGIC_QT_DISPLAY        DISPLAY_QUICKTIME_ID
 
 #define MAX_DEVICES     4
@@ -205,7 +213,7 @@ const quicktime_mode_t quicktime_modes[] = {
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -219,7 +227,7 @@ struct state_quicktime {
         int device[MAX_DEVICES];
         int mode;
         int devices_cnt;
-        const struct codec_info_t *cinfo;
+        codec_t codec;
 
         /* Thread related information follows... */
         pthread_t thread_id;
@@ -300,12 +308,12 @@ static void reconf_common(struct state_quicktime *s)
         
                 (**(ImageDescriptionHandle) imageDesc).idSize =
                     sizeof(ImageDescription);
-                if (s->cinfo->codec == v210)
+                if (s->codec == v210)
                         (**(ImageDescriptionHandle) imageDesc).cType = 'v210';
-                else if (s->cinfo->codec == UYVY)
+                else if (s->codec == UYVY)
                         (**(ImageDescriptionHandle) imageDesc).cType = '2vuy';
                 else
-                        (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
+                        (**(ImageDescriptionHandle) imageDesc).cType = get_fourcc(s->codec);
                 /* 
                  * dataSize is specified in bytes and is specified as 
                  * height*width*bytes_per_luma_instant. v210 sets 
@@ -681,13 +689,14 @@ void *display_quicktime_init(const char *fmt, unsigned int flags)
                         strcpy(codec_name, "UYVY");
                 }
 
-                for (i = 0; codec_info[i].name != NULL; i++) {
-                        if (strcmp(codec_name, codec_info[i].name) == 0) {
-                                s->cinfo = &codec_info[i];
-                        }
+                s->codec = get_codec_from_name(codec_name);
+                if (s->codec == VIDEO_CODEC_NONE) {
+                        fprintf(stderr, "Unknown codec name '%s'.\n", codec_name);
+                        free(codec_name);
+                        return NULL;
                 }
                 free(codec_name);
-                s->frame->color_spec = s->cinfo->codec;
+                s->frame->color_spec = s->codec;
 
                 for (i = 0; i < s->devices_cnt; ++i) {
                         struct tile *tile = vf_get_tile(s->frame, i);
@@ -752,13 +761,13 @@ void *display_quicktime_init(const char *fmt, unsigned int flags)
                         tile->height = (**gWorldImgDesc).height;
 
                         tile->data_len = tile->height *
-                                vc_get_linesize(tile->width, s->cinfo->codec);
+                                vc_get_linesize(tile->width, s->codec);
                         s->buffer[0] = calloc(1, tile->data_len);
                         s->buffer[1] = calloc(1, tile->data_len);
                         tile->data = s->buffer[0];
         
                         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", tile->width,
-                                tile->height, s->cinfo->bpp);
+                                tile->height, get_bpp(s->codec));
                 }
                 reconf_common(s);
         } else {
@@ -941,12 +950,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
         int ret;
         const char *codec_name = NULL;
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if (codec_info[i].codec == desc.color_spec) {
-                        s->cinfo = &codec_info[i];
-                        codec_name = s->cinfo->name;
-                }
-        }
+        codec_name = get_codec_name(desc.color_spec);
 	assert(codec_name != NULL);
         if(desc.color_spec == UYVY) /* QT name for UYVY */
                 codec_name = "2vuy";
@@ -955,7 +959,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 display_quicktime_done(s);
                 
         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", desc.width,
-                        desc.height, s->cinfo->bpp);
+                        desc.height, get_bpp(desc.color_spec));
         s->frame->color_spec = desc.color_spec;
         s->frame->fps = desc.fps;
         s->frame->interlacing = desc.interlacing;

@@ -112,7 +112,8 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
         (*registred_video_rxtx)[proto] = info;
 }
 
-video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false), m_compression(NULL),
+video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
+                m_rxtx_mode(params.at("rxtx_mode").i), m_compression(NULL),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)) {
 
         module_init_default(&m_sender_mod);
@@ -176,7 +177,7 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
         }
 }
 
-void video_rxtx::send(struct video_frame *frame) {
+void video_rxtx::send(shared_ptr<video_frame> frame) {
         compress_frame(m_compression, frame);
 }
 
@@ -205,22 +206,20 @@ void *video_rxtx::sender_loop() {
         while(1) {
                 check_sender_messages();
 
-                struct video_frame *tx_frame = NULL;
+                shared_ptr<video_frame> tx_frame;
 
                 tx_frame = compress_pop(m_compression);
                 if (!tx_frame)
                         goto exit;
 
-                video_export(m_video_exporter, tx_frame);
+                video_export(m_video_exporter, tx_frame.get());
 
                 if (!m_paused) {
                         send_frame(tx_frame);
-                } else {
-                        VIDEO_FRAME_DISPOSE(tx_frame);
                 }
 
-                if (dynamic_cast<rtp_video_rxtx *>(this)) {
-                        rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
+                rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
+                if (rtp_rxtx) {
                         stats_update_int(stat_data_sent,
                                         rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
                 }

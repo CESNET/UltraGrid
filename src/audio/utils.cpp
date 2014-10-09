@@ -62,73 +62,185 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <stdexcept>
+
 #ifdef WORDS_BIGENDIAN
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 #endif // WORDS_BIGENDIAN
 
-audio_frame2 *audio_frame2_init()
+using namespace std;
+
+/**
+ * @brief Creates empty audio_frame2
+ */
+audio_frame2::audio_frame2() :
+        bps(0), sample_rate(0), codec(AC_PCM), duration(0.0)
 {
-        audio_frame2 *ret = (audio_frame2 *) calloc(1, sizeof(audio_frame2));
-        return ret;
 }
 
-void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
+/**
+ * @brief creates audio_frame2 from POD audio_frame
+ */
+audio_frame2::audio_frame2(struct audio_frame *old)
 {
-        assert(nr_channels <= MAX_AUDIO_CHANNELS);
+        init(old->ch_count, AC_PCM, old->bps, old->sample_rate);
 
-        audio_frame2_reset(frame);
-
-        frame->max_size = max_size;
-        frame->ch_count = nr_channels;
-
-        for(int i = 0; i < nr_channels; ++i) {
-                frame->data[i] = malloc(max_size);
+        for (int i = 0; i < old->ch_count; i++) {
+                resize(i, old->data_len / old->ch_count);
+                char *data = channels[i].first.get();
+                demux_channel(data, old->data, old->bps, old->data_len, old->ch_count, i);
         }
 }
 
-void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src)
+/**
+ * @brief Initializes audio_frame2 for use. If already initialized, data are dropped.
+ */
+void audio_frame2::init(int nr_channels, audio_codec_t c, int b, int sr)
 {
-        assert(src->ch_count == dest->ch_count || dest->ch_count == 0);
-        dest->bps = src->bps;
-        int new_max_size = dest->max_size;
-        for (int i = 0; i < src->ch_count; ++i) {
-                if (src->data_len[i] + dest->data_len[i] > new_max_size)
-                        new_max_size = src->data_len[i] + dest->data_len[i];
+        channels.clear();
+        channels.resize(nr_channels);
+        bps = b;
+        codec = c;
+        sample_rate = sr;
+        duration = 0.0;
+}
+
+void audio_frame2::append(audio_frame2 const &src)
+{
+        if (bps != src.bps || sample_rate != src.sample_rate ||
+                        channels.size() != src.channels.size()) {
+                throw std::logic_error("Trying to append frame with different parameters!");
         }
 
-        if (new_max_size > (int) dest->max_size) {
-                //reallocate
-                dest->max_size = new_max_size;
-                dest->ch_count = src->ch_count;
-                for (int i = 0; i < src->ch_count; ++i) {
-                        dest->data[i] = realloc(dest->data[i], new_max_size);
-                }
-        }
-
-        for (int i = 0; i < src->ch_count; ++i) {
-                memcpy(dest->data[i] + dest->data_len[i], src->data[i],
-                                src->data_len[i]);
-                dest->data_len[i] += src->data_len[i];
+        for (size_t i = 0; i < channels.size(); i++) {
+                unique_ptr<char []> new_data(new char[channels[i].second + src.channels[i].second]);
+                copy(channels[i].first.get(), channels[i].first.get() + channels[i].second, new_data.get());
+                copy(src.channels[i].first.get(), src.channels[i].first.get() + src.channels[i].second, new_data.get() + channels[i].second);
+                channels[i].second += src.channels[i].second;
+                channels[i].first = std::move(new_data);
         }
 }
 
-int audio_frame2_get_sample_count(audio_frame2 *frame)
+void audio_frame2::append(int channel, const char *data, size_t length)
 {
-        return frame->data_len[0] / frame->bps;
+        unique_ptr<char []> new_data(new char[channels[channel].second + length]);
+        copy(channels[channel].first.get(), channels[channel].first.get() + channels[channel].second, new_data.get());
+        copy(data, data + length, new_data.get() + channels[channel].second);
+        channels[channel].second += length;
+        channels[channel].first = std::move(new_data);
 }
 
-void audio_frame2_reset(audio_frame2 *frame)
+/**
+ * @brief replaces portion of data of specified channel. If the size of the channel is not sufficient,
+ * it is extended and old data are copied.
+ */
+void audio_frame2::replace(int channel, size_t offset, const char *data, size_t length)
 {
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                frame->data_len[i] = 0;
-                free(frame->data[i]);
-                frame->data[i] = NULL;
+        if (channels[channel].second < length + offset) {
+                unique_ptr<char []> new_data(new char[length + offset]);
+                copy(channels[channel].first.get(), channels[channel].first.get() +
+                                channels[channel].second, new_data.get());
+
+                channels[channel].second = length + offset;
+                channels[channel].first = std::move(new_data);
         }
-        frame->max_size = 0;
-        frame->ch_count = 0;
+
+        copy(data, data + length, channels[channel].first.get() + offset);
 }
 
-static double get_normalized(char *in, int bps) {
+/**
+ * If the size of the specified channel is less than lenght. Channel length is extended. Otherwise,
+ * no action is performed (no shrinking when requestedlength is less than current channel length).
+ */
+void audio_frame2::resize(int channel, size_t length)
+{
+        if (channels[channel].second < length) {
+                unique_ptr<char []> new_data(new char[length]);
+                copy(channels[channel].first.get(), channels[channel].first.get() +
+                                channels[channel].second, new_data.get());
+
+                channels[channel].second = length;
+                channels[channel].first = std::move(new_data);
+        }
+}
+
+/**
+ * Removes all data from audio_frame2. It is equivalent to call of audio_frame2::init with current frame
+ * parameters.
+ */
+void audio_frame2::reset()
+{
+        for (size_t i = 0; i < channels.size(); i++) {
+                channels[i].first = unique_ptr<char []>(new char[0]);
+                channels[i].second = 0;
+        }
+        duration = 0.0;
+}
+
+int audio_frame2::get_bps() const
+{
+        return bps;
+}
+
+audio_codec_t audio_frame2::get_codec() const
+{
+        return codec;
+}
+
+const char *audio_frame2::get_data(int channel) const
+{
+        return channels[channel].first.get();
+}
+
+size_t audio_frame2::get_data_len(int channel) const
+{
+        return channels[channel].second;
+}
+
+double audio_frame2::get_duration() const
+{
+        if (codec == AC_PCM) {
+                int samples = get_sample_count();
+                return (double) samples / get_sample_rate();
+        } else {
+                return duration;
+        }
+}
+
+int audio_frame2::get_channel_count() const
+{
+        return channels.size();
+}
+
+int audio_frame2::get_sample_count() const
+{
+        // for PCM, we can deduce samples count from length of the data
+        if (codec == AC_PCM) {
+                return channels[0].second / get_bps();
+        } else {
+                throw logic_error("Unknown sample count for compressed audio!");
+        }
+}
+
+int audio_frame2::get_sample_rate() const
+{
+        return sample_rate;
+}
+
+bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) const
+{
+        return bps == frame.bps &&
+                sample_rate == frame.sample_rate &&
+                codec == frame.codec &&
+                channels.size() == frame.channels.size();
+}
+
+void audio_frame2::set_duration(double new_duration)
+{
+        duration = new_duration;
+}
+
+static double get_normalized(const char *in, int bps) {
         int64_t sample = 0;
         bool negative = false;
 
@@ -155,11 +267,13 @@ static double get_normalized(char *in, int bps) {
  */
 double calculate_rms(audio_frame2 *frame, int channel, double *peak)
 {
+        assert(frame->get_codec() == AC_PCM);
         double sum = 0;
         *peak = 0;
-        int sample_count = frame->data_len[channel] / frame->bps;
-        for (int i = 0; i < frame->data_len[channel]; i += frame->bps) {
-                double val = get_normalized(&frame->data[channel][i], frame->bps);
+        int sample_count = frame->get_data_len(channel) / frame->get_bps();
+        const char *channel_data = frame->get_data(channel);
+        for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
+                double val = get_normalized(channel_data + i, frame->get_bps());
                 sum += val;
                 if (fabs(val) > *peak) {
                         *peak = fabs(val);
@@ -170,8 +284,8 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
 
         double sumMeanSquare = 0.0;
 
-        for (int i = 0; i < frame->data_len[channel]; i += frame->bps) {
-                sumMeanSquare += pow(get_normalized(&frame->data[channel][i], frame->bps)
+        for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
+                sumMeanSquare += pow(get_normalized(channel_data + i, frame->get_bps())
                                 - average, 2.0);
         }
 
@@ -179,30 +293,6 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
         double rootMeanSquare = sqrt(averageMeanSquare);
 
         return rootMeanSquare;
-}
-
-void audio_frame_to_audio_frame2(audio_frame2 *frame, struct audio_frame *old)
-{
-        if(old->ch_count > frame->ch_count || old->data_len / old->ch_count > (int) frame->max_size) {
-                audio_frame2_allocate(frame, old->ch_count, old->data_len / old->ch_count);
-        }
-        frame->codec = AC_PCM;
-        frame->bps = old->bps;
-        frame->sample_rate = old->sample_rate;
-        for(int i = 0; i < old->ch_count; ++i) {
-                demux_channel(frame->data[i], old->data, old->bps, old->data_len, old->ch_count, i);
-                frame->data_len[i] = old->data_len / old->ch_count;
-        }
-}
-
-void audio_frame2_free(audio_frame2 *frame)
-{
-        if(!frame)
-                return;
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                free(frame->data[i]);
-        }
-        free(frame);
 }
 
 bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
@@ -213,26 +303,26 @@ bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
 }
 
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *frame) {
-        return (struct audio_desc) { .bps = frame->bps,
-                .sample_rate = frame->sample_rate,
-                .ch_count = frame->ch_count,
-                .codec = AC_PCM
+        return audio_desc { frame->bps,
+                frame->sample_rate,
+                frame->ch_count,
+                AC_PCM
         };
 }
 
 struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *frame) {
-        return (struct audio_desc) { .bps = frame->bps,
-                .sample_rate = frame->sample_rate,
-                .ch_count = frame->ch_count,
-                .codec = frame->codec
+        return audio_desc { frame->get_bps(),
+                frame->get_sample_rate(),
+                frame->get_channel_count(),
+                frame->get_codec()
         };
 }
 
 struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
-        return (struct audio_desc) { .bps = channel->bps,
-                .sample_rate = channel->sample_rate,
-                .ch_count = 1,
-                .codec = channel->codec
+        return audio_desc { channel->bps,
+                channel->sample_rate,
+                1,
+                channel->codec
         };
 }
 
@@ -306,7 +396,7 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
         }
 }
 
-void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
+void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int samples = in_len / bps;
         int i;
@@ -337,7 +427,7 @@ void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channe
         }
 }
 
-void mux_and_mix_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
+void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int i;
 
@@ -381,9 +471,9 @@ double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int 
         return average_vol;
 }
 
-void float2int(char *out, char *in, int len)
+void float2int(char *out, const char *in, int len)
 {
-        float *inf = (float *)(void *) in;
+        const float *inf = (const float *)(const void *) in;
         int32_t *outi = (int32_t *)(void *) out;
         int items = len / sizeof(int32_t);
 
@@ -392,9 +482,9 @@ void float2int(char *out, char *in, int len)
         }
 }
 
-void int2float(char *out, char *in, int len)
+void int2float(char *out, const char *in, int len)
 {
-        int32_t *ini = (int32_t *)(void *) in;
+        const int32_t *ini = (const int32_t *)(const void *) in;
         float *outf = (float *)(void *) out;
         int items = len / sizeof(int32_t);
 
@@ -427,22 +517,13 @@ void signed2unsigned(char *out, char *in, int in_len)
         }
 }
 
-void audio_channel_demux(audio_frame2 *frame, int index, audio_channel *channel)
+void audio_channel_demux(const audio_frame2 *frame, int index, audio_channel *channel)
 {
-        channel->data = frame->data[index];
-        channel->data_len = frame->data_len[index];
-        channel->codec = frame->codec;
-        channel->bps = frame->bps;
-        channel->sample_rate = frame->sample_rate;
-}
-
-void audio_channel_mux(audio_frame2 *frame, int index, audio_channel *channel)
-{
-        frame->data[index] = channel->data;
-        frame->data_len[index] = channel->data_len;
-        frame->codec = channel->codec;
-        frame->bps = channel->bps;
-        frame->sample_rate = channel->sample_rate;
+        channel->data = frame->get_data(index);
+        channel->data_len = frame->get_data_len(index);
+        channel->codec = frame->get_codec();
+        channel->bps = frame->get_bps();
+        channel->sample_rate = frame->get_sample_rate();
 }
 
 int32_t format_from_in_bps(const char * in, int bps) {

@@ -78,7 +78,6 @@
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 
-static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
@@ -86,7 +85,28 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
 static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 
-const struct codec_info_t codec_info[] = {
+/**
+ * Defines codec metadata
+ * @note
+ * Members that are not relevant for specified codec (eg. bpp, rgb for opaque
+ * and interframe for not opaque) should be zero.
+ * @todo This should be perhaps private in .c file and properties should be
+ * queried by functions.
+ */
+struct codec_info_t {
+        codec_t codec;                ///< codec descriptor
+        const char *name;             ///< displayed name
+        uint32_t fcc;                 ///< FourCC
+        int h_align;                  ///< Number of pixels each line is aligned to
+        double bpp;                   ///< Number of bytes per pixel
+        int block_size;               ///< Bytes per pixel block (pixelformats only)
+        unsigned rgb:1;               ///< Whether pixelformat is RGB
+        unsigned opaque:1;            ///< If codec is opaque (= compressed)
+        unsigned interframe:1;        ///< Indicates if compression is interframe
+        const char *file_extension;   ///< Extension that should be added to name if frame is saved to file.
+};
+
+static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
         [UYVY] = {UYVY, "UYVY", to_fourcc('U','Y','V','Y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
@@ -131,7 +151,7 @@ const struct line_decode_from_to line_decoders[] = {
 /**
  * This struct specifies alias FourCC used for another FourCC
  */
-struct alternate_fourcc {
+struct alternative_fourcc {
         uint32_t alias;
         uint32_t primary_fcc;
 };
@@ -139,7 +159,7 @@ struct alternate_fourcc {
 /**
  * This array contains FourCC aliases mapping
  */
-const struct alternate_fourcc fourcc_aliases[] = {
+const struct alternative_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
@@ -152,7 +172,15 @@ const struct alternate_fourcc fourcc_aliases[] = {
         {to_fourcc('D', 'V', 'S', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'v', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'V', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
-        {0,0}
+};
+
+struct alternative_codec_name {
+        const char *alias;
+        const char *primary_name;
+};
+
+const struct alternative_codec_name codec_name_aliases[] = {
+        {"2vuy", "UYVY"},
 };
 
 void show_codec_help(char *module)
@@ -226,7 +254,6 @@ uint32_t get_fcc_from_codec(codec_t codec)
 codec_t get_codec_from_fcc(uint32_t fourcc)
 {
         int i = 0;
-
         while (codec_info[i].name != NULL) {
                 if (fourcc == codec_info[i].fcc)
                         return codec_info[i].codec;
@@ -234,8 +261,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
         }
 
         // try to look through aliases
-        i = 0;
-        while (fourcc_aliases[i].alias != 0) {
+        for (size_t i = 0; i < sizeof(fourcc_aliases) / sizeof(struct alternative_fourcc); ++i) {
                 if (fourcc == fourcc_aliases[i].alias) {
                         int j = 0;
                         while (codec_info[j].name != NULL) {
@@ -244,9 +270,45 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
                                 j++;
                         }
                 }
-                i++;
         }
-        return (codec_t) -1;
+        return VIDEO_CODEC_NONE;
+}
+
+/**
+ * Helper codec finding function
+ *
+ * Iterates through codec list and finds appropriate codec.
+ *
+ * @returns codec
+ */
+static codec_t get_codec_from_name_wo_alias(const char *name)
+{
+        for (int i = 0; codec_info[i].name != NULL; i++) {
+                if (strcmp(codec_info[i].name, name) == 0) {
+                        return codec_info[i].codec;
+                }
+        }
+
+        return VIDEO_CODEC_NONE;
+}
+
+codec_t get_codec_from_name(const char *name)
+{
+        codec_t ret = get_codec_from_name_wo_alias(name);
+        if (ret != VIDEO_CODEC_NONE) {
+                return ret;
+        }
+
+        // try to find if this is not an alias
+        for (size_t i = 0; i < sizeof(codec_name_aliases) / sizeof(struct alternative_codec_name); ++i) {
+                if (strcmp(name, codec_name_aliases[i].alias) == 0) {
+                        ret = get_codec_from_name_wo_alias(name);
+                        if (ret != VIDEO_CODEC_NONE) {
+                                return ret;
+                        }
+                }
+        }
+        return VIDEO_CODEC_NONE;
 }
 
 const char *get_codec_file_extension(codec_t codec)
@@ -296,7 +358,7 @@ int is_codec_interframe(codec_t codec)
         return 0;
 }
 
-static int get_halign(codec_t codec)
+int get_halign(codec_t codec)
 {
         int i = 0;
 
@@ -312,6 +374,7 @@ static int get_halign(codec_t codec)
 int get_aligned_length(int width_pixels, codec_t codec)
 {
         int h_align = get_halign(codec);
+        assert(h_align > 0);
         return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 
@@ -1260,5 +1323,47 @@ bool codec_is_in_set(codec_t codec, codec_t *set)
                         return true;
         }
         return false;
+}
+
+bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec)
+{
+        uint32_t pattern[4];
+
+        switch (color_spec) {
+                case BGR:
+                case RGB:
+                case RGBA:
+                        memset(pattern, 0, sizeof(pattern));
+                        break;
+                case UYVY:
+                        for (int i = 0; i < 4; i++) {
+                                pattern[i] = 0x00800080;
+                        }
+                        break;
+                case v210:
+                        pattern[0] = 0x20000200;
+                        pattern[1] = 0x00080000;
+                        pattern[2] = 0x20000200;
+                        pattern[3] = 0x00080000;
+                        break;
+                default:
+                        return false;
+        }
+
+        for (size_t y = 0; y < height; ++y) {
+                uintptr_t i;
+                for( i = 0; i < (linesize & (~15)); i+=16)
+                {
+                        memcpy(data + i, pattern, 16);
+                }
+                for( ; i < linesize; i++ )
+                {
+                        ((char*)data)[i] = ((char*)pattern)[i&15];
+                }
+
+                data += pitch;
+        }
+
+        return true;
 }
 

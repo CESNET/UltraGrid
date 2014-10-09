@@ -46,6 +46,10 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
 //int audio_does_send_sdi(struct state_audio *s);
 struct audio_frame;
@@ -60,6 +64,9 @@ struct audio_frame * sdi_read(void *state);
 /* SDI specific API */
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame);
 
+#ifdef __cplusplus
+}
+#endif
 
 /* vim: set expandtab: sw=8 */
 

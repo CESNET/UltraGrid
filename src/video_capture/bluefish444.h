@@ -54,7 +54,7 @@ struct video_frame;
 extern "C" {
 #endif
 
-struct vidcap_type      *vidcap_bluefish444_probe(void);
+struct vidcap_type      *vidcap_bluefish444_probe(bool verbose);
 void                    *vidcap_bluefish444_init(const struct vidcap_params *params);
 void                     vidcap_bluefish444_done(void *state);
 struct video_frame      *vidcap_bluefish444_grab(void *state, struct audio_frame **audio);

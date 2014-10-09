@@ -90,8 +90,6 @@
 
 static volatile bool should_exit_audio = false;
 
-int audio_init_state_ok;
-
 struct audio_device_t {
         int index;
         void *state;
@@ -243,7 +241,12 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 return NULL;
         }
         
-        s = calloc(1, sizeof(struct state_audio));
+        s = (struct state_audio *) calloc(1, sizeof(struct state_audio));
+
+        if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
+                // nothing to do, return empty state
+                return s;
+        }
 
         module_init_default(&s->mod);
         s->mod.priv_data = s;
@@ -305,7 +308,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
 
         gettimeofday(&s->start_time, NULL);        
         gettimeofday(&s->t0, NULL);
-        s->captured = audio_frame2_init();
+        s->captured = new audio_frame2;
         
         tmp = strdup(addrs);
         s->audio_participants = pdb_init();
@@ -319,10 +322,17 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
 
+        if (strcmp(recv_cfg, "none") == 0) {
+                // do not occupy recv port if we are not receiving (note that this disables communication with
+                // our receiver, because RTCP ports are changed as well)
+                s->audio_network_parameters.recv_port = 0;
+        }
+
         if ((s->audio_network_device = initialize_audio_network(
                                         &s->audio_network_parameters))
                         == NULL) {
                 printf("Unable to open audio network\n");
+                free(tmp);
                 goto error;
         }
         free(tmp);
@@ -431,7 +441,7 @@ error:
                 module_done(&s->mod);
         }
 
-        audio_frame2_free(s->captured);
+        delete s->captured;
 
         audio_codec_done(s->audio_coder);
         free(s);
@@ -481,7 +491,7 @@ void audio_done(struct state_audio *s)
                 free(s->audio_network_parameters.addr);
                 free(s->audio_network_parameters.mcast_if);
 
-                audio_frame2_free(s->captured);
+                delete s->captured;
 
                 free(s);
         }
@@ -495,7 +505,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
                         params->send_port, 255, rtcp_bw,
                         FALSE, rtp_recv_callback,
-                        (void *) params->participants,
+                        (uint8_t *) params->participants,
                         params->use_ipv6, false);
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
@@ -509,7 +519,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
 
 static void *audio_receiver_thread(void *arg)
 {
-        struct state_audio *s = arg;
+        struct state_audio *s = (struct state_audio *) arg;
         // rtp variables
         struct timeval timeout, curr_time;
         uint32_t ts;
@@ -520,7 +530,7 @@ static void *audio_receiver_thread(void *arg)
         memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
         memset(&device_desc, 0, sizeof(struct audio_desc));
 
-        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
+        pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");
@@ -535,8 +545,9 @@ static void *audio_receiver_thread(void *arg)
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                         timeout.tv_sec = 0;
-                        timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
-                                                             as video frames */
+                        // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the same rate
+                                                             // as video frames
+                        timeout.tv_usec = 1000; // this stuff really smells !!!
                         rtp_recv_r(s->audio_network_device, &timeout, ts);
                         pdb_iter_t it;
                         cp = pdb_iter_init(s->audio_participants, &it);
@@ -686,7 +697,7 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 
         if(buffer->sample_rate == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
                 memcpy(&s->resampled, buffer, sizeof(s->resampled));
-                s->resampled.data = malloc(buffer->data_len);
+                s->resampled.data = (char *) malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
                 /**
@@ -695,7 +706,7 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
                 assert(set_contains(s->codec_supported_bytes_per_sample, 2));
                 // expect that we may got as much as 12-times more data (eg 8 kHz to 96 kHz
                 uint32_t write_frames = 12 * (buffer->data_len / buffer->ch_count / buffer->bps);
-                s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
+                s->resampled.data = (char *) malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
                         s->resample_from = buffer->sample_rate;
                         s->resample_ch_count = buffer->ch_count;
@@ -773,10 +784,11 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
 
 static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
 {
-        if (s->captured->ch_count != buffer->ch_count) {
-                audio_frame2_reset(s->captured);
+        if (!s->captured->has_same_prop_as(*buffer)) {
+                s->captured->init(buffer->get_channel_count(), buffer->get_codec(),
+                                buffer->get_bps(), buffer->get_sample_rate());
         }
-        audio_frame2_append(s->captured, buffer);
+        s->captured->append(*buffer);
 
         struct timeval t;
         double seconds;
@@ -784,16 +796,16 @@ static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
         seconds = tv_diff(t, s->t0);
         if (seconds > 5.0) {
                 printf("[Audio sender] Sent %d samples in last %f seconds.\n",
-                                audio_frame2_get_sample_count(s->captured),
+                                s->captured->get_sample_count(),
                                 seconds);
-                for (int i = 0; i < s->captured->ch_count; ++i) {
+                for (int i = 0; i < s->captured->get_channel_count(); ++i) {
                         double rms, peak;
                         rms = calculate_rms(s->captured, i, &peak);
                         printf("[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
                                         i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
                 }
                 s->t0 = t;
-                audio_frame2_reset(s->captured);
+                s->captured->reset();
         }
 }
 
@@ -801,12 +813,11 @@ static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
         struct audio_frame *buffer = NULL;
-        audio_frame2 *buffer_new = audio_frame2_init();
         struct state_resample resample_state;
 
         memset(&resample_state, 0, sizeof(resample_state));
         resample_state.resample_to = s->resample_to;
-        resample_state.resample_buffer = malloc(1024 * 1024);
+        resample_state.resample_buffer = (char *) malloc(1024 * 1024);
         resample_state.codec_supported_bytes_per_sample =
                 audio_codec_get_supported_bps(s->audio_coder);
         
@@ -831,35 +842,32 @@ static void *audio_sender_thread(void *arg)
                         if (s->paused) {
                                 continue;
                         }
+                        audio_frame2 buffer_new;
                         if(s->sender == NET_NATIVE) {
                                 // RESAMPLE
                                 resample(&resample_state, buffer);
                                 // COMPRESS
-                                audio_frame_to_audio_frame2(buffer_new, &resample_state.resampled);
-                                process_statistics(s, buffer_new);
+                                buffer_new = audio_frame2(&resample_state.resampled);
+                                process_statistics(s, &buffer_new);
                                 free(resample_state.resampled.data);
-                                if(buffer_new) {
-                                        audio_frame2 *uncompressed = buffer_new;
-                                        audio_frame2 *compressed = NULL;
-                                        while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
-                                                audio_tx_send(s->tx_session, s->audio_network_device, compressed);
-                                                uncompressed = NULL;
-                                        }
+                                audio_frame2 *uncompressed = &buffer_new;
+                                const audio_frame2 *compressed = NULL;
+                                while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                                        audio_tx_send(s->tx_session, s->audio_network_device, compressed);
+                                        uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){
                             // RESAMPLE
                             resample(&resample_state, buffer);
                             // COMPRESS
-                            audio_frame_to_audio_frame2(buffer_new, &resample_state.resampled);
+                            buffer_new = audio_frame2(&resample_state.resampled);
                             free(resample_state.resampled.data);
-                            if(buffer_new) {
-                                audio_frame2 *uncompressed = buffer_new;
-                                audio_frame2 *compressed = NULL;
-                                while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                            audio_frame2 *uncompressed = &buffer_new;
+                            const audio_frame2 *compressed = NULL;
+                            while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_standard(s->tx_session, s->audio_network_device, compressed);
                                     uncompressed = NULL;
-                                }
                             }
                         }
 #ifdef HAVE_JACK_TRANS
@@ -869,7 +877,6 @@ static void *audio_sender_thread(void *arg)
                 }
         }
 
-        audio_frame2_free(buffer_new);
         if(resample_state.resampler) {
                 speex_resampler_destroy(resample_state.resampler);
         }
@@ -894,7 +901,7 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
         if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
-        sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
+        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_put_callback(sdi_playback, callback, udata);
 }
 
@@ -906,7 +913,7 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
         if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
-        sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
+        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_reconfigure_callback(sdi_playback, callback, udata);
 }
 
@@ -928,4 +935,9 @@ struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
                 frame->ch_count, AC_PCM };
 }
 
+std::ostream& operator<<(std::ostream& os, const audio_desc& desc)
+{
+    os << desc.ch_count << " channels, " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_name_to_audio_codec(desc.codec);
+    return os;
+}
 

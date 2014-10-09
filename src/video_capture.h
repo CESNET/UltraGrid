@@ -96,18 +96,23 @@ extern "C" {
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)   ///< (balanced) analog audio
 /** @} */
 
-typedef uint32_t	vidcap_id_t; ///< driver unique ID
+typedef uint32_t        vidcap_id_t; ///< driver unique ID
 
 struct audio_frame;
 
+struct vidcap_card {
+        char id[1024]; ///< identifier to be passed
+        char name[1024]; ///< card name
+};
+
 /** Defines video capture device */
 struct vidcap_type {
-	vidcap_id_t		 id;          ///< device unique identifier
-	const char		*name;        ///< short name (one word)
-	const char		*description; ///< description of the video device
-	unsigned	 	 width;       ///< @deprecated AFAIK not used any more
-	unsigned	 	 height;      ///< @deprecated no more used
-	//video_colour_mode_t	 colour_mode;
+        vidcap_id_t              id;          ///< device unique identifier
+        const char              *name;        ///< short name (one word)
+        const char              *description; ///< description of the video device
+
+        int                      card_count;
+        struct vidcap_card      *cards;
 };
 
 struct module;
@@ -134,8 +139,6 @@ void                  vidcap_params_set_capture_filter(struct vidcap_params *par
 void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
 /// @}
 
-int			 vidcap_init_devices(void);
-void			 vidcap_free_devices(void);
 int			 vidcap_get_device_count(void);
 struct vidcap_type	*vidcap_get_device_details(int index);
 vidcap_id_t 		 vidcap_get_null_device_id(void);
@@ -143,6 +146,11 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
 struct module;
 struct vidcap;
 
+void                     list_video_capture_devices(void);
+void                     print_available_capturers(void);
+int initialize_video_capture(struct module *parent,
+                struct vidcap_params *params,
+                struct vidcap **state);
 int                      vidcap_init(struct module *parent, vidcap_id_t id,
                 struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);

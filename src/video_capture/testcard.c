@@ -276,7 +276,6 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         char *filename;
         const char *strip_fmt = NULL;
         FILE *in;
-        struct stat sb;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
         codec_t codec = RGBA;
@@ -306,44 +305,38 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         tmp = strtok_r(fmt, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return NULL;
+                goto error;
         }
         vf_get_tile(s->frame, 0)->width = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return NULL;
+                goto error;
         }
         vf_get_tile(s->frame, 0)->height = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
-                free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                goto error;
         }
 
         s->frame->fps = atof(tmp);
 
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
-                free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                goto error;
         }
 
         int h_align = 0;
         double bpp = 0;
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if (strcmp(tmp, codec_info[i].name) == 0) {
-                        h_align = codec_info[i].h_align;
-                        bpp = codec_info[i].bpp;
-                        codec = codec_info[i].codec;
-                        break;
-                }
+        codec = get_codec_from_name(tmp);
+        if (codec == VIDEO_CODEC_NONE) {
+                codec = UYVY;
         }
+        h_align = get_halign(codec);
+        bpp = get_bpp(codec);
 
         s->frame->color_spec = codec;
         s->still_image = FALSE;
@@ -370,24 +363,28 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         && strcmp(filename, "i") != 0
                         && strcmp(filename, "sf") != 0) {
                 s->data = malloc(s->size * bpp * 2);
-                if (stat(filename, &sb)) {
-                        perror("stat");
-                        free(s);
-                        return NULL;
-                }
 
                 in = fopen(filename, "r");
-
-                if (s->size < sb.st_size) {
-                        fprintf(stderr, "Error wrong file size for selected "
-                                "resolution and codec. File size %d, "
-                                "computed size %d\n", (int)sb.st_size, s->size);
-                        free(s->data);
+                if (!in) {
+                        perror("fopen");
                         free(s);
                         return NULL;
                 }
+                fseek(in, 0L, SEEK_END);
+                long filesize = ftell(in);
+                fseek(in, 0L, SEEK_SET);
 
-                if (!in || fread(s->data, sb.st_size, 1, in) == 0) {
+                if (s->size < filesize) {
+                        fprintf(stderr, "Error wrong file size for selected "
+                                "resolution and codec. File size %ld, "
+                                "computed size %d\n", filesize, s->size);
+                        free(s->data);
+                        free(s);
+                        fclose(in);
+                        return NULL;
+                }
+
+                if (!in || fread(s->data, filesize, 1, in) == 0) {
                         fprintf(stderr, "Cannot read file %s\n", filename);
                         free(s->data);
                         free(s);
@@ -445,6 +442,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->data =
                             (char *)tov210((unsigned char *) s->data, aligned_x,
                                            aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
+                        free(s->pixmap.data);
                 }
 
                 if (codec == R10k) {
@@ -456,23 +454,17 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->data =
                             (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height);
+                        free(s->pixmap.data);
                 }
                 
-                if(codec == RGBA) {
-                        toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height);
-                }
                 tmp = filename;
 
                 vf_get_tile(s->frame, 0)->data = malloc(2 * s->size);
 
                 memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
                 memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
-                if(s->pixmap.data)
-                        free(s->pixmap.data);
-                else
-                        free(vf_get_tile(s->frame, 0)->data);
 
+                free(s->data);
                 s->data = vf_get_tile(s->frame, 0)->data;
         }
 
@@ -501,8 +493,9 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         vf_get_tile(s->frame, 0)->data_len = s->size;
 
         if(strip_fmt != NULL) {
-                if(configure_tiling(s, strip_fmt) != 0)
-                        return NULL;
+                if(configure_tiling(s, strip_fmt) != 0) {
+                        goto error;
+                }
         }
         
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
@@ -519,6 +512,11 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         free(fmt);
 
         return s;
+
+error:
+        free(fmt);
+        free(s);
+        return NULL;
 }
 
 void vidcap_testcard_done(void *state)
@@ -639,15 +637,22 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
         return NULL;
 }
 
-struct vidcap_type *vidcap_testcard_probe(void)
+struct vidcap_type *vidcap_testcard_probe(bool verbose)
 {
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_TESTCARD_ID;
                 vt->name = "testcard";
                 vt->description = "Video testcard";
+
+                if (verbose) {
+                        vt->card_count = 1;
+                        vt->cards = calloc(vt->card_count, sizeof(struct vidcap_card));
+                        snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "1920:1080:25:UYVY:i");
+                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing 1080@50i signal");
+                }
         }
         return vt;
 }

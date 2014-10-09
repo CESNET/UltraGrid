@@ -1,32 +1,23 @@
+/**
+ * @file   video_compress/libavcodec.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_compress/libavcodec.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2011 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +33,9 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
+#define __STDC_CONSTANT_MACROS
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -67,7 +59,13 @@
 #include "video.h"
 #include "video_compress.h"
 
+#include <unordered_map>
+
 #define DEFAULT_CODEC MJPG
+
+namespace {
+
+using namespace std;
 
 struct setparam_param {
         AVCodec *codec;
@@ -91,22 +89,23 @@ static struct response *compress_change_callback(struct module *mod, struct mess
 static void libavcodec_compress_done(struct module *mod);
 static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
 
-static codec_params_t codec_params[] = {
-        [H264] = { AV_CODEC_ID_H264,
+
+static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
+        {H264, { AV_CODEC_ID_H264,
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                 setparam_h264
-        },
-        [MJPG] = {
+        }},
+        { MJPG, {
                 AV_CODEC_ID_MJPEG,
                 0.3,
                 setparam_default
-        },
-        [VP8] = {
+        }},
+        { VP8, {
                 AV_CODEC_ID_VP8,
                 0.2,
                 setparam_vp8
-        },
+        }},
 };
 
 struct state_video_compress_libav {
@@ -167,13 +166,13 @@ static void usage() {
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
                "\t\t\tas constant as it can\n");
-        for(unsigned int i = 0; i < sizeof(codec_params) / sizeof(codec_params_t); ++i) {
-                if(codec_params[i].av_codec != 0) {
+        for (auto && param : codec_params) {
+                if(param.second.av_codec != 0) {
                         const char *availability = "not available";
-                        if(avcodec_find_encoder(codec_params[i].av_codec)) {
+                        if(avcodec_find_encoder(param.second.av_codec)) {
                                 availability = "available";
                         }
-                        printf("\t\t\t%s - %s\n", get_codec_name(i), availability);
+                        printf("\t\t\t%s - %s\n", get_codec_name(param.first), availability);
                 }
 
         }
@@ -192,14 +191,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 return 1;
                         } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
                                 char *codec = item + strlen("codec=");
-                                int i;
-                                for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcasecmp(codec, codec_info[i].name) == 0) {
-                                                s->selected_codec_id = codec_info[i].codec;
-                                                break;
-                                        }
-                                }
-                                if(codec_info[i].name == NULL) {
+                                s->selected_codec_id = get_codec_from_name(codec);
+                                if (s->selected_codec_id == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "[lavd] Unable to find codec: \"%s\"\n", codec);
                                         return -1;
                                 }
@@ -212,7 +205,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 if(s->requested_subsampling != 422 &&
                                                 s->requested_subsampling != 420) {
                                         fprintf(stderr, "[lavc] Supported subsampling is only 422 or 420.\n");
-                                        free(s);
                                         return -1;
                                 }
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
@@ -230,6 +222,15 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         }
 
         return 0;
+}
+
+bool libavcodec_is_supported() {
+        avcodec_register_all();
+        if (avcodec_find_encoder(AV_CODEC_ID_H264)) {
+                return true;
+        } else {
+                return false;
+        }
 }
 
 struct module * libavcodec_compress_init(struct module *parent, const struct video_compress_params *params)
@@ -268,16 +269,16 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 
         platform_spin_init(&s->spin);
 
-        printf("[Lavc] Using codec: %s\n", codec_info[s->selected_codec_id].name);
+        printf("[Lavc] Using codec: %s\n", get_codec_name(s->selected_codec_id));
 
-        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN) / 4; // take conservatively only one fourth of cores
+        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
         if(s->cpu_count < 1) {
                 fprintf(stderr, "Warning: Cannot get number of CPU cores!\n");
                 s->cpu_count = 1;
         }
         s->in_frame_part = (AVFrame **) calloc(s->cpu_count, sizeof(AVFrame *));
         for(int i = 0; i < s->cpu_count; i++) {
-                s->in_frame_part[i] = avcodec_alloc_frame();
+                s->in_frame_part[i] = av_frame_alloc();
         }
 
         s->decoded = NULL;
@@ -295,19 +296,17 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
-        int codec_id = 0;
-        int pix_fmt;
+        AVCodecID codec_id;
+        AVPixelFormat pix_fmt;
         double avg_bpp = 0; // average bite per pixel
 
         s->compressed_desc = desc;
 
-        if(s->selected_codec_id < sizeof(codec_params) / sizeof(codec_params_t)) {
-                codec_id = codec_params[s->selected_codec_id].av_codec;
-                avg_bpp = codec_params[s->selected_codec_id].avg_bpp;
-
-        }
-
-        if(codec_id == 0) {
+        auto it = codec_params.find(s->selected_codec_id);
+        if (it != codec_params.end()) {
+                codec_id = it->second.av_codec;
+                avg_bpp = it->second.avg_bpp;
+        } else  {
                 fprintf(stderr, "[lavc] Requested output codec isn't "
                                 "supported by libavcodec.\n");
                 return false;
@@ -426,7 +425,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->codec_ctx->pix_fmt = pix_fmt;
 
-        s->decoded = malloc(desc.width * desc.height * 4);
+        s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
 
         if(s->preset) {
                 if(av_opt_set(s->codec_ctx->priv_data, "preset", s->preset, 0) != 0) {
@@ -453,7 +452,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         pthread_mutex_unlock(s->lavcd_global_lock);
 
-        s->in_frame = avcodec_alloc_frame();
+        s->in_frame = av_frame_alloc();
         if (!s->in_frame) {
                 fprintf(stderr, "Could not allocate video frame\n");
                 return false;
@@ -556,37 +555,38 @@ void *my_task(void *arg) {
         return NULL;
 }
 
-struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_frame *tx)
+shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
         int ret;
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         int got_output;
+        AVPacket *pkt;
 #endif
         unsigned char *decoded;
+        shared_ptr<video_frame> out{};
 
         platform_spin_lock(&s->spin);
 
-        if(!video_desc_eq_excl_param(video_desc_from_frame(tx),
+        if(!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
                 cleanup(s);
-                int ret = configure_with(s, video_desc_from_frame(tx));
+                int ret = configure_with(s, video_desc_from_frame(tx.get()));
                 if(!ret) {
                         goto error;
                 }
         }
 
-        struct video_frame *out = vf_alloc_desc(s->compressed_desc);
-        out->dispose = libavcodec_vid_enc_frame_dispose;
+        out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), libavcodec_vid_enc_frame_dispose);
 #if LIBAVCODEC_VERSION_MAJOR >= 54
-        AVPacket *pkt = (AVPacket *) malloc(sizeof(AVPacket));
+        pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
         pkt->data = NULL;
         pkt->size = 0;
         out->dispose_udata = pkt;
 #else
-        out->tiles[0].data = malloc(s->compressed_desc.width *
+        out->tiles[0].data = (char *) malloc(s->compressed_desc.width *
                         s->compressed_desc.height * 4);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
@@ -616,14 +616,18 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
                         assert(s->subsampling == 422 || s->subsampling == 420);
                         data[i].callback = s->subsampling == 420 ? to_yuv420 : to_yuv422;
                         data[i].out_frame = s->in_frame_part[i];
-                        data[i].height = tx->tiles[0].height / s->cpu_count;
-                        data[i].height = data[i].height / 2 * 2;
-                        if(i == s->cpu_count - 1) {
+
+                        size_t height = tx->tiles[0].height / s->cpu_count;
+                        // height needs to be even
+                        height = height / 2 * 2;
+                        if (i < s->cpu_count - 1) {
+                                data[i].height = height;
+                        } else { // we are last so we need to do the rest
                                 data[i].height = tx->tiles[0].height -
-                                        data[i].height * (s->cpu_count - 1);
+                                        height * (s->cpu_count - 1);
                         }
                         data[i].width = tx->tiles[0].width;
-                        data[i].in_data = decoded + i * data[i].height *
+                        data[i].in_data = decoded + i * height *
                                 vc_get_linesize(tx->tiles[0].width, UYVY);
 
                         // run !
@@ -671,12 +675,9 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
         platform_spin_unlock(&s->spin);
 
-        VIDEO_FRAME_DISPOSE(tx);
-
         return out;
 
 error:
-        VIDEO_FRAME_DISPOSE(tx);
         platform_spin_unlock(&s->spin);
         return NULL;
 }
@@ -841,4 +842,22 @@ static struct response *compress_change_callback(struct module *mod, struct mess
 
         return ret;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t libavcodec_info = {
+        "libavcodec",
+        libavcodec_compress_init,
+        NULL,
+        libavcodec_compress_tile,
+        libavcodec_is_supported,
+        {
+                { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
+                { "codec=H.264:bitrate=10M", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
+                { "codec=H.264:bitrate=15M", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
+#if 0
+                { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
+#endif
+        },
+};
 

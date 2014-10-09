@@ -194,8 +194,11 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
     } else {
         decoder->shader_vertex_display = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
     }
-    if ( decoder->shader_fragment_display == 0 || decoder->shader_vertex_display == 0 )
+    if ( decoder->shader_fragment_display == 0 || decoder->shader_vertex_display == 0 ) {
+        /// @todo Free other stuff as well
+        free(decoder);
         return NULL;
+    }
     // Attach shader to program and link the program
     glAttachShader(decoder->program_display, decoder->shader_fragment_display);
     glAttachShader(decoder->program_display, decoder->shader_vertex_display);

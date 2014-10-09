@@ -12,7 +12,6 @@
 
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
-        char buf[1024];
         /**
          * @invariant
          * either receiver is NULL or receiver->lock is locked (exactly once)
@@ -38,7 +37,7 @@ struct response *send_message(struct module *root, const char *const_path, struc
                                 malloc(sizeof(struct pair_msg_path));
                         saved_message->msg = msg;
                         memset(saved_message->path, 0, sizeof(saved_message->path));
-                        strncpy(saved_message->path, const_path + (item - tmp), sizeof(saved_message->path));
+                        strncpy(saved_message->path, const_path + (item - tmp), sizeof(saved_message->path) - 1);
 
                         simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
                         pthread_mutex_unlock(&old_receiver->lock);
@@ -50,6 +49,8 @@ struct response *send_message(struct module *root, const char *const_path, struc
 
                 path = NULL;
         }
+
+        free(tmp);
 
         lock_guard guard(receiver->lock, lock_guard_retain_ownership_t());
 
@@ -75,7 +76,8 @@ void module_check_undelivered_messages(struct module *node)
                 struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
                 struct module *receiver = get_matching_child(node, msg->path);
                 if (receiver) {
-                        send_message_to_receiver(receiver, msg->msg);
+                        struct response *resp = send_message_to_receiver(receiver, msg->msg);
+                        resp->deleter(resp);
                         simple_linked_list_remove(node->msg_queue_childs, msg);
                         free(msg);
                         // reinit iterator

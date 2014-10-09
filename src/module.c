@@ -87,6 +87,9 @@ void module_done(struct module *module_data)
         if(!module_data)
                 return;
 
+        if (module_data->cls == MODULE_CLASS_NONE)
+                return;
+
         assert(module_data->magic == MODULE_MAGIC);
 
         if(module_data->parent) {
@@ -140,10 +143,10 @@ const char *module_class_name_pairs[] = {
 
 const char *module_class_name(enum module_class cls)
 {
-        if((unsigned int) cls > sizeof(module_class_name_pairs)/sizeof(const char *))
-                return NULL;
-        else
+        if((unsigned int) cls < sizeof(module_class_name_pairs)/sizeof(const char *))
                 return module_class_name_pairs[cls];
+        else
+                return NULL;
 }
 
 void append_message_path(char *buf, int buflen, enum module_class modules[])
@@ -201,11 +204,11 @@ static void get_receiver_index(char *node_str, int *index) {
 
 struct module *get_module(struct module *root, const char *const_path)
 {
+        assert(root != NULL);
+
         struct module *receiver = root;
         char *path, *tmp;
         char *item, *save_ptr;
-
-        assert(root != NULL);
 
         pthread_mutex_lock(&root->lock);
 
@@ -217,6 +220,7 @@ struct module *get_module(struct module *root, const char *const_path)
 
                 if (!receiver) {
                         pthread_mutex_unlock(&old_receiver->lock);
+                        free(tmp);
                         return NULL;
                 }
                 pthread_mutex_lock(&receiver->lock);
@@ -236,7 +240,7 @@ struct module *get_matching_child(struct module *node, const char *const_path)
 {
         struct module *receiver = node;
         char *path, *tmp;
-        char *item, *save_ptr;
+        char *item, *save_ptr = NULL;
 
         assert(node != NULL);
 

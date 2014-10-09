@@ -40,6 +40,7 @@
 #define LDGM_MAXIMAL_SIZE_RATIO 1
 
 #include <map>
+#include <memory>
 
 #include "fec.h"
 
@@ -52,8 +53,7 @@ struct ldgm : public fec{
         ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
         ldgm(int packet_size, int frame_size, double max_expected_loss);
         ldgm(const char *cfg);
-        virtual ~ldgm();
-        struct video_frame *encode(struct video_frame *);
+        std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>);
         void decode(const char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &);
         void freeBuffer(char *buffer);
@@ -61,7 +61,7 @@ struct ldgm : public fec{
 private:
         void init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed = DEFAULT_LDGM_SEED);
 
-        LDGM_session *m_coding_session;
+        std::unique_ptr<LDGM_session> m_coding_session;
         unsigned int m_k, m_m, m_c;
         unsigned int m_seed;
 };

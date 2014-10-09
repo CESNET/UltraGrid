@@ -46,6 +46,9 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct state_audio_playback;
 
@@ -77,6 +80,10 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
  * SDI (embedded sound).
  */
 void                       *audio_playback_get_state_pointer(struct state_audio_playback *s);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* vim: set expandtab: sw=8 */
 

@@ -36,7 +36,7 @@ struct stats {
 
                 void get_stat(char *buffer, int buffer_len) {
                         platform_spin_lock(&m_spin);
-                        snprintf(buffer, buffer_len, "%s %lu", m_name.c_str(), m_val);
+                        snprintf(buffer, buffer_len, "%s %lld", m_name.c_str(), (long long) m_val);
                         platform_spin_unlock(&m_spin);
                 }
 

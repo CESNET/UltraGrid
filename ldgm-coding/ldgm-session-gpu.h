@@ -10,7 +10,7 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Milan Kabat (), kabat@ics.muni.cz
+ *        Authors:  Milan Kabat (kabat@ics.muni.cz), Vojtech David (374572@mail.muni.cz)
  *   Organization:  
  *
  * =====================================================================================
@@ -21,7 +21,22 @@
 #define  LDGM_SESSION_GPU_INC
 
 #include <string.h>
+#include <stdio.h>
 #include "ldgm-session.h"
+
+#include <map>
+#include <queue>
+
+// CUDA check error
+#define cuda_check_error(msg) \
+    { \
+        cudaError_t err = cudaGetLastError(); \
+        if( cudaSuccess != err) { \
+            fprintf(stderr, "[LDGM GPU] [Error] %s (line %i): %s: %s.\n", \
+                __FILE__, __LINE__, msg, cudaGetErrorString( err) ); \
+            exit(-1); \
+        } \
+    } \
 
 /*
  * =====================================================================================
@@ -32,10 +47,19 @@
 class LDGM_session_gpu : public LDGM_session
 {
     public:
+
+    // int * error_vec;
+    // int * sync_vec;
+
+    // int * ERROR_VEC;
+    // int * SYNC_VEC;
+
+
+
 	/* ====================  LIFECYCLE     ======================================= */
-	LDGM_session_gpu () {}                             /* constructor      */
+	LDGM_session_gpu ();                                  /* constructor      */
 	LDGM_session_gpu ( const LDGM_session_gpu &other );   /* copy constructor */
-	~LDGM_session_gpu () {}                           /* destructor       */
+	~LDGM_session_gpu ();                                 /* destructor       */
 
 	/* ====================  ACCESSORS     ======================================= */
 
@@ -47,15 +71,18 @@ class LDGM_session_gpu : public LDGM_session
 	    encode ( char* data_ptr, char* parity_ptr );
 	
 	void 
-	    encode_naive ( char* data_ptr, char* parity_ptr ) {}
+	    encode_naive ( char* /* data_ptr */, char* /* parity_ptr */ ) {}
 
 	void
 	    decode();
 
 	void
-	    iterate ( Tanner_graph *graph);
+	    free_out_buf (char *buf);
 
-	void decode (char* received, int* error_vec, int num_lost);
+	 void *
+		alloc_buf(int size);
+
+	char * decode_frame ( char* received_data, int buf_size, int* frame_size, std::map<int, int> valid_data );
 	void set_data_fname(char fname[32]) { strncpy(data_fname, fname, 32); }
 
     protected:
@@ -64,6 +91,22 @@ class LDGM_session_gpu : public LDGM_session
     private:
 	/* ====================  DATA MEMBERS  ======================================= */
 	char data_fname[32];
+
+        std::queue<char *> freeBuffers;
+        std::map<char *, size_t> bufferSizes;
+
+	int OUTBUF_SIZE;
+	int * OUTBUF;
+
+	int * error_vec;
+	int * sync_vec;
+
+    int * SYNC_VEC;
+	int * ERROR_VEC;
+
+	int * PCM;
+
+
 
 }; /* -----  end of class LDGM_session_gpu  ----- */
 

@@ -61,12 +61,12 @@ namespace {
 struct thread_data {
         thread_data() :
                 m_in(1), m_out(1),
-                jpeg_decoder(0), dxt_out_buff(0),
+                jpeg_decoder(0), desc(), out_codec(), ppb(), dxt_out_buff(0),
                 cuda_dev_index(-1)
         {}
-        message_queue            m_in;
+        message_queue<>          m_in;
         // currently only for output frames
-        message_queue            m_out;
+        message_queue<>          m_out;
 
         struct gpujpeg_decoder  *jpeg_decoder;
         struct video_desc        desc;
@@ -192,17 +192,15 @@ void * jpeg_to_dxt_decompress_init(void)
                 int ret = gpujpeg_init_device(cuda_devices[i], TRUE);
                 if(ret != 0) {
                         fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
-                        free(s);
+                        delete s;
                         return NULL;
                 }
         }
 
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                 s->thread_data[i].cuda_dev_index = i;
-                if(pthread_create(&s->thread_id[i], NULL, worker_thread,  &s->thread_data[i]) != 0) {
-                        fprintf(stderr, "Error creating thread.\n");
-                        return NULL;
-                }
+                int ret = pthread_create(&s->thread_id[i], NULL, worker_thread,  &s->thread_data[i]);
+                assert(ret == 0);
         }
 
         return s;

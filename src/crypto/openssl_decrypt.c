@@ -85,12 +85,7 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
                                 const char *passphrase,
                                 enum openssl_mode mode)
 {
-#ifndef HAVE_CRYPTO
-        fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                        "without OpenSSL support!\n");
-        return -1;
-#endif // HAVE_CRYPTO
-
+#ifdef HAVE_CRYPTO
         struct openssl_decrypt *s =
                 (struct openssl_decrypt *)
                 calloc(1, sizeof(struct openssl_decrypt));
@@ -105,14 +100,10 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
 
         switch(mode) {
                 case MODE_AES128_ECB:
-#ifdef HAVE_CRYPTO
                         AES_set_decrypt_key(hash, 128, &s->key);
-#endif
                         break;
                 case MODE_AES128_CTR:
-#ifdef HAVE_CRYPTO
                         AES_set_encrypt_key(hash, 128, &s->key);
-#endif
                         break;
                 default:
                         abort();
@@ -122,6 +113,14 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
 
         *state = s;
         return 0;
+#else
+        UNUSED(state);
+        UNUSED(passphrase);
+        UNUSED(mode);
+        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                        "without OpenSSL support!\n");
+        return -1;
+#endif // HAVE_CRYPTO
 }
 
 void openssl_decrypt_destroy(struct openssl_decrypt *s)
@@ -135,10 +134,7 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
                 const unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
                 int len)
 {
-#ifndef HAVE_CRYPTO
-        UNUSED(ciphertext);
-        UNUSED(plaintext);
-#endif
+#ifdef HAVE_CRYPTO
         if(nonce_and_counter) {
                 memcpy(s->ivec, nonce_and_counter, AES_BLOCK_SIZE);
                 s->num = 0;
@@ -147,20 +143,23 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
         switch(s->mode) {
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
-#ifdef HAVE_CRYPTO
                         AES_ecb_encrypt(ciphertext, plaintext,
                                         &s->key, AES_DECRYPT);
-#endif // HAVE_CRYPTO
                         break;
                 case MODE_AES128_CTR:
-#ifdef HAVE_CRYPTO
                         AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
-#endif
                         break;
                 default:
                         abort();
         }
+#else
+        UNUSED(s);
+        UNUSED(ciphertext);
+        UNUSED(plaintext);
+        UNUSED(nonce_and_counter);
+        UNUSED(len);
+#endif
 }
 
 int openssl_decrypt(struct openssl_decrypt *decrypt,

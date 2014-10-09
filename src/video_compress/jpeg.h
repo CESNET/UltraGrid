@@ -1,11 +1,9 @@
 /**
  * @file   video_compress/jpeg.h
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @brief  This is an umbrella header for video functions.
  */
 /*
- * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,26 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
-
-struct module;
-struct video_frame;
-struct video_compress_params;
-
-struct module      *jpeg_compress_init(struct module *parent,
-                const struct video_compress_params *params);
-struct video_frame *jpeg_compress(struct module *mod, struct video_frame * tx);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+struct compress_info_t;
+extern compress_info_t jpeg_info;
 

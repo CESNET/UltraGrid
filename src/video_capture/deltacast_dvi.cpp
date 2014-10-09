@@ -44,9 +44,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include "host.h"
 #include "config.h"
@@ -74,14 +71,27 @@ extern "C" {
 #include <sys/time.h>
 #include <semaphore.h>
 
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
-
 #include "video_capture/deltacast_dvi.h"
 
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Dvi.h>
+
+#include <string>
+#include <unordered_map>
+
+using namespace std;
+
+unordered_map<ULONG, string> board_type_map = {
+        { VHD_BOARDTYPE_HD, "HD board type" },
+        { VHD_BOARDTYPE_HDKEY, "HD key board type" },
+        { VHD_BOARDTYPE_SD, "SD board type"},
+        { VHD_BOARDTYPE_SDKEY, "SD key board type"},
+        { VHD_BOARDTYPE_DVI, "DVI board type"},
+        { VHD_BOARDTYPE_CODEC, "CODEC board type"},
+        { VHD_BOARDTYPE_3G, "3G board type"},
+        { VHD_BOARDTYPE_3GKEY, "3G key board type"},
+        { VHD_BOARDTYPE_HDMI, "HDMI board type"},
+};
 
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
 
@@ -107,7 +117,7 @@ static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused))
 static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
-        printf("-t deltacast[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
+        printf("-t deltacast-dvi[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
                         "[:edid=<edid>|preset=<format>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
@@ -132,21 +142,12 @@ static void usage(void)
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
                 if (Result == VHDERR_NOERROR)
                 {
-                        printf("\t\tBoard %d: ", i);
-                        switch(BoardType)
-                        {
-                                case VHD_BOARDTYPE_HD :    printf("HD board type"); break;
-                                case VHD_BOARDTYPE_HDKEY : printf("HD key board type"); break;
-                                case VHD_BOARDTYPE_SD :    printf("SD board type"); break;
-                                case VHD_BOARDTYPE_SDKEY : printf("SD key board type"); break;
-                                case VHD_BOARDTYPE_DVI :   printf("DVI board type"); break;
-                                case VHD_BOARDTYPE_CODEC : printf("CODEC board type"); break;
-                                case VHD_BOARDTYPE_3G :    printf("3G board type"); break;
-                                case VHD_BOARDTYPE_3GKEY : printf("3G key board type"); break;
-                                case VHD_BOARDTYPE_HDMI  : printf("HDMI board type"); break;
-                                default :                  printf("Unknown board type"); break;
+                        string board{"Unknown board type"};
+                        auto it = board_type_map.find(BoardType);
+                        if (it != board_type_map.end()) {
+                                board = it->second;
                         }
-                        printf("\n");
+                        printf("\t\tBoard %d: %s\n", i, board.c_str());
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }
@@ -240,15 +241,43 @@ static const char * GetErrorDescription(ULONG CodeError)
 }
 
 struct vidcap_type *
-vidcap_deltacast_dvi_probe(void)
+vidcap_deltacast_dvi_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DELTACAST_DVI_ID;
 		vt->name        = "deltacast-dvi";
-		vt->description = "DELTACAST DVI card";
+		vt->description = "DELTACAST DVI/HDMI card";
+
+                if (verbose) {
+                        ULONG Result,DllVersion,NbBoards;
+                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+                        if (Result == VHDERR_NOERROR) {
+                                vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
+                                vt->card_count = NbBoards;
+                                for (ULONG i = 0; i < NbBoards; ++i) {
+                                        string board{"Unknown board type"};
+                                        ULONG BoardType;
+                                        HANDLE BoardHandle = NULL;
+                                        Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
+                                        VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                                        if (Result == VHDERR_NOERROR)
+                                        {
+                                                auto it = board_type_map.find(BoardType);
+                                                if (it != board_type_map.end()) {
+                                                        board = it->second;
+                                                }
+                                        }
+                                        VHD_CloseBoardHandle(BoardHandle);
+
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%d",
+                                                        board.c_str(), i);
+                                }
+                        }
+                }
 	}
 	return vt;
 }
@@ -321,6 +350,9 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                                         ,Interlaced_B?"Interlaced":"Progressive");
                         Result = VHD_PresetDviAStreamProperties(s->StreamHandle, DviAStd,Width,Height,
                                         RefreshRate,Interlaced_B);
+                        if(Result != VHDERR_NOERROR) {
+                                printf("ERROR : Cannot set incoming DVI-A format. Result = 0x%08X\n", Result);
+                        }
                 }
                 else {
                         printf("ERROR : Cannot detect incoming DVI-A format. Result = 0x%08X\n",
@@ -475,28 +507,26 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         bool              have_preset = false;
         VHD_DVI_MODE      DviMode = NB_VHD_DVI_MODES;
 
-        int               i;
-
 	printf("vidcap_deltacast_dvi_init\n");
-
-        s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
-        s->codec = BGR;
-        s->configured = false;
-        
-	if(s == NULL) {
-		printf("Unable to allocate DELTACAST state\n");
-		return NULL;
-	}
-
-        s->BoardHandle = s->StreamHandle = NULL;
 
         char *init_fmt = NULL;
         if (vidcap_params_get_fmt(params) != NULL)
                 init_fmt = strdup(vidcap_params_get_fmt(params));
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
+                free(init_fmt);
                 usage();
                 return &vidcap_init_noerr;
         }
+
+        s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
+	if(s == NULL) {
+		printf("Unable to allocate DELTACAST state\n");
+		return NULL;
+	}
+
+        s->codec = BGR;
+        s->configured = false;
+        s->BoardHandle = s->StreamHandle = NULL;
 
         if(init_fmt)
         {
@@ -509,13 +539,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                         } else if(strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
                                 char *codec_str = tok + strlen("codec=");
 
-                                for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(codec_str, codec_info[i].name) == 0) {
-                                                s->codec = codec_info[i].codec;
-                                                break;
-                                        }
-                                }
-                                if(codec_info[i].name == NULL) {
+                                s->codec = get_codec_from_name(codec_str);
+                                if (s->codec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unable to find codec: %s\n",
                                                         codec_str);
                                         goto error;

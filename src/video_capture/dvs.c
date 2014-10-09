@@ -288,13 +288,8 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                                 return 0;
                         }
 
-                        s->frame->color_spec = 0xffffffff;
-                        for (i = 0; codec_info[i].name != NULL; i++) {
-                                if (strcmp(tmp, codec_info[i].name) == 0) {
-                                        s->frame->color_spec = codec_info[i].codec;
-                                }
-                        }
-                        if (s->frame->color_spec == (codec_t) 0xffffffff) {
+                        s->frame->color_spec = get_codec_from_name(tmp);
+                        if (s->frame->color_spec == VIDEO_CODEC_NONE) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                 return 0;
                         }
@@ -603,15 +598,37 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
         return NULL;
 }
 
-struct vidcap_type *vidcap_dvs_probe(void)
+struct vidcap_type *vidcap_dvs_probe(bool verbose)
 {
        struct vidcap_type *vt;
  
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_DVS_ID;
                 vt->name = "dvs";
                 vt->description = "DVS (SMPTE 274M/25i)";
+
+                if (verbose) {
+                        int card_idx = 0;
+                        sv_handle *sv;
+                        char name[128];
+                        int res;
+                        snprintf(name, 128, "PCI,card:%d", card_idx);
+                        res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+                        while (res == SV_OK) {
+                                vt->card_count = card_idx + 1;
+                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                memset(&vt->cards[card_idx], 0, sizeof(struct vidcap_card));
+                                strncpy(vt->cards[card_idx].id, name, sizeof vt->cards[card_idx].id - 1);
+                                snprintf(vt->cards[card_idx].name, sizeof vt->cards[card_idx].name,
+                                                "DVS card #%d", card_idx);
+
+                                sv_close(sv);
+                                card_idx++;
+                                snprintf(name, 128, "PCI,card:%d", card_idx);
+                                res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+                        }
+                }
         }
         return vt;
 }

@@ -121,6 +121,10 @@ struct display;
 
 extern int display_init_noerr;
 
+void                     list_video_display_devices(void);
+int                      initialize_video_display(const char *requested_display,
+                const char *fmt, unsigned int flags,
+                struct display **out);
 int                      display_init(display_id_t id, const char *fmt, unsigned int flags, struct display **state);
 void                     display_run(struct display *d);
 void 	                 display_done(struct display *d);

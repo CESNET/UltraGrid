@@ -79,11 +79,12 @@ struct vidcap_aggregate_state {
 
 
 struct vidcap_type *
-vidcap_aggregate_probe(void)
+vidcap_aggregate_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_AGGREGATE_ID;
 		vt->name        = "aggregate";
@@ -96,7 +97,6 @@ void *
 vidcap_aggregate_init(const struct vidcap_params *params)
 {
 	struct vidcap_aggregate_state *s;
-        int i;
 
 	printf("vidcap_aggregate_init\n");
 
@@ -113,6 +113,7 @@ vidcap_aggregate_init(const struct vidcap_params *params)
 
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
                 show_help();
+                free(s);
                 return &vidcap_init_noerr;
         }
 
@@ -127,12 +128,11 @@ vidcap_aggregate_init(const struct vidcap_params *params)
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        i = 0;
         tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
-                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+                int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
                                         i, vidcap_params_get_driver(tmp),
@@ -188,11 +188,8 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
                 VIDEO_FRAME_DISPOSE(s->captured_frames[i]);
         }
 
-        if(audio_frame) {
-                *audio = audio_frame;
-        } else {
-                *audio = NULL;
-        }
+        *audio = NULL;
+
         for (int i = 0; i < s->devices_cnt; ++i) {
                 frame = NULL;
                 while(!frame) {

@@ -13,7 +13,15 @@ aclocal
 autoheader
 autoconf
 
-$srcdir/configure --enable-gpl $@
+CONFIGURE_OPTS="--enable-gpl"
+
+if [ -n "$DEBUG" ]; then
+        CONFIGURE_OPTS="$CONFIGURE_OPTS --enable-debug"
+fi
+
+cd $ORIGDIR
+
+$srcdir/configure $CONFIGURE_OPTS $@
 
 cd $ORIGDIR
 

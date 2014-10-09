@@ -66,18 +66,17 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &p
 #endif
 }
 
-void h264_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
+void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
         if (m_connections_count == 1) { /* normal/default case - only one connection */
-            tx_send_h264(m_tx, tx_frame, m_network_devices[0]);
+            tx_send_h264(m_tx, tx_frame.get(), m_network_devices[0]);
         } else {
             //TODO to be tested, the idea is to reply per destiny
                 for (int i = 0; i < m_connections_count; ++i) {
-                    tx_send_h264(m_tx, tx_frame,
+                    tx_send_h264(m_tx, tx_frame.get(),
                                         m_network_devices[i]);
                 }
         }
-        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
@@ -92,9 +91,9 @@ video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &par
         return new h264_rtp_video_rxtx(params);
 }
 
-static void init(void)  __attribute__((constructor));
+static void register_module(void)  __attribute__((constructor));
 
-static void init(void)
+static void register_module(void)
 {
         register_video_rxtx(H264_STD, {"H264 standard", create_video_rxtx_h264_std});
 }

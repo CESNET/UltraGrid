@@ -6,9 +6,17 @@
 
 #include "audio/audio.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct resampler;
 
 struct resampler *resampler_init(int dst_sample_rate);
 void              resampler_done(struct resampler *);
-audio_frame2     *resampler_resample(struct resampler *, audio_frame2 *);
+const audio_frame2 *resampler_resample(struct resampler *, const audio_frame2 *);
+
+#ifdef __cplusplus
+}
+#endif
 

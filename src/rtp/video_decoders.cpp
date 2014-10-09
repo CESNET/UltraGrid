@@ -95,10 +95,10 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <queue>
 
-using std::map;
-using std::queue;
+using namespace std;
 
 struct state_video_decoder;
 
@@ -160,22 +160,20 @@ struct main_msg;
 // message definitions
 typedef char *char_p;
 struct fec_msg : public msg {
-        fec_msg(int count) : substream_count(count) {
+        fec_msg(int count, fec_desc && d) : fec_description(d), substream_count(count), poisoned(false) {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
-                pckt_list = 0;
         }
         ~fec_msg() {
                 delete [] buffer_len;
                 delete [] buffer_num;
                 delete [] recv_buffers;
-                delete [] pckt_list;
         }
         int *buffer_len;
         int *buffer_num;
         char **recv_buffers;
-        map<int, int> *pckt_list;
+        unique_ptr<map<int, int>[]> pckt_list;
         fec_desc fec_description;
         int substream_count;
         bool poisoned;
@@ -202,13 +200,10 @@ struct decompress_msg : public msg {
         bool poisoned;
 };
 
-struct main_msg : public msg {
-        virtual ~main_msg(){}
-};
-
-struct main_msg_reconfigure : public main_msg {
-        main_msg_reconfigure(struct video_desc d) : desc(d) {}
-        struct video_desc   desc;
+struct main_msg_reconfigure {
+        main_msg_reconfigure(struct video_desc d, struct fec_msg *lf) : desc(d), last_frame(lf) {}
+        struct video_desc desc;
+        struct fec_msg *last_frame;
 };
 }
 
@@ -217,11 +212,6 @@ struct main_msg_reconfigure : public main_msg {
  */
 struct state_video_decoder
 {
-        state_video_decoder() :
-                decompress_queue(1), fec_queue(1)
-        {}
-        virtual ~state_video_decoder() {}
-
         struct module *parent;
 
         pthread_t decompress_thread_id,
@@ -255,7 +245,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        message_queue     decompress_queue;
+        unique_ptr<message_queue<>> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -269,7 +259,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        message_queue     fec_queue;
+        unique_ptr<message_queue<>> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -282,7 +272,7 @@ struct state_video_decoder
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
 
-        message_queue       msg_queue;
+        message_queue<main_msg_reconfigure *> msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
@@ -319,13 +309,13 @@ static void *fec_thread(void *args) {
         struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct fec_msg *data = NULL;
-                data = dynamic_cast<fec_msg *>(decoder->fec_queue.pop());
+                struct fec_msg *data;
+                data = dynamic_cast<fec_msg *>(decoder->fec_queue->pop());
 
                 if(data->poisoned) {
                         decompress_msg *msg = new decompress_msg(0);
                         msg->poisoned = true;
-                        decoder->decompress_queue.push(msg);
+                        decoder->decompress_queue->push(msg);
                         delete data;
                         break; // exit from loop
                 }
@@ -374,7 +364,7 @@ static void *fec_thread(void *args) {
 
                                 if(fec_out_len == 0) {
                                         ret = FALSE;
-                                        fprintf(stderr, "[decoder] FEC: unable to reconstruct data.\n");
+                                        verbose_msg("[decoder] FEC: unable to reconstruct data.\n");
                                         decoder->fec_nok += 1;
                                         goto cleanup;
                                 }
@@ -390,8 +380,8 @@ static void *fec_thread(void *args) {
                                 parse_video_hdr(video_hdr, &network_desc);
                                 if (!video_desc_eq_excl_param(decoder->received_vid_desc,
                                                         network_desc, PARAM_TILE_COUNT)) {
-                                        main_msg *msg = new main_msg_reconfigure(network_desc);
-                                        decoder->msg_queue.push(msg);
+                                        decoder->msg_queue.push(new main_msg_reconfigure(network_desc, data));
+                                        data = nullptr;
                                         ERROR_GOTO_CLEANUP
                                 }
 
@@ -469,12 +459,15 @@ static void *fec_thread(void *args) {
                         decoder->buffer_swapped = false;
                 }
                 pthread_mutex_unlock(&decoder->lock);
-                decoder->decompress_queue.push(decompress_msg);
+                decoder->decompress_queue->push(decompress_msg);
 
 cleanup:
                 if(ret == FALSE) {
-                        for(int i = 0; i < data->substream_count; ++i) {
-                                free(data->recv_buffers[i]);
+                        delete decompress_msg;
+                        if (data) {
+                                for(int i = 0; i < data->substream_count; ++i) {
+                                        free(data->recv_buffers[i]);
+                                }
                         }
                         decoder->corrupted++;
                         decoder->dropped++;
@@ -494,7 +487,7 @@ static void *decompress_thread(void *args) {
         struct tile *tile;
 
         while(1) {
-                decompress_msg *msg = dynamic_cast<decompress_msg *>(decoder->decompress_queue.pop());
+                decompress_msg *msg = dynamic_cast<decompress_msg *>(decoder->decompress_queue->pop());
 
                 if(msg->poisoned) {
                         delete msg;
@@ -638,8 +631,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 {
         struct state_video_decoder *s;
 
-        s = (state_video_decoder *) calloc(1, sizeof(state_video_decoder));
-        s = new(s) state_video_decoder; // call the constructor
+        s = new state_video_decoder();
 
         s->parent = parent;
 
@@ -654,6 +646,9 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
+
+        s->decompress_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
+        s->fec_queue = unique_ptr<message_queue<>>(new message_queue<>(1));
 
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
@@ -670,19 +665,22 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                 s->postprocess = vo_postprocess_init(tmp_pp_config);
                 free(tmp_pp_config);
                 if(strcmp(postprocess, "help") == 0) {
+                        delete s;
                         exit_uv(0);
                         return NULL;
                 }
                 if(!s->postprocess) {
                         fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", postprocess);
-                        free(s);
+                        delete s;
                         exit_uv(129);
                         return NULL;
                 }
         }
 
-        if(!video_decoder_register_display(s, display))
+        if(!video_decoder_register_display(s, display)) {
+                delete s;
                 return NULL;
+        }
 
         return s;
 }
@@ -802,9 +800,9 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                fec_msg *msg = new fec_msg(0);
+                fec_msg *msg = new fec_msg(0, {});
                 msg->poisoned = true;
-                decoder->fec_queue.push(msg);
+                decoder->fec_queue->push(msg);
 
                 pthread_join(decoder->fec_thread_id, NULL);
                 pthread_join(decoder->decompress_thread_id, NULL);
@@ -871,7 +869,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
 
         PRINT_STATISTICS
 
-        free(decoder);
+        delete decoder;
 }
 
 /**
@@ -991,7 +989,7 @@ bool init_decompress(codec_t in_codec, codec_t out_codec,
 static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, struct video_desc desc,
                                 decoder_t *decode_line)
 {
-        codec_t out_codec = (codec_t) -1;
+        codec_t out_codec = VIDEO_CODEC_NONE;
         *decode_line = NULL;
 
         size_t native;
@@ -1069,7 +1067,7 @@ after_decoder_lookup:
         if(decoder->decoder_type == UNSET) {
                 fprintf(stderr, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
                 exit_uv(128);
-                return (codec_t) -1;
+                return VIDEO_CODEC_NONE;
         }
 
         return out_codec;
@@ -1146,7 +1144,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         * get_video_mode_tiles_y(decoder->video_mode);
 
         out_codec = choose_codec_and_decoder(decoder, desc, &decode_line);
-        if(out_codec == (codec_t) -1)
+        if(out_codec == VIDEO_CODEC_NONE)
                 return false;
         else
                 decoder->out_codec = out_codec;
@@ -1159,7 +1157,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
                         &display_mode, &len);
         if(!ret) {
-                debug_msg("Failed to get video display mode.");
+                debug_msg("Failed to get video display mode.\n");
                 display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         }
 
@@ -1376,7 +1374,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         desc->width = ntohl(hdr[3]) >> 16;
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
-        if(desc->color_spec == (codec_t) -1) {
+        if(desc->color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
                 return false;
         }
@@ -1403,10 +1401,19 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                                 get_codec_name(network_desc.color_spec));
                 decoder->received_vid_desc = network_desc;
 
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
                 decoder->reconfiguration_in_progress = true;
                 decoder->reconfiguration_future = std::async(std::launch::async,
                                 [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
-
+#else
+                int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
+                if (ret) {
+                        decoder->frame = display_get_frame(decoder->display);
+                } else {
+                        fprintf(stderr, "Decoder reconfiguration failed!!!\n");
+                        decoder->frame = NULL;
+                }
+#endif
                 return TRUE;
         }
         return FALSE;
@@ -1459,14 +1466,13 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         int max_substreams = decoder->max_substreams;
 
         int i;
-        map<int, int> *pckt_list;
         uint32_t buffer_len[max_substreams];
         uint32_t buffer_num[max_substreams];
         // the following is just LDGM related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of LDGM, there
         // is just the LDGM buffer present, so we point to it instead to copying
         char *recv_buffers[max_substreams]; // for FEC or compressed data
-        pckt_list = new map<int, int>[max_substreams];
+        unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
         for (i = 0; i < (int) max_substreams; ++i) {
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
@@ -1510,15 +1516,17 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 }
         }
 
-        main_msg *msg;
-        while ((msg = dynamic_cast<main_msg *>(decoder->msg_queue.pop(true /* nonblock */)))) {
-                if (dynamic_cast<main_msg_reconfigure *>(msg)) {
-                        main_msg_reconfigure *msg_reconf = dynamic_cast<main_msg_reconfigure *>(msg);
-                        if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
-                                return FALSE;
-                        }
+        main_msg_reconfigure *msg_reconf;
+        while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
+                if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
+                        return FALSE;
+#endif
                 }
-                delete msg;
+                if (msg_reconf->last_frame) {
+                        decoder->fec_queue->push(msg_reconf->last_frame);
+                }
+                delete msg_reconf;
         }
 
         int pt;
@@ -1635,7 +1643,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                          * each thread *MUST* wait here if this condition is true
                          */
                         if (check_for_mode_change(decoder, hdr)) {
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
                                 return FALSE;
+#endif
                         }
 
                         // hereafter, display framebuffer can be used, so we
@@ -1753,8 +1763,7 @@ next_packet:
         }
 
         if(!pckt) {
-                ret = FALSE;
-                goto cleanup;
+                return FALSE;
         }
 
         if (decoder->frame == NULL && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
@@ -1766,18 +1775,16 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        fec_msg = new struct fec_msg(max_substreams);
-        fec_msg->fec_description = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
-        fec_msg->poisoned = false;
+        fec_msg = new struct fec_msg(max_substreams, fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed));
         memcpy(fec_msg->buffer_len, buffer_len, sizeof(buffer_len));
         memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
-        fec_msg->pckt_list = pckt_list;
+        fec_msg->pckt_list = std::move(pckt_list);
 
-        if(decoder->fec_queue.size() > 0) {
+        if(decoder->fec_queue->size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
         }
-        decoder->fec_queue.push(fec_msg);
+        decoder->fec_queue->push(fec_msg);
 cleanup:
         ;
         unsigned int frame_size = 0;
@@ -1788,10 +1795,6 @@ cleanup:
                 }
 
                 frame_size += buffer_len[i];
-        }
-
-        if(ret != TRUE) {
-                delete [] pckt_list;
         }
 
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);

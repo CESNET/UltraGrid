@@ -37,7 +37,10 @@ class LDGM_session : public Coding_session
 {
     public:
 	/* ====================  LIFECYCLE     ======================================= */
-	LDGM_session ();                               /* constructor **/
+	LDGM_session (){
+    elapsed_sum2=0.0;
+	no_frames2=0;
+	}                               /* constructor **/
 	virtual ~LDGM_session ();                      /* destructor **/
 
 	/* ====================  ACCESSORS     ======================================= */
@@ -76,6 +79,9 @@ class LDGM_session : public Coding_session
 	virtual void
 	    encode_naive ( char* data, char* parity ) = 0;
 
+	virtual void *
+		alloc_buf(int size) = 0;
+
 	virtual char*
 	    decode_frame ( char* received_data, int buf_size, int* frame_size, 
 		    std::map<int, int>  valid_data ) = 0;
@@ -110,7 +116,14 @@ class LDGM_session : public Coding_session
 	char *received_ptr;
 	char *lost_ptr;
 
+    double elapsed_sum2;
+	long no_frames2;
+
+        static const int HEADER_SIZE = 4;
+
     private:
+
+
 
 	/* ====================  DATA MEMBERS  ======================================= */
 

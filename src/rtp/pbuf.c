@@ -347,11 +347,11 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                                         discard_pkt = true;
                                 }
                         }
-                        if (pkt->m && discard_pkt) {
-                                debug_msg
-                                    ("Oops... dropped packet with M bit set\n");
-                        }
                         if (discard_pkt) {
+                                if (pkt->m) {
+                                        debug_msg
+                                                ("Oops... dropped packet with M bit set\n");
+                                }
                                 free(pkt);
                         }
                 }

@@ -78,11 +78,12 @@ struct vidcap_switcher_state {
 
 
 struct vidcap_type *
-vidcap_switcher_probe(void)
+vidcap_switcher_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = 0x1D3E1956;
 		vt->name        = "switcher";
@@ -95,7 +96,6 @@ void *
 vidcap_switcher_init(const struct vidcap_params *params)
 {
 	struct vidcap_switcher_state *s;
-        int i;
 
 	printf("vidcap_switcher_init\n");
 
@@ -105,21 +105,26 @@ vidcap_switcher_init(const struct vidcap_params *params)
 		return NULL;
 	}
 
-        if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
-                char *cfg = strdup(vidcap_params_get_fmt(params));
+        const char *cfg_c = vidcap_params_get_fmt(params);
+        if (cfg_c && strcmp(cfg_c, "") != 0) {
+                char *cfg = strdup(cfg_c);
                 char *save_ptr, *item;
                 char *tmp = cfg;
                 while ((item = strtok_r(cfg, ":", &save_ptr))) {
                         if (strcmp(item, "help") == 0) {
                                 show_help();
+                                free(tmp);
+                                free(s);
                                 return &vidcap_init_noerr;
                         } else if (strcmp(item, "excl_init") == 0) {
                                 s->excl_init = true;
                         } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
                                 s->selected_device = atoi(item + strlen("select="));
                         } else {
-                                show_help();
                                 fprintf(stderr, "[switcher] Unknown initialization option!\n");
+                                show_help();
+                                free(tmp);
+                                free(s);
                                 return NULL;
                         }
                         cfg = NULL;
@@ -142,13 +147,12 @@ vidcap_switcher_init(const struct vidcap_params *params)
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        i = 0;
         tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
                 if (!s->excl_init || i == s->selected_device) {
-                        int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+                        int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
                         if(ret != 0) {
                                 fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
                                                 i, vidcap_params_get_driver(tmp),
@@ -214,7 +218,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 int ret = initialize_video_capture(NULL,
-                                                vidcap_params_get_nth(s->params, new_selected_device + 1),
+                                                vidcap_params_get_nth((struct vidcap_params *) s->params, new_selected_device + 1),
                                                 &s->devices[new_selected_device]);
                                 assert(ret == 0);
                         }

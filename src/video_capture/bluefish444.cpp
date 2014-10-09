@@ -259,12 +259,13 @@ bool UpdateVideoMode(struct vidcap_bluefish444_state *s, uint32_t VideoMode)
                         s->video_desc.height =
                                 bluefish_frame_modes[i].height;
 
+                        streamsize ss = cout.precision();
 			cout << "[Blue cap] Format changed " <<
                                 bluefish_frame_modes[i].width << "x" << 
                                 bluefish_frame_modes[i].height <<
 				get_interlacing_suffix(bluefish_frame_modes[i].interlacing) <<
 				" @" << setprecision(2) << 
-                                bluefish_frame_modes[i].fps << endl;
+                                bluefish_frame_modes[i].fps << setprecision(ss) << endl;
                         return true;
                 }
         }
@@ -354,16 +355,30 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
 }
 
 struct vidcap_type *
-vidcap_bluefish444_probe(void)
+vidcap_bluefish444_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_BLUEFISH444_ID;
 		vt->name        = "bluefish444";
 		vt->description = "Bluefish444 video capture";
-	}
+
+                if (verbose) {
+                        int iDevices;
+                        CBLUEVELVET_H pSDK = bfcFactory();
+                        bfcEnumerate(pSDK, iDevices);
+                        bfcDestroy(pSDK);
+
+                        vt->card_count = iDevices;
+                        vt->cards = (struct vidcap_card *) calloc(iDevices, sizeof(struct vidcap_card));
+                        for (int i = 0; i < iDevices; ++i) {
+                                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%d", i + 1);
+                                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Bluefish444 card #%d", i);
+                        }
+                }
+        }
 	return vt;
 }
 
@@ -945,7 +960,7 @@ error:
         for(int i = 0; i < s->attachedDevices; ++i) {
                 BailOut(s->pSDK[i]);
         }
-        free(s);
+        delete s;
         return NULL;
 }
 

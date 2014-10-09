@@ -50,10 +50,6 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "host.h"
 #include "debug.h"
 #include "config.h"
@@ -73,10 +69,6 @@ extern "C" {
 #include "DeckLinkAPI.h"
 #endif
 #include "DeckLinkAPIVersion.h"
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 #ifdef WIN32
 #include <objbase.h>
@@ -256,7 +248,7 @@ void decklink_playback_help(const char *driver_name)
 
 void *decklink_playback_init(char *cfg)
 {
-        struct state_decklink *s;
+        struct state_decklink *s = NULL;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
@@ -264,6 +256,11 @@ void *decklink_playback_init(char *cfg)
         //BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         int cardIdx = 0;
         int dnum = 0;
+        IDeckLink    *deckLink;
+        IDeckLinkDisplayModeIterator     *displayModeIterator = NULL;
+        IDeckLinkDisplayMode             *deckLinkDisplayMode = NULL;
+        //BMDDisplayMode                    displayMode = bmdModeUnknown;
+        int width, height;
 
 #ifdef WIN32
 	// Initialize COM on this thread
@@ -358,14 +355,10 @@ void *decklink_playback_init(char *cfg)
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
                                 BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                return NULL;
+                goto error;
         }
 
-        s->deckLink = NULL;
-        s->deckLinkOutput = NULL;
-
         // Connect to the first DeckLink instance
-        IDeckLink    *deckLink;
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
                 if (dnum == cardIdx){
@@ -378,15 +371,12 @@ void *decklink_playback_init(char *cfg)
 
         if(s->deckLink == NULL) {
                 fprintf(stderr, "No DeckLink PCI card #%d found\n", cardIdx);
-                return NULL;
+                goto error;
         }
 
         // Obtain the audio/video output interface (IDeckLinkOutput)
         if (s->deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->deckLinkOutput) != S_OK) {
-                if(s->deckLinkOutput != NULL)
-                        s->deckLinkOutput->Release();
-                s->deckLink->Release();
-                return NULL;
+                goto error;
         }
 
         // Query the DeckLink for its configuration interface
@@ -394,7 +384,7 @@ void *decklink_playback_init(char *cfg)
         if (result != S_OK)
         {
                 printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
-                return NULL;
+                goto error;
         }
 
         if (s->audio_consumer_levels != -1) {
@@ -404,17 +394,14 @@ void *decklink_playback_init(char *cfg)
                                 fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
                         }
         }
-
-        IDeckLinkDisplayModeIterator     *displayModeIterator;
-        IDeckLinkDisplayMode*             deckLinkDisplayMode;
-        //BMDDisplayMode                    displayMode = bmdModeUnknown;
-        int width, height;
+        deckLinkConfiguration->Release();
+        deckLinkConfiguration = NULL;
 
         // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
         if (FAILED(s->deckLinkOutput->GetDisplayModeIterator(&displayModeIterator)))
         {
                 fprintf(stderr, "Fatal: cannot create display mode iterator [decklink].\n");
-                return NULL;
+                goto error;
         }
 
         // pick first display mode, no matter which it is
@@ -425,12 +412,10 @@ void *decklink_playback_init(char *cfg)
                 deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration, &s->frameRateScale);
         } else {
                 fprintf(stderr, "[decklink] Fatal: cannot get any display mode.\n");
-                return NULL;
+                goto error;
         }
 
         s->frames = 0;
-
-
 
         s->deckLinkOutput->CreateVideoFrame(width, height, width*2, bmdFormat8BitYUV, bmdFrameFlagDefault, &s->deckLinkFrame);
 
@@ -442,10 +427,26 @@ void *decklink_playback_init(char *cfg)
         s->deckLinkOutput->EnableVideoOutput(deckLinkDisplayMode->GetDisplayMode(), bmdVideoOutputFlagDefault);
 
         displayModeIterator->Release();
+        displayModeIterator = NULL;
         deckLinkDisplayMode->Release();
+        deckLinkDisplayMode = NULL;
 
 
         return (void *)s;
+
+error:
+        if (displayModeIterator)
+                displayModeIterator->Release();
+        if (deckLinkDisplayMode)
+                deckLinkDisplayMode->Release();
+        if (deckLinkConfiguration)
+                deckLinkConfiguration->Release();
+        if (s->deckLinkOutput != NULL)
+                s->deckLinkOutput->Release();
+        if (s->deckLink != NULL)
+                s->deckLink->Release();
+        free(s);
+        return NULL;
 }
 
 void decklink_put_frame(void *state, struct audio_frame *frame)

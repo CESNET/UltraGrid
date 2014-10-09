@@ -35,9 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include "host.h"
 #include "config.h"
@@ -64,10 +61,6 @@ extern "C" {
 #endif
 #include <sys/time.h>
 #include <semaphore.h>
-
-#ifdef __cplusplus
-} // END of extern "C"
-#endif
 
 #include "video_capture/deltacast.h"
 #include "video_display.h"
@@ -151,15 +144,28 @@ static void usage(void)
 }
 
 struct vidcap_type *
-vidcap_deltacast_probe(void)
+vidcap_deltacast_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DELTACAST_ID;
 		vt->name        = "deltacast";
 		vt->description = "DELTACAST card";
+
+                if (verbose) {
+                        ULONG             Result,DllVersion,NbBoards;
+                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+                        if (Result == VHDERR_NOERROR) {
+                                vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
+                                vt->card_count = NbBoards;
+                                for (ULONG i = 0; i < NbBoards; ++i) {
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %d", i);
+                                }
+                        }
+                }
 	}
 	return vt;
 }
@@ -187,7 +193,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Packing;
         ULONG             Status = 0;
         int               i;
-        ULONG             Interface;
+        ULONG             Interface = 0;
 
         /* Wait for channel locked */
         Result = VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_STATUS, &Status);
@@ -284,10 +290,14 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                         throw delta_init_exception();
                 }
         }
-        if(s->frame->color_spec == v210 || s->frame->color_spec == RAW)
+        if(s->frame->color_spec == v210 || s->frame->color_spec == RAW) {
                 Packing = VHD_BUFPACK_VIDEO_YUV422_10;
-        if(s->frame->color_spec == UYVY)
+        } else if(s->frame->color_spec == UYVY) {
                 Packing = VHD_BUFPACK_VIDEO_YUV422_8;
+        } else {
+                fprintf(stderr, "[DELTACAST] Unsupported pixel format\n");
+                throw delta_init_exception();
+        }
         printf("[DELTACAST] Pixel format '%s' selected.\n", get_codec_name(s->frame->color_spec));
         Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, Packing);
         if (Result != VHDERR_NOERROR) {
@@ -341,11 +351,18 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 void *
 vidcap_deltacast_init(const struct vidcap_params *params)
 {
-	struct vidcap_deltacast_state *s;
+	struct vidcap_deltacast_state *s = nullptr;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
 
 	printf("vidcap_deltacast_init\n");
+
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
+        if (init_fmt && strcmp(init_fmt, "help") == 0) {
+                free(init_fmt);
+                usage();
+                return &vidcap_init_noerr;
+        }
 
         s = (struct vidcap_deltacast_state *) calloc(1, sizeof(struct vidcap_deltacast_state));
 
@@ -366,14 +383,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        char *init_fmt = strdup(vidcap_params_get_fmt(params));
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
-                usage();
-                return &vidcap_init_noerr;
-        }
-
-        if(init_fmt)
-        {
+        if (init_fmt) {
                 char *save_ptr = NULL;
                 char *tok;
                 char *tmp = init_fmt;
@@ -406,6 +416,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
                 }
         }
         free(init_fmt);
+        init_fmt = NULL;
 
         printf("[DELTACAST] Selected device %d\n", BrdId);
 
@@ -463,15 +474,21 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 	return s;
 
 error:
-        if(s->StreamHandle) {
-                /* Close stream handle */
-                VHD_CloseStreamHandle(s->StreamHandle);
+        free(init_fmt);
+
+        if (s) {
+                if(s->StreamHandle) {
+                        /* Close stream handle */
+                        VHD_CloseStreamHandle(s->StreamHandle);
+                }
+                if(s->BoardHandle) {
+                        /* Re-establish RX0-TX0 by-pass relay loopthrough */
+                        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
+                        VHD_CloseBoardHandle(s->BoardHandle);
+                }
+                vf_free(s->frame);
         }
-        if(s->BoardHandle) {
-                /* Re-establish RX0-TX0 by-pass relay loopthrough */
-                VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
-                VHD_CloseBoardHandle(s->BoardHandle);
-        }
+
         free(s);
         return NULL;
 }

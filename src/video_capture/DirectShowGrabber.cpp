@@ -409,15 +409,18 @@ error:
 	return;
 }
 
-struct vidcap_type * vidcap_dshow_probe(void)
+struct vidcap_type * vidcap_dshow_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_DSHOW_ID;
 		vt->name        = "dshow";
 		vt->description = "DirectShow Capture";
+
+                /// @todo add card enmumeration
 	}
 	return vt;
 }

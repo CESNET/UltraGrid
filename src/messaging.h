@@ -108,9 +108,9 @@ struct response *new_response(int status, char *optional_message);
 typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);
 
 void module_check_undelivered_messages(struct module *);
-struct response *send_message(struct module *, const char *path, struct message *msg);
-struct response *send_message_to_receiver(struct module *, struct message *msg);
-struct message *new_message(size_t length);
+struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
+struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
+struct message *new_message(size_t length) __attribute__ ((warn_unused_result));
 void free_message(struct message *m);
 const char *response_status_to_text(int status);
 

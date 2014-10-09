@@ -40,6 +40,7 @@
 
 #include <map>
 #include <string>
+#include <memory>
 
 #include "module.h"
 
@@ -76,7 +77,7 @@ class video_rxtx {
 public:
         video_rxtx(std::map<std::string, param_u> const &);
         virtual ~video_rxtx();
-        void send(struct video_frame *);
+        void send(std::shared_ptr<struct video_frame>);
         static const char *get_name(enum rxtx_protocol);
         static void *receiver_thread(void *arg) {
                 video_rxtx *rxtx = static_cast<video_rxtx *>(arg);
@@ -92,8 +93,9 @@ protected:
         bool m_paused;
         struct module m_sender_mod;
         struct module m_receiver_mod;
+        int m_rxtx_mode;
 private:
-        virtual void send_frame(struct video_frame *) = 0;
+        virtual void send_frame(std::shared_ptr<video_frame>) = 0;
         virtual void *(*get_receiver_thread())(void *arg) = 0;
         static void *sender_thread(void *args);
         void *sender_loop();

@@ -17,8 +17,10 @@
 #include <fcntl.h>
 
 #include "control_socket.h"
+#include "host.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
+#include "messaging.h"
 #include "module.h"
 #include "stats.h"
 #include "utils/misc.h"
@@ -26,8 +28,6 @@
 
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
-
-long packet_rate = 13600;
 
 static pthread_t main_thread_id;
 struct forward;
@@ -39,12 +39,15 @@ struct replica {
     const char *host;
     unsigned short port;
 
-    enum {
+    enum type_t {
+        NONE,
         USE_SOCK,
         RECOMPRESS
-    } type;
+    };
+    enum type_t type;
     int sock;
     void *recompress;
+    volatile enum type_t change_to_type;
 };
 
 struct hd_rum_translator_state {
@@ -68,13 +71,13 @@ struct hd_rum_translator_state {
  * Prototypes
  */
 static int output_socket(unsigned short port, const char *host, int bufsize);
-static ssize_t replica_write(struct replica *s, void *buf, size_t count);
 static void replica_done(struct replica *s);
 static struct item *qinit(int qsize);
 static int buffer_size(int sock, int optname, int size);
 static void *writer(void *arg);
 static void signal_handler(int signal);
 static void usage();
+void exit_uv(int status);
 
 static volatile int should_exit = false;
 
@@ -98,11 +101,6 @@ static void signal_handler(int signal)
 #define SIZE    10000
 
 #define REPLICA_MAGIC 0xd2ff3323
-
-static ssize_t replica_write(struct replica *s, void *buf, size_t count)
-{
-        return send(s->sock, buf, count, 0);
-}
 
 static void replica_done(struct replica *s)
 {
@@ -160,7 +158,7 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
 {
     int s;
     struct addrinfo hints;
-    struct addrinfo *res;
+    struct addrinfo *res = NULL;
     char saddr[INET_ADDRSTRLEN];
     char p[6];
 
@@ -200,7 +198,36 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
         exit(2);
     }
 
+    freeaddrinfo(res);
+
     return s;
+}
+
+static struct response *change_replica_type_callback(struct module *mod, struct message *msg)
+{
+    struct replica *s = (struct replica *) mod->priv_data;
+
+    struct msg_universal *data = (struct msg_universal *) msg;
+
+    enum type_t new_type;
+    if (strcasecmp(data->text, "sock") == 0) {
+        new_type = USE_SOCK;
+    } else if (strcasecmp(data->text, "recompress") == 0) {
+        new_type = RECOMPRESS;
+    } else {
+        new_type = NONE;
+    }
+    free_message(msg);
+
+    if (new_type == NONE) {
+        return new_response(RESPONSE_BAD_REQUEST, NULL);
+    }
+
+    while (s->change_to_type != NONE)
+        ;
+    s->change_to_type = new_type;
+
+    return new_response(RESPONSE_OK, NULL);
 }
 
 static void *writer(void *arg)
@@ -210,14 +237,25 @@ static void *writer(void *arg)
         (struct hd_rum_translator_state *) arg;
 
     while (1) {
+        for (i = 0; i < s->host_count; i++) {
+            if (s->replicas[i].change_to_type != NONE) {
+                s->replicas[i].type = s->replicas[i].change_to_type;
+                hd_rum_decompress_set_active(s->decompress, s->replicas[i].recompress,
+                        s->replicas[i].change_to_type == RECOMPRESS);
+                s->replicas[i].change_to_type = NONE;
+            }
+        }
+
         while (s->qhead != s->qtail) {
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
             }
             for (i = 0; i < s->host_count; i++) {
                 if(s->replicas[i].type == USE_SOCK) {
-                    replica_write(&s->replicas[i],
-                            s->qhead->buf, s->qhead->size);
+                    ssize_t ret = send(s->replicas[i].sock, s->qhead->buf, s->qhead->size, 0);
+                    if (ret < 0) {
+                        perror("Hd-rum-translator send");
+                    }
                 }
             }
 
@@ -248,7 +286,8 @@ static void usage(const char *progname) {
         printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
                 progname);
         printf("\twhere global_opts may be:\n"
-                "\t\t--control-port <port_number> - control port to connect to\n");
+                "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally server/client (default)\n"
+                "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
                 "\t\t-c <compression> - compression\n"
@@ -265,19 +304,35 @@ struct host_opts {
     int mtu;
     char *compression;
     char *fec;
-    int64_t packet_rate;
+    int64_t bitrate;
 };
 
-static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
-        struct host_opts **host_opts, int *host_opts_count, int *control_port)
+static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
+        struct host_opts **host_opts, int *host_opts_count, int *control_port, int *control_connection_type)
 {
     int start_index = 1;
 
     while(argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
-            *control_port = atoi(argv[++start_index]);
+            char *item = argv[++start_index];
+            *control_port = atoi(item);
+            *control_connection_type = 1;
+            if (strchr(item, ':')) {
+                *control_connection_type = atoi(strchr(item, ':') + 1);
+            }
+        } else if(strcmp(argv[start_index], "--capabilities") == 0) {
+            print_capabilities(CAPABILITY_COMPRESS);
+            return false;
+        } else if(strcmp(argv[start_index], "--help") == 0) {
+            usage(argv[0]);
+            return false;
         }
         start_index++;
+    }
+
+    if (argc < start_index + 2) {
+        usage(argv[0]);
+        return false;
     }
 
     *bufsize = argv[start_index];
@@ -308,6 +363,12 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     }
 
     *host_opts = calloc(*host_opts_count, sizeof(struct host_opts));
+    // default values
+    for(int i = 0; i < *host_opts_count; ++i) {
+        (*host_opts)[i].bitrate = RATE_UNLIMITED;
+        (*host_opts)[i].mtu = 1500;
+    }
+
     int host_idx = 0;
     for(int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
@@ -326,23 +387,16 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                     break;
                 case 'l':
                     if (strcmp(argv[i + 1], "unlimited") == 0) {
-                        (*host_opts)[host_idx].packet_rate = 0;
+                        (*host_opts)[host_idx].bitrate = RATE_UNLIMITED;
+                    } else if (strcmp(argv[i + 1], "auto") == 0) {
+                        (*host_opts)[host_idx].bitrate = RATE_AUTO;
                     } else {
-                        (*host_opts)[host_idx].packet_rate = unit_evaluate(argv[i + 1]);
+                        (*host_opts)[host_idx].bitrate = unit_evaluate(argv[i + 1]);
                     }
                     break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
                     exit(EXIT_FAIL_USAGE);
-            }
-            // make it correct
-            if ((*host_opts)[host_idx].packet_rate != 0) {
-                int mtu = (*host_opts)[host_idx].mtu;
-                if (mtu == 0) {
-                    mtu = 1500;
-                }
-                (*host_opts)[host_idx].packet_rate = 1000ull *
-                    mtu * 8 / (*host_opts)[host_idx].packet_rate;
             }
             i += 1;
         } else {
@@ -350,6 +404,8 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
             host_idx += 1;
         }
     }
+
+    return true;
 }
 
 static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
@@ -392,6 +448,7 @@ int main(int argc, char **argv)
     struct host_opts *hosts;
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
+    int control_connection_type = 0;
     struct control_state *control_state = NULL;
 #ifdef WIN32
     WSADATA wsaData;
@@ -408,11 +465,14 @@ int main(int argc, char **argv)
     }
 
 #endif
-
-    if (argc < 4) {
+    if (argc == 1) {
         usage(argv[0]);
-        return EXIT_FAIL_USAGE;
+        return false;
     }
+
+
+    uv_argc = argc;
+    uv_argv = argv;
 
     hd_rum_translator_state_init(&state);
 
@@ -434,7 +494,12 @@ int main(int argc, char **argv)
     signal(SIGABRT, signal_handler);
 #endif
 
-    parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
+    bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port,
+            &control_connection_type);
+
+    if (ret == false) {
+        return EXIT_SUCCESS;
+    }
 
     if (host_count == 0) {
         usage(argv[0]);
@@ -495,18 +560,27 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if(control_init(control_port, control_connection_type, &control_state, &state.mod) != 0) {
+        fprintf(stderr, "Warning: Unable to create remote control.\n");
+        return EXIT_FAILURE;
+    }
+    control_start(control_state);
+
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init();
+    state.decompress = hd_rum_decompress_init(&state.mod);
     if(!state.decompress) {
         return EXIT_INIT_PORT;
     }
 
     state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
-        int mtu = 1500;
-        if(hosts[i].mtu) {
-            mtu = hosts[i].mtu;
+        int packet_rate;
+        if (hosts[i].bitrate != RATE_AUTO && hosts[i].bitrate != RATE_UNLIMITED) {
+                packet_rate = compute_packet_rate(hosts[i].bitrate, hosts[i].mtu);
+        } else {
+                packet_rate = hosts[i].bitrate;
         }
+
         int tx_port = port;
         if(hosts[i].port) {
             tx_port = hosts[i].port;
@@ -519,6 +593,9 @@ int main(int argc, char **argv)
                 bufsize);
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
+        state.replicas[i].mod.msg_callback = change_replica_type_callback;
+        state.replicas[i].mod.priv_data = &state.replicas[i];
+        module_register(&state.replicas[i].mod, &state.mod);
 
         if(hosts[i].compression == NULL) {
             state.replicas[i].type = USE_SOCK;
@@ -526,14 +603,14 @@ int main(int argc, char **argv)
             char *fec = NULL;
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
-                    0, tx_port, mtu, fec, hosts[i].packet_rate);
-            hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
+                    0, tx_port, hosts[i].mtu, fec, packet_rate);
+            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, false);
         } else {
             state.replicas[i].type = RECOMPRESS;
 
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, hosts[i].compression,
-                    0, tx_port, mtu, hosts[i].fec, hosts[i].packet_rate);
+                    0, tx_port, hosts[i].mtu, hosts[i].fec, packet_rate);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
@@ -541,16 +618,7 @@ int main(int argc, char **argv)
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them
-            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress);
-        }
-
-        module_register(&state.replicas[i].mod, &state.mod);
-    }
-
-    if(control_init(control_port, 0, &control_state, &state.mod) != 0) {
-        fprintf(stderr, "Warning: Unable to create remote control.\n");
-        if(control_port != CONTROL_DEFAULT_PORT) {
-            return EXIT_FAILURE;
+            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, true);
         }
     }
 
@@ -624,7 +692,6 @@ int main(int argc, char **argv)
     pthread_mutex_unlock(&state.qempty_mtx);
 
     stats_destroy(stat_received);
-    control_done(control_state);
 
     pthread_join(thread, NULL);
 
@@ -637,6 +704,8 @@ int main(int argc, char **argv)
             replica_done(&state.replicas[i]);
         }
     }
+
+    control_done(control_state);
 
     hd_rum_translator_state_destroy(&state);
 

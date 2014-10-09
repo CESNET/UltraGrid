@@ -51,10 +51,18 @@
 
 #define VIDCAP_DVS_ID	0x10203040
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct audio_frame;
 
-struct vidcap_type      *vidcap_dvs_probe(void);
+struct vidcap_type      *vidcap_dvs_probe(bool verbose);
 void			*vidcap_dvs_init(const struct vidcap_params *params);
 void			 vidcap_dvs_done(void *state);
 struct video_frame	*vidcap_dvs_grab(void *state, struct audio_frame **audio);
+
+#ifdef __cplusplus
+}
+#endif
 

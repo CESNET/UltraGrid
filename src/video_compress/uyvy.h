@@ -1,11 +1,9 @@
 /**
  * @file   video_compress/uyvy.h
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @brief  This is an umbrella header for video functions.
  */
 /*
- * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * Copyright (c) 2012-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,18 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
-
-struct module;
-struct video_frame;
-struct video_compress_params;
-
-struct module       *uyvy_compress_init(struct module *parent, const struct video_compress_params *params);
-struct video_frame  *uyvy_compress(struct module *mod, struct video_frame * tx);
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+struct compress_info_t;
+extern compress_info_t uyvy_info;
 

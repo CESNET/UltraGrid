@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,12 @@
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 
+#include <memory>
+
+using namespace std;
+
+namespace {
+
 struct state_video_compress_rtdxt {
         struct module module_data;
 
@@ -64,7 +70,7 @@ struct state_video_compress_rtdxt {
         int encoder_count;
 
         decoder_t decoder;
-        char *decoded;
+        unique_ptr<char []> decoded;
         unsigned int configured:1;
         unsigned int interlaced_input:1;
         codec_t color_spec;
@@ -73,7 +79,7 @@ struct state_video_compress_rtdxt {
 
         struct gl_context gl_context;
 
-        video_frame_pool<default_data_allocator> *pool;
+        video_frame_pool<default_data_allocator> pool;
 };
 
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame);
@@ -192,12 +198,23 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         } else {
                 s->interlaced_input = FALSE;
         }
-        s->pool->reconfigure(compressed_desc, data_len);
+        s->pool.reconfigure(compressed_desc, data_len);
 
-        s->decoded = (char *) malloc(4 * compressed_desc.width * compressed_desc.height);
+        s->decoded = unique_ptr<char []>(new char[4 * compressed_desc.width * compressed_desc.height]);
 
         s->configured = TRUE;
         return TRUE;
+}
+
+bool dxt_is_supported()
+{
+        struct gl_context gl_context;
+        if (!init_gl_context(&gl_context, GL_CONTEXT_ANY)) {
+                return false;
+        } else {
+                destroy_gl_context(&gl_context);
+                return true;
+        }
 }
 
 struct module *dxt_glsl_compress_init(struct module *parent, const struct video_compress_params *params)
@@ -214,16 +231,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
                 return &compress_init_noerr;
         }
 
-        s = (struct state_video_compress_rtdxt *) calloc(1, sizeof(struct state_video_compress_rtdxt));
-
-        s->decoded = NULL;
-
-        s->pool = new video_frame_pool<default_data_allocator>();
-
-        if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
-                fprintf(stderr, "[RTDXT] Error initializing GL context");
-                return NULL;
-        }
+        s = new state_video_compress_rtdxt();
 
         if (strcasecmp(opts, "DXT5") == 0) {
                 s->color_spec = DXT5;
@@ -233,10 +241,15 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
                 s->color_spec = DXT1;
         } else {
                 fprintf(stderr, "Unknown compression: %s\n", opts);
+                delete s;
                 return NULL;
         }
 
-        s->configured = FALSE;
+        if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
+                fprintf(stderr, "[RTDXT] Error initializing GL context");
+                delete s;
+                return NULL;
+        }
 
         gl_context_make_current(NULL);
 
@@ -249,10 +262,8 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
         return &s->module_data;
 }
 
-struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * tx)
+shared_ptr<video_frame> dxt_glsl_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_frame_disposer(tx);
-
         struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
@@ -263,19 +274,19 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
 
         if(!s->configured) {
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret)
                         return NULL;
         }
 
-        struct video_frame *out_frame = s->pool->get_frame();
+        shared_ptr<video_frame> out_frame = s->pool.get_frame();
 
         for (x = 0; x < tx->tile_count; ++x) {
-                struct tile *in_tile = vf_get_tile(tx, x);
-                struct tile *out_tile = vf_get_tile(out_frame, x);
+                struct tile *in_tile = vf_get_tile(tx.get(), x);
+                struct tile *out_tile = vf_get_tile(out_frame.get(), x);
 
                 line1 = (unsigned char *) in_tile->data;
-                line2 = (unsigned char *) s->decoded;
+                line2 = (unsigned char *) s->decoded.get();
 
                 for (i = 0; i < (int) in_tile->height; ++i) {
                         s->decoder(line2, line1, s->encoder_input_linesize,
@@ -285,11 +296,11 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
                 }
 
                 if(s->interlaced_input)
-                        vc_deinterlace((unsigned char *) s->decoded, s->encoder_input_linesize,
+                        vc_deinterlace((unsigned char *) s->decoded.get(), s->encoder_input_linesize,
                                         in_tile->height);
 
                 dxt_encoder_compress(s->encoder[x],
-                                (unsigned char *) s->decoded,
+                                (unsigned char *) s->decoded.get(),
                                 (unsigned char *) out_tile->data);
         }
 
@@ -309,12 +320,21 @@ static void dxt_glsl_compress_done(struct module *mod)
                 }
         }
 
-        free(s->decoded);
-
-        delete s->pool;
-
         destroy_gl_context(&s->gl_context);
-
-        free(s);
+        delete s;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t rtdxt_info = {
+        "RTDXT",
+        dxt_glsl_compress_init,
+        dxt_glsl_compress,
+        NULL,
+        dxt_is_supported,
+        {
+                { "DXT1", 35, 250*1000*1000, {75, 0.3, 25}, {15, 0.1, 10} },
+                { "DXT5", 50, 500*1000*1000, {75, 0.3, 35}, {15, 0.1, 20} },
+        }
+};
 

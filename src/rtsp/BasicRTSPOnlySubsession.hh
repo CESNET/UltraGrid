@@ -48,18 +48,10 @@
 #include <ServerMediaSession.hh>
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "rtsp/rtsp_utils.h"
 #include "audio/audio.h"
 #include "module.h"
 #include "control_socket.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 // #ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH
 // #include <OnDemandServerMediaSubsession.hh>
@@ -112,7 +104,7 @@ protected:
         unsigned char rtpChannelId,
         unsigned char rtcpChannelId,
         netAddressBits& destinationAddress,
-        u_int8_t& destinationTTL,
+        uint8_t& destinationTTL,
         Boolean& isMulticast,
         Port& serverRTPPort,
         Port& serverRTCPPort,

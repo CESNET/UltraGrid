@@ -267,11 +267,12 @@ struct vidcap_swmix_state {
 
 
 struct vidcap_type *
-vidcap_swmix_probe(void)
+vidcap_swmix_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_SWMIX_ID;
 		vt->name        = "swmix";
@@ -928,7 +929,6 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 
         tmp = parse_string = strdup(fmt);
         while((item = strtok_r(tmp, ":", &save_ptr))) {
-                bool found = false;
                 switch (token_nr) {
                         case 0:
                                 if(strcasecmp(item, "file") == 0)
@@ -949,14 +949,10 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 }
                                 break;
                         case 3:
-                                for (int i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(item, codec_info[i].name) == 0) {
-                                                *color_spec = codec_info[i].codec;
-                                                found = true;
-                                        }
-                                }
-                                if(!found) {
+                                *color_spec = get_codec_from_name(item);
+                                if (*color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
+                                        free(parse_string);
                                         return PARSE_ERROR;
                                 }
                                 break;
@@ -1097,6 +1093,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         char *init_fmt = strdup(vidcap_params_get_fmt(params));
         if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
+                free(init_fmt);
                 goto error;
         }
         free(init_fmt);
@@ -1133,11 +1130,14 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
+                free(s);
                 return NULL;
         }
 
-        if(config_file)
+        if (config_file) {
                 fclose(config_file);
+                config_file = nullptr;
+        }
 
         format = GL_RGBA;
         if(desc.color_spec == RGB) {
@@ -1186,6 +1186,9 @@ vidcap_swmix_init(const struct vidcap_params *params)
 	return s;
 
 error:
+        if (config_file) {
+                fclose(config_file);
+        }
         if(s->slaves) {
                 free(s->slaves);
         }

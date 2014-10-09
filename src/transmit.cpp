@@ -67,7 +67,6 @@
 #include "perf.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
-#include "audio/utils.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
 #include "rtp/fec.h"
@@ -180,7 +179,9 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM percents %d %d %f",
                                                 data_len, tx->avg_len, tx->max_loss);
                                 msg->type = SENDER_MSG_CHANGE_FEC;
-                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
+                                                (struct message *) msg);
+                                resp->deleter(resp);
                                 tx->avg_len_last = tx->avg_len;
                         }
                 }
@@ -296,7 +297,9 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
                                                 fec_cfg ? fec_cfg : "");
                                 msg->type = SENDER_MSG_CHANGE_FEC;
-                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
+                                                (struct message *) msg);
+                                resp->deleter(resp);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
@@ -633,15 +636,15 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
  * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
  * not sensitive to packet duplication. Otherwise, we can get into serious problems.
  */
-void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
+void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer)
 {
         int pt; /* PT set for audio in our packet format */
         unsigned int pos = 0u,
                      m = 0u;
         int channel;
-        char *chan_data;
+        const char *chan_data;
         int data_len;
-        char *data;
+        const char *data;
         // see definition in rtp_callback.h
         uint32_t hdr_data[100];
         uint32_t *audio_hdr = hdr_data;
@@ -673,9 +676,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 pt = PT_AUDIO; /* PT set for audio in our packet format */
         }
 
-        for(channel = 0; channel < buffer->ch_count; ++channel)
+        for(channel = 0; channel < buffer->get_channel_count(); ++channel)
         {
-                chan_data = buffer->data[channel];
+                chan_data = buffer->get_data(channel);
                 pos = 0u;
 
                 if(tx->fec_scheme == FEC_MULT) {
@@ -691,20 +694,36 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 tmp |= tx->buffer; /* bits 10-31 */
                 audio_hdr[0] = htonl(tmp);
 
-                audio_hdr[2] = htonl(buffer->data_len[channel]);
+                audio_hdr[2] = htonl(buffer->get_data_len(channel));
 
                 /* fourth word */
-                tmp = (buffer->bps * 8) << 26;
-                tmp |= buffer->sample_rate;
+                tmp = (buffer->get_bps() * 8) << 26;
+                tmp |= buffer->get_sample_rate();
                 audio_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                audio_hdr[4] = htonl(get_audio_tag(buffer->codec));
+                audio_hdr[4] = htonl(get_audio_tag(buffer->get_codec()));
 
                 int packet_rate = tx->packet_rate;
                 if (packet_rate == RATE_AUTO) {
-                        /// @todo add automatic packet rate management also for audio. We currently don't
-                        /// know actual audio buffer length (if compressed)
+                        /**
+                         * @todo
+                         * Following code would actually work but seems to be useless in most of cases (eg.
+                         * PCM 2 channels 2 Bps takes 5 std. Eth frames). On the other hand it could cause
+                         * unexpectable problems (I'd write them here but if I'd expect them they wouldn't
+                         * be unexpectable.)
+                         */
+#if 0
+                        double time_for_frame = buffer->get_duration() / buffer->get_channel_count();
+                        if (time_for_frame > 0.0) {
+                                long long req_bitrate = buffer->get_data_len(channel) * 8 / time_for_frame * tx->mult_count;
+                                // adjust computed value to 3
+                                req_bitrate = req_bitrate * 3;
+                                packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
+                        } else {
+                                packet_rate = 0;
+                        }
+#endif
                         packet_rate = 0;
                 }
 
@@ -715,9 +734,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 
                         data = chan_data + pos;
                         data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
-                        if(pos + data_len >= (unsigned int) buffer->data_len[channel]) {
-                                data_len = buffer->data_len[channel] - pos;
-                                if(channel == buffer->ch_count - 1)
+                        if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
+                                data_len = buffer->get_data_len(channel) - pos;
+                                if(channel == buffer->get_channel_count() - 1)
                                         m = 1;
                         }
                         audio_hdr[1] = htonl(pos);
@@ -730,7 +749,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 if(tx->encryption) {
                                         crypto_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
                                         data_len = openssl_encrypt(tx->encryption,
-                                                        data, data_len,
+                                                        const_cast<char *>(data), data_len,
                                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                                         encrypted_data);
                                         data = encrypted_data;
@@ -739,7 +758,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
                                       0,        /* contributing sources length */
                                       (char *) audio_hdr, rtp_hdr_len,
-                                      data, data_len,
+                                      const_cast<char *>(data), data_len,
                                       0, 0, 0);
                         }
 
@@ -750,12 +769,14 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                                 mult_index = (mult_index + 1) % tx->mult_count;
                         }
 
-                        do {
-                                GET_STOPTIME;
-                                GET_DELTA;
-                                if (delta < 0)
-                                        delta += 1000000000L;
-                        } while (packet_rate - delta > 0);
+                        if (pos < buffer->get_data_len(channel)) {
+                                do {
+                                        GET_STOPTIME;
+                                        GET_DELTA;
+                                        if (delta < 0)
+                                                delta += 1000000000L;
+                                } while (packet_rate - delta > 0);
+                        }
 
                         /* when trippling, we need all streams goes to end */
                         if(tx->fec_scheme == FEC_MULT) {
@@ -763,7 +784,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                         }
 
                       
-                } while (pos < (unsigned int) buffer->data_len[channel]);
+                } while (pos < buffer->get_data_len(channel));
         }
 
         tx->buffer ++;
@@ -776,9 +797,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  *                       	as the mulaw and A-law standards (dynamic or std PT).
  */
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
-		audio_frame2 * buffer) {
+		const audio_frame2 * buffer) {
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
-	assert(buffer->codec == AC_MULAW || buffer->codec == AC_ALAW || buffer->codec == AC_OPUS);
+	assert(buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW || buffer->get_codec() == AC_OPUS);
 
 	int pt;
 	uint32_t ts;
@@ -789,10 +810,10 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
 	// Other channels or Hz goes to DynRTP-Type97
-	if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
-		if (buffer->codec == AC_MULAW)
+	if (buffer->get_channel_count() == 1 && buffer->get_sample_rate() == 8000) {
+		if (buffer->get_codec() == AC_MULAW)
 			pt = PT_ITU_T_G711_PCMU;
-		else if (buffer->codec == AC_ALAW)
+		else if (buffer->get_codec() == AC_ALAW)
 			pt = PT_ITU_T_G711_PCMA;
 		else pt = PT_DynRTP_Type97;
 	} else {
@@ -800,10 +821,10 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	}
 
 	// The sizes for the different audio_frame2 channels must be the same.
-	for (int i = 1; i < buffer->ch_count; i++)
-		assert(buffer->data_len[0] == buffer->data_len[i]);
+	for (int i = 1; i < buffer->get_channel_count(); i++)
+		assert(buffer->get_data_len(0) == buffer->get_data_len(i));
 
-	int data_len = buffer->data_len[0] * buffer->ch_count; 	/* Number of samples to send 			*/
+	int data_len = buffer->get_data_len(0) * buffer->get_channel_count(); 	/* Number of samples to send 			*/
 	int payload_size = tx->mtu - 40; 						/* Max size of an RTP payload field 	*/
 
 	init_tx_mulaw_buffer();
@@ -811,17 +832,17 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	int ch, pos = 0, count = 0, pointerToSend = 0;
 
 	do {
-		for (ch = 0; ch < buffer->ch_count; ch++) {
-			memcpy(curr_sample, buffer->data[ch] + pos,
-					buffer->bps * sizeof(char));
-			curr_sample += buffer->bps * sizeof(char);
-			count += buffer->bps * sizeof(char);
+		for (ch = 0; ch < buffer->get_channel_count(); ch++) {
+			memcpy(curr_sample, buffer->get_data(ch) + pos,
+					buffer->get_bps() * sizeof(char));
+			curr_sample += buffer->get_bps() * sizeof(char);
+			count += buffer->get_bps() * sizeof(char);
 		}
-		pos += buffer->bps * sizeof(char);
+		pos += buffer->get_bps() * sizeof(char);
 
-		if ((pos * buffer->ch_count) % payload_size == 0) {
+		if ((pos * buffer->get_channel_count()) % payload_size == 0) {
 			// Update first sample timestamp
-			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->ch_count);
+			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->get_channel_count());
 			gettimeofday(&curr_time, NULL);
 			rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
 			ts_prev = ts;
@@ -833,9 +854,9 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		}
 	} while (count < data_len);
 
-	if ((pos * buffer->ch_count) % payload_size != 0) {
+	if ((pos * buffer->get_channel_count()) % payload_size != 0) {
 		// Update first sample timestamp
-		ts =	get_std_audio_local_mediatime((double)((pos * buffer->ch_count) % payload_size) / (double)buffer->ch_count);
+		ts =	get_std_audio_local_mediatime((double)((pos * buffer->get_channel_count()) % payload_size) / (double)buffer->get_channel_count());
 		gettimeofday(&curr_time, NULL);
 		rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
 		ts_prev = ts;
@@ -843,7 +864,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		rtp_send_data(rtp_session, ts, pt, 0, 0, 	/* contributing sources 		*/
 		0, 													/* contributing sources length 	*/
 		data_buffer_mulaw + pointerToSend,
-				(pos * buffer->ch_count) % payload_size, 0, 0, 0);
+				(pos * buffer->get_channel_count()) % payload_size, 0, 0, 0);
 	}
 
 	platform_spin_unlock(&tx->spin);
@@ -984,7 +1005,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	static uint32_t ts_prev = 0;
 	uint32_t ts = 0;
 
-        assert(frame->tile_count = 1); // std transmit doesn't handle more than one tile
+        assert(frame->tile_count == 1); // std transmit doesn't handle more than one tile
 	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
 	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
 

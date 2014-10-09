@@ -17,6 +17,7 @@
 #include "win32_gl_common.h"
 #endif
 
+#include "debug.h"
 #include "gl_context.h"
 
 /**
@@ -34,13 +35,13 @@ bool init_gl_context(struct gl_context *context, int which) {
 #ifdef HAVE_LINUX
         x11_enter_thread();
         if(which == GL_CONTEXT_ANY) {
-                printf("Trying OpenGL 3.1 first.\n");
+                debug_msg("Trying OpenGL 3.1 first.\n");
                 context->context = glx_init(MK_OPENGL_VERSION(3,1));
                 context->legacy = FALSE;
         }
         if(!context->context) {
                 if(which != GL_CONTEXT_LEGACY) {
-                        fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
+                        debug_msg("OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
                 }
                 context->context = glx_init(OPENGL_VERSION_UNSPECIFIED);
                 context->legacy = TRUE;
@@ -51,10 +52,10 @@ bool init_gl_context(struct gl_context *context, int which) {
 #elif defined HAVE_MACOSX
         if(which == GL_CONTEXT_ANY) {
                 if(get_mac_kernel_version_major() >= 11) {
-                        printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
+                        debug_msg("Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
                         context->context = mac_gl_init(MAC_GL_PROFILE_3_2);
                         if(!context->context) {
-                                fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
+                                debug_msg("OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
                         } else {
                                 context->legacy = FALSE;
                         }
@@ -98,25 +99,25 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
         glCompileShader(fhandle);
         /* Print compile log */
         glGetShaderInfoLog(fhandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
+        debug_msg("Compile Log: %s\n", log);
         /* vertex */
         glShaderSource(vhandle, 1, &vprogram, NULL);
         glCompileShader(vhandle);
         /* Print compile log */
         glGetShaderInfoLog(vhandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
+        debug_msg("Compile Log: %s\n", log);
 
         /* attach and link */
         glAttachShader(phandle, vhandle);
         glAttachShader(phandle, fhandle);
         glLinkProgram(phandle);
 
-        printf("Program compilation/link status: ");
+        debug_msg("Program compilation/link status: ");
         gl_check_error();
 
         glGetProgramInfoLog(phandle, 32768, NULL, (GLchar*)log);
         if ( strlen(log) > 0 )
-                printf("Link Log: %s\n", log);
+                debug_msg("Link Log: %s\n", log);
 
         // mark shaders for deletion when program is deleted
         glDeleteShader(vhandle);

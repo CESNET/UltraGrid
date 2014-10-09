@@ -146,6 +146,7 @@ static fd_t create_internal_port(int *port)
 {
         fd_t sock;
         sock = socket(AF_INET6, SOCK_STREAM, 0);
+        assert(sock != INVALID_SOCKET);
         struct sockaddr_in6 s_in;
         memset(&s_in, 0, sizeof(s_in));
         s_in.sin6_family = AF_INET6;
@@ -184,6 +185,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         if(s->connection_type == SERVER) {
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+                assert(s->socket_fd != INVALID_SOCKET);
                 int val = 1;
                 setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 (sso_val_type) &val, sizeof(val));
@@ -201,6 +203,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 listen(s->socket_fd, MAX_CLIENTS);
         } else {
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+                assert(s->socket_fd != INVALID_SOCKET);
                 struct addrinfo hints, *res, *res0;
                 int err;
 
@@ -212,8 +215,8 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 err = getaddrinfo("127.0.0.1", port_str, &hints, &res0);
 
                 if(err) {
-                        return -1;
                         fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
+                        return -1;
                 }
                 bool connected = false;
 
@@ -316,7 +319,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 
                 resp =
                         send_message(s->root_module, path, (struct message *) msg);
-                send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                struct response *resp_audio =
+                        send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                resp_audio->deleter(resp_audio);
         } else if (prefix_matches(message, "receiver-port ")) {
                 struct msg_receiver *msg =
                         (struct msg_receiver *)
@@ -341,6 +346,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                         strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else {
                         resp = new_response(RESPONSE_NOT_FOUND, strdup("unknown media type"));
+                        free(msg);
                 }
 
                 if(!resp) {
@@ -414,7 +420,10 @@ static void send_response(fd_t fd, struct response *resp)
         }
         strcat(buffer, "\r\n");
 
-        write_all(fd, buffer, strlen(buffer));
+        ssize_t ret = write_all(fd, buffer, strlen(buffer));
+        if (ret < 0) {
+                perror("Unable to write response");
+        }
 
         resp->deleter(resp);
 }
@@ -465,6 +474,7 @@ static fd_t connect_to_internal_channel(int local_port)
         s_in.sin6_addr = in6addr_loopback;
         s_in.sin6_port = htons(local_port);
         fd_t fd = socket(AF_INET6, SOCK_STREAM, 0);
+        assert(fd != INVALID_SOCKET);
         int ret;
         ret = connect(fd, (struct sockaddr *) &s_in,
                                 sizeof(s_in));
@@ -654,9 +664,13 @@ void control_done(struct control_state *s)
         module_done(&s->mod);
 
         if(s->started) {
-                write_all(s->internal_fd[0], "quit\r\n", 6);
-                pthread_join(s->thread_id, NULL);
-                close(s->internal_fd[0]);
+                int ret = write_all(s->internal_fd[0], "quit\r\n", 6);
+                if (ret > 0) {
+                        pthread_join(s->thread_id, NULL);
+                        close(s->internal_fd[0]);
+                } else {
+                        fprintf(stderr, "Cannot exit control thread!\n");
+                }
         }
         if(s->connection_type == SERVER) {
                 // for client, the socket has already been closed

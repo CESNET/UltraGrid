@@ -74,8 +74,6 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 const char *fec, const char *encryption, long packet_rate);
 void		 tx_send_tile(struct tx *tx_session, struct video_frame *frame, int pos, struct rtp *rtp_session);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
-void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, audio_frame2 *buffer);
-void             audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer);
 void             format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx,
                 uint32_t *hdr);
 
@@ -85,6 +83,11 @@ void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, const audio_frame2 *buffer);
+void             audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer);
 #endif
 
 #endif // TRANSMIT_H_

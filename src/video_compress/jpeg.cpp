@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,8 +50,13 @@
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
+#include <memory>
 #include <pthread.h>
 #include <stdlib.h>
+
+using namespace std;
+
+namespace {
 
 struct state_video_compress_jpeg {
         struct module module_data;
@@ -60,7 +65,7 @@ struct state_video_compress_jpeg {
         struct gpujpeg_parameters encoder_param;
 
         decoder_t decoder;
-        char *decoded;
+        unique_ptr<char []> decoded;
         unsigned int rgb:1;
         codec_t color_spec;
 
@@ -71,7 +76,7 @@ struct state_video_compress_jpeg {
 
         int encoder_input_linesize;
 
-        video_frame_pool<default_data_allocator> *pool;
+        video_frame_pool<default_data_allocator> pool;
 };
 
 static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
@@ -196,7 +201,7 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
         s->encoder = gpujpeg_encoder_create(&s->encoder_param, &param_image);
 
         int data_len = frame->tiles[0].width * frame->tiles[0].height * 3;
-        s->pool->reconfigure(compressed_desc, data_len);
+        s->pool.reconfigure(compressed_desc, data_len);
 
         s->encoder_input_linesize = frame->tiles[0].width *
                 (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
@@ -207,7 +212,7 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
                 return FALSE;
         }
 
-        s->decoded = (char *) malloc(4 * frame->tiles[0].width * frame->tiles[0].height);
+        s->decoded = unique_ptr<char []>(new char[4 * frame->tiles[0].width * frame->tiles[0].height]);
         return TRUE;
 }
 
@@ -260,15 +265,16 @@ static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         return true;
 }
 
+bool jpeg_is_supported() {
+        return gpujpeg_init_device(cuda_devices[0], TRUE) == 0;
+}
+
 struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_jpeg *s;
         const char *opts = params->cfg;
 
-        s = (struct state_video_compress_jpeg *) malloc(sizeof(struct state_video_compress_jpeg));
-
-        s->decoded = NULL;
-        s->pool = new video_frame_pool<default_data_allocator>();
+        s = new state_video_compress_jpeg();
 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
@@ -302,6 +308,7 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
 
         if(ret != 0) {
                 fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                delete s;
                 return NULL;
         }
 
@@ -319,14 +326,11 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
         return &s->module_data;
 }
 
-struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
+shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame> tx)
 {
-        auto_video_frame_disposer tx_disposer(tx);
-
         struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
-        struct video_frame *out;
 
         unsigned int x;
 
@@ -334,33 +338,33 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
 
         if(!s->encoder) {
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret) {
                         return NULL;
                 }
         }
 
         struct video_desc desc;
-        desc = video_desc_from_frame(tx);
+        desc = video_desc_from_frame(tx.get());
 
         // if format changed, reconfigure
         if(!video_desc_eq_excl_param(s->saved_desc, desc, PARAM_INTERLACING)) {
                 cleanup_state(s);
                 int ret;
-                ret = configure_with(s, tx);
+                ret = configure_with(s, tx.get());
                 if(!ret) {
                         return NULL;
                 }
         }
 
-        out = s->pool->get_frame();
+        shared_ptr<video_frame> out = s->pool.get_frame();
 
         for (x = 0; x < tx->tile_count;  ++x) {
-                struct tile *in_tile = vf_get_tile(tx, x);
-                struct tile *out_tile = vf_get_tile(out, x);
+                struct tile *in_tile = vf_get_tile(tx.get(), x);
+                struct tile *out_tile = vf_get_tile(out.get(), x);
 
                 line1 = (unsigned char *) in_tile->data;
-                line2 = (unsigned char *) s->decoded;
+                line2 = (unsigned char *) s->decoded.get();
 
                 for (i = 0; i < (int) in_tile->height; ++i) {
                         s->decoder(line2, line1, s->encoder_input_linesize,
@@ -385,11 +389,12 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx)
 
 
                 struct gpujpeg_encoder_input encoder_input;
-                gpujpeg_encoder_input_set_image(&encoder_input, (uint8_t *) s->decoded);
+                gpujpeg_encoder_input_set_image(&encoder_input, (uint8_t *) s->decoded.get());
                 ret = gpujpeg_encoder_encode(s->encoder, &encoder_input, &compressed, &size);
 
-                if(ret != 0)
-                        return NULL;
+                if(ret != 0) {
+                        return {};
+                }
 
                 out_tile->data_len = size;
                 memcpy(out_tile->data, compressed, size);
@@ -406,13 +411,28 @@ static void jpeg_compress_done(struct module *mod)
 
         platform_spin_destroy(&s->spin);
 
-        delete s->pool;
-        free(s);
+        delete s;
 }
 
 static void cleanup_state(struct state_video_compress_jpeg *s)
 {
-        if(s->encoder)
+        if (s->encoder)
                 gpujpeg_encoder_destroy(s->encoder);
+        s->encoder = NULL;
 }
+
+} // end of anonymous namespace
+
+struct compress_info_t jpeg_info = {
+        "JPEG",
+        jpeg_compress_init,
+        jpeg_compress,
+        NULL,
+        jpeg_is_supported,
+        {
+                { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
+                { "80", 70, 36*1000*1000, {12, 0.6, 90}, {15, 0.6, 100} },
+                { "90", 80, 44*1000*1000, {15, 0.6, 100}, {20, 0.6, 150} },
+        },
+};
 

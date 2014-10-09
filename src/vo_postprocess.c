@@ -54,6 +54,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "vo_postprocess.h"
+#include "vo_postprocess/deinterlace.h"
 #include "vo_postprocess/interlace.h"
 #include "vo_postprocess/double-framerate.h"
 #include "vo_postprocess/scale.h"
@@ -90,6 +91,17 @@ struct vo_postprocess_state {
 };
 
 struct vo_postprocess_t vo_postprocess_modules[] = {
+        {"deinterlace",
+                NULL,
+                MK_STATIC(deinterlace_init),
+                MK_STATIC(deinterlace_reconfigure),
+                MK_STATIC(deinterlace_getf),
+                MK_STATIC(deinterlace_get_out_desc),
+                MK_STATIC(deinterlace_get_property),
+                MK_STATIC(deinterlace_postprocess),
+                MK_STATIC(deinterlace_done),
+                NULL
+        },
         {"interlace",
                 NULL,
                 MK_STATIC(interlace_init),

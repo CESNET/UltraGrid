@@ -50,7 +50,7 @@
 extern "C" {
 #endif
 
-struct vidcap_type	*vidcap_deltacast_probe(void);
+struct vidcap_type	*vidcap_deltacast_probe(bool verbose);
 void			*vidcap_deltacast_init(const struct vidcap_params *params);
 void			 vidcap_deltacast_done(void *state);
 struct video_frame	*vidcap_deltacast_grab(void *state, struct audio_frame **audio);

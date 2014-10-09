@@ -311,18 +311,17 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         s->rx_port = rx_port;
         s->tx_port = tx_port;
         s->ttl = ttl;
+        s->fd = INVALID_SOCKET;
 
         if (!resolve_address(s, addr)) {
                 socket_error("Can't resolve IP address for %s", addr);
-                free(s);
-                return NULL;
+                goto error;
         }
         if (iface != NULL) {
 #ifdef HAVE_IF_NAMETOINDEX
                 if ((ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
-                        free(s);
-                        return NULL;
+                        goto error;
                 }
 #else
                 fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
@@ -331,13 +330,9 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 ifindex = 0;
         }
         s->fd = socket(AF_INET, SOCK_DGRAM, 0);
-#ifdef WIN32
         if (s->fd == INVALID_SOCKET) {
-#else
-        if (s->fd < 0) {
-#endif
                 socket_error("Unable to initialize socket");
-                return NULL;
+                goto error;
         }
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
@@ -357,22 +352,34 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
             (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEPORT");
-                return NULL;
+                goto error;
         }
 #endif
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEADDR");
-                return NULL;
+                goto error;
         }
         s_in.sin_family = AF_INET;
         s_in.sin_addr.s_addr = INADDR_ANY;
         s_in.sin_port = htons(rx_port);
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
-                return NULL;
+                goto error;
         }
+
+        // if we do not set tx port, fake that is the same as we are bound to
+        if (s->tx_port == 0) {
+                struct sockaddr_in sin;
+                socklen_t addrlen = sizeof(sin);
+                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                                sin.sin_family == AF_INET &&
+                                addrlen == sizeof(sin)) {
+                        s->tx_port = ntohs(sin.sin_port);
+                }
+        }
+
         if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
 #ifndef WIN32
                 char loop = 1;
@@ -386,31 +393,37 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                     (s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_ADD_MEMBERSHIP");
-                        return NULL;
+                        goto error;
                 }
 #ifndef WIN32
                 if (SETSOCKOPT
                     (s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_LOOP");
-                        return NULL;
+                        goto error;
                 }
 #endif
                 if (SETSOCKOPT
                     (s->fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&s->ttl,
                      sizeof(s->ttl)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_TTL");
-                        return NULL;
+                        goto error;
                 }
                 if (SETSOCKOPT
                     (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
                      (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_IF");
-                        return NULL;
+                        goto error;
                 }
         }
         s->addr = strdup(addr);
         return s;
+error:
+        if (s->fd != INVALID_SOCKET) {
+                close(s->fd);
+        }
+        free(s);
+        return NULL;
 }
 
 static void udp_exit4(socket_udp * s)
@@ -493,7 +506,7 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
 
 static const char *udp_host_addr4(void)
 {
-        static char hname[MAXHOSTNAMELEN];
+        static char hname[MAXHOSTNAMELEN + 1];
         struct hostent *hent;
         struct in_addr iaddr;
 
@@ -628,7 +641,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         s->rx_port = rx_port;
         s->tx_port = tx_port;
         s->ttl = ttl;
-        unsigned int ifindex;
+        unsigned int ifindex = 0;
 
         if (iface != NULL) {
 #ifdef HAVE_IF_NAMETOINDEX
@@ -684,6 +697,17 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
                 return NULL;
+        }
+
+        // if we do not set tx port, fake that is the same as we are bound to
+        if (s->tx_port == 0) {
+                struct sockaddr_in6 sin;
+                socklen_t addrlen = sizeof(sin);
+                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                                sin.sin6_family == AF_INET6 &&
+                                addrlen == sizeof(sin)) {
+                        s->tx_port = ntohs(sin.sin6_port);
+                }
         }
 
         if (IN6_IS_ADDR_MULTICAST(&(s->addr6))) {
@@ -831,15 +855,25 @@ static const char *udp_host_addr6(socket_udp * s)
         int result = 0;
 
         newsock = socket(AF_INET6, SOCK_DGRAM, 0);
+        if (newsock == -1) {
+                perror("socket");
+                return NULL;
+        }
         memset((char *)&addr6, 0, len);
         addr6.sin6_family = AF_INET6;
 #ifdef HAVE_SIN6_LEN
         addr6.sin6_len = len;
 #endif
-        bind(newsock, (struct sockaddr *)&addr6, len);
+        result = bind(newsock, (struct sockaddr *)&addr6, len);
+        if (result != 0) {
+                perror("Cannot bind");
+        }
         addr6.sin6_addr = s->addr6;
         addr6.sin6_port = htons(s->rx_port);
-        connect(newsock, (struct sockaddr *)&addr6, len);
+        result = connect(newsock, (struct sockaddr *)&addr6, len);
+        if (result != 0) {
+                perror("connect");
+        }
 
         memset((char *)&local, 0, len);
         if ((result =
@@ -880,6 +914,7 @@ static const char *udp_host_addr6(socket_udp * s)
                      &(addr6->sin6_addr),
                      hname, MAXHOSTNAMELEN) == NULL) {
                         error_msg("inet_ntop: %s: \n", hname);
+                        freeaddrinfo(ai);
                         return NULL;
                 }
                 freeaddrinfo(ai);

@@ -132,6 +132,12 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         m_send_port_number = params.at("tx_port").i;
         m_ipv6 = params.at("use_ipv6").b;
         m_requested_mcast_if = (const char *) params.at("mcast_if").ptr;
+
+        if ((m_rxtx_mode & MODE_RECEIVER) == 0) {
+                // do not occupy recv port if we are not receiving (note that this disables communication with
+                // our receiver, because RTCP ports are changed as well)
+                m_recv_port_number = 0;
+        }
         
         if ((m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number, m_send_port_number,
                                         m_participants, m_ipv6, m_requested_mcast_if))
@@ -265,6 +271,8 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 use_ipv6, true);
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
+                                TRUE);
+                        rtp_set_option(devices[index], RTP_OPT_PROMISC,
                                 TRUE);
                         rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
                                 RTCP_SDES_TOOL,

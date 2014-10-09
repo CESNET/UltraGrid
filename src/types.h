@@ -167,6 +167,8 @@ struct video_frame {
          * Can be called from arbitrary thread.
          * @note
          * Can be changed only by frame originator.
+         * @deprecated
+         * Should not be longer used. Suggested replacement is with shared pointers with custom deleter.
          */
         void               (*dispose)(struct video_frame *);
         /**
@@ -174,6 +176,8 @@ struct video_frame {
          *
          * @note
          * Can be changed only by frame originator.
+         * @deprecated
+         * Should not be longer used. Suggested replacement is with shared pointers with custom deleter.
         */
         void                *dispose_udata;
         /**

@@ -49,7 +49,10 @@
 #ifdef __cplusplus
 #include "utils/lock_guard.h"
 
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
+#include <memory>
 #include <queue>
 #include <stdexcept>
 
@@ -62,51 +65,32 @@ struct default_data_allocator {
         }
 };
 
-struct auto_video_frame_disposer {
-        auto_video_frame_disposer(struct video_frame *frame) :
-                m_frame(frame) {
-        }
-
-        ~auto_video_frame_disposer() {
-                VIDEO_FRAME_DISPOSE(m_frame);
-        }
-
-        struct video_frame *m_frame;
-};
-
 template <typename allocator>
 struct video_frame_pool {
-        struct vf_udata {
-                vf_udata(struct video_frame_pool<allocator> &pool,
-                                int generation) : m_pool(pool), m_generation(generation) {
-                }
-
-                struct video_frame_pool<allocator> &m_pool;
-                int                            m_generation;
-        };
-
         public:
-                video_frame_pool() : m_generation(0) {
-                        pthread_mutex_init(&m_lock, NULL);
+                video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0) {
                 }
 
                 virtual ~video_frame_pool() {
+                        std::unique_lock<std::mutex> lk(m_lock);
                         remove_free_frames();
-                        pthread_mutex_destroy(&m_lock);
+                        // wait also for all frames we gave out to return us
+                        assert(m_unreturned_frames >= 0);
+                        m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
                 }
 
                 void reconfigure(struct video_desc new_desc, size_t new_size) {
-                        lock_guard guard(m_lock);
+                        std::unique_lock<std::mutex> lk(m_lock);
                         m_desc = new_desc;
                         m_max_data_len = new_size;
                         remove_free_frames();
                         m_generation++;
                 }
 
-                struct video_frame *get_frame() {
+                std::shared_ptr<video_frame> get_frame() {
                         assert(m_generation != 0);
                         struct video_frame *ret = NULL;
-                        lock_guard guard(m_lock);
+                        std::unique_lock<std::mutex> lk(m_lock);
                         if (!m_free_frames.empty()) {
                                 ret = m_free_frames.front();
                                 m_free_frames.pop();
@@ -121,32 +105,25 @@ struct video_frame_pool {
                                                 }
                                                 ret->tiles[i].data_len = m_max_data_len;
                                         }
-                                        ret->dispose_udata = new vf_udata(*this, m_generation);
-                                        ret->dispose = video_frame_pool<allocator>::dispose;
                                 } catch (std::exception &e) {
                                         std::cerr << e.what() << std::endl;
                                         deallocate_frame(ret);
                                         throw e;
                                 }
                         }
-                        return ret;
-                }
+                        m_unreturned_frames += 1;
+                        return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
+                                        std::unique_lock<std::mutex> lk(m_lock);
 
-                static void dispose(struct video_frame *frame) {
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
-                        udata->m_pool.put_frame(frame);
-                }
+                                        m_unreturned_frames -= 1;
+                                        m_frame_returned.notify_one();
 
-                void put_frame(struct video_frame *frame) {
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
-
-                        lock_guard guard(m_lock);
-
-                        if (udata->m_generation != m_generation) {
-                                deallocate_frame(frame);
-                        } else {
-                                m_free_frames.push(frame);
-                        }
+                                        if (this->m_generation != generation) {
+                                                this->deallocate_frame(frame);
+                                        } else {
+                                                m_free_frames.push(frame);
+                                        }
+                                }, std::placeholders::_1, m_generation));
                 }
 
                 allocator & get_allocator() {
@@ -165,19 +142,19 @@ struct video_frame_pool {
                 void deallocate_frame(struct video_frame *frame) {
                         if (frame == NULL)
                                 return;
-                        struct vf_udata *udata = (struct vf_udata *) frame->dispose_udata;
                         for (unsigned int i = 0; i < frame->tile_count; ++i) {
                                 m_allocator.deallocate(frame->tiles[i].data);
                         }
-                        delete udata;
                         vf_free(frame);
                 }
 
                 std::queue<struct video_frame *> m_free_frames;
-                pthread_mutex_t   m_lock;
+                std::mutex        m_lock;
+                std::condition_variable m_frame_returned;
                 int               m_generation;
                 struct video_desc m_desc;
                 size_t            m_max_data_len;
+                int               m_unreturned_frames;
                 allocator         m_allocator;
 };
 #endif //  __cplusplus

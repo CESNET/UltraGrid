@@ -143,6 +143,7 @@ process_sdes(struct pdb *participants, uint32_t ssrc, rtcp_sdes_item * d)
 
         switch (d->type) {
         case RTCP_SDES_END:
+                free(sdes_item);
                 /* This is the end of the SDES list of a packet. */
                 /* Nothing for us to deal with.                  */
                 break;
@@ -182,8 +183,10 @@ process_sdes(struct pdb *participants, uint32_t ssrc, rtcp_sdes_item * d)
                 e->sdes_note = sdes_item;
                 break;
         case RTCP_SDES_PRIV:
+                free(sdes_item);
                 break;          /* Ignore private extensions */
         default:
+                free(sdes_item);
                 debug_msg
                     ("Ignored unknown SDES item (type=0x%02x) from 0x%08x\n",
                      ssrc);
@@ -200,12 +203,12 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
 
         switch (e->type) {
         case RX_RTP:
-                if (pckt_rtp->data_len > 0) {   /* Only process packets that contain data... */
-                        pbuf_insert(state->playout_buffer, pckt_rtp);
-                }
                 gettimeofday(&curr_time, NULL);
                 tfrc_recv_data(state->tfrc_state, curr_time, pckt_rtp->seq,
                                pckt_rtp->data_len + 40);
+                if (pckt_rtp->data_len > 0) {   /* Only process packets that contain data... */
+                        pbuf_insert(state->playout_buffer, pckt_rtp);
+                }
                 break;
         case RX_TFRC_RX:
                 /* compute TCP friendly data rate */

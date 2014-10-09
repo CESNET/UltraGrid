@@ -565,16 +565,14 @@ static unsigned long get_color_spec(uint32_t pixfmt) {
                 }
         }
 
-        // ...if it fails, try to match agains FourCC directly
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if ((unsigned)pixfmt == codec_info[i].fcc ||
-                                // try also the other endianity (QT codecs aren't
-                                // entirely consistent in this regard)
-                                ntohl(pixfmt) == codec_info[i].fcc) {
-                        return codec_info[i].codec;
-                }
+        codec_t codec = get_codec_from_fcc(pixfmt);
+        if (codec != VIDEO_CODEC_NONE) {
+                return codec;
+        } else {
+                // try also the other endianity (QT codecs aren't
+                // entirely consistent in this regard)
+                return get_codec_from_fcc(ntohl(pixfmt));
         }
-        return 0xffffffff;
 }
 
 /* Initialize the QuickTime grabber */
@@ -779,7 +777,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         char *deviceName;
         char *inputName;
         short  inputNumber;
-        TimeScale scale;
+        Fixed milliSecPerFrameIgnore, framesPerSecond, bytesPerSecondIgnore;
 
         if ((SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) ||
             (SGGetChannelDeviceAndInputNames(s->video_channel, NULL, NULL, &inputNumber)!=noErr)) {
@@ -892,7 +890,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 goto error;
         }
 
-        if (get_color_spec(pixfmt) == 0xffffffff) {
+        if (get_color_spec(pixfmt) == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
 				pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff, (pixfmt) & 0xff);
                 goto error;
@@ -998,8 +996,13 @@ AFTER_AUDIO:
                 return 0;
         }
 
-        SGGetChannelTimeScale(s->video_channel, &scale);
-        s->frame->fps = scale / 100.0;
+        if (VDGetDataRate(SGGetVideoDigitizerComponent(s->video_channel),
+                                &milliSecPerFrameIgnore, &framesPerSecond, &bytesPerSecondIgnore) != noErr) {
+                fprintf(stderr, "VDGetDataRate\n");
+                return 0;
+        }
+
+        s->frame->fps = FixedToFloat(framesPerSecond);
 
         return 1;
 error:
@@ -1009,11 +1012,12 @@ error:
 /*******************************************************************************
  * Public API
  ******************************************************************************/
-struct vidcap_type *vidcap_quicktime_probe(void)
+struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 {
+        UNUSED(verbose);
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_QUICKTIME_ID;
                 vt->name = "quicktime";

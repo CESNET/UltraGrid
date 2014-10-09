@@ -15,13 +15,13 @@ void *recompress_init(struct module *parent, const char *host, const char *compr
                 unsigned short rx_port, unsigned short tx_port, int mtu, char *fec,
                 long packet_rate);
 void recompress_assign_ssrc(void *state, uint32_t ssrc);
-void recompress_process_async(void *state, struct video_frame *frame);
-/**
- * Waits for completion of previous call recompress_process_async
- */
-void recompress_wait_complete(void *state);
 void recompress_done(void *state);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#include <memory>
+void recompress_process_async(void *state, std::shared_ptr<video_frame> frame);
 #endif

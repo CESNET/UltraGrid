@@ -67,8 +67,6 @@ struct vidcap_params;
 extern int uv_argc;
 extern char **uv_argv;
 
-extern long packet_rate; // gives interval between individual packets (in ns)
-
 extern volatile bool should_exit_receiver;
 
 /* TODO: remove these variables (should be safe) */
@@ -95,28 +93,20 @@ extern bool ldgm_device_gpu;
 
 extern const char *window_title;
 
-#define MODE_SENDER   1
-#define MODE_RECEIVER 2
-extern int rxtx_mode;
-
-// for aggregate.c
-struct vidcap;
-struct display;
-struct module;
-int initialize_video_display(const char *requested_display,
-                                                const char *fmt, unsigned int flags,
-                                                struct display **);
-
-int initialize_video_capture(struct module *parent,
-                struct vidcap_params *params,
-                struct vidcap **);
+#define MODE_SENDER   (1<<0)
+#define MODE_RECEIVER (1<<1)
 
 // if not NULL, data should be exported
 extern char *export_dir;
 extern char *sage_network_device;
 
+#define RATE_UNLIMITED 0
 #define RATE_AUTO -1
 #define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)
+
+#define CAPABILITY_COMPRESS (1<<0)
+#define CAPABILITY_CAPTURE (1<<1)
+void print_capabilities(int mask);
 
 #ifdef __cplusplus
 }

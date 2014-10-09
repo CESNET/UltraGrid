@@ -91,9 +91,10 @@
 #include "audio/utils.h"
 
 #include <iostream>
+#include <memory>
 #include <string>
 
-#if defined DEBUG && defined HAVE_LINUX
+#ifdef USE_MTRACE
 #include <mcheck.h>
 #endif
 
@@ -129,6 +130,7 @@
 #define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_LDGM_DEVICE (('L' << 8) | 'D')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
+#define OPT_CAPABILITIES (('C' << 8) | 'C')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -153,8 +155,6 @@ static struct state_uv *uv_state;
 //
 // prototypes
 //
-static void list_video_display_devices(void);
-static void list_video_capture_devices(void);
 static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
@@ -202,7 +202,7 @@ static void usage(void)
         printf("\t--verbose                \tprint verbose messages\n");
         printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
+        printf("\t                         \tconnection types: 0- Server, 1- Client (default)\n");
         printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
@@ -270,7 +270,7 @@ static void usage(void)
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
-        printf("\t--audio-codec <codec>[:<sample_rate>]|help\taudio codec\n");
+        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
         printf("\n");
         printf("\t--capture-filter <filter>\tCapture filter(s), must preceed\n");
         printf("\n");
@@ -283,40 +283,6 @@ static void usage(void)
         printf("\t                         \tand chunks are sent/received\n");
         printf("\t                         \tindependently.\n");
         printf("\n");
-}
-
-static void list_video_display_devices()
-{
-        int i;
-        display_type_t *dt;
-
-        printf("Available display devices:\n");
-        display_init_devices();
-        for (i = 0; i < display_get_device_count(); i++) {
-                dt = display_get_device_details(i);
-                printf("\t%s\n", dt->name);
-        }
-        display_free_devices();
-}
-
-static void list_video_capture_devices()
-{
-        int i;
-        struct vidcap_type *vt;
-
-        printf("Available capture devices:\n");
-        vidcap_init_devices();
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                printf("\t%s\n", vt->name);
-        }
-        vidcap_free_devices();
-}
-
-static void uncompressed_frame_dispose(struct video_frame *frame)
-{
-        struct wait_obj *wait_obj = (struct wait_obj *) frame->dispose_udata;
-        wait_obj_notify(wait_obj);
 }
 
 /**
@@ -343,16 +309,19 @@ static void *capture_thread(void *arg)
                         }
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
+                        shared_ptr<video_frame> frame;
                         if (!tx_frame->dispose) {
-                                tx_frame->dispose = uncompressed_frame_dispose;
-                                tx_frame->dispose_udata = wait_obj;
                                 wait_obj_reset(wait_obj);
                                 wait_for_cur_uncompressed_frame = true;
+                                frame = shared_ptr<video_frame>(tx_frame, [wait_obj](struct video_frame *) {
+                                                        wait_obj_notify(wait_obj);
+                                                });
                         } else {
                                 wait_for_cur_uncompressed_frame = false;
+                                frame = shared_ptr<video_frame>(tx_frame, tx_frame->dispose);
                         }
 
-                        uv->state_video_rxtx->send(tx_frame);
+                        uv->state_video_rxtx->send(move(frame)); // std::move really important here (!)
 
                         // wait for frame frame to be processed, eg. by compress
                         // or sender (uncompressed video). Grab invalidates previous frame
@@ -485,7 +454,9 @@ int main(int argc, char *argv[])
 
         int bitrate = RATE_AUTO;
 
-#if defined DEBUG && defined HAVE_LINUX
+        int rxtx_mode = 0;
+
+#ifdef USE_MTRACE
         mtrace();
 #endif
 
@@ -535,6 +506,7 @@ int main(int argc, char *argv[])
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
+                {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -685,7 +657,7 @@ int main(int argc, char *argv[])
                         break;
                 case 'l':
                         if(strcmp(optarg, "unlimited") == 0) {
-                                bitrate = 0;
+                                bitrate = RATE_UNLIMITED;
                         } else if(strcmp(optarg, "auto") == 0) {
                                 bitrate = RATE_AUTO;
                         } else {
@@ -782,22 +754,24 @@ int main(int argc, char *argv[])
                         requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
-						if (strchr(optarg, ':')) {
-							char *save_ptr = NULL;
-							char *tok;
-							control_port = atoi(strtok_r(optarg, ":", &save_ptr));
-							connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
-							if(connection_type < 0 || connection_type > 1){
-								usage();
-								return EXIT_FAIL_USAGE;
-							}
-							if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-								usage();
-								return EXIT_FAIL_USAGE;
-							}
-						} else {
-							control_port = atoi(optarg);
-						}
+                        if (strchr(optarg, ':')) {
+                                char *save_ptr = NULL;
+                                char *tok;
+                                control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+
+                                if(connection_type < 0 || connection_type > 1){
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
+                        } else {
+                                control_port = atoi(optarg);
+                                connection_type = 1;
+                        }
                         break;
                 case OPT_VERBOSE:
                         verbose = true;
@@ -811,6 +785,10 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_WINDOW_TITLE:
                         window_title = optarg;
+                        break;
+                case OPT_CAPABILITIES:
+                        print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS);
+                        return EXIT_SUCCESS;
                         break;
                 case '?':
                 default:
@@ -857,7 +835,7 @@ int main(int argc, char *argv[])
                 video_exporter = video_export_init(export_dir);
         }
 
-        if (bitrate != RATE_AUTO && bitrate != 0) {
+        if (bitrate != RATE_AUTO && bitrate != RATE_UNLIMITED) {
                 packet_rate = compute_packet_rate(bitrate, requested_mtu);
         } else {
                 packet_rate = bitrate;
@@ -882,11 +860,8 @@ int main(int argc, char *argv[])
 #endif
 
         if(control_init(control_port, connection_type, &control, &root_mod) != 0) {
-                fprintf(stderr, "%s Unable to initialize remote control!\n",
-                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
-                if(control_port != CONTROL_DEFAULT_PORT) {
-                        return EXIT_FAILURE;
-                }
+                fprintf(stderr, "Error: Unable to initialize remote control!\n");
+                return EXIT_FAILURE;
         }
 
         if(!audio_host) {
@@ -983,6 +958,10 @@ int main(int argc, char *argv[])
                 rxtx_mode |= MODE_SENDER;
         }
 
+        if (rxtx_mode == 0) {
+                goto after_video_init;
+        }
+
         try {
                 map<string, param_u> params;
 
@@ -990,6 +969,7 @@ int main(int argc, char *argv[])
                 params["parent"].ptr = &root_mod;
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
+                params["rxtx_mode"].i = rxtx_mode;
 
                 // iHDTV
                 params["argc"].i = argc;
@@ -1034,7 +1014,10 @@ int main(int argc, char *argv[])
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
                         else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
-                        else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                        else {
+                                printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                                avType = none;
+                        }
 
                         params["avType"].l = avType;
                 }
@@ -1092,6 +1075,7 @@ int main(int argc, char *argv[])
                 exit_status = i;
         }
 
+after_video_init:
 cleanup:
         if (strcmp("none", requested_display) != 0 &&
                         receiver_thread_started)
@@ -1130,7 +1114,7 @@ cleanup:
         module_done(&root_mod);
         free(uv);
 
-#if defined DEBUG && defined HAVE_LINUX
+#ifdef USE_MTRACE
         muntrace();
 #endif
 

@@ -186,14 +186,12 @@ void *vidcap_testcard2_init(const struct vidcap_params *params)
         int h_align = 0;
         double bpp = 0;
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if (strcmp(tmp, codec_info[i].name) == 0) {
-                        h_align = codec_info[i].h_align;
-                        bpp = codec_info[i].bpp;
-                        codec = codec_info[i].codec;
-                        break;
-                }
+        codec = get_codec_from_name(tmp);
+        if (codec == VIDEO_CODEC_NONE) {
+                codec = UYVY;
         }
+        h_align = get_halign(codec);
+        bpp = get_bpp(codec);
 
         s->frame->color_spec = codec;
 
@@ -528,11 +526,12 @@ struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame **audio)
         return s->frame;
 }
 
-struct vidcap_type *vidcap_testcard2_probe(void)
+struct vidcap_type *vidcap_testcard2_probe(bool verbose)
 {
+        UNUSED(verbose);
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_TESTCARD2_ID;
                 vt->name = "testcard2";

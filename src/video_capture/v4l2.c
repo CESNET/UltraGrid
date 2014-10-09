@@ -147,9 +147,13 @@ static void show_help()
                 int fd = open(name, O_RDWR);
                 if(fd == -1) continue;
 
-                printf("\t%sDevice %s:\n", 
+                struct v4l2_capability capab;
+                memset(&capab, 0, sizeof capab);
+                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+
+                printf("\t%sDevice %s (%s):\n",
                                 (i == 0 ? "(*) " : "    "),
-                                name);
+                                name, capab.card);
 
 
                 struct v4l2_fmtdesc format;
@@ -162,7 +166,7 @@ static void show_help()
                 fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 if(ioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
                         perror("[V4L2] Unable to get video formant");
-                        continue;
+                        goto next_device;
                 }
 
                 while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
@@ -182,9 +186,8 @@ static void show_help()
                         res = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size);
 
                         if(res == -1) {
-                                close(fd);
                                 fprintf(stderr, "[V4L2] Unable to get frame size iterator.\n");
-                                continue;
+                                goto next_device;
                         }
 
                         struct v4l2_frmivalenum frame_int;
@@ -228,19 +231,44 @@ static void show_help()
 
                 printf("\n");
 
+next_device:
                 close(fd);
         }
 }
 
-struct vidcap_type * vidcap_v4l2_probe(void)
+struct vidcap_type * vidcap_v4l2_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id          = VIDCAP_V4L2_ID;
                 vt->name        = "v4l2";
                 vt->description = "V4L2 capture";
+
+                vt->card_count = 0;
+                vt->cards = 0;
+
+                if (verbose) {
+                        for (int i = 0; i < 64; ++i) {
+                                char name[32];
+
+                                snprintf(name, 32, "/dev/video%d", i);
+                                int fd = open(name, O_RDWR);
+                                if(fd == -1) continue;
+
+                                vt->card_count += 1;
+                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
+                                struct v4l2_capability capab;
+                                memset(&capab, 0, sizeof capab);
+                                ioctl(fd, VIDIOC_QUERYCAP, &capab);
+                                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
+
+                                close(fd);
+                        }
+                }
         }
         return vt;
 }
@@ -269,6 +297,8 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 printf("Unable to allocate v4l2 capture state\n");
                 return NULL;
         }
+
+        s->fd = -1;
 
         char *tmp = NULL;
 
@@ -312,7 +342,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         } else {
                                 fprintf(stderr, "[V4L2] Invalid configuration argument: %s\n",
                                                 item);
-                                return NULL;
+                                goto error;
                         }
                         init_fmt = NULL;
                 }
@@ -323,31 +353,31 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         if(s->fd == -1) {
                 fprintf(stderr, "[V4L2] Unable to open input device %s: %s\n",
                                 dev_name, strerror(errno));
-                goto error_fd;
+                goto error;
         }
 
         int index = 0;
 
         if (ioctl(s->fd, VIDIOC_S_INPUT, &index) != 0) {
                 perror ("Could not enable input (VIDIOC_S_INPUT)");
-                goto error_fd;
+                goto error;
         }
 
         struct v4l2_capability   capability;
         memset(&capability, 0, sizeof(capability));
         if (ioctl(s->fd,VIDIOC_QUERYCAP, &capability) != 0) {
                 perror("V4L2: ioctl VIDIOC_QUERYCAP");
-                goto error_fd;
+                goto error;
         }
 
         if (!(capability.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
                 fprintf(stderr, "%s, %s can't capture\n",capability.card,capability.bus_info);
-                goto error_fd;
+                goto error;
         }
 
         if (!(capability.capabilities & V4L2_CAP_STREAMING)) {
                 fprintf(stderr, "[V4L2] Streaming capability not present.\n");
-                goto error_fd;
+                goto error;
         }
 
 
@@ -357,7 +387,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
                 perror("[V4L2] Unable to get video formant");
 
-                goto error_fd;
+                goto error;
         }
 
         struct v4l2_streamparm stream_params;
@@ -366,7 +396,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 perror("[V4L2] Unable to get stream params");
 
-                goto error_fd;
+                goto error;
         }
 
         if (pixelformat) {
@@ -383,7 +413,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         if(ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
                 perror("[V4L2] Unable to set video formant");
-                goto error_fd;
+                goto error;
         }
 
         if(numerator != 0 && denominator != 0) {
@@ -393,7 +423,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 if(ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
                         perror("[V4L2] Unable to set stream params");
 
-                        goto error_fd;
+                        goto error;
                 }
         }
 
@@ -403,13 +433,13 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
                 perror("[V4L2] Unable to get video formant");
 
-                goto error_fd;
+                goto error;
         }
 
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 perror("[V4L2] Unable to get stream params");
 
-                goto error_fd;
+                goto error;
         }
 
         s->desc.tile_count = 1;
@@ -462,7 +492,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 case V4L2_FIELD_INTERLACED_BT:
                 default:
                         fprintf(stderr, "[V4L2] Unsupported interlacing format reported from driver.\n");
-                        goto error_fd;
+                        goto error;
         }
         s->desc.fps = (double) stream_params.parm.capture.timeperframe.denominator /
                 stream_params.parm.capture.timeperframe.numerator;
@@ -487,14 +517,14 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         printf("Video capturing or mmap-streaming is not supported\n");
                 else
                         perror("VIDIOC_REQBUFS");
-                goto error_fd;
+                goto error;
 
         }
 
         if (reqbuf.count < 2) {
                 /* You may need to free the buffers here. */
                 printf("Not enough buffer memory\n");
-                goto error_fd;
+                goto error;
         }
 
         for (unsigned int i = 0; i < reqbuf.count; i++) {
@@ -506,7 +536,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
                 if (-1 == ioctl (s->fd, VIDIOC_QUERYBUF, &buf)) {
                         perror("VIDIOC_QUERYBUF");
-                        goto error_fd;
+                        goto error;
                 }
 
                 s->buffers[i].length = buf.length; /* remember for munmap() */
@@ -520,20 +550,20 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         /* If you do not exit here you should unmap() and free()
                            the buffers mapped so far. */
                         perror("mmap");
-                        goto error_fd;
+                        goto error;
                 }
 
                 buf.flags = 0;
 
                 if(ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
                         perror("Unable to enqueue buffer");
-                        goto error_fd;
+                        goto error;
                 }
         }
 
         if(ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 perror("Unable to start stream");
-                goto error_fd;
+                goto error;
         };
 
         gettimeofday(&s->t0, NULL);
@@ -543,8 +573,10 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         return s;
 
-error_fd:
-        close(s->fd);
+error:
+        free(tmp);
+        if (s->fd != -1)
+                close(s->fd);
         free(s);
         return NULL;
 }
@@ -633,6 +665,7 @@ struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
 
                 if(ret == -1) {
                         fprintf(stderr, "Error converting video.\n");
+                        VIDEO_FRAME_DISPOSE(out);
                         return NULL;
                 }
 

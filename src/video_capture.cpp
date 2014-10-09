@@ -62,6 +62,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "utils/config_file.h"
+#include "utils/resource_manager.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
@@ -84,7 +85,14 @@
 #include "video_capture/v4l2.h"
 #include "video_capture/rtsp.h"
 
+#include <string>
+
+using namespace std;
+
 #define VIDCAP_MAGIC	0x76ae98f0
+
+static int vidcap_init_devices(bool verbose);
+static void vidcap_free_devices(void);
 
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help).
@@ -127,7 +135,7 @@ struct vidcap_device_api {
 
         const char              *library_name; ///< @copydoc decoder_table_t::library_name
 
-        struct vidcap_type    *(*func_probe) (void);
+        struct vidcap_type    *(*func_probe) (bool verbose);
         const char              *func_probe_str;
         void                  *(*func_init) (const struct vidcap_params *param);
         const char              *func_init_str;
@@ -300,7 +308,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL
         },
 #endif                          /* HAVE_DELTACAST */
-#if defined HAVE_MACOSX
+#if defined HAVE_QUICKTIME
         {
          /* The QuickTime API */
          0,
@@ -384,7 +392,7 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
 {
         void *handle = device->handle;
 
-        device->func_probe = (struct vidcap_type *(*) (void))
+        device->func_probe = (struct vidcap_type *(*) (bool))
                 dlsym(handle, device->func_probe_str);
         device->func_init = (void *(*) (const struct vidcap_params *))
                 dlsym(handle, device->func_init_str);
@@ -407,7 +415,7 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
  * Figure out where to close libraries. vidcap_free_devices() is not the right place because
  * it is called to early.
  */
-int vidcap_init_devices(void)
+static int vidcap_init_devices(bool verbose)
 {
         unsigned int i;
         struct vidcap_type *dt;
@@ -431,7 +439,7 @@ int vidcap_init_devices(void)
                 }
 #endif
 
-                dt = vidcap_device_table[i].func_probe();
+                dt = vidcap_device_table[i].func_probe(verbose);
                 if (dt != NULL) {
                         vidcap_device_table[i].id = dt->id;
                         available_vidcap_devices[available_vidcap_device_count++] = dt;
@@ -442,11 +450,12 @@ int vidcap_init_devices(void)
 }
 
 /** Should be called after video capture is initialized. */
-void vidcap_free_devices(void)
+static void vidcap_free_devices(void)
 {
         int i;
 
         for (i = 0; i < available_vidcap_device_count; i++) {
+                free(available_vidcap_devices[i]->cards);
                 free(available_vidcap_devices[i]);
                 available_vidcap_devices[i] = NULL;
         }
@@ -472,6 +481,78 @@ struct vidcap_type *vidcap_get_device_details(int index)
 vidcap_id_t vidcap_get_null_device_id(void)
 {
         return VIDCAP_NULL_ID;
+}
+
+void list_video_capture_devices()
+{
+        int i;
+        struct vidcap_type *vt;
+
+        printf("Available capture devices:\n");
+        vidcap_init_devices(false);
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
+                printf("\t%s\n", vt->name);
+        }
+        vidcap_free_devices();
+}
+
+void print_available_capturers()
+{
+        vidcap_init_devices(true);
+        for (int i = 0; i < vidcap_get_device_count(); i++) {
+                struct vidcap_type *vt = vidcap_get_device_details(i);
+                for (int i = 0; i < vt->card_count; ++i) {
+                        printf("(%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
+                }
+        }
+
+        char buf[1024] = "";
+        struct config_file *conf = config_file_open(default_config_file(buf, sizeof buf));
+        if (conf) {
+                auto const & from_config_file = get_configured_capture_aliases(conf);
+                for (auto const & it : from_config_file) {
+                        printf("(%s;%s)\n", it.first.c_str(), it.second.c_str());
+                }
+        }
+        config_file_close(conf);
+        vidcap_free_devices();
+}
+
+int initialize_video_capture(struct module *parent,
+                struct vidcap_params *params,
+                struct vidcap **state)
+{
+        struct vidcap_type *vt;
+        vidcap_id_t id = 0;
+        int i;
+
+        if(!strcmp(vidcap_params_get_driver(params), "none"))
+                id = vidcap_get_null_device_id();
+
+        // locking here is because listing of the devices is not really thread safe
+        pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
+        pthread_mutex_lock(vidcap_lock);
+
+        vidcap_init_devices(false);
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
+                if (strcmp(vt->name, vidcap_params_get_driver(params)) == 0) {
+                        id = vt->id;
+                        break;
+                }
+        }
+        if(i == vidcap_get_device_count()) {
+                fprintf(stderr, "WARNING: Selected '%s' capture card "
+                        "was not found.\n", vidcap_params_get_driver(params));
+                return -1;
+        }
+        vidcap_free_devices();
+
+        pthread_mutex_unlock(vidcap_lock);
+        rm_release_shared_lock("VIDCAP_LOCK");
+
+        return vidcap_init(parent, id, params, state);
 }
 
 /** @brief Initializes video capture
@@ -572,7 +653,7 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
  */
 struct vidcap_params *vidcap_params_allocate(void)
 {
-        return calloc(1, sizeof(struct vidcap_params));
+        return (struct vidcap_params *) calloc(1, sizeof(struct vidcap_params));
 }
 
 /**
@@ -626,17 +707,17 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
 {
         bool ret;
         char buf[1024];
-        char *real_capture;
+        string real_capture;
         struct config_file *conf =
                 config_file_open(default_config_file(buf,
                                         sizeof(buf)));
         if (conf == NULL)
                 return false;
         real_capture = config_file_get_alias(conf, "capture", params->name);
-        if (!real_capture) {
+        if (real_capture.empty()) {
                 ret = false;
         } else {
-                params->driver = strdup(real_capture);
+                params->driver = strdup(real_capture.c_str());
                 if (strchr(params->driver, ':')) {
                         char *delim = strchr(params->driver, ':');
                         params->fmt = strdup(delim + 1);
@@ -649,10 +730,10 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
 
 
         if (params->requested_capture_filter == NULL) {
-                char *matched_cap_filter = config_file_get_capture_filter_for_alias(conf,
+                string matched_cap_filter = config_file_get_capture_filter_for_alias(conf,
                                         params->name);
-                if (matched_cap_filter)
-                        params->requested_capture_filter = strdup(matched_cap_filter);
+                if (!matched_cap_filter.empty())
+                        params->requested_capture_filter = strdup(matched_cap_filter.c_str());
         }
 
         config_file_close(conf);
@@ -724,7 +805,7 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
         if (!params)
                 return NULL;
 
-        struct vidcap_params *ret = calloc(1, sizeof(struct vidcap_params));
+        struct vidcap_params *ret = (struct vidcap_params *) calloc(1, sizeof(struct vidcap_params));
 
         if (params->driver)
                 ret->driver = strdup(params->driver);

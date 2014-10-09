@@ -45,10 +45,6 @@
 #define C_BASIC_RTSP_ONLY_SERVER_H
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -61,10 +57,6 @@ extern "C" {
 #include "debug.h"
 #include "rtsp/rtsp_utils.h"
 #include "audio/audio.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 
 #ifdef __cplusplus

@@ -73,21 +73,19 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
 }
 
-void sage_video_rxtx::send_frame(struct video_frame *tx_frame)
+void sage_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
         if(!video_desc_eq(m_saved_video_desc,
-                                video_desc_from_frame(tx_frame))) {
+                                video_desc_from_frame(tx_frame.get()))) {
                 display_reconfigure(m_sage_tx_device,
-                                video_desc_from_frame(tx_frame));
-                m_saved_video_desc = video_desc_from_frame(tx_frame);
+                                video_desc_from_frame(tx_frame.get()));
+                m_saved_video_desc = video_desc_from_frame(tx_frame.get());
         }
         struct video_frame *frame =
                 display_get_frame(m_sage_tx_device);
         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                         tx_frame->tiles[0].data_len);
         display_put_frame(m_sage_tx_device, frame, PUTF_NONBLOCK);
-
-        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 sage_video_rxtx::~sage_video_rxtx()

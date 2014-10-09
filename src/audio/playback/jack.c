@@ -142,7 +142,7 @@ void audio_play_jack_help(const char *driver_name)
         const char **ports;
 
         client = jack_client_open(PACKAGE_STRING, JackNullOption, &status);
-        if(status == JackFailure) {
+        if(status & JackFailure) {
                 fprintf(stderr, "[JACK playback] Opening JACK client failed.\n");
                 return;
         }
@@ -192,16 +192,15 @@ void * audio_play_jack_init(char *cfg)
         }
 
         s = calloc(1, sizeof(struct state_jack_playback));
-
-        s->jack_ports_pattern = strdup(cfg);
-
         if(!s) {
                 fprintf(stderr, "[JACK playback] Unable to allocate memory.\n");
                 goto error;
         }
 
+        s->jack_ports_pattern = strdup(cfg);
+
         s->client = jack_client_open(PACKAGE_STRING, JackNullOption, &status);
-        if(status == JackFailure) {
+        if(status & JackFailure) {
                 fprintf(stderr, "[JACK playback] Opening JACK client failed.\n");
                 goto error;
         }

@@ -18,7 +18,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-	DIRECTSHOWGRABBER_API struct vidcap_type * vidcap_dshow_probe(void);
+	DIRECTSHOWGRABBER_API struct vidcap_type * vidcap_dshow_probe(bool verbose);
 	DIRECTSHOWGRABBER_API void * vidcap_dshow_init(const struct vidcap_params *params);
 	DIRECTSHOWGRABBER_API void vidcap_dshow_done(void *state);
 	DIRECTSHOWGRABBER_API struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **audio);

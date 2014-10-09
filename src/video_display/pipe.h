@@ -1,9 +1,10 @@
+/**
+ * @file   video_display/pipe.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    capture_filter/resize.h
- * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
- *          Marc Palau          <marc.palau@i2cat.net>
- *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -16,15 +17,8 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by the Fundació i2CAT,
- *      Internet I Innovació Digital a Catalunya. This product also includes
- *      software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
@@ -39,13 +33,33 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-#ifndef CAPTURE_FILTER_RESIZE_H_
-#define CAPTURE_FILTER_RESIZE_H_
+#define DISPLAY_PIPE_ID	0xa4bfe108
 
-struct capture_filter_info;
-extern struct capture_filter_info capture_filter_resize;
+struct audio_frame;
+struct video_desc;
+struct video_frame;
 
-#endif // CAPTURE_FILTER_RESIZE_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+display_type_t		*display_pipe_probe(void);
+void 			*display_pipe_init(const char *fmt, unsigned int flags);
+void 			 display_pipe_run(void *state);
+void 			 display_pipe_done(void *state);
+struct video_frame	*display_pipe_getf(void *state);
+int 			 display_pipe_putf(void *state, struct video_frame *frame,
+                int nonblock);
+int                      display_pipe_reconfigure(void *state, struct video_desc desc);
+int                      display_pipe_get_property(void *state, int property, void *val, size_t *len);
+
+void                     display_pipe_put_audio_frame(void *state, struct audio_frame *frame);
+int                      display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate);
+
+#ifdef __cplusplus
+}
+#endif
+

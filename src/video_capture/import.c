@@ -198,6 +198,8 @@ static void message_queue_clear(struct message_queue *queue);
 static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len) WIN32_UNUSED;
 static void process_msg(struct vidcap_import_state *state, char *message) WIN32_UNUSED;
 
+static void cleanup_common(struct vidcap_import_state *s);
+
 volatile bool exit_control = false;
 
 static void message_queue_clear(struct message_queue *queue) {
@@ -206,11 +208,12 @@ static void message_queue_clear(struct message_queue *queue) {
 }
 
 struct vidcap_type *
-vidcap_import_probe(void)
+vidcap_import_probe(bool verbose)
 {
+        UNUSED(verbose);
 	struct vidcap_type*		vt;
     
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
 		vt->id          = VIDCAP_IMPORT_ID;
 		vt->name        = "import";
@@ -227,11 +230,6 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
         if(!audio_file) {
                 perror("Cannot open audio file");
                 return false;
-        }
-
-        // common commands - will run in any way
-        if(!audio_file) {
-                goto error_opening;
         }
 
         struct wav_metadata metadata;
@@ -278,7 +276,6 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
 
 error_format:
         fprintf(stderr, "Audio format file error - unknown format\n");
-error_opening:
         fclose(audio_file);
         return false;
 }
@@ -302,15 +299,19 @@ vidcap_import_init(const struct vidcap_params *params)
 
         s->video_reading_threads_count = 1; // default is single threaded
 
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *save_ptr;
-        const char *directory = strtok_r(tmp, ":", &save_ptr);
-        if (!directory || strcmp(directory, "help") == 0) {
+        s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
+        char *suffix;
+        if (!s->directory || strcmp(s->directory, "help") == 0) {
                 fprintf(stderr, "Import usage:\n"
                                 "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct}");
-                return NULL;
+                goto error;
         }
-        char *suffix;
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (strcmp(suffix, "loop") == 0) {
                         s->loop = true;
@@ -325,20 +326,18 @@ vidcap_import_init(const struct vidcap_params *params)
                 } else {
                         fprintf(stderr, "[Playback] Unrecognized"
                                         " option %s.\n", suffix);
-                        return NULL;
+                        goto error;
                 }
         }
+        free(tmp);
+        tmp = NULL;
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
 
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->worker_cv, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-
-        char *audio_filename = malloc(strlen(directory) + sizeof("/soud.wav") + 1);
+        char *audio_filename = malloc(strlen(s->directory) + sizeof("/soud.wav") + 1);
         assert(audio_filename != NULL);
-        strcpy(audio_filename, directory);
+        strcpy(audio_filename, s->directory);
         strcat(audio_filename, "/sound.wav");
         if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
                 s->audio_state.has_audio = true;
@@ -351,9 +350,9 @@ vidcap_import_init(const struct vidcap_params *params)
         }
         free(audio_filename);
         
-        char *info_filename = malloc(strlen(directory) + sizeof("/video.info") + 1);
+        char *info_filename = malloc(strlen(s->directory) + sizeof("/video.info") + 1);
         assert(info_filename != NULL);
-        strcpy(info_filename, directory);
+        strcpy(info_filename, s->directory);
         strcat(info_filename, "/video.info");
 
         info = fopen(info_filename, "r");
@@ -364,6 +363,7 @@ vidcap_import_init(const struct vidcap_params *params)
         }
 
         struct video_desc desc;
+        memset(&desc, 0, sizeof desc);
 
         char line[512];
         uint32_t items_found = 0;
@@ -408,7 +408,7 @@ vidcap_import_init(const struct vidcap_params *params)
                         uint32_t fourcc;
                         memcpy((void *) &fourcc, ptr, sizeof(fourcc));
                         desc.color_spec = get_codec_from_fcc(fourcc);
-                        if(desc.color_spec == (codec_t) -1) {
+                        if(desc.color_spec == VIDEO_CODEC_NONE) {
                                 fprintf(stderr, "[import] Requested codec not known.\n");
                                 goto error;
                         }
@@ -436,7 +436,8 @@ vidcap_import_init(const struct vidcap_params *params)
                 }
         }
 
-        s->directory = strdup(directory);
+        assert(desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
+                        s->count != 0);
 
         char name[1024];
         snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, 1,
@@ -490,11 +491,11 @@ vidcap_import_init(const struct vidcap_params *params)
 	return s;
         
 error:
+        free(tmp);
         if (info != NULL)
                 fclose(info);
         if (s) {
-                free(s->directory);
-                free(s);
+                cleanup_common(s);
         }
         return NULL;
 }
@@ -587,13 +588,7 @@ static int flush_processed(struct processed_entry *list)
         return frames_deleted;
 }
 
-void vidcap_import_done(void *state)
-{
-	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
-	assert(s != NULL);
-
-        vidcap_import_finish(state);
-
+static void cleanup_common(struct vidcap_import_state *s) {
         flush_processed(s->head);
 
         pthread_mutex_destroy(&s->lock);
@@ -615,6 +610,16 @@ void vidcap_import_done(void *state)
         }
 
         free(s);
+}
+
+void vidcap_import_done(void *state)
+{
+	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
+	assert(s != NULL);
+
+        vidcap_import_finish(state);
+
+        cleanup_common(s);
 }
 
 /*
@@ -784,9 +789,10 @@ struct client {
 static void * control_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
-        int fd;
+        fd_t fd;
 
         fd = socket(AF_INET6, SOCK_STREAM, 0);
+        assert(fd != INVALID_SOCKET);
         int val = 1;
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
         struct sockaddr_in6 s_in;
@@ -807,6 +813,7 @@ static void * control_thread(void *args)
         if(!fifo_status) {
                 clients = malloc(sizeof(struct client));
                 clients->fd = open(PIPE, O_RDONLY | O_NONBLOCK);
+                assert(clients->fd != -1);
                 clients->pipe = true;
                 clients->buff_len = 0;
                 clients->next = NULL;
@@ -833,12 +840,17 @@ static void * control_thread(void *args)
                 struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
                 if(select(max_fd, &set, NULL, NULL, &timeout) >= 1) {
                         if(FD_ISSET(fd, &set)) {
-                                struct client *new_client = malloc(sizeof(struct client));
-                                new_client->fd = accept(fd, (struct sockaddr *) &client_addr, &len);
-                                new_client->next = clients;
-                                new_client->buff_len = 0;
-                                new_client->pipe = false;
-                                clients = new_client;
+                                int new_fd = accept(fd, (struct sockaddr *) &client_addr, &len);
+                                if (new_fd != -1) {
+                                        struct client *new_client = malloc(sizeof(struct client));
+                                        new_client->fd = new_fd;
+                                        new_client->next = clients;
+                                        new_client->buff_len = 0;
+                                        new_client->pipe = false;
+                                        clients = new_client;
+                                } else {
+                                        fprintf(stderr, "Control socket: cannot accept new connection!");
+                                }
                         }
 
                         struct client **parent_ptr = &clients;
@@ -921,6 +933,7 @@ static void * audio_reading_thread(void *args)
                                 struct message *msg = pop_message(&s->audio_state.message_queue);
                                 if(msg->type == FINALIZE) {
                                         pthread_mutex_unlock(&s->lock);
+                                        pthread_mutex_unlock(&s->audio_state.lock);
                                         free(msg);
                                         goto exited;
                                 } else if (msg->type == SEEK) {
@@ -964,7 +977,7 @@ struct video_reader_data {
         bool o_direct;
 };
 
-#define ALIGN 512
+#define ALLOC_ALIGN 512
 
 static void *video_reader_callback(void *arg)
 {
@@ -987,11 +1000,6 @@ static void *video_reader_callback(void *arg)
                                 data->file_name_suffix);
 
                 struct stat sb;
-                if (stat(name, &sb)) {
-                        perror("stat");
-                        free_entry(data->entry);
-                        return NULL;
-                }
 
                 int flags = O_RDONLY;
                 if (data->o_direct) {
@@ -1004,22 +1012,33 @@ static void *video_reader_callback(void *arg)
                         perror("open");
                         return NULL;
                 }
+                if (fstat(fd, &sb)) {
+                        perror("fstat");
+                        close(fd);
+                        free_entry(data->entry);
+                        return NULL;
+                }
 
                 data->entry->tiles[i].data_len = sb.st_size;
-                const int aligned_data_len = (data->entry->tiles[i].data_len + ALIGN - 1)
-                        / ALIGN * ALIGN;
+                const int aligned_data_len = (data->entry->tiles[i].data_len + ALLOC_ALIGN - 1)
+                        / ALLOC_ALIGN * ALLOC_ALIGN;
                 // alignment needed when using O_DIRECT flag
                 data->entry->tiles[i].data = (char *)
-                        aligned_malloc(aligned_data_len, ALIGN);
+                        aligned_malloc(aligned_data_len, ALLOC_ALIGN);
                 assert(data->entry->tiles[i].data != NULL);
 
                 ssize_t bytes = 0;
                 do {
                         ssize_t res = read(fd, data->entry->tiles[i].data + bytes,
-                                        (data->entry->tiles[i].data_len - bytes + ALIGN - 1)
-                                        / ALIGN * ALIGN);
+                                        (data->entry->tiles[i].data_len - bytes + ALLOC_ALIGN - 1)
+                                        / ALLOC_ALIGN * ALLOC_ALIGN);
                         if (res <= 0) {
                                 perror("read");
+                                for (unsigned int i = 0; i < data->tile_count; i++) {
+                                        aligned_free(data->entry->tiles[i].data);
+                                }
+                                free(data->entry);
+                                close(fd);
                                 return NULL;
                         }
                         bytes += res;

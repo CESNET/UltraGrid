@@ -81,10 +81,10 @@ struct vec3 : public vec2 {
     }
 };
 
-uvec3::uvec3(const vec3 & v) : r(v.r), g(v.g), b(v.b) {}
-uvec2::uvec2(const vec2 & v) : r(v.r), g(v.g) {}
-vec2::vec2(const vec3 & v) : r(v.r), g(v.g) {}
-vec2::vec2(const uvec2 & v) : r(v.r), g(v.g) {}
+__device__ uvec3::uvec3(const vec3 & v) : r(v.r), g(v.g), b(v.b) {}
+__device__ uvec2::uvec2(const vec2 & v) : r(v.r), g(v.g) {}
+__device__ vec2::vec2(const vec3 & v) : r(v.r), g(v.g) {}
+__device__ vec2::vec2(const uvec2 & v) : r(v.r), g(v.g) {}
 
 
 __device__ static vec3 min(const vec3 & a, const vec3 & b) {
@@ -462,14 +462,14 @@ __device__ static void swap(T & a, T & b) {
 
 /// Encodes and saves the block.
 template <int DXT_TYPE>
-__device__ static void dxt_encode(void * out, const int block_idx,
+__device__ void dxt_encode(void * out, const int block_idx,
                                   float r[16], float g[16], float b[16]);
 
 
 /// Encodes the block into DXT6 format (DXT5-YcOcG) and saves it into output 
 /// buffer
 template <>
-__device__ static void dxt_encode<6>(void * out, const int block_idx,
+__device__ void dxt_encode<6>(void * out, const int block_idx,
                                      float r[16], float g[16], float b[16]) {
      // Read block of data
     vec3 block[16];
@@ -510,7 +510,7 @@ __device__ static void dxt_encode<6>(void * out, const int block_idx,
 
 /// Encodes the block into DXT1 format and saves it into output buffer
 template <>
-__device__ static void dxt_encode<1>(void * out, const int block_idx,
+__device__ void dxt_encode<1>(void * out, const int block_idx,
                                      float r[16], float g[16], float b[16]) {
     // find min and max sample values for each component
     float mincol_r = r[0];

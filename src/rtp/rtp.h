@@ -51,7 +51,7 @@ extern "C" {
 #endif
 
 #define RTP_VERSION 2
-#define RTP_PACKET_HEADER_SIZE ((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
+#define RTP_PACKET_HEADER_SIZE ((int)((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int))))
 #define RTP_MAX_MTU 9000
 #define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE)
 
@@ -244,8 +244,7 @@ int 		 rtp_recv_r(struct rtp *session,
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
 int 		 rtp_recv_poll_r(struct rtp **sessions, 
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
-int 		 rtp_recv_push_data(struct rtp *session,
-			  char *buffer, int buffer_len, uint32_t curr_rtp_ts);
+int 		 rtp_send_raw_rtp_data(struct rtp *session, char *buffer, int buffer_len);
 
 int 		 rtp_send_data(struct rtp *session, 
 			       uint32_t rtp_ts, char pt, int m, 

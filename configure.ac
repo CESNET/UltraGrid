@@ -45,9 +45,9 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="$CFLAGS -I."
-CPPFLAGS="$CPPFLAGS -I."
-CXXFLAGS="$CXXFLAGS -I. -D__STRICT_ANSI__ -std=c++0x"
+CFLAGS="$CFLAGS -I$srcdir"
+CPPFLAGS="$CPPFLAGS -I$srcdir"
+CXXFLAGS="$CXXFLAGS -I$srcdir -D__STRICT_ANSI__ -std=c++0x"
 LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
@@ -59,6 +59,20 @@ AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
 )
+
+if test "$ac_cv_prog_cc_c99" = no
+then
+        AC_MSG_ERROR([Your compiler does not accept C99.])
+fi
+
+AC_CHECK_SIZEOF([size_t])
+
+if test $ac_cv_sizeof_size_t -eq 8
+then
+        WORD_LEN=64
+else
+        WORD_LEN=32
+fi
 
 AC_DEFUN([HM_VERSION_WARNING], [
           AC_MSG_WARN([If you still want to try with unsupported version of dependency,
@@ -80,15 +94,6 @@ then
                 AC_MSG_RESULT(no);
         fi
 fi
-
-case "$host" in
-  	x86_64-*-linux-*)
-		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
-	;;
-	i*86-*-linux-*)
-		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
-	;;
-esac
 
 AC_MSG_CHECKING([OS family])
 
@@ -121,7 +126,7 @@ AC_MSG_RESULT($os_version_minor);
 
 if test $system = MacOSX
 then
-        COMMON_OSX_FLAGS="-m32 -I/opt/local/include -mmacosx-version-min=10.7"
+        COMMON_OSX_FLAGS="-I/opt/local/include -mmacosx-version-min=10.7"
         if test $os_version_major = 11
         then
                 OSX_SDK="macosx10.7"
@@ -132,7 +137,10 @@ then
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
-        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
+        NVCCFLAGS="$NVCCFLAGS -I/opt/local/include"
+        if test $WORD_LEN = 32; then
+                NVCCFLAGS="$NVCCFLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
+        fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
@@ -196,20 +204,6 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #endif // POSIX_MEMALIGN
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
 ])
-
-if test "$ac_cv_prog_cc_c99" = no
-then
-        AC_MSG_ERROR([Your compiler does not accept C99.])
-fi
-
-AC_CHECK_SIZEOF([size_t])
-
-if test $ac_cv_sizeof_size_t -eq 8
-then
-        WORD_LEN=64
-else
-        WORD_LEN=32
-fi
 
 # -------------------------------------------------------------------------------------------------
 # Licensing
@@ -277,14 +271,22 @@ AC_DEFUN([DEFINE_CUDA], [
         ])
 AC_SUBST(DLL_LIBS)
 
-AC_MSG_CHECKING([if_nametoindex])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <windows.h>
-#include <iphlpapi.h>
-					]], [[
-if_nametoindex("eth");]]
-)], HAVE_IF_NAMETOINDEX=yes, HAVE_IF_NAMETOINDEX=no)
-	AC_MSG_RESULT([$HAVE_IF_NAMETOINDEX])
+if test $system = Windows
+then
+        AC_MSG_CHECKING([if_nametoindex])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+                           #include <windows.h>
+                           #include <iphlpapi.h>
+                           ]], [[
+                                if_nametoindex("eth");]]
+                           )], HAVE_IF_NAMETOINDEX=yes, HAVE_IF_NAMETOINDEX=no)
+        AC_MSG_RESULT([$HAVE_IF_NAMETOINDEX])
+        if test $HAVE_IF_NAMETOINDEX = yes; then
+                AC_DEFINE([HAVE_IF_TONAMEINDEX], 1, [Function if_nametoindex is present.])
+        fi
+else
+        AC_CHECK_FUNCS(if_nametoindex)
+fi
 
 AC_CHECK_FUNCS(strtok_r)
 
@@ -401,6 +403,9 @@ AC_ARG_ENABLE(debug,
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
                 debug_output=yes
+                DEBUG_FLAGS="-Werror -Wno-error=cast-qual -Wno-error=cast-align"
+                CFLAGS="$CFLAGS $DEBUG_FLAGS"
+                CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
 	fi])
 
 AC_ARG_ENABLE(ipv6,
@@ -438,7 +443,7 @@ fi
 video_display_abi_version=6
 video_capture_abi_version=3
 vcapture_filter_abi_version=1
-video_compress_abi_version=3
+video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
 audio_capture_abi_version=4
@@ -550,7 +555,8 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 dvs=no
 dvs_req=auto
 AC_ARG_ENABLE(dvs,
-              AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]),
+[  --disable-dvs           disable DVS (default is auto)]
+[                          Requires: DVS_SDK],
 	[dvs_req=$enableval])
 
 case "$host" in
@@ -646,17 +652,19 @@ DECKLINK_PATH=
 decklink=no
 decklink_req=auto
 
-AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]),
+AC_ARG_ENABLE(decklink,
+[  --disable-decklink      disable DeckLink (default is auto)]
+[                          Requires: DesktopVideo],
 	[decklink_req=$enableval])
 DECKLINK_INC=
 
 case "$host_os" in
 	*darwin*)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Mac
+                        DECKLINK_INC=$srcdir/DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS="$LIBS -framework CoreFoundation DeckLink/Mac/DeckLinkAPIDispatch.cpp"
+                LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
                                    ]],
@@ -669,7 +677,7 @@ case "$host_os" in
                 ;;
 	*mingw*)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Windows
+                        DECKLINK_INC=$srcdir/DeckLink/Windows
                 fi
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS -lOle32"
@@ -690,7 +698,7 @@ case "$host_os" in
                 ;;
         *)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/Linux
+                        DECKLINK_INC=$srcdir/DeckLink/Linux
                 fi
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
@@ -714,16 +722,16 @@ then
     DECKLINK_DISP_OBJ="src/video_display/decklink.o"
     DECKLINK_SOUND_PLAY_OBJ="src/audio/playback/decklink.o"
     if test $system = "Windows"; then
-        DECKLINK_COMMON="src/video_capture/DeckLinkAPI_i.o"
+        OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
     else
-        DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
+        OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/aplay_decklink.so.$audio_playback_abi_version")
     LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
-    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ $DECKLINK_COMMON"
+    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
     decklink=yes
 else
     DECKLINK_PATH=
@@ -737,10 +745,9 @@ if test $decklink_req = yes -a $decklink = no; then
         AC_MSG_ERROR([DeckLink not found.])
 fi
 
-LIB_MODULES+=" $DECKLINK_LIB"
+LIB_MODULES="$LIB_MODULES $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
-AC_SUBST(DECKLINK_COMMON)
 AC_SUBST(DECKLINK_INC)
 AC_SUBST(DECKLINK_LIB)
 AC_SUBST(DECKLINK_CAP_OBJ)
@@ -761,7 +768,8 @@ blue_audio_req=auto
 blue_audio=no
 
 AC_ARG_ENABLE(bluefish444,
-              AS_HELP_STRING([--disable-bluefish444], [disable Bluefish444 suppport (default is auto)]),
+[  --disable-bluefish444   disable Bluefish444 suppport (default is auto)]
+[                          Requires: bluefish444_SDK],
               [bluefish444_req=$enableval],
               [bluefish444_req=auto]
               )
@@ -897,7 +905,8 @@ DELTACAST_LIB=
 deltacast=no
 
 AC_ARG_ENABLE(deltacast,
-              AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
+[  --disable-deltacast     disable DELTACAST suppport (default is auto)]
+[                          Requires: VideoMasterHD_SDK],
               [deltacast_req=$enableval],
               [deltacast_req=auto]
               )
@@ -1020,18 +1029,23 @@ QUICKTIME_OBJ=
 quicktime=no
 
 AC_ARG_ENABLE(quicktime,
-      AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]),
+      AS_HELP_STRING([--disable-quicktime], [enable QuickTime support(default is disable)]),
     [quicktime_req=$enableval],
-    [quicktime_req=auto]
+    [quicktime_req=no]
     )
+
+if test $WORD_LEN = 64 -a $quicktime_req = yes; then
+        AC_MSG_ERROR([QuickTime not supported in 64-bit builds, please build 32-bit UltraGrid (CFLAGS/CXXFLAGS/LDFLAGS/NVCCFLAGS=-m32)]);
+fi
 
 case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 
-		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes
+		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes -a $WORD_LEN = 32
 		then
+                        AC_DEFINE([HAVE_QUICKTIME], [1],  [Build with QuickTime support])
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
@@ -1055,11 +1069,12 @@ AC_SUBST(QUICKTIME_OBJ)
 # -------------------------------------------------------------------------------------------------
 # AV Foundation capture
 # -------------------------------------------------------------------------------------------------
+avfoundation=no
 
 if test $system = MacOSX
 then
 	AVFOUNDATION_INC=""
-	AVFOUNDATION_LIB="-framework AVFoundation -framework CoreMedia -framework CoreVideo"
+	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
 	#LIB_TARGETS not needed here since we are not building modules on Mac
@@ -1080,7 +1095,8 @@ SDL_LIBS=
 sdl=no
 
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--disable-sdl], [enable SDL(default is enable)]),
+[  --disable-sdl           enable SDL (default is enable)]
+[                          Requires: sdl >= 1.2.14 ],
     [sdl_req=$enableval],
     [sdl_req=auto]
     )
@@ -1214,39 +1230,36 @@ AC_SUBST(SDL_LIBS)
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
 RTSP_INC=
-RTSP_LIB=
+RTSP_LIBS=
 RTSP_OBJ=
 rtsp=no
-curl=no
-glib=no
+
+define(rtsp_deps, [glib-2.0 >= 2.24.1 libcurl])
 
 AC_ARG_ENABLE(rtsp,
-      AS_HELP_STRING([--disable-rtsp], [disable RTSP support(default is auto)]),
+[  --disable-rtsp          disable RTSP support (default is auto)]
+[                          Requires: rtsp_deps],
     [rtsp_req=$enableval],
     [rtsp_req=auto]
     )
 
 case $host in
     *-linux-*)
-		PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.24.1], FOUND_GLIB_H=yes, FOUND_GLIB_H=no)
-		PKG_CHECK_MODULES([CURL], [libcurl], FOUND_CURL_H=yes, FOUND_CURL_H=no)
+		PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
 
-		if test $rtsp_req != no -a $FOUND_CURL_H = yes -a $FOUND_GLIB_H = yes  
+		if test $rtsp_req != no -a $FOUND_RTSP_DEPS = yes
 		then
 			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
                         SAVED_CFLAGS=$CFLAGS
-                        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+                        CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                         SAVED_CXXFLAGS=$CXXFLAGS
-                        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+                        CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
                         RTSP_INC=
-                        RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
                         RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
                         AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
                         rtsp=yes
-                        curl=yes
-                        glib=yes
 		fi
     ;;
 esac
@@ -1255,10 +1268,10 @@ if test $rtsp_req = yes -a $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RTSP_LIB"
+LIB_MODULES="$LIB_MODULES $RTSP_LIBS"
 
 AC_SUBST(RTSP_INC)
-AC_SUBST(RTSP_LIB)
+AC_SUBST(RTSP_LIBS)
 AC_SUBST(RTSP_OBJ)
 
 
@@ -1269,32 +1282,28 @@ AC_SUBST(RTSP_OBJ)
 # TODO: create pkg-config search path for liblivemedia-dev (create live555.pc file)
 # -------------------------------------------------------------------------------------------------
 RTSP_SERVER_INC=
-RTSP_SERVER_LIB=
 RTSP_SERVER_OBJ=
 rtsp_server=no
 livemedia=no
 
-
 AC_ARG_ENABLE(rtsp_server,
-      AS_HELP_STRING([--disable-rtsp-server], [disable RTSP server support(default is auto)]),
+[  --disable-rtsp-server   disable RTSP server support (default is auto)]
+[                          Requires: live555],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=auto]
     )
 
 case $host in
     *-linux-*)
-
-		AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+                AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
 
 		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
 		then
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-	        SAVED_CFLAGS=$CFLAGS
-	        CFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
-	        SAVED_CXXFLAGS=$CXXFLAGS
-	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
-			RTSP_SERVER_INC=
-			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
+                        RTSP_SERVER_FLAGS="-I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
+                        CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
+                        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
+                        RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
 			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
                         AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
@@ -1309,56 +1318,52 @@ if test $rtsp_server_req = yes -a $rtsp_server = no; then
         AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RTSP_SERVER_LIB"
+LIB_MODULES="$LIB_MODULES $RTSP_SERVER_LIBS"
 
-AC_SUBST(RTSP_SERVER_INC)
-AC_SUBST(RTSP_SERVER_LIB)
+AC_SUBST(RTSP_SERVER_LIBS)
 AC_SUBST(RTSP_SERVER_OBJ)
 
 # -------------------------------------------------------------------------------------------------
-# OpenCV stuff
+# Resize stuff
 # -------------------------------------------------------------------------------------------------
-OPENCV_INC=
-OPENCV_LIB=
-OPENCV_OBJ=
-opencv=no
+RESIZE_LIBS=
+RESIZE_OBJ=
+resize=no
 
-AC_ARG_ENABLE(opencv,
-      AS_HELP_STRING([--disable-opencv], [disable OpenCV support (default is auto) - resize capture filter dependency]),
-    [opencv_req=$enableval],
-    [opencv_req=auto]
+define(resize_dep, opencv)
+
+AC_ARG_ENABLE(resize,
+[  --disable-resize        disable resize capture filter (default is auto)]
+[                          Requires: resize_dep],
+    [resize_req=$enableval],
+    [resize_req=auto]
     )
 
 case $host in
     *-linux-*)
-		PKG_CHECK_MODULES([OPENCV], [opencv], FOUND_OPENCV_H=yes, FOUND_OPENCV_H=no)
+		PKG_CHECK_MODULES([RESIZE], [resize_dep], FOUND_RESIZE_DEP=yes, FOUND_RESIZE_DEP=no)
 
-		if test $opencv_req != no -a $FOUND_OPENCV_H = yes  
+		if test $resize_req != no -a $FOUND_RESIZE_DEP = yes  
 		then
-			AC_DEFINE([HAVE_OPENCV], [1], [OpenCV support - resize capture filter dependency])
-                        SAVED_CFLAGS=$CFLAGS
-                        CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
-                        SAVED_CXXFLAGS=$CXXFLAGS
-                        CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
-			OPENCV_INC=
-                        RESIZE_LIB="${OPENCV_LIBS}"
+                        CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
+                        CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
                         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
+                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/vcapfilter_resize.so.$vcapture_filter_abi_version")
 
-                        LIB_TARGETS="$LIB_TARGETS"
+                        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
-
-                        opencv=yes
+                        resize=yes
 		fi
     ;;
 esac
 
-if test $opencv_req = yes -a $opencv = no; then
+if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RESIZE_LIB"
+LIB_MODULES="$LIB_MODULES $RESIZE_LIBS"
 
-AC_SUBST(RESIZE_LIB)
+AC_SUBST(RESIZE_LIBS)
 AC_SUBST(RESIZE_OBJ)
 
 
@@ -1444,7 +1449,8 @@ GL_LIB=
 gl=no
 
 AC_ARG_ENABLE(gl,
-      AS_HELP_STRING([--disable-gl], [disable OpenGL (default is auto)]),
+[  --disable-gl            disable OpenGL (default is auto]
+[                          Requires:  glew GLUT gl],
     [gl_req=$enableval],
     [gl_req=auto]
     )
@@ -1664,7 +1670,8 @@ SWMIX_OBJ=
 swmix=no
 
 AC_ARG_ENABLE(swmix,
-      AS_HELP_STRING([--disable-swmix], [disable SW mix (default is auto)]),
+[  --disable-swmix         disable SW mix (default is auto)]
+[                          Requires: gl],
     [swmix_req=$enableval],
     [swmix_req=auto]
     )
@@ -1700,7 +1707,8 @@ SCREEN_CAP_LIB=
 screen_cap=no
 
 AC_ARG_ENABLE(screen,
-      AS_HELP_STRING([--disable-screen], [disable screen capture (default is auto)]),
+[  --disable-screen        disable screen capture (default is auto)]
+[                          Requires: none (OSX) x11 (Linux)],
     [screen_cap_req=$enableval],
     [screen_cap_req=auto]
     )
@@ -1785,7 +1793,8 @@ AC_SUBST(SCREEN_CAP_OBJ)
 rtdxt=no
 
 AC_ARG_ENABLE(rtdxt,
-      AS_HELP_STRING([--disable-rtdxt], [disable Real-Time OpenGL DXT compression (default is auto)]),
+[  --disable-rtdxt         disable Real-Time OpenGL DXT compression (default is auto)]
+[                          Requires: gl],
 	[rtdxt_req=$enableval],
         [rtdxt_req=auto])
 
@@ -1832,7 +1841,8 @@ AC_SUBST(DXT_GLSL_CFLAGS)
 uyvy=no
 
 AC_ARG_ENABLE(uyvy,
-      AS_HELP_STRING([--disable-uyvy], [disable dummy RGB to UYVY compression (default is auto)]),
+[  --disable-uyvy          disable dummy RGB to UYVY compression (default is auto)]
+[                          Requires: CUDA],
 	[uyvy_req=$enableval],
         [uyvy_req=auto])
 
@@ -1889,6 +1899,11 @@ CUDA_LIB_PATH=
 FOUND_CUDA=no
 CUDA_PATH=$CUDA_DIRECTORY
 
+AC_ARG_ENABLE(cuda,
+              AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
+              [cuda_req=$enableval],
+              [cuda_req=auto])
+
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
@@ -1897,7 +1912,7 @@ AC_ARG_WITH(cuda,
 AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
-if test -n "$NVCC"
+if test -n "$NVCC" -a $cuda_req != no
 then
         CUDA_PATH=`dirname "$NVCC"`
         CUDA_PATH=`dirname "$CUDA_PATH"`
@@ -1918,7 +1933,7 @@ then
         nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
-        CUDA_INC=-I$CUDA_PATH/include
+        CUDA_INC="\"-I$CUDA_PATH/include\""
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
@@ -1947,7 +1962,8 @@ JPEG_LIB=
 jpeg=no
 
 AC_ARG_ENABLE(jpeg,
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto)]),
+[  --disable-jpeg          disable JPEG compression (auto)]
+[                          Requires: libgpujpeg ],
 	[jpeg_req=$enableval],
         [jpeg_req=auto])
 
@@ -1988,14 +2004,14 @@ then
         jpeg=yes
 
         JPEG_INC="$JPEG_INC -Igpujpeg"
-        JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_LIB="$JPEG_LIB -lgpujpeg"
+        JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
+        LIB_OBJS="$LIB_OBJS $JPEG_COMPRESS_OBJ $JPEG_DECOMPRESS_OBJ"
         CUDA_MESSAGE
 fi
 
@@ -2005,7 +2021,6 @@ fi
 
 LIB_MODULES="$LIB_MODULES $JPEG_LIB"
 
-AC_SUBST(JPEG_COMMON_OBJ)
 AC_SUBST(JPEG_COMPRESS_OBJ)
 AC_SUBST(JPEG_DECOMPRESS_OBJ)
 AC_SUBST(JPEG_INC)
@@ -2031,7 +2046,8 @@ AC_DEFUN([ADD_CUDA_DXT_OBJ], [
         ])
 
 AC_ARG_ENABLE(cuda-dxt,
-      AS_HELP_STRING([--disable-cuda-dxt], [disable CUDA DXT compression (auto)]),
+[  --disable-cuda-dxt      disable CUDA DXT compression (auto)]
+[                          Requires: CUDA],
 	[cuda_dxt_req=$enableval],
         [cuda_dxt_req=auto])
 
@@ -2068,7 +2084,8 @@ AC_SUBST(CUDA_DXT_LIB)
 # -------------------------------------------------------------------------------------------------
 jpeg_to_dxt=no
 AC_ARG_ENABLE(jpeg_to_dxt,
-              AS_HELP_STRING([--disable-jpeg-to-dxt], [disable JPEG to DXT transcoder (default is auto)]),
+[  --disable-jpeg-to-dxt   disable JPEG to DXT transcoder (default is auto)]
+[                          Requires: CUDA libgpujpeg],
               [jpeg_to_dxt_req=$enableval],
               [jpeg_to_dxt_req=auto])
 
@@ -2108,7 +2125,8 @@ SAGE_LIB=
 sage=no
 
 AC_ARG_ENABLE(sage,
-      AS_HELP_STRING([--disable-sage], [disable SAGE (default is auto)]),
+[  --disable-sage          disable SAGE (default is auto)]
+[                          Requires: SAGE],
 	[sage_req=$enableval],
         [sage_req=auto])
 
@@ -2121,22 +2139,29 @@ AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
 	[SAGE_DIRECTORY=$withval])
 
-if test -n "$SAGE_DIRECTORY"
-then
-        SAGE_INC=$SAGE_DIRECTORY/include
-        SAGE_LIB=$SAGE_DIRECTORY/lib
-else
-        SAGE_INC=sage3.0/include
-        SAGE_LIB=sage3.0/lib
-fi
-
 if test $native_ycocg = yes
 then
         AC_DEFINE([SAGE_NATIVE_DXT5YCOCG], [1], [Assume that SAGE supports native DXT5 YCoCg])
 fi
 
-AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+# if directory not set manually, use default installation location
+if test -z "$SAGE_DIRECTORY"
+then
+        SAGE_DIRECTORY=/usr/local/sage
+fi
+
+SAGE_INC=$SAGE_DIRECTORY/include
+SAGE_LIB=$SAGE_DIRECTORY/lib64
+
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
+# if library not found in lib64/ try lib/
+if test $FOUND_SAGE_L = no
+then
+        SAGE_LIB=$SAGE_DIRECTORY/lib
+        AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
+fi
+
+AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 
 if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
@@ -2175,7 +2200,8 @@ PORTAUDIO_PLAY_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio,
-      AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]),
+[  --disable-portaudio     disable Portaudio (default is auto)]
+[                          Requires: portaudio-2.0],
 	[portaudio_req=$enableval],
         [portaudio_req=auto])
 
@@ -2225,7 +2251,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 
 speex=yes
 SPEEX_PATH=speex-1.2rc1
-SPEEX_INC=-I${SPEEX_PATH}/include
+SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
 SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
 SPEEX_LIB=
@@ -2245,7 +2271,8 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-      AS_HELP_STRING([--enable-jack-transport], [enable JACK transport (default is disable)]),
+[  --enable-jack-transport enable JACK transport (default is disable)]
+[                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=no])
 
@@ -2264,7 +2291,8 @@ AC_SUBST(JACK_TRANS_INC)
 
 # sound system
 AC_ARG_ENABLE(jack,
-      AS_HELP_STRING([--disable-jack], [disable JACK (default is auto)]),
+[  --disable-jack          disable JACK (default is auto)]
+[                          Requires: jack],
 	[jack_req=$enableval],
         [jack_req=auto])
 
@@ -2304,7 +2332,8 @@ AC_SUBST(JACK_INC)
 # ALSA
 #
 AC_ARG_ENABLE(alsa,
-      AS_HELP_STRING([--disable-alsa], [disable ALSA (default is auto)]),
+[  --disable-alsa          disable ALSA (default is auto)]
+[                          Requires: alsa],
 	[alsa_req=$enableval],
         [alsa_req=auto])
 AC_CHECK_HEADER(alsa/asoundlib.h)
@@ -2391,7 +2420,8 @@ SCALE_OBJ=
 scale=no
 
 AC_ARG_ENABLE(scale,
-      AS_HELP_STRING([--disable-scale], [disable scale support(default is auto)]),
+[  --disable-scale         disable scale postprocessor (default is auto)]
+[                          Requires: gl],
     [scale_req=$enableval],
     [scale_req=auto]
     )
@@ -2446,26 +2476,18 @@ AC_SUBST(QMAKE)
 # -------------------------------------------------------------------------------------------------
 v4l2=no
 found_v4l2=no
+
+define(v4l2_deps, libv4l2 libv4lconvert)
+
 AC_ARG_ENABLE(v4l2,
-      AS_HELP_STRING([--disable-v4l2], [disable V4L2 support(default is auto)]),
+[  --disable-v4l2          disable V4L2 support (default is auto)]
+[                          Requires: v4l2_deps],
     [v4l2_req=$enableval],
     [v4l2_req=auto]
     )
 
 if test $system = Linux; then
-        #PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB(v4l2, main)
-        AC_CHECK_HEADER(libv4l2.h)
-        AC_CHECK_LIB(v4lconvert, v4lconvert_create)
-        AC_CHECK_HEADER(libv4lconvert.h)
-        LIBS=$SAVED_LIBS
-
-        if test $v4l2_req != no -a $ac_cv_lib_v4l2_main = yes -a $ac_cv_header_libv4l2_h = yes -a \
-                $ac_cv_lib_v4lconvert_v4lconvert_create = yes -a $ac_cv_header_libv4lconvert_h = yes
-        then
-                found_v4l2=yes
-        fi
+        PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
 fi
 
 if test $v4l2_req != no -a $found_v4l2 = yes
@@ -2473,7 +2495,6 @@ then
         V4L2_OBJ="src/video_capture/v4l2.o"
         AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
         AC_SUBST(V4L2_LIB_TARGET, "lib/ultragrid/vidcap_v4l2.so.$video_capture_abi_version")
-        V4L2_LIBS="$V4L2_LIBS -lv4l2 -lv4lconvert"
         LIB_TARGETS="$LIB_TARGETS $V4L2_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $V4L2_OBJ"
         CFLAGS="$CFLAGS $V4L2_CFLAGS"
@@ -2520,7 +2541,8 @@ fi
 libavcodec=no
 libavcodec_audio=no
 AC_ARG_ENABLE(libavcodec,
-AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is auto)]),
+[  --disable-libavcodec    disable libavcodec support (default is auto)]
+[                          Requires: libavcodec libavutil],
 [libavcodec_req=$enableval],
 [libavcodec_req=auto]
 )
@@ -2642,11 +2664,11 @@ AC_SUBST(CURSES_LIBS)
 # OpenSSL-libcrypto
 # -------------------------------------------------------------------------------------------------
 crypto=no
-crypto_req=auto
 AC_ARG_ENABLE(openssl,
-      AS_HELP_STRING([--disable-openssl], [disable OpenSSL support(default is auto)]),
+[  --enable-openssl        enable OpenSSL support (default is disable)]
+[                          Requires: crypto],
     [crypto_req=$enableval],
-    [crypto_req=auto]
+    [crypto_req=no]
     )
 
 PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
@@ -2664,6 +2686,33 @@ fi
 if test $crypto_req = yes -a $crypto = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
+
+# -------------------------------------------------------------------------------------------------
+# GPU accelerated LDGM
+# -------------------------------------------------------------------------------------------------
+ldgm_gpu=no
+AC_ARG_ENABLE(ldgm-gpu,
+[  --enable-ldgm-gpu       enable GPU accelerated LDGM (default is disable)]
+[                          Requires: CUDA],
+    [ldgm_gpu_req=$enableval],
+    [ldgm_gpu_req=no]
+    )
+
+if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
+then
+        OBJS="$OBJS ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.cu.o"
+        DEFINE_CUDA
+        CUDA_MESSAGE
+        AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
+        ldgm_gpu=yes
+else
+        ldgm_gpu=no
+fi
+
+if test $ldgm_gpu_req = yes -a $ldgm_gpu = no; then
+        AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
+fi
+
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
@@ -2698,8 +2747,7 @@ RESULT=\
   License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
-  Library glib ................ $glib
-  Library curl ................ $curl
+  CUDA support ................ $FOUND_CUDA
   Library live555 ............. $livemedia
 
   AV Foundation ............... $avfoundation
@@ -2709,14 +2757,12 @@ RESULT=\
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
   OpenGL ...................... $gl
-  OpenCV ...................... $opencv
   Quicktime ................... $quicktime
   SAGE ........................ $sage
   SDL ......................... $sdl
   Screen Capture .............. $screen_cap
   V4L2 ........................ $v4l2
   RTSP Capturer Client ........ $rtsp
-  RTSP Server ................. $rtsp_server
   SW Video Mix ................ $swmix
 
   Portaudio ................... $portaudio
@@ -2732,8 +2778,11 @@ RESULT=\
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec
 
+  resize capture filter ....... $resize
+  RTSP Server ................. $rtsp_server
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
+  GPU accelerated LDGM ........ $ldgm_gpu
   "
 
 AC_MSG_RESULT(
