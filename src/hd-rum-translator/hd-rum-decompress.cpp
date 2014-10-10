@@ -27,19 +27,34 @@ static constexpr int MAX_QUEUE_SIZE = 2;
 
 using namespace std;
 
-struct output_port_info {
-        output_port_info(void *s, bool a) : state(s), active(a) {}
-        void *state;
-        bool active;
-};
-
+namespace hd_rum_decompress {
 struct state_transcoder_decompress : public frame_recv_delegate {
+        struct output_port_info {
+                inline output_port_info(void *s, bool a) : state(s), active(a) {}
+                void *state;
+                bool active;
+        };
+
+        struct message {
+                inline message(shared_ptr<video_frame> && f) : type(FRAME), frame(std::move(f)) {}
+                inline message() : type(QUIT) {}
+                inline message(int ri) : type(REMOVE_INDEX), remove_index(ri) {}
+                inline message(void *ns) : type(NEW_RECOMPRESS), new_recompress_state(ns) {}
+                inline message(message && original);
+                inline ~message();
+                enum { FRAME, REMOVE_INDEX, NEW_RECOMPRESS, QUIT } type;
+                union {
+                        shared_ptr<video_frame> frame;
+                        int remove_index;
+                        void *new_recompress_state;
+                };
+        };
+
         vector<output_port_info> output_ports;
-        int active_ports;
 
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
 
-        queue<shared_ptr<video_frame>> received_frame;
+        queue<message> received_frame;
 
         mutex              lock;
         condition_variable have_frame_cv;
@@ -70,14 +85,33 @@ void state_transcoder_decompress::frame_arrived(struct video_frame *f)
         have_frame_cv.notify_one();
 }
 
-void hd_rum_decompress_add_port(void *state, void *recompress_port, bool active)
+inline state_transcoder_decompress::message::message(message && original)
+        : type(original.type)
 {
-        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
-
-        s->output_ports.emplace_back(recompress_port, active);
-        if (active)
-                s->active_ports += 1;
+        switch (original.type) {
+                case FRAME:
+                        new (&frame) shared_ptr<video_frame>(std::move(original.frame));
+                        break;
+                case REMOVE_INDEX:
+                        remove_index = original.remove_index;
+                        break;
+                case NEW_RECOMPRESS:
+                        new_recompress_state = original.new_recompress_state;
+                        break;
+                case QUIT:
+                        break;
+        }
 }
+
+inline state_transcoder_decompress::message::~message() {
+        // shared_ptr has non-trivial destructor
+        if (type == FRAME) {
+                frame.~shared_ptr<video_frame>();
+        }
+}
+} // end of hd-rum-decompress namespace
+
+using namespace hd_rum_decompress;
 
 void hd_rum_decompress_set_active(void *state, void *recompress_port, bool active)
 {
@@ -94,48 +128,44 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
-        // if there are no active output ports, simply quit
-        if (s->active_ports == 0) {
-                return 0;
-        }
-
         return rtp_send_raw_rtp_data(s->video_rxtx->m_network_devices[0],
                         (char *) buf, count);
 }
 
 void state_transcoder_decompress::worker()
 {
-        while (1) {
+        bool should_exit = false;
+        while (!should_exit) {
                 unique_lock<mutex> l(lock);
                 have_frame_cv.wait(l, [this]{return !received_frame.empty();});
 
-                shared_ptr<video_frame> current_frame = received_frame.front();
-                received_frame.pop();
+                message msg(std::move(received_frame.front()));
                 l.unlock();
 
-                if (!current_frame) { // poisoned pill
+                switch (msg.type) {
+                case message::QUIT:
+                        should_exit = true;
+                        break;
+                case message::REMOVE_INDEX:
+                        recompress_done(output_ports[msg.remove_index].state);
+                        output_ports.erase(output_ports.begin() + msg.remove_index);
+                        break;
+                case message::NEW_RECOMPRESS:
+                        output_ports.emplace_back(msg.new_recompress_state, true);
+                        break;
+                case message::FRAME:
+                        for (unsigned int i = 0; i < output_ports.size(); ++i) {
+                                if (output_ports[i].active)
+                                        recompress_process_async(output_ports[i].state, msg.frame);
+                        }
                         break;
                 }
 
-                if (current_frame->tiles == nullptr) {
-                        int index_to_remove = current_frame->tile_count;
-                        recompress_done(output_ports[index_to_remove].state);
-                        output_ports.erase(output_ports.begin() + index_to_remove);
-                        frame_consumed_cv.notify_one();
-                        continue;
-                }
-
-                if (current_frame->tile_count == 0) {
-                        output_ports.emplace_back(current_frame->tiles, true);
-                        frame_consumed_cv.notify_one();
-                        continue;
-                }
+                // we are removing from queue now because special messages are "accepted" when queue is empty
+                l.lock();
+                received_frame.pop();
+                l.unlock();
                 frame_consumed_cv.notify_one();
-
-                for (unsigned int i = 0; i < output_ports.size(); ++i) {
-                        if (output_ports[i].active)
-                                recompress_process_async(output_ports[i].state, current_frame);
-                }
         }
 }
 
@@ -193,7 +223,7 @@ void hd_rum_decompress_done(void *state) {
 
         {
                 unique_lock<mutex> l(s->lock);
-                s->received_frame.push(shared_ptr<video_frame>());
+                s->received_frame.push({});
                 l.unlock();
                 s->have_frame_cv.notify_one();
         }
@@ -216,10 +246,7 @@ void hd_rum_decompress_remove_port(void *state, int index) {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         unique_lock<mutex> l(s->lock);
-        // grrrrrrrrrrrr, this messaging is very stinky (!)
-        auto frame = new video_frame();
-        frame->tile_count = index;
-        s->received_frame.push(shared_ptr<video_frame>(frame));
+        s->received_frame.push(index);
         s->have_frame_cv.notify_one();
         s->frame_consumed_cv.wait(l, [s]{ return s->received_frame.size() == 0; });
 }
@@ -230,10 +257,7 @@ void hd_rum_decompress_append_port(void *state, void *recompress_state)
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         unique_lock<mutex> l(s->lock);
-        // grrrrrrrrrrrr, this messaging is very stinky (!)
-        auto frame = new video_frame();
-        frame->tiles = (struct tile *) recompress_state;
-        s->received_frame.push(shared_ptr<video_frame>(frame));
+        s->received_frame.push(recompress_state);
         s->have_frame_cv.notify_one();
         s->frame_consumed_cv.wait(l, [s]{ return s->received_frame.size() == 0; });
 }
