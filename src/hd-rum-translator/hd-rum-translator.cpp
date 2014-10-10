@@ -54,6 +54,22 @@ struct replica {
 };
 
 struct hd_rum_translator_state {
+    hd_rum_translator_state() : mod{}, queue(nullptr), qhead(nullptr), qtail(nullptr), qempty(1),
+            qfull(0), decompress(nullptr) {
+        module_init_default(&mod);
+        mod.cls = MODULE_CLASS_ROOT;
+        pthread_mutex_init(&qempty_mtx, NULL);
+        pthread_mutex_init(&qfull_mtx, NULL);
+        pthread_cond_init(&qempty_cond, NULL);
+        pthread_cond_init(&qfull_cond, NULL);
+    }
+    ~hd_rum_translator_state() {
+        pthread_mutex_destroy(&qempty_mtx);
+        pthread_mutex_destroy(&qfull_mtx);
+        pthread_cond_destroy(&qempty_cond);
+        pthread_cond_destroy(&qfull_cond);
+        module_done(&mod);
+    }
     struct module mod;
     struct item *queue;
     struct item *qhead;
@@ -454,33 +470,9 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     return true;
 }
 
-static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
-{
-    module_init_default(&s->mod);
-    s->mod.cls = MODULE_CLASS_ROOT;
-
-    s->qempty = 1;
-    s->qfull = 0;
-    pthread_mutex_init(&s->qempty_mtx, NULL);
-    pthread_mutex_init(&s->qfull_mtx, NULL);
-    pthread_cond_init(&s->qempty_cond, NULL);
-    pthread_cond_init(&s->qfull_cond, NULL);
-    s->decompress = NULL;
-}
-
-static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
-{
-    pthread_mutex_destroy(&s->qempty_mtx);
-    pthread_mutex_destroy(&s->qfull_mtx);
-    pthread_cond_destroy(&s->qempty_cond);
-    pthread_cond_destroy(&s->qfull_cond);
-
-    module_done(&s->mod);
-}
-
 int main(int argc, char **argv)
 {
-    struct hd_rum_translator_state state = hd_rum_translator_state();
+    struct hd_rum_translator_state state;
 
     unsigned short port;
     int qsize;
@@ -519,8 +511,6 @@ int main(int argc, char **argv)
 
     uv_argc = argc;
     uv_argv = argv;
-
-    hd_rum_translator_state_init(&state);
 
     main_thread_id = pthread_self();
 
@@ -736,8 +726,6 @@ int main(int argc, char **argv)
     }
 
     control_done(control_state);
-
-    hd_rum_translator_state_destroy(&state);
 
 #ifdef WIN32
     WSACleanup();
