@@ -459,7 +459,8 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         //
         // perform needed conversions (float->int32, int32->dest_bps)
         //
-        assert(av_get_packed_sample_fmt(s->codec_ctx->sample_fmt) != AV_SAMPLE_FMT_DBL); // not supported yet
+        assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
+                        s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
 
         unique_ptr<char []> int32_data;
         unique_ptr<char []> out_bps_data;
@@ -467,7 +468,8 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         const char *output_data = NULL;
         int in_bps;
         // convert from float if needed
-        if (av_get_packed_sample_fmt(s->codec_ctx->sample_fmt) == AV_SAMPLE_FMT_FLT) {
+        if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT ||
+                        s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                 int32_data = unique_ptr<char []>(new char [s->output_channel.data_len]);
                 float2int(int32_data.get(), s->output_channel.data, s->output_channel.data_len);
                 output_data = int_input_data = int32_data.get();
