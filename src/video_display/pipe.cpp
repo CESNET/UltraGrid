@@ -150,6 +150,10 @@ int display_pipe_get_property(void *state, int property, void *val, size_t *len)
                         *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         *len = sizeof(int);
                         break;
+                case DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES:
+                        *(int *) val = TRUE;
+                        *len = sizeof(int);
+                        break;
                 default:
                         return FALSE;
         }

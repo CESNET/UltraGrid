@@ -177,6 +177,7 @@ struct fec_msg : public msg {
         fec_desc fec_description;
         int substream_count;
         bool poisoned;
+        uint32_t ssrc;
 };
 
 struct decompress_msg : public msg {
@@ -198,6 +199,7 @@ struct decompress_msg : public msg {
         int *buffer_num;
         char **fec_buffers;
         bool poisoned;
+        uint32_t ssrc;
 };
 
 struct main_msg_reconfigure {
@@ -325,6 +327,7 @@ static void *fec_thread(void *args) {
                 struct decompress_msg *decompress_msg = new struct decompress_msg( data->substream_count);
                 memcpy(decompress_msg->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
                 memcpy(decompress_msg->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
+                decompress_msg->ssrc = data->ssrc;
 
                 if (data->fec_description.type != FEC_NONE) {
                         if(!fec_state || desc.k != data->fec_description.k ||
@@ -574,6 +577,7 @@ static void *decompress_thread(void *args) {
                                 putf_flags = PUTF_NONBLOCK;
                         }
 
+                        decoder->frame->ssrc = msg->ssrc;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -805,7 +809,7 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
 
                 if (decoder->frame)
                         display_put_frame(decoder->display, decoder->frame,
-                                        PUTF_NONBLOCK);
+                                        PUTF_DISCARD);
 
                 decoder->display = NULL;
                 decoder->frame = NULL;
@@ -1460,6 +1464,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         uint32_t tmp;
         uint32_t substream;
         int max_substreams = decoder->max_substreams;
+        uint32_t ssrc;
 
         int i;
         uint32_t buffer_len[max_substreams];
@@ -1540,6 +1545,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 substream = tmp >> 22;
                 buffer_number = tmp & 0x3fffff;
                 buffer_length = ntohl(hdr[2]);
+                ssrc = pckt->ssrc;
 
                 if (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM) {
                         tmp = ntohl(hdr[3]);
@@ -1776,6 +1782,7 @@ next_packet:
         memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
         memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
         fec_msg->pckt_list = std::move(pckt_list);
+        fec_msg->ssrc = ssrc;
 
         if(decoder->fec_queue.size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");

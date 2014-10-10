@@ -24,7 +24,11 @@ struct response *send_message(struct module *root, const char *const_path, struc
         pthread_mutex_lock(&receiver->lock);
 
         while ((item = strtok_r(path, ".", &save_ptr))) {
+                path = NULL;
                 struct module *old_receiver = receiver;
+
+                if (strcmp(item, "root") == 0)
+                        continue;
 
                 receiver = get_matching_child(receiver, item);
 
@@ -47,8 +51,6 @@ struct response *send_message(struct module *root, const char *const_path, struc
                 }
                 pthread_mutex_lock(&receiver->lock);
                 pthread_mutex_unlock(&old_receiver->lock);
-
-                path = NULL;
         }
 
         free(tmp);
