@@ -252,6 +252,7 @@ static void *writer(void *arg)
         (struct hd_rum_translator_state *) arg;
 
     while (1) {
+        // first check messages
         for (unsigned int i = 0; i < s->replicas.size(); i++) {
             if (s->replicas[i]->change_to_type != replica::type_t::NONE) {
                 s->replicas[i]->type = s->replicas[i]->change_to_type;
@@ -290,6 +291,7 @@ static void *writer(void *arg)
             free_message((struct message *) msg);
         }
 
+        // then process incoming packets
         while (s->qhead != s->qtail) {
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;

@@ -312,6 +312,9 @@ int display_proxy_get_property(void *state, int property, void *val, size_t *len
 
 int display_proxy_reconfigure(void *state, struct video_desc desc)
 {
+        /**
+         * @todo this is wrong, because reconfigure will be used from multiple threads...
+         */
         struct state_proxy *s = (struct state_proxy *) state;
 
         unique_lock<mutex> lg(s->lock);
