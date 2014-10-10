@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -154,25 +154,25 @@ struct line_decoder {
         unsigned int         src_linesize; ///< source linesize
 };
 
-struct decompress_msg;
 struct main_msg;
 
 // message definitions
-typedef char *char_p;
-struct fec_msg : public msg {
-        fec_msg(int count, fec_desc && d) : fec_description(d), substream_count(count), poisoned(false) {
-                buffer_len = new int[count];
-                buffer_num = new int[count];
-                recv_buffers = new char_p[count];
+struct frame_msg {
+        inline frame_msg(int count, fec_desc && d) : buffer_num(count),
+                recv_buffer(count), recv_buffer_len(count),
+                decompress_buffer(count), decompress_buf_len(count),
+                fec_description(d), substream_count(count), poisoned(false)
+        {}
+        inline ~frame_msg() {
+                for (unsigned int i = 0; i < recv_buffer.size(); ++i) {
+                        free(recv_buffer[i]);
+                }
         }
-        ~fec_msg() {
-                delete [] buffer_len;
-                delete [] buffer_num;
-                delete [] recv_buffers;
-        }
-        int *buffer_len;
-        int *buffer_num;
-        char **recv_buffers;
+        vector <int> buffer_num;
+        vector <char *> recv_buffer;
+        vector <int> recv_buffer_len;
+        vector <char *> decompress_buffer;
+        vector <int> decompress_buf_len;
         unique_ptr<map<int, int>[]> pckt_list;
         fec_desc fec_description;
         int substream_count;
@@ -180,32 +180,10 @@ struct fec_msg : public msg {
         uint32_t ssrc;
 };
 
-struct decompress_msg : public msg {
-        decompress_msg(int count) :
-                        poisoned(false) {
-                decompress_buffer = new char_p[count];
-                fec_buffers = new char_p[count];
-                buffer_len = new int[count];
-                buffer_num = new int[count];
-        }
-        ~decompress_msg() {
-                delete [] decompress_buffer;
-                delete [] fec_buffers;
-                delete [] buffer_len;
-                delete [] buffer_num;
-        }
-        char **decompress_buffer;
-        int *buffer_len;
-        int *buffer_num;
-        char **fec_buffers;
-        bool poisoned;
-        uint32_t ssrc;
-};
-
 struct main_msg_reconfigure {
-        main_msg_reconfigure(struct video_desc d, struct fec_msg *lf) : desc(d), last_frame(lf) {}
+        inline main_msg_reconfigure(struct video_desc d, struct frame_msg *lf) : desc(d), last_frame(lf) {}
         struct video_desc desc;
-        struct fec_msg *last_frame;
+        struct frame_msg *last_frame;
 };
 }
 
@@ -247,7 +225,7 @@ struct state_video_decoder
                               * has been processed and we can write to a new one */
         pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
-        synchronized_queue<decompress_msg*, 1> decompress_queue;
+        synchronized_queue<frame_msg*, 1> decompress_queue;
 
         codec_t           out_codec;
         // display or postprocessor
@@ -261,7 +239,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        synchronized_queue<fec_msg*, 1> fec_queue;
+        synchronized_queue<frame_msg*, 1> fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -311,23 +289,16 @@ static void *fec_thread(void *args) {
         struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct fec_msg *data = decoder->fec_queue.pop();
+                struct frame_msg *data = decoder->fec_queue.pop();
 
-                if(data->poisoned) {
-                        decompress_msg *msg = new decompress_msg(0);
-                        msg->poisoned = true;
-                        decoder->decompress_queue.push(msg);
-                        delete data;
+                if (data->poisoned) {
+                        decoder->decompress_queue.push(data);
                         break; // exit from loop
                 }
 
                 struct video_frame *frame = decoder->frame;
                 struct tile *tile = NULL;
                 int ret = TRUE;
-                struct decompress_msg *decompress_msg = new struct decompress_msg( data->substream_count);
-                memcpy(decompress_msg->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
-                memcpy(decompress_msg->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
-                decompress_msg->ssrc = data->ssrc;
 
                 if (data->fec_description.type != FEC_NONE) {
                         if(!fec_state || desc.k != data->fec_description.k ||
@@ -353,14 +324,14 @@ static void *fec_thread(void *args) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
 
-                                fec_state->decode(data->recv_buffers[pos],
-                                                data->buffer_len[pos],
+                                fec_state->decode(data->recv_buffer[pos],
+                                                data->recv_buffer_len[pos],
                                                 &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
 
-                                if (data->buffer_len[pos] != (int) sum_map(data->pckt_list[pos])) {
+                                if (data->recv_buffer_len[pos] != (int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
-                                                        data->buffer_len[pos],
+                                                        data->recv_buffer_len[pos],
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
                                 }
 
@@ -392,8 +363,8 @@ static void *fec_thread(void *args) {
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                        decompress_msg->buffer_len[pos] = fec_out_len;
-                                        decompress_msg->decompress_buffer[pos] = fec_out_buffer;
+                                        data->decompress_buf_len[pos] = fec_out_len;
+                                        data->decompress_buffer[pos] = fec_out_buffer;
                                 } else { // linedecoder
                                         wait_for_framebuffer_swap(decoder);
 
@@ -434,13 +405,13 @@ static void *fec_thread(void *args) {
                 } else { /* PT_VIDEO */
                         bool corrupted_frame_counted = false;
                         for(int i = 0; i < (int) decoder->max_substreams; ++i) {
-                                decompress_msg->buffer_len[i] = data->buffer_len[i];
-                                decompress_msg->decompress_buffer[i] = data->recv_buffers[i];
+                                data->decompress_buf_len[i] = data->recv_buffer_len[i];
+                                data->decompress_buffer[i] = data->recv_buffer[i];
 
-                                if (data->buffer_len[i] != (int) sum_map(data->pckt_list[i])) {
+                                if (data->recv_buffer_len[i] != (int) sum_map(data->pckt_list[i])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                         (unsigned int) data->buffer_num[i],
-                                                        data->buffer_len[i],
+                                                        data->recv_buffer_len[i],
                                                         (unsigned int) sum_map(data->pckt_list[i]));
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
@@ -461,20 +432,14 @@ static void *fec_thread(void *args) {
                         decoder->buffer_swapped = false;
                 }
                 pthread_mutex_unlock(&decoder->lock);
-                decoder->decompress_queue.push(decompress_msg);
+                decoder->decompress_queue.push(data);
 
 cleanup:
                 if(ret == FALSE) {
-                        delete decompress_msg;
-                        if (data) {
-                                for(int i = 0; i < data->substream_count; ++i) {
-                                        free(data->recv_buffers[i]);
-                                }
-                        }
+                        delete data;
                         decoder->corrupted++;
                         decoder->dropped++;
                 }
-                delete data;
         }
 
         delete fec_state;
@@ -489,7 +454,7 @@ static void *decompress_thread(void *args) {
         struct tile *tile;
 
         while(1) {
-                decompress_msg *msg = decoder->decompress_queue.pop();
+                frame_msg *msg = decoder->decompress_queue.pop();
 
                 if(msg->poisoned) {
                         delete msg;
@@ -524,7 +489,7 @@ static void *decompress_thread(void *args) {
                                         decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
                                                         (unsigned char *) msg->decompress_buffer[pos],
-                                                        msg->buffer_len[pos],
+                                                        msg->decompress_buf_len[pos],
                                                         msg->buffer_num[pos]);
                                 }
                         }
@@ -589,10 +554,6 @@ static void *decompress_thread(void *args) {
                 }
 
 skip_frame:
-
-                for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
-                        free(msg->fec_buffers[i]);
-                }
                 delete msg;
 
                 pthread_mutex_lock(&decoder->lock);
@@ -800,7 +761,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                fec_msg *msg = new fec_msg(0, {});
+                frame_msg *msg = new frame_msg(0, {});
                 msg->poisoned = true;
                 decoder->fec_queue.push(msg);
 
@@ -1472,12 +1433,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         // the following is just LDGM related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of LDGM, there
         // is just the LDGM buffer present, so we point to it instead to copying
-        char *recv_buffers[max_substreams]; // for FEC or compressed data
+        char *recv_buffer[max_substreams]; // for FEC or compressed data
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
         for (i = 0; i < (int) max_substreams; ++i) {
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
-                recv_buffers[i] = NULL;
+                recv_buffer[i] = NULL;
         }
 
         perf_record(UVP_DECODEFRAME, cdata);
@@ -1532,7 +1493,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
         int pt;
         bool buffer_swapped = false;
-        struct fec_msg *fec_msg = NULL;
+        struct frame_msg *fec_msg = NULL;
 
         while (cdata != NULL) {
                 uint32_t *hdr;
@@ -1616,8 +1577,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         goto cleanup;
                 }
 
-                if(!recv_buffers[substream]) {
-                        recv_buffers[substream] = (char *) malloc(buffer_length);
+                if(!recv_buffer[substream]) {
+                        recv_buffer[substream] = (char *) malloc(buffer_length);
                 }
 
                 buffer_num[substream] = buffer_number;
@@ -1756,7 +1717,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                                 y += line_decoder->dst_pitch;  /* next line */
                         }
                 } else { /* PT_VIDEO_LDGM or external decoder */
-                        memcpy(recv_buffers[substream] + data_pos, (unsigned char*) data,
+                        memcpy(recv_buffer[substream] + data_pos, (unsigned char*) data,
                                 len);
                 }
 
@@ -1777,10 +1738,11 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        fec_msg = new struct fec_msg(max_substreams, fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed));
-        memcpy(fec_msg->buffer_len, buffer_len, sizeof(buffer_len));
-        memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
-        memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
+        fec_msg = new struct frame_msg(max_substreams, fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed));
+        std::copy(buffer_len, buffer_len + sizeof buffer_len / sizeof buffer_len[0],
+                        fec_msg->recv_buffer_len.begin());
+        std::copy(buffer_num, buffer_num + sizeof buffer_num / sizeof buffer_num[0], fec_msg->buffer_num.begin());
+        std::copy(recv_buffer, recv_buffer + sizeof recv_buffer / sizeof recv_buffer[0], fec_msg->recv_buffer.begin());
         fec_msg->pckt_list = std::move(pckt_list);
         fec_msg->ssrc = ssrc;
 
@@ -1794,7 +1756,7 @@ cleanup:
 
         for(i = 0; i < (int) max_substreams; ++i) {
                 if(ret != TRUE) {
-                        free(recv_buffers[i]);
+                        free(recv_buffer[i]);
                 }
 
                 frame_size += buffer_len[i];
