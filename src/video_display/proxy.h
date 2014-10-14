@@ -1,5 +1,5 @@
 /**
- * @file   video_display/pipe.h
+ * @file   video_display/proxy.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DISPLAY_PIPE_ID	0xa4bfe222
+#define DISPLAY_PROXY_ID	0xa4bfe108
 
 struct audio_frame;
 struct video_desc;
@@ -45,18 +45,18 @@ struct video_frame;
 extern "C" {
 #endif
 
-display_type_t		*display_pipe_probe(void);
-void 			*display_pipe_init(const char *fmt, unsigned int flags);
-void 			 display_pipe_run(void *state);
-void 			 display_pipe_done(void *state);
-struct video_frame	*display_pipe_getf(void *state);
-int 			 display_pipe_putf(void *state, struct video_frame *frame,
+display_type_t		*display_proxy_probe(void);
+void 			*display_proxy_init(const char *fmt, unsigned int flags);
+void 			 display_proxy_run(void *state);
+void 			 display_proxy_done(void *state);
+struct video_frame	*display_proxy_getf(void *state);
+int 			 display_proxy_putf(void *state, struct video_frame *frame,
                 int nonblock);
-int                      display_pipe_reconfigure(void *state, struct video_desc desc);
-int                      display_pipe_get_property(void *state, int property, void *val, size_t *len);
+int                      display_proxy_reconfigure(void *state, struct video_desc desc);
+int                      display_proxy_get_property(void *state, int property, void *val, size_t *len);
 
-void                     display_pipe_put_audio_frame(void *state, struct audio_frame *frame);
-int                      display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
+void                     display_proxy_put_audio_frame(void *state, struct audio_frame *frame);
+int                      display_proxy_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 
 #ifdef __cplusplus

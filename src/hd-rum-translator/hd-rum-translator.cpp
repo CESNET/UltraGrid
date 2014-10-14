@@ -26,8 +26,12 @@
 #include "utils/misc.h"
 #include "tv.h"
 
+#include <vector>
+
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
+
+using namespace std;
 
 static pthread_t main_thread_id;
 struct forward;
@@ -37,7 +41,6 @@ struct replica {
     struct module mod;
     uint32_t magic;
     const char *host;
-    unsigned short port;
 
     enum type_t {
         NONE,
@@ -51,6 +54,22 @@ struct replica {
 };
 
 struct hd_rum_translator_state {
+    hd_rum_translator_state() : mod{}, queue(nullptr), qhead(nullptr), qtail(nullptr), qempty(1),
+            qfull(0), decompress(nullptr) {
+        module_init_default(&mod);
+        mod.cls = MODULE_CLASS_ROOT;
+        pthread_mutex_init(&qempty_mtx, NULL);
+        pthread_mutex_init(&qfull_mtx, NULL);
+        pthread_cond_init(&qempty_cond, NULL);
+        pthread_cond_init(&qfull_cond, NULL);
+    }
+    ~hd_rum_translator_state() {
+        pthread_mutex_destroy(&qempty_mtx);
+        pthread_mutex_destroy(&qfull_mtx);
+        pthread_cond_destroy(&qempty_cond);
+        pthread_cond_destroy(&qfull_cond);
+        module_done(&mod);
+    }
     struct module mod;
     struct item *queue;
     struct item *qhead;
@@ -62,21 +81,19 @@ struct hd_rum_translator_state {
     pthread_cond_t qempty_cond;
     pthread_cond_t qfull_cond;
 
-    struct replica *replicas;
+    vector<replica *> replicas;
     void *decompress;
-    int host_count;
 };
 
 /*
  * Prototypes
  */
 static int output_socket(unsigned short port, const char *host, int bufsize);
-static void replica_done(struct replica *s);
+static void replica_done(struct replica *s) __attribute__((unused));
 static struct item *qinit(int qsize);
 static int buffer_size(int sock, int optname, int size);
 static void *writer(void *arg);
 static void signal_handler(int signal);
-static void usage();
 void exit_uv(int status);
 
 static volatile int should_exit = false;
@@ -101,6 +118,21 @@ static void signal_handler(int signal)
 #define SIZE    10000
 
 #define REPLICA_MAGIC 0xd2ff3323
+
+static struct response *change_replica_type_callback(struct module *mod, struct message *msg);
+
+static void replica_init(struct replica *s, const char *addr, int tx_port, int bufsize, struct module *parent)
+{
+        s->magic = REPLICA_MAGIC;
+        s->host = addr;
+        s->sock = output_socket(tx_port, addr,
+                bufsize);
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_PORT;
+        s->mod.msg_callback = change_replica_type_callback;
+        s->mod.priv_data = s;
+        module_register(&s->mod, parent);
+}
 
 static void replica_done(struct replica *s)
 {
@@ -209,21 +241,21 @@ static struct response *change_replica_type_callback(struct module *mod, struct 
 
     struct msg_universal *data = (struct msg_universal *) msg;
 
-    enum type_t new_type;
+    enum replica::type_t new_type;
     if (strcasecmp(data->text, "sock") == 0) {
-        new_type = USE_SOCK;
+        new_type = replica::type_t::USE_SOCK;
     } else if (strcasecmp(data->text, "recompress") == 0) {
-        new_type = RECOMPRESS;
+        new_type = replica::type_t::RECOMPRESS;
     } else {
-        new_type = NONE;
+        new_type = replica::type_t::NONE;
     }
     free_message(msg);
 
-    if (new_type == NONE) {
+    if (new_type == replica::type_t::NONE) {
         return new_response(RESPONSE_BAD_REQUEST, NULL);
     }
 
-    while (s->change_to_type != NONE)
+    while (s->change_to_type != replica::type_t::NONE)
         ;
     s->change_to_type = new_type;
 
@@ -232,27 +264,57 @@ static struct response *change_replica_type_callback(struct module *mod, struct 
 
 static void *writer(void *arg)
 {
-    int i;
     struct hd_rum_translator_state *s =
         (struct hd_rum_translator_state *) arg;
 
     while (1) {
-        for (i = 0; i < s->host_count; i++) {
-            if (s->replicas[i].change_to_type != NONE) {
-                s->replicas[i].type = s->replicas[i].change_to_type;
-                hd_rum_decompress_set_active(s->decompress, s->replicas[i].recompress,
-                        s->replicas[i].change_to_type == RECOMPRESS);
-                s->replicas[i].change_to_type = NONE;
+        // first check messages
+        for (unsigned int i = 0; i < s->replicas.size(); i++) {
+            if (s->replicas[i]->change_to_type != replica::type_t::NONE) {
+                s->replicas[i]->type = s->replicas[i]->change_to_type;
+                hd_rum_decompress_set_active(s->decompress, s->replicas[i]->recompress,
+                        s->replicas[i]->change_to_type == replica::type_t::RECOMPRESS);
+                s->replicas[i]->change_to_type = replica::type_t::NONE;
             }
         }
 
+        struct msg_universal *msg;
+        while ((msg = (struct msg_universal *) check_message(&s->mod))) {
+            if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
+                int index = atoi(msg->text + strlen("delete-port "));
+                hd_rum_decompress_remove_port(s->decompress, index);
+                replica_done(s->replicas[index]);
+                delete s->replicas[index];
+                s->replicas.erase(s->replicas.begin() + index);
+            } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
+                s->replicas.push_back(new replica());
+                struct replica *rep = s->replicas[s->replicas.size() - 1];
+                char *host, *save_ptr;
+                strtok_r(msg->text, " ", &save_ptr);
+                host = strtok_r(NULL, " ", &save_ptr);
+                int tx_port = atoi(strtok_r(NULL, " ", &save_ptr));
+                char *compress = strtok_r(NULL, " ", &save_ptr);
+                replica_init(rep, host, tx_port, 100*1000, &s->mod);
+
+                rep->type = replica::type_t::USE_SOCK;
+                char *fec = NULL;
+                rep->recompress = recompress_init(&rep->mod,
+                        host, compress,
+                        0, tx_port, 1500, fec, RATE_UNLIMITED);
+                hd_rum_decompress_append_port(s->decompress, rep->recompress);
+            }
+
+            free_message((struct message *) msg);
+        }
+
+        // then process incoming packets
         while (s->qhead != s->qtail) {
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
             }
-            for (i = 0; i < s->host_count; i++) {
-                if(s->replicas[i].type == USE_SOCK) {
-                    ssize_t ret = send(s->replicas[i].sock, s->qhead->buf, s->qhead->size, 0);
+            for (unsigned int i = 0; i < s->replicas.size(); i++) {
+                if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
+                    ssize_t ret = send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, 0);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
                     }
@@ -362,7 +424,7 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         }
     }
 
-    *host_opts = calloc(*host_opts_count, sizeof(struct host_opts));
+    *host_opts = (struct host_opts *) calloc(*host_opts_count, sizeof(struct host_opts));
     // default values
     for(int i = 0; i < *host_opts_count; ++i) {
         (*host_opts)[i].bitrate = RATE_UNLIMITED;
@@ -408,30 +470,6 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     return true;
 }
 
-static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
-{
-    module_init_default(&s->mod);
-    s->mod.cls = MODULE_CLASS_ROOT;
-
-    s->qempty = 1;
-    s->qfull = 0;
-    pthread_mutex_init(&s->qempty_mtx, NULL);
-    pthread_mutex_init(&s->qfull_mtx, NULL);
-    pthread_cond_init(&s->qempty_cond, NULL);
-    pthread_cond_init(&s->qfull_cond, NULL);
-    s->decompress = NULL;
-}
-
-static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
-{
-    pthread_mutex_destroy(&s->qempty_mtx);
-    pthread_mutex_destroy(&s->qfull_mtx);
-    pthread_cond_destroy(&s->qempty_cond);
-    pthread_cond_destroy(&s->qfull_cond);
-
-    module_done(&s->mod);
-}
-
 int main(int argc, char **argv)
 {
     struct hd_rum_translator_state state;
@@ -474,8 +512,6 @@ int main(int argc, char **argv)
     uv_argc = argc;
     uv_argv = argv;
 
-    hd_rum_translator_state_init(&state);
-
     main_thread_id = pthread_self();
 
 #ifndef WIN32
@@ -499,11 +535,6 @@ int main(int argc, char **argv)
 
     if (ret == false) {
         return EXIT_SUCCESS;
-    }
-
-    if (host_count == 0) {
-        usage(argv[0]);
-        return EXIT_FAIL_USAGE;
     }
 
     if ((bufsize = atoi(bufsize_str)) <= 0) {
@@ -545,7 +576,7 @@ int main(int argc, char **argv)
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
-    if (bind(sock_in, (struct sockaddr *) &addr,
+    if (::bind(sock_in, (struct sockaddr *) &addr,
              sizeof(struct sockaddr_in))) {
         perror("bind");
         return 2;
@@ -553,11 +584,9 @@ int main(int argc, char **argv)
 
     printf("listening on *:%d\n", port);
 
-    /* output socket(s) */
-    state.replicas = (struct replica *) calloc(host_count, sizeof(struct replica));
-    if (state.replicas == NULL) {
-        fprintf(stderr, "not enough memory for replica array");
-        return 2;
+    state.replicas.resize(host_count);
+    for (auto && rep : state.replicas) {
+        rep = new replica();
     }
 
     if(control_init(control_port, control_connection_type, &control_state, &state.mod) != 0) {
@@ -567,12 +596,11 @@ int main(int argc, char **argv)
     control_start(control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod);
+    state.decompress = hd_rum_decompress_init(&state.mod);;
     if(!state.decompress) {
         return EXIT_INIT_PORT;
     }
 
-    state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
         int packet_rate;
         if (hosts[i].bitrate != RATE_AUTO && hosts[i].bitrate != RATE_UNLIMITED) {
@@ -586,39 +614,32 @@ int main(int argc, char **argv)
             tx_port = hosts[i].port;
         }
 
-        state.replicas[i].magic = REPLICA_MAGIC;
-        state.replicas[i].host = hosts[i].addr;
-        state.replicas[i].port = port;
-        state.replicas[i].sock = output_socket(tx_port, hosts[i].addr,
-                bufsize);
-        module_init_default(&state.replicas[i].mod);
-        state.replicas[i].mod.cls = MODULE_CLASS_PORT;
-        state.replicas[i].mod.msg_callback = change_replica_type_callback;
-        state.replicas[i].mod.priv_data = &state.replicas[i];
-        module_register(&state.replicas[i].mod, &state.mod);
+        replica_init(state.replicas[i], hosts[i].addr, tx_port, bufsize, &state.mod);
 
         if(hosts[i].compression == NULL) {
-            state.replicas[i].type = USE_SOCK;
+            state.replicas[i]->type = replica::type_t::USE_SOCK;
             char compress[] = "none";
             char *fec = NULL;
-            state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
+            state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
                     hosts[i].addr, compress,
                     0, tx_port, hosts[i].mtu, fec, packet_rate);
-            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, false);
+            hd_rum_decompress_append_port(state.decompress, state.replicas[i]->recompress);
+            hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, false);
         } else {
-            state.replicas[i].type = RECOMPRESS;
+            state.replicas[i]->type = replica::type_t::RECOMPRESS;
 
-            state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
+            state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
                     hosts[i].addr, hosts[i].compression,
                     0, tx_port, hosts[i].mtu, hosts[i].fec, packet_rate);
-            if(state.replicas[i].recompress == 0) {
+            if(state.replicas[i]->recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
                 return EXIT_INIT_PORT;
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them
-            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress, true);
+            hd_rum_decompress_append_port(state.decompress, state.replicas[i]->recompress);
+            hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, true);
         }
     }
 
@@ -699,15 +720,12 @@ int main(int argc, char **argv)
         hd_rum_decompress_done(state.decompress);
     }
 
-    for (i = 0; i < state.host_count; i++) {
-        if(state.replicas[i].sock != -1) {
-            replica_done(&state.replicas[i]);
-        }
+    for (unsigned int i = 0; i < state.replicas.size(); i++) {
+        replica_done(state.replicas[i]);
+        delete state.replicas[i];
     }
 
     control_done(control_state);
-
-    hd_rum_translator_state_destroy(&state);
 
 #ifdef WIN32
     WSACleanup();
