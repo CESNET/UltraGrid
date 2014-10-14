@@ -41,6 +41,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+#include <utility>
 
 struct msg {
         virtual ~msg() {}
@@ -77,6 +78,17 @@ public:
                 m_queue_incremented.notify_one();
         }
 
+        void push(T && message)
+        {
+                std::unique_lock<std::mutex> l(m_lock);
+                if (max_len != -1) {
+                        m_queue_decremented.wait(l, [this]{return m_queue.size() < (unsigned int) max_len;});
+                }
+                m_queue.push(std::move(message));
+                l.unlock();
+                m_queue_incremented.notify_one();
+        }
+
         T pop(bool nonblocking = false)
         {
                 std::unique_lock<std::mutex> l(m_lock);
@@ -85,7 +97,7 @@ public:
                 }
 
                 m_queue_incremented.wait(l, [this]{return m_queue.size() > 0;});
-                T ret = m_queue.front();
+                T ret = std::move(m_queue.front());
                 m_queue.pop();
 
                 l.unlock();

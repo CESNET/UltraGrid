@@ -770,7 +770,7 @@ int main(int argc, char *argv[])
                                 }
                         } else {
                                 control_port = atoi(optarg);
-                                connection_type = 1;
+                                connection_type = 0;
                         }
                         break;
                 case OPT_VERBOSE:
