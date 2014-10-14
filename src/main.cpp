@@ -202,7 +202,7 @@ static void usage(void)
         printf("\t--verbose                \tprint verbose messages\n");
         printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-        printf("\t                         \tconnection types: 0- Server, 1- Client (default)\n");
+        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
         printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");

@@ -348,7 +348,7 @@ static void usage(const char *progname) {
         printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
                 progname);
         printf("\twhere global_opts may be:\n"
-                "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally server/client (default)\n"
+                "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
@@ -378,7 +378,7 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         if(strcmp(argv[start_index], "--control-port") == 0) {
             char *item = argv[++start_index];
             *control_port = atoi(item);
-            *control_connection_type = 1;
+            *control_connection_type = 0;
             if (strchr(item, ':')) {
                 *control_connection_type = atoi(strchr(item, ':') + 1);
             }
