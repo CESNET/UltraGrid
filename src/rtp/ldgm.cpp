@@ -165,22 +165,12 @@ static bool file_exists(char *filename)
         return true;
 }
 
-void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
+void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
 {
         m_k = k;
         m_m = m;
         m_c = c;
         m_seed = seed;
-
-        if (ldgm_device_gpu) {
-#ifdef HAVE_LDGM_GPU
-                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_gpu());
-#else
-                throw string("GPU accelerated LDGM support is not compiled in");
-#endif
-        } else {
-                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_cpu());
-        }
 
         m_coding_session->set_params(k, m, c);
 
@@ -219,6 +209,21 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
         }
 
         m_coding_session->set_pcMatrix(filename);
+}
+
+void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
+{
+        if (ldgm_device_gpu) {
+#ifdef HAVE_LDGM_GPU
+                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_gpu());
+#else
+                throw string("GPU accelerated LDGM support is not compiled in");
+#endif
+        } else {
+                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_cpu());
+        }
+
+        set_params(k, m, c, seed);
 }
 
 ldgm::ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
