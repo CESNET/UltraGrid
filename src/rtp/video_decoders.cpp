@@ -603,7 +603,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->last_buffer_number = -1;
 
         if (encryption) {
-                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_module("openssl_decrypt",
+                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
                                 fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");

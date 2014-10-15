@@ -173,6 +173,6 @@ static void init(void)  __attribute__((constructor));
 
 static void init(void)
 {
-        register_module("openssl_decrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION);
+        register_library("openssl_decrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION);
 }
 

@@ -198,7 +198,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->decoded = new audio_frame2;
 
         if (encryption) {
-                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_module("openssl_decrypt",
+                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
                         fprintf(stderr, "This " PACKAGE_NAME " version was build "

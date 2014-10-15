@@ -202,6 +202,6 @@ static void mod_reg(void)  __attribute__((constructor));
 
 static void mod_reg(void)
 {
-        register_module("capture_filter_resize", &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("capture_filter_resize", &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 }
 

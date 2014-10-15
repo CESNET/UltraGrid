@@ -62,11 +62,11 @@ using namespace std;
 
 static void init_capture_filters() __attribute__((constructor));
 static void init_capture_filters() {
-        register_module("blank", &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_module("every", &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_module("logo", &capture_filter_logo, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_module("none", &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_module("scale", &capture_filter_scale, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("blank", &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("every", &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("logo", &capture_filter_logo, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("none", &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        register_library("scale", &capture_filter_scale, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 };
 
 struct capture_filter {
@@ -88,7 +88,7 @@ static int create_filter(struct capture_filter *s, char *cfg)
                 options = strchr(filter_name, ':') + 1;
                 *strchr(filter_name, ':') = '\0';
         }
-        const auto & capture_filters = get_modules_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+        const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         for (auto && item : capture_filters) {
                 struct capture_filter_info *capture_filter_info = static_cast<struct capture_filter_info*>(item.second);
                 if(strcasecmp(capture_filter_info->name, filter_name) == 0) {
@@ -133,7 +133,7 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
 
         if(cfg) {
                 if(strcasecmp(cfg, "help") == 0) {
-                        const auto & capture_filters = get_modules_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+                        const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
                         printf("Available capture filters:\n");
                         for (auto && item : capture_filters) {
                                 struct capture_filter_info *cfi = static_cast<struct capture_filter_info*>(item.second);

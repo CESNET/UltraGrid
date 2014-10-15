@@ -127,32 +127,32 @@ void *open_library(const char *name)
         return handle;
 }
 
-static map<enum library_class, map<string, pair<void *, int>>> *modules = nullptr;
+static map<enum library_class, map<string, pair<void *, int>>> *libraries = nullptr;
 
 /**
  * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()
  * may be called before static members are initialized (it is __attribute__((constructor)))
  */
-struct init_modules {
-        init_modules() {
-                if (modules == nullptr) {
-                        modules = new map<enum library_class, map<string, pair<void *, int>>>();
+struct init_libraries {
+        init_libraries() {
+                if (libraries == nullptr) {
+                        libraries = new map<enum library_class, map<string, pair<void *, int>>>();
                 }
         }
 };
 
-static struct init_modules loader;
+static struct init_libraries loader;
 
-void register_module(string const & name, void *data, enum library_class cls, int abi_version)
+void register_library(string const & name, void *data, enum library_class cls, int abi_version)
 {
-        struct init_modules loader;
-        (*modules)[cls][name] = make_pair(data, abi_version);
+        struct init_libraries loader;
+        (*libraries)[cls][name] = make_pair(data, abi_version);
 }
 
-void *load_module(std::string const & name, enum library_class cls, int abi_version)
+void *load_library(std::string const & name, enum library_class cls, int abi_version)
 {
-        if (modules->find(cls) != modules->end()) {
-                auto it_cls = modules->find(cls)->second;
+        if (libraries->find(cls) != libraries->end()) {
+                auto it_cls = libraries->find(cls)->second;
                 auto it_module = it_cls.find(name);
                 if (it_module != it_cls.end()) {
                         auto mod_pair = it_cls.find(name)->second;
@@ -171,11 +171,11 @@ void *load_module(std::string const & name, enum library_class cls, int abi_vers
         }
 }
 
-map<string, void *> get_modules_for_class(enum library_class cls, int abi_version)
+map<string, void *> get_libraries_for_class(enum library_class cls, int abi_version)
 {
         map<string, void *> ret;
-        auto it = modules->find(cls);
-        if (it != modules->end()) {
+        auto it = libraries->find(cls);
+        if (it != libraries->end()) {
                 for (auto && item : it->second) {
                         if (abi_version == item.second.second) {
                                 ret[item.first] = item.second.first;

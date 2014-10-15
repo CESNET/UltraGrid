@@ -222,7 +222,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
                 if (encryption) {
-                        tx->enc_funcs = static_cast<openssl_encrypt_info *>(load_module("openssl_encrypt",
+                        tx->enc_funcs = static_cast<openssl_encrypt_info *>(load_library("openssl_encrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
                         if (!tx->enc_funcs) {
                                 fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");

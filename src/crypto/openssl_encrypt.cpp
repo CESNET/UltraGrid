@@ -174,6 +174,6 @@ static void init(void)  __attribute__((constructor));
 
 static void init(void)
 {
-        register_module("openssl_encrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);
+        register_library("openssl_encrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);
 }
 
