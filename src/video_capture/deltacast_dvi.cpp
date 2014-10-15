@@ -485,7 +485,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         s->desc.width = Width;
         s->desc.height = Height;
         s->desc.fps = RefreshRate;
-        s->desc.interlacing = Interlaced_B ? INTERLACED_MERGED : PROGRESSIVE;
+        s->desc.interlacing = Interlaced_B ? UPPER_FIELD_FIRST : PROGRESSIVE;
         s->desc.tile_count = 1;
 
         return true;
