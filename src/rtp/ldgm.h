@@ -46,6 +46,8 @@
 
 #define DEFAULT_LDGM_SEED 1
 
+#define LDGM_GPU_API_VERSION 1
+
 class LDGM_session;
 struct video_frame;
 

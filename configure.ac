@@ -2698,27 +2698,35 @@ AC_SUBST(OPENSSL_LIB_TAGET)
 # -------------------------------------------------------------------------------------------------
 ldgm_gpu=no
 AC_ARG_ENABLE(ldgm-gpu,
-[  --enable-ldgm-gpu       enable GPU accelerated LDGM (default is disable)]
+[  --disable-ldgm-gpu      disable GPU accelerated LDGM (default is auto)]
 [                          Requires: CUDA],
     [ldgm_gpu_req=$enableval],
-    [ldgm_gpu_req=no]
+    [ldgm_gpu_req=auto]
     )
 
 if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
-        OBJS="$OBJS ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.cu.o"
-        DEFINE_CUDA
         CUDA_MESSAGE
         AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
+        LDGM_GPU_OBJS="ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.cu.o src/rtp/ldgm_gpu.o"
+        AC_SUBST(LDGM_GPU_LIB_TARGET, "lib/ultragrid/module_ldgm_gpu.so")
+        LIB_TARGETS="$LIB_TARGETS $LDGM_GPU_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $LDGM_GPU_OBJS"
+        LDGM_GPU_LIBS=$JPEG_LIB
         ldgm_gpu=yes
 else
         ldgm_gpu=no
 fi
 
+LIB_MODULES="$LIB_MODULES $LDGM_GPU_LIBS"
+
 if test $ldgm_gpu_req = yes -a $ldgm_gpu = no; then
         AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
 fi
 
+AC_SUBST(LDGM_GPU_OBJS)
+AC_SUBST(LDGM_GPU_LIBS)
+AC_SUBST(LDGM_GPU_LIB_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then

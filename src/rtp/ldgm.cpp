@@ -71,6 +71,7 @@
 #include "host.h"
 
 #include "ldgm.h"
+#include "lib_common.h"
 
 #include "ldgm-coding/ldgm-session.h"
 #include "ldgm-coding/ldgm-session-cpu.h"
@@ -214,11 +215,15 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
 void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
 {
         if (ldgm_device_gpu) {
-#ifdef HAVE_LDGM_GPU
-                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_gpu());
-#else
-                throw string("GPU accelerated LDGM support is not compiled in");
-#endif
+                LDGM_session_gpu *(*loader)();
+                loader = reinterpret_cast<LDGM_session_gpu *(*)()>(load_library("ldgm_gpu",
+                                        LIBRARY_CLASS_UNDEFINED, LDGM_GPU_API_VERSION));
+                if (!loader) {
+                        throw string("GPU accelerated LDGM support is not compiled in");
+                } else {
+                        m_coding_session = unique_ptr<LDGM_session>(loader());
+
+                }
         } else {
                 m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_cpu());
         }
