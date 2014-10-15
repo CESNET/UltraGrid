@@ -171,3 +171,22 @@ void *load_module(std::string const & name, enum library_class cls, int abi_vers
         }
 }
 
+map<string, void *> get_modules_for_class(enum library_class cls, int abi_version)
+{
+        map<string, void *> ret;
+        auto it = modules->find(cls);
+        if (it != modules->end()) {
+                for (auto && item : it->second) {
+                        if (abi_version == item.second.second) {
+                                ret[item.first] = item.second.first;
+                        } else {
+                                std::cerr << "Module " << item.first << " API version mismatch (required " <<
+                                        abi_version << ", have " << item.second.second << ")\n";
+
+                        }
+                }
+        }
+
+        return ret;
+}
+

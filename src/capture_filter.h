@@ -49,6 +49,8 @@
 #ifndef CAPTURE_FILTER_H_
 #define CAPTURE_FILTER_H_
 
+#define CAPTURE_FILTER_ABI_VERSION 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif

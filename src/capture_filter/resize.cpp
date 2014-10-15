@@ -50,6 +50,8 @@
 
 #include "capture_filter/resize_utils.h"
 
+#include "lib_common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -192,14 +194,14 @@ static struct capture_filter_info capture_filter_resize = {
     filter,
 };
 
-static void register_module(void)  __attribute__((constructor));
-
-static void register_module(void)
-{
-        register_video_capture_filter(&capture_filter_resize);
-}
-
 #ifdef __cplusplus
 }
 #endif
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_module("capture_filter_resize", &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+}
 

@@ -442,7 +442,6 @@ fi
 
 video_display_abi_version=6
 video_capture_abi_version=3
-vcapture_filter_abi_version=1
 video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
@@ -452,7 +451,6 @@ audio_codec_abi_version=1
 vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
-AC_DEFINE_UNQUOTED([VCAPTURE_FILTER_ABI_VERSION], $vcapture_filter_abi_version, [Specifies ABI version for video capture filters])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
@@ -1348,7 +1346,7 @@ case $host in
                         CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
                         CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
                         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/vcapfilter_resize.so.$vcapture_filter_abi_version")
+                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/module_vcapfilter_resize.so")
 
                         LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"

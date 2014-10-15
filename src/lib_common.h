@@ -80,10 +80,13 @@ void *open_library(const char *name);
 #ifdef __cplusplus
 enum library_class {
         LIBRARY_CLASS_UNDEFINED,
+        LIBRARY_CLASS_CAPTURE_FILTER,
 };
+#include <map>
 #include <string>
 void open_all(const char *pattern);
 void register_module(std::string const & name, void *info, enum library_class, int abi_version);
 void *load_module(std::string const & name, enum library_class, int abi_version);
+std::map<std::string, void *> get_modules_for_class(enum library_class cls, int abi_version);
 #endif
 
