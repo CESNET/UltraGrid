@@ -69,6 +69,7 @@
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "perf.h"
@@ -469,6 +470,8 @@ int main(int argc, char *argv[])
 
         uv_argc = argc;
         uv_argv = argv;
+
+        open_all("module_*.so"); // load modules
 
         video_rxtx_loader loader;
 

@@ -61,6 +61,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "perf.h"
 #include "tv.h"
 #include "rtp/rtp.h"
@@ -121,6 +122,7 @@ struct state_audio_decoder {
 
         audio_frame2 *decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
 
+        struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
 };
 
@@ -195,18 +197,21 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->resampler = resampler_init(48000);
         s->decoded = new audio_frame2;
 
-        if(encryption) {
-#ifdef HAVE_CRYPTO
-                if(openssl_decrypt_init(&s->decrypt,
-                                                encryption, MODE_AES128_CTR) != 0) {
-                        fprintf(stderr, "Unable to create decompress!\n");
+        if (encryption) {
+                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_module("openssl_decrypt",
+                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
+                if (!s->dec_funcs) {
+                        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                        "without OpenSSL support!\n");
+                        free(s);
                         return NULL;
                 }
-#else
-                fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                                "without OpenSSL support!\n");
-                return NULL;
-#endif // HAVE_CRYPTO
+                if (s->dec_funcs->init(&s->decrypt,
+                                                encryption, MODE_AES128_CTR) != 0) {
+                        fprintf(stderr, "Unable to create decompress!\n");
+                        free(s);
+                        return NULL;
+                }
         }
 
         if(audio_channel_map) {
@@ -336,7 +341,9 @@ void audio_decoder_destroy(void *state)
         resampler_done(s->resampler);
         delete s->decoded;
 
-        openssl_decrypt_destroy(s->decrypt);
+        if (s->dec_funcs) {
+                s->dec_funcs->destroy(s->decrypt);
+        }
 
         free(s);
 }
@@ -413,7 +420,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -
                                 sizeof(crypto_payload_hdr_t);
 
-                        if((length = openssl_decrypt(decoder->decrypt,
+                        if((length = decoder->dec_funcs->decrypt(decoder->decrypt,
                                         ciphertext, ciphertext_len,
                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                         plaintext

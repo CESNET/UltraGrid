@@ -1,17 +1,10 @@
+/**
+ * @file   crypto/openssl_encrypt.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    aes_encrypt.c
- * AUTHOR:  Colin Perkins <csp@csperkins.org>
- *          Ladan Gharai
- *          Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -24,16 +17,9 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -47,7 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -60,19 +45,14 @@
 #include "crypto/md5.h"
 #include "crypto/openssl_encrypt.h"
 #include "debug.h"
+#include "lib_common.h"
 
 #include <string.h>
-#ifdef HAVE_CRYPTO
 #include <openssl/aes.h>
 #include <openssl/rand.h>
-#else
-#define AES_BLOCK_SIZE 16
-#endif
 
 struct openssl_encrypt {
-#ifdef HAVE_CRYPTO
         AES_KEY key;
-#endif
 
         enum openssl_mode mode;
 
@@ -81,10 +61,9 @@ struct openssl_encrypt {
         unsigned char ecount[16];
 };
 
-int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
+static int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
                 enum openssl_mode mode)
 {
-#ifdef HAVE_CRYPTO
         struct openssl_encrypt *s = (struct openssl_encrypt *)
                 calloc(1, sizeof(struct openssl_encrypt));
 
@@ -105,20 +84,11 @@ int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
 
         *state = s;
         return 0;
-#else
-        UNUSED(state);
-        UNUSED(passphrase);
-        UNUSED(mode);
-        fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                        "without OpenSSL support!\n");
-        return -1;
-#endif
 }
 
 static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plaintext,
                 unsigned char *ciphertext, char *nonce_plus_counter, int len)
 {
-#ifdef HAVE_CRYPTO
         if(nonce_plus_counter) {
                 memcpy(nonce_plus_counter, (char *) s->ivec, 16);
                 /* We do start a new block so we zero the byte counter
@@ -143,21 +113,14 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
                                         &s->key, AES_ENCRYPT);
                         break;
         }
-#else
-        UNUSED(s);
-        UNUSED(plaintext);
-        UNUSED(ciphertext);
-        UNUSED(nonce_plus_counter);
-        UNUSED(len);
-#endif
 }
 
-void openssl_encrypt_destroy(struct openssl_encrypt *s)
+static void openssl_encrypt_destroy(struct openssl_encrypt *s)
 {
         free(s);
 }
 
-int openssl_encrypt(struct openssl_encrypt *encryption,
+static int openssl_encrypt(struct openssl_encrypt *encryption,
                 char *plaintext, int data_len, char *aad, int aad_len, char *ciphertext)
 {
         uint32_t crc = 0xffffffff;
@@ -189,7 +152,7 @@ int openssl_encrypt(struct openssl_encrypt *encryption,
         return data_len + sizeof(crc) + 16 + sizeof(uint32_t);
 }
 
-int openssl_get_overhead(struct openssl_encrypt *s)
+static int openssl_get_overhead(struct openssl_encrypt *s)
 {
         switch(s->mode) {
                 case MODE_AES128_CTR:
@@ -198,5 +161,19 @@ int openssl_get_overhead(struct openssl_encrypt *s)
                 default:
                         abort();
         }
+}
+
+static struct openssl_encrypt_info functions = {
+        openssl_encrypt_init,
+        openssl_encrypt_destroy,
+        openssl_encrypt,
+        openssl_get_overhead,
+};
+
+static void init(void)  __attribute__((constructor));
+
+static void init(void)
+{
+        register_module("openssl_encrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);
 }
 

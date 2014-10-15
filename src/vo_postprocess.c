@@ -166,6 +166,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
 
 
 #ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
 /* definded in video_display.c */
 void *open_library(const char *name);
 static void *vo_pp_open_library(const char *vidcap_name);

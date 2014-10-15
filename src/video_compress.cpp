@@ -191,6 +191,7 @@ static struct compress_t *available_compress_modules[MAX_COMPRESS_MODULES];
 static int compress_modules_count = 0;
 
 #ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
 /** Opens compress library of given name. */
 static void *compress_open_library(const char *compress_name)
 {

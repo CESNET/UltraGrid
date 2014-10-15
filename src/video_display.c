@@ -337,6 +337,7 @@ static display_type_t *available_display_devices[DISPLAY_DEVICE_TABLE_SIZE];
 static int available_display_device_count = 0;
 
 #ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
 /** Opens display library of given name. */
 static void *display_open_library(const char *display_name)
 {

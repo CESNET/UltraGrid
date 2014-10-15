@@ -2665,27 +2665,35 @@ AC_SUBST(CURSES_LIBS)
 # -------------------------------------------------------------------------------------------------
 crypto=no
 AC_ARG_ENABLE(openssl,
-[  --enable-openssl        enable OpenSSL support (default is disable)]
+[  --disable-openssl       disable OpenSSL support (default is auto)]
 [                          Requires: crypto],
     [crypto_req=$enableval],
-    [crypto_req=no]
+    [crypto_req=auto]
     )
 
 PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
 
 if test $crypto_req != no -a $crypto = yes; then
-        AC_DEFINE([HAVE_CRYPTO], [1], [Build with OpenSSL support])
+        OPENSSL_OBJ="src/crypto/openssl_encrypt.o src/crypto/openssl_decrypt.o"
+        AC_SUBST(OPENSSL_LIB_TARGET, "lib/ultragrid/module_openssl.so")
+        LIB_TARGETS="$LIB_TARGETS $OPENSSL_LIB_TARGET"
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
         CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
-        LIBS="$LIBS $CRYPTO_LIBS"
+        LIB_OBJS="$LIB_OBJS $OPENSSL_OBJ"
 else
         crypto=no
 fi
 
+LIB_MODULES="$LIB_MODULES $CRYPTO_LIBS"
+
 if test $crypto_req = yes -a $crypto = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
+
+AC_SUBST(OPENSSL_OBJ)
+AC_SUBST(CRYPTO_LIBS)
+AC_SUBST(OPENSSL_LIB_TAGET)
 
 # -------------------------------------------------------------------------------------------------
 # GPU accelerated LDGM

@@ -49,16 +49,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define MK_STATIC_REF(A) &A, NULL
@@ -66,16 +56,10 @@ extern "C" {
 #define TOSTRING(x) STRINGIFY(x)
 
 #ifdef BUILD_LIBRARIES
-#include <dlfcn.h>
-#include <libgen.h>
 /** This macro tells that the module may be statically linked as well as
  * a standalone module. */
 #define MK_NAME(A) NULL, #A
 #define MK_NAME_REF(A) NULL, #A
-
-/* defined in video_display.c */
-void *open_library(const char *name);
-void open_all(const char *pattern);
 
 #define NULL_IF_BUILD_LIBRARIES(x) NULL
 
@@ -89,6 +73,17 @@ void open_all(const char *pattern);
 #endif /* BUILD_LIBRARIES */
 
 #ifdef __cplusplus
-}
+extern "C"
+#endif
+void *open_library(const char *name);
+
+#ifdef __cplusplus
+enum library_class {
+        LIBRARY_CLASS_UNDEFINED,
+};
+#include <string>
+void open_all(const char *pattern);
+void register_module(std::string const & name, void *info, enum library_class, int abi_version);
+void *load_module(std::string const & name, enum library_class, int abi_version);
 #endif
 

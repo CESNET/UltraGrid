@@ -78,6 +78,7 @@
 #include "crypto/openssl_decrypt.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "perf.h"
 #include "rtp/fec.h"
@@ -92,11 +93,13 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <condition_variable>
 #include <future>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <queue>
+#include <thread>
 
 using namespace std;
 
@@ -194,7 +197,7 @@ struct state_video_decoder
 {
         struct module *parent;
 
-        pthread_t decompress_thread_id,
+        thread decompress_thread_id,
                   fec_thread_id;
         struct video_desc received_vid_desc; ///< description of the network video
         struct video_desc display_desc;      ///< description of the mode that display is currently configured to
@@ -214,7 +217,7 @@ struct state_video_decoder
         unsigned int      max_substreams; ///< maximal number of expected substreams
         change_il_t       change_il;      ///< function to change interlacing, if needed. Otherwise NULL.
 
-        pthread_mutex_t lock;
+        mutex lock;
 
         enum decoder_type_t decoder_type;  ///< how will the video data be decoded
         struct line_decoder *line_decoder; ///< if the video is uncompressed and only pixelformat change
@@ -223,7 +226,7 @@ struct state_video_decoder
         unsigned int accepts_corrupted_frame:1;     ///< whether we should pass corrupted frame to decompress
         bool buffer_swapped; /**< variable indicating that display buffer
                               * has been processed and we can write to a new one */
-        pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
+        condition_variable buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
         synchronized_queue<unique_ptr<frame_msg>, 1> decompress_queue;
 
@@ -254,6 +257,7 @@ struct state_video_decoder
 
         synchronized_queue<main_msg_reconfigure *> msg_queue;
 
+        struct openssl_decrypt_info *dec_funcs; ///< decrypt state
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
         std::future<bool> reconfiguration_future;
@@ -266,13 +270,8 @@ struct state_video_decoder
  * valid.
  */
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
-        pthread_mutex_lock(&decoder->lock);
-        {
-                while (!decoder->buffer_swapped) {
-                        pthread_cond_wait(&decoder->buffer_swapped_cv, &decoder->lock);
-                }
-        }
-        pthread_mutex_unlock(&decoder->lock);
+        unique_lock<mutex> lk(decoder->lock);
+        decoder->buffer_swapped_cv.wait(lk, [decoder]{return decoder->buffer_swapped;});
 }
 
 #define ENCRYPTED_ERR "Receiving encrypted video data but " \
@@ -426,11 +425,10 @@ static void *fec_thread(void *args) {
                         }
                 }
 
-                pthread_mutex_lock(&decoder->lock);
                 {
+                        unique_lock<mutex> lk(decoder->lock);
                         decoder->buffer_swapped = false;
                 }
-                pthread_mutex_unlock(&decoder->lock);
                 decoder->decompress_queue.push(move(data));
 
 cleanup:
@@ -551,14 +549,14 @@ static void *decompress_thread(void *args) {
                 }
 
 skip_frame:
-                pthread_mutex_lock(&decoder->lock);
                 {
+                        unique_lock<mutex> lk(decoder->lock);
                         // we have put the video frame and requested another one which is
                         // writable so on
                         decoder->buffer_swapped = true;
-                        pthread_cond_signal(&decoder->buffer_swapped_cv);
+                        lk.unlock();
+                        decoder->buffer_swapped_cv.notify_one();
                 }
-                pthread_mutex_unlock(&decoder->lock);
         }
 
         return NULL;
@@ -600,16 +598,22 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->change_il = NULL;
 
         s->displayed = s->dropped = s->corrupted = 0ul;
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->buffer_swapped_cv, NULL);
 
         s->buffer_swapped = true;
         s->last_buffer_number = -1;
 
         if (encryption) {
-                if(openssl_decrypt_init(&s->decrypt,
+                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_module("openssl_decrypt",
+                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
+                if (!s->dec_funcs) {
+                                fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
+                                delete s;
+                                return NULL;
+                }
+                if (s->dec_funcs->init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
                         fprintf(stderr, "Unable to create decompress!\n");
+                        delete s;
                         return NULL;
                 }
         }
@@ -730,17 +734,8 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         }
 
         // Start decompress and ldmg threads
-        if(pthread_create(&decoder->decompress_thread_id, NULL, decompress_thread,
-                                decoder) != 0) {
-                perror("Unable to create thread");
-                return false;
-        }
-
-        if(pthread_create(&decoder->fec_thread_id, NULL, fec_thread,
-                                decoder) != 0) {
-                perror("Unable to create thread");
-                return false;
-        }
+        decoder->decompress_thread_id = thread(decompress_thread, decoder);
+        decoder->fec_thread_id = thread(fec_thread, decoder);
 
         return true;
 }
@@ -760,8 +755,8 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
                 msg->poisoned = true;
                 decoder->fec_queue.push(move(msg));
 
-                pthread_join(decoder->fec_thread_id, NULL);
-                pthread_join(decoder->decompress_thread_id, NULL);
+                decoder->fec_thread_id.join();
+                decoder->decompress_thread_id.join();
 
                 if (decoder->frame)
                         display_put_frame(decoder->display, decoder->frame,
@@ -807,11 +802,11 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         if(!decoder)
                 return;
 
-        openssl_decrypt_destroy(decoder->decrypt);
+        if (decoder->dec_funcs) {
+                decoder->dec_funcs->destroy(decoder->decrypt);
+        }
 
         video_decoder_remove_display(decoder);
-
-        pthread_mutex_destroy(&decoder->lock);
 
         cleanup(decoder);
 
@@ -1582,7 +1577,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 if(pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
                         int data_len;
 
-                        if((data_len = openssl_decrypt(decoder->decrypt,
+                        if((data_len = decoder->dec_funcs->decrypt(decoder->decrypt,
                                         data, len,
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
                                         sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t),

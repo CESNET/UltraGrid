@@ -378,6 +378,7 @@ static struct vidcap_type *available_vidcap_devices[VIDCAP_DEVICE_TABLE_SIZE];
 static int available_vidcap_device_count = 0;
 
 #ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
 /** Opens vidcap library of given name. */
 static void *vidcap_open_library(const char *vidcap_name)
 {

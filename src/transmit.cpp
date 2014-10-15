@@ -64,6 +64,7 @@
 #include "crypto/random.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "perf.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -139,6 +140,7 @@ struct tx {
 
         platform_spin_t spin;
 
+        struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
         long packet_rate;
 		
@@ -219,8 +221,15 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                                 return NULL;
                         }
                 }
-                if(encryption) {
-                        if(openssl_encrypt_init(&tx->encryption,
+                if (encryption) {
+                        tx->enc_funcs = static_cast<openssl_encrypt_info *>(load_module("openssl_encrypt",
+                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
+                        if (!tx->enc_funcs) {
+                                fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
+                                module_done(&tx->mod);
+                                return NULL;
+                        }
+                        if (tx->enc_funcs->init(&tx->encryption,
                                                 encryption, MODE_AES128_CTR) != 0) {
                                 fprintf(stderr, "Unable to initialize encryption\n");
                                 module_done(&tx->mod);
@@ -502,7 +511,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
 
                 encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
-                hdrs_len += sizeof(crypto_payload_hdr_t) + openssl_get_overhead(tx->encryption);
+                hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
         } else {
                 if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
@@ -596,7 +605,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
 
                         if (tx->encryption) {
-                                data_len = openssl_encrypt(tx->encryption,
+                                data_len = tx->enc_funcs->encrypt(tx->encryption,
                                                 data, data_len,
                                                 (char *) rtp_hdr,
                                                 frame->fec_params.type != FEC_NONE ? sizeof(fec_video_payload_hdr_t) :
@@ -748,7 +757,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                 char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
                                 if(tx->encryption) {
                                         crypto_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
-                                        data_len = openssl_encrypt(tx->encryption,
+                                        data_len = tx->enc_funcs->encrypt(tx->encryption,
                                                         const_cast<char *>(data), data_len,
                                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                                         encrypted_data);
