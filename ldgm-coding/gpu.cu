@@ -19,13 +19,35 @@
 #include <stdio.h>
 #include <signal.h>
 #include <emmintrin.h>
-#include <sys/time.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "timer-util.h"
+//#include "timer-util.h"
 #include "gpu.cuh"
 #include "ldgm-session-gpu.h"
 
+struct coding_params {
+        int num_lost;
+        int k;
+        int m;
+        int packet_size;
+        int max_row_weight;
+};
+
+__global__ void frame_encode(char * data,int * pcm,struct coding_params * params);
+
+__global__ void frame_encode_int_big(int *data, int *pcm,int param_k,int param_m,int w_f,int packet_size);
+
+__global__ void frame_encode_staircase(int *data, int *pcm,int param_k,int param_m,int w_f,int packet_size);
+
+__global__ void frame_decode(char * received, int * pcm, int * error_vec,int * sync_vec,int packet_size,int max_row_weight,int K);
+
+__global__ void frame_encode_int(int *data, int *pcm,int param_k,int param_m,int w_f,int packet_size);
+
+__global__ void frame_decode_int(int * received, int * pcm, int * error_vec,int * sync_vec,int packet_size,int max_row_weight,int K);
+
+void gpu_encode ( char* source_data,int* pc_matrix, struct coding_params * );
+
+void gpu_decode (char * received,int * pcm,struct coding_params * params,int * error_vec,int * sync_vec,int undecoded,int * frame_size);
 
 __device__ unsigned int count = 0;
 __device__ unsigned int count_M = 0;
@@ -89,7 +111,7 @@ char *xor_using_sse2 (char *source, char *dest, int packet_size)
     return dest;
 }
 
-void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,int param_k,int param_m,int w_f,int packet_size ,int buf_size)
+CUDA_DLL_API void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,int param_k,int param_m,int w_f,int packet_size ,int buf_size)
 {
 
     // cudaError_t error;
@@ -165,7 +187,7 @@ void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,int param_k,i
 
 
 
-void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ERROR_VEC, int not_done, int *frame_size,int * error_vec,int * sync_vec,int M,int K,int w_f,int buf_size,int packet_size)
+CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ERROR_VEC, int not_done, int *frame_size,int * error_vec,int * sync_vec,int M,int K,int w_f,int buf_size,int packet_size)
 {
 
 

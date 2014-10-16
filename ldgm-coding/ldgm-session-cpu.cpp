@@ -16,12 +16,6 @@
  * =====================================================================================
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <emmintrin.h>
@@ -29,9 +23,32 @@
 #include <time.h>
 
 #include "ldgm-session-cpu.h"
-#include "timer-util.h"
+//#include "timer-util.h"
 
 using namespace std;
+
+#ifdef _WIN32
+#define aligned_malloc _aligned_malloc
+#define aligned_free _aligned_free
+#else
+static inline void *aligned_malloc(size_t size, size_t alignment)
+{
+        void *ptr = NULL;
+        int ret;
+        ret = posix_memalign(&ptr, alignment, size);
+        if(ret) {
+                errno = ret;
+        }
+
+        if(ret == 0) {
+                return ptr;
+        } else {
+                return NULL;
+        }
+}
+#define aligned_free free
+#endif
+
 
 char*
 xor_using_sse (char* source, char* dest, int packet_size)
@@ -238,8 +255,8 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
 {
 //    printf ( "buf_size: %d\n", buf_size );
 
-    struct timeval t0,t1;
-    gettimeofday(&t0, 0);
+    //struct timeval t0,t1;
+    //gettimeofday(&t0, 0);
 
 
     Tanner_graph graph;
@@ -416,11 +433,11 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
         *frame_size = 0;
 
 
-    gettimeofday(&t1,0);
-    long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    //gettimeofday(&t1,0);
+    //long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
     //printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2+=elapsed/1000.0;
-    this->no_frames2++;
+    //this->elapsed_sum2+=elapsed/1000.0;
+    //this->no_frames2++;
 
     if(this->no_frames==150){
         //printf("TIME: %f ms\n",this->elapsed_sum/(double)this->no_frames );

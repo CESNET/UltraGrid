@@ -16,14 +16,6 @@
  * =====================================================================================
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
-#endif // HAVE_CONFIG_H
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <map>
@@ -32,7 +24,7 @@
 #include <string.h>
 #include "crypto/crc.h"
 #include "ldgm-session.h"
-#include "timer-util.h"
+//#include "timer-util.h"
 
 using namespace std;
 
@@ -127,8 +119,8 @@ char*
 LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
 {   
     //printf("encode_frame\n");
-    struct timeval t0,t1;
-    gettimeofday(&t0, 0);
+    //struct timeval t0,t1;
+    //gettimeofday(&t0, 0);
 
     int buf_size;
     int ps;
@@ -169,11 +161,11 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 
 
-    gettimeofday(&t1,0);
-    long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    //gettimeofday(&t1,0);
+    //long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
     // printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2+=elapsed/1000.0;
-    this->no_frames2++;
+    //this->elapsed_sum2+=elapsed/1000.0;
+    //this->no_frames2++;
 
     return (char*)out_buf;
 
@@ -278,18 +270,18 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
     //Timer_util t;
 
 
-    struct timeval t0, t1;
-    gettimeofday(&t0, 0);
+    //struct timeval t0, t1;
+    //gettimeofday(&t0, 0);
 
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 
-    gettimeofday(&t1,0);
-    long elapsed;
+    //gettimeofday(&t1,0);
+    //long elapsed;
 
-    elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    //elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
     // printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2+=elapsed/1000.0;
-    this->no_frames2++;
+    //this->elapsed_sum2+=elapsed/1000.0;
+    //this->no_frames2++;
 
 
     // gettimeofday(&t1,0);

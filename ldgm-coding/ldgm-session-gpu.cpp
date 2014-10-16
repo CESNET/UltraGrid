@@ -15,25 +15,24 @@
  *
  * =====================================================================================
  */
+#include <assert.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <time.h>
 #include <set>
-#include <unistd.h>
 #include <ctype.h>
 #include <string.h>
 #include <emmintrin.h>
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <cuda.h>
 #include <cuda_runtime.h>
 
 #include "ldgm-session-gpu.h"
 #include "ldgm-session-cpu.h"
 #include "gpu.cuh"
-#include "timer-util.h"
+//#include "timer-util.h"
 #include "tanner.h"
 
 #include "crypto/crc.h"
@@ -103,7 +102,7 @@ void *LDGM_session_gpu::alloc_buf (int buf_size)
     }
 
     char *buf;
-    cudaHostAlloc(&buf, buf_size, cudaHostAllocDefault);
+    cudaHostAlloc((void **) &buf, buf_size, cudaHostAllocDefault);
     // cudaHostAlloc(&this->memoryPool[index], buf_size, cudaHostAllocMapped);
     cuda_check_error("cudaHostAlloc");
     bufferSizes[buf] = buf_size;
@@ -132,17 +131,17 @@ void LDGM_session_gpu::encode ( char *source_data, char *parity )
 
     if(OUTBUF==NULL){
         // puts("cudaMalloc");
-        cudaMalloc(&OUTBUF,buf_size);
+        cudaMalloc((void **) &OUTBUF,buf_size);
         OUTBUF_SIZE=buf_size;
     }
     if((int)buf_size>OUTBUF_SIZE){
         // puts("cudaMalloc");
         cudaFree(OUTBUF);
-        cudaMalloc(&OUTBUF,buf_size);
+        cudaMalloc((void **) &OUTBUF,buf_size);
         OUTBUF_SIZE=buf_size;
     }
 
-        cudaMemcpy(OUTBUF,source_data,buf_size,cudaMemcpyHostToDevice);
+        cudaMemcpy((void *) OUTBUF,source_data,buf_size,cudaMemcpyHostToDevice);
     cuda_check_error("memcpy OUTBUF");
 
 
@@ -150,7 +149,7 @@ void LDGM_session_gpu::encode ( char *source_data, char *parity )
     if (PCM == NULL)
     {   
         // puts("cudaMalloc");      
-        error = cudaMalloc(&PCM, w_f * param_m * sizeof(int));
+        error = cudaMalloc((void **) &PCM, w_f * param_m * sizeof(int));
         if(error != cudaSuccess)printf("7CUDA error: %s\n", cudaGetErrorString(error));
 
         error = cudaMemcpy(PCM, pcm, w_f * param_m * sizeof(int), cudaMemcpyHostToDevice);
@@ -171,8 +170,8 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
 {
     char *received = received_data;
 
-    struct timeval t0, t1;
-    gettimeofday(&t0, 0);
+    //struct timeval t0, t1;
+    //gettimeofday(&t0, 0);
 
 
     int p_size = buf_size / (param_m + param_k);
@@ -199,13 +198,13 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
     cudaError_t error;
     if (error_vec == NULL)
     {
-        cudaHostAlloc(&error_vec, sizeof(int) * (param_k + param_m), cudaHostAllocDefault );
+        cudaHostAlloc((void **) &error_vec, sizeof(int) * (param_k + param_m), cudaHostAllocDefault );
         cuda_check_error("error_vec");
     }
 
     if (sync_vec == NULL)
     {
-        cudaHostAlloc(&sync_vec, sizeof(int) * (param_k + param_m), cudaHostAllocDefault );
+        cudaHostAlloc((void **) &sync_vec, sizeof(int) * (param_k + param_m), cudaHostAllocDefault );
         cuda_check_error("sync_vec");
     }
 
@@ -281,7 +280,7 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
 
     if (PCM == NULL)
     {
-        error = cudaMalloc(&PCM, w_f * param_m * sizeof(int));
+        error = cudaMalloc((void **) &PCM, w_f * param_m * sizeof(int));
         if (error != cudaSuccess) printf("3 %s\n", cudaGetErrorString(error));
 
         error = cudaMemcpy(PCM, pcm, w_f * param_m * sizeof(int), cudaMemcpyHostToDevice);
@@ -290,7 +289,7 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
 
     if (SYNC_VEC == NULL)
     {
-        error = cudaMalloc(&SYNC_VEC, (param_m + param_k) * sizeof(int));
+        error = cudaMalloc((void **) &SYNC_VEC, (param_m + param_k) * sizeof(int));
         if (error != cudaSuccess) printf("7 %s\n", cudaGetErrorString(error));
     }
 
@@ -300,7 +299,7 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
 
     if (ERROR_VEC == NULL)
     {
-        cudaMalloc(&ERROR_VEC, (param_m + param_k) * sizeof(int));
+        cudaMalloc((void **) &ERROR_VEC, (param_m + param_k) * sizeof(int));
         cuda_check_error("ERROR_VEC");
     }
 
@@ -368,11 +367,11 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
     //     printf("CRC NOK\n");
     // }
 
-    gettimeofday(&t1, 0);
-    long elapsed = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+    //gettimeofday(&t1, 0);
+    //long elapsed = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
     //printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2 += elapsed / 1000.0;
-    this->no_frames2++;
+    //this->elapsed_sum2 += elapsed / 1000.0;
+    //this->no_frames2++;
 
     return received + LDGM_session::HEADER_SIZE;
 

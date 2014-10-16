@@ -21,7 +21,7 @@
 #define  LDGM_SESSION_CPU_INC
 
 #include "ldgm-session.h"
-#include "timer-util.h"
+//#include "timer-util.h"
 
 /*
  * =====================================================================================
