@@ -210,6 +210,8 @@ $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	"$(NVCC)" $(NVCCFLAGS) $(INC) -c $< -o $@
 %.cu.lib: %.cu $(ALL_INCLUDES)
 	"$(NVCC)" $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
+
+# Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm-coding/ldgm-session-gpu.o: ldgm-coding/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 

@@ -100,7 +100,7 @@ static void register_module(void)
         register_audio_codec(&libavcodec_audio_codec);
 }
 
-std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
+static std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
         { AC_ALAW, AV_CODEC_ID_PCM_ALAW },
         { AC_MULAW, AV_CODEC_ID_PCM_MULAW },
         { AC_ADPCM_IMA_WAV, AV_CODEC_ID_ADPCM_IMA_WAV },

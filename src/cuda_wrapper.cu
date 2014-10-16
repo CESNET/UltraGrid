@@ -44,14 +44,16 @@
 
 typedef void *cuda_wrapper_stream_t;
 
+struct error_mapping {
+        cudaError_t cuda_error;
+        int wrapper_error;
+        const char *str;
+};
+static struct error_mapping mapping[] = {
+        { cudaSuccess, CUDA_WRAPPER_SUCCESS, "success" },
+};
+
 static inline int map_cuda_error(cudaError_t cuda_error) {
-        struct error_mapping {
-                cudaError_t cuda_error;
-                int wrapper_error;
-        };
-        struct error_mapping mapping[] = {
-                { cudaSuccess, CUDA_WRAPPER_SUCCESS },
-        };
 
         int i;
         for (i = 0; i < sizeof(mapping)/sizeof(struct error_mapping); ++i) {
@@ -61,6 +63,17 @@ static inline int map_cuda_error(cudaError_t cuda_error) {
         }
 
         return CUDA_UNKNOWN_ERROR;
+};
+
+static inline const char * map_error_string(int error) {
+
+        for (int i = 0; i < sizeof(mapping)/sizeof(struct error_mapping); ++i) {
+                if (error == mapping[i].wrapper_error) {
+                        return mapping[i].str;
+                }
+        }
+
+        return "(not implemented in wrapper CUDA error)";
 };
 
 static inline enum cudaMemcpyKind map_cuda_memcpy_kind(int our_kind) {
@@ -128,7 +141,7 @@ CUDA_DLL_API int cuda_wrapper_get_last_error(void)
 
 CUDA_DLL_API const char *cuda_wrapper_get_error_string(int error)
 {
-        return "not implemented";
+        return map_error_string(error);
 }
 
 CUDA_DLL_API int cuda_wrapper_set_device(int index)
