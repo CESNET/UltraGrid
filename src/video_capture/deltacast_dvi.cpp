@@ -57,6 +57,7 @@
 #include "tv.h"
 
 #include "audio/audio.h"
+#include "deltacast_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,21 +78,8 @@
 #include <VideoMasterHD_Dvi.h>
 
 #include <string>
-#include <unordered_map>
 
 using namespace std;
-
-unordered_map<ULONG, string> board_type_map = {
-        { VHD_BOARDTYPE_HD, "HD board type" },
-        { VHD_BOARDTYPE_HDKEY, "HD key board type" },
-        { VHD_BOARDTYPE_SD, "SD board type"},
-        { VHD_BOARDTYPE_SDKEY, "SD key board type"},
-        { VHD_BOARDTYPE_DVI, "DVI board type"},
-        { VHD_BOARDTYPE_CODEC, "CODEC board type"},
-        { VHD_BOARDTYPE_3G, "3G board type"},
-        { VHD_BOARDTYPE_3GKEY, "3G key board type"},
-        { VHD_BOARDTYPE_HDMI, "HDMI board type"},
-};
 
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
 
@@ -116,41 +104,11 @@ static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused))
 
 static void usage(void)
 {
-        ULONG             Result,DllVersion,NbBoards;
         printf("-t deltacast-dvi[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
                         "[:edid=<edid>|preset=<format>]\n");
-        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
-        if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08X\n",
-                                Result);
-                return;
-        }
-        if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
-                return;
-        }
         
         printf("\t<index> - index of DVI card\n");
-        printf("\tAvailable cards:\n");
-        /* Query DELTA boards information */
-        for (ULONG i = 0; i < NbBoards; i++)
-        {
-                ULONG BoardType;
-                HANDLE            BoardHandle = NULL;
-                Result = VHD_OpenBoardHandle(i,&BoardHandle,NULL,0);
-                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-                if (Result == VHDERR_NOERROR)
-                {
-                        string board{"Unknown board type"};
-                        auto it = board_type_map.find(BoardType);
-                        if (it != board_type_map.end()) {
-                                board = it->second;
-                        }
-                        printf("\t\tBoard %d: %s\n", i, board.c_str());
-                        VHD_CloseBoardHandle(BoardHandle);
-                }
-        }
+        print_available_delta_boards();
 
         printf("\t<channel> may be channel index (for cards which have multiple inputs, max 4)\n");
         

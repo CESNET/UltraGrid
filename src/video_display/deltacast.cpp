@@ -55,6 +55,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "deltacast_common.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
@@ -169,7 +170,12 @@ static void show_help(void);
 static void show_help(void)
 {
         printf("deltacast (output) options:\n");
-        printf("\t-d deltacast:<device_number>\n");
+        printf("\t-d deltacast[:board=<index>]\n");
+
+        print_available_delta_boards();
+
+        printf("\nDefault board is 0.\n");
+
 }
 
 struct video_frame *
@@ -356,11 +362,12 @@ void *display_deltacast_init(const char *fmt, unsigned int flags)
         
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
         s->audio_configured = FALSE;
-        pthread_mutex_init(&s->lock, NULL);
 
         if(fmt && strcmp(fmt, "help") == 0) {
                 show_help();
-                goto error;
+                vf_free(s->frame);
+                free(s);
+                return &display_init_noerr;
         }
         
         if(fmt)
@@ -376,7 +383,14 @@ void *display_deltacast_init(const char *fmt, unsigned int flags)
                         show_help();
                         goto error;
                 }
-                BrdId = atoi(tok);
+                if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                        BrdId = atoi(tok + strlen("board="));
+                } else {
+                        fprintf(stderr, "Unknown option: %s\n\n", tok);
+                        free(tmp);
+                        show_help();
+                        goto error;
+                }
                 free(tmp);
         }
 
@@ -416,12 +430,15 @@ void *display_deltacast_init(const char *fmt, unsigned int flags)
         
         /* Select a 1/1 clock system */
         VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,VHD_CLOCKDIV_1);
+
+        pthread_mutex_init(&s->lock, NULL);
                   
 	return s;
 
 bad_channel:
         VHD_CloseBoardHandle(s->BoardHandle);
 error:
+        vf_free(s->frame);
         free(s);
         return NULL;
 }

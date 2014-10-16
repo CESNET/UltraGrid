@@ -48,6 +48,7 @@
 #include "tv.h"
 
 #include "audio/audio.h"
+#include "deltacast_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +70,8 @@
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Sdi.h>
 #include <VideoMasterHD_Sdi_Audio.h>
+
+using namespace std;
 
 struct vidcap_deltacast_state {
         struct video_frame *frame;
@@ -96,39 +99,12 @@ static void usage(void);
 
 static void usage(void)
 {
-        ULONG             Result,DllVersion,NbBoards;
-        int               i;
         printf("\t-t deltacast[:board=<index>][:mode=<mode>][:codec=<codec>]\n");
-        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
-        if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08X\n",
-                                Result);
-                return;
-        }
-        if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
-                return;
-        }
 
-        printf("\nDefault board is 0. If mode is omitted, it will be autodetected "
-                        "(except of UHD modes). Default codec is UYVY.\n");
-        
-        printf("\nAvailable cards:\n");
-        /* Query DELTA boards information */
-        for (ULONG i = 0; i < NbBoards; i++)
-        {
-                HANDLE            BoardHandle = NULL;
-                Result = VHD_OpenBoardHandle(i,&BoardHandle,NULL,0);
-                if (Result == VHDERR_NOERROR)
-                {
-                        printf("\tBoard %d\n", i);
-                        // Here woulc go detais
-                        VHD_CloseBoardHandle(BoardHandle);
-                }
-        }
+        print_available_delta_boards();
+
         printf("\nAvailable modes:\n");
-        for (i = 0; i < deltacast_frame_modes_count; ++i)
+        for (int i = 0; i < deltacast_frame_modes_count; ++i)
         {
                 printf("\t%d: %s", deltacast_frame_modes[i].mode,
                                 deltacast_frame_modes[i].name);
@@ -141,6 +117,9 @@ static void usage(void)
         printf("\tUYVY\n");
         printf("\tv210\n");
         printf("\traw\n");
+
+        printf("\nDefault board is 0. If mode is omitted, it will be autodetected "
+                        "(except of UHD modes). Default codec is UYVY.\n");
 }
 
 struct vidcap_type *
