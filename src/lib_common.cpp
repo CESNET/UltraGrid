@@ -41,9 +41,11 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifdef BUILD_LIBRARIES
 #include <dlfcn.h>
 #include <glob.h>
 #include <libgen.h>
+#endif
 
 #include <iostream>
 #include <map>
@@ -85,6 +87,7 @@ void open_all(const char *pattern) {
 
 void *open_library(const char *name)
 {
+#ifdef BUILD_LIBRARIES
         void *handle = NULL;
         struct stat buf;
         char kLibName[128];
@@ -125,6 +128,10 @@ void *open_library(const char *name)
         }
 
         return handle;
+#else
+        UNUSED(name);
+        return NULL;
+#endif
 }
 
 static map<enum library_class, map<string, pair<void *, int>>> *libraries = nullptr;

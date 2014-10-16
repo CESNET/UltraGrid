@@ -2708,11 +2708,14 @@ if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
         CUDA_MESSAGE
         AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
-        LDGM_GPU_OBJS="ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.cu.o src/rtp/ldgm_gpu.o"
+        LDGM_GPU_OBJS="ldgm-coding/ldgm-session-gpu.o ldgm-coding/gpu.$CU_SUFFIX src/rtp/ldgm_gpu.o"
+        if test $system = Windows; then
+                DLL_LIBS="$DLL_LIBS ldgm-coding/gpu.cu.dll"
+        fi
         AC_SUBST(LDGM_GPU_LIB_TARGET, "lib/ultragrid/module_ldgm_gpu.so")
         LIB_TARGETS="$LIB_TARGETS $LDGM_GPU_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $LDGM_GPU_OBJS"
-        LDGM_GPU_LIBS=$JPEG_LIB
+        LDGM_GPU_LIBS=$CUDA_LIB
         ldgm_gpu=yes
 else
         ldgm_gpu=no

@@ -168,13 +168,18 @@ static struct item *qinit(int qsize)
     return queue;
 }
 
+#ifdef _WIN32
+typedef char sockopt_t;
+#else
+typedef void sockopt_t;
+#endif
 
 static int buffer_size(int sock, int optname, int size)
 {
     socklen_t len = sizeof(int);
 
-    if (setsockopt(sock, SOL_SOCKET, optname, (void *) &size, len)
-        || getsockopt(sock, SOL_SOCKET, optname, (void *) &size, &len)) {
+    if (setsockopt(sock, SOL_SOCKET, optname, (const sockopt_t *) &size, len)
+        || getsockopt(sock, SOL_SOCKET, optname, (sockopt_t *) &size, &len)) {
         perror("[sg]etsockopt()");
         return -1;
     }

@@ -88,6 +88,16 @@ CUDA_DLL_API int cuda_wrapper_free(void *buffer)
         return map_cuda_error(cudaFree(buffer));
 }
 
+CUDA_DLL_API int cuda_wrapper_free_host(void *buffer)
+{
+        return map_cuda_error(cudaFreeHost(buffer));
+}
+
+CUDA_DLL_API int cuda_wrapper_host_alloc(void **pHost, size_t size, unsigned int flags)
+{
+        return map_cuda_error(cudaHostAlloc(pHost, size, flags));
+}
+
 CUDA_DLL_API int cuda_wrapper_malloc(void **buffer, size_t data_len)
 {
         return map_cuda_error(cudaMalloc(buffer, data_len));
@@ -109,6 +119,16 @@ CUDA_DLL_API int cuda_wrapper_memcpy(void *dst, const void *src,
 CUDA_DLL_API const char *cuda_wrapper_last_error_string(void)
 {
         return cudaGetErrorString(cudaGetLastError());
+}
+
+CUDA_DLL_API int cuda_wrapper_get_last_error(void)
+{
+        return map_cuda_error(cudaGetLastError());
+}
+
+CUDA_DLL_API const char *cuda_wrapper_get_error_string(int error)
+{
+        return "not implemented";
 }
 
 CUDA_DLL_API int cuda_wrapper_set_device(int index)

@@ -67,12 +67,16 @@ extern "C" {
 typedef void *cuda_wrapper_stream_t;
 
 CUDA_DLL_API int cuda_wrapper_free(void *buffer);
+CUDA_DLL_API int cuda_wrapper_free_host(void *buffer);
+CUDA_DLL_API int cuda_wrapper_host_alloc(void **pHost, size_t size, unsigned int flags);
 CUDA_DLL_API int cuda_wrapper_malloc(void **buffer, size_t data_len);
 CUDA_DLL_API int cuda_wrapper_malloc_host(void **buffer, size_t data_len);
 CUDA_DLL_API int cuda_wrapper_memcpy(void *dst, const void *src,
                 size_t count, int kind);
 CUDA_DLL_API const char *cuda_wrapper_last_error_string(void);
 CUDA_DLL_API int cuda_wrapper_set_device(int index);
+CUDA_DLL_API int cuda_wrapper_get_last_error(void);
+CUDA_DLL_API const char * cuda_wrapper_get_error_string(int error);
 
 #ifdef __cplusplus
 }
