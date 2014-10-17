@@ -191,7 +191,6 @@ void exit_uv(int status) {
 
 static void usage(void)
 {
-        /* TODO -c -p -b are deprecated options */
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>]\n");
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
                         "[-m <mtu>] [-c] [-i] [-6]\n");

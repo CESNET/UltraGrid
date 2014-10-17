@@ -157,8 +157,6 @@ int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned 
                 ((excluded_params & PARAM_INTERLACING) || a.interlacing == b.interlacing) &&
                 ((excluded_params & PARAM_TILE_COUNT) || a.tile_count == b.tile_count) &&
                 ((excluded_params & PARAM_FPS) || fabs(a.fps - b.fps) < 0.01);// &&
-               // TODO: remove these obsolete constants
-               //(a.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit)) == (b.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit));
 }
 
 struct video_desc video_desc_from_frame(struct video_frame *frame)

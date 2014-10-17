@@ -94,7 +94,6 @@ const char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
 
 void release_bmd_api_str(BMD_STR string)
 {
-        /// @todo what about MSW?
 #ifdef HAVE_MACOSX
         CFRelease(string);
 #else

@@ -369,12 +369,8 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
         }
 
         if (nearest == INT_MAX) {
-                // TODO: This is only temporal - because we miss JUMBO frame setting (uncompressed)
-                // then there should be assertion, because first is picked packet size and loss
-                // (table for any combination of loss and PS should be filled). At last, the nearest
-                // frame size is found.
-                throw string("LDGM: Could not find configuration matching your parameters.\n"
-                                "Please, set LDGM parameter manually.");
+                throw string("LDGM: Could not find matching configuration for your request.\n"
+                                "Please, set LDGM parameters manually.");
         }
 
         double difference_from_frame_size = abs(nearest - frame_size) / (double) frame_size;

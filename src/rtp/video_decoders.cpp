@@ -1157,11 +1157,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         if(!video_desc_eq(decoder->display_desc, display_desc))
         {
                 int ret;
-                /*
-                 * TODO: put frame should be definitely here. On the other hand, we cannot be sure
-                 * that vo driver is initialized so far:(
-                 */
-                //display_put_frame(decoder->display, frame);
                 /* reconfigure VO and give it opportunity to pass us pitch */
                 ret = display_reconfigure(decoder->display, display_desc);
                 if(!ret) {

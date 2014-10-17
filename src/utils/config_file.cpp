@@ -3,10 +3,6 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  Configuration file for UltraGrid
- *
- * @todo
- * What about not storing every queried item but eg. a hash table
- * instead?
  */
 /*
  * Copyright (c) 2013 CESNET z.s.p.o.

@@ -90,8 +90,6 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
  * @note
  * Members that are not relevant for specified codec (eg. bpp, rgb for opaque
  * and interframe for not opaque) should be zero.
- * @todo This should be perhaps private in .c file and properties should be
- * queried by functions.
  */
 struct codec_info_t {
         codec_t codec;                ///< codec descriptor

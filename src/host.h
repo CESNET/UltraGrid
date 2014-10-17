@@ -69,16 +69,6 @@ extern char **uv_argv;
 
 extern volatile bool should_exit_receiver;
 
-/* TODO: remove these variables (should be safe) */
-extern unsigned int hd_size_x;
-extern unsigned int hd_size_y;
-extern unsigned int hd_color_spc;
-extern unsigned int hd_color_bpp;
-
-extern unsigned int bitdepth;
-
-extern unsigned int progressive;
-
 void exit_uv(int status);
 
 extern unsigned int audio_capture_channels;
