@@ -156,16 +156,14 @@ void sdi_capture_help(const char *driver_name)
         }
 }
 
+#define MAX_BUF_SIZE_MS 100l
+
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 {
         struct state_sdi_capture *s;
         
         s = (struct state_sdi_capture *) state;
 
-        /**
-         * @todo figure out what if we get too many audio samples buffered -
-         * perhaps drop it and report error
-         */
         pthread_mutex_lock(&s->lock);
 
         if(
@@ -180,14 +178,19 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         }
 
         int needed_size = frame->data_len + s->audio_frame[FRAME_CAPTURE].data_len;
-        if(needed_size > (int) s->audio_frame[FRAME_CAPTURE].max_size) {
-                free(s->audio_frame[FRAME_CAPTURE].data);
-                s->audio_frame[FRAME_CAPTURE].max_size = needed_size;
-                s->audio_frame[FRAME_CAPTURE].data = malloc(needed_size);
+        if (needed_size > frame->bps * frame->ch_count * frame->sample_rate / 1000l * MAX_BUF_SIZE_MS) {
+                fprintf(stderr, "[SDI] Maximal audio buffer length %ld ms exceeded! Dropping samples.\n",
+                                MAX_BUF_SIZE_MS);
+        } else {
+                if (needed_size > (int) s->audio_frame[FRAME_CAPTURE].max_size) {
+                        free(s->audio_frame[FRAME_CAPTURE].data);
+                        s->audio_frame[FRAME_CAPTURE].max_size = needed_size;
+                        s->audio_frame[FRAME_CAPTURE].data = malloc(needed_size);
+                }
+                memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
+                                frame->data, frame->data_len);
+                s->audio_frame[FRAME_CAPTURE].data_len += frame->data_len;
         }
-        memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
-                        frame->data, frame->data_len);
-        s->audio_frame[FRAME_CAPTURE].data_len += frame->data_len;
 
         pthread_cond_signal(&s->audio_frame_ready_cv);
         pthread_mutex_unlock(&s->lock);
