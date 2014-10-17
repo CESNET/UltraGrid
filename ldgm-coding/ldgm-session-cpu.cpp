@@ -31,6 +31,7 @@ using namespace std;
 #define aligned_malloc _aligned_malloc
 #define aligned_free _aligned_free
 #else
+#include <errno.h>
 static inline void *aligned_malloc(size_t size, size_t alignment)
 {
         void *ptr = NULL;
