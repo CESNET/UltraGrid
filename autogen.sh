@@ -13,7 +13,7 @@ aclocal
 autoheader
 autoconf
 
-CONFIGURE_OPTS="--enable-gpl"
+CONFIGURE_OPTS=
 
 if [ -n "$DEBUG" ]; then
         CONFIGURE_OPTS="$CONFIGURE_OPTS --enable-debug"

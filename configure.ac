@@ -208,15 +208,12 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 # -------------------------------------------------------------------------------------------------
 # Licensing
 # -------------------------------------------------------------------------------------------------
-# default UltraGrid license
-license="BSD License"
+AC_ARG_ENABLE(bsd,
+              AS_HELP_STRING([--enable-bsd], [build UltraGrid as a BSD binary (default is GPL)]),
+	[bsd=$enableval],
+        [bsd=no])
 
-gpl=no
-AC_ARG_ENABLE(gpl,
-              AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
-              [resulting binary will be unredistributable]),
-	[gpl=$enableval])
-if test $gpl = yes
+if test $bsd = no
 then
         AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
         license="GPLv2"
@@ -2804,7 +2801,7 @@ RESULT=\
 
 AC_MSG_RESULT(
 [
-UltraGrid Configuration summary:
+UltraGrid configuration summary:
 ])
 AC_MSG_RESULT([$RESULT])
 
