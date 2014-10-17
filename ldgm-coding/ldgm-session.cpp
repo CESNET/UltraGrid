@@ -162,9 +162,8 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
 
 
     interval.end();
-    long elapsed = interval.elapsed_time_us();
     // printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2+=elapsed/1000.0;
+    this->elapsed_sum2 += interval.elapsed_time_us();
     this->no_frames2++;
 
     return (char*)out_buf;

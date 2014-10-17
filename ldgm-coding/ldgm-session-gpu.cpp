@@ -367,9 +367,8 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
     // }
 
     interval.end();
-    long elapsed = interval.elapsed_time_us();
     //printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2 += elapsed / 1000.0;
+    this->elapsed_sum2 += interval.elapsed_time_ms();
     this->no_frames2++;
 
     return received + LDGM_session::HEADER_SIZE;

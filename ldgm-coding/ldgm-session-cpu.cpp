@@ -435,9 +435,8 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
 
 
     interval.end();
-    long elapsed = interval.elapsed_time_us();
     //printf("time: %e\n",elapsed/1000.0 );
-    this->elapsed_sum2+=elapsed/1000.0;
+    this->elapsed_sum2 += interval.elapsed_time_ms();
     this->no_frames2++;
 
     if(this->no_frames==150){
