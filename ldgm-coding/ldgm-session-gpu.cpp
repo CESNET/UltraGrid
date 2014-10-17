@@ -32,7 +32,7 @@
 #include "ldgm-session-gpu.h"
 #include "ldgm-session-cpu.h"
 #include "gpu.cuh"
-//#include "timer-util.h"
+#include "timer-util.h"
 #include "tanner.h"
 
 #include "crypto/crc.h"
@@ -170,9 +170,8 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
 {
     char *received = received_data;
 
-    //struct timeval t0, t1;
-    //gettimeofday(&t0, 0);
-
+    Timer_util interval;
+    interval.start();
 
     int p_size = buf_size / (param_m + param_k);
     // printf("%d p_size K: %d, M: %d, buf_size: %d, max_row_weight: %d \n",p_size,param_k,param_m,buf_size,max_row_weight);
@@ -367,11 +366,11 @@ char *LDGM_session_gpu::decode_frame ( char *received_data, int buf_size, int *f
     //     printf("CRC NOK\n");
     // }
 
-    //gettimeofday(&t1, 0);
-    //long elapsed = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+    interval.end();
+    long elapsed = interval.elapsed_time_us();
     //printf("time: %e\n",elapsed/1000.0 );
-    //this->elapsed_sum2 += elapsed / 1000.0;
-    //this->no_frames2++;
+    this->elapsed_sum2 += elapsed / 1000.0;
+    this->no_frames2++;
 
     return received + LDGM_session::HEADER_SIZE;
 

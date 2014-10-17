@@ -23,7 +23,7 @@
 #include <time.h>
 
 #include "ldgm-session-cpu.h"
-//#include "timer-util.h"
+#include "timer-util.h"
 
 using namespace std;
 
@@ -256,8 +256,8 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
 {
 //    printf ( "buf_size: %d\n", buf_size );
 
-    //struct timeval t0,t1;
-    //gettimeofday(&t0, 0);
+    Timer_util interval;
+    interval.start();
 
 
     Tanner_graph graph;
@@ -434,11 +434,11 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
         *frame_size = 0;
 
 
-    //gettimeofday(&t1,0);
-    //long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    interval.end();
+    long elapsed = interval.elapsed_time_us();
     //printf("time: %e\n",elapsed/1000.0 );
-    //this->elapsed_sum2+=elapsed/1000.0;
-    //this->no_frames2++;
+    this->elapsed_sum2+=elapsed/1000.0;
+    this->no_frames2++;
 
     if(this->no_frames==150){
         //printf("TIME: %f ms\n",this->elapsed_sum/(double)this->no_frames );

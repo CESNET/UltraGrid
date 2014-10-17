@@ -24,7 +24,7 @@
 #include <string.h>
 #include "crypto/crc.h"
 #include "ldgm-session.h"
-//#include "timer-util.h"
+#include "timer-util.h"
 
 using namespace std;
 
@@ -119,8 +119,8 @@ char*
 LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
 {   
     //printf("encode_frame\n");
-    //struct timeval t0,t1;
-    //gettimeofday(&t0, 0);
+    Timer_util interval;
+    interval.start();
 
     int buf_size;
     int ps;
@@ -161,11 +161,11 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 
 
-    //gettimeofday(&t1,0);
-    //long elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    interval.end();
+    long elapsed = interval.elapsed_time_us();
     // printf("time: %e\n",elapsed/1000.0 );
-    //this->elapsed_sum2+=elapsed/1000.0;
-    //this->no_frames2++;
+    this->elapsed_sum2+=elapsed/1000.0;
+    this->no_frames2++;
 
     return (char*)out_buf;
 
@@ -267,21 +267,18 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
     assert(LDGM_session::HEADER_SIZE >= 12);
 #endif
 
-    //Timer_util t;
-
-
-    //struct timeval t0, t1;
-    //gettimeofday(&t0, 0);
+    Timer_util interval;
+    interval.start();
 
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 
-    //gettimeofday(&t1,0);
-    //long elapsed;
+    interval.end();
+    long elapsed;
 
-    //elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+    elapsed = interval.elapsed_time_us();
     // printf("time: %e\n",elapsed/1000.0 );
-    //this->elapsed_sum2+=elapsed/1000.0;
-    //this->no_frames2++;
+    this->elapsed_sum2+=elapsed/1000.0;
+    this->no_frames2++;
 
 
     // gettimeofday(&t1,0);
