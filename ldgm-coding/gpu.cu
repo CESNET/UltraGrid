@@ -16,6 +16,11 @@
  * =====================================================================================
  */
 
+/// @todo Remove this workaround (OS X 10.9)
+#if defined __APPLE__ && defined __clang__ && __clang_major__ == 5 && __clang_minor__ == 1
+#define __builtin_ia32_movnti64(a, b) {}
+#endif
+
 #include <stdio.h>
 #include <signal.h>
 #include <emmintrin.h>
