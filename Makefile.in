@@ -112,7 +112,6 @@ OBJS	      = @OBJS@ \
 		src/rtsp/rtsp_utils.o \
 		src/stats.o \
 		src/utils/config_file.o \
-		src/utils/fs_lock.o \
 		src/utils/list.o \
 		src/lib_common.o \
 		src/utils/synchronized_queue.o \
