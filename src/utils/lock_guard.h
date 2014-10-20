@@ -1,3 +1,7 @@
+/**
+ * @deprecated
+ * Do not use these functions in new code, use rather std::lock_guard and similar
+ */
 #ifndef LOCK_GUARD_H_
 #define LOCK_GUARD_H_
 

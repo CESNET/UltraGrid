@@ -39,34 +39,30 @@
 #define UTILS_WAIT_OBJ_H_
 
 #ifdef __cplusplus
-#include "utils/lock_guard.h"
+#include <condition_variable>
+#include <mutex>
+
 struct wait_obj {
         public:
                 wait_obj() : m_val(false) {
-                        pthread_mutex_init(&m_lock, NULL);
-                        pthread_cond_init(&m_cv, NULL);
-                }
-                ~wait_obj() {
-                        pthread_mutex_destroy(&m_lock);
-                        pthread_cond_destroy(&m_cv);
                 }
                 void wait() {
-                       lock_guard guard(m_lock); 
-                       while (!m_val)
-                               pthread_cond_wait(&m_cv, &m_lock);
+                        std::unique_lock<std::mutex> lk(m_lock);
+                        m_cv.wait(lk, [this] { return m_val; });
                 }
                 void reset() {
-                       lock_guard guard(m_lock); 
-                       m_val = false;
+                        std::lock_guard<std::mutex> lk(m_lock);
+                        m_val = false;
                 }
                 void notify() {
-                       lock_guard guard(m_lock); 
-                       m_val = true;
-                       pthread_cond_signal(&m_cv);
+                        std::unique_lock<std::mutex> lk(m_lock);
+                        m_val = true;
+                        lk.unlock();
+                        m_cv.notify_one();
                 }
         private:
-                pthread_mutex_t m_lock;
-                pthread_cond_t m_cv;
+                std::mutex m_lock;
+                std::condition_variable m_cv;
                 bool m_val;
 };
 #endif // __cplusplus

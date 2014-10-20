@@ -47,7 +47,6 @@
 #include "video.h"
 
 #ifdef __cplusplus
-#include "utils/lock_guard.h"
 
 #include <condition_variable>
 #include <iostream>

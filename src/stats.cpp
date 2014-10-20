@@ -8,7 +8,6 @@
 #include "debug.h"
 #include "messaging.h"
 #include "module.h"
-#include "utils/lock_guard.h"
 #include "utils/resource_manager.h"
 
 #define MAX_ITEMS 100
