@@ -796,7 +796,7 @@ static void * control_thread(void *args)
         assert(fd != INVALID_SOCKET);
         int val = 1;
         rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-        if (!rc) {
+        if (rc != 0) {
                 perror("Video import - setsockopt");
         }
         struct sockaddr_in6 s_in;
@@ -805,7 +805,7 @@ static void * control_thread(void *args)
         s_in.sin6_port = htons(CONTROL_PORT);
 
         rc = bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-        if (!rc) {
+        if (rc != 0) {
                 perror("Video import: unable to bind communication pipe");
         }
         listen(fd, MAX_CLIENTS);
@@ -817,7 +817,7 @@ static void * control_thread(void *args)
         rc = mkfifo(PIPE, 0777);
 
         struct client *clients = NULL;
-        if (!rc) {
+        if (rc == 0) {
                 clients = malloc(sizeof(struct client));
                 clients->fd = open(PIPE, O_RDONLY | O_NONBLOCK);
                 assert(clients->fd != -1);
