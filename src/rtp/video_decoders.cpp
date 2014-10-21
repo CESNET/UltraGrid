@@ -164,7 +164,7 @@ struct frame_msg {
         inline frame_msg(int count, fec_desc && d) : buffer_num(count),
                 recv_buffer(count), recv_buffer_len(count),
                 decompress_buffer(count), decompress_buf_len(count),
-                fec_description(d), substream_count(count), poisoned(false)
+                fec_description(d), substream_count(count), poisoned(false), ssrc(0u)
         {}
         inline ~frame_msg() {
                 for (unsigned int i = 0; i < recv_buffer.size(); ++i) {

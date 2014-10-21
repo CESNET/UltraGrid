@@ -323,6 +323,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     }
     if ( encoder->shader_fragment_compress == 0 ) {
         fprintf(stderr, "Failed to compile fragment compress program!\n");
+        free(encoder);
         return NULL;
     }
     // Create vertex shader from file
@@ -334,6 +335,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     }
     if ( encoder->shader_vertex_compress == 0 ) {
         fprintf(stderr, "Failed to compile vertex compress program!\n");
+        free(encoder);
         return NULL;
     }
     // Attach shader to program and link the program

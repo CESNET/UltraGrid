@@ -326,9 +326,9 @@ static void *writer(void *arg)
                 }
             }
 
-            if(s->decompress) {
-                hd_rum_decompress_write(s->decompress,
-                        s->qhead->buf, s->qhead->size);
+            ssize_t ret = hd_rum_decompress_write(s->decompress, s->qhead->buf, s->qhead->size);
+            if (ret < 0) {
+                perror("hd_rum_decompress_write");
             }
 
             s->qhead = s->qhead->next;
@@ -578,6 +578,7 @@ int main(int argc, char **argv)
     if (buffer_size(sock_in, SO_RCVBUF, bufsize))
         exit(2);
 
+    memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);

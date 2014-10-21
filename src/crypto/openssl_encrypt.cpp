@@ -77,6 +77,7 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
 
         AES_set_encrypt_key(hash, 128, &s->key);
         if (!RAND_bytes(s->ivec, 8)) {
+                free(s);
                 return -1;
         }
         s->mode = mode;

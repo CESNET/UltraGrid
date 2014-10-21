@@ -98,6 +98,7 @@ void *display_proxy_init(const char *fmt, unsigned int flags)
                 }
         }
         assert (initialize_video_display(requested_display, cfg, flags, &s->real_display) == 0);
+        free(fmt_copy);
 
         pthread_create(&s->thread_id, NULL, (void *(*)(void *)) display_run,
                         s->real_display);
