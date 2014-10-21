@@ -38,6 +38,7 @@
 #ifndef DELTACAST_COMMON_H
 #define DELTACAST_COMMON_H
 
+#include <string>
 #include <unordered_map>
 #include <VideoMasterHD_Core.h>
 
