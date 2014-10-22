@@ -113,7 +113,7 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
 }
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
-                m_rxtx_mode(params.at("rxtx_mode").i), m_compression(NULL),
+                m_rxtx_mode(params.at("rxtx_mode").i), m_compression(nullptr),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)) {
 
         module_init_default(&m_sender_mod);
@@ -123,8 +123,6 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&m_receiver_mod, static_cast<struct module *>(params.at("parent").ptr));
-
-        m_compression = nullptr;
 
         try {
                 int ret = compress_init(&m_sender_mod, static_cast<const char *>(params.at("compression").ptr),
@@ -158,8 +156,6 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
 }
 
 video_rxtx::~video_rxtx() {
-        module_done(CAST_MODULE(m_compression));
-
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 }
@@ -227,6 +223,9 @@ void *video_rxtx::sender_loop() {
         }
 
 exit:
+        module_done(CAST_MODULE(m_compression));
+        m_compression = nullptr;
+
         stats_destroy(stat_data_sent);
 
         return NULL;
