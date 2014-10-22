@@ -94,7 +94,7 @@ const hdsp_mode_table_t hdsp_mode_table[] = {
         {SV_MODE_SMPTE274_30sF, 1920, 1080, 30.00, AUX_SF},  /*              1920x1080 30.00hz Segmented Frame */
         //#define SV_MODE_EUREKA
         {SV_MODE_SMPTE240_30I, 1920, 1035, 30.0, AUX_INTERLACED}, /*              1920x1035 30.00hz Interlaced      */
-        {SV_MODE_SMPTE274_30I, 1920, 1038, 30.0, AUX_INTERLACED},  /*              1920x1038 30.00hz Interlaced      */
+        {SV_MODE_SMPTE274_30I, 1920, 1080, 30.0, AUX_INTERLACED},  /*              1920x1080 30.00hz Interlaced      */
         {SV_MODE_SMPTE296_60P, 1280, 720, 60.0, AUX_PROGRESSIVE},  /*               1280x720 60.00hz Progressive     */
         {SV_MODE_SMPTE240_29I, 1920, 1035, 29.97, AUX_INTERLACED}, /*              1920x1035 29.97hz Interlaced      */
         {SV_MODE_SMPTE274_29I, 1920, 1080, 29.97, AUX_INTERLACED},  /*              1920x1080 29.97hz Interlaced      */
