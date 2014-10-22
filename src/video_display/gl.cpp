@@ -1023,6 +1023,10 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         }
 
         std::unique_lock<std::mutex> lk(s->lock);
+        if (nonblock == PUTF_DISCARD) {
+                s->free_frame_queue.push(frame);
+                return 0;
+        }
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
                 s->free_frame_queue.push(frame);
                 return 1;

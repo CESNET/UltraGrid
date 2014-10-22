@@ -84,10 +84,11 @@ struct video_frame *display_pipe_getf(void *state)
 
 int display_pipe_putf(void *state, struct video_frame *frame, int flags)
 {
-        UNUSED(flags);
         struct state_pipe *s = (struct state_pipe *) state;
 
-        s->delegate->frame_arrived(frame);
+        if (flags != PUTF_DISCARD) {
+                s->delegate->frame_arrived(frame);
+        }
 
         return TRUE;
 }

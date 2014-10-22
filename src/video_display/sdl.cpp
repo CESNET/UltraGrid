@@ -558,6 +558,11 @@ int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
                 return 0;
         }
 
+        if (nonblock == PUTF_DISCARD) {
+                vf_free(frame);
+                return 0;
+        }
+
         std::unique_lock<std::mutex> lk(s->lock);
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
                 vf_free(frame);

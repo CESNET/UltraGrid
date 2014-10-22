@@ -496,14 +496,14 @@ display_dvs_getf(void *state)
         return s->frame;
 }
 
-int display_dvs_putf(void *state, struct video_frame *frame, int nonblock)
+int display_dvs_putf(void *state, struct video_frame *frame, int flags)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
-        if(s->work_to_do && nonblock == PUTF_NONBLOCK) {
+        if(s->work_to_do && flags == PUTF_NONBLOCK) {
                 pthread_mutex_unlock(&s->lock);
                 return EWOULDBLOCK;
         }
