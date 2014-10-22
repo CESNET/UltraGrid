@@ -79,13 +79,13 @@ struct state_video_compress_jpeg {
         video_frame_pool<default_data_allocator> pool;
 };
 
-static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
+static bool configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
 static void cleanup_state(struct state_video_compress_jpeg *s);
 static struct response *compress_change_callback(struct module *mod, struct message *msg);
 static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
-static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame)
+static bool configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame)
 {
         unsigned int x;
 
@@ -100,8 +100,7 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
                 if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
                                 vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width) {
                         fprintf(stderr,"[JPEG] Requested to compress tiles of different size!");
-                        exit_uv(129);
-                        return FALSE;
+                        return false;
                 }
         }
 
@@ -149,8 +148,7 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
                         break;
                 default:
                         fprintf(stderr, "[JPEG] Unknown codec: %d\n", frame->color_spec);
-                        exit_uv(128);
-                        return FALSE;
+                        return false;
         }
 
 	s->encoder_param.verbose = 0;
@@ -207,13 +205,13 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
                 (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         if(!s->encoder) {
-                fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
+                fprintf(stderr, "[JPEG] Failed to create encoder.\n");
                 exit_uv(128);
-                return FALSE;
+                return false;
         }
 
         s->decoded = unique_ptr<char []>(new char[4 * frame->tiles[0].width * frame->tiles[0].height]);
-        return TRUE;
+        return true;
 }
 
 static struct response *compress_change_callback(struct module *mod, struct message *msg)
@@ -304,16 +302,6 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
                 );
         }
 
-        int ret;
-        printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-        ret = gpujpeg_init_device(cuda_devices[0], TRUE);
-
-        if(ret != 0) {
-                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
-                delete s;
-                return NULL;
-        }
-
         s->encoder = NULL; /* not yet configured */
 
         platform_spin_init(&s->spin);
@@ -340,9 +328,18 @@ shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame
 
         if(!s->encoder) {
                 int ret;
+                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
+                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+
+                if(ret != 0) {
+                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                        exit_uv(127);
+                        return {};
+                }
                 ret = configure_with(s, tx.get());
-                if(!ret) {
-                        return NULL;
+                if (!ret) {
+                        exit_uv(127);
+                        return {};
                 }
         }
 
@@ -355,6 +352,7 @@ shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame
                 int ret;
                 ret = configure_with(s, tx.get());
                 if(!ret) {
+                        exit_uv(127);
                         return NULL;
                 }
         }
