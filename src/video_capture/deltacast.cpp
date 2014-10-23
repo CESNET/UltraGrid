@@ -67,10 +67,6 @@
 #include "video_display.h"
 #include "video_display/deltacast.h"
 
-#include <VideoMasterHD_Core.h>
-#include <VideoMasterHD_Sdi.h>
-#include <VideoMasterHD_Sdi_Audio.h>
-
 using namespace std;
 
 struct vidcap_deltacast_state {

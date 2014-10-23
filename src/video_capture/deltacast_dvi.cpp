@@ -74,9 +74,6 @@
 
 #include "video_capture/deltacast_dvi.h"
 
-#include <VideoMasterHD_Core.h>
-#include <VideoMasterHD_Dvi.h>
-
 #include <string>
 
 using namespace std;
@@ -99,7 +96,7 @@ struct vidcap_deltacast_dvi_state {
 #define BADEEDID 1
 
 static void usage(void);
-static BOOL CheckEEDID(BYTE pEEDIDBuffer[256]);
+static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused));
 
 static void usage(void)
@@ -128,12 +125,11 @@ static void usage(void)
 
 }
 
-static BOOL CheckEEDID(BYTE pEEDIDBuffer[256])
+static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256])
 {
-
         int i;
         UBYTE sum1 = 0,sum2 = 0;
-        BOOL Return = EEDDIDOK;
+        decltype(EEDDIDOK) Return = EEDDIDOK;
 
         /* Verify checksum */
         for(i=0;i<128;i++)
@@ -244,7 +240,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         VHD_DVI_MODE DviMode,
         ULONG Width, ULONG Height, ULONG RefreshRate)
 {
-        BOOL Interlaced_B = FALSE;
+        int Interlaced_B = FALSE;
         ULONG             Result = VHDERR_NOERROR;
 
         struct timeval t0, t;
@@ -320,7 +316,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         }
         else if(DviMode == VHD_DVI_MODE_DVI_D)
         {
-                BOOL Dual_B = FALSE;
+                int Dual_B = FALSE;
                 /* Get auto-detected resolution */
                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,&Width);
                 if(Result == VHDERR_NOERROR)

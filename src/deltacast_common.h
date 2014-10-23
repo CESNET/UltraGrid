@@ -40,7 +40,17 @@
 
 #include <string>
 #include <unordered_map>
+#ifdef HAVE_MACOSX
+#include <VideoMasterHD/VideoMasterHD_Core.h>
+#include <VideoMasterHD/VideoMasterHD_Dvi.h>
+#include <VideoMasterHD/VideoMasterHD_Sdi.h>
+#include <VideoMasterHD_Audio/VideoMasterHD_Sdi_Audio.h>
+#else
 #include <VideoMasterHD_Core.h>
+#include <VideoMasterHD_Dvi.h>
+#include <VideoMasterHD_Sdi.h>
+#include <VideoMasterHD_Sdi_Audio.h>
+#endif
 
 static std::unordered_map<ULONG, std::string> board_type_map = {
         { VHD_BOARDTYPE_HD, "HD board type" },

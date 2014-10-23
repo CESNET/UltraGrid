@@ -898,6 +898,7 @@ DELTACAST_DISP_OBJ=
 DELTACAST_INC=
 DELTACAST_LIB=
 deltacast=no
+deltacast_found=no
 
 AC_ARG_ENABLE(deltacast,
 [  --disable-deltacast     disable DELTACAST suppport (default is auto)]
@@ -979,28 +980,54 @@ then
 
         AC_LANG_POP(C++)
 
-        if test $deltacast_req != no -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
-                -a "$FOUND_VHD_L" = yes
-        then
-                if test -n "$DELTACAST_PATH"
-                then
-                        DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
-                fi
-                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
-                DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
-                AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-                AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
-                AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
-                LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
-                LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
-                deltacast=yes
-        else
-                DELTACAST_PATH=
-                DELTACAST_LIB=
-                DELTACAST_INC=
-                DELTACAST_CAP_OBJ=
-                DELTACAST_DISP_OBJ=
-        fi
+        if test "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
+                -a "$FOUND_VHD_L" = yes; then
+		deltacast_found=yes
+	fi
+else # OS X
+	m4_defun([MY_CHECK_FRAMEWORK],
+		[AC_CACHE_CHECK([if -framework ]$1[ works],[my_cv_framework_]$1,
+			[save_LIBS="$LIBS"
+			LIBS="$LIBS -framework ]$1["
+			AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])],
+				[my_cv_framework_]$1[=yes],
+				[my_cv_framework_]$1[=no])
+			])
+		LIBS="$save_LIBS"
+		if test "$my_cv_framework_]$1["="yes"; then
+		AC_DEFINE(AS_TR_CPP([HAVE_FRAMEWORK_]$1),1,
+			[Define if you have the ] $1 [ framework])
+		AS_TR_CPP([FRAMEWORK_]$1)="-framework ]$1["
+		AC_SUBST([FRAMEWORK_]AS_TR_CPP($1))
+		fi])
+	MY_CHECK_FRAMEWORK([VideoMasterHD])
+	MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
+	if test $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
+		deltacast_found=yes
+		DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
+	fi
+fi
+
+if test $deltacast_req != no -a $deltacast_found = yes
+then
+	if test -n "$DELTACAST_PATH"
+	then
+		DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
+	fi
+	DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
+	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
+	AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
+	AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
+	AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
+	LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
+	LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
+	deltacast=yes
+else
+	DELTACAST_PATH=
+	DELTACAST_LIB=
+	DELTACAST_INC=
+	DELTACAST_CAP_OBJ=
+	DELTACAST_DISP_OBJ=
 fi
 
 if test $deltacast_req = yes -a $deltacast = no; then

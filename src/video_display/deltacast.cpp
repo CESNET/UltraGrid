@@ -65,10 +65,6 @@
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
 
-#include "VideoMasterHD_Core.h"
-#include "VideoMasterHD_Sdi.h"
-#include "VideoMasterHD_Sdi_Audio.h"
-
 #define DELTACAST_MAGIC DISPLAY_DELTACAST_ID
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
