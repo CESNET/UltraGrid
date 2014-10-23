@@ -477,7 +477,11 @@ bundle: bundle-nolib
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
-
+	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
+	$(CP) -r redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -r redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $(BUNDLE)/Contents/MacOS/uv
+	install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $(BUNDLE)/Contents/MacOS/uv
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 osx-gui-dmg: bundle

@@ -1002,7 +1002,8 @@ else # OS X
 		fi])
 	MY_CHECK_FRAMEWORK([VideoMasterHD])
 	MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
-	if test $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
+        AC_CHECK_HEADERS([VideoMasterHD/VideoMasterHD_Core.h])
+	if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
 		deltacast_found=yes
 		DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
 	fi
