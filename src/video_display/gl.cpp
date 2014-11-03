@@ -71,6 +71,8 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
+#include "messaging.h"
+#include "module.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/gl.h"
@@ -187,7 +189,9 @@ struct state_gl {
 
         double          window_size_factor;
 
-        state_gl() : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
+        struct module   mod;
+
+        state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
@@ -197,6 +201,14 @@ struct state_gl {
                 gettimeofday(&tv, NULL);
                 memset(&current_desc, 0, sizeof(current_desc));
                 memset(&current_display_desc, 0, sizeof(current_display_desc));
+
+                module_init_default(&mod);
+                mod.cls = MODULE_CLASS_DATA;
+                module_register(&mod, parent);
+        }
+
+        ~state_gl() {
+                module_done(&mod);
         }
 };
 
@@ -281,8 +293,7 @@ static void gl_load_splashscreen(struct state_gl *s)
 
 void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
-        UNUSED(parent);
-	struct state_gl *s = new state_gl;
+	struct state_gl *s = new state_gl(parent);
         
         /* GLUT callbacks take only some arguments so we need static variable */
         gl = s;
@@ -567,6 +578,17 @@ static void glut_idle_callback(void)
         struct timeval tv;
         double seconds;
         struct video_frame *frame;
+
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
+                        glutSetWindowTitle(msg_univ->text + strlen("win_title "));
+                } else {
+                        fprintf(stderr, "[GL] Unknown command received: %s\n", msg_univ->text);
+                }
+                free_message(msg);
+        }
 
         unique_lock<mutex> lk(s->lock);
 #ifdef FREEGLUT

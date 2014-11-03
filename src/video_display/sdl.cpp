@@ -43,6 +43,8 @@
 #include "host.h"
 
 #include "debug.h"
+#include "messaging.h"
+#include "module.h"
 #include "video_display.h"
 #include "video_display/sdl.h"
 #include "tv.h"
@@ -110,7 +112,9 @@ struct state_sdl {
 #endif
         volatile bool           should_exit;
 
-        state_sdl() : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
+        struct module   mod;
+
+        state_sdl(struct module *parent) : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
                       deinterlace(false), fs(false), nodecorate(false),
                       screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false),
                       current_desc(), current_display_desc(),
@@ -120,6 +124,13 @@ struct state_sdl {
                       should_exit(false)
         {
                 gettimeofday(&tv, NULL);
+                module_init_default(&mod);
+                mod.cls = MODULE_CLASS_DATA;
+                module_register(&mod, parent);
+        }
+
+        ~state_sdl() {
+                module_done(&mod);
         }
 };
 
@@ -129,7 +140,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
 static void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
-static int display_sdl_handle_events(void *arg);
+static int display_sdl_handle_events(struct state_sdl *s);
 static void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
                 
 /** 
@@ -182,10 +193,21 @@ static void loadSplashscreen(struct state_sdl *s) {
  * @param arg Structure (state_sdl) contains the current settings
  * @return zero value everytime
  */
-static int display_sdl_handle_events(void *arg)
+static int display_sdl_handle_events(struct state_sdl *s)
 {
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
+                        const char *title = msg_univ->text + strlen("win_title");
+                        SDL_WM_SetCaption(title, title);
+                } else {
+                        fprintf(stderr, "[SDL] Unknown command received: %s\n", msg_univ->text);
+                }
+                free_message(msg);
+        }
+
         SDL_Event sdl_event;
-        struct state_sdl *s = (struct state_sdl *) arg;
         while (SDL_PollEvent(&sdl_event)) {
                 switch (sdl_event.type) {
                 case SDL_KEYDOWN:
@@ -222,6 +244,7 @@ void display_sdl_run(void *arg)
 
         while (!s->should_exit) {
                 display_sdl_handle_events(s);
+
                 struct video_frame *frame = NULL;
 
                 {
@@ -422,8 +445,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 
 void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        UNUSED(parent);
-        struct state_sdl *s = new state_sdl;
+        struct state_sdl *s = new state_sdl(parent);
         int ret;
 	const SDL_VideoInfo *video_info;
 
