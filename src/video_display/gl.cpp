@@ -567,14 +567,21 @@ static void glut_idle_callback(void)
         double seconds;
         struct video_frame *frame;
 
-        s->lock.lock();
+        unique_lock<mutex> lk(s->lock);
+#ifdef FREEGLUT
+        if (s->should_exit_main_loop) {
+                glutLeaveMainLoop();
+                return;
+        }
+#endif
         if (s->frame_queue.size() == 0) {
-                s->lock.unlock();
+                lk.unlock();
+                usleep(1000);
                 return;
         }
         frame = s->frame_queue.front();
         s->frame_queue.pop();
-        s->lock.unlock();
+        lk.unlock();
         s->frame_consumed_cv.notify_one();
 
         if (s->paused)
@@ -755,17 +762,12 @@ void display_gl_run(void *arg)
                 return;
         }
 
-#if defined HAVE_MACOSX || defined FREEGLUT
-        while(!s->should_exit_main_loop) {
-                usleep(1000);
+#if defined HAVE_MACOSX
+        while (!s->should_exit_main_loop) {
                 glut_idle_callback();
-#ifndef HAVE_MACOSX
-                glutMainLoopEvent();
-#else
                 glutCheckLoop();
-#endif
         }
-#else /* defined HAVE_MACOSX || defined FREEGLUT */
+#else /* ! defined HAVE_MACOSX */
 	glutMainLoop();
 #endif
 }
@@ -893,6 +895,7 @@ static void gl_draw(double ratio, double bottom_offset)
 static void glut_close_callback(void)
 {
         gl->should_exit_main_loop = true;
+        gl->window = -1;
         exit_uv(0);
 }
 
@@ -1017,12 +1020,12 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
 
         assert(s->magic == MAGIC_GL);
 
+        std::unique_lock<std::mutex> lk(s->lock);
         if(!frame) {
                 s->should_exit_main_loop = true;
                 return 0;
         }
 
-        std::unique_lock<std::mutex> lk(s->lock);
         if (nonblock == PUTF_DISCARD) {
                 s->free_frame_queue.push(frame);
                 return 0;
