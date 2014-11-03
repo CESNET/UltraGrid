@@ -48,11 +48,12 @@
 
 #define DISPLAY_AGGREGATE_ID	0xbbcaa321
 struct audio_frame;
+struct module;
 struct video_desc;
 struct video_frame;
 
 display_type_t		*display_aggregate_probe(void);
-void 			*display_aggregate_init(const char *fmt, unsigned int flags);
+void 			*display_aggregate_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_aggregate_run(void *state);
 void 			 display_aggregate_done(void *state);
 struct video_frame	*display_aggregate_getf(void *state);

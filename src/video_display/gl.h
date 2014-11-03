@@ -57,7 +57,7 @@ extern "C" {
 #endif
 
 display_type_t          *display_gl_probe(void);
-void                    *display_gl_init(const char *fmt, unsigned int flags);
+void                    *display_gl_init(struct module *parent, const char *fmt, unsigned int flags);
 void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
 struct video_frame      *display_gl_getf(void *state);

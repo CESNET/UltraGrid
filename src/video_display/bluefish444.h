@@ -43,6 +43,7 @@
 #define DISPLAY_BLUEFISH444_ID	0x52f45430
 
 struct audio_frame;
+struct module;
 struct video_desc;
 struct video_frame;
 
@@ -51,7 +52,7 @@ extern "C" {
 #endif
 
 display_type_t      *display_bluefish444_probe(void);
-void                *display_bluefish444_init(const char *fmt, unsigned int flags);
+void                *display_bluefish444_init(struct module *parent, const char *fmt, unsigned int flags);
 void                 display_bluefish444_run(void *state);
 void                 display_bluefish444_done(void *state);
 struct video_frame  *display_bluefish444_getf(void *state);

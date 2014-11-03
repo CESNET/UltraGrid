@@ -691,8 +691,9 @@ static int blackmagic_api_version_check(STRING *current_version)
 }
 
 
-void *display_decklink_init(const char *fmt, unsigned int flags)
+void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
@@ -703,7 +704,6 @@ void *display_decklink_init(const char *fmt, unsigned int flags)
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-
 
 #ifdef WIN32
 	// Initialize COM on this thread

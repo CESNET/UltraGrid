@@ -178,7 +178,7 @@ void *hd_rum_decompress_init(struct module *parent)
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "pipe:%p", s);
-        assert (initialize_video_display("proxy", cfg, 0, &s->display) == 0);
+        assert (initialize_video_display(parent, "proxy", cfg, 0, &s->display) == 0);
 
         map<string, param_u> params;
 

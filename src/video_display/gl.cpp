@@ -279,8 +279,9 @@ static void gl_load_splashscreen(struct state_gl *s)
         display_gl_putf(s, frame, PUTF_BLOCKING);
 }
 
-void * display_gl_init(const char *fmt, unsigned int flags) {
+void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
+        UNUSED(parent);
 	struct state_gl *s = new state_gl;
         
         /* GLUT callbacks take only some arguments so we need static variable */

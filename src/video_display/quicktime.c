@@ -597,8 +597,9 @@ static void show_help(int full)
         print_modes(full);
 }
 
-void *display_quicktime_init(const char *fmt, unsigned int flags)
+void *display_quicktime_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         struct state_quicktime *s;
         int ret;
         int i;

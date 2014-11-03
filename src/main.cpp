@@ -889,7 +889,7 @@ int main(int argc, char *argv[])
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
         ret =
-             initialize_video_display(requested_display, display_cfg, display_flags, &uv->display_device);
+             initialize_video_display(&root_mod, requested_display, display_cfg, display_flags, &uv->display_device);
         if (ret < 0) {
                 printf("Unable to open display device: %s\n",
                        requested_display);

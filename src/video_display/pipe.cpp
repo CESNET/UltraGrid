@@ -52,9 +52,10 @@ struct state_pipe {
         struct video_desc desc;
 };
 
-void *display_pipe_init(const char *fmt, unsigned int flags)
+void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
+        UNUSED(parent);
         frame_recv_delegate *delegate;
 
         if (!fmt || strlen(fmt) == 0 || strcmp(fmt, "help") == 0) {

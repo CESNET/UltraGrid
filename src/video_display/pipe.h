@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 display_type_t		*display_pipe_probe(void);
-void 			*display_pipe_init(const char *fmt, unsigned int flags);
+void 			*display_pipe_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_pipe_run(void *state);
 void 			 display_pipe_done(void *state);
 struct video_frame	*display_pipe_getf(void *state);

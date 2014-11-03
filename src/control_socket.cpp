@@ -390,6 +390,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
+        } else if(strcmp(message, "dump-tree") == 0) {
+                dump_tree(s->root_module, 0);
+                resp = new_response(RESPONSE_OK, NULL);
         } else { // assume message in format "path message"
                 struct msg_universal *msg = (struct msg_universal *)
                         new_message(sizeof(struct msg_universal));

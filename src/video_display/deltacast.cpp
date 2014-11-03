@@ -334,12 +334,13 @@ error:
 }
 
 
-void *display_deltacast_init(const char *fmt, unsigned int flags)
+void *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         struct state_deltacast *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
-        
+
         s = (struct state_deltacast *)calloc(1, sizeof(struct state_deltacast));
         s->magic = DELTACAST_MAGIC;
         

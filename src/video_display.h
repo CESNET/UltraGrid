@@ -76,6 +76,7 @@ extern "C" {
 /** @} */
 
 struct audio_frame;
+struct module;
 
 /*
  * Interface to probing the valid display types. 
@@ -120,14 +121,14 @@ display_id_t 	 display_get_null_device_id(void);
  *
  */
 struct display;
+struct module;
 
 extern int display_init_noerr;
 
 void                     list_video_display_devices(void);
-int                      initialize_video_display(const char *requested_display,
-                const char *fmt, unsigned int flags,
+int                      initialize_video_display(struct module *parent,
+                const char *requested_display, const char *fmt, unsigned int flags,
                 struct display **out);
-int                      display_init(display_id_t id, const char *fmt, unsigned int flags, struct display **state);
 void                     display_run(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);

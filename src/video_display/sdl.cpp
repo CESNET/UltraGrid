@@ -420,8 +420,9 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         return TRUE;
 }
 
-void *display_sdl_init(const char *fmt, unsigned int flags)
+void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         struct state_sdl *s = new state_sdl;
         int ret;
 	const SDL_VideoInfo *video_info;

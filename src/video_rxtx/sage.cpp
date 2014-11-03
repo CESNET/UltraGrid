@@ -63,7 +63,7 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
 
         oss << "fs=" << static_cast<const char *>(params.at("receiver").ptr);
         oss << ":tx"; // indicates that we are in tx mode
-        int ret = initialize_video_display("sage",
+        int ret = initialize_video_display(&m_sender_mod, "sage",
                         oss.str().c_str(), 0, &m_sage_tx_device);
         if(ret != 0) {
                 throw string("Unable to initialize SAGE TX.");

@@ -837,10 +837,10 @@ static void show_help(void)
         }
 }
 
-void *display_bluefish444_init(const char *fmt, unsigned int flags)
+void *display_bluefish444_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         int deviceId = 1;
-
         if(fmt){
                 if(strcmp(fmt, "help") == 0) {
                         show_help();

@@ -166,10 +166,11 @@ void display_sage_run(void *arg)
         }
 }
 
-void *display_sage_init(const char *fmt, unsigned int flags)
+void *display_sage_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);
+        UNUSED(parent);
         struct state_sage *s;
 
         s = (struct state_sage *) calloc(1, sizeof(struct state_sage));

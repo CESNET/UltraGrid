@@ -57,6 +57,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "module.h"
 #include "perf.h"
 #include "video_display.h"
 
@@ -78,8 +79,11 @@
 
 #define DISPLAY_MAGIC 0x01ba7ef1
 
+static int display_init(struct module *parent, display_id_t id, const char *fmt, unsigned int flags, struct display **state);
+
 /// @brief This struct represents initialized video display state.
 struct display {
+        struct module mod;
         uint32_t magic; ///< state of the created video capture driver
         int index;      ///< index to @ref display_device_table
         void *state;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
@@ -98,7 +102,7 @@ typedef struct {
         const  char              *library_name; ///< @copydoc decoder_table_t::library_name
         display_type_t         *(*func_probe) (void);
         const char               *func_probe_str;
-        void                   *(*func_init) (const char *fmt, unsigned int flags);
+        void                   *(*func_init) (struct module *parent, const char *fmt, unsigned int flags);
         const char               *func_init_str;
         void                    (*func_run) (void *state);
         const char               *func_run_str;
@@ -354,8 +358,7 @@ static int display_fill_symbols(display_table_t *device)
 
         device->func_probe = (display_type_t *(*) (void))
                 dlsym(handle, device->func_probe_str);
-        device->func_init = (void *(*) (const char *, unsigned int))
-                dlsym(handle, device->func_init_str);
+        device->func_init = dlsym(handle, device->func_init_str);
         device->func_run = (void (*) (void *))
                 dlsym(handle, device->func_run_str);
         device->func_done = (void (*) (void *))
@@ -403,9 +406,8 @@ void list_video_display_devices()
         display_free_devices();
 }
 
-int initialize_video_display(const char *requested_display,
-                const char *fmt, unsigned int flags,
-                struct display **out)
+int initialize_video_display(struct module *parent, const char *requested_display,
+                const char *fmt, unsigned int flags, struct display **out)
 {
         display_type_t *dt;
         display_id_t id = 0;
@@ -439,7 +441,7 @@ int initialize_video_display(const char *requested_display,
         }
         display_free_devices();
 
-        return display_init(id, fmt, flags, out);
+        return display_init(parent, id, fmt, flags, out);
 }
 
 /**
@@ -526,24 +528,34 @@ display_id_t display_get_null_device_id(void)
  * @retval   -1  if failed
  * @retval    1  if successfully shown help (no state returned)
  */
-int display_init(display_id_t id, const char *fmt, unsigned int flags, struct display **state)
+static int display_init(struct module *parent, display_id_t id, const char *fmt,
+                unsigned int flags, struct display **state)
 {
         unsigned int i;
 
         for (i = 0; i < DISPLAY_DEVICE_TABLE_SIZE; i++) {
                 if (display_device_table[i].id == id) {
                         struct display *d =
-                            (struct display *)malloc(sizeof(struct display));
+                            (struct display *) calloc(1, sizeof(struct display));
                         d->magic = DISPLAY_MAGIC;
-                        d->state = display_device_table[i].func_init(fmt, flags);
+
+                        module_init_default(&d->mod);
+                        d->mod.cls = MODULE_CLASS_DISPLAY;
+                        module_register(&d->mod, parent);
+
+
+                        d->state = display_device_table[i].func_init(&d->mod, fmt, flags);
                         d->index = i;
+
                         if (d->state == NULL) {
                                 debug_msg("Unable to start display 0x%08lx\n",
                                           id);
                                 free(d);
+                                module_done(&d->mod);
                                 return -1;
                         } else if (d->state == &display_init_noerr) {
                                 free(d);
+                                module_done(&d->mod);
                                 return 1;
                         }
                         *state = d;
@@ -562,6 +574,7 @@ void display_done(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_done(d->state);
+        module_done(&d->mod);
         free(d);
 }
 

@@ -127,7 +127,7 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(tmp.msg_queue_childs);
 }
 
-const char *module_class_name_pairs[] = {
+static const char *module_class_name_pairs[] = {
         [MODULE_CLASS_ROOT] = "root",
         [MODULE_CLASS_PORT] = "port",
         [MODULE_CLASS_COMPRESS] = "compress",
@@ -139,6 +139,7 @@ const char *module_class_name_pairs[] = {
         [MODULE_CLASS_CONTROL] = "control",
         [MODULE_CLASS_CAPTURE] = "capture",
         [MODULE_CLASS_FILTER] = "filter",
+        [MODULE_CLASS_DISPLAY] = "display",
 };
 
 const char *module_class_name(enum module_class cls)
@@ -185,7 +186,9 @@ static struct module *find_child(struct module *node, const char *node_name, int
 {
         for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
                 struct module *child = (struct module *) simple_linked_list_it_next(&it);
-                if(strcasecmp(module_class_name(child->cls), node_name) == 0) {
+                const char *child_name = module_class_name(child->cls);
+                assert(child_name != NULL);
+                if(strcasecmp(child_name, node_name) == 0) {
                         if(index-- == 0) {
                                 return child;
                         }

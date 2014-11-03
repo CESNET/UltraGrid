@@ -79,8 +79,9 @@ struct state_proxy {
         condition_variable cv;
 };
 
-void *display_proxy_init(const char *fmt, unsigned int flags)
+void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(parent);
         struct state_proxy *s;
         char *fmt_copy = NULL;
         const char *requested_display = "gl";
@@ -97,7 +98,7 @@ void *display_proxy_init(const char *fmt, unsigned int flags)
                         cfg = delim + 1;
                 }
         }
-        assert (initialize_video_display(requested_display, cfg, flags, &s->real_display) == 0);
+        assert (initialize_video_display(parent, requested_display, cfg, flags, &s->real_display) == 0);
         free(fmt_copy);
 
         pthread_create(&s->thread_id, NULL, (void *(*)(void *)) display_run,

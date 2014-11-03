@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 display_type_t		*display_proxy_probe(void);
-void 			*display_proxy_init(const char *fmt, unsigned int flags);
+void 			*display_proxy_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_proxy_run(void *state);
 void 			 display_proxy_done(void *state);
 struct video_frame	*display_proxy_getf(void *state);
