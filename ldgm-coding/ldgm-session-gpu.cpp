@@ -34,8 +34,6 @@
 #include "timer-util.h"
 #include "tanner.h"
 
-#include "crypto/crc.h"
-
 // static  int * error_vec;
 // static  int * sync_vec;
 

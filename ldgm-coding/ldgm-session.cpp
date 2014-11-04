@@ -22,7 +22,6 @@
 #include <sstream>
 #include <string>
 #include <string.h>
-#include "crypto/crc.h"
 #include "ldgm-session.h"
 #include "timer-util.h"
 
