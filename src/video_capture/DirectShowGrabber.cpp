@@ -1227,6 +1227,13 @@ static const CHAR * GetSubtypeNameA(const GUID *pSubtype)
 // would use the header file that picks the A or W version.
 static const CHAR * GetSubtypeName(const GUID *pSubtype)
 {
-        return GetSubtypeNameA(pSubtype);
+        thread_local char fourcc[5] = "";
+        // the type is unknown to us, so print FourCC
+        if (LocateSubtype(pSubtype) == sizeof BitCountMap / sizeof BitCountMap[0] - 1) {
+                memcpy(fourcc, &pSubtype->Data1, 4);
+                return fourcc;
+        } else {
+                return GetSubtypeNameA(pSubtype);
+        }
 }
 
