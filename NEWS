@@ -10,7 +10,9 @@
 * added dynamic rate limiter
 * do not occupy recv port if not used
 * support for new operating systems (OS X 10.10, Ubuntu 14.10, Windows 8)
-TODO: add I2cat contributions
+* added RTSP capturer
+* added resize capture filter
+* standard encapsulation for H.264 and A-law/u-law/OPUS audio and RTSP transmission/server
 
 1.2
 =====
