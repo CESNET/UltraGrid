@@ -1,4 +1,4 @@
-#include "ldgm-coding/ldgm-session-gpu.h"
+#include "ldgm/src/ldgm-session-gpu.h"
 #include "ldgm.h"
 #include "lib_common.h"
 

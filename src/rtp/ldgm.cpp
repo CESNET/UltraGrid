@@ -73,11 +73,11 @@
 #include "ldgm.h"
 #include "lib_common.h"
 
-#include "ldgm-coding/ldgm-session.h"
-#include "ldgm-coding/ldgm-session-cpu.h"
-#include "ldgm-coding/ldgm-session-gpu.h"
-#include "ldgm-coding/matrix-gen/matrix-generator.h"
-#include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+#include "ldgm/src/ldgm-session.h"
+#include "ldgm/src/ldgm-session-cpu.h"
+#include "ldgm/src/ldgm-session-gpu.h"
+#include "ldgm/matrix-gen/matrix-generator.h"
+#include "ldgm/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"

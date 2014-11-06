@@ -1,3 +1,6 @@
 [submodule "gpujpeg"]
 	path = gpujpeg
 	url = git://git.code.sf.net/p/gpujpeg/code
+[submodule "ldgm"]
+	path = ldgm
+	url = http://seth.ics.muni.cz/git/ldgm.git

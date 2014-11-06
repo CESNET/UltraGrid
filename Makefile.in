@@ -152,11 +152,11 @@ OBJS	      = @OBJS@ \
 		src/vo_postprocess/interlace.o \
 		src/vo_postprocess/double-framerate.o \
 		src/vo_postprocess/split.o \
-		ldgm-coding/ldgm-session-cpu.o \
-		ldgm-coding/ldgm-session.o \
-		ldgm-coding/tanner.o \
-		ldgm-coding/matrix-gen/matrix-generator.o \
-		ldgm-coding/matrix-gen/ldpc-matrix.o \
+		ldgm/src/ldgm-session-cpu.o \
+		ldgm/src/ldgm-session.o \
+		ldgm/src/tanner.o \
+		ldgm/matrix-gen/matrix-generator.o \
+		ldgm/matrix-gen/ldpc-matrix.o \
 
 ULTRAGRID_OBJS = src/main.o \
 

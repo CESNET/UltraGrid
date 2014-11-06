@@ -8,6 +8,8 @@ test -z "$srcdir" && srcdir=.
 
 ORIGDIR=`pwd`
 
+git submodule update --init ldgm
+
 cd $srcdir
 aclocal
 autoheader
