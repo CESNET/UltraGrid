@@ -145,8 +145,8 @@ void *display_aggregate_init(struct module *parent, const char *fmt, unsigned in
                         dev_flags = flags & ~(DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG);
                 }
 
-                int ret = initialize_video_display(device,
-                                               device_cfg, dev_flags, &s->devices[i], parent);
+                int ret = initialize_video_display(parent, device,
+                                               device_cfg, dev_flags, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n", i, device, device_cfg);
                         free(config);

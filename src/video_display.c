@@ -550,12 +550,12 @@ static int display_init(struct module *parent, display_id_t id, const char *fmt,
                         if (d->state == NULL) {
                                 debug_msg("Unable to start display 0x%08lx\n",
                                           id);
-                                free(d);
                                 module_done(&d->mod);
+                                free(d);
                                 return -1;
                         } else if (d->state == &display_init_noerr) {
-                                free(d);
                                 module_done(&d->mod);
+                                free(d);
                                 return 1;
                         }
                         *state = d;
