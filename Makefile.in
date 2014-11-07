@@ -171,7 +171,7 @@ SWITCHER_CONTROL_KEYBOARD_OBJS = src/switcher_control_keyboard.o
 all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(SWITCHER_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 src/dir-stamp:
-	${MKDIR_P} src src/audio src/audio/capture src/audio/codec src/audio/playback src/capture_filter src/compat src/crypto src/hd-rum-translator src/ihdtv src/rtp src/rtsp src/utils src/video_capture src/video_compress src/video_decompress src/video_display src/video_rxtx src/vo_postprocess ag_plugin bin cuda_dxt dxt_compress ldgm-coding ldgm-coding/matrix-gen lib lib/ultragrid
+	${MKDIR_P} src src/audio src/audio/capture src/audio/codec src/audio/playback src/capture_filter src/compat src/crypto src/hd-rum-translator src/ihdtv src/rtp src/rtsp src/utils src/video_capture src/video_compress src/video_decompress src/video_display src/video_rxtx src/vo_postprocess ag_plugin bin cuda_dxt dxt_compress ldgm/src ldgm/matrix-gen lib lib/ultragrid
 	touch $@
 
 modules: @LIB_TARGETS@
@@ -211,7 +211,7 @@ $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	"$(NVCC)" $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
-ldgm-coding/ldgm-session-gpu.o: ldgm-coding/ldgm-session-gpu.cpp $(ALL_INCLUDES)
+ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 
 
