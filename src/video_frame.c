@@ -211,9 +211,62 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
         return NULL;
 }
 
-/* TODO: rewrite following 2 functions in more efficient way */
-void il_upper_to_merged(char *dst, char *src, int linesize, int height)
+/**
+ * @todo
+ * Needs to be more efficient
+ */
+void il_lower_to_merged(char *dst, char *src, int linesize, int height, void **stored_state)
 {
+        struct il_lower_to_merged_state {
+                size_t field_len;
+                char field[];
+        };
+        struct il_lower_to_merged_state *last_field = (struct il_lower_to_merged_state *) *stored_state;
+
+        int y;
+        char *tmp = malloc(linesize * height);
+        char *line1, *line2;
+
+        // upper field
+        line1 = tmp;
+        int field_len = linesize * (height / 2);
+        // first check if we have field from last frame
+        if (last_field == NULL) {
+                last_field = (struct il_lower_to_merged_state *)
+                        malloc(sizeof(struct il_lower_to_merged_state) + field_len);
+                last_field->field_len = field_len;
+                *stored_state = last_field;
+                // if no, use current one
+                line2 = src + linesize * ((height + 1) / 2);
+        } else {
+                // otherwise use field from last "frame"
+                line2 = last_field->field;
+        }
+        for(y = 0; y < height / 2; y ++) {
+                memcpy(line1, line2, linesize);
+                line1 += linesize * 2;
+                line2 += linesize;
+        }
+        // store
+        assert ((int) last_field->field_len == field_len);
+        memcpy(last_field->field, src + linesize * ((height + 1) / 2), field_len);
+
+        // lower field
+        line1 = tmp + linesize;
+        line2 = src;
+        for(y = 0; y < (height + 1) / 2; y ++) {
+                memcpy(line1, line2, linesize);
+                line1 += linesize * 2;
+                line2 += linesize;
+        }
+        memcpy(dst, tmp, linesize * height);
+        free(tmp);
+}
+
+/* TODO: rewrite following 2 functions in more efficient way */
+void il_upper_to_merged(char *dst, char *src, int linesize, int height, void **state)
+{
+        UNUSED(state);
         int y;
         char *tmp = malloc(linesize * height);
         char *line1, *line2;
@@ -237,8 +290,9 @@ void il_upper_to_merged(char *dst, char *src, int linesize, int height)
         free(tmp);
 }
 
-void il_merged_to_upper(char *dst, char *src, int linesize, int height)
+void il_merged_to_upper(char *dst, char *src, int linesize, int height, void **state)
 {
+        UNUSED(state);
         int y;
         char *tmp = malloc(linesize * height);
         char *line1, *line2;

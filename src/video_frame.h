@@ -151,15 +151,16 @@ const char *get_interlacing_description(enum interlacing_t interlacing);
  */
 const char *get_interlacing_suffix(enum interlacing_t interlacing);
 
+void il_lower_to_merged(char *dst, char *src, int linesize, int height, void **stored_state);
 /* these functions transcode one interlacing format to another */
 /**
  * @brief Converts upper-field-first to interlaced merged.
  */
-void il_upper_to_merged(char *dst, char *src, int linesize, int height);
+void il_upper_to_merged(char *dst, char *src, int linesize, int height, void **stored_state);
 /**
  * @brief Converts interlaced merged to upper-field-first.
  */
-void il_merged_to_upper(char *dst, char *src, int linesize, int height);
+void il_merged_to_upper(char *dst, char *src, int linesize, int height, void **stored_state);
 
 /**
  * @brief Computes FPS as a double from packet fields.

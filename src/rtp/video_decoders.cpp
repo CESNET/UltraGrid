@@ -109,7 +109,7 @@ struct state_video_decoder;
  * Interlacing changing function protoype. The function should be able to change buffer
  * in place, that is when dst and src are the same.
  */
-typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
+typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void **state);
 
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
@@ -216,6 +216,7 @@ struct state_video_decoder
 
         unsigned int      max_substreams; ///< maximal number of expected substreams
         change_il_t       change_il;      ///< function to change interlacing, if needed. Otherwise NULL.
+        vector<void *>    change_il_state;
 
         mutex lock;
 
@@ -526,7 +527,7 @@ static void *decompress_thread(void *args) {
                         for(i = 0; i < decoder->frame->tile_count; ++i) {
                                 struct tile *tile = vf_get_tile(decoder->frame, i);
                                 decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width,
-                                                        decoder->out_codec), tile->height);
+                                                        decoder->out_codec), tile->height, &decoder->change_il_state[i]);
                         }
                 }
 
@@ -782,6 +783,11 @@ static void cleanup(struct state_video_decoder *decoder)
                 free(decoder->line_decoder);
                 decoder->line_decoder = NULL;
         }
+
+        for (auto && item : decoder->change_il_state) {
+                free(item);
+        }
+        decoder->change_il_state.resize(0);
 }
 
 #define PRINT_STATISTICS fprintf(stderr, "Video decoder statistics: %lu total: %lu displayed / %lu "\
@@ -1039,6 +1045,7 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
         struct transcode_t { enum interlacing_t in; enum interlacing_t out; change_il_t func; };
 
         struct transcode_t transcode[] = {
+                {LOWER_FIELD_FIRST, INTERLACED_MERGED, il_lower_to_merged},
                 {UPPER_FIELD_FIRST, INTERLACED_MERGED, il_upper_to_merged},
                 {INTERLACED_MERGED, UPPER_FIELD_FIRST, il_merged_to_upper}
         };
@@ -1062,6 +1069,8 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
                 }
         }
 
+        fprintf(stderr, "[Warning] Cannot find transition between incoming and display "
+                        "interlacing modes!\n");
         return NULL;
 }
 
@@ -1146,6 +1155,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
 
         decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il,
                         decoder->disp_supported_il_cnt, &display_il);
+        decoder->change_il_state.resize(decoder->max_substreams);
 
         if (!decoder->postprocess || !pp_does_change_tiling_mode) { /* otherwise we need postprocessor mode, which we obtained before */
                 render_mode = display_mode;
