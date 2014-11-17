@@ -259,10 +259,8 @@ static void
 show_help() {
     printf("[rtsp] usage:\n");
     printf("\t-t rtsp:<uri>:<port>:<width>:<height>[:<decompress>]\n");
-    printf("\t\t <uri> uri server without 'rtsp://' \n");
+    printf("\t\t <uri> RTSP server URI\n");
     printf("\t\t <port> receiver port number \n");
-    printf("\t\t <width> receiver width number \n");
-    printf("\t\t <height> receiver height number \n");
     printf(
         "\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
 }
@@ -314,6 +312,7 @@ vidcap_rtsp_thread(void *arg) {
     gettimeofday(&s->vrtsp_state->prev_time, NULL);
 
     while (!s->should_exit) {
+    	usleep(10);
         gettimeofday(&s->vrtsp_state->curr_time, NULL);
         s->vrtsp_state->timestamp = tv_diff(s->vrtsp_state->curr_time, s->vrtsp_state->start_time) * 90000;
 
@@ -762,7 +761,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
 
             s->curl = curl;
             s->uri = uri;
-            debug_msg("[rtsp] playing video from server...\n");
+            debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->frame->h264_width,s->vrtsp_state->frame->h264_height);
 
         } else {
             fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
@@ -795,7 +794,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
 
     fp = fopen(sdp_filename, "r");
     if(fp == 0){
-        printf("unable to open asset %s", sdp_filename);
+        debug_msg("unable to open asset %s", sdp_filename);
         fclose(fp);
         return;
     }
@@ -807,7 +806,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
     unsigned long readResult = fread(buffer, sizeof(char), fileSize, fp);
 
     if(readResult != fileSize){
-        printf("something bad happens, read result != file size");
+        debug_msg("something bad happens, read result != file size");
         return;
     }
     buffer[fileSize] = '\0';
@@ -817,7 +816,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         sscanf(line, " a = control: %s", tmpBuff);
         tmpBuff = strstr(line, "track");
         if(tmpBuff!=NULL){
-            //printf("track = %s\n",tmpBuff);
+            //debug_msg("track = %s\n",tmpBuff);
             strncpy(tracks[countT],tmpBuff,strlen(tmpBuff)-2);
             tracks[countT][strlen(tmpBuff)-2] = '\0';
             countT++;
@@ -826,7 +825,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         sscanf(line, " a=rtpmap:96 %s", tmpBuff);
         tmpBuff = strstr(line, "H264");
         if(tmpBuff!=NULL){
-            //printf("codec = %s\n",tmpBuff);
+            //debug_msg("codec = %s\n",tmpBuff);
             strncpy(codecs[countC],tmpBuff,4);
             codecs[countC][4] = '\0';
             countC++;
@@ -835,7 +834,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         sscanf(line, " a=rtpmap:97 %s", tmpBuff);
         tmpBuff = strstr(line, "PCMU");
         if(tmpBuff!=NULL){
-            //printf("codec = %s\n",tmpBuff);
+            //debug_msg("codec = %s\n",tmpBuff);
             strncpy(codecs[countC],tmpBuff,4);
             codecs[countC][4] = '\0';
             countC++;
