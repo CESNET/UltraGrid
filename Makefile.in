@@ -490,6 +490,8 @@ osx-gui-dmg: bundle
 		cp ../../uv.app/Contents/MacOS/uv build/Release/UltraGrid\ GUI.app/Contents/MacOS/; \
 		mkdir build/Release/UltraGrid\ GUI.app/Contents/libs; \
 		cp ../../uv.app/Contents/libs/* build/Release/UltraGrid\ GUI.app/Contents/libs; \
+		mkdir build/Release/UltraGrid\ GUI.app/Contents/Frameworks; \
+		cp -r ../../uv.app/Contents/Frameworks/* build/Release/UltraGrid\ GUI.app/Contents/Frameworks; \
 		MBYTES=`du -mc build/Release/UltraGrid\ GUI.app | tail -n1 | cut -f1`; \
 		MBYTES=$$(($$MBYTES+2)); \
 		[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg; \
