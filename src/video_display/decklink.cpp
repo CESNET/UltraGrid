@@ -303,6 +303,9 @@ static void show_help(void)
                         CFRelease(deviceNameString);
 #endif
                         free((void *)deviceNameCString);
+                } else {
+                        printf("\ndevice: %d.) (unable to get name)\n\n",numDevices);
+                        print_output_modes(deckLink);
                 }
                 
                 // Increment the total number of DeckLink cards found

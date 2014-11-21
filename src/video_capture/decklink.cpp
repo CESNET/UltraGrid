@@ -394,7 +394,9 @@ decklink_help()
 			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
 			release_bmd_api_str(deviceNameString);
                         free((void *)deviceNameCString);
-		}
+                } else {
+			printf("\ndevice: %d.) (unable to get name)\n\n",numDevices);
+                }
 		
 		// Increment the total number of DeckLink cards found
 		numDevices++;
