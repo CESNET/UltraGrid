@@ -63,6 +63,7 @@ typedef enum {
         AC_OPUS,
         AC_G722,
         AC_G726,
+        AC_MP3,
 } audio_codec_t;
 
 struct state_audio;

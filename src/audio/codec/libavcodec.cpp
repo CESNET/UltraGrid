@@ -83,6 +83,7 @@ extern "C" {
 #define AV_CODEC_ID_OPUS CODEC_ID_OPUS
 #define AV_CODEC_ID_ADPCM_G722 CODEC_ID_ADPCM_G722
 #define AV_CODEC_ID_ADPCM_G726 CODEC_ID_ADPCM_G726
+#define AV_CODEC_ID_MP3 CODEC_ID_MP3
 #endif
 
 using namespace std;
@@ -110,6 +111,7 @@ static std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
 #endif
         { AC_G722, AV_CODEC_ID_ADPCM_G722 },
         { AC_G726, AV_CODEC_ID_ADPCM_G726 },
+        { AC_MP3, AV_CODEC_ID_MP3 },
 };
 
 struct libavcodec_codec_state {
@@ -249,8 +251,24 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                         break;
         }
 
+        /// @todo
+        /// Check also planar formats since we can use both (we encode always one channel only)
         if(!check_sample_fmt(s->codec, s->codec_ctx->sample_fmt)) {
-                s->codec_ctx->sample_fmt = s->codec->sample_fmts[0];
+                s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_NONE;
+                int i = 0;
+                while (s->codec->sample_fmts[i] != AV_SAMPLE_FMT_NONE) {
+                        if (s->codec->sample_fmts[i] == AV_SAMPLE_FMT_FLT ||
+                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_FLTP ||
+                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_DBL ||
+                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_DBLP) {
+                                i++;
+                                continue;
+                        } else {
+                                s->codec_ctx->sample_fmt = s->codec->sample_fmts[i];
+                                break;
+                        }
+                }
+                assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_NONE);
                 s->change_bps_to = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         }
 
@@ -300,7 +318,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
 
         s->output_channel.sample_rate = desc.sample_rate;
-        s->output_channel.bps = desc.bps;
+        s->output_channel.bps = s->change_bps_to == 0 ? desc.bps : s->change_bps_to;
         s->saved_desc = desc;
 
         return true;
@@ -347,8 +365,8 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 }
 
                 if(s->change_bps_to) {
-                        change_bps((char *) s->tmp.data, s->saved_desc.bps, channel->data,
-                                        s->change_bps_to, channel->data_len);
+                        change_bps((char *) s->tmp.data + s->tmp.data_len, s->change_bps_to,
+                                        channel->data, s->saved_desc.bps, channel->data_len);
                         s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->change_bps_to;
                 } else {
                         memcpy((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
@@ -516,7 +534,7 @@ static void libavcodec_done(void *state)
         free(s);
 }
 
-static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_NONE };
+static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_MP3, AC_NONE };
 static int supported_bytes_per_second[] = { 2, 0 };
 
 struct audio_codec libavcodec_audio_codec = {
