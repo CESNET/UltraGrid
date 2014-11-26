@@ -379,7 +379,7 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
 {
     int start_index = 1;
 
-    while(argv[start_index][0] == '-') {
+    while(start_index < argc && argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
             char *item = argv[++start_index];
             *control_port = atoi(item);
