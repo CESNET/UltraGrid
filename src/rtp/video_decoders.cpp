@@ -101,6 +101,11 @@
 #include <queue>
 #include <thread>
 
+#ifdef HAVE_LIBAVCODEC_AVCODEC_H
+#include <libavcodec/avcodec.h> // FF_INPUT_BUFFER_PADDING_SIZE
+#endif
+
+
 using namespace std;
 
 struct state_video_decoder;
@@ -133,6 +138,12 @@ static int sum_map(map<int, int> const & m) {
 }
 
 namespace {
+
+#ifdef HAVE_LIBAVCODEC_AVCODEC_H
+constexpr int PADDING = FF_INPUT_BUFFER_PADDING_SIZE;
+#else
+constexpr int PADDING = 0;
+#endif
 /**
  * Enumerates 2 possibilities how to decode arriving data.
  */
@@ -1572,7 +1583,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 }
 
                 if(!recv_buffer[substream]) {
-                        recv_buffer[substream] = (char *) malloc(buffer_length);
+                        recv_buffer[substream] = (char *) malloc(buffer_length + PADDING);
                 }
 
                 buffer_num[substream] = buffer_number;
