@@ -58,12 +58,12 @@ typedef enum {
         AC_PCM,
         AC_ALAW,
         AC_MULAW,
-        AC_ADPCM_IMA_WAV,
         AC_SPEEX,
         AC_OPUS,
         AC_G722,
-        AC_G726,
         AC_MP3,
+        AC_AAC,
+        AC_FLAC,
 } audio_codec_t;
 
 struct state_audio;

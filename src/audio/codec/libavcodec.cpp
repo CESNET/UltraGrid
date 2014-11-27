@@ -65,13 +65,13 @@ extern "C" {
 #define MAGIC 0xb135ca11
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
+#define AV_CODEC_ID_AAC CODEC_ID_AAC
 #define AV_CODEC_ID_PCM_ALAW CODEC_ID_PCM_ALAW
 #define AV_CODEC_ID_PCM_MULAW CODEC_ID_PCM_MULAW
-#define AV_CODEC_ID_ADPCM_IMA_WAV CODEC_ID_ADPCM_IMA_WAV
 #define AV_CODEC_ID_SPEEX CODEC_ID_SPEEX
 #define AV_CODEC_ID_OPUS CODEC_ID_OPUS
 #define AV_CODEC_ID_ADPCM_G722 CODEC_ID_ADPCM_G722
-#define AV_CODEC_ID_ADPCM_G726 CODEC_ID_ADPCM_G726
+#define AV_CODEC_ID_FLAC CODEC_ID_FLAC
 #define AV_CODEC_ID_MP3 CODEC_ID_MP3
 #endif
 
@@ -93,14 +93,14 @@ static void register_module(void)
 static std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
         { AC_ALAW, AV_CODEC_ID_PCM_ALAW },
         { AC_MULAW, AV_CODEC_ID_PCM_MULAW },
-        { AC_ADPCM_IMA_WAV, AV_CODEC_ID_ADPCM_IMA_WAV },
         { AC_SPEEX, AV_CODEC_ID_SPEEX },
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         { AC_OPUS, AV_CODEC_ID_OPUS },
 #endif
         { AC_G722, AV_CODEC_ID_ADPCM_G722 },
-        { AC_G726, AV_CODEC_ID_ADPCM_G726 },
+        { AC_FLAC, AV_CODEC_ID_FLAC },
         { AC_MP3, AV_CODEC_ID_MP3 },
+        { AC_AAC, AV_CODEC_ID_AAC },
 };
 
 struct libavcodec_codec_state {
@@ -506,7 +506,7 @@ static void libavcodec_done(void *state)
         free(s);
 }
 
-static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_MP3, AC_NONE };
+static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
 static int supported_bytes_per_second[] = { 1, 2, 3, 4, 0 };
 
 struct audio_codec libavcodec_audio_codec = {

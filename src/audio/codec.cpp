@@ -71,12 +71,12 @@ unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
         {AC_PCM, { "PCM", 0x0001 }},
         {AC_ALAW, { "A-law", 0x0006 }},
         {AC_MULAW, { "u-law", 0x0007 }},
-        {AC_ADPCM_IMA_WAV, { "ADPCM", 0x0011 }},
         {AC_SPEEX, { "speex", 0xA109 }},
         {AC_OPUS, { "OPUS", 0x7375704F }}, // == Opus, the TwoCC isn't defined
         {AC_G722, { "G.722", 0x028F }},
-        {AC_G726, { "G.726", 0x0045 }},
         {AC_MP3, { "MP3", 0x0055 }},
+        {AC_AAC, { "AAC", 0x00FF }},
+        {AC_FLAC, { "FLAC", 0xF1AC }},
 };
 
 #ifdef BUILD_LIBRARIES
