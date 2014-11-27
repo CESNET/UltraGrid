@@ -695,16 +695,15 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 {
         memcpy(&s->resampled, buffer, sizeof(struct audio_frame));
 
-        if(buffer->sample_rate == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
+        if (buffer->sample_rate == s->resample_to &&
+                        set_contains(s->codec_supported_bytes_per_sample, buffer->bps)) {
                 memcpy(&s->resampled, buffer, sizeof(s->resampled));
                 s->resampled.data = (char *) malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
-                /**
-                 * @todo 2 is suitable only for Libavcodec
-                 */
+                // resampler is able only to resample 16-bit samples
                 assert(set_contains(s->codec_supported_bytes_per_sample, 2));
-                // expect that we may got as much as 12-times more data (eg 8 kHz to 96 kHz
+                // expect that we may got as much as 12-times more data (eg. 8 kHz to 96 kHz)
                 uint32_t write_frames = 12 * (buffer->data_len / buffer->ch_count / buffer->bps);
                 s->resampled.data = (char *) malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {

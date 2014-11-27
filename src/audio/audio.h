@@ -134,6 +134,7 @@ public:
         int get_sample_rate() const;
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
+        static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
 private:
         int bps;                /* bytes per sample */
         int sample_rate;

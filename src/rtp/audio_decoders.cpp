@@ -1,43 +1,28 @@
+/**
+ * @file   rtp/audio_decoders.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Gerard Castillo  <gerard.castillo@i2cat.net>
+ */
 /*
- * AUTHOR:   N.Cihan Tas
- * MODIFIED: Ladan Gharai
- *           Colin Perkins
- *           Martin Benes     <martinbenesh@gmail.com>
- *           Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *           Petr Holub       <hopet@ics.muni.cz>
- *           Milos Liska      <xliska@fi.muni.cz>
- *           Jiri Matela      <matela@ics.muni.cz>
- *           Dalibor Matura   <255899@mail.muni.cz>
- *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- * 
- * This file implements a linked list for the playout buffer.
- *
- * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2003-2004 University of Glasgow
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2012-2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -50,7 +35,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -86,6 +70,8 @@
 
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
+
+static constexpr int DEVICE_SAMPLE_RATE = 48000; // todo...
 
 struct scale_data {
         double vol_avg;
@@ -194,7 +180,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s->audio_decompress = NULL;
 
-        s->resampler = resampler_init(48000);
+        s->resampler = resampler_init(DEVICE_SAMPLE_RATE);
         s->decoded = new audio_frame2;
 
         if (encryption) {
@@ -456,13 +442,12 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                  *
                  * @todo obtain supported rates from device
                  */
-                int device_sample_rate = 48000;
                 int device_bps = 2;
                 if(decoder->saved_desc.ch_count != input_channels ||
                                 decoder->saved_desc.bps != bps ||
                                 decoder->saved_desc.sample_rate != sample_rate ||
                                 decoder->saved_audio_tag != audio_tag) {
-                        if(device_sample_rate == sample_rate) // no resampling
+                        if(DEVICE_SAMPLE_RATE == sample_rate) // no resampling
                                 device_bps = bps;
 
                         printf("New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
@@ -472,7 +457,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 
                         s->buffer.bps = device_bps;
                         s->buffer.ch_count = output_channels;
-                        s->buffer.sample_rate = device_sample_rate;
+                        s->buffer.sample_rate = DEVICE_SAMPLE_RATE;
 
                         if(!decoder->fixed_scale) {
                                 free(decoder->scale);
@@ -493,7 +478,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
                         received_frame.init(input_channels, audio_codec, bps, sample_rate); 
-                        decoder->decoded->init(input_channels, AC_PCM, bps, device_sample_rate);
+                        decoder->decoded->init(input_channels, AC_PCM, device_bps, DEVICE_SAMPLE_RATE);
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
@@ -526,8 +511,16 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         }
 
         const audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
+        audio_frame2 tmp;
+        const audio_frame2 *device_frame; // with correct device sample rate and bps
+        if (resampled->get_bps() != s->buffer.bps) {
+                tmp = audio_frame2::copy_with_bps_change(*resampled, s->buffer.bps);
+                device_frame = &tmp;
+        } else {
+                device_frame = resampled;
+        }
 
-        size_t new_data_len = s->buffer.data_len + resampled->get_data_len(0) * output_channels;
+        size_t new_data_len = s->buffer.data_len + device_frame->get_data_len(0) * output_channels;
         if(s->buffer.max_size < new_data_len) {
                 s->buffer.max_size = new_data_len;
                 s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
@@ -536,28 +529,28 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         memset(s->buffer.data + s->buffer.data_len, 0, new_data_len - s->buffer.data_len);
 
         // there is a mapping for channel
-        for(int channel = 0; channel < resampled->get_channel_count(); ++channel) {
+        for(int channel = 0; channel < device_frame->get_channel_count(); ++channel) {
                 if(decoder->channel_remapping) {
                         if(channel < decoder->channel_map.size) {
                                 for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
                                         mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
-                                                        resampled->get_data(channel),
-                                                        resampled->get_bps(), resampled->get_data_len(channel),
+                                                        device_frame->get_data(channel),
+                                                        device_frame->get_bps(), device_frame->get_data_len(channel),
                                                         output_channels, decoder->channel_map.map[channel][i],
                                                         decoder->scale[decoder->fixed_scale ? 0 :
                                                         decoder->channel_map.map[channel][i]].scale);
                                 }
                         }
                 } else {
-                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len, resampled->get_data(channel),
-                                        resampled->get_bps(),
-                                        resampled->get_data_len(channel), output_channels, channel,
+                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len, device_frame->get_data(channel),
+                                        device_frame->get_bps(),
+                                        device_frame->get_data_len(channel), output_channels, channel,
                                         decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                 }
         }
         s->buffer.data_len = new_data_len;
 
-        decoder->decoded->append(*resampled);
+        decoder->decoded->append(*device_frame);
 
         double seconds;
         struct timeval t;

@@ -1,35 +1,26 @@
+/**
+ * @file   audio/utils.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/utils.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -238,6 +227,21 @@ bool audio_frame2::has_same_prop_as(audio_frame2 const &frame) const
 void audio_frame2::set_duration(double new_duration)
 {
         duration = new_duration;
+}
+
+audio_frame2 audio_frame2::copy_with_bps_change(audio_frame2 const &frame, int new_bps)
+{
+        audio_frame2 ret;
+        ret.init(frame.get_channel_count(), frame.get_codec(), new_bps, frame.get_sample_rate());
+
+        for (size_t i = 0; i < ret.channels.size(); i++) {
+                ret.channels[i].second = frame.get_data_len(i) / frame.get_bps() * new_bps;
+                ret.channels[i].first = unique_ptr<char []>(new char[ret.channels[i].second]);
+                change_bps(ret.channels[i].first.get(), new_bps, frame.get_data(i), frame.get_bps(),
+                                frame.get_data_len(i));
+        }
+
+        return ret;
 }
 
 static double get_normalized(const char *in, int bps) {

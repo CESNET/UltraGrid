@@ -1,14 +1,10 @@
+/**
+ * @file   audio/codec/libavcodec.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/codec/libavcodec.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2012-2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,14 +17,9 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of CESNET nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #define __STDC_CONSTANT_MACROS
@@ -344,8 +333,6 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
         }
         pthread_mutex_unlock(s->libav_global_lock);
 
-        s->output_channel.sample_rate = desc.sample_rate;
-        s->output_channel.bps = desc.bps;
         s->saved_desc = desc;
 
         return true;
@@ -373,7 +360,6 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         s->tmp.data_len += channel->data_len;
                 }
         }
-
 
         int bps = s->output_channel.bps;
         int offset = 0;
@@ -430,7 +416,11 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         }
 
         int offset = 0;
-        s->pkt.data = (unsigned char *) channel->data;
+        // FFMPEG buffer needs to be FF_INPUT_BUFFER_PADDING_SIZE longer than data
+        unique_ptr<unsigned char []> tmp_buffer(new unsigned char[channel->data_len + FF_INPUT_BUFFER_PADDING_SIZE]);
+        memcpy(tmp_buffer.get(), channel->data, channel->data_len);
+
+        s->pkt.data = tmp_buffer.get();
         s->pkt.size = channel->data_len;
         s->output_channel.data_len = 0;
         while (s->pkt.size > 0) {
@@ -480,37 +470,19 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
                         s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
 
-        unique_ptr<char []> int32_data;
-        unique_ptr<char []> out_bps_data;
-        const char *int_input_data;
-        const char *output_data = NULL;
-        int in_bps;
         // convert from float if needed
         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT ||
                         s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
-                int32_data = unique_ptr<char []>(new char [s->output_channel.data_len]);
+                unique_ptr<char []> int32_data(unique_ptr<char []>(new char [s->output_channel.data_len]));
                 float2int(int32_data.get(), s->output_channel.data, s->output_channel.data_len);
-                output_data = int_input_data = int32_data.get();
-                in_bps = 4;
+                memcpy((char *) s->output_channel.data, int32_data.get(), s->output_channel.data_len);
+                s->output_channel.bps = 4;
         } else {
-                int_input_data = s->output_channel.data;
-                in_bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+                s->output_channel.bps =
+                        av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         }
 
-        // convert to appropriate bps
-        if (s->output_channel.bps != in_bps) {
-                int new_data_len = s->output_channel.data_len / in_bps * s->output_channel.bps;
-                out_bps_data = unique_ptr<char []>(new char [new_data_len]);
-                change_bps(out_bps_data.get(), s->output_channel.bps, int_input_data, in_bps,
-                                s->output_channel.data_len);
-                output_data = out_bps_data.get();
-                s->output_channel.data_len = new_data_len;
-        }
-
-        // copy back if needed
-        if (output_data) {
-                memcpy((char *) s->output_channel.data, output_data, s->output_channel.data_len);
-        }
+        s->output_channel.sample_rate = s->codec_ctx->sample_rate;
 
         return &s->output_channel;
 }
@@ -535,7 +507,7 @@ static void libavcodec_done(void *state)
 }
 
 static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_ADPCM_IMA_WAV, AC_SPEEX, AC_OPUS, AC_G722, AC_G726, AC_MP3, AC_NONE };
-static int supported_bytes_per_second[] = { 2, 0 };
+static int supported_bytes_per_second[] = { 1, 2, 3, 4, 0 };
 
 struct audio_codec libavcodec_audio_codec = {
         supported_codecs,
