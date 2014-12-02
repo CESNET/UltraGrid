@@ -239,6 +239,8 @@ void hd_rum_decompress_done(void *state) {
         s->display_thread.join();
         display_done(s->display);
 
+        s->video_rxtx->join();
+
         delete s;
 }
 

@@ -451,13 +451,14 @@ const char *get_compress_name(compress_state_proxy *proxy)
  */
 void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
 {
-        if (!proxy)
-                abort();
-
         if (!frame) { // pass poisoned pill
-                proxy->queue.push(shared_ptr<video_frame>());
+                if (proxy)
+                        proxy->queue.push(shared_ptr<video_frame>());
                 return;
         }
+
+        if (!proxy)
+                abort();
 
         struct msg_change_compress_data *msg = NULL;
         while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
