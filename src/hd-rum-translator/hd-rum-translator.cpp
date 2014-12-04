@@ -301,7 +301,7 @@ static void *writer(void *arg)
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 replica_init(rep, host, tx_port, 100*1000, &s->mod);
 
-                rep->type = replica::type_t::USE_SOCK;
+                rep->type = replica::type_t::RECOMPRESS;
                 char *fec = NULL;
                 rep->recompress = recompress_init(&rep->mod,
                         host, compress,
