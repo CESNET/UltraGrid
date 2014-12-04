@@ -59,6 +59,7 @@
 #include "vo_postprocess/double-framerate.h"
 #include "vo_postprocess/scale.h"
 #include "vo_postprocess/split.h"
+#include "vo_postprocess/text.h"
 #include "vo_postprocess/3d-interlaced.h"
 #include "lib_common.h"
 
@@ -159,6 +160,19 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(interlaced_3d_done),
                 NULL
         },
+#if defined HAVE_SCALE || defined BUILD_LIBRARIES
+        {"text",
+                "text",
+                MK_NAME(text_init),
+                MK_NAME(text_postprocess_reconfigure),
+                MK_NAME(text_getf),
+                MK_NAME(text_get_out_desc),
+                MK_NAME(text_get_property),
+                MK_NAME(text_postprocess),
+                MK_NAME(text_done),
+                NULL
+        },
+#endif
         { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

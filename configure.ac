@@ -2539,6 +2539,44 @@ AC_SUBST(SCALE_LIB)
 AC_SUBST(SCALE_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# Text Stuff
+# -------------------------------------------------------------------------------------------------
+TEXT_INC=
+TEXT_LIB=
+TEXT_OBJ=
+text=no
+
+AC_ARG_ENABLE(text,
+[  --disable-text         disable text postprocessor (default is auto)],
+    [text_req=$enableval],
+    [text_req=auto]
+    )
+
+PKG_CHECK_MODULES([TEXT], [MagickWand], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
+
+if test $text_req != no -a "$FOUND_TEXT_DEPS" = yes
+then
+        text=yes
+        COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
+        TEXT_LIB="$TEXT_LIBS"
+        TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
+        AC_SUBST(TEXT_LIB_TARGET, "lib/ultragrid/vo_pp_text.so.$vo_pp_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $TEXT_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $TEXT_OBJ"
+        AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
+fi
+
+if test $text_req = yes -a $text = no; then
+        AC_MSG_ERROR([text not found]);
+fi
+
+LIB_MODULES="$LIB_MODULES $TEXT_LIB"
+
+AC_SUBST(TEXT_INC)
+AC_SUBST(TEXT_LIB)
+AC_SUBST(TEXT_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # QT GUI
 GUI_TARGET=
 QMAKE=
