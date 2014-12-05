@@ -82,6 +82,7 @@
 #include "video_capture/switcher.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
+#include "video_capture/ug_input.h"
 #include "video_capture/v4l2.h"
 #include "video_capture/rtsp.h"
 
@@ -362,6 +363,15 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_null_init),
          MK_STATIC(vidcap_null_done),
          MK_STATIC(vidcap_null_grab),
+         NULL
+        },
+        {
+         0,
+         NULL,
+         MK_STATIC(vidcap_ug_input_probe),
+         MK_STATIC(vidcap_ug_input_init),
+         MK_STATIC(vidcap_ug_input_done),
+         MK_STATIC(vidcap_ug_input_grab),
          NULL
         }
 };
