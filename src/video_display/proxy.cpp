@@ -55,9 +55,10 @@
 
 using namespace std;
 
-constexpr int TRANSITION_COUNT = 10;
-constexpr int BUFFER_LEN = 5;
-constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
+static constexpr int TRANSITION_COUNT = 10;
+static constexpr int BUFFER_LEN = 5;
+static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
+static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
 struct state_proxy {
         struct display *real_display;
@@ -70,6 +71,7 @@ struct state_proxy {
         int transition;
 
         queue<struct video_frame *> incoming_queue;
+        condition_variable in_queue_decremented_cv;
         map<uint32_t, list<struct video_frame *> > frames;
         unordered_map<uint32_t, chrono::system_clock::time_point> disabled_ssrc;
 
@@ -119,6 +121,7 @@ void display_proxy_run(void *state)
                         s->cv.wait(lg, [s]{return s->incoming_queue.size() > 0;});
                         frame = s->incoming_queue.front();
                         s->incoming_queue.pop();
+                        s->in_queue_decremented_cv.notify_one();
                 }
 
                 if (!frame) {
@@ -278,12 +281,19 @@ int display_proxy_putf(void *state, struct video_frame *frame, int flags)
                 vf_free(frame);
         } else {
                 unique_lock<mutex> lg(s->lock);
+                if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                        fprintf(stderr, "Proxy: queue full!\n");
+                }
+                if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                        return 1;
+                }
+                s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
                 s->incoming_queue.push(frame);
                 lg.unlock();
                 s->cv.notify_one();
         }
 
-        return TRUE;
+        return 0;
 }
 
 display_type_t *display_proxy_probe(void)
@@ -321,6 +331,7 @@ int display_proxy_reconfigure(void *state, struct video_desc desc)
 
         unique_lock<mutex> lg(s->lock);
         s->desc = desc;
+        s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
         s->incoming_queue.push(vf_alloc_desc(desc));
         lg.unlock();
         s->cv.notify_one();
