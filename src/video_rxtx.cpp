@@ -212,14 +212,13 @@ void *video_rxtx::sender_loop() {
 
                 if (!m_paused) {
                         send_frame(tx_frame);
-                }
 
-                rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
-                if (rtp_rxtx) {
-                        stats_update_int(stat_data_sent,
-                                        rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
+                        rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
+                        if (rtp_rxtx) {
+                                stats_update_int(stat_data_sent,
+                                                rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
+                        }
                 }
-
         }
 
 exit:
