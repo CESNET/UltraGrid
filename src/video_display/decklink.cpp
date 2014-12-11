@@ -83,7 +83,7 @@
 
 enum link {
         LINK_UNSPECIFIED,
-        LINK_3G,
+        LINK_SINGLE,
         LINK_DUAL
 };
 
@@ -260,8 +260,9 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
+        printf("\t-d decklink:<device_number(s)>[:timecode][:single-link|:dual-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
         printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
+        printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 #ifdef WIN32
         result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
@@ -783,8 +784,8 @@ void *display_decklink_init(struct module *parent, const char *fmt, unsigned int
                                 s->stereo = true;
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
-                        } else if(strcasecmp(ptr, "3G") == 0) {
-                                s->link = LINK_3G;
+                        } else if(strcasecmp(ptr, "single-link") == 0) {
+                                s->link = LINK_SINGLE;
                         } else if(strcasecmp(ptr, "dual-link") == 0) {
                                 s->link = LINK_DUAL;
                         } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
@@ -925,7 +926,7 @@ void *display_decklink_init(struct module *parent, const char *fmt, unsigned int
 
                 if(s->link != LINK_UNSPECIFIED) {
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
-                                        s->link == LINK_3G ? true : false);
+                                        s->link == LINK_SINGLE ? true : false);
                         if(res != S_OK) {
                                 fprintf(stderr, "[DeckLink display] Unable set output SDI standard.\n");
                         }
