@@ -206,7 +206,7 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
                 if (curr == NULL){
                         /* this is bad, out of memory, drop the packet... */
                         free(pkt);
-                        free_cdata(tmp);
+                        free(tmp);
                 } else {
                         while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
                                 prv = curr;
@@ -224,7 +224,7 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
                         } else {
                                 /* this is bad, something went terribly wrong... */
                                 free(pkt);
-                                free_cdata(tmp);
+                                free(tmp);
                         }
                 }
         }
