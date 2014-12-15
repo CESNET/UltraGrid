@@ -123,6 +123,7 @@ static const struct codec_info_t codec_info[] = {
         [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
         [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
         [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
+        [J2K] = {J2K, "J2K", to_fourcc('M','J','2','C'), 0, 0.0, 0, FALSE, TRUE, FALSE, "j2k"},
         {(codec_t) 0, NULL, 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL}
 };
 

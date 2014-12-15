@@ -101,6 +101,11 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 0.3,
                 setparam_default
         }},
+        { J2K, {
+                AV_CODEC_ID_JPEG2000,
+                0.3,
+                setparam_default
+        }},
         { VP8, {
                 AV_CODEC_ID_VP8,
                 0.2,
@@ -386,6 +391,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 fprintf(stderr, "Could not allocate video codec context\n");
                 return false;
         }
+
+        s->codec_ctx->strict_std_compliance = -2;
 
         /* put parameters */
         if(s->requested_bitrate > 0) {

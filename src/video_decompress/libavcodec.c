@@ -126,6 +126,9 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         fprintf(stderr, "[lavd] Warning: JPEG decoder "
                                         "will use full-scale YUV.\n");
                         break;
+                case J2K:
+                        codec_id = AV_CODEC_ID_JPEG2000;
+                        break;
                 case VP8:
                         codec_id = AV_CODEC_ID_VP8;
                         break;
@@ -427,6 +430,11 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 }
         } else if(is444(av_codec) && out_codec == UYVY) {
                 yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
+        } else if (av_codec == AV_PIX_FMT_RGB24 && out_codec == RGB) {
+                for (int y = 0; y < height; ++y) {
+                        memcpy(dst + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                        vc_get_linesize(width, RGB));
+                }
         } else {
                 fprintf(stderr, "Unsupported pixel "
                                 "format: %s (id %d)\n",
