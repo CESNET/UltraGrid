@@ -141,8 +141,9 @@ struct state_video_compress_libav {
         bool exact_bitrate;
 };
 
-static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void to_yuv422(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
@@ -177,7 +178,7 @@ static void usage() {
 
         }
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
-        printf("\t\t<subsampling> may be one of 422 or 420, default 420 for progresive, 422 for interlaced\n");
+        printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
 }
@@ -202,9 +203,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                                 char *subsample_str = item + strlen("subsampling=");
                                 s->requested_subsampling = atoi(subsample_str);
-                                if(s->requested_subsampling != 422 &&
+                                if (s->requested_subsampling != 444 &&
+                                                s->requested_subsampling != 422 &&
                                                 s->requested_subsampling != 420) {
-                                        fprintf(stderr, "[lavc] Supported subsampling is only 422 or 420.\n");
+                                        fprintf(stderr, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                         return -1;
                                 }
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
@@ -349,6 +351,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         memcpy(requested_pix_fmts + total_pix_fmts, fmts420, sizeof(fmts420));
         total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+        memcpy(requested_pix_fmts + total_pix_fmts, fmts444, sizeof(fmts444));
+        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
         // we still use 422 as a fallback
         if(!f422_ok) {
                 memcpy(requested_pix_fmts + total_pix_fmts,
@@ -369,6 +373,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 s->subsampling = 422;
         } else if(is420(pix_fmt)) {
                 s->subsampling = 420;
+        } else if (is444(pix_fmt)) {
+                s->subsampling = 444;
         } else {
                 fprintf(stderr, "[Lavc] Unknown subsampling.\n");
                 abort();
@@ -495,7 +501,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         return true;
 }
 
-static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
         unsigned char *src = in_data + 1;
         for(int y = 0; y < (int) height; ++y) {
@@ -524,7 +530,7 @@ static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int
         }
 }
 
-static void to_yuv422(AVFrame *out_frame, unsigned char *src, int width, int height)
+void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -533,6 +539,23 @@ static void to_yuv422(AVFrame *out_frame, unsigned char *src, int width, int hei
                 for(int x = 0; x < width; x += 2) {
                         *dst_cb++ = *src++;
                         *dst_y++ = *src++;
+                        *dst_cr++ = *src++;
+                        *dst_y++ = *src++;
+                }
+        }
+}
+
+void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
+                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
+                for(int x = 0; x < width; x += 2) {
+                        *dst_cb++ = *src;
+                        *dst_cb++ = *src++;
+                        *dst_y++ = *src++;
+                        *dst_cr++ = *src;
                         *dst_cr++ = *src++;
                         *dst_y++ = *src++;
                 }
@@ -613,8 +636,8 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 task_result_handle_t handle[s->cpu_count];
                 struct my_task_data data[s->cpu_count];
                 for(int i = 0; i < s->cpu_count; ++i) {
-                        assert(s->subsampling == 422 || s->subsampling == 420);
-                        data[i].callback = s->subsampling == 420 ? to_yuv420 : to_yuv422;
+                        assert (s->subsampling == 444 || s->subsampling == 422 || s->subsampling == 420);
+                        data[i].callback = s->subsampling == 420 ? to_yuv420p : (s->subsampling == 422 ? to_yuv422p : to_yuv444p);
                         data[i].out_frame = s->in_frame_part[i];
 
                         size_t height = tx->tiles[0].height / s->cpu_count;
