@@ -1030,8 +1030,8 @@ struct video_frame * display_gl_getf(void *state)
 
         struct video_frame *buffer = vf_alloc_desc_data(s->current_desc);
         clear_video_buffer(reinterpret_cast<unsigned char *>(buffer->tiles[0].data),
-                        vc_get_linesize(buffer->tiles[0].height, buffer->color_spec),
-                        vc_get_linesize(buffer->tiles[0].height, buffer->color_spec),
+                        vc_get_linesize(buffer->tiles[0].width, buffer->color_spec),
+                        vc_get_linesize(buffer->tiles[0].width, buffer->color_spec),
                         buffer->tiles[0].height,
                         buffer->color_spec);
         return buffer;
