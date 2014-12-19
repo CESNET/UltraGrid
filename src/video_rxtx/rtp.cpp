@@ -93,6 +93,7 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
                         		fprintf(stderr, "Changing rtcp receiver to: %s failed!\n",
                         	                    msg->receiver);
                         }
+                        m_requested_receiver = msg->receiver;
                         break;
                 case SENDER_MSG_CHANGE_PORT:
                         change_tx_port(msg->port);
@@ -139,8 +140,8 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                 m_recv_port_number = 0;
         }
         
-        if ((m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number, m_send_port_number,
-                                        m_participants, m_ipv6, m_requested_mcast_if))
+        if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
+                                        m_participants, m_ipv6, m_requested_mcast_if.c_str()))
                         == NULL) {
                 throw string("Unable to open network");
         } else {
@@ -196,9 +197,9 @@ void rtp_video_rxtx::change_tx_port(int tx_port)
 
         destroy_rtp_devices(m_network_devices);
         m_send_port_number = tx_port;
-        m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number,
+        m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
                         m_send_port_number, m_participants, m_ipv6,
-                        m_requested_mcast_if);
+                        m_requested_mcast_if.c_str());
         if (!m_network_devices) {
                 throw string("Changing RX port failed!\n");
         }

@@ -41,6 +41,7 @@
 #include "video_rxtx.h"
 
 #include <mutex>
+#include <string>
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -71,11 +72,11 @@ protected:
         std::mutex m_network_devices_lock;
         struct tx *m_tx;
         struct pdb *m_participants;
-        const char      *m_requested_receiver;
+        std::string      m_requested_receiver;
         int              m_recv_port_number;
         int              m_send_port_number;
         bool             m_ipv6;
-        const char      *m_requested_mcast_if;
+        std::string      m_requested_mcast_if;
         fec             *m_fec_state;
 private:
         void process_message(struct msg_sender *);

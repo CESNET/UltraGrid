@@ -178,9 +178,10 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                         assert(m_rxtx_mode == MODE_RECEIVER); // receiver only
                         destroy_rtp_devices(m_network_devices);
                         m_recv_port_number = msg->new_rx_port;
-                        m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number,
+                        m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                        m_recv_port_number,
                                         m_send_port_number, m_participants, m_ipv6,
-                                        m_requested_mcast_if);
+                                        m_requested_mcast_if.c_str());
                         if (!m_network_devices) {
                                 throw runtime_error("Changing RX port failed!");
                         }
