@@ -393,6 +393,9 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
             return false;
+        } else {
+            usage(argv[0]);
+            return false;
         }
         start_index++;
     }
