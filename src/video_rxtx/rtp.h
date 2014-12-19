@@ -76,7 +76,7 @@ protected:
         int              m_recv_port_number;
         int              m_send_port_number;
         bool             m_ipv6;
-        std::string      m_requested_mcast_if;
+        const char      *m_requested_mcast_if;
         fec             *m_fec_state;
 private:
         void process_message(struct msg_sender *);
