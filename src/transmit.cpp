@@ -626,6 +626,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                         mult_index = (mult_index + 1) % tx->mult_count;
                 }
 
+                //fprintf(stderr, "%d\n", packet_rate);
+                struct timespec tm = { 0, packet_rate };
+                nanosleep(&tm, NULL);
                 do {
                         GET_STOPTIME;
                         GET_DELTA;

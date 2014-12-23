@@ -77,6 +77,7 @@ using namespace std;
 void rtp_video_rxtx::process_message(struct msg_sender *msg)
 {
         int ret;
+        assert(m_rxtx_mode == MODE_SENDER); // sender only
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
                         assert(m_connections_count == 1);

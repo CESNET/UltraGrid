@@ -3,7 +3,6 @@
 * further Windows compatibility (including GPUJPEG)
 * added encryption
 * added AV Foundation capture
-* OS X 10.9 compatibility
 * added CUDA implementation of LDGM
 * multiple performance improvements
 * added logo capture filter
@@ -12,7 +11,7 @@
 * support for new operating systems (OS X 10.10, Ubuntu 14.10, Windows 8)
 * added RTSP capturer
 * added resize capture filter
-* standard encapsulation for H.264 and A-law/u-law/OPUS audio and RTSP transmission/server
+* standard encapsulation for H.264 and A-law/u-law/OPUS audio and RTSP server
 
 1.2
 =====
