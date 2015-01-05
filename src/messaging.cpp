@@ -47,7 +47,7 @@ struct response *send_message(struct module *root, const char *const_path, struc
                         pthread_mutex_unlock(&old_receiver->lock);
 
                         free(tmp);
-                        return new_response(RESPONSE_ACCEPTED, NULL);
+                        return new_response(RESPONSE_ACCEPTED, strdup("(receiver not yet exists)"));
                 }
                 pthread_mutex_lock(&receiver->lock);
                 pthread_mutex_unlock(&old_receiver->lock);
