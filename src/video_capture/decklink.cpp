@@ -1407,7 +1407,7 @@ static void print_input_modes (IDeckLink* deckLink)
 	}
 	
 	// List all supported output display modes
-	printf("display modes:\n");
+	printf("capture modes:\n");
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
 		BMD_STR displayModeString = NULL;
