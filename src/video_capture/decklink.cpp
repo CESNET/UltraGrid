@@ -492,8 +492,8 @@ settings_init(void *state, char *fmt)
                 // choose device
                 tmp = strtok_r(fmt, ":", &save_ptr_top);
                 if(!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
+                        s->devices_cnt = 1;
+                        s->state[s->devices_cnt].index = 0;
                 } else {
                         char *devices = strdup(tmp);
                         char *ptr;
