@@ -366,6 +366,10 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         s_in.sin_port = htons(rx_port);
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
+#ifdef WIN32
+                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
+                fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.");
+#endif
                 goto error;
         }
 
@@ -696,6 +700,10 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         s_in.sin6_addr = in6addr_any;
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
+#ifdef WIN32
+                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
+                fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.");
+#endif
                 return NULL;
         }
 
