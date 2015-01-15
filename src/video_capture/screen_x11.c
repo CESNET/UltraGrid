@@ -111,7 +111,7 @@ struct vidcap_screen_x11_state {
         bool initialized;
 };
 
-static void initialize(struct vidcap_screen_x11_state *s) {
+static bool initialize(struct vidcap_screen_x11_state *s) {
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
 
@@ -120,10 +120,16 @@ static void initialize(struct vidcap_screen_x11_state *s) {
         x11_lock();
 
         s->dpy = x11_acquire_display();
-
         x11_unlock();
 
+        if (!s->dpy) {
+                return false;
+        }
+
         s->root = DefaultRootWindow(s->dpy);
+        if (!s->dpy) {
+                return false;
+        }
 
         XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &wa);
         s->tile->width = wa.width;
@@ -154,7 +160,7 @@ static void initialize(struct vidcap_screen_x11_state *s) {
 
         pthread_create(&s->worker_id, NULL, grab_thread, s);
 
-        return;
+        return true;
 }
 
 
@@ -172,34 +178,36 @@ static void *grab_thread(void *args)
                 new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
 
 #ifdef HAVE_XFIXES
-                uint32_t *image_data = (uint32_t *)(void *) new_item->data->data;
-                for(int x = 0; x < cursor->width; ++x) {
-                        for(int y = 0; y < cursor->height; ++y) {
-                                if(cursor->x + x >= (int) s->tile->width ||
-                                                cursor->y + y >= (int) s->tile->height)
-                                        continue;
-                                //image_data[x + y * s->tile->width] = cursor->pixels[x + y * cursor->width];
-                                uint_fast32_t cursor_pix = cursor->pixels[x + y * cursor->width];
-                                ///fprintf(stderr, "%d %d\n", cursor->x + x, cursor->y + y);
-                                int alpha = cursor_pix >> 24 & 0xff;
-                                int r1 = cursor_pix >> 16 & 0xff,
-                                         g1 = cursor_pix >> 8 & 0xff,
-                                         b1 = cursor_pix >> 0 & 0xff;
-                                uint_fast32_t image_pix = image_data[cursor->x + x + (cursor->y + y) * s->tile->width];
-                                int r2 = image_pix >> 16 & 0xff,
-                                         g2 = image_pix >> 8 & 0xff,
-                                         b2 = image_pix >> 0 & 0xff;
-                                float scale_image = (float) (255 - alpha)/ 255;
-                                float scale_cursor = (float) alpha / 255;
+                if (cursor) {
+                        uint32_t *image_data = (uint32_t *)(void *) new_item->data->data;
+                        for(int x = 0; x < cursor->width; ++x) {
+                                for(int y = 0; y < cursor->height; ++y) {
+                                        if(cursor->x + x >= (int) s->tile->width ||
+                                                        cursor->y + y >= (int) s->tile->height)
+                                                continue;
+                                        //image_data[x + y * s->tile->width] = cursor->pixels[x + y * cursor->width];
+                                        uint_fast32_t cursor_pix = cursor->pixels[x + y * cursor->width];
+                                        ///fprintf(stderr, "%d %d\n", cursor->x + x, cursor->y + y);
+                                        int alpha = cursor_pix >> 24 & 0xff;
+                                        int r1 = cursor_pix >> 16 & 0xff,
+                                            g1 = cursor_pix >> 8 & 0xff,
+                                            b1 = cursor_pix >> 0 & 0xff;
+                                        uint_fast32_t image_pix = image_data[cursor->x + x + (cursor->y + y) * s->tile->width];
+                                        int r2 = image_pix >> 16 & 0xff,
+                                            g2 = image_pix >> 8 & 0xff,
+                                            b2 = image_pix >> 0 & 0xff;
+                                        float scale_image = (float) (255 - alpha)/ 255;
+                                        float scale_cursor = (float) alpha / 255;
 
-                                image_data[cursor->x + x + (cursor->y + y) * s->tile->width] = 
-                                        ((int) (r1 * scale_cursor + r2 * scale_image) & 0xff) << 16 |
-                                        ((int) (g1 * scale_cursor + g2 * scale_image) & 0xff) << 8 |
-                                        ((int) (b1 * scale_cursor + b2 * scale_image) & 0xff) << 0;
+                                        image_data[cursor->x + x + (cursor->y + y) * s->tile->width] =
+                                                ((int) (r1 * scale_cursor + r2 * scale_image) & 0xff) << 16 |
+                                                ((int) (g1 * scale_cursor + g2 * scale_image) & 0xff) << 8 |
+                                                ((int) (b1 * scale_cursor + b2 * scale_image) & 0xff) << 0;
+                                }
                         }
-                }
 
-                XFree(cursor);
+                        XFree(cursor);
+                }
 #endif // HAVE_XFIXES
 
                 new_item->next = NULL;
@@ -347,8 +355,11 @@ struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_frame **au
         struct vidcap_screen_x11_state *s = (struct vidcap_screen_x11_state *) state;
 
         if (!s->initialized) {
-                initialize(s);
-                s->initialized = true;
+                s->initialized = initialize(s);
+                if (!s->initialized) {
+                        fprintf(stderr, "Cannot capture screen - unable to initialize!\n");
+                        return NULL;
+                }
         }
 
         *audio = NULL;
