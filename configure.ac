@@ -1308,6 +1308,7 @@ RTSP_SERVER_INC=
 RTSP_SERVER_OBJ=
 rtsp_server=no
 livemedia=no
+livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
 [  --disable-rtsp-server   disable RTSP server support (default is auto)]
@@ -1316,26 +1317,28 @@ AC_ARG_ENABLE(rtsp_server,
     [rtsp_server_req=auto]
     )
 
-case $host in
-    *-linux-*)
-                AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+AC_ARG_WITH(live555,
+            [  --with-live555=DIR         specify location of live555],
+            [livemedia_prefix=$withval
+            ])
 
-		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
-		then
-			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-                        RTSP_SERVER_FLAGS="-I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
-                        CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
-                        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
-                        RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
-                        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
-                        LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
-                        LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
-                        rtsp_server=yes
-                        livemedia=yes
-		fi
-    ;;
-esac
+
+AC_CHECK_FILE($livemedia_prefix/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+
+if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes
+then
+        AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
+        RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
+        CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
+        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
+        RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
+        RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
+        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
+        rtsp_server=yes
+        livemedia=yes
+fi
 
 if test $rtsp_server_req = yes -a $rtsp_server = no; then
         AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
@@ -2763,7 +2766,7 @@ AC_SUBST(LDGM_GPU_LIB_TARGET)
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
 then
-        LIBS="$LIBS $LIB_MODULES"
+        LIBS="$LIB_MODULES $LIBS"
         OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
         HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
