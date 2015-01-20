@@ -99,14 +99,15 @@
 #include <mcheck.h>
 #endif
 
-#define EXIT_FAIL_USAGE     1
-#define EXIT_FAIL_UI        2
-#define EXIT_FAIL_DISPLAY   3
-#define EXIT_FAIL_CAPTURE   4
-#define EXIT_FAIL_NETWORK   5
-#define EXIT_FAIL_TRANSMIT  6
-#define EXIT_FAIL_COMPRESS  7
-#define EXIT_FAIL_DECODER   8
+#define EXIT_FAIL_USAGE        1
+#define EXIT_FAIL_UI           2
+#define EXIT_FAIL_DISPLAY      3
+#define EXIT_FAIL_CAPTURE      4
+#define EXIT_FAIL_NETWORK      5
+#define EXIT_FAIL_TRANSMIT     6
+#define EXIT_FAIL_COMPRESS     7
+#define EXIT_FAIL_DECODER      8
+#define EXIT_FAIL_CONTROL_SOCK 9
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -863,7 +864,7 @@ int main(int argc, char *argv[])
 
         if(control_init(control_port, connection_type, &control, &root_mod) != 0) {
                 fprintf(stderr, "Error: Unable to initialize remote control!\n");
-                return EXIT_FAILURE;
+                return EXIT_FAIL_CONTROL_SOCK;
         }
 
         if(!audio_host) {
