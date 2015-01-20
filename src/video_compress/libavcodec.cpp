@@ -513,26 +513,32 @@ void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int heigh
         unsigned char *src = in_data + 1;
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-                for(int x = 0; x < width; ++x) {
-                        *dst_y++ = *src;
-                        src += 2;
-                }
-        }
 
-        for(int y = 0; y < (int) height / 2; ++y) {
-                /*  every even row */
-                unsigned char *src1 = in_data + (y * 2) * (width * 2);
-                /*  every odd row */
-                unsigned char *src2 = in_data + (y * 2 + 1) * (width * 2);
-                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
-                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
-                for(int x = 0; x < width / 2; ++x) {
-                        *dst_cb++ = (*src1 + *src2) / 2;
-                        src1 += 2;
-                        src2 += 2;
-                        *dst_cr++ = (*src1 + *src2) / 2;
-                        src1 += 2;
-                        src2 += 2;
+                if (y % 2 == 0) {
+                        /*  every even row */
+                        unsigned char *src1 = in_data + y * (width * 2);
+                        /*  every odd row */
+                        unsigned char *src2 = in_data + (y + 1) * (width * 2);
+                        unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y / 2;
+                        unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y / 2;
+                        for(int x = 0; x < width / 2; ++x) {
+                                *dst_cb++ = (*src1 + *src2) / 2;
+                                src1 += 2;
+                                src2 += 2;
+                                *dst_cr++ = (*src1 + *src2) / 2;
+                                src1 += 2;
+                                src2 += 2;
+                                *dst_y++ = *src;
+                                src += 2;
+                                *dst_y++ = *src;
+                                src += 2;
+                        }
+                } else {
+                        for(int x = 0; x < width; ++x) {
+                                *dst_y++ = *src;
+                                src += 2;
+                        }
+
                 }
         }
 }
