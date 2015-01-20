@@ -303,14 +303,17 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 					sizeof(struct msg_sender));
 			msgV1->port = rtp_port;
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
-			send_message(fmod, pathV, (struct message *) msgV1);
+			struct response *resp;
+			resp = send_message(fmod, pathV, (struct message *) msgV1);
+			resp->deleter(resp);
 
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
 			strncpy(msgV2->receiver, "127.0.0.1", sizeof(msgV2->receiver) - 1);
 			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
-			send_message(fmod, pathV, (struct message *) msgV2);
+			resp = send_message(fmod, pathV, (struct message *) msgV2);
+			resp->deleter(resp);
 		}
 	}
 
@@ -330,14 +333,17 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 			//TODO: GET AUDIO PORT SET (NOT A COMMON CASE WHEN RTSP IS ENABLED: DEFAULT -> vport + 2)
 			msgA1->port = rtp_port_audio;
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
-			send_message(fmod, pathA, (struct message *) msgA1);
+			struct response *resp;
+                        resp = send_message(fmod, pathA, (struct message *) msgA1);
+			resp->deleter(resp);
 
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgA2 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
 			strncpy(msgA2->receiver, "127.0.0.1", sizeof(msgA2->receiver) - 1);
 			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
-			send_message(fmod, pathA, (struct message *) msgA2);
+			resp = send_message(fmod, pathA, (struct message *) msgA2);
+			resp->deleter(resp);
 		}
 	}
 }
