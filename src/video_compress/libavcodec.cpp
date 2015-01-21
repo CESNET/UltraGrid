@@ -470,7 +470,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 fprintf(stderr, "Could not allocate video frame\n");
                 return false;
         }
-#if 0
+#if LIBAVCODEC_VERSION_MAJOR >= 53
         s->in_frame->format = s->codec_ctx->pix_fmt;
         s->in_frame->width = s->codec_ctx->width;
         s->in_frame->height = s->codec_ctx->height;
