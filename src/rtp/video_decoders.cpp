@@ -493,11 +493,14 @@ static void *decompress_thread(void *args) {
                                         }
                                         if(!msg->decompress_buffer[pos])
                                                 continue;
-                                        decompress_frame(decoder->decompress_state[pos],
+                                        int ret = decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
                                                         (unsigned char *) msg->decompress_buffer[pos],
                                                         msg->decompress_buf_len[pos],
                                                         msg->buffer_num[pos]);
+                                        if (ret == FALSE) {
+                                                goto skip_frame;
+                                        }
                                 }
                         }
                 }
