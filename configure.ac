@@ -1365,29 +1365,24 @@ AC_ARG_ENABLE(resize,
     [resize_req=auto]
     )
 
-case $host in
-    *-linux-*)
-		PKG_CHECK_MODULES([RESIZE], [resize_dep], FOUND_RESIZE_DEP=yes, FOUND_RESIZE_DEP=no)
+PKG_CHECK_MODULES([RESIZE], [resize_dep], FOUND_RESIZE_DEP=yes, FOUND_RESIZE_DEP=no)
 
-		if test $resize_req != no -a $FOUND_RESIZE_DEP = yes  
-		then
-                        CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
-                        CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
-                        RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-                        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/module_vcapfilter_resize.so")
+if test $resize_req != no -a $FOUND_RESIZE_DEP = yes -a $system = Linux
+then
+        CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
+        RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
+        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/module_vcapfilter_resize.so")
 
-                        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
-                        LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
-                        resize=yes
-		fi
-    ;;
-esac
+        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
+        LIB_MODULES="$LIB_MODULES $RESIZE_LIBS"
+        resize=yes
+fi
 
 if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
-
-LIB_MODULES="$LIB_MODULES $RESIZE_LIBS"
 
 AC_SUBST(RESIZE_LIBS)
 AC_SUBST(RESIZE_OBJ)
