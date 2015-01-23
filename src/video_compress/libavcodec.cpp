@@ -73,6 +73,7 @@ struct setparam_param {
         double fps;
         bool interlaced;
         bool exact_bitrate;
+        int cpu_count;
 };
 
 typedef struct {
@@ -453,6 +454,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         param.codec = s->codec;
         param.interlaced = desc.interlacing == INTERLACED_MERGED;
         param.exact_bitrate = s->exact_bitrate;
+        param.cpu_count = s->cpu_count;
 
         codec_params[s->selected_codec_id].set_param(s->codec_ctx, &param);
 
@@ -850,11 +852,12 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
 
 static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        codec_ctx->thread_count = 8;
+        codec_ctx->thread_count = param->cpu_count;
         codec_ctx->profile = 0;
         codec_ctx->slices = 4;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
         codec_ctx->rc_buffer_aggressivity = 0.5;
+        av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0);
 }
 
 static struct response *compress_change_callback(struct module *mod, struct message *msg)
