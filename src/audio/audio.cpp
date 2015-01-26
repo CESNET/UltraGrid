@@ -115,6 +115,7 @@ struct state_audio {
         struct state_audio_capture *audio_capture_device;
         struct state_audio_playback *audio_playback_device;
 
+        struct module audio_receiver_module;
         struct module audio_sender_module;
 
         struct audio_codec_state *audio_coder;
@@ -147,6 +148,8 @@ struct state_audio {
         char *requested_encryption;
 
         volatile bool paused;
+
+        int audio_tx_mode;
 };
 
 /** 
@@ -253,6 +256,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->mod.cls = MODULE_CLASS_AUDIO;
         module_register(&s->mod, parent);
 
+        module_init_default(&s->audio_receiver_module);
+        s->audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
+        s->audio_receiver_module.priv_data = s;
+        module_register(&s->audio_receiver_module, &s->mod);
+
         module_init_default(&s->audio_sender_module);
         s->audio_sender_module.cls = MODULE_CLASS_SENDER;
         s->audio_sender_module.priv_data = s;
@@ -337,6 +345,8 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
         free(tmp);
 
+        s->audio_tx_mode = 0;
+
         if (strcmp(send_cfg, "none") != 0) {
                 char *cfg = NULL;
                 char *device = strdup(send_cfg);
@@ -356,6 +366,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
+                s->audio_tx_mode |= MODE_SENDER;
         } else {
                 s->audio_capture_device = audio_capture_init_null_device();
         }
@@ -378,6 +389,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
+                s->audio_tx_mode |= MODE_RECEIVER;
         } else {
                 s->audio_playback_device = audio_playback_init_null_device();
         }
@@ -434,6 +446,9 @@ error:
                 pdb_destroy(&s->audio_participants);
         }
 
+        if (s->audio_receiver_module.cls != 0) {
+                module_done(&s->audio_receiver_module);
+        }
         if (s->audio_sender_module.cls != 0) {
                 module_done(&s->audio_sender_module);
         }
@@ -469,6 +484,7 @@ void audio_done(struct state_audio *s)
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
                 module_done(CAST_MODULE(s->tx_session));
+                module_done(&s->audio_receiver_module);
                 module_done(&s->audio_sender_module);
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
@@ -517,6 +533,24 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         return r;
 }
 
+static void audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg)
+{
+        switch (msg->type) {
+        case RECEIVER_MSG_CHANGE_RX_PORT:
+                assert(s->audio_tx_mode == MODE_RECEIVER); // receiver only
+                rtp_done(s->audio_network_device);
+                s->audio_network_parameters.recv_port = msg->new_rx_port;
+                s->audio_network_device = initialize_audio_network(
+                                &s->audio_network_parameters);
+                if (!s->audio_network_device) {
+                        fprintf(stderr, "Changing RX port failed!");
+                }
+                break;
+        default:
+                abort();
+        }
+}
+
 static void *audio_receiver_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
@@ -535,6 +569,12 @@ static void *audio_receiver_thread(void *arg)
                 
         printf("Audio receiving started.\n");
         while (!should_exit_audio) {
+                struct message *msg;
+                while((msg= check_message(&s->audio_receiver_module))) {
+                        audio_receiver_process_message(s, (struct msg_receiver *) msg);
+                        free_message(msg);
+                }
+
                 bool decoded = false;
 
                 pbuf_data.buffer.data_len = 0;
@@ -744,6 +784,8 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 
 static void audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
 {
+        assert(s->audio_tx_mode == MODE_SENDER);
+
         int ret;
         switch (msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:

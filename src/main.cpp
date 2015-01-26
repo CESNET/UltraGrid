@@ -961,6 +961,8 @@ int main(int argc, char *argv[])
                 rxtx_mode |= MODE_SENDER;
         }
 
+        control_start(control);
+
         if (rxtx_mode == 0) {
                 goto after_video_init;
         }
@@ -1065,9 +1067,6 @@ int main(int argc, char *argv[])
                         audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int,
                                                         int)) display_reconfigure_audio, uv->display_device);
                 }
-
-                // should be started after requested modules are able to respond after start
-                control_start(control);
 
                 if (strcmp("none", requested_display) != 0)
                         display_run(uv->display_device);

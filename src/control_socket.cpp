@@ -276,10 +276,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 {
         int ret = 0;
         struct response *resp = NULL;
-        char path[1024];
+        char path[1024] = ""; // path for msg receiver (usually video)
+        char path_audio[1024] = ""; // auxiliary buffer used when we need to signalize both audio
+                                    // and video
         char buf[1024];
-
-        memset(path, 0, sizeof(path));
 
         if(prefix_matches(message, "port ")) {
                 message = suffix(message, "port ");
@@ -314,12 +314,11 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 struct msg_sender *msg_audio = (struct msg_sender *) malloc(sizeof(struct msg_sender));
                 memcpy(msg_audio, msg, sizeof(struct msg_sender));
                 if (msg_audio->type == SENDER_MSG_CHANGE_PORT) {
-                        msg->port = atoi(suffix(message, "sender-port "));
+                        msg_audio->port = atoi(suffix(message, "sender-port ")) + 2;
                 }
 
                 enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
                 enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-                char path_audio[1024];
                 memcpy(path_audio, path, sizeof(path_audio));
                 append_message_path(path, sizeof(path), path_sender);
                 append_message_path(path_audio, sizeof(path_audio), path_sender_audio);
@@ -333,13 +332,23 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 struct msg_receiver *msg =
                         (struct msg_receiver *)
                         new_message(sizeof(struct msg_receiver));
+                struct msg_receiver *msg_audio =
+                        (struct msg_receiver *)
+                        new_message(sizeof(struct msg_receiver));
                 msg->type = RECEIVER_MSG_CHANGE_RX_PORT;
                 msg->new_rx_port = atoi(suffix(message, "receiver-port "));
+                memcpy(msg_audio, msg, sizeof(struct msg_receiver));
+                msg_audio->new_rx_port = atoi(suffix(message, "receiver-port ")) + 2;
 
                 enum module_class path_receiver[] = { MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };
+                enum module_class path_audio_receiver[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };
                 append_message_path(path, sizeof(path), path_receiver);
+                append_message_path(path_audio, sizeof(path_audio), path_audio_receiver);
                 resp =
                         send_message(s->root_module, path, (struct message *) msg);
+                struct response *resp_audio =
+                        send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                resp_audio->deleter(resp_audio);
         } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data *msg = (struct msg_change_fec_data *)
                         new_message(sizeof(struct msg_change_fec_data));
