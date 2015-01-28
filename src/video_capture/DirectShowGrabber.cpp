@@ -694,12 +694,14 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 			// Take one device. We could take more at once, but it would require allocation of more moniker objects
 			res = s->videoInputEnumerator->Next(1, &s->moniker, NULL);
                         if(i != s->deviceNumber) {
-                                s->moniker->Release();
+                                if (s->moniker)
+                                        s->moniker->Release();
+                                s->moniker = NULL;
                         }
 			if (res != S_OK) break;
 		}
 		if (res != S_OK) {
-			fprintf(stderr, "[dshow] vidcap_dshow_init: Device number %d\n was not found.\n", s->deviceNumber);
+			fprintf(stderr, "[dshow] vidcap_dshow_init: Device number %d was not found.\n", s->deviceNumber);
 			goto error;
 		}
 	} else { // device specified by name
