@@ -377,20 +377,30 @@ void show_help(struct vidcap_dshow_state *s) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if ((mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER))
-                                                && (mediaType->formattype != FORMAT_VideoInfo2
-                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
+			if (mediaType->formattype != FORMAT_VideoInfo && mediaType->formattype != FORMAT_VideoInfo2) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}
-			VIDEOINFOHEADER *infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
-			printf("\tMode %d: %s %dx%d\t", i, GetSubtypeName(&mediaType->subtype),
-				infoHeader->bmiHeader.biWidth,
-				infoHeader->bmiHeader.biHeight);
+                        BITMAPINFOHEADER *bmiHeader;
+                        char fps_string[128] = "";
+                        if (mediaType->formattype == FORMAT_VideoInfo) {
+                                VIDEOINFOHEADER *infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
+                                bmiHeader = &infoHeader->bmiHeader;
+                                snprintf(fps_string, sizeof fps_string, "@%0.2f", 10000000.0/infoHeader->AvgTimePerFrame);
+                        } else {
+                                VIDEOINFOHEADER2 *infoHeader = reinterpret_cast<VIDEOINFOHEADER2*>(mediaType->pbFormat);
+                                bmiHeader = &infoHeader->bmiHeader;
+                                snprintf(fps_string, sizeof fps_string, "@%0.2f", 10000000.0/infoHeader->AvgTimePerFrame);
+                                // TODO: add also interlacing suffix
+                        }
+			printf("    Mode %2d: %s %dx%d %s", i, GetSubtypeName(&mediaType->subtype),
+				bmiHeader->biWidth,
+				bmiHeader->biHeight,
+				fps_string);
 
 			DeleteMediaType(mediaType);
 
-			if (i % 2 == 1) putchar('\n');
+			putchar(i % 2 == 1 ? '\n' : '\t');
 		}
 
 		s->streamConfig->Release();
@@ -842,9 +852,14 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 			goto error;
 		}
 
-		VIDEOINFOHEADER *infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
-		s->width = infoHeader->bmiHeader.biWidth;
-		s->height = infoHeader->bmiHeader.biHeight;
+		BITMAPINFOHEADER *bmiHeader;
+		if (mediaType->formattype == FORMAT_VideoInfo) {
+			bmiHeader = &reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat)->bmiHeader;
+		} else {
+			bmiHeader = &reinterpret_cast<VIDEOINFOHEADER2*>(mediaType->pbFormat)->bmiHeader;
+		}
+		s->width = bmiHeader->biWidth;
+		s->height = bmiHeader->biHeight;
 
 		format_found = true;
 	} else {
@@ -854,19 +869,21 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)
-                                        && (mediaType->formattype != FORMAT_VideoInfo2
-                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
-				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
+			if (mediaType->formattype != FORMAT_VideoInfo                                        && mediaType->formattype != FORMAT_VideoInfo2) { fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}
 			if ((s->color_spec == RGB  && mediaType->subtype != MEDIASUBTYPE_RGB24) ||
 				(s->color_spec == YUYV && mediaType->subtype != MEDIASUBTYPE_YUY2))
 				continue;
 
-			VIDEOINFOHEADER *infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
-			if (infoHeader->bmiHeader.biHeight == s->height &&
-				infoHeader->bmiHeader.biWidth  == s->width) {
+			BITMAPINFOHEADER *bmiHeader;
+			if (mediaType->formattype == FORMAT_VideoInfo) {
+				bmiHeader = &reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat)->bmiHeader;
+			} else {
+				bmiHeader = &reinterpret_cast<VIDEOINFOHEADER2*>(mediaType->pbFormat)->bmiHeader;
+			}
+			if (bmiHeader->biHeight == s->height &&
+				bmiHeader->biWidth  == s->width) {
 					format_found = true;
 					break;
 			}
@@ -1238,4 +1255,6 @@ static const CHAR * GetSubtypeName(const GUID *pSubtype)
                 return GetSubtypeNameA(pSubtype);
         }
 }
+
+/* vim: set noexpandtab: */
 
