@@ -928,6 +928,8 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         void *sdi_capture;
+        if (!s->audio_capture_device)
+                return;
         if(!audio_capture_get_vidcap_flags(audio_capture_get_driver_name(s->audio_capture_device)))
                 return;
         

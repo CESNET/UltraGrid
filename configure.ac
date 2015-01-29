@@ -400,7 +400,7 @@ AC_ARG_ENABLE(debug,
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
                 debug_output=yes
-                DEBUG_FLAGS="-Werror -Wno-error=cast-qual -Wno-error=cast-align"
+                DEBUG_FLAGS="-Werror -Wno-error=cast-qual -Wno-error=cast-align -Wno-error=strict-aliasing"
                 CFLAGS="$CFLAGS $DEBUG_FLAGS"
                 CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
 	fi])
@@ -472,6 +472,7 @@ AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
+AC_ARG_VAR([NTV2_ROOT], [Directory to AJA SDK (NTV2).])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -888,6 +889,59 @@ AC_SUBST(BLUEFISH444_INC)
 AC_SUBST(BLUEFISH444_LIB)
 AC_SUBST(BLUEFISH444_CAP_OBJ)
 AC_SUBST(BLUEFISH444_DISP_OBJ)
+
+# -------------------------------------------------------------------------------------------------
+# AJA stuff
+# -------------------------------------------------------------------------------------------------
+AJA_CXXFLAGS=
+AJA_INC=
+AJA_LIB=
+AJA_CAP_OBJ=
+AJA_PATH=
+aja=no
+
+AC_ARG_ENABLE(aja,
+              [  --disable-aja     disable AJA suppport (default is auto)]
+              [                          Requires: NTV2_SDK],
+              [aja_req=$enableval],
+              [aja_req=auto]
+              )
+AJA_PATH=$NTV2_ROOT
+
+AC_ARG_WITH(aja,
+            [  --with-aja=DIR         specify location of NTV2],
+            [AJA_PATH=$withval
+             ])
+
+if test -n "$AJA_PATH"
+then
+        AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+        fi
+
+        if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
+        then
+                aja=yes
+                AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
+                AJA_INC="$AJA_INC -I${AJA_PATH}/ntv2projects/classes -I${AJA_PATH}/ajaapi -I${AJA_PATH}/ntv2projects/includes -I${AJA_PATH}/ntv2projects/democlasses"
+                AJA_LIB="${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a"
+                AJA_CAP_OBJ="src/video_capture/aja.o"
+                AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
+
+                AC_SUBST(AJA_LIB_TARGET, "lib/ultragrid/vidcap_aja.so.$video_capture_abi_version")
+                LIB_TARGETS="$LIB_TARGETS $AJA_LIB_TARGET"
+                LIB_OBJS="$LIB_OBJS $AJA_CAP_OBJ"
+        fi
+
+        if test $aja_req = yes -a $aja = no; then
+                AC_MSG_ERROR([AJA not found]);
+        fi
+
+LIB_MODULES="$LIB_MODULES $AJA_LIB"
+
+AC_SUBST(AJA_INC)
+AC_SUBST(AJA_LIB)
+AC_SUBST(AJA_CAP_OBJ)
+AC_SUBST(AJA_CXXFLAGS)
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -2790,6 +2844,7 @@ RESULT=\
   CUDA support ................ $FOUND_CUDA
   Library live555 ............. $livemedia
 
+  AJA ......................... $aja
   AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink

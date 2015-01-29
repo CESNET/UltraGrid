@@ -67,6 +67,7 @@
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
+#include "video_capture/aja.h"
 #include "video_capture/avfoundation.h"
 #include "video_capture/bluefish444.h"
 #include "video_capture/decklink.h"
@@ -169,6 +170,17 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_AJA
+        {
+         0,
+         "aja",
+         MK_NAME(vidcap_aja_probe),
+         MK_NAME(vidcap_aja_init),
+         MK_NAME(vidcap_aja_done),
+         MK_NAME(vidcap_aja_grab),
+         NULL
+        },
+#endif // HAVE_AJA
 #if defined HAVE_AVFOUNDATION
         {
          0,
@@ -373,7 +385,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_ug_input_done),
          MK_STATIC(vidcap_ug_input_grab),
          NULL
-        }
+        },
 };
 
 #define VIDCAP_DEVICE_TABLE_SIZE (sizeof(vidcap_device_table)/sizeof(struct vidcap_device_api))

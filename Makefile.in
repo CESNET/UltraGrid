@@ -8,7 +8,7 @@ LINKER        = @LINKER@
 COMMON_FLAGS  = -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith -msse2
 CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
-CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
+CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE @AJA_CXXFLAGS@
 MKDIR_P       = mkdir -p
 NVCCFLAGS     = @NVCCFLAGS@ -gencode arch=compute_20,code=sm_20 -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
 LDFLAGS      =  @LDFLAGS@
@@ -16,7 +16,7 @@ LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
-		@BLUEFISH444_INC@ @CURSES_CFLAGS@ @CUDA_INC@
+		@BLUEFISH444_INC@ @CURSES_CFLAGS@ @CUDA_INC@ @AJA_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
@@ -27,6 +27,7 @@ BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 NVCC	      = @NVCC@
 DOCS 	      = README REPORTING-BUGS
+
 
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
@@ -525,6 +526,10 @@ scale: @SCALE_LIB_TARGET@
 libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
 rtsp: @RTSP_LIB_TARGET@
 rtsp_server: @RTSP_SERVER_LIB_TARGET@
+
+@AJA_LIB_TARGET@: @AJA_CAP_OBJ@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_aja.so.@video_capture_abi_version@ $^ @AJA_LIB@ -o $@
+
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $^ @SDL_LIBS@ -o $@

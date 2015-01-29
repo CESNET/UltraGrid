@@ -1365,10 +1365,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc)
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
-                printf("New incoming video format detected: %dx%d @%.2f%s, codec %s\n",
-                                network_desc.width, network_desc.height, network_desc.fps,
-                                get_interlacing_suffix(network_desc.interlacing),
-                                get_codec_name(network_desc.color_spec));
+                cout << "New incoming video format detected: " << network_desc << endl;
                 decoder->received_vid_desc = network_desc;
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD

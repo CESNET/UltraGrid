@@ -1,11 +1,9 @@
 /**
- * @file   video.h
+ * @file   video_capture/aja.h
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @brief  This is an umbrella header for video functions.
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2015 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,58 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_H_
-#define VIDEO_H_
-
-#include "video_codec.h"
-#include "video_frame.h"
+struct audio_frame;
 
 #ifdef __cplusplus
 extern "C" {
-#endif // __cplusplus
+#endif
 
-enum video_mode get_video_mode_from_str(const char *requested_mode);
-/**
- * @brief Returns vertical count of tiles
- * @param mode requestd video mode
- * @returns vertical count of tiles
- */
-int get_video_mode_tiles_x(enum video_mode mode);
-/**
- * @brief Returns horizontal count of tiles
- * @param mode requestd video mode
- * @returns horizontal count of tiles
- */
-int get_video_mode_tiles_y(enum video_mode mode);
-
-/**
- * @brief Returns description of video mode
- * Eg. "tiled 4K"
- * @param mode requestd video mode
- */
-const char *get_video_mode_description(enum video_mode mode);
-
-/**
- * @brief Tries to guess video mode from number of substreams.
- *
- * @note
- * The guessed video mode may not be correct (some modes may have the same
- * number of substreams).
- *
- * @param   num_substreams number of received substreams
- * @returns                guessed video mode
- * @retval VIDEO_UNKNOWN   if the mode was not guessed.
- */
-enum video_mode guess_video_mode(int num_substreams);
+struct vidcap_type	*vidcap_aja_probe(bool);
+void			*vidcap_aja_init(const struct vidcap_params *params);
+void			 vidcap_aja_done(void *state);
+struct video_frame	*vidcap_aja_grab(void *state, struct audio_frame **audio);
 
 #ifdef __cplusplus
 }
-#endif // __cplusplus
-
-#ifdef __cplusplus
-#include <ostream>
-std::ostream& operator<<(std::ostream& os, const video_desc& desc);
 #endif
-
-#endif // VIDEO_H_
 

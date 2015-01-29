@@ -47,21 +47,25 @@
 
 #include "video.h"
 
+#include <iomanip>
+#include <unordered_map>
+
+using namespace std;
+
 typedef struct {
         const char *name;
         int x;
         int y;
 } video_mode_info_t;
 
-const video_mode_info_t video_mode_info[]  = {
-        [VIDEO_UNKNOWN] = { "(unknown)", 0, 0 },
-        [VIDEO_NORMAL] = { "normal", 1, 1 },
-        [VIDEO_DUAL] = { "dual-link", 1, 2 },
-        [VIDEO_STEREO] = { "3D", 2, 1 },
-        [VIDEO_4K] = { "tiled-4k", 2, 2 },
-        [VIDEO_3X1] = { "3x1", 3, 1 },
+const static unordered_map<enum video_mode, video_mode_info_t, hash<int>> video_mode_info = {
+        { VIDEO_UNKNOWN, { "(unknown)", 0, 0 }},
+        { VIDEO_NORMAL, { "normal", 1, 1 }},
+        { VIDEO_DUAL, { "dual-link", 1, 2 }},
+        { VIDEO_STEREO, { "3D", 2, 1 }},
+        { VIDEO_4K, { "tiled-4k", 2, 2 }},
+        { VIDEO_3X1, { "3x1", 3, 1 }},
 };
-const unsigned int video_mode_info_count = sizeof(video_mode_info) / sizeof(video_mode_info_t);
 
 /**
  * This function matches string representation of video mode with its
@@ -73,20 +77,23 @@ const unsigned int video_mode_info_count = sizeof(video_mode_info) / sizeof(vide
 enum video_mode get_video_mode_from_str(const char *requested_mode) {
         if(strcasecmp(requested_mode, "help") == 0) {
                 printf("Video mode options:\n\t-M {");
-                for (unsigned int i = 1 /* omit unknown */; i < video_mode_info_count;
-                                ++i) {
-                        printf(" %s ", video_mode_info[i].name);
-                        if (i < video_mode_info_count - 1) {
+                auto it = video_mode_info.begin();
+                while (it != video_mode_info.end()) {
+                        if (it == video_mode_info.begin()) { // omit unknown
+                                ++it;
+                                continue;
+                        }
+                        printf(" %s ", it->second.name);
+                        if (++it != video_mode_info.end()) {
                                 printf("| ");
                         }
                 }
                 printf("}\n");
                 return VIDEO_UNKNOWN;
         } else {
-                for (unsigned int i = 0; i < video_mode_info_count;
-                                ++i) {
-                        if (strcasecmp(requested_mode, video_mode_info[i].name) == 0) {
-                                return i;
+                for (auto it : video_mode_info) {
+                        if (strcasecmp(requested_mode, it.second.name) == 0) {
+                                return it.first;
                         }
                 }
                 fprintf(stderr, "Unknown video mode (see -M help)\n");
@@ -96,17 +103,17 @@ enum video_mode get_video_mode_from_str(const char *requested_mode) {
 
 int get_video_mode_tiles_x(enum video_mode video_mode)
 {
-        return video_mode_info[video_mode].x;
+        return video_mode_info.at(video_mode).x;
 }
 
 int get_video_mode_tiles_y(enum video_mode video_mode)
 {
-        return video_mode_info[video_mode].y;
+        return video_mode_info.at(video_mode).y;
 }
 
 const char *get_video_mode_description(enum video_mode video_mode)
 {
-        return video_mode_info[video_mode].name;
+        return video_mode_info.at(video_mode).name;
 }
 
 enum video_mode guess_video_mode(int num_substreams)
@@ -125,5 +132,18 @@ enum video_mode guess_video_mode(int num_substreams)
                 default:
                         return VIDEO_UNKNOWN;
         }
+}
+
+std::ostream& operator<<(std::ostream& os, const video_desc& desc)
+{
+        std::streamsize p = os.precision();
+        ios_base::fmtflags f = os.flags();
+        os << desc.width << "x" << desc.height << " @" << setprecision(2) << setiosflags(ios_base::fixed)
+                << desc.fps * (desc.interlacing == PROGRESSIVE || desc.interlacing == SEGMENTED_FRAME ? 1 : 2)
+                << get_interlacing_suffix(desc.interlacing) << ", codec "
+                << get_codec_name(desc.color_spec);
+        os.precision(p);
+        os.flags(f);
+        return os;
 }
 

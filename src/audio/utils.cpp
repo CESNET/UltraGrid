@@ -400,6 +400,25 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
         }
 }
 
+void remux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream)
+{
+        int samples = in_len / (in_stream_channels * bps);
+        int i;
+
+        assert (bps <= 4);
+
+        in += pos_in_stream * bps;
+        out += pos_out_stream * bps;
+
+        for (i = 0; i < samples; ++i) {
+                memcpy(out, in, bps);
+
+                out += bps * out_stream_channels;
+                in += bps * in_stream_channels;
+
+        }
+}
+
 void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int samples = in_len / bps;
