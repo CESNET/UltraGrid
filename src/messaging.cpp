@@ -57,18 +57,8 @@ struct response *send_message(struct module *root, const char *const_path, struc
 
         lock_guard guard(receiver->lock, lock_guard_retain_ownership_t());
 
-        if(receiver->msg_callback == NULL) {
-                simple_linked_list_append(receiver->msg_queue, msg);
-                return new_response(RESPONSE_ACCEPTED, NULL);
-        }
-
-        struct response *resp = receiver->msg_callback(receiver, msg);
-
-        if(resp) {
-                return resp;
-        } else {
-                return new_response(RESPONSE_INT_SERV_ERR, strdup("(empty response)"));
-        }
+        simple_linked_list_append(receiver->msg_queue, msg);
+        return new_response(RESPONSE_ACCEPTED, NULL);
 }
 
 void module_check_undelivered_messages(struct module *node)
@@ -92,12 +82,8 @@ void module_check_undelivered_messages(struct module *node)
 struct response *send_message_to_receiver(struct module *receiver, struct message *msg)
 {
         lock_guard guard(receiver->lock);
-        if(receiver->msg_callback) {
-                return receiver->msg_callback(receiver, msg);
-        } else {
-                simple_linked_list_append(receiver->msg_queue, msg);
-                return new_response(RESPONSE_ACCEPTED, NULL);
-        }
+        simple_linked_list_append(receiver->msg_queue, msg);
+        return new_response(RESPONSE_ACCEPTED, NULL);
 }
 
 struct message *new_message(size_t len)

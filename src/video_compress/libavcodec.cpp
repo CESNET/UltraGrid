@@ -48,7 +48,6 @@
 
 #include <assert.h>
 
-#include "compat/platform_spin.h"
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
@@ -86,7 +85,7 @@ typedef struct {
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
-static struct response *compress_change_callback(struct module *mod, struct message *msg);
+static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
 
@@ -141,7 +140,6 @@ struct state_video_compress_libav {
         codec_t             out_codec;
         char               *preset;
 
-        platform_spin_t     spin;
         struct video_desc compressed_desc;
 
         bool exact_bitrate;
@@ -275,8 +273,6 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
                         return NULL;
         }
 
-        platform_spin_init(&s->spin);
-
         printf("[Lavc] Using codec: %s\n", get_codec_name(s->selected_codec_id));
 
         s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
@@ -295,7 +291,6 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = libavcodec_compress_done;
-        s->module_data.msg_callback = compress_change_callback;
         module_register(&s->module_data, parent);
 
         return &s->module_data;
@@ -605,7 +600,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
 
-        platform_spin_lock(&s->spin);
+        libavcodec_check_messages(s);
 
         if(!video_desc_eq_excl_param(video_desc_from_frame(tx.get()),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
@@ -711,12 +706,9 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
-        platform_spin_unlock(&s->spin);
-
         return out;
 
 error:
-        platform_spin_unlock(&s->spin);
         return NULL;
 }
 
@@ -750,7 +742,6 @@ static void libavcodec_compress_done(struct module *mod)
                 av_free(s->in_frame_part[i]);
         }
         free(s->in_frame_part);
-        platform_spin_destroy(&s->spin);
         free(s);
 }
 
@@ -860,26 +851,21 @@ static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param
         av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0);
 }
 
-static struct response *compress_change_callback(struct module *mod, struct message *msg)
+static void libavcodec_check_messages(struct state_video_compress_libav *s)
 {
-        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
-        static struct response *ret;
-
-        struct msg_change_compress_data *data =
-                (struct msg_change_compress_data *) msg;
-
-        platform_spin_lock(&s->spin);
-        if(parse_fmt(s, data->config_string) == 0) {
-                ret = new_response(RESPONSE_OK, NULL);
-        } else {
-                ret = new_response(RESPONSE_BAD_REQUEST, strdup("(Module libavcodec)"));
+        struct message *msg;
+        while ((msg = check_message(&s->module_data))) {
+                struct msg_change_compress_data *data =
+                        (struct msg_change_compress_data *) msg;
+                if (parse_fmt(s, data->config_string) == 0) {
+                        printf("[Libavcodec] Compression successfully changed.\n");
+                } else {
+                        fprintf(stderr, "[Libavcodec] Unable to change compression!\n");
+                }
+                memset(&s->saved_desc, 0, sizeof(s->saved_desc));
+                free_message(msg);
         }
-        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-        platform_spin_unlock(&s->spin);
 
-        free_message(msg);
-
-        return ret;
 }
 
 } // end of anonymous namespace

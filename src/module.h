@@ -95,12 +95,6 @@ struct module {
         struct simple_linked_list *childs;
         module_deleter_t deleter;
 
-        /**
-         * @var msg_callback
-         * Module may implement a push method that will respond synchronously to events.
-         * If not, message will be enqueued to message queue.
-         */
-        msg_callback_t msg_callback;
         struct simple_linked_list *msg_queue;
 
         struct simple_linked_list *msg_queue_childs; ///< messages for childern that were not delivered

@@ -41,7 +41,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "compat/platform_spin.h"
 #include "debug.h"
 #include "host.h"
 #include "video_compress.h"
@@ -72,7 +71,6 @@ struct state_video_compress_jpeg {
         struct video_desc saved_desc;
 
         int restart_interval;
-        platform_spin_t spin;
 
         int encoder_input_linesize;
 
@@ -81,7 +79,7 @@ struct state_video_compress_jpeg {
 
 static bool configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
 static void cleanup_state(struct state_video_compress_jpeg *s);
-static struct response *compress_change_callback(struct module *mod, struct message *msg);
+static void jpeg_check_messages(struct state_video_compress_jpeg *s);
 static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
@@ -214,24 +212,20 @@ static bool configure_with(struct state_video_compress_jpeg *s, struct video_fra
         return true;
 }
 
-static struct response *compress_change_callback(struct module *mod, struct message *msg)
+static void jpeg_check_messages(struct state_video_compress_jpeg *s)
 {
-        struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
-
-        static struct response *ret;
-
-        struct msg_change_compress_data *data =
-                (struct msg_change_compress_data *) msg;
-
-        platform_spin_lock(&s->spin);
-        parse_fmt(s, data->config_string);
-        ret = new_response(RESPONSE_OK, NULL);
-        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-        platform_spin_unlock(&s->spin);
-
-        free_message(msg);
-
-        return ret;
+        struct message *msg;
+        while ((msg = check_message(&s->module_data))) {
+                struct msg_change_compress_data *data =
+                        (struct msg_change_compress_data *) msg;
+                if (parse_fmt(s, data->config_string) == 0) {
+                        printf("[Libavcodec] Compression successfully changed.\n");
+                } else {
+                        fprintf(stderr, "[Libavcodec] Unable to change compression!\n");
+                }
+                memset(&s->saved_desc, 0, sizeof(s->saved_desc));
+                free_message(msg);
+        }
 }
 
 static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
@@ -304,13 +298,10 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
 
         s->encoder = NULL; /* not yet configured */
 
-        platform_spin_init(&s->spin);
-
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = jpeg_compress_done;
-        s->module_data.msg_callback = compress_change_callback;
         module_register(&s->module_data, parent);
 
         return &s->module_data;
@@ -323,6 +314,8 @@ shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame
         unsigned char *line1, *line2;
 
         unsigned int x;
+
+        jpeg_check_messages(s);
 
         gpujpeg_set_device(cuda_devices[0]);
 
@@ -408,8 +401,6 @@ static void jpeg_compress_done(struct module *mod)
         struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
 
         cleanup_state(s);
-
-        platform_spin_destroy(&s->spin);
 
         delete s;
 }
