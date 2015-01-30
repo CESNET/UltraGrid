@@ -26,6 +26,7 @@
 #include "utils/misc.h"
 #include "tv.h"
 
+#include <string>
 #include <vector>
 
 #define EXIT_FAIL_USAGE 1
@@ -40,7 +41,7 @@ struct item;
 struct replica {
     struct module mod;
     uint32_t magic;
-    const char *host;
+    string host;
 
     enum type_t {
         NONE,
@@ -50,7 +51,6 @@ struct replica {
     enum type_t type;
     int sock;
     void *recompress;
-    volatile enum type_t change_to_type;
 };
 
 struct hd_rum_translator_state {
@@ -119,8 +119,6 @@ static void signal_handler(int signal)
 
 #define REPLICA_MAGIC 0xd2ff3323
 
-static struct response *change_replica_type_callback(struct module *mod, struct message *msg);
-
 static void replica_init(struct replica *s, const char *addr, int tx_port, int bufsize, struct module *parent)
 {
         s->magic = REPLICA_MAGIC;
@@ -129,7 +127,6 @@ static void replica_init(struct replica *s, const char *addr, int tx_port, int b
                 bufsize);
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_PORT;
-        s->mod.msg_callback = change_replica_type_callback;
         s->mod.priv_data = s;
         module_register(&s->mod, parent);
 }
@@ -240,31 +237,24 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
     return s;
 }
 
-static struct response *change_replica_type_callback(struct module *mod, struct message *msg)
+void change_replica_type(struct hd_rum_translator_state *s,
+        struct module *mod, struct message *msg)
 {
-    struct replica *s = (struct replica *) mod->priv_data;
+    struct replica *r = (struct replica *) mod->priv_data;
 
     struct msg_universal *data = (struct msg_universal *) msg;
 
-    enum replica::type_t new_type;
     if (strcasecmp(data->text, "sock") == 0) {
-        new_type = replica::type_t::USE_SOCK;
+        r->type = replica::type_t::USE_SOCK;
     } else if (strcasecmp(data->text, "recompress") == 0) {
-        new_type = replica::type_t::RECOMPRESS;
+        r->type = replica::type_t::RECOMPRESS;
     } else {
-        new_type = replica::type_t::NONE;
-    }
-    free_message(msg);
-
-    if (new_type == replica::type_t::NONE) {
-        return new_response(RESPONSE_BAD_REQUEST, NULL);
+        fprintf(stderr, "Unknown replica type \"%s\"\n", data->text);
+        return;
     }
 
-    while (s->change_to_type != replica::type_t::NONE)
-        ;
-    s->change_to_type = new_type;
-
-    return new_response(RESPONSE_OK, NULL);
+    hd_rum_decompress_set_active(s->decompress, r->recompress,
+            r->type == replica::type_t::RECOMPRESS);
 }
 
 static void *writer(void *arg)
@@ -275,11 +265,10 @@ static void *writer(void *arg)
     while (1) {
         // first check messages
         for (unsigned int i = 0; i < s->replicas.size(); i++) {
-            if (s->replicas[i]->change_to_type != replica::type_t::NONE) {
-                s->replicas[i]->type = s->replicas[i]->change_to_type;
-                hd_rum_decompress_set_active(s->decompress, s->replicas[i]->recompress,
-                        s->replicas[i]->change_to_type == replica::type_t::RECOMPRESS);
-                s->replicas[i]->change_to_type = replica::type_t::NONE;
+            struct message *msg;
+            while ((msg = check_message(&s->replicas[i]->mod))) {
+                change_replica_type(s, &s->replicas[i]->mod, msg);
+                free_message(msg);
             }
         }
 
