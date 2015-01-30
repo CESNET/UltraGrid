@@ -13,10 +13,11 @@
  *          Ignacio Contreras <ignacio.contreras@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Jordi "Txor" Casas Ríos <txorlings@gmail.com>
+ *          Martin Pulec     <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -78,7 +79,6 @@
 #include "transmit.h"
 #include "video.h"
 #include "video_codec.h"
-#include "compat/platform_spin.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 
@@ -114,8 +114,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 int fragment_offset);
 
 
-static struct response *fec_change_callback(struct module *mod, struct message *msg);
 static bool set_fec(struct tx *tx, const char *fec);
+static void fec_check_messages(struct tx *tx);
 
 struct tx {
         struct module mod;
@@ -137,8 +137,6 @@ struct tx {
         int mult_count;
 
         int last_fragment;
-
-        platform_spin_t spin;
 
         struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
@@ -201,7 +199,6 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         if (tx != NULL) {
                 module_init_default(&tx->mod);
                 tx->mod.cls = MODULE_CLASS_TX;
-                tx->mod.msg_callback = fec_change_callback;
                 tx->mod.priv_data = tx;
                 tx->mod.deleter = tx_done;
                 module_register(&tx->mod, parent);
@@ -241,8 +238,6 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 #ifdef HAVE_RTSP_SERVER
                 tx->rtpenc_h264_state = rtpenc_h264_init_state();
 #endif
-
-                platform_spin_init(&tx->spin);
         }
 		return tx;
 }
@@ -251,29 +246,6 @@ struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type 
                 const char *fec, const char *encryption, long packet_rate)
 {
   return tx_init(parent, mtu, media_type, fec, encryption, packet_rate);
-}
-
-static struct response *fec_change_callback(struct module *mod, struct message *msg)
-{
-        struct tx *tx = (struct tx *) mod->priv_data;
-
-        struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
-        struct response *response;
-
-        if(tx->media_type != data->media_type)
-                return NULL;
-
-        platform_spin_lock(&tx->spin);
-        if(set_fec(tx, data->fec)) {
-                response = new_response(RESPONSE_OK, NULL);
-        } else {
-                response = new_response(RESPONSE_BAD_REQUEST, NULL);
-        }
-        platform_spin_unlock(&tx->spin);
-
-        free_message(msg);
-
-        return response;
 }
 
 static bool set_fec(struct tx *tx, const char *fec_const)
@@ -323,11 +295,30 @@ static bool set_fec(struct tx *tx, const char *fec_const)
         return ret;
 }
 
+static void fec_check_messages(struct tx *tx)
+{
+        struct message *msg;
+        while ((msg = check_message(&tx->mod))) {
+                struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
+                if(tx->media_type != data->media_type) {
+                        fprintf(stderr, "[Transmit] FEC media type mismatch!\n");
+                        free_message(msg);
+                        continue;
+                }
+                if (set_fec(tx, data->fec)) {
+                        printf("[Transmit] FEC set to new setting.\n");
+                } else {
+                        fprintf(stderr, "[Transmit] Unable to reconfigure FEC!\n");
+                }
+
+                free_message(msg);
+        }
+}
+
 static void tx_done(struct module *mod)
 {
         struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
-        platform_spin_destroy(&tx->spin);
         free(tx);
 }
 
@@ -342,8 +333,7 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
-
-        platform_spin_lock(&tx->spin);
+        fec_check_messages(tx);
 
         ts = get_local_mediatime();
         if(frame->fragment &&
@@ -370,7 +360,6 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                                 i, fragment_offset);
                 tx->buffer ++;
         }
-        platform_spin_unlock(&tx->spin);
 }
 
 void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx, uint32_t *video_hdr)
@@ -397,8 +386,7 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
 
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
-
-        platform_spin_lock(&tx->spin);
+        fec_check_messages(tx);
 
         ts = get_local_mediatime();
         if(frame->fragment &&
@@ -415,8 +403,6 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         tx_send_base(tx, frame, rtp_session, ts, last, pos,
                         fragment_offset);
         tx->buffer ++;
-
-        platform_spin_unlock(&tx->spin);
 }
 
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps)
@@ -672,7 +658,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         int mult_first_sent = 0;
         int rtp_hdr_len;
 
-        platform_spin_lock(&tx->spin);
+        fec_check_messages(tx);
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
@@ -797,8 +783,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         }
 
         tx->buffer ++;
-
-        platform_spin_unlock(&tx->spin);
 }
 
 /*
@@ -814,7 +798,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
 	struct timeval curr_time;
-	platform_spin_lock(&tx->spin);
 
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
@@ -875,8 +858,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		data_buffer_mulaw + pointerToSend,
 				(pos * buffer->get_channel_count()) % payload_size, 0, 0, 0);
 	}
-
-	platform_spin_unlock(&tx->spin);
 }
 
 /**
@@ -1018,8 +999,6 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
 	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
 
-	platform_spin_lock(&tx->spin);
-
 	ts = get_std_video_local_mediatime();
 
 	gettimeofday(&curr_time, NULL);
@@ -1029,6 +1008,4 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	tx_send_base_h264(tx, frame, rtp_session, ts, 0,
 			frame->color_spec, frame->fps, frame->interlacing, 0,
 			0);
-
-	platform_spin_unlock(&tx->spin);
 }
