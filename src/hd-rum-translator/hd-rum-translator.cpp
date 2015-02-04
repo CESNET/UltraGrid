@@ -289,13 +289,24 @@ static void *writer(void *arg)
                 int tx_port = atoi(strtok_r(NULL, " ", &save_ptr));
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 replica_init(rep, host, tx_port, 100*1000, &s->mod);
-
-                rep->type = replica::type_t::RECOMPRESS;
-                char *fec = NULL;
-                rep->recompress = recompress_init(&rep->mod,
-                        host, compress,
-                        0, tx_port, 1500, fec, RATE_UNLIMITED);
-                hd_rum_decompress_append_port(s->decompress, rep->recompress);
+                if (compress) {
+                    rep->type = replica::type_t::RECOMPRESS;
+                    char *fec = NULL;
+                    rep->recompress = recompress_init(&rep->mod,
+                            host, compress,
+                            0, tx_port, 1500, fec, RATE_UNLIMITED);
+                    hd_rum_decompress_append_port(s->decompress, rep->recompress);
+                    hd_rum_decompress_set_active(s->decompress, rep->recompress, true);
+                } else{
+                    rep->type = replica::type_t::USE_SOCK;
+                    char compress[] = "none";
+                    char *fec = NULL;
+                    rep->recompress = recompress_init(&rep->mod,
+                            host, compress,
+                            0, tx_port, 1500, fec, RATE_UNLIMITED);
+                    hd_rum_decompress_append_port(s->decompress, rep->recompress);
+                    hd_rum_decompress_set_active(s->decompress, rep->recompress, false);
+                }
             }
 
             free_message((struct message *) msg);
