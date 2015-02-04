@@ -49,10 +49,10 @@
  * @param   str string to be parsed
  * @returns     integral representation of the string
  */
-int64_t unit_evaluate(const char *str) {
+double unit_evaluate(const char *str) {
         char *end_ptr;
         char unit_prefix_u;
-        int64_t ret = strtoul(str, &end_ptr, 10);
+        double ret = strtod(str, &end_ptr);
         unit_prefix_u = toupper(*end_ptr);
         switch(unit_prefix_u) {
                 case 'G':

@@ -132,6 +132,7 @@ struct state_video_compress_libav {
 
         codec_t             selected_codec_id;
         int64_t             requested_bitrate;
+        double              requested_bpp;
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling;
         // actual value used
@@ -165,7 +166,7 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *frame) {
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
+        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
                         "[:subsampling=<subsampling>][:preset=<preset>]"
                         "[:exact_bitrate]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
@@ -204,6 +205,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
                                 char *bitrate_str = item + strlen("bitrate=");
                                 s->requested_bitrate = unit_evaluate(bitrate_str);
+                        } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
+                                char *bpp_str = item + strlen("bpp=");
+                                s->requested_bpp = unit_evaluate(bpp_str);
                         } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                                 char *subsample_str = item + strlen("subsampling=");
                                 s->requested_subsampling = atoi(subsample_str);
@@ -301,15 +305,19 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         int ret;
         AVCodecID codec_id;
         AVPixelFormat pix_fmt;
-        double avg_bpp = 0; // average bite per pixel
+        double avg_bpp; // average bit per pixel
 
         s->compressed_desc = desc;
 
         auto it = codec_params.find(s->selected_codec_id);
         if (it != codec_params.end()) {
                 codec_id = it->second.av_codec;
-                avg_bpp = it->second.avg_bpp;
-        } else  {
+                if (s->requested_bpp != 0.0) {
+                        avg_bpp = s->requested_bpp;
+                } else {
+                        avg_bpp = it->second.avg_bpp;
+                }
+        } else {
                 fprintf(stderr, "[lavc] Requested output codec isn't "
                                 "supported by libavcodec.\n");
                 return false;
@@ -877,9 +885,9 @@ struct compress_info_t libavcodec_info = {
         libavcodec_compress_tile,
         libavcodec_is_supported,
         {
-                { "codec=H.264:bitrate=5M", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
-                { "codec=H.264:bitrate=10M", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
-                { "codec=H.264:bitrate=15M", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
+                { "codec=H.264:bpp=0.096", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
+                { "codec=H.264:bpp=0.193", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
+                { "codec=H.264:bitrate=0.289", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
 #if 0
                 { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
 #endif

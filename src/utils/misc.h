@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-int64_t unit_evaluate(const char *str);
+double unit_evaluate(const char *str);
 
 #ifdef __cplusplus
 }
