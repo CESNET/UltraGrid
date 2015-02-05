@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,7 +73,8 @@ extern "C" void NSApplicationLoad();
 #include "video_display/splashscreen.h"
 
 #define MAGIC_SDL   DISPLAY_SDL_ID
-#define FOURCC_UYVY  0x59565955
+#define FOURCC_UYVY 0x59565955
+#define FOURCC_YUYV 0x32595559
 
 #define MAX_BUFFER_SIZE 1
 
@@ -111,6 +112,8 @@ struct state_sdl {
         void                   *autorelease_pool;
 #endif
         volatile bool           should_exit;
+        int bpp;
+        uint32_t sdl_flags_win, sdl_flags_fs;
 
         struct module   mod;
 
@@ -142,6 +145,8 @@ static void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
 static int display_sdl_handle_events(struct state_sdl *s);
 static void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
+static void compute_dst_rect(struct state_sdl *s, int vid_w, int vid_h, int window_w, int window_h, codec_t codec);
+static bool update_size(struct state_sdl *s, int win_w, int win_h);
                 
 /** 
  * Load splashscreen
@@ -181,6 +186,67 @@ static void loadSplashscreen(struct state_sdl *s) {
         display_sdl_putf(s, frame, PUTF_BLOCKING);
 }
 
+static void compute_dst_rect(struct state_sdl *s, int vid_w, int vid_h, int window_w, int window_h, codec_t codec)
+{
+        s->dst_rect.x = 0;
+        s->dst_rect.y = 0;
+        s->dst_rect.w = vid_w;
+        s->dst_rect.h = vid_h;
+
+	if (codec_is_a_rgb(codec)) {
+		if (window_w > vid_w) {
+			s->dst_rect.x = ((int) window_w - vid_w) / 2;
+		} else if (window_w < vid_w) {
+			s->dst_rect.w = window_w;
+		}
+		if (window_h > vid_h) {
+			s->dst_rect.y = ((int) window_h - vid_h) / 2;
+		} else if (window_h < vid_h) {
+			s->dst_rect.h = window_h;
+		}
+	} else if (!codec_is_a_rgb(codec) && (vid_w != window_w || vid_h != window_h)) {
+		double frame_aspect = (double) vid_w / vid_h;
+		double screen_aspect = (double) window_w / window_h;
+		if(screen_aspect > frame_aspect) {
+			s->dst_rect.h = window_h;
+			s->dst_rect.w = window_h * frame_aspect;
+			s->dst_rect.x = ((int) window_w - s->dst_rect.w) / 2;
+		} else {
+			s->dst_rect.w = window_w;
+			s->dst_rect.h = window_w / frame_aspect;
+			s->dst_rect.y = ((int) window_h - s->dst_rect.h) / 2;
+		}
+	}
+
+        fprintf(stdout, "Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w,
+                s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
+}
+
+static bool update_size(struct state_sdl *s, int win_w, int win_h)
+{
+        unsigned int x_res_x, x_res_y;
+
+        if (s->fs) {
+                x_res_x = s->screen_w;
+                x_res_y = s->screen_h;
+        } else {
+                x_res_x = win_w;
+                x_res_y = win_h;
+        }
+        SDL_Surface *sdl_screen_old = s->sdl_screen;
+        s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, s->bpp, s->fs ? s->sdl_flags_fs : s->sdl_flags_win);
+        fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
+        compute_dst_rect(s, s->current_display_desc.width, s->current_display_desc.height, x_res_x, x_res_y, s->current_display_desc.color_spec);
+	if (s->sdl_screen == NULL) {
+		fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
+			x_res_y);
+                s->sdl_screen = sdl_screen_old;
+                return false;
+	} else {
+                return true;
+        }
+}
+
 /**
  * Handles outer events like a keyboard press
  * Responds to key:<br/>
@@ -210,6 +276,9 @@ static int display_sdl_handle_events(struct state_sdl *s)
         SDL_Event sdl_event;
         while (SDL_PollEvent(&sdl_event)) {
                 switch (sdl_event.type) {
+                case SDL_VIDEORESIZE:
+                        update_size(s, sdl_event.resize.w, sdl_event.resize.h);
+                        break;
                 case SDL_KEYDOWN:
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "d")) {
                                 s->deinterlace = s->deinterlace ? FALSE : TRUE;
@@ -224,7 +293,7 @@ static int display_sdl_handle_events(struct state_sdl *s)
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
                                 s->fs = !s->fs;
-                                display_sdl_reconfigure_real(s, s->current_display_desc);
+                                update_size(s, s->current_display_desc.width, s->current_display_desc.height);
                                 return 1;
                         }
                         break;
@@ -298,7 +367,7 @@ void display_sdl_run(void *arg)
 			SDL_LockYUVOverlay(s->yuv_image);
                         memcpy(*s->yuv_image->pixels, frame->tiles[0].data, frame->tiles[0].data_len);
                         SDL_UnlockYUVOverlay(s->yuv_image);
-                        SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
+                        SDL_DisplayYUVOverlay(s->yuv_image, &s->dst_rect);
 		}
 
                 s->lock.lock();
@@ -354,37 +423,22 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
-	unsigned int x_res_x, x_res_y;
-
 	fprintf(stdout, "Reconfigure to size %dx%d\n", desc.width,
 			desc.height);
 
-	x_res_x = s->screen_w;
-	x_res_y = s->screen_h;
-
-	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
-        int bpp;
         if(desc.color_spec == RGB) {
-                bpp = 24;
+                s->bpp = 24;
         } else {
-                bpp = 0; /* screen defautl */
+                s->bpp = 0; /* screen defautl */
         }
-	if (s->fs)
-        {
-		s->sdl_screen =
-		    SDL_SetVideoMode(x_res_x, x_res_y, bpp,
-				     SDL_FULLSCREEN | SDL_HWSURFACE |
-				     SDL_DOUBLEBUF);
-        } else {
-		x_res_x = desc.width;
-		x_res_y = desc.height;
-		s->sdl_screen =
-		    SDL_SetVideoMode(x_res_x, x_res_y, bpp,
-				     SDL_HWSURFACE | SDL_DOUBLEBUF | (s->nodecorate ? SDL_NOFRAME : 0));
-	}
-	if (s->sdl_screen == NULL) {
-		fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
-			x_res_y);
+        s->sdl_flags_fs = SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF;
+        s->sdl_flags_win = SDL_HWSURFACE | SDL_DOUBLEBUF | (s->nodecorate ? SDL_NOFRAME : 0);
+        if (!codec_is_a_rgb(desc.color_spec)) {
+                s->sdl_flags_win |= SDL_RESIZABLE;
+        }
+        s->current_display_desc = desc;
+
+	if (!update_size(s, desc.width, desc.height)) {
                 return FALSE;
 	}
         if (window_title) {
@@ -397,48 +451,13 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 
 	if (!codec_is_a_rgb(desc.color_spec)) {
 		s->yuv_image =
-		    SDL_CreateYUVOverlay(desc.width, desc.height, FOURCC_UYVY,
-						 s->sdl_screen);
+		    SDL_CreateYUVOverlay(desc.width, desc.height, desc.color_spec == UYVY ?
+                                    FOURCC_UYVY : FOURCC_YUYV, s->sdl_screen);
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
                         return FALSE;
                 }
         }
-
-        s->dst_rect.x = 0;
-        s->dst_rect.y = 0;
-        s->dst_rect.w = desc.width;
-        s->dst_rect.h = desc.height;
-
-	if (codec_is_a_rgb(desc.color_spec)) {
-		if (x_res_x > desc.width) {
-			s->dst_rect.x = ((int) x_res_x - desc.width) / 2;
-		} else if (x_res_x < desc.width) {
-			s->dst_rect.w = x_res_x;
-		}
-		if (x_res_y > desc.height) {
-			s->dst_rect.y = ((int) x_res_y - desc.height) / 2;
-		} else if (x_res_y < desc.height) {
-			s->dst_rect.h = x_res_y;
-		}
-	} else if (!codec_is_a_rgb(desc.color_spec) && s->fs && (desc.width != x_res_x || desc.height != x_res_y)) {
-		double frame_aspect = (double) desc.width / desc.height;
-		double screen_aspect = (double) s->screen_w / s->screen_h;
-		if(screen_aspect > frame_aspect) {
-			s->dst_rect.h = s->screen_h;
-			s->dst_rect.w = s->screen_h * frame_aspect;
-			s->dst_rect.x = ((int) s->screen_w - s->dst_rect.w) / 2;
-		} else {
-			s->dst_rect.w = s->screen_w;
-			s->dst_rect.h = s->screen_w / frame_aspect;
-			s->dst_rect.y = ((int) s->screen_h - s->dst_rect.h) / 2;
-		}
-	}
-
-        fprintf(stdout, "Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w,
-                s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
-        
-        s->current_display_desc = desc;
 
         return TRUE;
 }
@@ -616,7 +635,7 @@ display_type_t *display_sdl_probe(void)
 int display_sdl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {UYVY, RGBA, RGB};
+        codec_t codecs[] = {UYVY, YUYV, RGBA, RGB};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
