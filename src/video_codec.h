@@ -78,7 +78,7 @@ extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 /** Prints list of suppored codecs for video module
  * @deprecated Individual modules should print list of supported codecs by itself.
  */
-void             show_codec_help(char *module);
+void             show_codec_help(const char *module);
 double           get_bpp(codec_t codec) __attribute__((pure));
 uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
 int              get_halign(codec_t codec) __attribute__((pure));

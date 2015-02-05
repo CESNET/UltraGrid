@@ -182,7 +182,7 @@ const struct alternative_codec_name codec_name_aliases[] = {
         {"2vuy", "UYVY"},
 };
 
-void show_codec_help(char *module)
+void show_codec_help(const char *module)
 {
         printf("\tSupported codecs (%s):\n", module);
 

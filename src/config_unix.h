@@ -210,5 +210,10 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 
 #define INVALID_SOCKET -1
 
+// GCC 4.6 (Ubuntu 12.04) compat
+#if !__llvm__ && __GNUC__ == 4 && __GNUC_MINOR__ == 6
+#define steady_clock monotonic_clock
+#endif
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */
