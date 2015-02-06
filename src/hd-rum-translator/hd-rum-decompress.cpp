@@ -264,3 +264,17 @@ void hd_rum_decompress_append_port(void *state, void *recompress_state)
         s->frame_consumed_cv.wait(l, [s]{ return s->received_frame.size() == 0; });
 }
 
+int hd_rum_decompress_get_num_active_ports(void *state)
+{
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+
+        int ret = 0;
+        for (auto && port : s->output_ports) {
+                if (port.active) {
+                        ret += 1;
+                }
+        }
+
+        return ret;
+}
+

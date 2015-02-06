@@ -326,9 +326,11 @@ static void *writer(void *arg)
                 }
             }
 
-            ssize_t ret = hd_rum_decompress_write(s->decompress, s->qhead->buf, s->qhead->size);
-            if (ret < 0) {
-                perror("hd_rum_decompress_write");
+            if (hd_rum_decompress_get_num_active_ports(s->decompress) > 0) {
+                ssize_t ret = hd_rum_decompress_write(s->decompress, s->qhead->buf, s->qhead->size);
+                if (ret < 0) {
+                    perror("hd_rum_decompress_write");
+                }
             }
 
             s->qhead = s->qhead->next;
