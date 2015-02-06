@@ -143,6 +143,7 @@ const struct line_decode_from_to line_decoders[] = {
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
         { RGB, UYVY, (decoder_t) vc_copylineRGBtoUYVY},
+        { BGR, UYVY, (decoder_t) vc_copylineBGRtoUYVY},
         { BGR, RGB, (decoder_t) vc_copylineBGRtoRGB},
         { (codec_t) 0, (codec_t) 0, NULL }
 };
