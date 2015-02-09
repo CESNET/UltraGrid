@@ -390,9 +390,10 @@ void display_sdl_run(void *arg)
 static void show_help(void)
 {
         printf("SDL options:\n");
-        printf("\t-d sdl[:fs|:d]* | help\n");
+        printf("\t-d sdl[:fs|:d|:nodecorate]* | help\n");
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
+        printf("\tnodecorate - disable WM decoration\n");
         //printf("\t<f> - read frame content from the filename\n");
         show_codec_help((char *) "sdl");
 }
