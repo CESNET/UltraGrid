@@ -293,6 +293,19 @@ uint64_t         rtp_get_bytes_sent(struct rtp *session);
 int              rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc);
 bool             rtp_is_ipv6(struct rtp *session);
 
+/*
+ * Async API - MSW specific
+ *
+ * Using async API hugely improves performance.
+ * Usage is simple - prior to sending a bulk of packets (eg. video frame), rtp_async_start()
+ * is started. Then, all packets are sent as usual, exept that neither data nor headers should
+ * be altered up to rtp_async_wait() call, which waits upon completition of async operations
+ * started after rtp_async_start(). Caller is responsible that rtp_send_data_hdr() is not called
+ * more than nr_packet times.
+ */
+void             rtp_async_start(struct rtp *session, int nr_packets);
+void             rtp_async_wait(struct rtp *session);
+
 #ifdef __cplusplus
 }
 #endif

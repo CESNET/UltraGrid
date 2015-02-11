@@ -61,10 +61,12 @@ int         udp_recv(socket_udp *s, char *buffer, int buflen);
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 
 int         udp_recvv(socket_udp *s, struct msghdr *m);
+void        udp_async_start(socket_udp *s, int nr_packets);
+void        udp_async_wait(socket_udp *s);
 #ifdef WIN32
-int         udp_sendv(socket_udp *s, LPWSABUF vector, int count);
+int         udp_sendv(socket_udp *s, LPWSABUF vector, int count, void *d);
 #else
-int         udp_sendv(socket_udp *s, struct iovec *vector, int count);
+int         udp_sendv(socket_udp *s, struct iovec *vector, int count, void *d);
 #endif
 
 char       *udp_host_addr(socket_udp *s);

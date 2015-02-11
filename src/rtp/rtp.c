@@ -2612,11 +2612,13 @@ rtp_send_data_hdr(struct rtp *session,
         rtp_packet *packet = NULL;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 #ifdef WIN32
-        WSABUF send_vector[3];
+        WSABUF *send_vector;
 #else
         struct iovec send_vector[3];
 #endif
         int send_vector_len;
+
+        void *d; // to be freed after packet is sent
 
         check_database(session);
 
@@ -2662,9 +2664,16 @@ rtp_send_data_hdr(struct rtp *session,
         if (buffer == NULL) {
                 assert(buffer_len < RTP_MAX_PACKET_LEN);
                 /* we dont always need 20 (12|16) but this seems to work. LG */
-                buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
+#ifdef WIN32
+                d = buffer = (uint8_t *) malloc(3 * sizeof(WSABUF) + 20 + RTP_PACKET_HEADER_SIZE);
+                send_vector = d;
+                buffer = (uint8_t *) d + 3 * sizeof(WSABUF);
+#else
+                d = buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
+#endif
                 packet = (rtp_packet *) buffer;
         }
+
 #ifdef WIN32
         send_vector[0].buf = buffer + RTP_PACKET_HEADER_SIZE;
         send_vector[0].len = buffer_len;
@@ -2760,12 +2769,10 @@ rtp_send_data_hdr(struct rtp *session,
                                          buffer_len, initVec);
         }
 
-        rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len);
+        rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len, d);
         if (rc == -1) {
                 perror("sending RTP packet");
         }
-
-        free(buffer);
 
         /* Update the RTCP statistics... */
         session->we_sent = TRUE;
@@ -3936,5 +3943,15 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
 bool rtp_is_ipv6(struct rtp *session)
 {
         return udp_is_ipv6(session->rtp_socket);
+}
+
+void rtp_async_start(struct rtp *session, int nr_packets)
+{
+       udp_async_start(session->rtp_socket, nr_packets);
+}
+
+void rtp_async_wait(struct rtp *session)
+{
+       udp_async_wait(session->rtp_socket);
 }
 

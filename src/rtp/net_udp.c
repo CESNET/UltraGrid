@@ -135,8 +135,17 @@ struct _socket_udp {
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
         pthread_cond_t reader_cv;
+#ifdef WIN32
+        WSAOVERLAPPED *overlapped;
+        WSAEVENT *overlapped_events;
+        void **dispose_udata;
+        bool overlapping_active;
+        int overlapped_max;
+        int overlapped_count;
+#endif
 };
 
+static void udp_clean_async_state(socket_udp *s);
 
 #ifdef WIN32
 /* Want to use both Winsock 1 and 2 socket options, but since
@@ -329,7 +338,11 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         } else {
                 ifindex = 0;
         }
+#ifdef WIN32
+        s->fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+#else
         s->fd = socket(AF_INET, SOCK_DGRAM, 0);
+#endif
         if (s->fd == INVALID_SOCKET) {
                 socket_error("Unable to initialize socket");
                 goto error;
@@ -466,7 +479,7 @@ static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
 }
 
 #ifdef WIN32
-static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count)
+static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count, void *d)
 {
         struct sockaddr_in s_in;
 
@@ -477,13 +490,26 @@ static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count)
         s_in.sin_addr.s_addr = s->addr4.s_addr;
         s_in.sin_port = htons(s->tx_port);
 
+        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
+
 	DWORD bytesSent;
-	return WSASendTo(s->fd, vector, count, &bytesSent, 0,
+	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
 		(struct sockaddr *) &s_in,
-		sizeof(s_in), NULL, NULL);
+		sizeof(s_in), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+        if (s->overlapping_active) {
+                s->dispose_udata[s->overlapped_count] = d;
+        } else {
+                free(d);
+        }
+        s->overlapped_count++;
+        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
+                return 0;
+        else {
+                return ret;
+        }
 }
 #else
-static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
+static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count, void *d)
 {
         struct msghdr msg;
         struct sockaddr_in s_in;
@@ -504,7 +530,9 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
         msg.msg_controllen = 0;
         msg.msg_flags = 0;
 
-        return sendmsg(s->fd, &msg, 0);
+        int ret = sendmsg(s->fd, &msg, 0);
+        free(d);
+        return ret;
 }
 #endif // WIN32
 
@@ -639,7 +667,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 #ifdef HAVE_IPv6
         int reuse = 1;
         struct sockaddr_in6 s_in;
-        socket_udp *s = (socket_udp *) malloc(sizeof(socket_udp));
+        socket_udp *s = (socket_udp *) calloc(1, sizeof(socket_udp));
         s->mode = IPv6;
         s->addr = NULL;
         s->rx_port = rx_port;
@@ -816,18 +844,31 @@ static int udp_send6(socket_udp * s, char *buffer, int buflen)
 }
 
 #ifdef WIN32
-static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count)
+static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count, void *d)
 {
         assert(s != NULL);
         assert(s->mode == IPv6);
 
+        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
+
 	DWORD bytesSent;
-	return WSASendTo(s->fd, vector, count, &bytesSent, 0,
+	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
 		(struct sockaddr *) &s->sock6,
-		sizeof(s->sock6), NULL, NULL);
+		sizeof(s->sock6), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+        if (s->overlapping_active) {
+                s->dispose_udata[s->overlapped_count] = d;
+        } else {
+                free(d);
+        }
+        s->overlapped_count++;
+        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
+                return 0;
+        else {
+                return ret;
+        }
 }
 #else
-static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
+static int udp_sendv6(socket_udp * s, struct iovec *vector, int count, void *d)
 {
 #ifdef HAVE_IPv6
         struct msghdr msg;
@@ -842,7 +883,9 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
         msg.msg_control = 0;
         msg.msg_controllen = 0;
         msg.msg_flags = 0;
-        return sendmsg(s->fd, &msg, 0);
+        int ret = sendmsg(s->fd, &msg, 0);
+        free(d);
+        return ret;
 #else
         UNUSED(s);
         UNUSED(vector);
@@ -1068,6 +1111,8 @@ void udp_exit(socket_udp * s)
                 }
         }
 
+        udp_clean_async_state(s);
+
         switch (s->mode) {
         case IPv4:
                 udp_exit4(s);
@@ -1104,16 +1149,16 @@ int udp_send(socket_udp * s, char *buffer, int buflen)
 }
 
 #ifdef WIN32
-int udp_sendv(socket_udp * s, LPWSABUF vector, int count)
+int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
 #else
-int udp_sendv(socket_udp * s, struct iovec *vector, int count)
+int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 #endif // WIN32
 {
         switch (s->mode) {
         case IPv4:
-                return udp_sendv4(s, vector, count);
+                return udp_sendv4(s, vector, count, d);
         case IPv6:
-                return udp_sendv6(s, vector, count);
+                return udp_sendv6(s, vector, count, d);
         default:
                 abort();        /* Yuk! */
         }
@@ -1412,6 +1457,70 @@ int udp_change_dest(socket_udp *s, const char *addr)
         } else {
                 return FALSE;
         }
+}
+
+void udp_async_start(socket_udp *s, int nr_packets)
+{
+#ifdef WIN32
+        if (nr_packets > s->overlapped_max) {
+                s->overlapped = realloc(s->overlapped, nr_packets * sizeof(WSAOVERLAPPED));
+                s->overlapped_events = realloc(s->overlapped_events, nr_packets * sizeof(WSAEVENT));
+                s->dispose_udata = realloc(s->dispose_udata, nr_packets * sizeof(void *));
+                for (int i = s->overlapped_max; i < nr_packets; ++i) {
+                        memset(&s->overlapped[i], 0, sizeof(WSAOVERLAPPED));
+                        s->overlapped[i].hEvent = s->overlapped_events[i] = WSACreateEvent();
+                        assert(s->overlapped[i].hEvent != WSA_INVALID_EVENT);
+                }
+                s->overlapped_max = nr_packets;
+        }
+
+        s->overlapped_count = 0;
+        s->overlapping_active = true;
+#else
+        UNUSED(nr_packets);
+        UNUSED(s);
+#endif
+}
+
+void udp_async_wait(socket_udp *s)
+{
+#ifdef WIN32
+        if (!s->overlapping_active)
+                return;
+        for(int i = 0; i < s->overlapped_count; i += WSA_MAXIMUM_WAIT_EVENTS)
+        {
+                int count = WSA_MAXIMUM_WAIT_EVENTS;
+                if (s->overlapped_count - i < WSA_MAXIMUM_WAIT_EVENTS)
+                        count = s->overlapped_count - i;
+                DWORD ret = WSAWaitForMultipleEvents(count, s->overlapped_events + i, TRUE, INFINITE, TRUE);
+                if (ret == WSA_WAIT_FAILED) {
+                        socket_error("WSAWaitForMultipleEvents");
+                }
+        }
+        for (int i = 0; i < s->overlapped_count; i++) {
+                if (WSAResetEvent(s->overlapped[i].hEvent) == FALSE) {
+                        socket_error("WSAResetEvent");
+                }
+                free(s->dispose_udata[i]);
+        }
+        s->overlapping_active = false;
+#else
+        UNUSED(s);
+#endif
+}
+
+static void udp_clean_async_state(socket_udp *s)
+{
+#ifdef WIN32
+        for (int i = 0; i < s->overlapped_max; i++) {
+                WSACloseEvent(s->overlapped[i].hEvent);
+        }
+        free(s->overlapped);
+        free(s->overlapped_events);
+        free(s->dispose_udata);
+#else
+        UNUSED(s);
+#endif
 }
 
 bool udp_is_ipv6(socket_udp *s)

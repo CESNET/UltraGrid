@@ -425,6 +425,27 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         tmp |= fi << 13;
         return htonl(tmp);
 }
+static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
+                int fec_symbol_size, int *fec_symbol_offset)
+{
+        int data_len;
+        data_len = mtu - hdrs_len;
+        if (with_fec) {
+                if (fec_symbol_size <= mtu - hdrs_len) {
+                        data_len = data_len / fec_symbol_size * fec_symbol_size;
+                } else {
+                        if (fec_symbol_size - *fec_symbol_offset <= mtu - hdrs_len) {
+                                data_len = fec_symbol_size - *fec_symbol_offset;
+                                *fec_symbol_offset = 0;
+                        } else {
+                                *fec_symbol_offset += data_len;
+                        }
+                }
+        } else {
+                data_len = (data_len / 48) * 48;
+        }
+        return data_len;
+}
 
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
@@ -555,6 +576,33 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
         }
 
+        // calculate number of packets
+        int packet_count = 0;
+        do {
+                pos += get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
+                                fec_symbol_size, &fec_symbol_offset);
+                packet_count += 1;
+        } while (pos < (unsigned int) tile->data_len);
+        if(tx->fec_scheme == FEC_MULT) {
+                packet_count *= tx->mult_count;
+        }
+        pos = 0;
+        fec_symbol_offset = 0;
+
+        // initialize header array with values (except offset which is different among
+        // different packts)
+        void *rtp_headers = malloc(packet_count * rtp_hdr_len);
+        uint32_t *rtp_hdr_packet = (uint32_t *) rtp_headers;
+        for (int i = 0; i < packet_count; ++i) {
+                memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
+                rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
+        }
+        rtp_hdr_packet = (uint32_t *) rtp_headers;
+
+        if (!tx->encryption) {
+                rtp_async_start(rtp_session, packet_count);
+        }
+
         do {
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
@@ -562,24 +610,11 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 int offset = pos + fragment_offset;
 
-                rtp_hdr[1] = htonl(offset);
+                rtp_hdr_packet[1] = htonl(offset);
 
                 data = tile->data + pos;
-                data_len = tx->mtu - hdrs_len;
-                if (frame->fec_params.type != FEC_NONE) {
-                        if (fec_symbol_size <= tx->mtu - hdrs_len) {
-                                data_len = data_len / fec_symbol_size * fec_symbol_size;
-                        } else {
-                                if (fec_symbol_size - fec_symbol_offset <= tx->mtu - hdrs_len) {
-                                        data_len = fec_symbol_size - fec_symbol_offset;
-                                        fec_symbol_offset = 0;
-                                } else {
-                                        fec_symbol_offset += data_len;
-                                }
-                        }
-                } else {
-                        data_len = (data_len / 48) * 48;
-                }
+                data_len = get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
+                                fec_symbol_size, &fec_symbol_offset);
                 if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
                                 m = 1;
@@ -594,7 +629,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         if (tx->encryption) {
                                 data_len = tx->enc_funcs->encrypt(tx->encryption,
                                                 data, data_len,
-                                                (char *) rtp_hdr,
+                                                (char *) rtp_hdr_packet,
                                                 frame->fec_params.type != FEC_NONE ? sizeof(fec_video_payload_hdr_t) :
                                                 sizeof(video_payload_hdr_t),
                                                 encrypted_data);
@@ -602,7 +637,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         }
 
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  (char *) rtp_hdr, rtp_hdr_len,
+                                  (char *) rtp_hdr_packet, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
                 }
 
@@ -624,8 +659,13 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[tx->mult_count - 1];
                 }
-
+                rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
         } while (pos < (unsigned int) tile->data_len);
+
+        if (!tx->encryption) {
+                rtp_async_wait(rtp_session);
+        }
+        free(rtp_headers);
 }
 
 /* 
