@@ -903,7 +903,7 @@ static double rtcp_interval(struct rtp *session)
 static char *get_cname(socket_udp * s)
 {
         /* Set the CNAME. This is "user@hostname" or just "hostname" if the username cannot be found. */
-        const char *hname;
+        char *hname;
         char *uname;
         char *cname;
 #ifndef WIN32
@@ -952,9 +952,10 @@ static char *get_cname(socket_udp * s)
         if (hname == NULL) {
                 /* If we can't get our IP address we use the loopback address... */
                 /* This is horrible, but it stops the code from failing.         */
-                hname = "127.0.0.1";
+                hname = strdup("127.0.0.1");
         }
         strncpy(cname + strlen(cname), hname, MAXCNAMELEN - strlen(cname));
+        free(hname);
         return cname;
 }
 

@@ -508,9 +508,9 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
 }
 #endif // WIN32
 
-static const char *udp_host_addr4(void)
+static char *udp_host_addr4(void)
 {
-        static char hname[MAXHOSTNAMELEN + 1];
+        char *hname = calloc(MAXHOSTNAMELEN + 1, 1);
         struct hostent *hent;
         struct in_addr iaddr;
 
@@ -526,7 +526,7 @@ static const char *udp_host_addr4(void)
         assert(hent->h_addrtype == AF_INET);
         memcpy(&iaddr.s_addr, hent->h_addr, sizeof(iaddr.s_addr));
         strncpy(hname, inet_ntoa(iaddr), MAXHOSTNAMELEN);
-        return (const char *)hname;
+        return hname;
 }
 
 int udp_set_recv_buf(socket_udp *s, int size)
@@ -852,10 +852,10 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
 }
 #endif // WIN32
 
-static const char *udp_host_addr6(socket_udp * s)
+static char *udp_host_addr6(socket_udp * s)
 {
 #ifdef HAVE_IPv6
-        static char hname[MAXHOSTNAMELEN];
+        char *hname = calloc(MAXHOSTNAMELEN + 1, 1);
         int gai_err, newsock;
         struct addrinfo hints, *ai;
         struct sockaddr_in6 local, addr6;
@@ -926,14 +926,14 @@ static const char *udp_host_addr6(socket_udp * s)
                         return NULL;
                 }
                 freeaddrinfo(ai);
-                return (const char *)hname;
+                return hname;
         }
         if (inet_ntop(AF_INET6, &local.sin6_addr, hname, MAXHOSTNAMELEN) ==
             NULL) {
                 error_msg("inet_ntop: %s: \n", hname);
                 return NULL;
         }
-        return (const char *)hname;
+        return hname;
 #else                           /* HAVE_IPv6 */
         UNUSED(s);
         return "::";            /* The unspecified address... */
@@ -1329,9 +1329,9 @@ int udp_select_r(struct timeval *timeout, struct udp_fd_r * fd_struct)
  * @s: UDP session.
  * 
  * Return value: character string containing network address
- * associated with session @s.
+ * associated with session @s. Returned value be freed by caller.
  **/
-const char *udp_host_addr(socket_udp * s)
+char *udp_host_addr(socket_udp * s)
 {
         switch (s->mode) {
         case IPv4:

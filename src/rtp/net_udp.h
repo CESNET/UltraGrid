@@ -67,7 +67,7 @@ int         udp_sendv(socket_udp *s, LPWSABUF vector, int count);
 int         udp_sendv(socket_udp *s, struct iovec *vector, int count);
 #endif
 
-const char *udp_host_addr(socket_udp *s);
+char       *udp_host_addr(socket_udp *s);
 int         udp_fd(socket_udp *s);
 
 int         udp_select(struct timeval *timeout);
