@@ -1414,3 +1414,8 @@ int udp_change_dest(socket_udp *s, const char *addr)
         }
 }
 
+bool udp_is_ipv6(socket_udp *s)
+{
+        return s->mode == IPv6;
+}
+

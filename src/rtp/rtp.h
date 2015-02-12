@@ -291,6 +291,7 @@ int              rtp_change_dest(struct rtp *session, const char *addr);
 int 			 rtcp_change_dest(struct rtp *session, const char *addr);
 uint64_t         rtp_get_bytes_sent(struct rtp *session);
 int              rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc);
+bool             rtp_is_ipv6(struct rtp *session);
 
 #ifdef __cplusplus
 }

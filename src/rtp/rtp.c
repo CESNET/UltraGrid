@@ -3933,3 +3933,8 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
         return 0;
 }
 
+bool rtp_is_ipv6(struct rtp *session)
+{
+        return udp_is_ipv6(session->rtp_socket);
+}
+

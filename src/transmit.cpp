@@ -457,7 +457,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        int hdrs_len = 40 + 8 + 12; // IPv6 hdr size + UDP hdr size + RTP hdr size
+
+        int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // IP hdr size + UDP hdr size + RTP hdr size
         unsigned int fec_symbol_size = frame->fec_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
@@ -671,6 +672,11 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 pt = PT_AUDIO; /* PT set for audio in our packet format */
         }
 
+        int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12 + sizeof(audio_payload_hdr_t); // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
+        if(tx->encryption) {
+                hdrs_len += sizeof(crypto_payload_hdr_t);
+        }
+
         for(channel = 0; channel < buffer->get_channel_count(); ++channel)
         {
                 chan_data = buffer->get_data(channel);
@@ -728,7 +734,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         }
 
                         data = chan_data + pos;
-                        data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
+                        data_len = tx->mtu - hdrs_len;
                         if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
                                 data_len = buffer->get_data_len(channel) - pos;
                                 if(channel == buffer->get_channel_count() - 1)
