@@ -427,8 +427,10 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 	fprintf(stdout, "Reconfigure to size %dx%d\n", desc.width,
 			desc.height);
 
-        if(desc.color_spec == RGB) {
+        if (desc.color_spec == RGB) {
                 s->bpp = 24;
+        } else if (desc.color_spec == RGBA) {
+                s->bpp = 32;
         } else {
                 s->bpp = 0; /* screen defautl */
         }
