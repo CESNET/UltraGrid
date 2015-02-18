@@ -170,8 +170,6 @@ static void usage() {
                         "[:subsampling=<subsampling>][:preset=<preset>]"
                         "[:exact_bitrate]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
-        printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
-               "\t\t\tas constant as it can\n");
         for (auto && param : codec_params) {
                 if(param.second.av_codec != 0) {
                         const char *availability = "not available";
@@ -182,6 +180,8 @@ static void usage() {
                 }
 
         }
+        printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
+               "as constant as it can\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
