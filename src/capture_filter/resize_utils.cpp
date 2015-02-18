@@ -42,6 +42,15 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/types_c.h>
+
 #include "capture_filter/resize_utils.h"
 
 using namespace cv;

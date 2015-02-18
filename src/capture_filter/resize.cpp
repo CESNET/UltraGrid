@@ -52,10 +52,6 @@
 
 #include "lib_common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "capture_filter.h"
 
 #include "debug.h"
@@ -64,6 +60,11 @@ extern "C" {
 #include "video_codec.h"
 
 #define MAX_TILES 16
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 struct module;
 
