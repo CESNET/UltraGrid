@@ -80,6 +80,8 @@
 #include "video.h"
 #include "video_codec.h"
 
+#include <algorithm>
+
 #define TRANSMIT_MAGIC	0xe80ab15f
 
 #define FEC_MAX_MULT 10
@@ -87,11 +89,11 @@
 #ifdef HAVE_MACOSX
 #define GET_STARTTIME gettimeofday(&start, NULL)
 #define GET_STOPTIME gettimeofday(&stop, NULL)
-#define GET_DELTA delta = (stop.tv_usec - start.tv_usec) * 1000L
+#define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + (stop.tv_usec - start.tv_usec) * 1000L
 #elif defined HAVE_LINUX
 #define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
 #define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
-#define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
+#define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
 #else // Windows
 #define GET_STARTTIME {QueryPerformanceFrequency(&freq); QueryPerformanceCounter(&start); }
 #define GET_STOPTIME { QueryPerformanceCounter(&stop); }
@@ -567,12 +569,14 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         int fec_symbol_offset = 0;
 
-        int packet_rate = tx->packet_rate;
+        long packet_rate = tx->packet_rate;
         if (packet_rate == RATE_AUTO) {
                 double time_for_frame = 1.0 / frame->fps / frame->tile_count;
                 long long req_bitrate = tile->data_len * 8 / time_for_frame * tx->mult_count;
                 // adjust computed value to 4/3
                 req_bitrate = req_bitrate / 3 * 4;
+                // prevent bitrate to be "too low"
+                req_bitrate = std::max<long long>(req_bitrate, 1000ll * 1000 * 1000);
                 packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
         }
 
@@ -651,8 +655,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 do {
                         GET_STOPTIME;
                         GET_DELTA;
-                        if (delta < 0)
-                                delta += 1000000000L;
                 } while (packet_rate - delta > 0);
 
                 /* when trippling, we need all streams goes to end */

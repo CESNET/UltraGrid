@@ -1374,7 +1374,7 @@ int udp_select_r(struct timeval *timeout, struct udp_fd_r * fd_struct)
  * @s: UDP session.
  * 
  * Return value: character string containing network address
- * associated with session @s. Returned value be freed by caller.
+ * associated with session @s. Returned value needs to be freed by caller.
  **/
 char *udp_host_addr(socket_udp * s)
 {
