@@ -57,6 +57,17 @@
 #include "config_win32.h"
 #endif
 
+#define EXIT_FAIL_USAGE        2
+#define EXIT_FAIL_UI           3
+#define EXIT_FAIL_DISPLAY      4
+#define EXIT_FAIL_CAPTURE      5
+#define EXIT_FAIL_DECODER      6
+#define EXIT_FAIL_TRANSMIT     7
+#define EXIT_FAIL_COMPRESS     8
+#define EXIT_FAIL_CONTROL_SOCK 9
+#define EXIT_FAIL_NETWORK      10
+#define EXIT_FAIL_AUDIO        11
+
 #ifdef __cplusplus
 extern "C" {
 #endif

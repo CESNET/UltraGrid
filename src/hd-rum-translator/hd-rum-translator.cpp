@@ -29,9 +29,6 @@
 #include <string>
 #include <vector>
 
-#define EXIT_FAIL_USAGE 1
-#define EXIT_INIT_PORT 3
-
 using namespace std;
 
 static pthread_t main_thread_id;
@@ -54,7 +51,7 @@ struct replica {
 };
 
 struct hd_rum_translator_state {
-    hd_rum_translator_state() : mod{}, queue(nullptr), qhead(nullptr), qtail(nullptr), qempty(1),
+    hd_rum_translator_state() : mod(), queue(nullptr), qhead(nullptr), qtail(nullptr), qempty(1),
             qfull(0), decompress(nullptr) {
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_ROOT;
@@ -211,7 +208,7 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
             fprintf(stderr, "Address not found: %s\n", host);
         else
             fprintf(stderr, "%s: %s\n", gai_strerror(err), host);
-        exit(2);
+        exit(EXIT_FAIL_NETWORK);
     }
 
     inet_ntop(AF_INET, &((struct sockaddr_in *)(void *) res->ai_addr)->sin_addr,
@@ -221,15 +218,15 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
 
     if ((s = socket(res->ai_family, res->ai_socktype, 0)) == -1) {
         perror("socket");
-        exit(2);
+        exit(EXIT_FAIL_NETWORK);
     }
 
     if (buffer_size(s, SO_SNDBUF, bufsize))
-        exit(2);
+        exit(EXIT_FAIL_NETWORK);
 
     if (connect(s, res->ai_addr, res->ai_addrlen)) {
         perror("connect");
-        exit(2);
+        exit(EXIT_FAIL_NETWORK);
     }
 
     freeaddrinfo(res);
@@ -581,7 +578,7 @@ int main(int argc, char **argv)
     }
 
     if (buffer_size(sock_in, SO_RCVBUF, bufsize))
-        exit(2);
+        exit(EXIT_FAIL_NETWORK);
 
     memset(&addr, 0, sizeof addr);
     addr.sin_family = AF_INET;
@@ -590,7 +587,7 @@ int main(int argc, char **argv)
     if (::bind(sock_in, (struct sockaddr *) &addr,
              sizeof(struct sockaddr_in))) {
         perror("bind");
-        return 2;
+        return EXIT_FAIL_NETWORK;
     }
 
     printf("listening on *:%d\n", port);
@@ -609,7 +606,7 @@ int main(int argc, char **argv)
     // we need only one shared receiver decompressor for all recompressing streams
     state.decompress = hd_rum_decompress_init(&state.mod);;
     if(!state.decompress) {
-        return EXIT_INIT_PORT;
+        return EXIT_FAIL_DECODER;
     }
 
     for (i = 0; i < host_count; i++) {
@@ -645,7 +642,7 @@ int main(int argc, char **argv)
             if(state.replicas[i]->recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
-                return EXIT_INIT_PORT;
+                return EXIT_FAILURE;
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them

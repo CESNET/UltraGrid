@@ -85,9 +85,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define EXIT_FAIL_USAGE		1
-#define EXIT_FAIL_NETWORK	5
-
 static volatile bool should_exit_audio = false;
 
 struct audio_device_t {

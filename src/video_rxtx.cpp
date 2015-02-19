@@ -156,6 +156,7 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
 }
 
 video_rxtx::~video_rxtx() {
+        module_done(CAST_MODULE(m_compression));
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 }

@@ -75,6 +75,7 @@
 #include "perf.h"
 #include "rtsp/rtsp_utils.h"
 #include "stats.h"
+#include "ug_runtime_error.h"
 #include "utils/misc.h"
 #include "utils/wait_obj.h"
 #include "video.h"
@@ -98,16 +99,6 @@
 #ifdef USE_MTRACE
 #include <mcheck.h>
 #endif
-
-#define EXIT_FAIL_USAGE        1
-#define EXIT_FAIL_UI           2
-#define EXIT_FAIL_DISPLAY      3
-#define EXIT_FAIL_CAPTURE      4
-#define EXIT_FAIL_NETWORK      5
-#define EXIT_FAIL_TRANSMIT     6
-#define EXIT_FAIL_COMPRESS     7
-#define EXIT_FAIL_DECODER      8
-#define EXIT_FAIL_CONTROL_SOCK 9
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -882,8 +873,10 @@ int main(int argc, char *argv[])
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
                         audio_codec, isStd, packet_rate);
-        if(!uv->audio)
+        if(!uv->audio) {
+                exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
+        }
 
         display_flags |= audio_get_display_flags(uv->audio);
 
@@ -896,8 +889,7 @@ int main(int argc, char *argv[])
                        requested_display);
                 exit_uv(EXIT_FAIL_DISPLAY);
                 goto cleanup;
-        }
-        if(ret > 0) {
+        } else if(ret > 0) {
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
@@ -928,8 +920,7 @@ int main(int argc, char *argv[])
                                 vidcap_params_get_driver(vidcap_params_head));
                 exit_uv(EXIT_FAIL_CAPTURE);
                 goto cleanup;
-        }
-        if(ret > 0) {
+        } else if(ret > 0) {
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
@@ -1066,6 +1057,12 @@ int main(int argc, char *argv[])
 
                 if (strcmp("none", requested_display) != 0)
                         display_run(uv->display_device);
+        } catch (ug_runtime_error const &e) {
+                cerr << e.what() << endl;
+                exit_status = e.get_code();
+        } catch (runtime_error const &e) {
+                cerr << e.what() << endl;
+                exit_status = EXIT_FAILURE;
         } catch (string const &str) {
                 cerr << str << endl;
                 exit_status = EXIT_FAILURE;

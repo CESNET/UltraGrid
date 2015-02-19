@@ -64,6 +64,7 @@
 #include "stats.h"
 #include "transmit.h"
 #include "tv.h"
+#include "ug_runtime_error.h"
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
@@ -126,7 +127,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                 ostringstream oss;
                 oss << "Requested MTU exceeds maximal value allowed by RTP library (" <<
                         RTP_MAX_PACKET_LEN << ").";
-                throw oss.str();
+                throw ug_runtime_error(oss.str(), EXIT_FAIL_USAGE);
         }
 
         m_participants = pdb_init();
@@ -145,7 +146,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
                                         m_participants, m_ipv6, m_requested_mcast_if))
                         == NULL) {
-                throw string("Unable to open network");
+                throw ug_runtime_error("Unable to open network", EXIT_FAIL_NETWORK);
         } else {
                 struct rtp **item;
                 m_connections_count = 0;
@@ -159,7 +160,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                                         static_cast<const char *>(params.at("fec").ptr),
                                         static_cast<const char *>(params.at("encryption").ptr),
                                         params.at("packet_rate").i)) == NULL) {
-                throw string("Unable to initialize transmitter");
+                throw ug_runtime_error("Unable to initialize transmitter", EXIT_FAIL_TRANSMIT);
         }
 
         // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
