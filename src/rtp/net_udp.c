@@ -357,9 +357,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
              sizeof(udpbufsize)) != 0) {
                 debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
         }
-// please note that we currently need these 2 options on MSW if we want
-// to re-bind socket on runtime, otherwise bind() would return an error if
-// binding to same port that was previously bound and closed
+#if 0
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
@@ -374,6 +372,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 socket_error("setsockopt SO_REUSEADDR");
                 goto error;
         }
+#endif
         s_in.sin_family = AF_INET;
         s_in.sin_addr.s_addr = INADDR_ANY;
         s_in.sin_port = htons(rx_port);
