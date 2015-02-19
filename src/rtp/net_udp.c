@@ -310,7 +310,9 @@ static int udp_addr_valid4(const char *dst)
 static socket_udp *udp_init4(const char *addr, const char *iface,
                              uint16_t rx_port, uint16_t tx_port, int ttl)
 {
+#ifdef USE_SO_REUSEADDR_REUSEPORT
         int reuse = 1;
+#endif
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_in s_in;
         unsigned int ifindex;
@@ -357,7 +359,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
              sizeof(udpbufsize)) != 0) {
                 debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
         }
-#if 0
+#ifdef USE_SO_REUSEADDR_REUSEPORT
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
