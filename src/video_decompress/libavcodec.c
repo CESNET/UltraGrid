@@ -59,9 +59,14 @@
 #include "video.h"
 #include "video_decompress.h"
 
+#ifdef __cplusplus
+#include <algorithm>
+using std::max;
+using std::min;
+#else
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
-
+#endif
 
 struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;

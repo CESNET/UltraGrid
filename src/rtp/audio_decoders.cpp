@@ -62,14 +62,12 @@
 
 #include "utils/packet_counter.h"
 
+#include <algorithm>
 #include <ctype.h>
 #include <time.h>
 #include <string.h>
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
-
-#define max(a, b)      (((a) > (b))? (a): (b))
-#define min(a, b)      (((a) < (b))? (a): (b))
 
 static constexpr int DEVICE_SAMPLE_RATE = 48000; // todo...
 
@@ -211,7 +209,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                         ptr = NULL;
                         // item is in format x1:y1
                         if(isdigit(item[0])) {
-                                s->channel_map.size = max(s->channel_map.size, atoi(item) + 1);
+                                s->channel_map.size = std::max(s->channel_map.size, atoi(item) + 1);
                         }
                 }
                 
@@ -252,7 +250,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                                 }
                                 s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
                         }
-                        s->channel_map.max_output = max(dst, s->channel_map.max_output);
+                        s->channel_map.max_output = std::max(dst, s->channel_map.max_output);
                 }
 
 
