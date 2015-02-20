@@ -111,7 +111,6 @@ OBJS	      = @OBJS@ \
 		src/ihdtv/ihdtv.o \
 		src/module.o \
 		src/rtsp/rtsp_utils.o \
-		src/stats.o \
 		src/utils/config_file.o \
 		src/utils/list.o \
 		src/lib_common.o \

@@ -45,8 +45,8 @@
 #include "debug.h"
 
 #include <sstream>
-#include <string>
 #include <stdexcept>
+#include <string>
 
 #include "host.h"
 #include "lib_common.h"
@@ -114,7 +114,8 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
                 m_rxtx_mode(params.at("rxtx_mode").i), m_compression(nullptr),
-                m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)) {
+                m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
+                m_frames(0), m_t0(std::chrono::steady_clock::now()) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
@@ -196,9 +197,15 @@ void *video_rxtx::sender_loop() {
 
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
 
-        struct module *control_mod = get_module(get_root_module(&m_sender_mod), "control");
-        struct stats *stat_data_sent = stats_new_statistics((struct control_state *)
-                        control_mod, "data");
+        stats<int_fast64_t> stat_sendbytes(&m_sender_mod, "sendbytes");
+        stats<double> stat_inexpected(&m_sender_mod, "inexpected");
+        /**
+         * @todo
+         * Theset 3 values should be 3 distinct values in future.
+         */
+        stats<double> stat_inactual(&m_sender_mod, "inactual");
+        stats<double> stat_outexpected(&m_sender_mod, "outexpected");
+        stats<double> stat_outactual(&m_sender_mod, "outactual");
 
         while(1) {
                 check_sender_messages();
@@ -212,12 +219,26 @@ void *video_rxtx::sender_loop() {
                 video_export(m_video_exporter, tx_frame.get());
 
                 if (!m_paused) {
+                        stat_inexpected.update(tx_frame->fps);
                         send_frame(tx_frame);
+
+                        m_frames += 1;
+                        std::chrono::steady_clock::time_point curr_time =
+                                std::chrono::steady_clock::now();
+                        double seconds =
+                                std::chrono::duration_cast<std::chrono::duration<double>>(curr_time - m_t0).count();
+                        if (seconds >= 5.0) {
+                                double fps = m_frames / seconds;
+                                stat_inactual.update(fps);
+                                stat_outexpected.update(fps);
+                                stat_outactual.update(fps);
+                                m_t0 = curr_time;
+                                m_frames = 0;
+                        }
 
                         rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
                         if (rtp_rxtx) {
-                                stats_update_int(stat_data_sent,
-                                                rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
+                                stat_sendbytes.update(rtp_get_bytes_sent(rtp_rxtx->m_network_devices[0]));
                         }
                 }
         }
@@ -225,8 +246,6 @@ void *video_rxtx::sender_loop() {
 exit:
         module_done(CAST_MODULE(m_compression));
         m_compression = nullptr;
-
-        stats_destroy(stat_data_sent);
 
         return NULL;
 }

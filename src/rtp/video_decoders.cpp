@@ -80,12 +80,14 @@
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
+#include "module.h"
 #include "perf.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
+#include "stats.h"
 #include "utils/synchronized_queue.h"
 #include "utils/timed_message.h"
 #include "video.h"
@@ -262,6 +264,7 @@ struct state_video_decoder
         // for statistics
         /// @{
         volatile unsigned long int displayed, dropped, corrupted, missing;
+        shared_ptr<struct stats<int_fast64_t>> s_total_frames, s_corrupt_frames, s_displayed_frames;
         volatile unsigned long int fec_ok, fec_nok;
         long int last_buffer_number;
         /// @}
@@ -430,7 +433,7 @@ static void *fec_thread(void *args) {
                                         } else if (!corrupted_frame_counted) {
                                                 corrupted_frame_counted = true;
                                                 // count it here because decoder accepts corrupted frames
-                                                decoder->corrupted++;
+                                                decoder->s_corrupt_frames->update(++decoder->corrupted);
                                         }
                                         verbose_msg("\n");
                                 }
@@ -445,8 +448,9 @@ static void *fec_thread(void *args) {
 
 cleanup:
                 if(ret == FALSE) {
-                        decoder->corrupted++;
+                        decoder->s_corrupt_frames->update(decoder->corrupted++);
                         decoder->dropped++;
+                        decoder->s_total_frames->update(decoder->displayed + decoder->missing + decoder->dropped);
                 }
         }
 
@@ -556,7 +560,8 @@ static void *decompress_thread(void *args) {
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
-                                decoder->displayed++;
+                                decoder->s_displayed_frames->update(++decoder->displayed);
+                                decoder->s_total_frames->update(decoder->displayed + decoder->missing + decoder->dropped);
                         } else {
                                 decoder->dropped++;
                         }
@@ -656,6 +661,10 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                 delete s;
                 return NULL;
         }
+
+        s->s_total_frames = shared_ptr<struct stats<int_fast64_t>>(new stats<int_fast64_t>(parent, "totalframes"));
+        s->s_corrupt_frames = shared_ptr<struct stats<int_fast64_t>>(new stats<int_fast64_t>(parent, "corruptframes"));
+        s->s_displayed_frames = shared_ptr<struct stats<int_fast64_t>>(new stats<int_fast64_t>(parent, "displayedframes"));
 
         return s;
 }

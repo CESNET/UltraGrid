@@ -22,10 +22,10 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "messaging.h"
 #include "module.h"
-#include "stats.h"
 #include "utils/misc.h"
 #include "tv.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -51,8 +51,8 @@ struct replica {
 };
 
 struct hd_rum_translator_state {
-    hd_rum_translator_state() : mod(), queue(nullptr), qhead(nullptr), qtail(nullptr), qempty(1),
-            qfull(0), decompress(nullptr) {
+    hd_rum_translator_state() : mod(), control_state(nullptr), queue(nullptr), qhead(nullptr),
+            qtail(nullptr), qempty(1), qfull(0), decompress(nullptr) {
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_ROOT;
         pthread_mutex_init(&qempty_mtx, NULL);
@@ -68,6 +68,7 @@ struct hd_rum_translator_state {
         module_done(&mod);
     }
     struct module mod;
+    struct control_state *control_state;
     struct item *queue;
     struct item *qhead;
     struct item *qtail;
@@ -125,6 +126,7 @@ static void replica_init(struct replica *s, const char *addr, int tx_port, int b
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_PORT;
         s->mod.priv_data = s;
+        s->mod.id = lrand48();
         module_register(&s->mod, parent);
 }
 
@@ -254,6 +256,17 @@ void change_replica_type(struct hd_rum_translator_state *s,
             r->type == replica::type_t::RECOMPRESS);
 }
 
+static void update_mapping(struct hd_rum_translator_state *s)
+{
+        map<uint32_t, int> mapping;
+        int i = 0;
+        for (auto && r : s->replicas) {
+            mapping[r->mod.id] = i++;
+        }
+
+        control_replace_port_mapping(s->control_state, move(mapping));
+}
+
 static void *writer(void *arg)
 {
     struct hd_rum_translator_state *s =
@@ -277,6 +290,7 @@ static void *writer(void *arg)
                 replica_done(s->replicas[index]);
                 delete s->replicas[index];
                 s->replicas.erase(s->replicas.begin() + index);
+                update_mapping(s);
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
                 s->replicas.push_back(new replica());
                 struct replica *rep = s->replicas[s->replicas.size() - 1];
@@ -286,6 +300,7 @@ static void *writer(void *arg)
                 int tx_port = atoi(strtok_r(NULL, " ", &save_ptr));
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 replica_init(rep, host, tx_port, 100*1000, &s->mod);
+                update_mapping(s);
                 if (compress) {
                     rep->type = replica::type_t::RECOMPRESS;
                     char *fec = NULL;
@@ -494,7 +509,6 @@ int main(int argc, char **argv)
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
-    struct control_state *control_state = NULL;
 #ifdef WIN32
     WSADATA wsaData;
 
@@ -597,11 +611,11 @@ int main(int argc, char **argv)
         rep = new replica();
     }
 
-    if(control_init(control_port, control_connection_type, &control_state, &state.mod) != 0) {
+    if(control_init(control_port, control_connection_type, &state.control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
         return EXIT_FAILURE;
     }
-    control_start(control_state);
+    control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
     state.decompress = hd_rum_decompress_init(&state.mod);;
@@ -650,20 +664,16 @@ int main(int argc, char **argv)
             hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, true);
         }
     }
+    update_mapping(&state);
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
         fprintf(stderr, "cannot create writer thread\n");
         return 2;
     }
 
-    struct stats *stat_received = stats_new_statistics(
-            control_state,
-            "received");
     uint64_t received_data = 0;
-    struct timeval t0, t;
-    struct timeval t_report;
+    struct timeval t0;
     gettimeofday(&t0, NULL);
-    gettimeofday(&t_report, NULL);
 
     unsigned long long int last_data = 0ull;
 
@@ -681,17 +691,14 @@ int main(int argc, char **argv)
             pthread_cond_signal(&state.qempty_cond);
             pthread_mutex_unlock(&state.qempty_mtx);
 
+            struct timeval t;
             gettimeofday(&t, NULL);
-            if(tv_diff(t, t0) > 1.0) {
-                stats_update_int(stat_received, received_data);
-                t0 = t;
-            }
-            double seconds = tv_diff(t, t_report);
+            double seconds = tv_diff(t, t0);
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
                 fprintf(stderr, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
-                t_report = t;
+                t0 = t;
                 last_data = received_data;
             }
         }
@@ -720,8 +727,6 @@ int main(int argc, char **argv)
     pthread_cond_signal(&state.qempty_cond);
     pthread_mutex_unlock(&state.qempty_mtx);
 
-    stats_destroy(stat_received);
-
     pthread_join(thread, NULL);
 
     if(state.decompress) {
@@ -733,7 +738,7 @@ int main(int argc, char **argv)
         delete state.replicas[i];
     }
 
-    control_done(control_state);
+    control_done(state.control_state);
 
 #ifdef WIN32
     WSACleanup();

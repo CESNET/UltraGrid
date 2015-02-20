@@ -72,12 +72,13 @@
 #include "video_rxtx/ultragrid_rtp.h"
 #include "utils/worker.h"
 
+#include <chrono>
 #include <utility>
 
 using namespace std;
 
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &params) :
-        rtp_video_rxtx(params)
+        rtp_video_rxtx(params), m_stat_nanoperframeactual((struct module *) params.at("parent").ptr, "nanoperframeactual"), m_t0(std::chrono::steady_clock::now()), m_duration(std::chrono::nanoseconds::zero()), m_frames(0)
 {
         if ((params.at("postprocess").ptr != NULL &&
                                 strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
@@ -142,6 +143,7 @@ void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
 
 void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame)
 {
+        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         lock_guard<mutex> lock(m_network_devices_lock);
 
         if (m_connections_count == 1) { /* normal case - only one connection */
@@ -163,8 +165,21 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 
         m_async_sending_lock.lock();
         m_async_sending = false;
-        m_async_sending_cv.notify_all();
         m_async_sending_lock.unlock();
+        m_async_sending_cv.notify_all();
+
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+        m_frames += 1;
+        m_duration += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0);
+        auto seconds =
+                std::chrono::duration_cast<std::chrono::duration<double>>(t1 - m_t0).count();
+        if (seconds >= 5.0) {
+                m_stat_nanoperframeactual.update(m_duration.count() / m_frames);
+                m_t0 = t1;
+                m_frames = 0;
+                m_duration = std::chrono::nanoseconds::zero();
+        }
+
 }
 
 void ultragrid_rtp_video_rxtx::receiver_process_messages()
@@ -279,14 +294,9 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
-        struct module *control_mod = get_module(get_root_module(&m_sender_mod), "control");
-        struct stats *stat_loss = stats_new_statistics(
-                        (struct control_state *) control_mod,
-                        "loss");
-        struct stats *stat_received = stats_new_statistics(
-                        (struct control_state *) control_mod,
-                        "received");
-        uint64_t total_received = 0ull;
+        stats<int_fast64_t> stat_loss(&m_sender_mod, "loss");
+        stats<int_fast64_t> stat_expectedpacket(&m_sender_mod, "expectedpacket");
+        stats<int_fast64_t> stat_receivedpacket(&m_sender_mod, "receivedpacket");
 
         while (!should_exit_receiver) {
                 struct timeval timeout;
@@ -315,8 +325,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
                 }
-                total_received += ret;
-                stats_update_int(stat_received, total_received);
 
                 /* Decode and render for each participant in the conference... */
                 pdb_iter_t it;
@@ -380,9 +388,12 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 }
                                 last_tile_received = curr_time;
                                 uint32_t sender_ssrc = cp->ssrc;
-                                stats_update_int(stat_loss,
-                                                rtp_compute_fract_lost(m_network_devices[0],
+                                stat_loss.update(rtp_compute_fract_lost(m_network_devices[0],
                                                         sender_ssrc));
+                                int expected_pkts, received_pkts;
+                                pbuf_get_packet_count(cp->playout_buffer, &expected_pkts, &received_pkts);
+                                stat_receivedpacket.update(received_pkts);
+                                stat_expectedpacket.update(expected_pkts);
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */
@@ -432,9 +443,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         // pass posioned pill to display
         display_put_frame(m_display_device, NULL, PUTF_BLOCKING);
-
-        stats_destroy(stat_loss);
-        stats_destroy(stat_received);
 
         return 0;
 }

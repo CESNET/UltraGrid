@@ -61,7 +61,6 @@
 #include "rtp/pbuf.h"
 #include "rtp/rtp_callback.h"
 #include "tfrc.h"
-#include "stats.h"
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.h"

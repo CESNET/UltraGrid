@@ -93,6 +93,7 @@ struct pbuf {
         int last_rtp_seq;
         int should_arrived;
         int cumulative_count;
+        int last_received, last_expected;
         uint32_t last_display_ts;
 };
 
@@ -302,6 +303,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                                 playout_buf->cumulative_count,
                                 (double) playout_buf->cumulative_count /
                                 playout_buf->should_arrived * 100.0);
+                playout_buf->last_received = playout_buf->cumulative_count;
+                playout_buf->last_expected = playout_buf->should_arrived;
                 playout_buf->should_arrived =
                         playout_buf->cumulative_count = 0;
                 playout_buf->last_display_ts = pkt->ts;
@@ -468,5 +471,12 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
 void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 {
         playout_buf->playout_delay = playout_delay;
+}
+
+void pbuf_get_packet_count(struct pbuf *playout_buf, int *expected_pkts, int *received_pkts)
+{
+        *expected_pkts = playout_buf->last_expected;
+        *received_pkts = playout_buf->last_received;
+
 }
 

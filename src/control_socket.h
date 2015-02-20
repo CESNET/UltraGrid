@@ -45,13 +45,14 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#ifndef control_socket_h_
+#define control_socket_h_
+
+#include <map>
 
 struct control_state;
 struct module;
-struct stats;
+struct stats_reportable;
 
 #define CONTROL_DEFAULT_PORT 5054
 
@@ -61,10 +62,9 @@ struct stats;
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module);
 void control_start(struct control_state *state);
 void control_done(struct control_state *s);
-void control_add_stats(struct control_state *state, struct stats *stats);
-void control_remove_stats(struct control_state *state, struct stats *stats);
+void control_add_stats(struct control_state *state, struct stats_reportable *stats, int32_t port_id = -1);
+void control_remove_stats(struct control_state *state, struct stats_reportable *stats);
+void control_replace_port_mapping(struct control_state *state, std::map<uint32_t, int> &&);
 
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+#endif // control_socket_h_
 

@@ -38,9 +38,10 @@
 #ifndef VIDEO_RXTX_H_
 #define VIDEO_RXTX_H_
 
+#include <chrono>
 #include <map>
-#include <string>
 #include <memory>
+#include <string>
 
 #include "module.h"
 
@@ -105,6 +106,8 @@ private:
         struct compress_state *m_compression;
         pthread_mutex_t m_lock;
         struct video_export *m_video_exporter;
+        int m_frames;
+        std::chrono::steady_clock::time_point m_t0;
 
         pthread_t m_thread_id;
 };

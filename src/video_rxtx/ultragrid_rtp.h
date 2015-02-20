@@ -38,6 +38,7 @@
 #ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_
 #define VIDEO_RXTX_ULTRAGRID_RTP_H_
 
+#include "stats.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
 
@@ -82,6 +83,11 @@ private:
         std::condition_variable m_async_sending_cv;
         std::mutex       m_async_sending_lock;
         /// @}
+
+        stats<std::chrono::nanoseconds::rep> m_stat_nanoperframeactual;
+        std::chrono::steady_clock::time_point m_t0;
+        std::chrono::nanoseconds m_duration;
+        int m_frames;
 };
 
 video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params);
