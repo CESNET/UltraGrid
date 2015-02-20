@@ -12,6 +12,7 @@
 #define __USE_GNU 1
 #include <pthread.h>
 #include <fcntl.h>
+#include <sched.h>
 
 
 #define SIZE    10000
@@ -252,7 +253,7 @@ int main(int argc, char **argv)
                    || (err = errno) == EAGAIN)) {
 
             if (qtail->size <= 0) {
-                pthread_yield();
+                sched_yield();
             }
             else {
                 qtail = qtail->next;
