@@ -1516,6 +1516,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                                                       FALSE);
                                         s = get_source(session, packet->ssrc);
                                 }
+                                update_seq(s, packet->seq);
                                 process_rtp(session, curr_rtp_ts, packet, s);
                                 return; /* We don't free "packet", that's done by the callback function... */
                         }
