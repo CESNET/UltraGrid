@@ -14,7 +14,7 @@ NVCCFLAGS     = @NVCCFLAGS@ -gencode arch=compute_20,code=sm_20 -gencode arch=co
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
-INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @CURSES_CFLAGS@ @CUDA_INC@ @AJA_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
