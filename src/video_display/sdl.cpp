@@ -336,7 +336,9 @@ void display_sdl_run(void *arg)
                 }
 
                 if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
-                        display_sdl_reconfigure_real(s, video_desc_from_frame(frame));
+                        if (!display_sdl_reconfigure_real(s, video_desc_from_frame(frame))) {
+                                goto free_frame;
+                        }
                 }
 
                 if (codec_is_a_rgb(frame->color_spec)) {
@@ -370,6 +372,7 @@ void display_sdl_run(void *arg)
                         SDL_DisplayYUVOverlay(s->yuv_image, &s->dst_rect);
 		}
 
+free_frame:
                 s->lock.lock();
                 s->free_frame_queue.push(frame);
                 s->lock.unlock();
