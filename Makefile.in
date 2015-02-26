@@ -472,6 +472,7 @@ bundle-nolib: all
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
+	make -C hd-rum-multi; cp hd-rum-multi/hd-rum bin
 
 bundle: bundle-nolib
 	@if `which dylibbundler`; then \
