@@ -17,6 +17,7 @@
 #include <fcntl.h>
 
 #include "control_socket.h"
+#include "crypto/random.h"
 #include "host.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
