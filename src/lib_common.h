@@ -56,6 +56,7 @@
 #define TOSTRING(x) STRINGIFY(x)
 
 #ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
 /** This macro tells that the module may be statically linked as well as
  * a standalone module. */
 #define MK_NAME(A) NULL, #A
