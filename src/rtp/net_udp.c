@@ -1258,6 +1258,10 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
                 while (rc == 0 && s->queue_head == s->queue_tail) {
                         rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                 }
+        } else {
+                while (s->queue_head == s->queue_tail) {
+                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock);
+                }
         }
         ret = (s->queue_head != s->queue_tail);
         pthread_mutex_unlock(&s->lock);
