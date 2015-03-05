@@ -4,8 +4,10 @@
  * MODIFIED: Orion Hodson & Piers O'Hanlon
  *           David Cassany   <david.cassany@i2cat.net>
  *           Gerard Castillo <gerard.castillo@i2cat.net>
+ *           Martin Pulec    <pulec@cesnet.cz>
  * 
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2005-2015 CESNET z.s.p.o.
  * Copyright (c) 1998-2000 University College London
  * All rights reserved.
  *
@@ -35,10 +37,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- * 
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
- *
  */
 
 /* If this machine supports IPv6 the symbol HAVE_IPv6 should */
@@ -60,6 +58,14 @@
 #include "addrinfo.h"
 #endif
 
+#include <condition_variable>
+#include <chrono>
+#include <mutex>
+
+using std::condition_variable;
+using std::mutex;
+using std::unique_lock;
+
 #define MAX_UDP_READER_QUEUE_LEN 10
 
 static int resolve_address(socket_udp *s, const char *addr);
@@ -70,6 +76,12 @@ static void *udp_reader(void *arg);
 
 #ifdef WIN2K_IPV6
 const struct in6_addr in6addr_any = { IN6ADDR_ANY_INIT };
+#endif
+
+#ifdef WIN32
+typedef char *sockopt_t;
+#else
+typedef void *sockopt_t;
 #endif
 
 /* This is pretty nasty but it's the simplest way to get round */
@@ -132,9 +144,9 @@ struct _socket_udp {
         struct item queue[MAX_UDP_READER_QUEUE_LEN];
         struct item *queue_head;
         struct item *queue_tail;
-        pthread_mutex_t lock;
-        pthread_cond_t boss_cv;
-        pthread_cond_t reader_cv;
+        mutex lock;
+        condition_variable boss_cv;
+        condition_variable reader_cv;
 #ifdef WIN32
         WSAOVERLAPPED *overlapped;
         WSAEVENT *overlapped_events;
@@ -316,7 +328,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_in s_in;
         unsigned int ifindex;
-        socket_udp *s = (socket_udp *) calloc(1, sizeof(socket_udp));
+        socket_udp *s = new socket_udp();
         s->mode = IPv4;
         s->addr = NULL;
         s->rx_port = rx_port;
@@ -460,7 +472,7 @@ static void udp_exit4(socket_udp * s)
         }
         close(s->fd);
         free(s->addr);
-        free(s);
+        delete s;
 }
 
 static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
@@ -539,7 +551,7 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count, vo
 
 static char *udp_host_addr4(void)
 {
-        char *hname = calloc(MAXHOSTNAMELEN + 1, 1);
+        char *hname = (char *) calloc(MAXHOSTNAMELEN + 1, 1);
         struct hostent *hent;
         struct in_addr iaddr;
 
@@ -562,14 +574,14 @@ int udp_set_recv_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const void *)&size,
+        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const sockopt_t)&size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (void *)&opt,
+        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 perror("Unable to get socket buffer size");
                 return FALSE;
@@ -588,14 +600,14 @@ int udp_set_send_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (const void *)&size,
+        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (const sockopt_t)&size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (void *)&opt,
+        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 perror("Unable to get socket buffer size");
                 return FALSE;
@@ -820,7 +832,7 @@ static void udp_exit6(socket_udp * s)
         }
         close(s->fd);
         free(s->addr);
-        free(s);
+        delete s;
 #else
         UNUSED(s);
 #endif                          /* HAVE_IPv6 */
@@ -899,7 +911,7 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count, void *d)
 static char *udp_host_addr6(socket_udp * s)
 {
 #ifdef HAVE_IPv6
-        char *hname = calloc(MAXHOSTNAMELEN + 1, 1);
+        char *hname = (char *) calloc(MAXHOSTNAMELEN + 1, 1);
         int gai_err, newsock;
         struct addrinfo hints, *ai;
         struct sockaddr_in6 local, addr6;
@@ -1057,9 +1069,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         res->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = res->queue;
                         res->queue_head = res->queue_tail = res->queue;
 
-                        pthread_mutex_init(&res->lock, NULL);
-                        pthread_cond_init(&res->boss_cv, NULL);
-                        pthread_cond_init(&res->reader_cv, NULL);
                         pthread_create(&res->thread_id, NULL, udp_reader, res);
                 }
         }
@@ -1103,9 +1112,6 @@ void udp_exit(socket_udp * s)
                 closesocket(s->fd);
 #endif
                 pthread_join(s->thread_id, NULL);
-                pthread_cond_destroy(&s->reader_cv);
-                pthread_cond_destroy(&s->boss_cv);
-                pthread_mutex_destroy(&s->lock);
                 while (s->queue_tail != s->queue_head) {
                         free(s->queue_tail->buf);
                         s->queue_tail = s->queue_tail->next;
@@ -1177,22 +1183,21 @@ static void *udp_reader(void *arg)
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 
                 pthread_testcancel();
-                int size = recvfrom(s->fd, buffer,
+                int size = recvfrom(s->fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
                 pthread_testcancel();
 
-                pthread_mutex_lock(&s->lock);
-                while (s->queue_head->next == s->queue_tail) {
-                        pthread_cond_wait(&s->reader_cv, &s->lock);
-                }
+
+                unique_lock<mutex> lk(s->lock);
+                s->reader_cv.wait(lk, [s]{return s->queue_head->next != s->queue_tail;});
 
                 s->queue_head->size = size;
                 s->queue_head->buf = packet;
                 s->queue_head = s->queue_head->next;
 
-                pthread_cond_signal(&s->boss_cv);
-                pthread_mutex_unlock(&s->lock);
+                lk.unlock();
+                s->boss_cv.notify_one();
         }
 
         return NULL;
@@ -1237,35 +1242,19 @@ int udp_peek(socket_udp * s, char *buffer, int buflen)
 
 bool udp_not_empty(socket_udp * s, struct timeval *timeout)
 {
-        bool ret, rc = 0;
-        struct timespec ts;
+        std::chrono::microseconds tmout_us;
 
         if (timeout) {
-                struct timeval tp;
-                // get time for timeout
-                gettimeofday(&tp, NULL);
-
-                /* Convert from timeval to timespec */
-                ts.tv_sec  = tp.tv_sec + timeout->tv_sec;
-                ts.tv_nsec = (tp.tv_usec + timeout->tv_usec) * 1000;
-                // make it correct
-                ts.tv_sec += ts.tv_nsec / 1000000000;
-                ts.tv_nsec = ts.tv_nsec % 1000000000;
+                tmout_us = std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
         }
 
-        pthread_mutex_lock(&s->lock);
+        unique_lock<mutex> lk(s->lock);
         if (timeout) {
-                while (rc == 0 && s->queue_head == s->queue_tail) {
-                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
-                }
+                s->boss_cv.wait_for(lk, tmout_us, [s]{return s->queue_head != s->queue_tail;});
         } else {
-                while (s->queue_head == s->queue_tail) {
-                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock);
-                }
+                s->boss_cv.wait(lk, [s]{return s->queue_head != s->queue_tail;});
         }
-        ret = (s->queue_head != s->queue_tail);
-        pthread_mutex_unlock(&s->lock);
-        return ret;
+        return (s->queue_head != s->queue_tail);
 }
 
 /**
@@ -1290,15 +1279,14 @@ int udp_recv(socket_udp * s, char *buffer, int buflen)
 int udp_recv_data(socket_udp * s, char **buffer)
 {
         int ret;
-        pthread_mutex_lock(&s->lock);
+        unique_lock<mutex> lk(s->lock);
 
         *buffer = (char *) s->queue_tail->buf;
         ret = s->queue_tail->size;
         s->queue_tail->buf = NULL;
         s->queue_tail = s->queue_tail->next;
-        pthread_cond_signal(&s->reader_cv);
-
-        pthread_mutex_unlock(&s->lock);
+        lk.unlock();
+        s->reader_cv.notify_one();
 
         return ret;
 }
@@ -1468,9 +1456,9 @@ void udp_async_start(socket_udp *s, int nr_packets)
 {
 #ifdef WIN32
         if (nr_packets > s->overlapped_max) {
-                s->overlapped = realloc(s->overlapped, nr_packets * sizeof(WSAOVERLAPPED));
-                s->overlapped_events = realloc(s->overlapped_events, nr_packets * sizeof(WSAEVENT));
-                s->dispose_udata = realloc(s->dispose_udata, nr_packets * sizeof(void *));
+                s->overlapped = (OVERLAPPED *) realloc(s->overlapped, nr_packets * sizeof(WSAOVERLAPPED));
+                s->overlapped_events = (void **) realloc(s->overlapped_events, nr_packets * sizeof(WSAEVENT));
+                s->dispose_udata = (void **) realloc(s->dispose_udata, nr_packets * sizeof(void *));
                 for (int i = s->overlapped_max; i < nr_packets; ++i) {
                         memset(&s->overlapped[i], 0, sizeof(WSAOVERLAPPED));
                         s->overlapped[i].hEvent = s->overlapped_events[i] = WSACreateEvent();
