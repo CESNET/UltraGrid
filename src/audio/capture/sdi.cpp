@@ -1,35 +1,26 @@
+/**
+ * @file   audio/capture/sdi.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/capture/sdi.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2015 CESNET, z. s.p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -59,6 +48,9 @@
 #include "debug.h"
 #include "host.h"
 
+#include <condition_variable>
+#include <chrono>
+#include <mutex>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,10 +58,16 @@
 #define FRAME_NETWORK 0
 #define FRAME_CAPTURE 1
 
+using std::condition_variable;
+using std::cv_status;
+using std::chrono::milliseconds;
+using std::mutex;
+using std::unique_lock;
+
 struct state_sdi_capture {
         struct audio_frame audio_frame[2];
-        pthread_mutex_t lock;
-        pthread_cond_t  audio_frame_ready_cv;
+        mutex lock;
+        condition_variable audio_frame_ready_cv;
 };
 
 void * sdi_capture_init(char *cfg)
@@ -83,41 +81,18 @@ void * sdi_capture_init(char *cfg)
                                 "to be taken audio from.\n");
                 return &audio_init_state_ok;
         }
-        struct state_sdi_capture *s;
         
-        s = (struct state_sdi_capture *) calloc(1, sizeof(struct state_sdi_capture));
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->audio_frame_ready_cv, NULL);
-        
-        return s;
+        return new state_sdi_capture();
 }
 
 struct audio_frame * sdi_read(void *state)
 {
-        struct state_sdi_capture *s;
-        int             rc = 0;
-        struct timespec ts;
-        struct timeval  tp;
+        struct state_sdi_capture *s = (struct state_sdi_capture *) state;
 
-        
-        s = (struct state_sdi_capture *) state;
+        unique_lock<mutex> lk(s->lock);
+        bool rc = s->audio_frame_ready_cv.wait_for(lk, milliseconds(100), [s]{return s->audio_frame[FRAME_CAPTURE].data_len > 0;});
 
-        gettimeofday(&tp, NULL);
-        ts.tv_sec  = tp.tv_sec;
-        ts.tv_nsec = tp.tv_usec * 1000;
-        ts.tv_nsec += 100 * 1000 * 1000;
-        // make it correct
-        ts.tv_sec += ts.tv_nsec / 1000000000;
-        ts.tv_nsec = ts.tv_nsec % 1000000000;
-
-
-        pthread_mutex_lock(&s->lock);
-        while (rc == 0 && s->audio_frame[FRAME_CAPTURE].data_len == 0) {
-                rc = pthread_cond_timedwait(&s->audio_frame_ready_cv, &s->lock, &ts);
-        }
-
-        if (rc != 0) {
-                pthread_mutex_unlock(&s->lock);
+        if (rc == false) {
                 return NULL;
         }
 
@@ -128,7 +103,6 @@ struct audio_frame * sdi_read(void *state)
         memcpy(&tmp, &s->audio_frame[FRAME_CAPTURE], sizeof(struct audio_frame));
         memcpy(&s->audio_frame[FRAME_CAPTURE], &s->audio_frame[FRAME_NETWORK], sizeof(struct audio_frame));
         memcpy(&s->audio_frame[FRAME_NETWORK], &tmp, sizeof(struct audio_frame));
-        pthread_mutex_unlock(&s->lock);
 
         return &s->audio_frame[FRAME_NETWORK];
 }
@@ -141,8 +115,6 @@ void sdi_capture_done(void *state)
         for(int i = 0; i < 2; ++i) {
                 free(s->audio_frame[i].data);
         }
-        pthread_mutex_destroy(&s->lock);
-        pthread_cond_destroy(&s->audio_frame_ready_cv);
 }
 
 void sdi_capture_help(const char *driver_name)
@@ -164,7 +136,7 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         
         s = (struct state_sdi_capture *) state;
 
-        pthread_mutex_lock(&s->lock);
+        unique_lock<mutex> lk(s->lock);
 
         if(
                         s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
@@ -185,15 +157,15 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
                 if (needed_size > (int) s->audio_frame[FRAME_CAPTURE].max_size) {
                         free(s->audio_frame[FRAME_CAPTURE].data);
                         s->audio_frame[FRAME_CAPTURE].max_size = needed_size;
-                        s->audio_frame[FRAME_CAPTURE].data = malloc(needed_size);
+                        s->audio_frame[FRAME_CAPTURE].data = (char *) malloc(needed_size);
                 }
                 memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
                                 frame->data, frame->data_len);
                 s->audio_frame[FRAME_CAPTURE].data_len += frame->data_len;
         }
 
-        pthread_cond_signal(&s->audio_frame_ready_cv);
-        pthread_mutex_unlock(&s->lock);
+        lk.unlock();
+        s->audio_frame_ready_cv.notify_one();
 }
 
 /* vim: set expandtab: sw=8 */

@@ -13,6 +13,11 @@ struct wav_metadata {
 #define WAV_HDR_PARSE_READ_ERROR   1
 #define WAV_HDR_PARSE_WRONG_FORMAT 2
 #define WAV_HDR_PARSE_NOT_PCM      3
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * This function reads wav header
  *
@@ -27,4 +32,8 @@ struct wav_metadata {
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata);
 
 void print_wav_error(int errcode);
+
+#ifdef __cplusplus
+}
+#endif
 

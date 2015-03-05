@@ -73,7 +73,12 @@
 #else
 #include "DeckLinkAPI.h" /* From DeckLink SDK */
 #endif
+
 #include "DeckLinkAPIVersion.h" /* From DeckLink SDK */
+
+#include <condition_variable>
+#include <chrono>
+#include <mutex>
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
 
@@ -84,6 +89,7 @@
 #endif
 
 using namespace std;
+using namespace std::chrono;
 
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
@@ -111,9 +117,8 @@ struct vidcap_decklink_state {
         codec_t                 codec;
         BMDVideoInputFlags flags;
 
-	pthread_mutex_t	 	lock;
-	pthread_cond_t	 	boss_cv;
-	int		 	boss_waiting;
+        mutex                   lock;
+	condition_variable      boss_cv;
 
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
@@ -177,7 +182,7 @@ public:
 
                 printf("[DeckLink] Format change detected.\n");
 
-                pthread_mutex_lock(&(s->lock));
+                unique_lock<mutex> lk(s->lock);
                 switch(flags) {
                         case bmdDetectedVideoInputYCbCr422:
                                 s->codec = UYVY;
@@ -208,7 +213,6 @@ public:
                         //deckLinkInput->SetCallback(s->state[i].delegate);
                         deckLinkInput->StartStreams();
                 }
-                pthread_mutex_unlock(&(s->lock));
 
                 return result;
 	}
@@ -227,7 +231,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
         bool noSignal = false;
 	// Video
 
-	pthread_mutex_lock(&(s->lock));
+	unique_lock<mutex> lk(s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
 	if (videoFrame)
@@ -307,12 +311,10 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 }
         }
 
-	if (s->boss_waiting) {
-		pthread_cond_signal(&(s->boss_cv));
-	}
+        lk.unlock();
+        s->boss_cv.notify_one();
 	
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
-	pthread_mutex_unlock(&(s->lock));
 
 	debug_msg("VideoInputFrameArrived - END\n"); /* TOREMOVE */
 
@@ -751,7 +753,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
         }
 
 
-	s = (struct vidcap_decklink_state *) calloc(1, sizeof(struct vidcap_decklink_state));
+	s = new vidcap_decklink_state();
 	if (s == NULL) {
 		//printf("Unable to allocate DeckLink state\n",fps);
 		printf("Unable to allocate DeckLink state\n");
@@ -772,19 +774,13 @@ vidcap_decklink_init(const struct vidcap_params *params)
         int ret = settings_init(s, tmp_fmt);
         free(tmp_fmt);
 	if(ret == 0) {
-		free(s);
+                delete s;
 		return NULL;
 	}
 	if(ret == -1) {
-		free(s);
+                delete s;
 		return &vidcap_init_noerr;
 	}
-
-        // init mutex
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-
-        s->boss_waiting = FALSE;
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
@@ -1120,11 +1116,8 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
 
         free(s->audio.data);
 
-        pthread_mutex_destroy(&s->lock);
-        pthread_cond_destroy(&s->boss_cv);
-
         vf_free(s->frame);
-        free(s);
+        delete s;
 }
 
 void
@@ -1226,13 +1219,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         int                             i;
         bool				frame_ready = true;
 	
-	int		rc;
-	struct timespec	ts;
-	struct timeval	tp;
-
 	int timeout = 0;
 
-	pthread_mutex_lock(&s->lock);
+	unique_lock<mutex> lk(s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
 	debug_msg("vidcap_decklink_grab - before while\n"); /* TOREMOVE */
@@ -1241,43 +1230,28 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
         while(tiles_total != s->devices_cnt) {
 	//while (!s->state[0].delegate->newFrameReady) {
-                rc = 0;
+                cv_status rc = cv_status::no_timeout;
 		debug_msg("vidcap_decklink_grab - pthread_cond_timedwait\n"); /* TOREMOVE */
+                steady_clock::time_point t0(steady_clock::now());
 
-		// get time for timeout
-		gettimeofday(&tp, NULL);
-
-		/* Convert from timeval to timespec */
-		ts.tv_sec  = tp.tv_sec;
-		ts.tv_nsec = tp.tv_usec * 1000;
-		ts.tv_nsec += 2 * s->next_frame_time * 1000;
-		// make it correct
-		ts.tv_sec += ts.tv_nsec / 1000000000;
-		ts.tv_nsec = ts.tv_nsec % 1000000000;
-
-		debug_msg("vidcap_decklink_grab - current time: %02d:%03d\n",tp.tv_sec, tp.tv_usec/1000); /* TOREMOVE */
-
-                while(rc == 0  /*  not pthread_cond_timewait timeout AND */
+                while(rc == cv_status::no_timeout
                                 && tiles_total != s->devices_cnt /* not all tiles */
                                 && !timeout) {
-                        s->boss_waiting = TRUE;
-                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
-                        s->boss_waiting = FALSE;
+                        rc = s->boss_cv.wait_for(lk, microseconds(2 * s->next_frame_time));
                         // recompute tiles count
                         tiles_total = nr_frames(s);
 
                         // this is for the case of multiple tiles (eg. when one tile is persistently
                         // missing, eg. 01301301. Therefore, pthread_cond_timewait doesn't timeout but
                         // actual timeout time has reached.
-                        struct timeval t;
-                        gettimeofday(&t, NULL);
-                        if(tv_diff_usec(t, tp) > 2 * s->next_frame_time)
+                        steady_clock::time_point t(steady_clock::now());
+                        if (duration_cast<microseconds>(t - t0).count() > 2 * s->next_frame_time)
                                 timeout = 1;
 
                 }
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
-                if (rc != 0 || timeout) { //(rc == ETIMEDOUT) {
+                if (rc != cv_status::no_timeout || timeout) { //(rc == ETIMEDOUT) {
                         printf("Waiting for new frame timed out!\n");
                         debug_msg("Waiting for new frame timed out!\n");
 
@@ -1298,7 +1272,6 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         }
                         */
 
-                        pthread_mutex_unlock(&s->lock);
                         return NULL;
                 }
 	}
@@ -1312,7 +1285,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 	}
 
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
-	pthread_mutex_unlock(&s->lock);
+	lk.unlock();
 
 	if(!frame_ready)
 		return NULL;

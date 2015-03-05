@@ -175,7 +175,7 @@ static int configure_audio(struct testcard_state *s)
         close(fd);
         music = Mix_LoadMUS(filename);
 
-        s->audio_data = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+        s->audio_data = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         s->audio_start = 0;
         s->audio_end = 0;
         s->audio.bps = AUDIO_BPS;
