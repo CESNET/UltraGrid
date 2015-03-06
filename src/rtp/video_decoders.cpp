@@ -1468,17 +1468,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
         // check if we are not in the middle of reconfiguration
         if (decoder->reconfiguration_in_progress) {
-#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ == 6
-                bool status =
-#else
                 std::future_status status =
-#endif
                         decoder->reconfiguration_future.wait_until(std::chrono::system_clock::now());
-#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ == 6
-                if (status) {
-#else
                 if (status == std::future_status::ready) {
-#endif
                         bool ret = decoder->reconfiguration_future.get();
                         if (ret) {
                                 decoder->frame = display_get_frame(decoder->display);

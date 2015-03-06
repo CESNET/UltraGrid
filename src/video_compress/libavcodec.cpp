@@ -58,6 +58,7 @@
 #include "video.h"
 #include "video_compress.h"
 
+#include <thread>
 #include <unordered_map>
 
 #define DEFAULT_CODEC MJPG
@@ -279,7 +280,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 
         printf("[Lavc] Using codec: %s\n", get_codec_name(s->selected_codec_id));
 
-        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+        s->cpu_count = thread::hardware_concurrency();
         if(s->cpu_count < 1) {
                 fprintf(stderr, "Warning: Cannot get number of CPU cores!\n");
                 s->cpu_count = 1;

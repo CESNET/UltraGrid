@@ -257,18 +257,6 @@ void ShowMessage(int level, char *msg);
 #include <direct.h>
 #define platform_mkdir _mkdir
 
-// sysconf(_SC_NPROCESSORS_ONLN) substitution
-#ifndef _SC_NPROCESSORS_ONLN
-#define _SC_NPROCESSORS_ONLN 123456
-static inline long sysconf_replacement(int name) {
-        assert(name == _SC_NPROCESSORS_ONLN);
-        SYSTEM_INFO info;
-        GetSystemInfo(&info);
-        return info.dwNumberOfProcessors;
-}
-#define sysconf sysconf_replacement
-#endif
-
 #define SHUT_RD SD_RECEIVE
 #define SHUT_WR SD_SEND
 #define SHUT_RDWR SD_BOTH
