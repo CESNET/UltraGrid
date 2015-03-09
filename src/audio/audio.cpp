@@ -201,7 +201,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                bool isStd, long packet_rate)
+                bool isStd, long packet_rate, int audio_delay)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -316,7 +316,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->captured = new audio_frame2;
         
         tmp = strdup(addrs);
-        s->audio_participants = pdb_init();
+        s->audio_participants = pdb_init(audio_delay);
         addr = strtok_r(tmp, ",", &unused);
 
         s->audio_network_parameters.addr = strdup(addr);

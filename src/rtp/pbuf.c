@@ -155,7 +155,7 @@ static void pbuf_validate(struct pbuf *playout_buf)
 #endif
 }
 
-struct pbuf *pbuf_init(void)
+struct pbuf *pbuf_init(int delay_ms)
 {
         struct pbuf *playout_buf = NULL;
 
@@ -166,7 +166,7 @@ struct pbuf *pbuf_init(void)
                 /* Playout delay... should really be adaptive, based on the */
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
-                playout_buf->playout_delay = 0.032;
+                playout_buf->playout_delay = 0.032 + delay_ms / 1000.0;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }

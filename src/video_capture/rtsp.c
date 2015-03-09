@@ -471,7 +471,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
 
     s->vrtsp_state->device = (struct rtp *) malloc(
         (s->vrtsp_state->required_connections) * sizeof(struct rtp *));
-    s->vrtsp_state->participants = pdb_init();
+    s->vrtsp_state->participants = pdb_init(0);
 
     s->vrtsp_state->new_frame = FALSE;
 

@@ -85,6 +85,7 @@ struct pdb {
         pdb_node_t *root;
         uint32_t magic;
         int count;
+        int delay_ms;
 };
 
 /*****************************************************************************/
@@ -240,13 +241,14 @@ static pdb_node_t *pdb_delete_node(struct pdb *tree, pdb_node_t * z)
 
 /*****************************************************************************/
 
-struct pdb *pdb_init(void)
+struct pdb *pdb_init(int delay_ms)
 {
         struct pdb *db = malloc(sizeof(struct pdb));
         if (db != NULL) {
                 db->magic = PDB_MAGIC;
                 db->count = 0;
                 db->root = NULL;
+                db->delay_ms = delay_ms;
         }
         return db;
 }
@@ -266,7 +268,7 @@ void pdb_destroy(struct pdb **db_p)
         *db_p = NULL;
 }
 
-static struct pdb_e *pdb_create_item(uint32_t ssrc)
+static struct pdb_e *pdb_create_item(uint32_t ssrc, int delay_ms)
 {
         struct pdb_e *p = malloc(sizeof(struct pdb_e));
         if (p != NULL) {
@@ -282,7 +284,7 @@ static struct pdb_e *pdb_create_item(uint32_t ssrc)
                 p->decoder_state = NULL;
                 p->decoder_state_deleter = NULL;
                 p->pt = 255;
-                p->playout_buffer = pbuf_init();
+                p->playout_buffer = pbuf_init(delay_ms);
                 p->tfrc_state = tfrc_init(p->creation_time);
         }
         return p;
@@ -303,7 +305,7 @@ int pdb_add(struct pdb *db, uint32_t ssrc)
                 return 1;
         }
 
-        i = pdb_create_item(ssrc);
+        i = pdb_create_item(ssrc, db->delay_ms);
         if (i == NULL) {
                 debug_msg("Unable to create database entry - ssrc %x\n", ssrc);
                 return 2;

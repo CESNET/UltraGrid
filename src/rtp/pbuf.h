@@ -109,7 +109,7 @@ typedef int decode_frame_t(struct coded_data *cdata, void *decode_data);
 /* 
  * External interface: 
  */
-struct pbuf	*pbuf_init(void);
+struct pbuf	*pbuf_init(int delay_ms);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_is_empty(struct pbuf *playout_buf);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,

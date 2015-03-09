@@ -124,6 +124,7 @@
 #define OPT_LDGM_DEVICE (('L' << 8) | 'D')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
+#define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -267,6 +268,9 @@ static void usage(void)
         printf("\t--capture-filter <filter>\tCapture filter(s), must preceed\n");
         printf("\n");
         printf("\t--encryption <passphrase>\tKey material for encryption\n");
+        printf("\n");
+        printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
+        printf("\t                         \t(in non-negative miliseconds)\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -447,6 +451,7 @@ int main(int argc, char *argv[])
         int bitrate = RATE_AUTO;
 
         int rxtx_mode = 0;
+        int audio_delay = 0;
 
 #ifdef USE_MTRACE
         mtrace();
@@ -501,6 +506,7 @@ int main(int argc, char *argv[])
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
+                {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -784,6 +790,13 @@ int main(int argc, char *argv[])
                         print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS);
                         return EXIT_SUCCESS;
                         break;
+                case OPT_AUDIO_DELAY:
+                        audio_delay = atoi(optarg);
+                        if (audio_delay < 0) {
+                                fprintf(stderr, "Audio delay should be non-negative!\n");
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
                 case '?':
                 default:
                         usage();
@@ -872,7 +885,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate);
+                        audio_codec, isStd, packet_rate, audio_delay);
         if(!uv->audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;

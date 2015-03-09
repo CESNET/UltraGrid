@@ -129,7 +129,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                 throw ug_runtime_error(oss.str(), EXIT_FAIL_USAGE);
         }
 
-        m_participants = pdb_init();
+        m_participants = pdb_init(0);
         m_requested_receiver = (const char *) params.at("receiver").ptr;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;
