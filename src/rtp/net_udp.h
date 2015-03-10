@@ -95,6 +95,7 @@ int         udp_change_dest(socket_udp *s, const char *addr);
 
 int         udp_recv_data(socket_udp * s, char **buffer);
 bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
+bool        udp_port_pair_is_free(int even_port);
 bool        udp_is_ipv6(socket_udp *s);
 
 /*************************************************************************************************/

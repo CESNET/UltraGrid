@@ -1093,6 +1093,19 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);
         session->multithreaded = multithreaded;
+
+        if (rx_port == 0) {
+                for (int i = 1<<15; i < 1<<16; i += 2) {
+                        // this stuff is not atomic. but... it cannot be done in this way, either
+                        if (udp_port_pair_is_free(i)) {
+                                rx_port = i;
+                                break;
+                        }
+                }
+                if (rx_port == 0) {
+                        fprintf(stderr, "Unable to find empty RTP port pair!");
+                }
+        }
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 
         session->rtcp_socket =

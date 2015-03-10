@@ -322,9 +322,7 @@ static int udp_addr_valid4(const char *dst)
 static socket_udp *udp_init4(const char *addr, const char *iface,
                              uint16_t rx_port, uint16_t tx_port, int ttl)
 {
-#ifdef USE_SO_REUSEADDR_REUSEPORT
         int reuse = 1;
-#endif
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_in s_in;
         unsigned int ifindex;
@@ -371,7 +369,6 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
              sizeof(udpbufsize)) != 0) {
                 debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
         }
-#ifdef USE_SO_REUSEADDR_REUSEPORT
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
@@ -386,7 +383,6 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 socket_error("setsockopt SO_REUSEADDR");
                 goto error;
         }
-#endif
         s_in.sin_family = AF_INET;
         s_in.sin_addr.s_addr = INADDR_ANY;
         s_in.sin_port = htons(rx_port);
@@ -1519,5 +1515,39 @@ static void udp_clean_async_state(socket_udp *s)
 bool udp_is_ipv6(socket_udp *s)
 {
         return s->mode == IPv6;
+}
+
+bool udp_port_pair_is_free(int even_port)
+{
+        struct sockaddr_in s_in;
+        fd_t fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if (fd == INVALID_SOCKET) {
+                socket_error("Unable to initialize socket");
+                return false;
+        }
+
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = INADDR_ANY;
+        s_in.sin_port = htons(even_port);
+        if (bind(fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
+                return false;
+        }
+
+        close(fd);
+        fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if (fd == INVALID_SOCKET) {
+                socket_error("Unable to initialize socket");
+                return false;
+        }
+
+        s_in.sin_port = htons(even_port + 1);
+        if (bind(fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
+                return false;
+        }
+
+        close(fd);
+        return true;
 }
 
