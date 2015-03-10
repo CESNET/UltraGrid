@@ -867,6 +867,15 @@ static void *audio_sender_thread(void *arg)
                         free_message(msg);
                 }
 
+                if ((s->audio_tx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
+                        struct timeval curr_time;
+                        uint32_t ts;
+                        gettimeofday(&curr_time, NULL);
+                        ts = tv_diff(curr_time, s->start_time) * 90000;
+                        rtp_update(s->audio_network_device, curr_time);
+                        rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
+                }
+
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
                         audio_export(s->exporter, buffer);

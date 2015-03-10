@@ -163,6 +163,15 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 vf_free(split_frames);
         }
 
+        if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise, receiver thread does the stuff...
+                struct timeval curr_time;
+                uint32_t ts;
+                gettimeofday(&curr_time, NULL);
+                ts = tv_diff(curr_time, m_start_time) * 90000;
+                rtp_update(m_network_devices[0], curr_time);
+                rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+        }
+
         m_async_sending_lock.lock();
         m_async_sending = false;
         m_async_sending_lock.unlock();
