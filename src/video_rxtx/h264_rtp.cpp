@@ -45,7 +45,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "host.h"
 #include "transmit.h"
+#include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
@@ -76,6 +78,14 @@ void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
                     tx_send_h264(m_tx, tx_frame.get(),
                                         m_network_devices[i]);
                 }
+        }
+        if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
+                struct timeval curr_time;
+                uint32_t ts;
+                gettimeofday(&curr_time, NULL);
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                rtp_update(m_network_devices[0], curr_time);
+                rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
         }
 }
 

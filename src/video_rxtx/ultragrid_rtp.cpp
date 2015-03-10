@@ -88,7 +88,6 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
                 throw EXIT_SUCCESS;
         }
 
-        gettimeofday(&m_start_time, NULL);
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
         m_postprocess = (const char *) params.at("postprocess").ptr;
         m_display_device = (struct display *) params.at("display_device").ptr;
@@ -163,11 +162,11 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 vf_free(split_frames);
         }
 
-        if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise, receiver thread does the stuff...
+        if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
                 struct timeval curr_time;
                 uint32_t ts;
                 gettimeofday(&curr_time, NULL);
-                ts = tv_diff(curr_time, m_start_time) * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
         }
@@ -311,7 +310,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
-                ts = tv_diff(curr_time, m_start_time) * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 

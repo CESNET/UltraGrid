@@ -453,6 +453,8 @@ int main(int argc, char *argv[])
         int rxtx_mode = 0;
         int audio_delay = 0;
 
+        const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
+
 #ifdef USE_MTRACE
         mtrace();
 #endif
@@ -885,7 +887,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate, audio_delay);
+                        audio_codec, isStd, packet_rate, audio_delay, &start_time);
         if(!uv->audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
@@ -997,6 +999,7 @@ int main(int argc, char *argv[])
                 params["fec"].ptr = (void *) requested_video_fec;
                 params["encryption"].ptr = (void *) requested_encryption;
                 params["packet_rate"].i = packet_rate;
+                params["start_time"].ptr = (void *) &start_time;
 
                 // UltraGrid RTP
                 params["postprocess"].ptr = (void *) postprocess;

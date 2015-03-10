@@ -69,8 +69,6 @@ private:
         struct vcodec_state *new_video_decoder();
         static void destroy_video_decoder(void *state);
 
-        struct timeval m_start_time;
-
         enum video_mode  m_decoder_mode;
         const char      *m_postprocess;
         struct display  *m_display_device;

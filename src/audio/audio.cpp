@@ -124,7 +124,7 @@ struct state_audio {
         enum audio_transport_device sender;
         enum audio_transport_device receiver;
         
-        struct timeval start_time;
+        const std::chrono::steady_clock::time_point *start_time;
 
         struct timeval t0; // for statistics
         audio_frame2 *captured;
@@ -201,7 +201,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                bool isStd, long packet_rate, int audio_delay)
+                bool isStd, long packet_rate, int audio_delay, const std::chrono::steady_clock::time_point *start_time)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -242,6 +242,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
         
         s = (struct state_audio *) calloc(1, sizeof(struct state_audio));
+        s->start_time = start_time;
 
         if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
                 // nothing to do, return empty state
@@ -311,7 +312,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 goto error;
         }
 
-        gettimeofday(&s->start_time, NULL);        
         gettimeofday(&s->t0, NULL);
         s->captured = new audio_frame2;
         
@@ -578,7 +578,7 @@ static void *audio_receiver_thread(void *arg)
 
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
-                        ts = tv_diff(curr_time, s->start_time) * 90000;
+                        ts = std::chrono::duration_cast<std::chrono::duration<double>>(*s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                         timeout.tv_sec = 0;
@@ -607,7 +607,7 @@ static void *audio_receiver_thread(void *arg)
                 }else if(s->receiver == NET_STANDARD){
                 //TODO now expecting to receive mulaw standard RTP (decode frame mulaw callback) , next steps, to be dynamic...
                     gettimeofday(&curr_time, NULL);
-                    ts = tv_diff(curr_time, s->start_time) * 90000;
+                    ts = std::chrono::duration_cast<std::chrono::duration<double>>(*s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                     rtp_update(s->audio_network_device, curr_time);
                     rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                     timeout.tv_sec = 0;
@@ -871,7 +871,7 @@ static void *audio_sender_thread(void *arg)
                         struct timeval curr_time;
                         uint32_t ts;
                         gettimeofday(&curr_time, NULL);
-                        ts = tv_diff(curr_time, s->start_time) * 90000;
+                        ts = std::chrono::duration_cast<std::chrono::duration<double>>(*s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                 }
