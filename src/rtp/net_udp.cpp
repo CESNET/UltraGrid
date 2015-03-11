@@ -132,11 +132,7 @@ struct _socket_udp {
         uint16_t tx_port;
         ttl_t ttl;
         fd_t fd;
-        struct in_addr addr4;
-#ifdef HAVE_IPv6
-        struct in6_addr addr6;
-        struct sockaddr_in6 sock6;
-#endif                          /* HAVE_IPv6 */
+        struct sockaddr_storage sock;
         bool multithreaded;
 
         // for multithreaded processing
@@ -406,13 +402,13 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 }
         }
 
-        if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
+        if (IN_MULTICAST(ntohl(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr))) {
 #ifndef WIN32
                 char loop = 1;
 #endif
                 struct ip_mreq imr;
 
-                imr.imr_multiaddr.s_addr = s->addr4.s_addr;
+                imr.imr_multiaddr.s_addr = ((struct sockaddr_in *)&s->sock)->sin_addr.s_addr;
                 imr.imr_interface.s_addr = ifindex;
 
                 if (SETSOCKOPT
@@ -454,9 +450,9 @@ error:
 
 static void udp_exit4(socket_udp * s)
 {
-        if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
+        if (IN_MULTICAST(ntohl(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr))) {
                 struct ip_mreq imr;
-                imr.imr_multiaddr.s_addr = s->addr4.s_addr;
+                imr.imr_multiaddr.s_addr = ((struct sockaddr_in *)&s->sock)->sin_addr.s_addr;
                 imr.imr_interface.s_addr = INADDR_ANY;
                 if (SETSOCKOPT
                     (s->fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
@@ -473,38 +469,27 @@ static void udp_exit4(socket_udp * s)
 
 static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
 {
-        struct sockaddr_in s_in;
-
         assert(s != NULL);
         assert(s->mode == IPv4);
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = s->addr4.s_addr;
-        s_in.sin_port = htons(s->tx_port);
-        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s_in,
-                      sizeof(s_in));
+        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
+                      sizeof(s->sock));
 }
 
 #ifdef WIN32
 static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count, void *d)
 {
-        struct sockaddr_in s_in;
-
         assert(s != NULL);
         assert(s->mode == IPv4);
-
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = s->addr4.s_addr;
-        s_in.sin_port = htons(s->tx_port);
 
         assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
 
 	DWORD bytesSent;
 	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
-		(struct sockaddr *) &s_in,
-		sizeof(s_in), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+		(struct sockaddr *) &s->sock,
+		sizeof(s->sock), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
         if (s->overlapping_active) {
                 s->dispose_udata[s->overlapped_count] = d;
         } else {
@@ -521,17 +506,12 @@ static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count, void *d
 static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count, void *d)
 {
         struct msghdr msg;
-        struct sockaddr_in s_in;
 
         assert(s != NULL);
         assert(s->mode == IPv4);
 
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = s->addr4.s_addr;
-        s_in.sin_port = htons(s->tx_port);
-
-        msg.msg_name = (caddr_t) & s_in;
-        msg.msg_namelen = sizeof(s_in);
+        msg.msg_name = (caddr_t) & s->sock;
+        msg.msg_namelen = sizeof(s->sock);
         msg.msg_iov = vector;
         msg.msg_iovlen = count;
         /* Linux needs these... solaris does something different... */
@@ -755,14 +735,14 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                 }
         }
 
-        if (IN6_IS_ADDR_MULTICAST(&(s->addr6))) {
+        if (IN6_IS_ADDR_MULTICAST(&(((struct sockaddr_in6 *)&s->sock)->sin6_addr))) {
                 unsigned int loop = 1;
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
-                imr.i6mr_multiaddr = s->addr6;
+                imr.i6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
 #else
-                imr.ipv6mr_multiaddr = s->addr6;
+                imr.ipv6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
                 imr.ipv6mr_interface = ifindex;
 #endif
 
@@ -809,13 +789,13 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 static void udp_exit6(socket_udp * s)
 {
 #ifdef HAVE_IPv6
-        if (IN6_IS_ADDR_MULTICAST(&(s->addr6))) {
+        if (IN6_IS_ADDR_MULTICAST(&(((struct sockaddr_in6 *)&s->sock)->sin6_addr))) {
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
-                imr.i6mr_multiaddr = s->addr6;
+                imr.i6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
 #else
-                imr.ipv6mr_multiaddr = s->addr6;
+                imr.ipv6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
                 imr.ipv6mr_interface = 0;
 #endif
 
@@ -842,8 +822,8 @@ static int udp_send6(socket_udp * s, char *buffer, int buflen)
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock6,
-                      sizeof(s->sock6));
+        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
+                      sizeof(s->sock));
 #else
         UNUSED(s);
         UNUSED(buffer);
@@ -862,8 +842,8 @@ static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count, void *d)
 
 	DWORD bytesSent;
 	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
-		(struct sockaddr *) &s->sock6,
-		sizeof(s->sock6), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+		(struct sockaddr *) &s->sock,
+		sizeof(s->sock), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
         if (s->overlapping_active) {
                 s->dispose_udata[s->overlapped_count] = d;
         } else {
@@ -885,8 +865,8 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count, void *d)
         assert(s != NULL);
         assert(s->mode == IPv6);
 
-        msg.msg_name = (void *)&s->sock6;
-        msg.msg_namelen = sizeof(s->sock6);
+        msg.msg_name = (void *)&s->sock;
+        msg.msg_namelen = sizeof(s->sock);
         msg.msg_iov = vector;
         msg.msg_iovlen = count;
         msg.msg_control = 0;
@@ -928,7 +908,7 @@ static char *udp_host_addr6(socket_udp * s)
         if (result != 0) {
                 perror("Cannot bind");
         }
-        addr6.sin6_addr = s->addr6;
+        addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
         addr6.sin6_port = htons(s->rx_port);
         result = connect(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
@@ -1421,16 +1401,7 @@ static int resolve_address(socket_udp *s, const char *addr)
                 debug_msg("Address conversion failed: %s\n", gai_strerror(err));
                 return FALSE;
         } else {
-                if(s->mode == IPv4) {
-                        struct sockaddr_in *addr4 = (struct sockaddr_in *)(void *) res0->ai_addr;
-                        memcpy(&s->addr4, &addr4->sin_addr,
-                                        sizeof(addr4->sin_addr));
-                } else {
-                        memcpy(&s->sock6, res0->ai_addr, res0->ai_addrlen);
-                        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *) res0->ai_addr;
-                        memcpy(&s->addr6, &addr6->sin6_addr,
-                                        sizeof(addr6->sin6_addr));
-                }
+                memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
         }
         freeaddrinfo(res0);
 
