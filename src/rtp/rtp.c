@@ -186,9 +186,6 @@ typedef struct _rtcp_rr_wrapper {
  * to make it all work. 
  */
 
-uint32_t tmp_sec;
-uint32_t tmp_frac;
-
 typedef struct _source {
         struct _source *next;
         struct _source *prev;
@@ -1824,8 +1821,6 @@ static void process_rtcp_sr(struct rtp *session, rtcp_t * packet)
         }
         s->sr = sr;
         ntp64_time(&s->last_sr_sec, &s->last_sr_frac);
-        s->last_sr_sec = tmp_sec;
-        s->last_sr_frac = tmp_frac;
 
         /* Call the event handler... */
         if (!filter_event(session, ssrc)) {
@@ -2207,7 +2202,6 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
                         buflen =
                             udp_recv(session->rtcp_socket, (char *)buffer,
                                      RTP_MAX_PACKET_LEN);
-                        ntp64_time(&tmp_sec, &tmp_frac);
                         rtp_process_ctrl(session, buffer, buflen);
                 }
                 check_database(session);
@@ -2254,7 +2248,6 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                         buflen =
                                 udp_recv(session->rtcp_socket, (char *)buffer,
                                                 RTP_MAX_PACKET_LEN);
-                        ntp64_time(&tmp_sec, &tmp_frac);
                         rtp_process_ctrl(session, buffer, buflen);
                         ret = TRUE;
                 }
@@ -2273,7 +2266,6 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                                 buflen =
                                         udp_recv(session->rtcp_socket, (char *)buffer,
                                                         RTP_MAX_PACKET_LEN);
-                                ntp64_time(&tmp_sec, &tmp_frac);
                                 rtp_process_ctrl(session, buffer, buflen);
                         }
                         check_database(session);
@@ -2319,7 +2311,6 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
                                 buflen =
                                     udp_recv((*current)->rtcp_socket, (char *)buffer,
                                              RTP_MAX_PACKET_LEN);
-                                ntp64_time(&tmp_sec, &tmp_frac);
                                 rtp_process_ctrl(*current, buffer, buflen);
                         }
                         check_database(*current);
