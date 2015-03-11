@@ -255,6 +255,8 @@ typedef int (*rtp_decrypt_func) (struct rtp *, unsigned char *data,
 struct rtp {
         socket_udp *rtp_socket;
         socket_udp *rtcp_socket;
+        struct sockaddr_storage rtcp_dest;
+        socklen_t rtcp_dest_len;
         char *addr;
         uint16_t rx_port;
         uint16_t tx_port;
@@ -2245,9 +2247,11 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                 if (udp_select_r(&no_wait_tv, &fd) > 0) {
                         uint8_t buffer[RTP_MAX_PACKET_LEN];
                         int buflen;
+                        session->rtcp_dest_len = sizeof(session->rtcp_dest);
                         buflen =
-                                udp_recv(session->rtcp_socket, (char *)buffer,
-                                                RTP_MAX_PACKET_LEN);
+                                udp_recvfrom(session->rtcp_socket, (char *)buffer,
+                                                RTP_MAX_PACKET_LEN,
+                                                &session->rtcp_dest, &session->rtcp_dest_len);
                         rtp_process_ctrl(session, buffer, buflen);
                         ret = TRUE;
                 }
@@ -2263,9 +2267,11 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                         if (udp_fd_isset_r(session->rtcp_socket, &fd)) {
                                 uint8_t buffer[RTP_MAX_PACKET_LEN];
                                 int buflen;
+                                session->rtcp_dest_len = sizeof(session->rtcp_dest);
                                 buflen =
-                                        udp_recv(session->rtcp_socket, (char *)buffer,
-                                                        RTP_MAX_PACKET_LEN);
+                                        udp_recvfrom(session->rtcp_socket, (char *)buffer,
+                                                        RTP_MAX_PACKET_LEN,
+                                                        &session->rtcp_dest, &session->rtcp_dest_len);
                                 rtp_process_ctrl(session, buffer, buflen);
                         }
                         check_database(session);
@@ -3214,9 +3220,20 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                 (session->encrypt_func) (session, buffer, ptr - buffer,
                                          initVec);
         }
-        rc = udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
-        if (rc == -1) {
-                perror("sending RTCP packet");
+
+        if (session->tx_port != 0) {
+                rc = udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
+                if (rc == -1) {
+                        perror("sending RTCP packet");
+                }
+        } else {
+                if (session->rtcp_dest_len > 0) {
+                        rc = udp_sendto(session->rtcp_socket, (char *)buffer, ptr - buffer,
+                                        &session->rtcp_dest, session->rtcp_dest_len);
+                        if (rc == -1) {
+                                perror("sending RTCP packet");
+                        }
+                }
         }
 
         /* Loop the data back to ourselves so local participant can */

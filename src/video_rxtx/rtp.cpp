@@ -141,6 +141,10 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                 // our receiver, because RTCP ports are changed as well)
                 m_recv_port_number = 0;
         }
+
+        if ((m_rxtx_mode & MODE_SENDER) == 0) {
+                m_send_port_number = 0;
+        }
         
         if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
                                         m_participants, m_ipv6, m_requested_mcast_if))

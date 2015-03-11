@@ -444,7 +444,7 @@ error:
         if (s->fd != INVALID_SOCKET) {
                 close(s->fd);
         }
-        free(s);
+        delete s;
         return NULL;
 }
 
@@ -656,7 +656,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 #ifdef HAVE_IPv6
         int reuse = 1;
         struct sockaddr_in6 s_in;
-        socket_udp *s = (socket_udp *) calloc(1, sizeof(socket_udp));
+        socket_udp *s = new socket_udp();
         s->mode = IPv6;
         s->addr = NULL;
         s->rx_port = rx_port;
@@ -668,7 +668,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 #ifdef HAVE_IF_NAMETOINDEX
                 if ((ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
-                        free(s);
+                        delete s;
                         return NULL;
                 }
 #else
@@ -680,7 +680,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 
         if (!resolve_address(s, addr)) {
                 socket_error("Can't resolve IPv6 address for %s", addr);
-                free(s);
+                delete s;
                 return NULL;
         }
 
@@ -1131,6 +1131,11 @@ int udp_send(socket_udp * s, char *buffer, int buflen)
         return -1;
 }
 
+int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen)
+{
+        return sendto(s->fd, buffer, buflen, 0, dst_addr, addrlen);
+}
+
 #ifdef WIN32
 int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
 #else
@@ -1179,7 +1184,7 @@ static void *udp_reader(void *arg)
         return NULL;
 }
 
-static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags)
+static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags, struct sockaddr *src_addr, socklen_t *addrlen)
 {
         /* Reads data into the buffer, returning the number of bytes read.   */
         /* If no data is available, this returns the value zero immediately. */
@@ -1190,7 +1195,7 @@ static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags)
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        len = recvfrom(s->fd, buffer, buflen, flags, 0, 0);
+        len = recvfrom(s->fd, buffer, buflen, flags, src_addr, addrlen);
         if (len > 0) {
                 return len;
         }
@@ -1213,7 +1218,7 @@ static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags)
  **/
 int udp_peek(socket_udp * s, char *buffer, int buflen)
 {
-        return udp_do_recv(s, buffer, buflen, MSG_PEEK);
+        return udp_do_recv(s, buffer, buflen, MSG_PEEK, 0, 0);
 }
 
 bool udp_not_empty(socket_udp * s, struct timeval *timeout)
@@ -1249,7 +1254,12 @@ int udp_recv(socket_udp * s, char *buffer, int buflen)
         /* If no data is available, this returns the value zero immediately. */
         /* Note: since we don't care about the source address of the packet  */
         /* we receive, this function becomes protocol independent.           */
-        return udp_do_recv(s, buffer, buflen, 0);
+        return udp_do_recv(s, buffer, buflen, 0, 0, 0);
+}
+
+int udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_addr, socklen_t *addrlen)
+{
+        return udp_do_recv(s, buffer, buflen, 0, src_addr, addrlen);
 }
 
 int udp_recv_data(socket_udp * s, char **buffer)

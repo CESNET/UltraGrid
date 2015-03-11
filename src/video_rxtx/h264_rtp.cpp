@@ -86,6 +86,12 @@ void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
                 ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+
+                // receive RTCP
+                struct timeval timeout;
+                timeout.tv_sec = 0;
+                timeout.tv_usec = 0;
+                rtp_recv_r(m_network_devices[0], &timeout, ts);
         }
 }
 

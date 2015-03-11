@@ -328,9 +328,12 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 ? strdup(mcast_if) : NULL;
 
         if (strcmp(recv_cfg, "none") == 0) {
-                // do not occupy recv port if we are not receiving (note that this disables communication with
-                // our receiver, because RTCP ports are changed as well)
+                // do not occupy recv port if we are not receiving
                 s->audio_network_parameters.recv_port = 0;
+        }
+
+        if (strcmp(send_cfg, "none") == 0) {
+                s->audio_network_parameters.send_port = 0;
         }
 
         if ((s->audio_network_device = initialize_audio_network(
@@ -874,6 +877,12 @@ static void *audio_sender_thread(void *arg)
                         ts = std::chrono::duration_cast<std::chrono::duration<double>>(*s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
+
+                        // receive RTCP
+                        struct timeval timeout;
+                        timeout.tv_sec = 0;
+                        timeout.tv_usec = 0;
+                        rtp_recv_r(s->audio_network_device, &timeout, ts);
                 }
 
                 buffer = audio_capture_read(s->audio_capture_device);
