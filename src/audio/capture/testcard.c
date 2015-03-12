@@ -214,6 +214,7 @@ void * audio_cap_testcard_init(char *cfg)
         }
 
         s->audio.data_len = CHUNK * s->audio.bps * s->audio.ch_count;
+        s->audio.data = (char *) calloc(1, s->audio.data_len);
 
         s->samples_played = 0;
 
@@ -242,13 +243,17 @@ struct audio_frame *audio_cap_testcard_read(void *state)
 
         tv_add_usec(&s->next_audio_time, 1000 * 1000 * CHUNK / AUDIO_SAMPLE_RATE);
 
-        s->audio.data = s->audio_samples + AUDIO_BPS * s->samples_played * audio_capture_channels;
-
-        s->samples_played += CHUNK;
-
-        if (s->samples_played >= s->total_samples) {
-                s->samples_played = s->total_samples - s->samples_played;
+        size_t samples = CHUNK;
+        if (s->samples_played + CHUNK  > s->total_samples) {
+                samples = s->total_samples - s->samples_played;
         }
+        size_t len = samples * AUDIO_BPS * audio_capture_channels;
+        memcpy(s->audio.data, s->audio_samples + AUDIO_BPS * s->samples_played * audio_capture_channels, len);
+        if (samples < CHUNK) {
+                memcpy(s->audio.data + len, s->audio_samples, CHUNK * AUDIO_BPS * audio_capture_channels - len);
+        }
+
+        s->samples_played = ((s->samples_played + CHUNK) % s->total_samples);
 
         return &s->audio;
 }
@@ -265,6 +270,7 @@ void audio_cap_testcard_done(void *state)
         assert(s->magic == AUDIO_CAPTURE_TESTCARD_MAGIC);
 
         free(s->audio_samples);
+        free(s->audio.data);
 
         free(s);
 }
