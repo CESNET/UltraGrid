@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
         unsigned requested_mtu = 0;
         const char *postprocess = NULL;
         const char *requested_display = "none";
-        const char *requested_receiver = "localhost";
+        const char *requested_receiver = "::1";
         const char *requested_encryption = NULL;
         struct video_export *video_exporter = NULL;
 
