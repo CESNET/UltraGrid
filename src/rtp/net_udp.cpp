@@ -1013,6 +1013,12 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
         return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 }
 
+// we assume that only colon-separated address are IPv6
+static bool address_is_ipv6(const char *addr)
+{
+        return strchr(addr, ':') != NULL;
+}
+
 /**
  * udp_init_if:
  * Creates a session for sending and receiving UDP datagrams over IP
@@ -1032,7 +1038,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 {
         socket_udp *res;
 
-	if (strchr(addr, ':') == NULL && !use_ipv6) {
+	if (!address_is_ipv6(addr) && !use_ipv6) {
 		res = udp_init4(addr, iface, rx_port, tx_port, ttl);
 	} else {
 		res = udp_init6(addr, iface, rx_port, tx_port, ttl);
@@ -1499,37 +1505,52 @@ bool udp_is_ipv6(socket_udp *s)
         return s->mode == IPv6;
 }
 
-bool udp_port_pair_is_free(int even_port)
+bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
 {
-        struct sockaddr_in s_in;
-        fd_t fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-        if (fd == INVALID_SOCKET) {
-                socket_error("Unable to initialize socket");
-                return false;
+        bool ipv6;
+	if (!address_is_ipv6(addr) && !use_ipv6) {
+                ipv6 = false;
+        } else {
+                ipv6 = true;
         }
 
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = INADDR_ANY;
-        s_in.sin_port = htons(even_port);
-        if (bind(fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
-                return false;
+        for (int i = 0; i < 2; ++i) {
+                fd_t fd;
+
+                struct sockaddr_storage s_st = {};
+                socklen_t len;
+
+                if (ipv6) {
+                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_st;
+                        s_in6->sin6_family = AF_INET6;
+                        s_in6->sin6_port = htons(even_port + i);
+#ifdef HAVE_SIN6_LEN
+                        s_in6->sin6_len = sizeof(s_in);
+#endif
+                        s_in6->sin6_addr = in6addr_any;
+                        len = sizeof(struct sockaddr_in6);
+                        fd = socket(AF_INET6, SOCK_DGRAM, 0);
+                } else {
+                        struct sockaddr_in *s_in = (struct sockaddr_in *) &s_st;
+                        s_in->sin_family = AF_INET;
+                        s_in->sin_addr.s_addr = INADDR_ANY;
+                        s_in->sin_port = htons(even_port + i);
+                        len = sizeof(struct sockaddr_in);
+                        fd = socket(AF_INET, SOCK_DGRAM, 0);
+                }
+
+                if (fd == INVALID_SOCKET) {
+                        socket_error("Unable to initialize socket");
+                        return false;
+                }
+
+                if (bind(fd, (struct sockaddr *)&s_st, len) != 0) {
+                        CLOSESOCKET(fd);
+                        return false;
+                }
+
+                CLOSESOCKET(fd);
         }
-
-        CLOSESOCKET(fd);
-        fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-        if (fd == INVALID_SOCKET) {
-                socket_error("Unable to initialize socket");
-                return false;
-        }
-
-        s_in.sin_port = htons(even_port + 1);
-        if (bind(fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
-                return false;
-        }
-
-        CLOSESOCKET(fd);
         return true;
 }
 
