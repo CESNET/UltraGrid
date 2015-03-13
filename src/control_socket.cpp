@@ -71,6 +71,11 @@ typedef const char *sso_val_type;
 typedef void *sso_val_type;
 #endif                          /* WIN32 */
 
+#ifdef WIN32
+#define CLOSESOCKET closesocket
+#else
+#define CLOSESOCKET close
+#endif
 
 using namespace std;
 
@@ -264,7 +269,7 @@ void control_start(struct control_state *s)
         }
 
         s->internal_fd[0] = accept(sock, NULL, NULL);
-        close(sock);
+        CLOSESOCKET(sock);
         s->started = true;
 }
 
@@ -588,7 +593,7 @@ static void * control_thread(void *args)
                                         }
                                         if(ret == 0) {
                                                 struct client *next;
-                                                close(cur->fd);
+                                                CLOSESOCKET(cur->fd);
                                                 if(cur->prev) {
                                                         cur->prev->next = cur->next;
                                                 } else {
@@ -673,12 +678,12 @@ static void * control_thread(void *args)
         struct client *cur = clients;
         while(cur) {
                 struct client *tmp = cur;
-                close(cur->fd);
+                CLOSESOCKET(cur->fd);
                 cur = cur->next;
                 free(tmp);
         }
 
-        close(s->internal_fd[1]);
+        CLOSESOCKET(s->internal_fd[1]);
 
         return NULL;
 }
@@ -695,7 +700,7 @@ void control_done(struct control_state *s)
                 int ret = write_all(s->internal_fd[0], "quit\r\n", 6);
                 if (ret > 0) {
                         pthread_join(s->thread_id, NULL);
-                        close(s->internal_fd[0]);
+                        CLOSESOCKET(s->internal_fd[0]);
                 } else {
                         fprintf(stderr, "Cannot exit control thread!\n");
                 }
@@ -703,7 +708,7 @@ void control_done(struct control_state *s)
         if(s->connection_type == SERVER) {
                 // for client, the socket has already been closed
                 // by the time of control_thread exit
-                close(s->socket_fd);
+                CLOSESOCKET(s->socket_fd);
         }
 
         pthread_mutex_destroy(&s->stats_lock);

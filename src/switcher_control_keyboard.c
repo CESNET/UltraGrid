@@ -13,6 +13,13 @@
 #include <stdio.h>
 #include "debug.h"
 
+#ifdef WIN32
+#define CLOSESOCKET closesocket
+#else
+#define CLOSESOCKET close
+#endif
+
+
 void usage(const char *progname);
 int main(int argc, char *argv[]);
 void sig_handler(int signal);
@@ -25,7 +32,7 @@ int fd = -1;// = socket(AF_INET6, SOCK_STREAM, 0);
 
 void sig_handler(int signal) {
         UNUSED(signal);
-        close(fd);
+        CLOSESOCKET(fd);
         endwin();
         exit(EXIT_SUCCESS);
 }
@@ -165,7 +172,9 @@ finish:
 #endif
         pthread_join(reading_thread_id, NULL);
 
-        close(fd);
+#ifndef WIN32
+        CLOSESOCKET(fd);
+#endif
         endwin();
         
 #ifdef WIN32
