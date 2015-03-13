@@ -84,6 +84,12 @@ typedef char *sockopt_t;
 typedef void *sockopt_t;
 #endif
 
+#ifdef WIN32
+#define CLOSESOCKET closesocket
+#else
+#define CLOSESOCKET close
+#endif
+
 /* This is pretty nasty but it's the simplest way to get round */
 /* the Detexis bug that means their MUSICA IPv6 stack uses     */
 /* IPPROTO_IP instead of IPPROTO_IPV6 in setsockopt calls      */
@@ -386,7 +392,8 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 socket_error("bind");
 #ifdef WIN32
                 fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
-                fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.");
+                if (rx_port == 5004 || rx_port == 5005)
+                        fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.\n");
 #endif
                 goto error;
         }
@@ -442,7 +449,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         return s;
 error:
         if (s->fd != INVALID_SOCKET) {
-                close(s->fd);
+                CLOSESOCKET(s->fd);
         }
         delete s;
         return NULL;
@@ -462,7 +469,7 @@ static void udp_exit4(socket_udp * s)
                 }
                 debug_msg("Dropped membership of multicast group\n");
         }
-        close(s->fd);
+        CLOSESOCKET(s->fd);
         free(s->addr);
         delete s;
 }
@@ -806,7 +813,7 @@ static void udp_exit6(socket_udp * s)
                         abort();
                 }
         }
-        close(s->fd);
+        CLOSESOCKET(s->fd);
         free(s->addr);
         delete s;
 #else
@@ -923,7 +930,7 @@ static char *udp_host_addr6(socket_udp * s)
                 error_msg("getsockname failed\n");
         }
 
-        close(newsock);
+        CLOSESOCKET(newsock);
 
         if (IN6_IS_ADDR_UNSPECIFIED(&local.sin6_addr)
             || IN6_IS_ADDR_MULTICAST(&local.sin6_addr)) {
@@ -1515,7 +1522,7 @@ bool udp_port_pair_is_free(int even_port)
                 return false;
         }
 
-        close(fd);
+        CLOSESOCKET(fd);
         fd = socket(AF_INET, SOCK_DGRAM, 0);
 
         if (fd == INVALID_SOCKET) {
@@ -1528,7 +1535,7 @@ bool udp_port_pair_is_free(int even_port)
                 return false;
         }
 
-        close(fd);
+        CLOSESOCKET(fd);
         return true;
 }
 
