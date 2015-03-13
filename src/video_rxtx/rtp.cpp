@@ -120,7 +120,7 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_start_time((const std::chrono::steady_clock::time_point *) params.at("start_time").ptr)
+        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr)
 {
         if (params.at("mtu").i > RTP_MAX_MTU) {
                 ostringstream oss;

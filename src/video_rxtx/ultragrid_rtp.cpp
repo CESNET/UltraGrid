@@ -166,7 +166,7 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 struct timeval curr_time;
                 uint32_t ts;
                 gettimeofday(&curr_time, NULL);
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 
@@ -316,7 +316,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(*m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);

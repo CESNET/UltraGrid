@@ -79,7 +79,7 @@ protected:
         bool             m_ipv6;
         const char      *m_requested_mcast_if;
         fec             *m_fec_state;
-        const std::chrono::steady_clock::time_point *m_start_time;
+        const std::chrono::steady_clock::time_point m_start_time;
 private:
         void process_message(struct msg_sender *);
         void change_tx_port(int tx_port);
