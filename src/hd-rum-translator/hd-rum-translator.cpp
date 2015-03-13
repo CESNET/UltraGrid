@@ -9,12 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <pthread.h>
-#include <fcntl.h>
 
 #include "control_socket.h"
 #include "crypto/random.h"
@@ -23,6 +18,7 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "messaging.h"
 #include "module.h"
+#include "rtp/net_udp.h"
 #include "utils/misc.h"
 #include "tv.h"
 
@@ -33,7 +29,6 @@
 using namespace std;
 
 static pthread_t main_thread_id;
-struct forward;
 struct item;
 
 struct replica {
@@ -47,7 +42,7 @@ struct replica {
         RECOMPRESS
     };
     enum type_t type;
-    int sock;
+    socket_udp *sock;
     void *recompress;
 };
 
@@ -87,10 +82,8 @@ struct hd_rum_translator_state {
 /*
  * Prototypes
  */
-static int output_socket(unsigned short port, const char *host, int bufsize);
 static void replica_done(struct replica *s) __attribute__((unused));
 static struct item *qinit(int qsize);
-static int buffer_size(int sock, int optname, int size);
 static void *writer(void *arg);
 static void signal_handler(int signal);
 void exit_uv(int status);
@@ -122,8 +115,9 @@ static void replica_init(struct replica *s, const char *addr, int tx_port, int b
 {
         s->magic = REPLICA_MAGIC;
         s->host = addr;
-        s->sock = output_socket(tx_port, addr,
-                bufsize);
+        s->sock = udp_init(addr, 0, tx_port, 255, false, false);
+        if (udp_set_send_buf(s->sock, bufsize) != TRUE)
+            fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_PORT;
         s->mod.priv_data = s;
@@ -136,7 +130,7 @@ static void replica_done(struct replica *s)
         assert(s->magic == REPLICA_MAGIC);
         module_done(&s->mod);
 
-        close(s->sock);
+        udp_exit(s->sock);
 }
 
 struct item {
@@ -163,78 +157,6 @@ static struct item *qinit(int qsize)
     queue[qsize - 1].next = queue;
 
     return queue;
-}
-
-#ifdef _WIN32
-typedef char sockopt_t;
-#else
-typedef void sockopt_t;
-#endif
-
-static int buffer_size(int sock, int optname, int size)
-{
-    socklen_t len = sizeof(int);
-
-    if (setsockopt(sock, SOL_SOCKET, optname, (const sockopt_t *) &size, len)
-        || getsockopt(sock, SOL_SOCKET, optname, (sockopt_t *) &size, &len)) {
-        perror("[sg]etsockopt()");
-        return -1;
-    }
-
-    printf("UDP %s buffer size set to %d bytes\n",
-           (optname == SO_SNDBUF) ? "send" : "receiver", size);
-
-    return 0;
-}
-
-
-static int output_socket(unsigned short port, const char *host, int bufsize)
-{
-    int s;
-    struct addrinfo hints;
-    struct addrinfo *res = NULL;
-    char saddr[INET_ADDRSTRLEN];
-    char p[6];
-
-    memset(&hints, '\0', sizeof(hints));
-    hints.ai_flags = AI_CANONNAME;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_protocol = IPPROTO_UDP;
-    hints.ai_family = PF_INET;
-
-    snprintf(p, 6, "%d", port);
-    p[5] = '\0';
-
-    if (getaddrinfo(host, p, &hints, &res)) {
-        int err = errno;
-        if (err == 0)
-            fprintf(stderr, "Address not found: %s\n", host);
-        else
-            fprintf(stderr, "%s: %s\n", gai_strerror(err), host);
-        exit(EXIT_FAIL_NETWORK);
-    }
-
-    inet_ntop(AF_INET, &((struct sockaddr_in *)(void *) res->ai_addr)->sin_addr,
-              saddr, sizeof(saddr));
-    printf("connecting to %s (%s) port %d\n",
-           res->ai_canonname, saddr, port);
-
-    if ((s = socket(res->ai_family, res->ai_socktype, 0)) == -1) {
-        perror("socket");
-        exit(EXIT_FAIL_NETWORK);
-    }
-
-    if (buffer_size(s, SO_SNDBUF, bufsize))
-        exit(EXIT_FAIL_NETWORK);
-
-    if (connect(s, res->ai_addr, res->ai_addrlen)) {
-        perror("connect");
-        exit(EXIT_FAIL_NETWORK);
-    }
-
-    freeaddrinfo(res);
-
-    return s;
 }
 
 void change_replica_type(struct hd_rum_translator_state *s,
@@ -332,7 +254,7 @@ static void *writer(void *arg)
             }
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
-                    ssize_t ret = send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, 0);
+                    ssize_t ret = udp_send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
                     }
@@ -501,8 +423,7 @@ int main(int argc, char **argv)
     int qsize;
     int bufsize;
     char *bufsize_str;
-    struct sockaddr_in addr;
-    int sock_in;
+    socket_udp *sock_in;
     pthread_t thread;
     int err = 0;
     int i;
@@ -587,22 +508,13 @@ int main(int argc, char **argv)
     state.qhead = state.qtail = state.queue = qinit(qsize);
 
     /* input socket */
-    if ((sock_in = socket(PF_INET, SOCK_DGRAM, 0)) == -1) {
+    if ((sock_in = udp_init_if("::1", NULL, port, 0, 255, false, false)) == NULL) {
         perror("input socket");
         return 2;
     }
 
-    if (buffer_size(sock_in, SO_RCVBUF, bufsize))
-        exit(EXIT_FAIL_NETWORK);
-
-    memset(&addr, 0, sizeof addr);
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
-    if (::bind(sock_in, (struct sockaddr *) &addr,
-             sizeof(struct sockaddr_in))) {
-        perror("bind");
-        return EXIT_FAIL_NETWORK;
+    if (udp_set_recv_buf(sock_in, bufsize) != TRUE) {
+        fprintf(stderr, "Cannot set recv buffer!\n");
     }
 
     printf("listening on *:%d\n", port);
@@ -681,7 +593,7 @@ int main(int argc, char **argv)
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead
-               && (state.qtail->size = recv(sock_in, state.qtail->buf, SIZE, 0)) > 0
+               && (state.qtail->size = udp_recv(sock_in, state.qtail->buf, SIZE)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
 
@@ -740,6 +652,8 @@ int main(int argc, char **argv)
     }
 
     control_done(state.control_state);
+
+    udp_exit(sock_in);
 
 #ifdef WIN32
     WSACleanup();

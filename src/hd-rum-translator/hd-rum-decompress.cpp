@@ -7,6 +7,7 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 
+#include <chrono>
 #include <condition_variable>
 #include <map>
 #include <memory>
@@ -175,6 +176,7 @@ void *hd_rum_decompress_init(struct module *parent)
         bool use_ipv6 = false;
 
         s = new state_transcoder_decompress();
+        chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "pipe:%p", s);
@@ -199,6 +201,7 @@ void *hd_rum_decompress_init(struct module *parent)
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = 0;
+        params["start_time"].ptr = (void *) &start_time;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;

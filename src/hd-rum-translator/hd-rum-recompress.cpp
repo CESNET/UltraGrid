@@ -36,6 +36,7 @@ void *recompress_init(struct module *parent,
                 unsigned short tx_port, int mtu, char *fec, long packet_rate)
 {
         bool use_ipv6 = false;
+        chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
         map<string, param_u> params;
 
@@ -55,6 +56,7 @@ void *recompress_init(struct module *parent,
         params["fec"].ptr = (void *) fec;
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = packet_rate;
+        params["start_time"].ptr = (void *) &start_time;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;
