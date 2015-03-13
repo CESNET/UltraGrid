@@ -1001,7 +1001,6 @@ int udp_addr_valid(const char *addr)
  * networks. 
  *
  * @param addr    character string containing an IPv4 or IPv6 network address.
- *                If set to NULL, localhost is assumed.
  * @param rx_port receive port.
  * @param tx_port transmit port.
  * @param ttl     time-to-live value for transmitted packets.
@@ -1021,7 +1020,6 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
  * receive datagrams on.
  *
  * @param addr    character string containing an IPv4 or IPv6 network address.
- *                If set to NULL, localhost is assumed.
  * @param iface   character string containing an interface name. If NULL, default is used.
  * @param rx_port receive port.
  * @param tx_port transmit port.
@@ -1034,10 +1032,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 {
         socket_udp *res;
 
-        if (addr == NULL) {
-                addr = "localhost";
-        }
-	
 	if (strchr(addr, ':') == NULL && !use_ipv6) {
 		res = udp_init4(addr, iface, rx_port, tx_port, ttl);
 	} else {
