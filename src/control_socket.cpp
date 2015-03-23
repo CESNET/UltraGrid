@@ -589,9 +589,9 @@ static void * control_thread(void *args)
                                         ssize_t ret = recv(cur->fd, cur->buff + cur->buff_len,
                                                         sizeof(cur->buff) - cur->buff_len, 0);
                                         if(ret == -1) {
-                                                fprintf(stderr, "Error reading socket!!!\n");
+                                                fprintf(stderr, "Error reading socket, closing!!!\n");
                                         }
-                                        if(ret == 0) {
+                                        if(ret <= 0) {
                                                 struct client *next;
                                                 CLOSESOCKET(cur->fd);
                                                 if(cur->prev) {
