@@ -662,6 +662,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
 {
 #ifdef HAVE_IPv6
         int reuse = 1;
+        int ipv6only = 0;
         struct sockaddr_in6 s_in;
         socket_udp *s = new socket_udp();
         s->mode = IPv6;
@@ -714,6 +715,13 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                 return NULL;
         }
 #endif
+
+        if (SETSOCKOPT
+            (s->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+             sizeof(ipv6only)) != 0) {
+                socket_error("setsockopt IPV6_V6ONLY");
+                return NULL;
+        }
 
         memset((char *)&s_in, 0, sizeof(s_in));
         s_in.sin6_family = AF_INET6;
