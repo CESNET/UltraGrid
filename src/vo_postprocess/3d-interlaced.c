@@ -143,6 +143,7 @@ bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video
                 char *line1 = vf_get_tile(in, x % 2)->data +  (x / 2) * 2 * linesize;
                 char *line2 = vf_get_tile(in, x % 2)->data +  ((x / 2) * 2 + 1) * linesize;
                 
+#ifdef __SSE2__
                 for(linepos = 0; linepos < linesize; linepos += 16) {
                         asm volatile ("movdqu (%0), %%xmm0\n"
                                       "pavgb (%1), %%xmm0\n"
@@ -155,6 +156,9 @@ bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video
                         line1 += 16;
                         line2 += 16;
                 }
+#else
+                fprintf(stderr, "SSE2 not supported on this platform!\n");
+#endif
         }
 
         return true;

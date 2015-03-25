@@ -53,6 +53,7 @@
 #include "control_socket.h"
 
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 
@@ -104,7 +105,7 @@ struct control_state {
 
         multimap<int32_t, struct stats_reportable *> stats; // first member is ID of stream if applicable
         std::map<uint32_t, int> stats_id_port_mapping; // this maps ID from above to index 0..n
-        pthread_mutex_t stats_lock;
+        std::mutex stats_lock;
 
         enum connection_type connection_type;
 
@@ -153,19 +154,19 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 static fd_t create_internal_port(int *port)
 {
         fd_t sock;
-        sock = socket(AF_INET6, SOCK_STREAM, 0);
+        sock = socket(AF_INET, SOCK_STREAM, 0);
         assert(sock != INVALID_SOCKET);
-        struct sockaddr_in6 s_in;
+        struct sockaddr_in s_in;
         memset(&s_in, 0, sizeof(s_in));
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = in6addr_any;
-        s_in.sin6_port = htons(0);
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = htonl(INADDR_ANY);
+        s_in.sin_port = htons(0);
         assert(::bind(sock, (const struct sockaddr *) &s_in,
                         sizeof(s_in)) == 0);
         assert(listen(sock, 10) == 0);
         socklen_t len = sizeof(s_in);
         assert(getsockname(sock, (struct sockaddr *) &s_in, &len) == 0);
-        *port = ntohs(s_in.sin6_port);
+        *port = ntohs(s_in.sin_port);
         return sock;
 }
 
@@ -176,8 +177,6 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         s->root_module = root_module;
         s->started = false;
-
-        pthread_mutex_init(&s->stats_lock, NULL);
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_CONTROL;
@@ -193,29 +192,33 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         if(s->connection_type == SERVER) {
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
-                assert(s->socket_fd != INVALID_SOCKET);
-                int val = 1;
-                int rc;
-                rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                                (sso_val_type) &val, sizeof(val));
-                if (rc != 0) {
-                        perror("Control socket - setsockopt");
-                }
+                if (s->socket_fd == INVALID_SOCKET) {
+                        perror("socket");
+                        fprintf(stderr, "Remote control will be disabled!\n");
+                } else {
+                        int val = 1;
+                        int rc;
+                        rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                        (sso_val_type) &val, sizeof(val));
+                        if (rc != 0) {
+                                perror("Control socket - setsockopt");
+                        }
 
-                /* setting address to in6addr_any allows connections to be established
-                 * from both IPv4 and IPv6 hosts. This behavior can be modified
-                 * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-                struct sockaddr_in6 s_in;
-                memset(&s_in, 0, sizeof(s_in));
-                s_in.sin6_family = AF_INET6;
-                s_in.sin6_addr = in6addr_any;
-                s_in.sin6_port = htons(s->network_port);
+                        /* setting address to in6addr_any allows connections to be established
+                         * from both IPv4 and IPv6 hosts. This behavior can be modified
+                         * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
+                        struct sockaddr_in6 s_in;
+                        memset(&s_in, 0, sizeof(s_in));
+                        s_in.sin6_family = AF_INET6;
+                        s_in.sin6_addr = in6addr_any;
+                        s_in.sin6_port = htons(s->network_port);
 
-                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-                if (rc != 0) {
-                        perror("Control socket - bind");
+                        rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                        if (rc != 0) {
+                                perror("Control socket - bind");
+                        }
+                        listen(s->socket_fd, MAX_CLIENTS);
                 }
-                listen(s->socket_fd, MAX_CLIENTS);
         } else {
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 assert(s->socket_fd != INVALID_SOCKET);
@@ -495,12 +498,12 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
  */
 static fd_t connect_to_internal_channel(int local_port)
 {
-        struct sockaddr_in6 s_in;
+        struct sockaddr_in s_in;
         memset(&s_in, 0, sizeof(s_in));
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = in6addr_loopback;
-        s_in.sin6_port = htons(local_port);
-        fd_t fd = socket(AF_INET6, SOCK_STREAM, 0);
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        s_in.sin_port = htons(local_port);
+        fd_t fd = socket(AF_INET, SOCK_STREAM, 0);
         assert(fd != INVALID_SOCKET);
         int ret;
         ret = connect(fd, (struct sockaddr *) &s_in,
@@ -552,7 +555,7 @@ static void * control_thread(void *args)
 
                 fd_set fds;
                 FD_ZERO(&fds);
-                if(s->connection_type == SERVER) {
+                if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {
                         FD_SET(s->socket_fd, &fds);
                         max_fd = s->socket_fd + 1;
                 }
@@ -639,7 +642,7 @@ static void * control_thread(void *args)
                         int32_t last_id = -1;
                         ostringstream buffer;
                         buffer << "stats";
-                        pthread_mutex_lock(&s->stats_lock);
+                        std::unique_lock<std::mutex> lk(s->stats_lock);
                         for(auto it = s->stats.begin();
                                         it != s->stats.end(); ++it) {
                                 int32_t id = it->first;
@@ -656,7 +659,7 @@ static void * control_thread(void *args)
                                 buffer << " " + it->second->get_stat();
                         }
 
-                        pthread_mutex_unlock(&s->stats_lock);
+                        lk.unlock();
                         buffer << "\r\n";
 
                         if (!first) { // are there any stats to report?
@@ -705,40 +708,35 @@ void control_done(struct control_state *s)
                         fprintf(stderr, "Cannot exit control thread!\n");
                 }
         }
-        if(s->connection_type == SERVER) {
+        if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {
                 // for client, the socket has already been closed
                 // by the time of control_thread exit
                 CLOSESOCKET(s->socket_fd);
         }
-
-        pthread_mutex_destroy(&s->stats_lock);
 
         delete s;
 }
 
 void control_add_stats(struct control_state *s, struct stats_reportable *stats, int32_t port_id)
 {
-        pthread_mutex_lock(&s->stats_lock);
+        std::unique_lock<std::mutex> lk(s->stats_lock);
         s->stats.emplace(port_id, stats);
-        pthread_mutex_unlock(&s->stats_lock);
 }
 
 void control_remove_stats(struct control_state *s, struct stats_reportable *stats)
 {
-        pthread_mutex_lock(&s->stats_lock);
+        std::unique_lock<std::mutex> lk(s->stats_lock);
         for (auto it = s->stats.begin(); it != s->stats.end(); ++it) {
                 if (it->second == stats) {
                         s->stats.erase(it);
                         break;
                 }
         }
-        pthread_mutex_unlock(&s->stats_lock);
 }
 
 void control_replace_port_mapping(struct control_state *s, std::map<uint32_t, int> &&m)
 {
-        pthread_mutex_lock(&s->stats_lock);
+        std::unique_lock<std::mutex> lk(s->stats_lock);
         s->stats_id_port_mapping = move(m);
-        pthread_mutex_unlock(&s->stats_lock);
 }
 

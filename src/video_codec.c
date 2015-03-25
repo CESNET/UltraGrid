@@ -84,8 +84,10 @@ using std::min;
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
 
+#ifdef __SSE2__
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
+#endif
 static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
@@ -419,13 +421,25 @@ int get_pf_block_size(codec_t codec)
  */
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
+#ifdef __SSE2__
         if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
                 vc_deinterlace_aligned(src, src_linesize, lines);
         } else {
                 vc_deinterlace_unaligned(src, src_linesize, lines);
         }
+#else
+        for (int y = 0; y < lines; y += 2) {
+                for (int x = 0; x < src_linesize; ++x) {
+                        int val = (*src + src[src_linesize] + 1) >> 1;
+                        *src = src[src_linesize]  = val;
+                        src++;
+                }
+                src += src_linesize;
+        }
+#endif
 }
 
+#ifdef __SSE2__
 /**
  * Aligned version of deinterlace filter
  *
@@ -520,6 +534,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
                 bline3 += 16;
         }
 }
+#endif
 
 /**
  * @brief Converts v210 to UYVY
@@ -576,7 +591,7 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
  */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-#if WORD_LEN == 64
+#if defined __SSE2__
         register uint32_t *d;
         register const uint32_t *s;
         const uint32_t * const end = (uint32_t *)(void *) dst + dst_len / 4;

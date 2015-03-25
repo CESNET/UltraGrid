@@ -96,6 +96,11 @@ then
         fi
 fi
 
+if test $host_cpu = x86_64 -o $host_cpu = i686
+then
+        COMMON_FLAGS="$COMMON_FLAGS -msse2"
+fi
+
 AC_MSG_CHECKING([OS family])
 
 if expr "$host_os" : ".*darwin.*" > /dev/null; then

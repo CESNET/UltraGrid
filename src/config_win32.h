@@ -265,4 +265,10 @@ void ShowMessage(int level, char *msg);
 #define inet_ntop InetNtopA
 
 #endif 
+
+#if _M_IX86_FP == 2
+#undef __SSE2__
+#define __SSE2__
+#endif
+
 #endif
