@@ -386,7 +386,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 goto error;
         }
         s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = INADDR_ANY;
+        s_in.sin_addr.s_addr = htonl(INADDR_ANY);
         s_in.sin_port = htons(rx_port);
         if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
                 socket_error("bind");
