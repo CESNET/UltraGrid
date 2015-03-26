@@ -115,7 +115,7 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
                 m_rxtx_mode(params.at("rxtx_mode").i), m_compression(nullptr),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
-                m_frames(0), m_t0(std::chrono::steady_clock::now()) {
+                m_frames(0), m_t0(std::chrono::steady_clock::now()), m_joined(false) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
@@ -157,14 +157,19 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
 }
 
 video_rxtx::~video_rxtx() {
+        join();
         module_done(CAST_MODULE(m_compression));
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 }
 
 void video_rxtx::join() {
+        if (m_joined) {
+                return;
+        }
         send(NULL); // pass poisoned pill
         pthread_join(m_thread_id, NULL);
+        m_joined = true;
 }
 
 const char *video_rxtx::get_name(enum rxtx_protocol proto) {

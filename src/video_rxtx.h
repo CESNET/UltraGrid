@@ -110,6 +110,7 @@ private:
         std::chrono::steady_clock::time_point m_t0;
 
         pthread_t m_thread_id;
+        bool m_joined;
 };
 
 class video_rxtx_loader {
