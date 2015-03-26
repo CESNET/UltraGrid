@@ -249,7 +249,7 @@ static double get_normalized(const char *in, int bps) {
         bool negative = false;
 
         for (int j = 0; j < bps; ++j) {
-                sample = (sample | (((uint8_t)in[j]) << (8ull * j)));
+                sample = (sample | ((((uint8_t *)in)[j]) << (8ull * j)));
         }
         if ((int8_t)(in[bps - 1] < 0))
                 negative = true;
