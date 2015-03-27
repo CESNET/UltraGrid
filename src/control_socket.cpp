@@ -204,6 +204,13 @@ int control_init(int port, int connection_type, struct control_state **state, st
                                 perror("Control socket - setsockopt");
                         }
 
+                        int ipv6only = 0;
+                        if (setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                         sizeof(ipv6only)) != 0) {
+                                perror("setsockopt IPV6_V6ONLY");
+                        }
+
+
                         /* setting address to in6addr_any allows connections to be established
                          * from both IPv4 and IPv6 hosts. This behavior can be modified
                          * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/

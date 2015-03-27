@@ -1530,6 +1530,7 @@ bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
 
                 if (ipv6) {
                         struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_st;
+                        int ipv6only = 0;
                         s_in6->sin6_family = AF_INET6;
                         s_in6->sin6_port = htons(even_port + i);
 #ifdef HAVE_SIN6_LEN
@@ -1538,6 +1539,12 @@ bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
                         s_in6->sin6_addr = in6addr_any;
                         len = sizeof(struct sockaddr_in6);
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
+                        if (SETSOCKOPT
+                                        (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                         sizeof(ipv6only)) != 0) {
+                                socket_error("setsockopt IPV6_V6ONLY");
+                                return false;
+                        }
                 } else {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) &s_st;
                         s_in->sin_family = AF_INET;
