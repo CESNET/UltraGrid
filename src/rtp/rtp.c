@@ -1105,6 +1105,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                         fprintf(stderr, "Unable to find empty RTP port pair!\n");
                 }
         }
+        if (tx_port == 0) {
+                tx_port = rx_port;
+        }
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 
         session->rtcp_socket =
