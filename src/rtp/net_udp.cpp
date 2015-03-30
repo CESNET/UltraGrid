@@ -406,6 +406,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                                 sin.sin_family == AF_INET &&
                                 addrlen == sizeof(sin)) {
                         s->tx_port = ntohs(sin.sin_port);
+                        ((struct sockaddr_in *) &s->sock)->sin_port = sin.sin_port;
                 }
         }
 
@@ -747,6 +748,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                                 sin.sin6_family == AF_INET6 &&
                                 addrlen == sizeof(sin)) {
                         s->tx_port = ntohs(sin.sin6_port);
+                        ((struct sockaddr_in6 *) &s->sock)->sin6_port = sin.sin6_port;
                 }
         }
 

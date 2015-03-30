@@ -210,6 +210,7 @@ void *hd_rum_decompress_init(struct module *parent)
 
         s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params)));
         assert (s->video_rxtx);
+        s->video_rxtx->start();
 
         s->worker_thread = thread(&state_transcoder_decompress::worker, s);
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
