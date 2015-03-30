@@ -176,6 +176,7 @@ struct vidcap_import_state {
         bool loop;
         bool o_direct;
         int video_reading_threads_count;
+        bool should_exit_at_end;
 };
 
 #ifdef WIN32
@@ -297,7 +298,7 @@ try {
         char *suffix;
         if (!s->directory || strcmp(s->directory, "help") == 0) {
                 throw string("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct}");
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end}");
         }
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (strcmp(suffix, "loop") == 0) {
@@ -310,6 +311,8 @@ try {
                                         MAX_NUMBER_WORKERS);
                 } else if (strcmp(suffix, "o_direct") == 0) {
                         s->o_direct = true;
+                } else if (strcmp(suffix, "exit_at_end") == 0) {
+                        s->should_exit_at_end = true;
                 } else {
                         throw string("[Playback] Unrecognized"
                                         " option ") + suffix + ".\n";
@@ -1159,6 +1162,9 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                                 lk.unlock();
                                 reset_import(s);
                                 lk.lock();
+                        }
+                        if (s->finished == true && s->should_exit_at_end == true) {
+                                exit_uv(0);
                         }
 
                         s->boss_cv.wait_for(lk, duration<double>(2 * 1/s->video_desc.fps));
