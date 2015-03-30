@@ -139,11 +139,6 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false),
 
                 pthread_mutex_init(&m_lock, NULL);
 
-                if (pthread_create
-                                (&m_thread_id, NULL, video_rxtx::sender_thread,
-                                 (void *) this) != 0) {
-                        throw string("Unable to create sender thread!\n");
-                }
         } catch (...) {
                 if (m_compression) {
                         module_done(CAST_MODULE(m_compression));
@@ -161,6 +156,14 @@ video_rxtx::~video_rxtx() {
         module_done(CAST_MODULE(m_compression));
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
+}
+
+void video_rxtx::start() {
+        if (pthread_create
+                        (&m_thread_id, NULL, video_rxtx::sender_thread,
+                         (void *) this) != 0) {
+                throw string("Unable to create sender thread!\n");
+        }
 }
 
 void video_rxtx::join() {

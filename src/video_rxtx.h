@@ -87,6 +87,7 @@ public:
         bool supports_receiving() {
                 return get_receiver_thread() != NULL;
         }
+        void start();
         virtual void join();
         static video_rxtx *create(enum rxtx_protocol proto, std::map<std::string, param_u> const &);
 protected:
