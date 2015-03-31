@@ -190,6 +190,7 @@ static struct module *find_child(struct module *node, const char *node_name, int
                 assert(child_name != NULL);
                 if(strcasecmp(child_name, node_name) == 0) {
                         if(index-- == 0) {
+                                simple_linked_list_it_destroy(it);
                                 return child;
                         }
                 }

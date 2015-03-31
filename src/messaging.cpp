@@ -36,6 +36,11 @@ struct response *send_message(struct module *root, const char *const_path, struc
                         printf("Receiver %s not yet exists. Message will be delivered "
                                         "when it's created.\n", const_path);
                         //dump_tree(root, 0);
+                        if (simple_linked_list_size(old_receiver->msg_queue_childs) > 10) {
+                                printf("Dropping some old messages.\n");
+                                struct message *m = (struct message *) simple_linked_list_pop(old_receiver->msg_queue_childs);
+                                free_message(m);
+                        }
                         
                         struct pair_msg_path *saved_message = (struct pair_msg_path *)
                                 malloc(sizeof(struct pair_msg_path));
