@@ -77,6 +77,7 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
+#define DEFAULT_FORMAT "1920:1080:25:UYVY:i"
 
 struct testcard_rect {
         int x, y, w, h;
@@ -308,6 +309,10 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         int h_align = 0;
         double bpp = 0;
 
+        if (strlen(fmt) == 0) {
+                free(fmt);
+                fmt = strdup(DEFAULT_FORMAT);
+        }
 
         tmp = strtok_r(fmt, ":", &save_ptr);
         if (!tmp) {
