@@ -9,7 +9,11 @@ test -z "$srcdir" && srcdir=.
 ORIGDIR=`pwd`
 
 cd $srcdir
-git submodule update --init ldgm
+if test -d .git ; then
+        git submodule update --init ldgm
+else
+        git clone "http://seth.ics.muni.cz/git/ldgm.git"
+fi
 aclocal
 autoheader
 autoconf
