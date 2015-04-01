@@ -70,6 +70,11 @@ void *simple_linked_list_it_next(void **i)
         return ret;
 }
 
+void simple_linked_list_it_destroy(void *i)
+{
+        delete (sll_it *) i;
+}
+
 int simple_linked_list_remove(struct simple_linked_list *l, void *item)
 {
         for (auto it = l->l.begin(); it != l->l.end(); ++it) {

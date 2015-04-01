@@ -22,6 +22,7 @@ int simple_linked_list_size(struct simple_linked_list *);
  */
 void *simple_linked_list_it_init(struct simple_linked_list *);
 void *simple_linked_list_it_next(void **it);
+void simple_linked_list_it_destroy(void *it);
 
 /**
  * @retval TRUE if removed
