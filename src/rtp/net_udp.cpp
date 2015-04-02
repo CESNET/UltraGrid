@@ -713,7 +713,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
             (s->fd, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEPORT");
-                return NULL;
+                //return NULL;
         }
 #endif
 
