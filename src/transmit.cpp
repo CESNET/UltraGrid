@@ -575,8 +575,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 long long req_bitrate = tile->data_len * 8 / time_for_frame * tx->mult_count;
                 // adjust computed value to 4/3
                 req_bitrate = req_bitrate / 3 * 4;
-                // prevent bitrate to be "too low"
-                req_bitrate = std::max<long long>(req_bitrate, 1000ll * 1000 * 1000);
+                // prevent bitrate to be "too low", here 1 Mbps at minimum
+                req_bitrate = std::max<long long>(req_bitrate, 1000000l);
                 packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
         }
 
