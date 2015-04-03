@@ -45,6 +45,7 @@
 
 #include "rtp/fec.h"
 #include "rtp/ldgm.h"
+#include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
 
 using namespace std;
@@ -74,6 +75,8 @@ fec *fec::create_from_config(const char *c_str)
                 return ret;
         } else if (strncmp(c_str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
                 return new ldgm(c_str + strlen("LDGM cfg "));
+        } else if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
+                return new rs(c_str + strlen("rs cfg "));
         } else {
                 throw string("Unrecognized FEC configuration!");
         }
@@ -85,6 +88,8 @@ fec *fec::create_from_desc(struct fec_desc desc)
         switch (desc.type) {
         case FEC_LDGM:
                 return new ldgm(desc.k, desc.m, desc.c, desc.seed);
+        case FEC_RS:
+                return new rs(desc.k, desc.k + desc.m);
         default:
                 abort();
         }
@@ -98,6 +103,8 @@ int fec::pt_from_fec_type(enum fec_type type, bool encrypted) throw()
                 return encrypted ? PT_VIDEO_LDGM : PT_VIDEO;
         case FEC_LDGM:
                 return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
+        case FEC_RS:
+                return PT_VIDEO_RS;
         default:
                 abort();
         }
@@ -112,6 +119,8 @@ enum fec_type fec::fec_type_from_pt(int pt) throw()
         case PT_VIDEO_LDGM:
         case PT_ENCRYPT_VIDEO_LDGM:
                 return FEC_LDGM;
+        case PT_VIDEO_RS:
+                return FEC_RS;
         default:
                 abort();
         }

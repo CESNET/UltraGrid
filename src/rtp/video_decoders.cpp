@@ -324,7 +324,7 @@ static void *fec_thread(void *args) {
                                 desc = data->fec_description;
                                 fec_state = fec::create_from_desc(desc);
                                 if(fec_state == NULL) {
-                                        fprintf(stderr, "[decoder] Unable to initialize LDGM.\n");
+                                        fprintf(stderr, "[decoder] Unable to initialize FEC.\n");
                                         exit_uv(1);
                                         goto cleanup;
                                 }
@@ -818,7 +818,7 @@ static void cleanup(struct state_video_decoder *decoder)
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
                                 decoder->missing); \
-                         if (decoder->fec_ok + decoder->fec_nok > 0) fprintf(stderr, " LDGM OK/NOK: %ld/%ld", \
+                         if (decoder->fec_ok + decoder->fec_nok > 0) fprintf(stderr, " FEC OK/NOK: %ld/%ld", \
                          decoder->fec_ok, decoder->fec_nok); \
                          fprintf(stderr, "\n");
 
@@ -1445,9 +1445,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         int i;
         uint32_t buffer_len[max_substreams];
         uint32_t buffer_num[max_substreams];
-        // the following is just LDGM related optimalization - normally we fill up
-        // allocated buffers when we have compressed data. But in case of LDGM, there
-        // is just the LDGM buffer present, so we point to it instead to copying
+        // the following is just FEC related optimalization - normally we fill up
+        // allocated buffers when we have compressed data. But in case of FEC, there
+        // is just the FEC buffer present, so we point to it instead to copying
         char *recv_buffer[max_substreams]; // for FEC or compressed data
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
         for (i = 0; i < (int) max_substreams; ++i) {
@@ -1514,7 +1514,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 buffer_length = ntohl(hdr[2]);
                 ssrc = pckt->ssrc;
 
-                if (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM) {
+                if (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_VIDEO_RS) {
                         tmp = ntohl(hdr[3]);
                         k = tmp >> 19;
                         m = 0x1fff & (tmp >> 6);
@@ -1539,6 +1539,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
                         break;
+                case PT_VIDEO_RS:
                 case PT_VIDEO_LDGM:
                         len = pckt->data_len - sizeof(fec_video_payload_hdr_t);
                         data = (char *) hdr + sizeof(fec_video_payload_hdr_t);

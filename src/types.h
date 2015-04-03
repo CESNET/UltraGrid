@@ -122,6 +122,7 @@ enum fec_type {
         FEC_NONE = 0,
         FEC_MULT = 1,
         FEC_LDGM = 2,
+        FEC_RS   = 3,
 };
 
 struct fec_desc {

@@ -5,7 +5,7 @@ CC            = @CC@
 CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
-COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith
+COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith -DGF_BITS=16
 CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
 CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE @AJA_CXXFLAGS@
@@ -69,6 +69,7 @@ OBJS	      = @OBJS@ \
 		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
+		src/rtp/rs.o \
 		src/rtp/rtp.o \
 		src/rtp/rtpenc_h264.o \
 		src/rtp/rtp_callback.o \
@@ -159,6 +160,7 @@ OBJS	      = @OBJS@ \
 		ldgm/src/tanner.o \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
+		rs/fec.o \
 
 ULTRAGRID_OBJS = src/main.o \
 

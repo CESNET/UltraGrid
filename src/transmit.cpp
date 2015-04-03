@@ -288,6 +288,15 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         }
                         tx->fec_scheme = FEC_LDGM;
                 }
+        } else if(strcasecmp(fec, "RS") == 0) {
+                struct msg_sender *msg = (struct msg_sender *)
+                        new_message(sizeof(struct msg_sender));
+                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
+                                fec_cfg ? fec_cfg : "");
+                msg->type = SENDER_MSG_CHANGE_FEC;
+                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                resp->deleter(resp);
+                tx->fec_scheme = FEC_RS;
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
                 ret = false;

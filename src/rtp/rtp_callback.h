@@ -58,6 +58,7 @@ extern "C" {
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
 #define PT_ENCRYPT_VIDEO_LDGM 26
+#define PT_VIDEO_RS     27
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
