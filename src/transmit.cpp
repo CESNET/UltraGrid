@@ -578,17 +578,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         int fec_symbol_offset = 0;
 
-        long packet_rate = tx->packet_rate;
-        if (packet_rate == RATE_AUTO) {
-                double time_for_frame = 1.0 / frame->fps / frame->tile_count;
-                long long req_bitrate = tile->data_len * 8 / time_for_frame * tx->mult_count;
-                // adjust computed value to 4/3
-                req_bitrate = req_bitrate / 3 * 4;
-                // prevent bitrate to be "too low", here 1 Mbps at minimum
-                req_bitrate = std::max<long long>(req_bitrate, 1000000l);
-                packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
-        }
-
         // calculate number of packets
         int packet_count = 0;
         do {
@@ -601,6 +590,17 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
         pos = 0;
         fec_symbol_offset = 0;
+
+        long packet_rate = tx->packet_rate;
+        if (packet_rate == RATE_AUTO) {
+                double time_for_frame = 1.0 / frame->fps / frame->tile_count;
+                double interval_between_pkts = time_for_frame / tx->mult_count / packet_count;
+                // use only 75% of the time
+                interval_between_pkts = interval_between_pkts * 0.75;
+                // prevent bitrate to be "too low", here 1 Mbps at minimum
+                interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000000.0);
+                packet_rate = interval_between_pkts * 1000ll * 1000 * 1000;
+        }
 
         // initialize header array with values (except offset which is different among
         // different packts)
