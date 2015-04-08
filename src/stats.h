@@ -21,11 +21,13 @@ struct stats : public stats_reportable {
                  * are reported.
                  */
                 stats(struct module *mod, std::string name)
-                : m_name(name), m_val() {
+                : m_name(name), m_val(), m_disabled(false) {
                         m_control = (struct control_state *) get_module(get_root_module(mod), "control");
                         uint32_t id;
                         bool ret = get_port_id(mod, &id);
-                        control_add_stats(m_control, this, ret ? id : -1);
+                        if (!control_add_stats(m_control, this, ret ? id : -1)) {
+                                m_disabled = true;
+                        }
                 }
 
                 ~stats() {
@@ -33,7 +35,9 @@ struct stats : public stats_reportable {
                 }
 
                 void update(T val) {
-                        m_val = val;
+                        if (!m_disabled) {
+                                m_val = val;
+                        }
                 }
 
                 std::string get_stat() {
@@ -47,6 +51,7 @@ struct stats : public stats_reportable {
                 struct control_state *m_control;
                 std::string m_name;
                 std::atomic<T> m_val;
+                bool m_disabled;
 };
 
 #endif // stat_h_

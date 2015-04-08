@@ -269,6 +269,10 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
 void control_start(struct control_state *s)
 {
+        if (s == NULL) {
+                return;
+        }
+
         fd_t sock;
         sock = create_internal_port(&s->local_port);
 
@@ -724,14 +728,21 @@ void control_done(struct control_state *s)
         delete s;
 }
 
-void control_add_stats(struct control_state *s, struct stats_reportable *stats, int32_t port_id)
+bool control_add_stats(struct control_state *s, struct stats_reportable *stats, int32_t port_id)
 {
+        if (!s) {
+                return false;
+        }
         std::unique_lock<std::mutex> lk(s->stats_lock);
         s->stats.emplace(port_id, stats);
+        return true;
 }
 
 void control_remove_stats(struct control_state *s, struct stats_reportable *stats)
 {
+        if (!s) {
+                return;
+        }
         std::unique_lock<std::mutex> lk(s->stats_lock);
         for (auto it = s->stats.begin(); it != s->stats.end(); ++it) {
                 if (it->second == stats) {
@@ -743,6 +754,9 @@ void control_remove_stats(struct control_state *s, struct stats_reportable *stat
 
 void control_replace_port_mapping(struct control_state *s, std::map<uint32_t, int> &&m)
 {
+        if (!s) {
+                return;
+        }
         std::unique_lock<std::mutex> lk(s->stats_lock);
         s->stats_id_port_mapping = move(m);
 }
