@@ -927,6 +927,7 @@ static char *udp_host_addr6(socket_udp * s)
         }
         addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
         addr6.sin6_port = htons(s->rx_port);
+        addr6.sin6_scope_id = ((struct sockaddr_in6 *)&s->sock)->sin6_scope_id;
         result = connect(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
                 perror("connect");
