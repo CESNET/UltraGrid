@@ -42,7 +42,6 @@
 #endif
 
 #include <bitset>
-#include <malloc.h>
 #include <stdlib.h>
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
