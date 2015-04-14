@@ -500,12 +500,10 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                                         true
 #else
                                         s->frame->pict_type == AV_PICTURE_TYPE_I ||
-#ifndef DISABLE_H264_INTRA_REFRESH
-                                        /* there should be also check if we got 
-                                         * all previous frames (up to the size
-                                         * of GOP) */
+                                        /* H.264 is quite error-resilient so we
+                                         * put all frames no matter if missing
+                                         * I-frames */
                                         (s->in_codec == H264) ||
-#endif
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
 #endif // LAVD_ACCEPT_CORRUPTED
