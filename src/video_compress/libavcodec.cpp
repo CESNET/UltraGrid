@@ -73,6 +73,7 @@ struct setparam_param {
         double fps;
         bool interlaced;
         bool exact_bitrate;
+        bool h264_no_periodic_intra;
         int cpu_count;
 };
 
@@ -144,7 +145,7 @@ struct state_video_compress_libav {
 
         struct video_desc compressed_desc;
 
-        bool exact_bitrate;
+        struct setparam_param params;
 };
 
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -169,7 +170,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
                         "[:subsampling=<subsampling>][:preset=<preset>]"
-                        "[:exact_bitrate]\n");
+                        "[:exact_bitrate][:h264_no_periodic_intra]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
                 if(param.second.av_codec != 0) {
@@ -183,6 +184,7 @@ static void usage() {
         }
         printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
                "as constant as it can\n");
+        printf("\t\th264_no_periodic_intra - do not use Periodic Intra Refresh with H.264\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
@@ -222,7 +224,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 char *preset = item + strlen("preset=");
                                 s->preset = strdup(preset);
                         } else if (strcasecmp("exact_bitrate", item) == 0) {
-                                s->exact_bitrate = true;
+                                s->params.exact_bitrate = true;
+                        } else if (strcasecmp("h264_no_periodic_intra", item) == 0) {
+                                s->params.h264_no_periodic_intra = true;
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -452,15 +456,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
         }
 
-        struct setparam_param param;
-        param.have_preset = s->preset != 0;
-        param.fps = desc.fps;
-        param.codec = s->codec;
-        param.interlaced = desc.interlacing == INTERLACED_MERGED;
-        param.exact_bitrate = s->exact_bitrate;
-        param.cpu_count = s->cpu_count;
+        s->params.have_preset = s->preset != 0;
+        s->params.fps = desc.fps;
+        s->params.codec = s->codec;
+        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
+        s->params.cpu_count = s->cpu_count;
 
-        codec_params[s->selected_codec_id].set_param(s->codec_ctx, &param);
+        codec_params[s->selected_codec_id].set_param(s->codec_ctx, &s->params);
 
         pthread_mutex_lock(s->lavcd_global_lock);
         /* open it */
@@ -844,10 +846,10 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 //codec_ctx->scenechange_threshold = 100;
         }
 
-#ifndef DISABLE_H264_INTRA_REFRESH
-        codec_ctx->refs = 1;
-        av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
-#endif // defined DISABLE_H264_INTRA_REFRESH
+        if (!param->h264_no_periodic_intra) {
+                codec_ctx->refs = 1;
+                av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+        }
 }
 
 static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param)
