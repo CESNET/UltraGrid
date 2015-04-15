@@ -817,6 +817,7 @@ static void *slave_worker(void *arg)
                                 vidcap_params_get_name(s->device_params),
                                 vidcap_params_get_driver(s->device_params),
                                 vidcap_params_get_fmt(s->device_params));
+                exit_uv(1);
                 return NULL;
         }
 
