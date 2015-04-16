@@ -2538,7 +2538,7 @@ AC_ARG_ENABLE(qt,
 
 if test $qt_req != no
 then
-        AC_CHECK_PROGS(QMAKE, [qmake qmake-qt4])
+        AC_CHECK_PROGS(QMAKE, [qmake-qt4 qmake])
         GUI_TARGET=gui/QT/uv-qt
 else
         GUI_TARGET=

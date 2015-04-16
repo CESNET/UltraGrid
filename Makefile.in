@@ -393,7 +393,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#echo ";" >> $@
 
 gui/QT/uv-qt:
-	cd gui/QT; $(QMAKE) ; make -j; cd -
+	cd gui/QT; $(QMAKE) ; make -j 4; cd -
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
