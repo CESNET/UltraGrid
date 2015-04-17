@@ -610,8 +610,11 @@ static void glut_idle_callback(void)
         lk.unlock();
         s->frame_consumed_cv.notify_one();
 
-        if (s->paused)
+        if (s->paused) {
+                unique_lock<mutex> lk(s->lock);
+                s->free_frame_queue.push(frame);
                 return;
+        }
 
         if (s->current_frame) {
                 s->lock.lock();
