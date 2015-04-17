@@ -494,9 +494,9 @@ void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flag
                 {
                         if (strcmp(tok, "fs") == 0) {
                                 s->fs = 1;
-                        } else if (strcmp(fmt, "d") == 0) {
+                        } else if (strcmp(tok, "d") == 0) {
                                 s->deinterlace = 1;
-                        } else if (strcmp(fmt, "nodecorate") == 0) {
+                        } else if (strcmp(tok, "nodecorate") == 0) {
                                 s->nodecorate = true;
                         }
                         ptr = NULL;
