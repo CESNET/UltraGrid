@@ -889,7 +889,8 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate, audio_delay, &start_time);
+                        audio_codec, isStd, packet_rate, audio_delay, &start_time,
+                        requested_mtu);
         if(!uv->audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;

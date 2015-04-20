@@ -201,7 +201,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                bool isStd, long packet_rate, int audio_delay, const std::chrono::steady_clock::time_point *start_time)
+                bool isStd, long packet_rate, int audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -306,7 +306,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
+        s->tx_session = tx_init(&s->mod, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;
