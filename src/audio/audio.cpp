@@ -306,7 +306,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        s->tx_session = tx_init(&s->mod, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
+        s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;
