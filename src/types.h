@@ -195,7 +195,6 @@ struct video_frame {
             // Config
         unsigned int h264_width;
         unsigned int h264_height;
-        codec_t codec;
             // Data
         unsigned char *h264_buffer;
         unsigned int h264_buffer_len;

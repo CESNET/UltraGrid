@@ -59,8 +59,6 @@
 #include "video.h"
 #include "video_codec.h"
 
-#define MAX_TILES 16
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -74,19 +72,17 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_resize {
     int num;
-    int orig_width;
-    int orig_height;
     int denom;
     double scale_factor;
-    int reinit;
     struct video_frame *frame;
+    struct video_desc saved_desc;
 };
 
 static void usage() {
-    printf("\nDownscaling by scale factor:\n\n");
+    printf("\nScaling by scale factor:\n\n");
     printf("resize usage:\n");
     printf("\tresize:numerator/denominator\n\n");
-    printf("Downscaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
+    printf("Scaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -114,21 +110,11 @@ static int init(struct module *parent, const char *cfg, void **state)
         usage();
         return -1;
     }
-    if(n/denom > 1.0){
-        printf("\n[RESIZE ERROR] resize factors must be lower than 1 (only downscaling is supported)\n");
-        usage();
-        return -1;
-    }
-	if(n == denom){
-        printf("\n[RESIZE ERROR] resize factors must be lower than 1 (only downscaling is supported)\n");
-		usage();
-		return -1;
-	}
 
     struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
-    s->reinit = 1;
     s->num = n;
     s->denom = denom;
+    s->scale_factor = (double)s->num/s->denom;
 
     *state = s;
     return 0;
@@ -142,44 +128,29 @@ static void done(void *state)
     free(state);
 }
 
-
-
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = (state_resize*) state;
     unsigned int i;
     int res = 0;
-    assert(in->tile_count <= MAX_TILES);
 
-    if(s->reinit==1){
+    if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
     	struct video_desc desc = video_desc_from_frame(in);
+        desc.width = in->tiles[0].width * s->num / s->denom;
+        desc.height = in->tiles[0].height * s->num / s->denom;
+        desc.color_spec = RGB;
     	s->frame = vf_alloc_desc_data(desc);
+        s->saved_desc = video_desc_from_frame(in);
+        printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[0].width, in->tiles[0].height, s->frame->tiles[0].width, s->frame->tiles[0].height);
     }
 
     for(i=0; i<s->frame->tile_count;i++){
-        if(s->reinit==1){
-        	//TODO: all tiles could have different sizes and other color specs different than UYVY, YUYV and RGB
-            s->orig_width = s->frame->tiles[i].width;
-            s->orig_height = s->frame->tiles[i].height;
-            s->frame->tiles[i].width *= s->num;
-            s->frame->tiles[i].width /= s->denom;
-            s->frame->tiles[i].height *= s->num;
-            s->frame->tiles[i].height /= s->denom;
-            s->frame->color_spec = RGB;
-            s->scale_factor = (double)s->num/s->denom;
-            s->reinit = 0;
-        	if(i==0) printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[i].width, in->tiles[i].height, s->frame->tiles[i].width, s->frame->tiles[i].height);
-        }
-
-        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, s->scale_factor);
+        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, in->tiles[i].width, in->tiles[i].height, s->scale_factor);
 
         if(res!=0){
             error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
             error_msg("\t\t No scale factor applied at all. No frame returns...\n");
             return NULL;
-        }else{
-            s->frame->color_spec = RGB;
-            s->frame->codec = RGB;
         }
     }
 
