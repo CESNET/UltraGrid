@@ -79,6 +79,7 @@ struct setparam_param {
 
 typedef struct {
         enum AVCodecID av_codec;
+        const char *prefered_encoder; ///< can be nullptr
         double avg_bpp;
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
@@ -94,22 +95,26 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         {H264, { AV_CODEC_ID_H264,
+                "libx264",
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                 setparam_h264
         }},
         { MJPG, {
                 AV_CODEC_ID_MJPEG,
+                nullptr,
                 0.3,
                 setparam_default
         }},
         { J2K, {
                 AV_CODEC_ID_JPEG2000,
+                nullptr,
                 0.3,
                 setparam_default
         }},
         { VP8, {
                 AV_CODEC_ID_VP8,
+                nullptr,
                 0.2,
                 setparam_vp8
         }},
@@ -311,12 +316,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         AVCodecID codec_id;
         AVPixelFormat pix_fmt;
         double avg_bpp; // average bit per pixel
+        const char *prefered_encoder;
 
         s->compressed_desc = desc;
 
         auto it = codec_params.find(s->selected_codec_id);
         if (it != codec_params.end()) {
                 codec_id = it->second.av_codec;
+                prefered_encoder = it->second.prefered_encoder;
                 if (s->requested_bpp != 0.0) {
                         avg_bpp = s->requested_bpp;
                 } else {
@@ -341,10 +348,20 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 #endif
 
-        /* find the video encoder */
-        s->codec = avcodec_find_encoder(codec_id);
+        s->codec = nullptr;
+        if (prefered_encoder) {
+                s->codec = avcodec_find_encoder_by_name(prefered_encoder);
+                if (!s->codec) {
+                        fprintf(stderr, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
+                                        prefered_encoder);
+                }
+        }
         if (!s->codec) {
-                fprintf(stderr, "Libavcodec doesn't contain specified codec.\n"
+                /* find the video encoder */
+                s->codec = avcodec_find_encoder(codec_id);
+        }
+        if (!s->codec) {
+                fprintf(stderr, "Libavcodec doesn't contain encoder for specified codec.\n"
                                 "Hint: Check if you have libavcodec-extra package installed.\n");
                 return false;
         }
