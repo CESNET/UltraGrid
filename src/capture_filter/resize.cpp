@@ -74,6 +74,7 @@ struct state_resize {
     int num;
     int denom;
     double scale_factor;
+    int target_width, target_height;
     struct video_frame *frame;
     struct video_desc saved_desc;
 };
@@ -81,7 +82,9 @@ struct state_resize {
 static void usage() {
     printf("\nScaling by scale factor:\n\n");
     printf("resize usage:\n");
-    printf("\tresize:numerator/denominator\n\n");
+    printf("\tresize:numerator/denominator\n");
+    printf("\tor\n");
+    printf("\tresize:<width>x<height>\n\n");
     printf("Scaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
 }
 
@@ -89,23 +92,28 @@ static int init(struct module *parent, const char *cfg, void **state)
 {
     UNUSED(parent);
 
-    int n;
+    int n = 0, w = 0, h = 0;
     int denom = 1;
     if(cfg) {
         if(strcasecmp(cfg, "help") == 0) {
             usage();
             return 1;
         }
-        n = atoi(cfg);
-        if(strchr(cfg, '/')) {
-            denom = atoi(strchr(cfg, '/') + 1);
+        if (strchr(cfg, 'x')) {
+            w = atoi(cfg);
+            h = atoi(strchr(cfg, 'x') + 1);
+        } else {
+            n = atoi(cfg);
+            if(strchr(cfg, '/')) {
+                denom = atoi(strchr(cfg, '/') + 1);
+            }
         }
     } else {
         usage();
         return -1;
     }
 
-    if(n <= 0 || denom <= 0){
+    if((n <= 0 || denom <= 0) && ((w <= 0) || (h <= 0))){
         printf("\n[RESIZE ERROR] resize factors must be greater than zero!\n");
         usage();
         return -1;
@@ -115,6 +123,9 @@ static int init(struct module *parent, const char *cfg, void **state)
     s->num = n;
     s->denom = denom;
     s->scale_factor = (double)s->num/s->denom;
+
+    s->target_width = w;
+    s->target_height = h;
 
     *state = s;
     return 0;
@@ -136,8 +147,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
     	struct video_desc desc = video_desc_from_frame(in);
-        desc.width = in->tiles[0].width * s->num / s->denom;
-        desc.height = in->tiles[0].height * s->num / s->denom;
+        if (s->target_width != 0) {
+            desc.width = s->target_width;
+            desc.height = s->target_height;
+        } else {
+            desc.width = in->tiles[0].width * s->num / s->denom;
+            desc.height = in->tiles[0].height * s->num / s->denom;
+        }
         desc.color_spec = RGB;
     	s->frame = vf_alloc_desc_data(desc);
         s->saved_desc = video_desc_from_frame(in);
@@ -145,7 +161,11 @@ static struct video_frame *filter(void *state, struct video_frame *in)
     }
 
     for(i=0; i<s->frame->tile_count;i++){
-        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, in->tiles[i].width, in->tiles[i].height, s->scale_factor);
+        if (s->target_width != 0) {
+            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->target_width, s->target_height);
+        } else {
+            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->scale_factor);
+        }
 
         if(res!=0){
             error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
@@ -177,3 +197,4 @@ static void mod_reg(void)
         register_library("capture_filter_resize", &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 }
 
+/* vim: set expandtab: sw=4 */

@@ -47,6 +47,7 @@
 
 #include "types.h"
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor);
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor);
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height);
 
 #endif// RESIZE_UTILS_H_

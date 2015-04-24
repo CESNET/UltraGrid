@@ -55,38 +55,69 @@
 
 using namespace cv;
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor){
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
     assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
 
     int res = 0;
-    Mat out, in, rgb;
+    Mat out, yuv, rgb;
 
-    if (indata == NULL || outdata == NULL || data_len == NULL) {
+    if (indata == NULL || outdata == NULL) {
         return 1;
     }
 
-    switch(in_color){
-		case UYVY:
-			in.create(height, width, CV_8UC2);
-		    in.data = (uchar*)indata;
-			cvtColor(in, rgb, CV_YUV2RGB_UYVY);
-			resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
-			break;
-		case YUYV:
-			in.create(height, width, CV_8UC2);
-		    in.data = (uchar*)indata;
-			cvtColor(in, rgb, CV_YUV2RGB_YUYV);
-			resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
-			break;
-		case RGB:
-			in.create(height, width, CV_8UC3);
-		    in.data = (uchar*)indata;
-			resize(in, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
-			break;
+    if (in_color == RGB) {
+        rgb.create(height, width, CV_8UC3);
+        rgb.data = (uchar*)indata;
+    } else {
+        yuv.create(height, width, CV_8UC2);
+        yuv.data = (uchar*)indata;
+        cvtColor(yuv, rgb, in_color == UYVY ? CV_YUV2RGB_UYVY : CV_YUV2RGB_YUYV);
     }
+    out.data = (uchar *) outdata;
+    resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 
-    *data_len = out.step * out.rows * sizeof(char);
-    memcpy(outdata,out.data,*data_len);
+    //*data_len = out.step * out.rows * sizeof(char);
+    //memcpy(outdata,out.data,*data_len);
 
     return res;
 }
+
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height) {
+    Mat yuv, rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
+
+    if (indata == NULL || outdata == NULL) {
+        return 1;
+    }
+
+    assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
+    if (in_color == RGB) {
+        rgb.create(height, width, CV_8UC3);
+        rgb.data = (uchar*)indata;
+    } else {
+        yuv.create(height, width, CV_8UC2);
+        yuv.data = (uchar*)indata;
+        cvtColor(yuv, rgb, in_color == UYVY ? CV_YUV2RGB_UYVY : CV_YUV2RGB_YUYV);
+    }
+
+    double in_aspect = (double) width / height;
+    double out_aspect = (double) target_width / target_height;
+    Rect r;
+    if (in_aspect > out_aspect) {
+        r.x = 0;
+        r.width = target_width;
+        r.height = target_width / in_aspect;
+        r.y = (target_height - r.height) / 2;
+    } else {
+        r.y = 0;
+        r.height = target_height;
+        r.width = target_height * in_aspect;
+        r.x = (target_width - r.width) / 2;
+    }
+
+    out.data = (uchar *) outdata;
+    resize(rgb, out(r), r.size());
+
+    return 0;
+}
+
+/* vim: set expandtab: sw=4 */
