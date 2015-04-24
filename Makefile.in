@@ -26,7 +26,7 @@ PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 NVCC	      = @NVCC@
-DOCS 	      = README REPORTING-BUGS
+DOCS 	      = README REPORTING-BUGS coding_standards.html
 
 
 GUI_TARGET    = @GUI_TARGET@

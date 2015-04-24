@@ -1,0 +1,50 @@
+<html>
+<head>
+<title>UltraGrid Coding Standards</title>
+<style>
+   body{counter-reset: section}
+   h2{counter-reset: sub-section}
+   h3{counter-reset: composite}
+   h4{counter-reset: detail}
+
+   h2:before{
+     counter-increment: section;
+     content: counter(section) " ";
+   }
+   h3:before{
+     counter-increment: sub-section;
+     content: counter(section) "." counter(sub-section) " ";
+   }
+   h4:before{
+     counter-increment: composite;
+     content: counter(section) "." counter(sub-section) "." counter(composite) " ";
+   }
+   h5:before{
+     counter-increment: detail;
+     content: counter(section) "." counter(sub-section) "." counter(composite) "." counter(detail) " ";
+   }
+</style>
+</head>
+<body>
+<h1>UltraGrid Coding Standards</h1>
+<h2>Indenting and Whitespaces</h2>
+<p>Default indent is 8 spaces width and consists solely of spaces, no tabs.</p>
+<p>Lines should be LF-terminated and there should not contain any whitespaces at the end.</p>
+<h2>Control Structures</h2>
+<p>Control structures like if, while, switch etc. should have opening block bracket at the
+same line as the statement itself:</p>
+<pre>
+if (foo) {
+        do_something();
+} else {
+        do_something_else();
+}
+Functions and methods, on the other hand, should have opening curly braces at the following
+</pre>
+<h2>Spaces</h2>
+<h2>Line Length and Wrapping</h2>
+<h2>Naming Conventions</h2>
+
+
+<!-- vim: set noai nocin nosi inde=: -->
+
