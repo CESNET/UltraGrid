@@ -2254,7 +2254,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                         buflen =
                                 udp_recvfrom(session->rtcp_socket, (char *)buffer,
                                                 RTP_MAX_PACKET_LEN,
-                                                &session->rtcp_dest, &session->rtcp_dest_len);
+                                                (struct sockaddr *) &session->rtcp_dest, &session->rtcp_dest_len);
                         rtp_process_ctrl(session, buffer, buflen);
                         ret = TRUE;
                 }
@@ -2274,7 +2274,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                                 buflen =
                                         udp_recvfrom(session->rtcp_socket, (char *)buffer,
                                                         RTP_MAX_PACKET_LEN,
-                                                        &session->rtcp_dest, &session->rtcp_dest_len);
+                                                        (struct sockaddr *) &session->rtcp_dest, &session->rtcp_dest_len);
                                 rtp_process_ctrl(session, buffer, buflen);
                         }
                         check_database(session);
@@ -3232,7 +3232,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         } else {
                 if (session->rtcp_dest_len > 0) {
                         rc = udp_sendto(session->rtcp_socket, (char *)buffer, ptr - buffer,
-                                        &session->rtcp_dest, session->rtcp_dest_len);
+                                        (struct sockaddr *) &session->rtcp_dest, session->rtcp_dest_len);
                         if (rc == -1) {
                                 perror("sending RTCP packet");
                         }
