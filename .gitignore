@@ -39,3 +39,5 @@ ltmain.sh
 mtrace.txt
 .project
 *.sdp
+test-driver
+src/dir-stamp
