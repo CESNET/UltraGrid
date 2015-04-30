@@ -143,7 +143,7 @@ struct state_video_compress_libav {
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling;
         // actual value used
-        int                 subsampling;
+        AVPixelFormat       selected_pixfmt;
 
         codec_t             out_codec;
         char               *preset;
@@ -156,6 +156,11 @@ struct state_video_compress_libav {
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt);
+
+
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
@@ -269,7 +274,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         s->codec_ctx = NULL;
         s->in_frame = NULL;
         s->selected_codec_id = DEFAULT_CODEC;
-        s->subsampling = s->requested_subsampling = 0;
+        s->requested_subsampling = 0;
         s->preset = NULL;
 
         s->requested_bitrate = -1;
@@ -400,16 +405,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 return false;
         }
 
-        if(is422(pix_fmt)) {
-                s->subsampling = 422;
-        } else if(is420(pix_fmt)) {
-                s->subsampling = 420;
-        } else if (is444(pix_fmt)) {
-                s->subsampling = 444;
-        } else {
-                fprintf(stderr, "[Lavc] Unknown subsampling.\n");
-                abort();
-        }
+        s->selected_pixfmt = pix_fmt;
 
         // avcodec_alloc_context3 allocates context and sets default value
         s->codec_ctx = avcodec_alloc_context3(s->codec);
@@ -515,7 +511,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 chunk_size = chunk_size / 2 * 2;
                 s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
                         chunk_size;
-                if(s->subsampling == 420) {
+                if(is420(s->selected_pixfmt)) {
                         chunk_size /= 2;
                 }
                 s->in_frame_part[i]->data[1] = s->in_frame->data[1] + s->in_frame->linesize[1] * i *
@@ -535,35 +531,22 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
-        unsigned char *src = in_data + 1;
-        for(int y = 0; y < (int) height; ++y) {
+        for(int y = 0; y < (int) height; y += 2) {
+                /*  every even row */
+                unsigned char *src = in_data + y * (width * 2);
+                /*  every odd row */
+                unsigned char *src2 = in_data + (y + 1) * (width * 2);
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-
-                if (y % 2 == 0) {
-                        /*  every even row */
-                        unsigned char *src1 = in_data + y * (width * 2);
-                        /*  every odd row */
-                        unsigned char *src2 = in_data + (y + 1) * (width * 2);
-                        unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y / 2;
-                        unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y / 2;
-                        for(int x = 0; x < width / 2; ++x) {
-                                *dst_cb++ = (*src1 + *src2) / 2;
-                                src1 += 2;
-                                src2 += 2;
-                                *dst_cr++ = (*src1 + *src2) / 2;
-                                src1 += 2;
-                                src2 += 2;
-                                *dst_y++ = *src;
-                                src += 2;
-                                *dst_y++ = *src;
-                                src += 2;
-                        }
-                } else {
-                        for(int x = 0; x < width; ++x) {
-                                *dst_y++ = *src;
-                                src += 2;
-                        }
-
+                unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
+                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y / 2;
+                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y / 2;
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst_cb++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                        *dst_cr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
                 }
         }
 }
@@ -597,6 +580,43 @@ void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
                         *dst_cr++ = *src++;
                         *dst_y++ = *src++;
                 }
+        }
+}
+
+void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        for(int y = 0; y < (int) height; y += 2) {
+                /*  every even row */
+                unsigned char *src = in_data + y * (width * 2);
+                /*  every odd row */
+                unsigned char *src2 = in_data + (y + 1) * (width * 2);
+                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
+                unsigned char *dst_cbcr = out_frame->data[1] + out_frame->linesize[1] * y / 2;
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                        *dst_cbcr++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                }
+        }
+}
+
+pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt) {
+        if(is422(fmt)) {
+                return to_yuv422p;
+        } else if(is420(fmt)) {
+                if (fmt == AV_PIX_FMT_NV12)
+                        return to_nv12;
+                else
+                        return to_yuv420p;
+        } else if (is444(fmt)) {
+                return to_yuv444p;
+        } else {
+                fprintf(stderr, "[Lavc] Unknown subsampling.\n");
+                abort();
         }
 }
 
@@ -674,8 +694,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 task_result_handle_t handle[s->cpu_count];
                 struct my_task_data data[s->cpu_count];
                 for(int i = 0; i < s->cpu_count; ++i) {
-                        assert (s->subsampling == 444 || s->subsampling == 422 || s->subsampling == 420);
-                        data[i].callback = s->subsampling == 420 ? to_yuv420p : (s->subsampling == 422 ? to_yuv422p : to_yuv444p);
+                        data[i].callback = select_pixfmt_callback(s->selected_pixfmt);
                         data[i].out_frame = s->in_frame_part[i];
 
                         size_t height = tx->tiles[0].height / s->cpu_count;

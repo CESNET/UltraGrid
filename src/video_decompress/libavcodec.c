@@ -428,6 +428,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                         yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
                 }
         } else if(is420(av_codec)) {
+                assert(av_codec != AV_PIX_FMT_NV12);
                 if(out_codec == UYVY) {
                         yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
                 } else {
