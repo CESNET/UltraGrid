@@ -265,7 +265,9 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
 
         s = (struct state_video_compress_libav *) calloc(1, sizeof(struct state_video_compress_libav));
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
-
+        if (verbose) {
+                av_log_set_level(AV_LOG_VERBOSE);
+        }
         /*  register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
         avcodec_register_all();

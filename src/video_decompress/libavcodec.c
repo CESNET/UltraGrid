@@ -54,6 +54,7 @@
 #include "video_decompress/libavcodec.h"
 
 #include "debug.h"
+#include "host.h"
 #include "libavcodec_common.h"
 #include "utils/resource_manager.h"
 #include "video.h"
@@ -209,7 +210,9 @@ void * libavcodec_decompress_init(void)
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
         s->global_lavcd_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
-
+        if (verbose) {
+                av_log_set_level(AV_LOG_VERBOSE);
+        }
         /*   register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
         avcodec_register_all();
