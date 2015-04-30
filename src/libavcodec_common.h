@@ -65,6 +65,13 @@ static bool is420(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmts,
                 const enum AVPixelFormat *codec_pix_fmts) __attribute__((unused));
 
+/**
+ * Finds best pixel format
+ *
+ * Iterates over formats in req_pix_fmts and tries to find the same format in
+ * second list, codec_pix_fmts. If found, returns that format. Efectivelly
+ * select first match of item from first list in second list.
+ */
 static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmts,
                 const enum AVPixelFormat *codec_pix_fmts)
 {

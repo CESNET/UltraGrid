@@ -869,7 +869,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
         if (param->exact_bitrate) {
                 codec_ctx->rc_max_rate = codec_ctx->bit_rate / 2 * 3;
                 //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-                codec_ctx->rc_buffer_aggressivity = 1.0;
+                //codec_ctx->rc_buffer_aggressivity = 1.0;
                 codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
                 codec_ctx->qcompress = 0.0f;
                 //codec_ctx->qblur = 0.0f;
@@ -878,7 +878,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 codec_ctx->qmin = 0;
                 codec_ctx->qmax = 69;
                 codec_ctx->max_qdiff = 69;
-                codec_ctx->rc_qsquish = 0;
+                //codec_ctx->rc_qsquish = 0;
                 //codec_ctx->scenechange_threshold = 100;
         }
 
@@ -894,7 +894,7 @@ static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param
         codec_ctx->profile = 0;
         codec_ctx->slices = 4;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
-        codec_ctx->rc_buffer_aggressivity = 0.5;
+        //codec_ctx->rc_buffer_aggressivity = 0.5;
         av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0);
 }
 
