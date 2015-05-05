@@ -135,27 +135,6 @@ static const struct codec_info_t codec_info[] = {
         {(codec_t) 0, NULL, 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL}
 };
 
-/* Also note that this is a priority list - is choosen first one that
- * matches input codec and one of the supported output codec, so eg.
- * list 10b->10b earlier to 10b->8b etc. */
-const struct line_decode_from_to line_decoders[] = {
-        { RGBA, RGBA, vc_copylineRGBA},
-        { RGB, RGB, vc_copylineRGB},
-        { DVS10, v210, (decoder_t) vc_copylineDVS10toV210},
-        { DVS10, UYVY, (decoder_t) vc_copylineDVS10},
-        { R10k, RGBA, vc_copyliner10k},
-        { v210, UYVY, (decoder_t) vc_copylinev210},
-        { YUYV, UYVY, (decoder_t) vc_copylineYUYV},
-        { RGBA, RGB, (decoder_t) vc_copylineRGBAtoRGB},
-        { RGB, RGBA, vc_copylineRGBtoRGBA},
-        { DPX10, RGBA, vc_copylineDPX10toRGBA},
-        { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
-        { RGB, UYVY, (decoder_t) vc_copylineRGBtoUYVY},
-        { BGR, UYVY, (decoder_t) vc_copylineBGRtoUYVY},
-        { BGR, RGB, (decoder_t) vc_copylineBGRtoRGB},
-        { (codec_t) 0, (codec_t) 0, NULL }
-};
-
 /**
  * This struct specifies alias FourCC used for another FourCC
  */
@@ -1270,38 +1249,38 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
         }
 }
 
+struct decoder_item {
+        decoder_t decoder;
+        codec_t in;
+        codec_t out;
+        bool slow;
+};
+
+const static struct decoder_item decoders[] = {
+        { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
+        { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
+        { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
+        { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
+        { vc_copylineRGBA,        RGBA,  RGBA, false },
+        { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
+        { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
+        { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
+        { (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
+        { (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
+        { (decoder_t) vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
+        { (decoder_t) vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
+        { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB, false },
+        { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
+        { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
+        { vc_copylineRGB,         RGB,   RGB, false },
+};
+
 /**
  * Returns line decoder for specifiedn input and output codec.
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 {
-        struct item {
-                decoder_t decoder;
-                codec_t in;
-                codec_t out;
-                bool slow;
-        };
-
-        struct item decoders[] = {
-                { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
-                { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
-                { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
-                { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
-                { vc_copylineRGBA,        RGBA,  RGBA, false },
-                { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
-                { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
-                { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
-                { (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
-                { (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
-                { (decoder_t) vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
-                { (decoder_t) vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
-                { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB, false },
-                { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
-                { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
-                { vc_copylineRGB,         RGB,   RGB, false },
-        };
-
-        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct item); ++i) {
+        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct decoder_item); ++i) {
                 if (decoders[i].in == in && decoders[i].out == out &&
                                 (decoders[i].slow == false || slow == true)) {
                         return decoders[i].decoder;

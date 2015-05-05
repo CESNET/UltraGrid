@@ -65,16 +65,6 @@ extern "C" {
 typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
-/** Defines decoder from one pixel format to another */
-struct line_decode_from_to {
-        codec_t from;           ///< source pixel format
-        codec_t to;             ///< destination pixel format
-        decoder_t line_decoder; ///< decoding function
-};
-
-/** @brief 0-terminated list of available supported pixelformat decoders */
-extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
-
 /** Prints list of suppored codecs for video module
  * @deprecated Individual modules should print list of supported codecs by itself.
  */

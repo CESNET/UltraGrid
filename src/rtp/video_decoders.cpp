@@ -993,20 +993,29 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                 }
         }
         /* otherwise if we have line decoder */
-        int trans;
-        for(trans = 0; line_decoders[trans].line_decoder != NULL;
-                                ++trans) {
-                for(native = 0; native < decoder->native_count; ++native)
-                {
+        for(native = 0; native < decoder->native_count; ++native)
+        {
+                decoder_t decode;
+                if ((decode = get_decoder_from_to(desc.color_spec, decoder->native_codecs[native], false)) != NULL) {
+                        *decode_line = decode;
+
+                        decoder->decoder_type = LINE_DECODER;
                         out_codec = decoder->native_codecs[native];
-                        if(desc.color_spec == line_decoders[trans].from &&
-                                        out_codec == line_decoders[trans].to) {
+                        goto after_linedecoder_lookup;
 
-                                *decode_line = line_decoders[trans].line_decoder;
+                }
+        }
+        /* the same, but include also slow decoders */
+        for(native = 0; native < decoder->native_count; ++native)
+        {
+                decoder_t decode;
+                if ((decode = get_decoder_from_to(desc.color_spec, decoder->native_codecs[native], true)) != NULL) {
+                        *decode_line = decode;
 
-                                decoder->decoder_type = LINE_DECODER;
-                                goto after_linedecoder_lookup;
-                        }
+                        decoder->decoder_type = LINE_DECODER;
+                        out_codec = decoder->native_codecs[native];
+                        goto after_linedecoder_lookup;
+
                 }
         }
 
