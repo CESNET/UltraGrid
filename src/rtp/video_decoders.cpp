@@ -174,26 +174,16 @@ struct main_msg;
 
 // message definitions
 struct frame_msg {
-        inline frame_msg(int count, fec_desc && d) : buffer_num(count),
-                recv_buffer(count), recv_buffer_len(count),
-                decompress_buffer(count), decompress_buf_len(count),
-                fec_description(d), substream_count(count), poisoned(false), ssrc(0u)
+        inline frame_msg() : frame(nullptr), decompressed_frame(nullptr)
         {}
         inline ~frame_msg() {
-                for (unsigned int i = 0; i < recv_buffer.size(); ++i) {
-                        free(recv_buffer[i]);
-                }
+                vf_free(frame);
+                vf_free(decompressed_frame);
         }
-        vector <int> buffer_num;
-        vector <char *> recv_buffer;
-        vector <int> recv_buffer_len;
-        vector <char *> decompress_buffer;
-        vector <int> decompress_buf_len;
+        vector <uint32_t> buffer_num;
+        struct video_frame *frame;
+        struct video_frame *decompressed_frame;
         unique_ptr<map<int, int>[]> pckt_list;
-        fec_desc fec_description;
-        int substream_count;
-        bool poisoned;
-        uint32_t ssrc;
 };
 
 struct main_msg_reconfigure {
@@ -305,7 +295,7 @@ static void *fec_thread(void *args) {
         while(1) {
                 unique_ptr<frame_msg> data = decoder->fec_queue.pop();
 
-                if (data->poisoned) {
+                if (!data->frame) { // poisoned
                         decoder->decompress_queue.push(move(data));
                         break; // exit from loop
                 }
@@ -314,14 +304,14 @@ static void *fec_thread(void *args) {
                 struct tile *tile = NULL;
                 int ret = TRUE;
 
-                if (data->fec_description.type != FEC_NONE) {
-                        if(!fec_state || desc.k != data->fec_description.k ||
-                                        desc.m != data->fec_description.m ||
-                                        desc.c != data->fec_description.c ||
-                                        desc.seed != data->fec_description.seed
+                if (data->frame->fec_params.type != FEC_NONE) {
+                        if(!fec_state || desc.k != data->frame->fec_params.k ||
+                                        desc.m != data->frame->fec_params.m ||
+                                        desc.c != data->frame->fec_params.c ||
+                                        desc.seed != data->frame->fec_params.seed
                           ) {
                                 delete fec_state;
-                                desc = data->fec_description;
+                                desc = data->frame->fec_params;
                                 fec_state = fec::create_from_desc(desc);
                                 if(fec_state == NULL) {
                                         fprintf(stderr, "[decoder] Unable to initialize FEC.\n");
@@ -331,21 +321,24 @@ static void *fec_thread(void *args) {
                         }
                 }
 
-                if (data->fec_description.type != FEC_NONE) {
+                data->decompressed_frame = vf_alloc(data->frame->tile_count);
+                data->decompressed_frame->ssrc = data->frame->ssrc;
+
+                if (data->frame->fec_params.type != FEC_NONE) {
                         int pos;
                         for (pos = 0; pos < get_video_mode_tiles_x(decoder->video_mode)
                                         * get_video_mode_tiles_y(decoder->video_mode); ++pos) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
 
-                                fec_state->decode(data->recv_buffer[pos],
-                                                data->recv_buffer_len[pos],
+                                fec_state->decode(data->frame->tiles[pos].data,
+                                                data->frame->tiles[pos].data_len,
                                                 &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
 
-                                if (data->recv_buffer_len[pos] != (int) sum_map(data->pckt_list[pos])) {
+                                if (data->frame->tiles[pos].data_len != (unsigned int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
-                                                        data->recv_buffer_len[pos],
+                                                        data->frame->tiles[pos].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
                                 }
 
@@ -376,8 +369,8 @@ static void *fec_thread(void *args) {
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                        data->decompress_buf_len[pos] = fec_out_len;
-                                        data->decompress_buffer[pos] = fec_out_buffer;
+                                        data->decompressed_frame->tiles[pos].data_len = fec_out_len;
+                                        data->decompressed_frame->tiles[pos].data = fec_out_buffer;
                                 } else { // linedecoder
                                         wait_for_framebuffer_swap(decoder);
 
@@ -418,13 +411,13 @@ static void *fec_thread(void *args) {
                 } else { /* PT_VIDEO */
                         bool corrupted_frame_counted = false;
                         for(int i = 0; i < (int) decoder->max_substreams; ++i) {
-                                data->decompress_buf_len[i] = data->recv_buffer_len[i];
-                                data->decompress_buffer[i] = data->recv_buffer[i];
+                                data->decompressed_frame->tiles[i].data_len = data->frame->tiles[i].data_len;
+                                data->decompressed_frame->tiles[i].data = data->frame->tiles[i].data;
 
-                                if (data->recv_buffer_len[i] != (int) sum_map(data->pckt_list[i])) {
+                                if (data->frame->tiles[i].data_len != (unsigned int) sum_map(data->pckt_list[i])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                         (unsigned int) data->buffer_num[i],
-                                                        data->recv_buffer_len[i],
+                                                        data->frame->tiles[i].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[i]));
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
@@ -468,7 +461,7 @@ static void *decompress_thread(void *args) {
         while(1) {
                 unique_ptr<frame_msg> msg = decoder->decompress_queue.pop();
 
-                if(msg->poisoned) {
+                if(!msg->frame) { // poisoned
                         break;
                 }
 
@@ -495,12 +488,12 @@ static void *decompress_thread(void *args) {
                                                 tile = vf_get_tile(output, x);
                                                 out = tile->data;
                                         }
-                                        if(!msg->decompress_buffer[pos])
+                                        if(!msg->decompressed_frame->tiles[pos].data)
                                                 continue;
                                         int ret = decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
-                                                        (unsigned char *) msg->decompress_buffer[pos],
-                                                        msg->decompress_buf_len[pos],
+                                                        (unsigned char *) msg->decompressed_frame->tiles[pos].data,
+                                                        msg->decompressed_frame->tiles[pos].data_len,
                                                         msg->buffer_num[pos]);
                                         if (ret == FALSE) {
                                                 goto skip_frame;
@@ -510,7 +503,6 @@ static void *decompress_thread(void *args) {
                 }
 
                 if(decoder->postprocess) {
-                        int i;
                         bool pp_ret;
 
                         pp_ret = vo_postprocess(decoder->postprocess,
@@ -523,7 +515,7 @@ static void *decompress_thread(void *args) {
                                 goto skip_frame;
                         }
 
-                        for (i = 1; i < decoder->pp_output_frames_count; ++i) {
+                        for (int i = 1; i < decoder->pp_output_frames_count; ++i) {
                                 display_put_frame(decoder->display, decoder->frame, PUTF_BLOCKING);
                                 decoder->frame = display_get_frame(decoder->display);
                                 pp_ret = vo_postprocess(decoder->postprocess,
@@ -541,8 +533,7 @@ static void *decompress_thread(void *args) {
                 }
 
                 if(decoder->change_il) {
-                        unsigned int i;
-                        for(i = 0; i < decoder->frame->tile_count; ++i) {
+                        for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
                                 struct tile *tile = vf_get_tile(decoder->frame, i);
                                 decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width,
                                                         decoder->out_codec), tile->height, &decoder->change_il_state[i]);
@@ -556,7 +547,7 @@ static void *decompress_thread(void *args) {
                                 putf_flags = PUTF_NONBLOCK;
                         }
 
-                        decoder->frame->ssrc = msg->ssrc;
+                        decoder->frame->ssrc = msg->decompressed_frame->ssrc;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -775,8 +766,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                unique_ptr<frame_msg> msg(new frame_msg(0, {}));
-                msg->poisoned = true;
+                unique_ptr<frame_msg> msg(new frame_msg());
                 decoder->fec_queue.push(move(msg));
 
                 decoder->fec_thread_id.join();
@@ -1438,32 +1428,25 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         struct state_video_decoder *decoder = pbuf_data->decoder;
 
         int ret = TRUE;
-        uint32_t offset;
-        int len;
         rtp_packet *pckt = NULL;
-        unsigned char *source;
-        char *data;
-        uint32_t data_pos;
         int prints=0;
-        struct tile *tile = NULL;
-        uint32_t tmp;
-        uint32_t substream;
         int max_substreams = decoder->max_substreams;
         uint32_t ssrc;
+        unsigned int frame_size = 0;
 
-        int i;
-        uint32_t buffer_len[max_substreams];
-        uint32_t buffer_num[max_substreams];
+        vector<uint32_t> buffer_num(max_substreams);
         // the following is just FEC related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of FEC, there
         // is just the FEC buffer present, so we point to it instead to copying
-        char *recv_buffer[max_substreams]; // for FEC or compressed data
+        struct video_frame *frame = vf_alloc(max_substreams);
+        frame->data_deleter = vf_data_deleter;
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
-        for (i = 0; i < (int) max_substreams; ++i) {
-                buffer_len[i] = 0;
-                buffer_num[i] = 0;
-                recv_buffer[i] = NULL;
-        }
+
+        int k = 0, m = 0, c = 0, seed = 0; // LDGM
+        int buffer_number, buffer_length;
+
+        int pt;
+        bool buffer_swapped = false;
 
         perf_record(UVP_DECODEFRAME, cdata);
 
@@ -1471,9 +1454,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         if(!decoder->display) {
                 return FALSE;
         }
-
-        int k = 0, m = 0, c = 0, seed = 0; // LDGM
-        int buffer_number, buffer_length;
 
         // check if we are not in the middle of reconfiguration
         if (decoder->reconfiguration_in_progress) {
@@ -1507,11 +1487,15 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 delete msg_reconf;
         }
 
-        int pt;
-        bool buffer_swapped = false;
-
         while (cdata != NULL) {
+                uint32_t tmp;
                 uint32_t *hdr;
+                int len;
+                uint32_t offset;
+                unsigned char *source;
+                char *data;
+                uint32_t data_pos;
+                uint32_t substream;
                 pckt = cdata->data;
 
                 pt = pckt->pt;
@@ -1593,12 +1577,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         goto cleanup;
                 }
 
-                if(!recv_buffer[substream]) {
-                        recv_buffer[substream] = (char *) malloc(buffer_length + PADDING);
-                }
-
                 buffer_num[substream] = buffer_number;
-                buffer_len[substream] = buffer_length;
+                frame->tiles[substream].data_len = buffer_length;
 
                 char plaintext[len]; // will be actually shorter
                 if(pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
@@ -1637,6 +1617,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 pckt_list[substream][data_pos] = len;
 
                 if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == LINE_DECODER) {
+                        struct tile *tile = NULL;
                         if(!buffer_swapped) {
                                 wait_for_framebuffer_swap(decoder);
                                 buffer_swapped = true;
@@ -1733,7 +1714,11 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                                 y += line_decoder->dst_pitch;  /* next line */
                         }
                 } else { /* PT_VIDEO_LDGM or external decoder */
-                        memcpy(recv_buffer[substream] + data_pos, (unsigned char*) data,
+                        if(!frame->tiles[substream].data) {
+                                frame->tiles[substream].data = (char *) malloc(buffer_length + PADDING);
+                        }
+
+                        memcpy(frame->tiles[substream].data + data_pos, (unsigned char*) data,
                                 len);
                 }
 
@@ -1753,15 +1738,18 @@ next_packet:
 
         assert(ret == TRUE);
 
+        for(int i = 0; i < max_substreams; ++i) {
+                frame_size += frame->tiles[i].data_len;
+        }
+
         // format message
         {
-                unique_ptr <frame_msg> fec_msg (new frame_msg(max_substreams, fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed)));
-                std::copy(buffer_len, buffer_len + sizeof buffer_len / sizeof buffer_len[0],
-                                fec_msg->recv_buffer_len.begin());
-                std::copy(buffer_num, buffer_num + sizeof buffer_num / sizeof buffer_num[0], fec_msg->buffer_num.begin());
-                std::copy(recv_buffer, recv_buffer + sizeof recv_buffer / sizeof recv_buffer[0], fec_msg->recv_buffer.begin());
+                unique_ptr <frame_msg> fec_msg (new frame_msg());
+                fec_msg->buffer_num = std::move(buffer_num);
+                fec_msg->frame = std::move(frame);
+                fec_msg->frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
+                fec_msg->frame->ssrc = ssrc;
                 fec_msg->pckt_list = std::move(pckt_list);
-                fec_msg->ssrc = ssrc;
 
                 if(decoder->fec_queue.size() > 0) {
                         decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
@@ -1770,14 +1758,8 @@ next_packet:
         }
 cleanup:
         ;
-        unsigned int frame_size = 0;
-
-        for(i = 0; i < (int) max_substreams; ++i) {
-                if(ret != TRUE) {
-                        free(recv_buffer[i]);
-                }
-
-                frame_size += buffer_len[i];
+        if(ret != TRUE) {
+                vf_free(frame);
         }
 
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
