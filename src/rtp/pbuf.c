@@ -167,6 +167,7 @@ struct pbuf *pbuf_init(int delay_ms)
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
                 playout_buf->playout_delay = 0.032 + delay_ms / 1000.0;
+                playout_buf->last_rtp_seq = -1;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }
@@ -274,22 +275,27 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         pbuf_validate(playout_buf);
 
         // collect statistics
-        if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16)) %
-                                (1<<16)) < STATS_INTERVAL * 2) {
-
-                if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16))
-                                        % (1<<16)) < STATS_INTERVAL) {
-                        playout_buf->pkt_count[0] += 1;
-                } else {
-                        playout_buf->pkt_count[1] += 1;
-                }
+        if (playout_buf->last_rtp_seq == -1) {
+                playout_buf->last_rtp_seq = pkt->seq;
+                playout_buf->pkt_count[0] += 1;
         } else {
-                playout_buf->cumulative_count += playout_buf->pkt_count[0];
-                playout_buf->should_arrived += STATS_INTERVAL;
-                playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
-                                STATS_INTERVAL) % (1<<16);
-                playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
-                playout_buf->pkt_count[1] = 1;
+                if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16)) %
+                                        (1<<16)) < STATS_INTERVAL * 2) {
+
+                        if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16))
+                                                % (1<<16)) < STATS_INTERVAL) {
+                                playout_buf->pkt_count[0] += 1;
+                        } else {
+                                playout_buf->pkt_count[1] += 1;
+                        }
+                } else {
+                        playout_buf->cumulative_count += playout_buf->pkt_count[0];
+                        playout_buf->should_arrived += STATS_INTERVAL;
+                        playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
+                                        STATS_INTERVAL) % (1<<16);
+                        playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
+                        playout_buf->pkt_count[1] = 1;
+                }
         }
 
         // print statistics after 5 seconds
