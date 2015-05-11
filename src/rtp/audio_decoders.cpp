@@ -344,7 +344,7 @@ bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
         return true;
 }
 
-int decode_audio_frame(struct coded_data *cdata, void *data)
+int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *)
 {
         struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
         struct state_audio_decoder *decoder = s->decoder;
@@ -590,7 +590,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
  * now it uses a struct state_audio_decoder instead an audio_frame2.
  * It does multi-channel handling.
  */
-int decode_audio_frame_mulaw(struct coded_data *cdata, void *data)
+int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *)
 {
     struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
     struct state_audio_decoder *audio = s->decoder;

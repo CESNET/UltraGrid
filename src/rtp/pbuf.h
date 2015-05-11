@@ -81,6 +81,11 @@ struct coded_data {
         rtp_packet              *data;
 };
 
+struct pbuf_stats {
+        long long int received_pkts_cum;
+        long long int expected_pkts_cum;
+};
+
 /* The playout buffer */
 struct display;
 struct pbuf;
@@ -105,7 +110,7 @@ struct pbuf_audio_data {
 /**
  * @param decode_data
  */
-typedef int decode_frame_t(struct coded_data *cdata, void *decode_data);
+typedef int decode_frame_t(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats);
 /* 
  * External interface: 
  */

@@ -52,10 +52,13 @@
 
 #include "control_socket.h"
 
+#include <condition_variable>
 #include <map>
 #include <mutex>
+#include <queue>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include "debug.h"
 #include "messaging.h"
@@ -94,9 +97,11 @@ enum connection_type {
         CLIENT
 };
 
+#define MAX_STAT_QUEUE 100
+
 struct control_state {
         struct module mod;
-        pthread_t thread_id;
+        thread control_thread_id;
         /// @var internal_fd is used for internal communication
         fd_t internal_fd[2];
         int local_port;
@@ -112,15 +117,20 @@ struct control_state {
         fd_t socket_fd;
 
         bool started;
+
+        thread stat_thread_id;
+        condition_variable stat_cv;
+        queue<string> stat_queue;
 };
 
 #define CONTROL_EXIT -1
 #define CONTROL_CLOSE_HANDLE -2
 
 static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int *new_buffer_len);
-static int process_msg(struct control_state *s, fd_t client_fd, char *message);
+static int process_msg(struct control_state *s, fd_t client_fd, char *message, struct client *clients);
 static ssize_t write_all(fd_t fd, const void *buf, size_t count);
 static void * control_thread(void *args);
+static void * stat_thread(void *args);
 static void send_response(fd_t fd, struct response *resp);
 
 #ifndef HAVE_LINUX
@@ -173,7 +183,7 @@ static fd_t create_internal_port(int *port)
 
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module)
 {
-        control_state *s = new control_state;
+        control_state *s = new control_state();
 
         s->root_module = root_module;
         s->started = false;
@@ -276,11 +286,8 @@ void control_start(struct control_state *s)
         fd_t sock;
         sock = create_internal_port(&s->local_port);
 
-        if(pthread_create(&s->thread_id, NULL, control_thread, s) != 0) {
-                fprintf(stderr, "Unable to create thread.\n");
-                free(s);
-                abort();
-        }
+        s->control_thread_id = thread(control_thread, s);
+        s->stat_thread_id = thread(stat_thread, s);
 
         s->internal_fd[0] = accept(sock, NULL, NULL);
         CLOSESOCKET(sock);
@@ -289,12 +296,13 @@ void control_start(struct control_state *s)
 
 #define prefix_matches(x,y) strncasecmp(x, y, strlen(y)) == 0
 #define suffix(x,y) x + strlen(y)
+#define is_internal_port(x) (x == s->internal_fd[1])
 
 /**
   * @retval -1 exit thread
   * @retval -2 close handle
   */
-static int process_msg(struct control_state *s, fd_t client_fd, char *message)
+static int process_msg(struct control_state *s, fd_t client_fd, char *message, struct client *clients)
 {
         int ret = 0;
         struct response *resp = NULL;
@@ -314,6 +322,30 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
+        } else if (prefix_matches(message, "stats ")) {
+                assert(is_internal_port(client_fd));
+                struct client *cur = clients;
+                char *new_msg = NULL;
+
+                while (cur) {
+                        if(is_internal_port(cur->fd)) { // skip local FD
+                                cur = cur->next;
+                                continue;
+                        }
+                        if (!new_msg) {
+                                // append <CR><LF> again
+                                new_msg = (char *) malloc(strlen(message) + 1 + 2);
+                                strcpy(new_msg, message);
+                                new_msg[strlen(message)] = '\r';
+                                new_msg[strlen(message) + 1] = '\n';
+                                new_msg[strlen(message) + 2] = '\0';
+                        }
+
+                        write_all(cur->fd, new_msg, strlen(new_msg));
+                        cur = cur->next;
+                }
+                free(new_msg);
+                return ret;
         } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
                         prefix_matches(message, "pause") || prefix_matches(message, "sender-port ")) {
                 struct msg_sender *msg =
@@ -501,9 +533,6 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
         return ret;
 }
 
-
-#define is_internal_port(x) (x == s->internal_fd[1])
-
 /**
  * connects to internal communication channel
  */
@@ -630,8 +659,7 @@ static void * control_thread(void *args)
                         int cur_buffer_len;
                         while(parse_msg(cur->buff, cur->buff_len, msg, &cur_buffer_len)) {
                                 cur->buff_len = cur_buffer_len;
-
-                                int ret = process_msg(s, cur->fd, msg);
+                                int ret = process_msg(s, cur->fd, msg, clients);
                                 if(ret == CONTROL_EXIT && is_internal_port(cur->fd)) {
                                         should_exit = true;
                                 } else if(ret == CONTROL_CLOSE_HANDLE) {
@@ -644,48 +672,6 @@ static void * control_thread(void *args)
                         }
 
                         cur = cur->next;
-                }
-
-                struct timeval curr_time;
-                gettimeofday(&curr_time, NULL);
-                if(tv_diff(curr_time, last_report_sent) > report_interval_sec) {
-                        bool first = true;
-                        int32_t last_id = -1;
-                        ostringstream buffer;
-                        buffer << "stats";
-                        std::unique_lock<std::mutex> lk(s->stats_lock);
-                        for(auto it = s->stats.begin();
-                                        it != s->stats.end(); ++it) {
-                                int32_t id = it->first;
-                                if ((first || last_id != id) && id != -1) {
-                                        buffer << " -";
-                                        if (s->stats_id_port_mapping.find(id) != s->stats_id_port_mapping.end()) {
-                                                buffer << s->stats_id_port_mapping.at(id);
-                                        } else {
-                                                buffer << "UNKNOWN";
-                                        }
-                                }
-                                last_id = id;
-                                first = false;
-                                buffer << " " + it->second->get_stat();
-                        }
-
-                        lk.unlock();
-                        buffer << "\r\n";
-
-                        if (!first) { // are there any stats to report?
-                                cur = clients;
-                                string str = buffer.str();
-                                while(cur) {
-                                        if(is_internal_port(cur->fd)) { // skip local FD
-                                                cur = cur->next;
-                                                continue;
-                                        }
-                                        write_all(cur->fd, str.c_str(), str.length());
-                                        cur = cur->next;
-                                }
-                        }
-                        last_report_sent = curr_time;
                 }
         }
 
@@ -702,6 +688,29 @@ static void * control_thread(void *args)
         return NULL;
 }
 
+static void *stat_thread(void *args)
+{
+        struct control_state *s = (struct control_state *) args;
+
+        while (1) {
+                std::unique_lock<std::mutex> lk(s->stats_lock);
+                s->stat_cv.wait(lk, [s] { return s->stat_queue.size() > 0; });
+                string &line = s->stat_queue.front();
+
+                if (line.empty()) {
+                        break;
+                }
+
+                int ret = write_all(s->internal_fd[0], line.c_str(), line.length());
+                s->stat_queue.pop();
+                if (ret <= 0) {
+                        fprintf(stderr, "Cannot write stat line!\n");
+                }
+        }
+
+        return NULL;
+}
+
 void control_done(struct control_state *s)
 {
         if(!s) {
@@ -711,9 +720,15 @@ void control_done(struct control_state *s)
         module_done(&s->mod);
 
         if(s->started) {
+                s->stats_lock.lock();
+                s->stat_queue.push({});
+                s->stats_lock.unlock();
+                s->stat_cv.notify_one();
+                s->stat_thread_id.join();
+
                 int ret = write_all(s->internal_fd[0], "quit\r\n", 6);
                 if (ret > 0) {
-                        pthread_join(s->thread_id, NULL);
+                        s->control_thread_id.join();
                         CLOSESOCKET(s->internal_fd[0]);
                 } else {
                         fprintf(stderr, "Cannot exit control thread!\n");
@@ -759,5 +774,37 @@ void control_replace_port_mapping(struct control_state *s, std::map<uint32_t, in
         }
         std::unique_lock<std::mutex> lk(s->stats_lock);
         s->stats_id_port_mapping = move(m);
+}
+
+void control_report_stats(struct control_state *s, const std::string &report_line, int32_t port_id)
+{
+        if (!s) {
+                return;
+        }
+
+        std::unique_lock<std::mutex> lk(s->stats_lock);
+
+        ostringstream buffer;
+        buffer << "stats";
+
+        if (port_id != -1) {
+                buffer << " -";
+                if (s->stats_id_port_mapping.find(port_id) != s->stats_id_port_mapping.end()) {
+                        buffer << s->stats_id_port_mapping.at(port_id);
+                } else {
+                        buffer << "UNKNOWN";
+                }
+        }
+        buffer << " " + report_line;
+
+        buffer << "\r\n";
+
+        if (s->stat_queue.size() < MAX_STAT_QUEUE) {
+                s->stat_queue.push(buffer.str());
+        } else {
+                fprintf(stderr, "Cannot write stats!!!");
+        }
+        lk.unlock();
+        s->stat_cv.notify_one();
 }
 

@@ -91,9 +91,9 @@ struct pbuf {
         int pkt_count[2]; // first buffer is for last_rtp_seq + STATS_INTERVAL
                           // second for last_rtp_seq + 2 * STATS_INTERVAL
         int last_rtp_seq;
-        int should_arrived;
-        int cumulative_count;
-        int last_received, last_expected;
+        int received_pkts, expected_pkts; // currently computed values
+        int received_pkts_last, expected_pkts_last; // values for last interval
+        long long int received_pkts_cum, expected_pkts_cum; // cumulative values
         uint32_t last_display_ts;
 };
 
@@ -289,8 +289,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                                 playout_buf->pkt_count[1] += 1;
                         }
                 } else {
-                        playout_buf->cumulative_count += playout_buf->pkt_count[0];
-                        playout_buf->should_arrived += STATS_INTERVAL;
+                        playout_buf->received_pkts += playout_buf->pkt_count[0];
+                        playout_buf->expected_pkts += STATS_INTERVAL;
                         playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
                                         STATS_INTERVAL) % (1<<16);
                         playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
@@ -300,19 +300,20 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 
         // print statistics after 5 seconds
         if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
-                        playout_buf->should_arrived > 0) {
+                        playout_buf->expected_pkts > 0) {
                 // print stats
                 printf("SSRC %08x: %d packets expected, %d was received "
                                 "successfully (%f%%).\n",
                                 pkt->ssrc,
-                                playout_buf->should_arrived,
-                                playout_buf->cumulative_count,
-                                (double) playout_buf->cumulative_count /
-                                playout_buf->should_arrived * 100.0);
-                playout_buf->last_received = playout_buf->cumulative_count;
-                playout_buf->last_expected = playout_buf->should_arrived;
-                playout_buf->should_arrived =
-                        playout_buf->cumulative_count = 0;
+                                playout_buf->expected_pkts,
+                                playout_buf->received_pkts,
+                                (double) playout_buf->received_pkts /
+                                playout_buf->expected_pkts * 100.0);
+                playout_buf->received_pkts_cum += playout_buf->received_pkts;
+                playout_buf->expected_pkts_cum += playout_buf->expected_pkts;
+                playout_buf->received_pkts_last = playout_buf->received_pkts;
+                playout_buf->expected_pkts_last = playout_buf->expected_pkts;
+                playout_buf->expected_pkts = playout_buf->received_pkts = 0;
                 playout_buf->last_display_ts = pkt->ts;
         }
 
@@ -460,7 +461,9 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 && tv_gt(curr_time, curr->playout_time)
                    ) {
                         if (frame_complete(curr)) {
-                                int ret = decode_func(curr->cdata, data);
+                                struct pbuf_stats stats = { playout_buf->received_pkts_cum,
+                                        playout_buf->expected_pkts_cum };
+                                int ret = decode_func(curr->cdata, data, &stats);
                                 curr->decoded = 1;
                                 return ret;
                         } else {
@@ -481,8 +484,8 @@ void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 
 void pbuf_get_packet_count(struct pbuf *playout_buf, int *expected_pkts, int *received_pkts)
 {
-        *expected_pkts = playout_buf->last_expected;
-        *received_pkts = playout_buf->last_received;
+        *expected_pkts = playout_buf->expected_pkts_last;
+        *received_pkts = playout_buf->received_pkts_last;
 
 }
 

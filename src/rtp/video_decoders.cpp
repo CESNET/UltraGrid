@@ -101,6 +101,7 @@
 #include <map>
 #include <memory>
 #include <queue>
+#include <sstream>
 #include <thread>
 
 #ifdef HAVE_LIBAVCODEC_AVCODEC_H
@@ -174,16 +175,36 @@ struct main_msg;
 
 // message definitions
 struct frame_msg {
-        inline frame_msg() : frame(nullptr), decompressed_frame(nullptr)
+        inline frame_msg(struct control_state *c, int32_t pi, atomic<long long int> &rbt) : control(c), port_id(pi), frame(nullptr), decompressed_frame(nullptr),
+                             received_bytes_total(rbt), displayed(false), corrupted(false)
         {}
         inline ~frame_msg() {
+                if (control && frame) {
+                        int received_bytes = sum_map(pckt_list[0]);
+                        received_bytes_total += received_bytes;
+                        ostringstream oss;
+                        oss << "bufferId " << buffer_num[0] << " expectedPackets " <<
+                                expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
+                                // droppedPackets
+                                " expectedBytes " << frame->tiles[0].data_len <<
+                                " receivedBytes " << received_bytes <<
+                                " receivedBytesTotal " << received_bytes_total <<
+                                " isCorrupted " << (corrupted ? "1" : "0") << " " <<
+                                " isDisplayed " << (displayed ? "1" : "0");
+                        control_report_stats(control, oss.str(), port_id);
+                }
                 vf_free(frame);
                 vf_free(decompressed_frame);
         }
+        struct control_state *control;
+        int32_t port_id;
         vector <uint32_t> buffer_num;
         struct video_frame *frame;
         struct video_frame *decompressed_frame;
         unique_ptr<map<int, int>[]> pckt_list;
+        long long int received_pkts_cum, expected_pkts_cum;
+        atomic<long long int> &received_bytes_total;
+        bool displayed, corrupted;
 };
 
 struct main_msg_reconfigure {
@@ -199,6 +220,8 @@ struct main_msg_reconfigure {
 struct state_video_decoder
 {
         struct module *parent;
+        struct control_state *control;
+        int32_t port_id;
 
         thread decompress_thread_id,
                   fec_thread_id;
@@ -267,6 +290,8 @@ struct state_video_decoder
 
         std::future<bool> reconfiguration_future;
         bool             reconfiguration_in_progress;
+
+        atomic<long long int>    received_bytes_total;
 };
 
 /**
@@ -425,6 +450,7 @@ static void *fec_thread(void *args) {
                                                 goto cleanup;
                                         } else if (!corrupted_frame_counted) {
                                                 corrupted_frame_counted = true;
+                                                data->corrupted = true;
                                                 // count it here because decoder accepts corrupted frames
                                                 decoder->s_corrupt_frames->update(++decoder->corrupted);
                                         }
@@ -438,9 +464,10 @@ static void *fec_thread(void *args) {
                         decoder->buffer_swapped = false;
                 }
                 decoder->decompress_queue.push(move(data));
-
 cleanup:
                 if(ret == FALSE) {
+                        if (data)
+                                data->corrupted = true;
                         decoder->s_corrupt_frames->update(decoder->corrupted++);
                         decoder->dropped++;
                         decoder->s_total_frames->update(decoder->displayed + decoder->missing + decoder->dropped);
@@ -551,6 +578,7 @@ static void *decompress_thread(void *args) {
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
+                                msg->displayed = true;
                                 decoder->s_displayed_frames->update(++decoder->displayed);
                                 decoder->s_total_frames->update(decoder->displayed + decoder->missing + decoder->dropped);
                         } else {
@@ -602,6 +630,10 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s = new state_video_decoder();
 
         s->parent = parent;
+        s->control = (struct control_state *) get_module(get_root_module(parent), "control");
+        uint32_t id;
+        bool ret = get_port_id(parent, &id);
+        s->port_id = ret ? id : -1;
 
         s->native_codecs = NULL;
         s->disp_supported_il = NULL;
@@ -766,7 +798,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                unique_ptr<frame_msg> msg(new frame_msg());
+                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->port_id, decoder->received_bytes_total));
                 decoder->fec_queue.push(move(msg));
 
                 decoder->fec_thread_id.join();
@@ -1422,7 +1454,7 @@ static int check_for_mode_change(struct state_video_decoder *decoder,
  *                     decoding may fail in some subsequent (asynchronous) steps.
  * @retval FALSE       if decoding failed
  */
-int decode_video_frame(struct coded_data *cdata, void *decoder_data)
+int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf_stats *stats)
 {
         struct vcodec_state *pbuf_data = (struct vcodec_state *) decoder_data;
         struct state_video_decoder *decoder = pbuf_data->decoder;
@@ -1744,12 +1776,15 @@ next_packet:
 
         // format message
         {
-                unique_ptr <frame_msg> fec_msg (new frame_msg());
+                unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->port_id, decoder->received_bytes_total));
                 fec_msg->buffer_num = std::move(buffer_num);
-                fec_msg->frame = std::move(frame);
+                fec_msg->frame = frame;
+                frame = NULL;
                 fec_msg->frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
                 fec_msg->frame->ssrc = ssrc;
                 fec_msg->pckt_list = std::move(pckt_list);
+                fec_msg->received_pkts_cum = stats->received_pkts_cum;
+                fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
 
                 if(decoder->fec_queue.size() > 0) {
                         decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");

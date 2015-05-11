@@ -41,8 +41,8 @@ extern "C" {
 
 struct coded_data;
 
-int decode_audio_frame(struct coded_data *cdata, void *data);
-int decode_audio_frame_mulaw(struct coded_data *cdata, void *data);
+int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
+int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
                 const char *encryption);
 void audio_decoder_destroy(void *state);
