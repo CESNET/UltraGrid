@@ -1071,3 +1071,10 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 			frame->color_spec, frame->fps, frame->interlacing, 0,
 			0);
 }
+
+int tx_get_buffer_id(struct tx *tx)
+{
+        return tx->buffer;
+
+}
+

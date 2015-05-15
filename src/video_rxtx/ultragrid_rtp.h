@@ -47,6 +47,8 @@
 #include <mutex>
 #include <string>
 
+struct control_state;
+
 class ultragrid_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         ultragrid_rtp_video_rxtx(std::map<std::string, param_u> const &);
@@ -86,6 +88,10 @@ private:
         std::chrono::steady_clock::time_point m_t0;
         std::chrono::nanoseconds m_duration;
         int m_frames;
+
+        long long int m_send_bytes_total;
+        struct control_state *m_control;
+        int32_t m_port_id;
 };
 
 video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params);

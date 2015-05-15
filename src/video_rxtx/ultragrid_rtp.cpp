@@ -73,12 +73,13 @@
 #include "utils/worker.h"
 
 #include <chrono>
+#include <sstream>
 #include <utility>
 
 using namespace std;
 
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &params) :
-        rtp_video_rxtx(params), m_stat_nanoperframeactual((struct module *) params.at("parent").ptr, "nanoperframeactual"), m_t0(std::chrono::steady_clock::now()), m_duration(std::chrono::nanoseconds::zero()), m_frames(0)
+        rtp_video_rxtx(params), m_stat_nanoperframeactual((struct module *) params.at("parent").ptr, "nanoperframeactual"), m_t0(std::chrono::steady_clock::now()), m_duration(std::chrono::nanoseconds::zero()), m_frames(0), m_send_bytes_total(0)
 {
         if ((params.at("postprocess").ptr != NULL &&
                                 strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
@@ -93,6 +94,14 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         m_display_device = (struct display *) params.at("display_device").ptr;
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
+
+        m_control = (struct control_state *) get_module(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), "control");
+        uint32_t id;
+        if (get_port_id(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), &id)) {
+                m_port_id = id;
+        } else {
+                m_port_id = -1;
+        }
 }
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
@@ -183,6 +192,21 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
         m_async_sending_cv.notify_all();
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+
+        int buffer_id = tx_get_buffer_id(m_tx);
+        int dropped_frames = 0;
+        auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        int send_bytes = tx_frame->tiles[0].data_len;
+        m_send_bytes_total += send_bytes;
+
+        ostringstream oss;
+        oss << "bufferId " << buffer_id <<
+                " droppedFrames " << dropped_frames <<
+                " nanoperframeactual " << nanoseconds <<
+                " sendBytes " << send_bytes <<
+                " sendBytesTotal " << m_send_bytes_total;
+        control_report_stats(m_control, oss.str(), m_port_id);
+
         m_frames += 1;
         m_duration += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0);
         auto seconds =
