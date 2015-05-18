@@ -63,6 +63,7 @@
 
 #include "video_display/aggregate.h"
 #include "video_display/bluefish444.h"
+#include "video_display/dummy.h"
 #include "video_display/null.h"
 #include "video_display/sdl.h"
 #include "video_display/decklink.h"
@@ -249,6 +250,21 @@ static display_table_t display_device_table[] = {
          NULL
          },
 #endif                          /* HAVE_DELTACAST */
+        {
+         0,
+         "dummy",
+         MK_NAME(display_dummy_probe),
+         MK_NAME(display_dummy_init),
+         MK_NAME(display_dummy_run),
+         MK_NAME(display_dummy_done),
+         MK_NAME(display_dummy_getf),
+         MK_NAME(display_dummy_putf),
+         MK_NAME(display_dummy_reconfigure),
+         MK_NAME(display_dummy_get_property),
+         MK_NAME(display_dummy_put_audio_frame),
+         MK_NAME(display_dummy_reconfigure_audio),
+         NULL
+         },
 #if defined HAVE_DVS || defined BUILD_LIBRARIES
         {
          0,
