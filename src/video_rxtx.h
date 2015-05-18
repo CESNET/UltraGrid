@@ -90,6 +90,7 @@ public:
         void start();
         virtual void join();
         static video_rxtx *create(enum rxtx_protocol proto, std::map<std::string, param_u> const &);
+        int m_port_id;
 protected:
         void check_sender_messages();
         bool m_paused;
@@ -107,8 +108,6 @@ private:
         struct compress_state *m_compression;
         pthread_mutex_t m_lock;
         struct video_export *m_video_exporter;
-        int m_frames;
-        std::chrono::steady_clock::time_point m_t0;
 
         pthread_t m_thread_id;
         bool m_joined;

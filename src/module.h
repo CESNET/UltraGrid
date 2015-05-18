@@ -100,7 +100,7 @@ struct module {
         struct simple_linked_list *msg_queue_childs; ///< messages for childern that were not delivered
 
         void *priv_data;
-        uint32_t id;
+        //uint32_t id;
 
 #ifdef __cplusplus
         module() = default;
@@ -140,7 +140,6 @@ struct module *get_matching_child(struct module *node, const char *path);
 struct module *get_root_module(struct module *node);
 
 struct module *get_parent_module(struct module *node);
-bool get_port_id(struct module *child_node, uint32_t *id);
 
 void dump_tree(struct module *root, int indent);
 

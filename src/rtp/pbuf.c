@@ -482,10 +482,3 @@ void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
         playout_buf->playout_delay = playout_delay;
 }
 
-void pbuf_get_packet_count(struct pbuf *playout_buf, int *expected_pkts, int *received_pkts)
-{
-        *expected_pkts = playout_buf->expected_pkts_last;
-        *received_pkts = playout_buf->received_pkts_last;
-
-}
-

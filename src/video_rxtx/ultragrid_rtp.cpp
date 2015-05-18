@@ -48,6 +48,7 @@
 #include <string>
 #include <stdexcept>
 
+#include "control_socket.h"
 #include "host.h"
 #include "ihdtv.h"
 #include "messaging.h"
@@ -59,7 +60,6 @@
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 #include "tfrc.h"
-#include "stats.h"
 #include "transmit.h"
 #include "tv.h"
 #include "utils/vf_split.h"
@@ -79,7 +79,7 @@
 using namespace std;
 
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &params) :
-        rtp_video_rxtx(params), m_stat_nanoperframeactual((struct module *) params.at("parent").ptr, "nanoperframeactual"), m_t0(std::chrono::steady_clock::now()), m_duration(std::chrono::nanoseconds::zero()), m_frames(0), m_send_bytes_total(0)
+        rtp_video_rxtx(params), m_send_bytes_total(0)
 {
         if ((params.at("postprocess").ptr != NULL &&
                                 strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
@@ -96,12 +96,6 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         m_async_sending = false;
 
         m_control = (struct control_state *) get_module(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), "control");
-        uint32_t id;
-        if (get_port_id(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), &id)) {
-                m_port_id = id;
-        } else {
-                m_port_id = -1;
-        }
 }
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
@@ -200,24 +194,15 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
         m_send_bytes_total += send_bytes;
 
         ostringstream oss;
+        if (m_port_id != -1) {
+                oss << "-" << m_port_id << " ";
+        }
         oss << "bufferId " << buffer_id <<
                 " droppedFrames " << dropped_frames <<
                 " nanoperframeactual " << nanoseconds <<
                 " sendBytes " << send_bytes <<
                 " sendBytesTotal " << m_send_bytes_total;
-        control_report_stats(m_control, oss.str(), m_port_id);
-
-        m_frames += 1;
-        m_duration += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0);
-        auto seconds =
-                std::chrono::duration_cast<std::chrono::duration<double>>(t1 - m_t0).count();
-        if (seconds >= 5.0) {
-                m_stat_nanoperframeactual.update(m_duration.count() / m_frames);
-                m_t0 = t1;
-                m_frames = 0;
-                m_duration = std::chrono::nanoseconds::zero();
-        }
-
+        control_report_stats(m_control, oss.str());
 }
 
 void ultragrid_rtp_video_rxtx::receiver_process_messages()
@@ -332,10 +317,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
-        stats<int_fast64_t> stat_loss(&m_sender_mod, "loss");
-        stats<int_fast64_t> stat_expectedpacket(&m_sender_mod, "expectedpacket");
-        stats<int_fast64_t> stat_receivedpacket(&m_sender_mod, "receivedpacket");
-
         while (!should_exit_receiver) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
@@ -426,13 +407,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 #endif
                                 }
                                 last_tile_received = curr_time;
-                                uint32_t sender_ssrc = cp->ssrc;
-                                stat_loss.update(rtp_compute_fract_lost(m_network_devices[0],
-                                                        sender_ssrc));
-                                int expected_pkts, received_pkts;
-                                pbuf_get_packet_count(cp->playout_buffer, &expected_pkts, &received_pkts);
-                                stat_receivedpacket.update(received_pkts);
-                                stat_expectedpacket.update(expected_pkts);
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */

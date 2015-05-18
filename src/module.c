@@ -277,16 +277,3 @@ void dump_tree(struct module *node, int indent) {
         }
 }
 
-bool get_port_id(struct module *node, uint32_t *id)
-{
-        while(node->parent) {
-                if (node->cls == MODULE_CLASS_PORT) {
-                        *id = node->id;
-                        return true;
-                }
-                node = node->parent;
-        }
-
-        return false;
-}
-

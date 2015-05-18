@@ -74,7 +74,6 @@
 #include "module.h"
 #include "perf.h"
 #include "rtsp/rtsp_utils.h"
-#include "stats.h"
 #include "ug_runtime_error.h"
 #include "utils/misc.h"
 #include "utils/wait_obj.h"

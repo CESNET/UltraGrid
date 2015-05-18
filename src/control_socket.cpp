@@ -56,14 +56,12 @@
 #include <map>
 #include <mutex>
 #include <queue>
-#include <sstream>
 #include <string>
 #include <thread>
 
 #include "debug.h"
 #include "messaging.h"
 #include "module.h"
-#include "stats.h"
 #include "tv.h"
 
 #define DEFAULT_CONTROL_PORT 5054
@@ -108,8 +106,6 @@ struct control_state {
         int network_port;
         struct module *root_module;
 
-        multimap<int32_t, struct stats_reportable *> stats; // first member is ID of stream if applicable
-        std::map<uint32_t, int> stats_id_port_mapping; // this maps ID from above to index 0..n
         std::mutex stats_lock;
 
         enum connection_type connection_type;
@@ -743,64 +739,16 @@ void control_done(struct control_state *s)
         delete s;
 }
 
-bool control_add_stats(struct control_state *s, struct stats_reportable *stats, int32_t port_id)
-{
-        if (!s) {
-                return false;
-        }
-        std::unique_lock<std::mutex> lk(s->stats_lock);
-        s->stats.emplace(port_id, stats);
-        return true;
-}
-
-void control_remove_stats(struct control_state *s, struct stats_reportable *stats)
-{
-        if (!s) {
-                return;
-        }
-        std::unique_lock<std::mutex> lk(s->stats_lock);
-        for (auto it = s->stats.begin(); it != s->stats.end(); ++it) {
-                if (it->second == stats) {
-                        s->stats.erase(it);
-                        break;
-                }
-        }
-}
-
-void control_replace_port_mapping(struct control_state *s, std::map<uint32_t, int> &&m)
-{
-        if (!s) {
-                return;
-        }
-        std::unique_lock<std::mutex> lk(s->stats_lock);
-        s->stats_id_port_mapping = move(m);
-}
-
-void control_report_stats(struct control_state *s, const std::string &report_line, int32_t port_id)
+void control_report_stats(struct control_state *s, const std::string &report_line)
 {
         if (!s) {
                 return;
         }
 
         std::unique_lock<std::mutex> lk(s->stats_lock);
-
-        ostringstream buffer;
-        buffer << "stats";
-
-        if (port_id != -1) {
-                buffer << " -";
-                if (s->stats_id_port_mapping.find(port_id) != s->stats_id_port_mapping.end()) {
-                        buffer << s->stats_id_port_mapping.at(port_id);
-                } else {
-                        buffer << "UNKNOWN";
-                }
-        }
-        buffer << " " + report_line;
-
-        buffer << "\r\n";
 
         if (s->stat_queue.size() < MAX_STAT_QUEUE) {
-                s->stat_queue.push(buffer.str());
+                s->stat_queue.push("stats " + report_line + "\r\n");
         } else {
                 fprintf(stderr, "Cannot write stats!!!");
         }

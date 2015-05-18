@@ -73,7 +73,7 @@ void *recompress_init(struct module *parent,
         );
 }
 
-void recompress_process_async(void *state, shared_ptr<video_frame> frame)
+void recompress_process_async(void *state, shared_ptr<video_frame> frame, int port_id)
 {
         auto s = static_cast<state_recompress *>(state);
 
@@ -91,6 +91,7 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame)
                 s->frames = 0;
         }
 
+        s->video_rxtx->m_port_id = port_id;
         s->video_rxtx->send(frame);
 }
 

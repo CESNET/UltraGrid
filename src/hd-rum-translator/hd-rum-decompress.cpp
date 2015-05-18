@@ -157,7 +157,7 @@ void state_transcoder_decompress::worker()
                 case message::FRAME:
                         for (unsigned int i = 0; i < output_ports.size(); ++i) {
                                 if (output_ports[i].active)
-                                        recompress_process_async(output_ports[i].state, msg.frame);
+                                        recompress_process_async(output_ports[i].state, msg.frame, i);
                         }
                         break;
                 }

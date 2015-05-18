@@ -38,7 +38,6 @@
 #ifndef VIDEO_RXTX_ULTRAGRID_RTP_H_
 #define VIDEO_RXTX_ULTRAGRID_RTP_H_
 
-#include "stats.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
 
@@ -57,7 +56,7 @@ public:
 
         // transcoder functions
         friend ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
-        friend void recompress_process_async(void *state, std::shared_ptr<video_frame> frame);
+        friend void recompress_process_async(void *state, std::shared_ptr<video_frame> frame, int);
 private:
         static void *receiver_thread(void *arg);
         virtual void send_frame(std::shared_ptr<video_frame>);
@@ -84,14 +83,8 @@ private:
         std::mutex       m_async_sending_lock;
         /// @}
 
-        stats<std::chrono::nanoseconds::rep> m_stat_nanoperframeactual;
-        std::chrono::steady_clock::time_point m_t0;
-        std::chrono::nanoseconds m_duration;
-        int m_frames;
-
         long long int m_send_bytes_total;
         struct control_state *m_control;
-        int32_t m_port_id;
 };
 
 video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params);

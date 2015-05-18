@@ -121,7 +121,6 @@ static void replica_init(struct replica *s, const char *addr, int tx_port, int b
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_PORT;
         s->mod.priv_data = s;
-        s->mod.id = lrand48();
         module_register(&s->mod, parent);
 }
 
@@ -179,17 +178,6 @@ void change_replica_type(struct hd_rum_translator_state *s,
             r->type == replica::type_t::RECOMPRESS);
 }
 
-static void update_mapping(struct hd_rum_translator_state *s)
-{
-        map<uint32_t, int> mapping;
-        int i = 0;
-        for (auto && r : s->replicas) {
-            mapping[r->mod.id] = i++;
-        }
-
-        control_replace_port_mapping(s->control_state, move(mapping));
-}
-
 static void *writer(void *arg)
 {
     struct hd_rum_translator_state *s =
@@ -213,7 +201,6 @@ static void *writer(void *arg)
                 replica_done(s->replicas[index]);
                 delete s->replicas[index];
                 s->replicas.erase(s->replicas.begin() + index);
-                update_mapping(s);
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
                 s->replicas.push_back(new replica());
                 struct replica *rep = s->replicas[s->replicas.size() - 1];
@@ -223,7 +210,6 @@ static void *writer(void *arg)
                 int tx_port = atoi(strtok_r(NULL, " ", &save_ptr));
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 replica_init(rep, host, tx_port, 100*1000, &s->mod);
-                update_mapping(s);
                 if (compress) {
                     rep->type = replica::type_t::RECOMPRESS;
                     char *fec = NULL;
@@ -577,7 +563,6 @@ int main(int argc, char **argv)
             hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, true);
         }
     }
-    update_mapping(&state);
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
         fprintf(stderr, "cannot create writer thread\n");
