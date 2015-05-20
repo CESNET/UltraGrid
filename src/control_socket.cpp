@@ -117,6 +117,8 @@ struct control_state {
         thread stat_thread_id;
         condition_variable stat_cv;
         queue<string> stat_queue;
+
+        bool stats_on;
 };
 
 #define CONTROL_EXIT -1
@@ -319,29 +321,41 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if (prefix_matches(message, "stats ")) {
-                assert(is_internal_port(client_fd));
-                struct client *cur = clients;
-                char *new_msg = NULL;
+                if (is_internal_port(client_fd)) {
+                        struct client *cur = clients;
+                        char *new_msg = NULL;
 
-                while (cur) {
-                        if(is_internal_port(cur->fd)) { // skip local FD
+                        while (cur) {
+                                if(is_internal_port(cur->fd)) { // skip local FD
+                                        cur = cur->next;
+                                        continue;
+                                }
+                                if (!new_msg) {
+                                        // append <CR><LF> again
+                                        new_msg = (char *) malloc(strlen(message) + 1 + 2);
+                                        strcpy(new_msg, message);
+                                        new_msg[strlen(message)] = '\r';
+                                        new_msg[strlen(message) + 1] = '\n';
+                                        new_msg[strlen(message) + 2] = '\0';
+                                }
+
+                                write_all(cur->fd, new_msg, strlen(new_msg));
                                 cur = cur->next;
-                                continue;
                         }
-                        if (!new_msg) {
-                                // append <CR><LF> again
-                                new_msg = (char *) malloc(strlen(message) + 1 + 2);
-                                strcpy(new_msg, message);
-                                new_msg[strlen(message)] = '\r';
-                                new_msg[strlen(message) + 1] = '\n';
-                                new_msg[strlen(message) + 2] = '\0';
+                        free(new_msg);
+                        return ret;
+                } else {
+                        const char *toggle = suffix(message, "stats ");
+                        if (strcasecmp(toggle, "on") == 0) {
+                                s->stats_on = true;
+                                resp = new_response(RESPONSE_OK, NULL);
+                        } else if (strcasecmp(toggle, "off") == 0) {
+                                s->stats_on = false;
+                                resp = new_response(RESPONSE_OK, NULL);
+                        } else {
+                                resp = new_response(RESPONSE_BAD_REQUEST, NULL);
                         }
-
-                        write_all(cur->fd, new_msg, strlen(new_msg));
-                        cur = cur->next;
                 }
-                free(new_msg);
-                return ret;
         } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
                         prefix_matches(message, "pause") || prefix_matches(message, "sender-port ")) {
                 struct msg_sender *msg =
@@ -741,7 +755,7 @@ void control_done(struct control_state *s)
 
 void control_report_stats(struct control_state *s, const std::string &report_line)
 {
-        if (!s) {
+        if (!s || !s->stats_on) {
                 return;
         }
 
