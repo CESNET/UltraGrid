@@ -551,6 +551,10 @@ static void audio_receiver_process_message(struct state_audio *s, struct msg_rec
         }
 }
 
+struct audio_decoder {
+        bool enabled;
+};
+
 static void *audio_receiver_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
@@ -593,11 +597,33 @@ static void *audio_receiver_thread(void *arg)
                         cp = pdb_iter_init(s->audio_participants, &it);
                 
                         while (cp != NULL) {
-                                // We iterate in loop since there can be more than one frmae present in
-                                // the playout buffer and it would be discarded by following pbuf_remove()
-                                // call.
-                                while (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
-                                        decoded = true;
+                                if (cp->decoder_state == NULL &&
+                                                !pbuf_is_empty(cp->playout_buffer)) { // the second check is need ed because we want to assign display to participant that really sends data
+                                        // disable all previous sources
+                                        {
+                                                pdb_iter_t it;
+                                                struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
+                                                while (cp != NULL) {
+                                                        if(cp->decoder_state) {
+                                                                ((struct audio_decoder *) cp->decoder_state)->enabled = false;
+                                                        }
+                                                        cp = pdb_iter_next(&it);
+                                                }
+                                                pdb_iter_done(&it);
+                                        }
+                                        struct audio_decoder *dec_state = (struct audio_decoder *) malloc(sizeof(struct audio_decoder));
+                                        dec_state->enabled = true;
+                                        cp->decoder_state = dec_state;
+                                        cp->decoder_state_deleter = free;
+                                }
+
+                                if (cp->decoder_state && ((struct audio_decoder *) cp->decoder_state)->enabled) {
+                                        // We iterate in loop since there can be more than one frmae present in
+                                        // the playout buffer and it would be discarded by following pbuf_remove()
+                                        // call.
+                                        while (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                                decoded = true;
+                                        }
                                 }
 
                                 pbuf_remove(cp->playout_buffer, curr_time);
