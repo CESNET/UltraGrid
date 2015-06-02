@@ -109,6 +109,7 @@ struct testcard_state {
         unsigned int grab_audio:1;
 
         unsigned int still_image;
+        bool blank;
 };
 
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
@@ -289,11 +290,13 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]:still\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:blank]\n");
+                printf("\t<filename> - use file named filename instead of default bars\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
+                printf("\tblank - instead of moving lines or image simply display black video\n");
                 show_codec_help("testcard");
                 return &vidcap_init_noerr;
         }
@@ -368,84 +371,104 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         s->frame->interlacing = PROGRESSIVE;
         s->size = aligned_x * vf_get_tile(s->frame, 0)->height * bpp;
 
-        filename = strtok_r(NULL, ":", &save_ptr);
-        if (filename && strcmp(filename, "p") != 0
-                        && strncmp(filename, "s=", 2ul) != 0
-                        && strcmp(filename, "i") != 0
-                        && strcmp(filename, "sf") != 0) {
-                in = fopen(filename, "r");
-                if (!in) {
-                        perror("fopen");
-                        free(fmt);
-                        delete s;
-                        return NULL;
-                }
-                fseek(in, 0L, SEEK_END);
-                long filesize = ftell(in);
-                assert(filesize >= 0);
-                fseek(in, 0L, SEEK_SET);
+        filename = NULL;
 
-                s->data = (char *) malloc(s->size * bpp * 2);
+        while (tmp) {
+                if (strcmp(tmp, "p") == 0) {
+                        s->pan = 48;
+                } else if (strncmp(tmp, "filename=", strlen("filename=")) == 0) {
+                        filename = tmp + strlen("filename=");
+                        in = fopen(filename, "r");
+                        if (!in) {
+                                perror("fopen");
+                                free(fmt);
+                                delete s;
+                                return NULL;
+                        }
+                        fseek(in, 0L, SEEK_END);
+                        long filesize = ftell(in);
+                        assert(filesize >= 0);
+                        fseek(in, 0L, SEEK_SET);
 
-                if (s->size < filesize) {
-                        fprintf(stderr, "Error wrong file size for selected "
-                                "resolution and codec. File size %ld, "
-                                "computed size %d\n", filesize, s->size);
-                        free(fmt);
-                        free(s->data);
-                        delete s;
-                        fclose(in);
-                        return NULL;
-                }
+                        s->data = (char *) malloc(s->size * bpp * 2);
 
-                if (!in || fread(s->data, filesize, 1, in) == 0) {
-                        fprintf(stderr, "Cannot read file %s\n", filename);
-                        free(fmt);
-                        free(s->data);
-                        delete s;
-                        if (in)
+                        if (s->size < filesize) {
+                                fprintf(stderr, "Error wrong file size for selected "
+                                                "resolution and codec. File size %ld, "
+                                                "computed size %d\n", filesize, s->size);
+                                free(fmt);
+                                free(s->data);
+                                delete s;
                                 fclose(in);
-                        return NULL;
+                                return NULL;
+                        }
+
+                        if (!in || fread(s->data, filesize, 1, in) == 0) {
+                                fprintf(stderr, "Cannot read file %s\n", filename);
+                                free(fmt);
+                                free(s->data);
+                                delete s;
+                                if (in)
+                                        fclose(in);
+                                return NULL;
+                        }
+
+                        fclose(in);
+                        tmp = strtok_r(NULL, ":", &save_ptr);
+
+                        memcpy(s->data + s->size, s->data, s->size);
+                        vf_get_tile(s->frame, 0)->data = s->data;
+                } else if (strncmp(tmp, "s=", 2) == 0) {
+                        strip_fmt = tmp;
+                } else if (strcmp(tmp, "i") == 0) {
+                        s->frame->interlacing = INTERLACED_MERGED;
+                } else if (strcmp(tmp, "sf") == 0) {
+                        s->frame->interlacing = SEGMENTED_FRAME;
+                } else if (strcmp(tmp, "still") == 0) {
+                        s->still_image = TRUE;
+                } else if (strcmp(tmp, "blank") == 0) {
+                        s->blank = true;
                 }
-
-                fclose(in);
                 tmp = strtok_r(NULL, ":", &save_ptr);
+        }
 
-                memcpy(s->data + s->size, s->data, s->size);
-                vf_get_tile(s->frame, 0)->data = s->data;
-        } else {
+        if (!filename) {
                 struct testcard_rect r;
                 int col_num = 0;
                 s->pixmap.w = aligned_x;
                 s->pixmap.h = vf_get_tile(s->frame, 0)->height * 2;
                 s->pixmap.data = malloc(s->pixmap.w * s->pixmap.h * sizeof(int));
 
-                for (j = 0; j < vf_get_tile(s->frame, 0)->height; j += rect_size) {
-                        int grey = 0xff010101;
-                        if (j == rect_size * 2) {
-                                r.w = vf_get_tile(s->frame, 0)->width;
-                                r.h = rect_size / 4;
-                                r.x = 0;
-                                r.y = j;
-                                testcard_fillRect(&s->pixmap, &r, 0xffffffff);
-                                r.y = j + rect_size * 3 / 4;
-                                testcard_fillRect(&s->pixmap, &r, 0);
-                        }
-                        for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
-                                r.w = rect_size;
-                                r.h = rect_size;
-                                r.x = i;
-                                r.y = j;
-                                printf("Fill rect at %d,%d\n", r.x, r.y);
-                                if (j != rect_size * 2) {
-                                        testcard_fillRect(&s->pixmap, &r,
-                                                     rect_colors[col_num]);
-                                        col_num = (col_num + 1) % COL_NUM;
-                                } else {
-                                        r.h = rect_size / 2;
-                                        r.y += rect_size / 4;
-                                        testcard_fillRect(&s->pixmap, &r, grey);
-                                        grey += 0x00010101 * (255 / COL_NUM);
+                if (s->blank) {
+                        memset(s->pixmap.data, 0, s->pixmap.w * s->pixmap.h * sizeof(int));
+                } else {
+                        for (j = 0; j < vf_get_tile(s->frame, 0)->height; j += rect_size) {
+                                int grey = 0xff010101;
+                                if (j == rect_size * 2) {
+                                        r.w = vf_get_tile(s->frame, 0)->width;
+                                        r.h = rect_size / 4;
+                                        r.x = 0;
+                                        r.y = j;
+                                        testcard_fillRect(&s->pixmap, &r, 0xffffffff);
+                                        r.y = j + rect_size * 3 / 4;
+                                        testcard_fillRect(&s->pixmap, &r, 0);
+                                }
+                                for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
+                                        r.w = rect_size;
+                                        r.h = rect_size;
+                                        r.x = i;
+                                        r.y = j;
+                                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                                        if (j != rect_size * 2) {
+                                                testcard_fillRect(&s->pixmap, &r,
+                                                                rect_colors[col_num]);
+                                                col_num = (col_num + 1) % COL_NUM;
+                                        } else {
+                                                r.h = rect_size / 2;
+                                                r.y += rect_size / 4;
+                                                testcard_fillRect(&s->pixmap, &r, grey);
+                                                grey += 0x00010101 * (255 / COL_NUM);
+                                        }
                                 }
                         }
                 }
@@ -484,22 +507,6 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                 free(s->data);
                 s->data = vf_get_tile(s->frame, 0)->data;
         }
-
-        while (tmp) {
-                if (strcmp(tmp, "p") == 0) {
-                        s->pan = 48;
-                } else if (strncmp(tmp, "s=", 2) == 0) {
-                        strip_fmt = tmp;
-                } else if (strcmp(tmp, "i") == 0) {
-                        s->frame->interlacing = INTERLACED_MERGED;
-                } else if (strcmp(tmp, "sf") == 0) {
-                        s->frame->interlacing = SEGMENTED_FRAME;
-                } else if (strcmp(tmp, "still") == 0) {
-                        s->still_image = TRUE;
-                }
-                tmp = strtok_r(NULL, ":", &save_ptr);
-        }
-
 
         s->count = 0;
         s->last_frame_time = std::chrono::steady_clock::now();
