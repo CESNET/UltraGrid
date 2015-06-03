@@ -148,6 +148,8 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         lock_guard<mutex> lock(m_network_devices_lock);
 
+        int buffer_id = tx_get_buffer_id(m_tx);
+
         if (m_connections_count == 1) { /* normal case - only one connection */
                 tx_send(m_tx, tx_frame.get(),
                                 m_network_devices[0]);
@@ -187,7 +189,6 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        int buffer_id = tx_get_buffer_id(m_tx);
         int dropped_frames = 0;
         auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
         int send_bytes = tx_frame->tiles[0].data_len;

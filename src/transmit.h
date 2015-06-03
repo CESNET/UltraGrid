@@ -81,6 +81,9 @@ struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type 
                 const char *fec, const char *encryption, long packet_rate);
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 
+/**
+ * Returns buffer ID to be sent with next tx_send() call
+ */
 int tx_get_buffer_id(struct tx *tx_session);
 
 #ifdef __cplusplus
