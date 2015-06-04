@@ -139,6 +139,7 @@ struct _socket_udp {
         ttl_t ttl;
         fd_t fd;
         struct sockaddr_storage sock;
+        socklen_t sock_len;
         bool multithreaded;
 
         // for multithreaded processing
@@ -483,7 +484,7 @@ static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
         assert(buflen > 0);
 
         return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
-                      sizeof(s->sock));
+                      s->sock_len);
 }
 
 #ifdef WIN32
@@ -497,7 +498,7 @@ static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count, void *d
 	DWORD bytesSent;
 	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
 		(struct sockaddr *) &s->sock,
-		sizeof(s->sock), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
         if (s->overlapping_active) {
                 s->dispose_udata[s->overlapped_count] = d;
         } else {
@@ -519,7 +520,7 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count, vo
         assert(s->mode == IPv4);
 
         msg.msg_name = (caddr_t) & s->sock;
-        msg.msg_namelen = sizeof(s->sock);
+        msg.msg_namelen = s->sock_len;
         msg.msg_iov = vector;
         msg.msg_iovlen = count;
         /* Linux needs these... solaris does something different... */
@@ -840,7 +841,7 @@ static int udp_send6(socket_udp * s, char *buffer, int buflen)
         assert(buflen > 0);
 
         return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
-                      sizeof(s->sock));
+                      s->sock_len);
 #else
         UNUSED(s);
         UNUSED(buffer);
@@ -860,7 +861,7 @@ static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count, void *d)
 	DWORD bytesSent;
 	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
 		(struct sockaddr *) &s->sock,
-		sizeof(s->sock), s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
         if (s->overlapping_active) {
                 s->dispose_udata[s->overlapped_count] = d;
         } else {
@@ -883,7 +884,7 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count, void *d)
         assert(s->mode == IPv6);
 
         msg.msg_name = (void *)&s->sock;
-        msg.msg_namelen = sizeof(s->sock);
+        msg.msg_namelen = s->sock_len;
         msg.msg_iov = vector;
         msg.msg_iovlen = count;
         msg.msg_control = 0;
@@ -1160,6 +1161,7 @@ int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
 int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 #endif // WIN32
 {
+errno = 0;
         switch (s->mode) {
         case IPv4:
                 return udp_sendv4(s, vector, count, d);
@@ -1430,6 +1432,7 @@ static int resolve_address(socket_udp *s, const char *addr)
                 return FALSE;
         } else {
                 memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
+                s->sock_len = res0->ai_addrlen;
         }
         freeaddrinfo(res0);
 
