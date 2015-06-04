@@ -476,17 +476,6 @@ static void udp_exit4(socket_udp * s)
         delete s;
 }
 
-static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
-{
-        assert(s != NULL);
-        assert(s->mode == IPv4);
-        assert(buffer != NULL);
-        assert(buflen > 0);
-
-        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
-                      s->sock_len);
-}
-
 static char *udp_host_addr4(void)
 {
         char *hname = (char *) calloc(MAXHOSTNAMELEN + 1, 1);
@@ -785,24 +774,6 @@ static void udp_exit6(socket_udp * s)
 #endif                          /* HAVE_IPv6 */
 }
 
-static int udp_send6(socket_udp * s, char *buffer, int buflen)
-{
-#ifdef HAVE_IPv6
-        assert(s != NULL);
-        assert(s->mode == IPv6);
-        assert(buffer != NULL);
-        assert(buflen > 0);
-
-        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
-                      s->sock_len);
-#else
-        UNUSED(s);
-        UNUSED(buffer);
-        UNUSED(buflen);
-        return -1;
-#endif
-}
-
 static char *udp_host_addr6(socket_udp * s)
 {
 #ifdef HAVE_IPv6
@@ -1040,15 +1011,12 @@ void udp_exit(socket_udp * s)
  **/
 int udp_send(socket_udp * s, char *buffer, int buflen)
 {
-        switch (s->mode) {
-        case IPv4:
-                return udp_send4(s, buffer, buflen);
-        case IPv6:
-                return udp_send6(s, buffer, buflen);
-        default:
-                abort();        /* Yuk! */
-        }
-        return -1;
+        assert(s != NULL);
+        assert(buffer != NULL);
+        assert(buflen > 0);
+
+        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
+                      s->sock_len);
 }
 
 int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen)
