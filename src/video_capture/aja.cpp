@@ -618,7 +618,7 @@ struct vidcap_type *vidcap_aja_probe(bool)
 {
         struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *)calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = 0x52095a04;
                 vt->name = "aja";
