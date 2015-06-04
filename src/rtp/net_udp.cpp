@@ -487,53 +487,6 @@ static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
                       s->sock_len);
 }
 
-#ifdef WIN32
-static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count, void *d)
-{
-        assert(s != NULL);
-        assert(s->mode == IPv4);
-
-        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
-
-	DWORD bytesSent;
-	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
-		(struct sockaddr *) &s->sock,
-		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
-        if (s->overlapping_active) {
-                s->dispose_udata[s->overlapped_count] = d;
-        } else {
-                free(d);
-        }
-        s->overlapped_count++;
-        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
-                return 0;
-        else {
-                return ret;
-        }
-}
-#else
-static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count, void *d)
-{
-        struct msghdr msg;
-
-        assert(s != NULL);
-        assert(s->mode == IPv4);
-
-        msg.msg_name = (caddr_t) & s->sock;
-        msg.msg_namelen = s->sock_len;
-        msg.msg_iov = vector;
-        msg.msg_iovlen = count;
-        /* Linux needs these... solaris does something different... */
-        msg.msg_control = 0;
-        msg.msg_controllen = 0;
-        msg.msg_flags = 0;
-
-        int ret = sendmsg(s->fd, &msg, 0);
-        free(d);
-        return ret;
-}
-#endif // WIN32
-
 static char *udp_host_addr4(void)
 {
         char *hname = (char *) calloc(MAXHOSTNAMELEN + 1, 1);
@@ -850,58 +803,6 @@ static int udp_send6(socket_udp * s, char *buffer, int buflen)
 #endif
 }
 
-#ifdef WIN32
-static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count, void *d)
-{
-        assert(s != NULL);
-        assert(s->mode == IPv6);
-
-        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
-
-	DWORD bytesSent;
-	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
-		(struct sockaddr *) &s->sock,
-		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
-        if (s->overlapping_active) {
-                s->dispose_udata[s->overlapped_count] = d;
-        } else {
-                free(d);
-        }
-        s->overlapped_count++;
-        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
-                return 0;
-        else {
-                return ret;
-        }
-}
-#else
-static int udp_sendv6(socket_udp * s, struct iovec *vector, int count, void *d)
-{
-#ifdef HAVE_IPv6
-        struct msghdr msg;
-
-        assert(s != NULL);
-        assert(s->mode == IPv6);
-
-        msg.msg_name = (void *)&s->sock;
-        msg.msg_namelen = s->sock_len;
-        msg.msg_iov = vector;
-        msg.msg_iovlen = count;
-        msg.msg_control = 0;
-        msg.msg_controllen = 0;
-        msg.msg_flags = 0;
-        int ret = sendmsg(s->fd, &msg, 0);
-        free(d);
-        return ret;
-#else
-        UNUSED(s);
-        UNUSED(vector);
-        UNUSED(count);
-        return -1;
-#endif
-}
-#endif // WIN32
-
 static char *udp_host_addr6(socket_udp * s)
 {
 #ifdef HAVE_IPv6
@@ -1157,21 +1058,48 @@ int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_ad
 
 #ifdef WIN32
 int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
+{
+        assert(s != NULL);
+
+        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
+
+	DWORD bytesSent;
+	int ret = WSASendTo(s->fd, vector, count, &bytesSent, 0,
+		(struct sockaddr *) &s->sock,
+		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
+        if (s->overlapping_active) {
+                s->dispose_udata[s->overlapped_count] = d;
+        } else {
+                free(d);
+        }
+        s->overlapped_count++;
+        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
+                return 0;
+        else {
+                return ret;
+        }
+}
 #else
 int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
-#endif // WIN32
 {
-errno = 0;
-        switch (s->mode) {
-        case IPv4:
-                return udp_sendv4(s, vector, count, d);
-        case IPv6:
-                return udp_sendv6(s, vector, count, d);
-        default:
-                abort();        /* Yuk! */
-        }
-        return -1;
+        struct msghdr msg;
+
+        assert(s != NULL);
+
+        msg.msg_name = (void *) & s->sock;
+        msg.msg_namelen = s->sock_len;
+        msg.msg_iov = vector;
+        msg.msg_iovlen = count;
+        /* Linux needs these... solaris does something different... */
+        msg.msg_control = 0;
+        msg.msg_controllen = 0;
+        msg.msg_flags = 0;
+
+        int ret = sendmsg(s->fd, &msg, 0);
+        free(d);
+        return ret;
 }
+#endif // WIN32
 
 static void *udp_reader(void *arg)
 {
