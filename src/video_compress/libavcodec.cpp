@@ -73,7 +73,6 @@ struct setparam_param {
         bool have_preset;
         double fps;
         bool interlaced;
-        bool exact_bitrate;
         bool h264_no_periodic_intra;
         int cpu_count;
 };
@@ -181,7 +180,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
                         "[:subsampling=<subsampling>][:preset=<preset>]"
-                        "[:exact_bitrate][:h264_no_periodic_intra]\n");
+                        "[:h264_no_periodic_intra]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
                 if(param.second.av_codec != 0) {
@@ -193,8 +192,6 @@ static void usage() {
                 }
 
         }
-        printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
-               "as constant as it can\n");
         printf("\t\th264_no_periodic_intra - do not use Periodic Intra Refresh with H.264\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
@@ -234,8 +231,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
                                 char *preset = item + strlen("preset=");
                                 s->preset = strdup(preset);
-                        } else if (strcasecmp("exact_bitrate", item) == 0) {
-                                s->params.exact_bitrate = true;
                         } else if (strcasecmp("h264_no_periodic_intra", item) == 0) {
                                 s->params.h264_no_periodic_intra = true;
                         } else {
