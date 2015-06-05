@@ -62,6 +62,7 @@
 #include <unordered_map>
 
 #define DEFAULT_CODEC MJPG
+#define DEFAULT_X264_PRESET "superfast"
 
 namespace {
 
@@ -814,53 +815,35 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
-#define APPEND_PARAM(params, param) \
-        if(strlen(params) > 0) { \
-                strncat(params, ":", sizeof(params) - strlen(params) - 1); \
-        } \
-        strncat(params, param, sizeof(params) - strlen(params) - 1);
-
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        char params[512] = "";
-
-        if(!param->have_preset) {
-                // ultrafast - --aq-mode 0
-                // This option causes posterization. Enabling it requires some 20% additional
+        if (!param->have_preset) {
+                // ultrafast + --aq-mode 2
+                // AQ=0 causes posterization. Enabling it requires some 20% additional
                 // percent of CPU.
-                strncat(params, "no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
+                string params("no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
                         "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0",
-                        sizeof(params) - strlen(params) - 1);
-        }
+                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:aq_mode=2");
 
-        if (param->exact_bitrate) {
-                APPEND_PARAM(params, "aq_mode=0");
-        } else {
-                APPEND_PARAM(params, "aq_mode=1");
-        }
+                // this options increases variance in frame sizes quite a lot
+                //if (param->interlaced) {
+                //        params += ":tff=1";
+                //}
 
-        if (param->interlaced && !param->exact_bitrate) {
-                APPEND_PARAM(params, "tff=1");
-        }
-
-        if(strlen(params) > 0) {
                 int ret;
                 // newer LibAV
-                ret = av_opt_set(codec_ctx->priv_data, "x264-params", params, 0);
-                if(ret != 0) {
+                ret = av_opt_set(codec_ctx->priv_data, "x264-params", params.c_str(), 0);
+                if (ret != 0) {
                         // newer FFMPEG
-                        ret = av_opt_set(codec_ctx->priv_data, "x264opts", params, 0);
+                        ret = av_opt_set(codec_ctx->priv_data, "x264opts", params.c_str(), 0);
                 }
-                if(ret != 0) {
+                if (ret != 0) {
                         // older version of both
-                        // or superfast?? requires + some 70 % CPU but does not cause posterization
-                        ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
-                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected. "
-                                        "Try supplying 'preset=superfast' argument to "
-                                        "avoid posterization!\n");
+                        ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_PRESET, 0);
+                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected - consider "
+                                        "upgrading. Using preset %s.\n", DEFAULT_X264_PRESET);
                 }
-                if(ret != 0) {
+                if (ret != 0) {
                         fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
                 }
         }
@@ -868,21 +851,20 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
         //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
         av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
 
-        if (param->exact_bitrate) {
-                codec_ctx->rc_max_rate = codec_ctx->bit_rate / 2 * 3;
-                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-                //codec_ctx->rc_buffer_aggressivity = 1.0;
-                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
-                codec_ctx->qcompress = 0.0f;
-                //codec_ctx->qblur = 0.0f;
-                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-                //codec_ctx->rc_max_available_vbv_use = 1.0f;
-                codec_ctx->qmin = 0;
-                codec_ctx->qmax = 69;
-                codec_ctx->max_qdiff = 69;
-                //codec_ctx->rc_qsquish = 0;
-                //codec_ctx->scenechange_threshold = 100;
-        }
+        // try to keep frame sizes as even as possible
+        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+        //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+        //codec_ctx->rc_buffer_aggressivity = 1.0;
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
+        codec_ctx->qcompress = 0.0f;
+        //codec_ctx->qblur = 0.0f;
+        //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+        //codec_ctx->rc_max_available_vbv_use = 1.0f;
+        codec_ctx->qmin = 0;
+        codec_ctx->qmax = 69;
+        codec_ctx->max_qdiff = 69;
+        //codec_ctx->rc_qsquish = 0;
+        //codec_ctx->scenechange_threshold = 100;
 
         if (!param->h264_no_periodic_intra) {
                 codec_ctx->refs = 1;
