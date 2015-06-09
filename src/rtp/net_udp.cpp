@@ -314,166 +314,61 @@ static int udp_addr_valid4(const char *dst)
         return FALSE;
 }
 
-/**
- * @param addr    address to send to.
- * @param iface   interface to be used for multicast send. If NULL, default is used.
- * @param rx_port src port to bind to. Can be 0. In this case it will be bound to arbitrary free
- *                port. This is for cases we don't want receive anything.
- * @param tx_port TX port to send to.
- * @param ttl     TTL
- */
-static socket_udp *udp_init4(const char *addr, const char *iface,
-                             uint16_t rx_port, uint16_t tx_port, int ttl)
+static int udp_join_mcast_grp4(unsigned long s_addr, int fd, int ttl, unsigned int ifindex)
 {
-        int reuse = 1;
-        int udpbufsize = 16 * 1024 * 1024;
-        struct sockaddr_in s_in;
-        unsigned int ifindex;
-        socket_udp *s = new socket_udp();
-        s->mode = IPv4;
-        s->addr = NULL;
-        s->rx_port = rx_port;
-        s->tx_port = tx_port;
-        s->ttl = ttl;
-        s->fd = INVALID_SOCKET;
-
-        if (!resolve_address(s, addr)) {
-                socket_error("Can't resolve IP address for %s", addr);
-                goto error;
-        }
-        if (iface != NULL) {
-#ifdef HAVE_IF_NAMETOINDEX
-                if ((ifindex = if_nametoindex(iface)) == 0) {
-                        debug_msg("Illegal interface specification\n");
-                        goto error;
-                }
-#else
-                fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
-#endif
-        } else {
-                ifindex = 0;
-        }
-#ifdef WIN32
-        s->fd = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
-#else
-        s->fd = socket(AF_INET, SOCK_DGRAM, 0);
-#endif
-        if (s->fd == INVALID_SOCKET) {
-                socket_error("Unable to initialize socket");
-                goto error;
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP sendbuffer\n");
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_RCVBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
-        }
-#ifdef SO_REUSEPORT
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEPORT");
-                goto error;
-        }
-#endif
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEADDR");
-                goto error;
-        }
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = htonl(INADDR_ANY);
-        s_in.sin_port = htons(rx_port);
-        if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
-                socket_error("bind");
-#ifdef WIN32
-                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
-                if (rx_port == 5004 || rx_port == 5005)
-                        fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.\n");
-#endif
-                goto error;
-        }
-
-        // if we do not set tx port, fake that is the same as we are bound to
-        if (s->tx_port == 0) {
-                struct sockaddr_in sin;
-                socklen_t addrlen = sizeof(sin);
-                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
-                                sin.sin_family == AF_INET &&
-                                addrlen == sizeof(sin)) {
-                        s->tx_port = ntohs(sin.sin_port);
-                        ((struct sockaddr_in *) &s->sock)->sin_port = sin.sin_port;
-                }
-        }
-
-        if (IN_MULTICAST(ntohl(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr))) {
+        if (IN_MULTICAST(ntohl(s_addr))) {
 #ifndef WIN32
                 char loop = 1;
 #endif
                 struct ip_mreq imr;
 
-                imr.imr_multiaddr.s_addr = ((struct sockaddr_in *)&s->sock)->sin_addr.s_addr;
+                imr.imr_multiaddr.s_addr = s_addr;
                 imr.imr_interface.s_addr = ifindex;
 
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
+                    (fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_ADD_MEMBERSHIP");
-                        goto error;
+                        return FALSE;
                 }
 #ifndef WIN32
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
+                    (fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_LOOP");
-                        goto error;
+                        return FALSE;
                 }
 #endif
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&s->ttl,
-                     sizeof(s->ttl)) != 0) {
+                    (fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
+                     sizeof(ttl)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_TTL");
-                        goto error;
+                        return FALSE;
                 }
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
+                    (fd, IPPROTO_IP, IP_MULTICAST_IF,
                      (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_IF");
-                        goto error;
+                        return FALSE;
                 }
         }
-        s->addr = strdup(addr);
-        return s;
-error:
-        if (s->fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->fd);
-        }
-        delete s;
-        return NULL;
+        return TRUE;
 }
 
-static void udp_exit4(socket_udp * s)
+static void udp_leave_mcast_grp4(unsigned long s_addr, int fd)
 {
-        if (IN_MULTICAST(ntohl(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr))) {
+        if (IN_MULTICAST(ntohl(s_addr))) {
                 struct ip_mreq imr;
-                imr.imr_multiaddr.s_addr = ((struct sockaddr_in *)&s->sock)->sin_addr.s_addr;
+                imr.imr_multiaddr.s_addr = s_addr;
                 imr.imr_interface.s_addr = INADDR_ANY;
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
+                    (fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_DROP_MEMBERSHIP");
                         abort();
                 }
                 debug_msg("Dropped membership of multicast group\n");
         }
-        CLOSESOCKET(s->fd);
-        free(s->addr);
-        delete s;
 }
 
 static char *udp_host_addr4(void)
@@ -495,86 +390,6 @@ static char *udp_host_addr4(void)
         memcpy(&iaddr.s_addr, hent->h_addr, sizeof(iaddr.s_addr));
         strncpy(hname, inet_ntoa(iaddr), MAXHOSTNAMELEN);
         return hname;
-}
-
-int udp_set_recv_buf(socket_udp *s, int size)
-{
-        int opt = 0;
-        socklen_t opt_size;
-        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const sockopt_t)&size,
-                        sizeof(size)) != 0) {
-                perror("Unable to set socket buffer size");
-                return FALSE;
-        }
-
-        opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
-                        &opt_size) != 0) {
-                perror("Unable to get socket buffer size");
-                return FALSE;
-        }
-
-        if(opt < size) {
-                return FALSE;
-        }
-
-        debug_msg("Socket buffer size set to %d B.\n", opt);
-
-        return TRUE;
-}
-
-int udp_set_send_buf(socket_udp *s, int size)
-{
-        int opt = 0;
-        socklen_t opt_size;
-        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (const sockopt_t)&size,
-                        sizeof(size)) != 0) {
-                perror("Unable to set socket buffer size");
-                return FALSE;
-        }
-
-        opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
-                        &opt_size) != 0) {
-                perror("Unable to get socket buffer size");
-                return FALSE;
-        }
-
-        if(opt < size) {
-                return FALSE;
-        }
-
-        debug_msg("Socket buffer size set to %d B.\n", opt);
-
-        return TRUE;
-}
-
-/*
- * TODO: This should be definitely removed. We need to solve audio burst avoidance first.
- */
-void udp_flush_recv_buf(socket_udp *s)
-{
-        const int len = 1024 * 1024;
-        fd_set select_fd;
-        struct timeval timeout;
-
-        char *buf = (char *) malloc(len);
-
-        assert (buf != NULL);
-
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 0;
-
-        FD_ZERO(&select_fd);
-        FD_SET(s->fd, &select_fd);
-
-        while(select(s->fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
-                ssize_t bytes = recv(s->fd, buf, len, 0);
-                if(bytes <= 0)
-                        break;
-        }
-
-        free(buf);
 }
 
 /*****************************************************************************/
@@ -601,174 +416,70 @@ static int udp_addr_valid6(const char *dst)
         return FALSE;
 }
 
-static socket_udp *udp_init6(const char *addr, const char *iface,
-                             uint16_t rx_port, uint16_t tx_port, int ttl)
+static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int fd, int ttl, unsigned int ifindex)
 {
 #ifdef HAVE_IPv6
-        int reuse = 1;
-        int ipv6only = 0;
-        struct sockaddr_in6 s_in;
-        socket_udp *s = new socket_udp();
-        s->mode = IPv6;
-        s->addr = NULL;
-        s->rx_port = rx_port;
-        s->tx_port = tx_port;
-        s->ttl = ttl;
-        unsigned int ifindex = 0;
-
-        if (iface != NULL) {
-#ifdef HAVE_IF_NAMETOINDEX
-                if ((ifindex = if_nametoindex(iface)) == 0) {
-                        debug_msg("Illegal interface specification\n");
-                        delete s;
-                        return NULL;
-                }
-#else
-		fprintf(stderr, "Cannot set interface name under Win32.\n");
-#endif
-        } else {
-                ifindex = 0;
-        }
-
-        if (!resolve_address(s, addr)) {
-                socket_error("Can't resolve IPv6 address for %s", addr);
-                delete s;
-                return NULL;
-        }
-
-        s->fd = socket(AF_INET6, SOCK_DGRAM, 0);
-#ifdef WIN32
-        if (s->fd == INVALID_SOCKET) {
-#else
-        if (s->fd < 0) {
-#endif
-                socket_error("socket");
-                return NULL;
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEADDR");
-                return NULL;
-        }
-#ifdef SO_REUSEPORT
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEPORT");
-                //return NULL;
-        }
-#endif
-
-        if (SETSOCKOPT
-            (s->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
-             sizeof(ipv6only)) != 0) {
-                socket_error("setsockopt IPV6_V6ONLY");
-                return NULL;
-        }
-
-        memset((char *)&s_in, 0, sizeof(s_in));
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_port = htons(rx_port);
-#ifdef HAVE_SIN6_LEN
-        s_in.sin6_len = sizeof(s_in);
-#endif
-        s_in.sin6_addr = in6addr_any;
-        if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
-                socket_error("bind");
-#ifdef WIN32
-                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
-                fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.");
-#endif
-                return NULL;
-        }
-
-        // if we do not set tx port, fake that is the same as we are bound to
-        if (s->tx_port == 0) {
-                struct sockaddr_in6 sin;
-                socklen_t addrlen = sizeof(sin);
-                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
-                                sin.sin6_family == AF_INET6 &&
-                                addrlen == sizeof(sin)) {
-                        s->tx_port = ntohs(sin.sin6_port);
-                        ((struct sockaddr_in6 *) &s->sock)->sin6_port = sin.sin6_port;
-                }
-        }
-
-        if (IN6_IS_ADDR_MULTICAST(&(((struct sockaddr_in6 *)&s->sock)->sin6_addr))) {
+        if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
                 unsigned int loop = 1;
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
-                imr.i6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
+                imr.i6mr_multiaddr = sin6_addr;
 #else
-                imr.ipv6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
+                imr.ipv6mr_multiaddr = sin6_addr;
                 imr.ipv6mr_interface = ifindex;
 #endif
 
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
+                    (fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_ADD_MEMBERSHIP");
-                        return NULL;
+                        return FALSE;
                 }
 
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&loop,
+                    (fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
-                        return NULL;
+                        return FALSE;
                 }
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
+                    (fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_HOPS");
-                        return NULL;
+                        return FALSE;
                 }
-                if (SETSOCKOPT(s->fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+                if (SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_IF");
-                        return NULL;
+                        return FALSE;
                 }
         }
 
-        assert(s != NULL);
-
-        s->addr = strdup(addr);
-        return s;
-#else
-        UNUSED(addr);
-        UNUSED(iface);
-        UNUSED(rx_port);
-        UNUSED(tx_port);
-        UNUSED(ttl);
-        return NULL;
+        return TRUE;
 #endif
 }
 
-static void udp_exit6(socket_udp * s)
+static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd)
 {
 #ifdef HAVE_IPv6
-        if (IN6_IS_ADDR_MULTICAST(&(((struct sockaddr_in6 *)&s->sock)->sin6_addr))) {
+        if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
                 struct ipv6_mreq imr;
 #ifdef MUSICA_IPV6
                 imr.i6mr_interface = 1;
-                imr.i6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
+                imr.i6mr_multiaddr = sin6_addr;
 #else
-                imr.ipv6mr_multiaddr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
+                imr.ipv6mr_multiaddr = sin6_addr;
                 imr.ipv6mr_interface = 0;
 #endif
 
                 if (SETSOCKOPT
-                    (s->fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char *)&imr,
+                    (fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_DROP_MEMBERSHIP");
                         abort();
                 }
         }
-        CLOSESOCKET(s->fd);
-        free(s->addr);
-        delete s;
 #else
         UNUSED(s);
 #endif                          /* HAVE_IPv6 */
@@ -914,33 +625,177 @@ static bool address_is_ipv6(const char *addr)
  * @param rx_port receive port.
  * @param tx_port transmit port.
  * @param ttl     time-to-live value for transmitted packets.
+ * @param use_ipv6     whether to use IPv6 for hostname
+ * @param multithreaded receiving in a separate thread than processing
  *
  * @returns a pointer to a socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded)
 {
-        socket_udp *res;
+        int ip_family;
+        int reuse = 1;
+        int udpbufsize = 16 * 1024 * 1024;
+        struct sockaddr_storage s_in{};
+        socklen_t sin_len;
+        unsigned int ifindex;
+        socket_udp *s = new socket_udp();
+        s->addr = NULL;
+        s->rx_port = rx_port;
+        s->tx_port = tx_port;
+        s->ttl = ttl;
+        s->fd = INVALID_SOCKET;
 
 	if (!address_is_ipv6(addr) && !use_ipv6) {
-		res = udp_init4(addr, iface, rx_port, tx_port, ttl);
+                s->mode = IPv4;
+                ip_family = AF_INET;
 	} else {
-		res = udp_init6(addr, iface, rx_port, tx_port, ttl);
+#ifdef HAVE_IPv6
+                s->mode = IPv6;
+                ip_family = AF_INET6;
+#else
+                fprintf(stderr, "IPv6 support not compiled in!\n");
+                delete s;
+                return NULL;
+#endif
 	}
 
-        if (res) {
-                res->multithreaded = multithreaded;
-                if (multithreaded) {
-                        for (int i = 0; i < MAX_UDP_READER_QUEUE_LEN; i++)
-                                res->queue[i].next = res->queue + i + 1;
-                        res->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = res->queue;
-                        res->queue_head = res->queue_tail = res->queue;
+        if (!resolve_address(s, addr)) {
+                socket_error("Can't resolve IP address for %s", addr);
+                goto error;
+        }
+        if (iface != NULL) {
+#ifdef HAVE_IF_NAMETOINDEX
+                if ((ifindex = if_nametoindex(iface)) == 0) {
+                        debug_msg("Illegal interface specification\n");
+                        goto error;
+                }
+#else
+                fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
+#endif
+        } else {
+                ifindex = 0;
+        }
+#ifdef WIN32
+        s->fd = WSASocket(ip_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+#else
+        s->fd = socket(ip_family, SOCK_DGRAM, 0);
+#endif
+        if (s->fd == INVALID_SOCKET) {
+                socket_error("Unable to initialize socket");
+                goto error;
+        }
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
+             sizeof(udpbufsize)) != 0) {
+                debug_msg("WARNING: Unable to increase UDP sendbuffer\n");
+        }
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_RCVBUF, (char *)&udpbufsize,
+             sizeof(udpbufsize)) != 0) {
+                debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
+        }
+#ifdef SO_REUSEPORT
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
+             sizeof(reuse)) != 0) {
+                socket_error("setsockopt SO_REUSEPORT");
+                goto error;
+        }
+#endif
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
+             sizeof(reuse)) != 0) {
+                socket_error("setsockopt SO_REUSEADDR");
+                goto error;
+        }
+        if (s->mode == IPv4) {
+                struct sockaddr_in *s_in4 = (struct sockaddr_in *) &s_in;
+                s_in4->sin_family = AF_INET;
+                s_in4->sin_addr.s_addr = htonl(INADDR_ANY);
+                s_in4->sin_port = htons(rx_port);
+                sin_len = sizeof(struct sockaddr_in);
+        } else if (s->mode == IPv6) {
+#ifdef HAVE_IPv6
+                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                s_in6->sin6_family = AF_INET6;
+                s_in6->sin6_addr = in6addr_any;
+                s_in6->sin6_port = htons(rx_port);
+#ifdef HAVE_SIN6_LEN
+                s_in6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
+                sin_len = sizeof(struct sockaddr_in6);
+#endif
+        } else {
+                abort();
+        }
+        if (bind(s->fd, (struct sockaddr *)&s_in, sin_len) != 0) {
+                socket_error("bind");
+#ifdef WIN32
+                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
+                if (rx_port == 5004 || rx_port == 5005)
+                        fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.\n");
+#endif
+                goto error;
+        }
 
-                        pthread_create(&res->thread_id, NULL, udp_reader, res);
+        // if we do not set tx port, fake that is the same as we are bound to
+        if (s->tx_port == 0) {
+                struct sockaddr_storage sin;
+                socklen_t addrlen = sizeof(sin);
+                if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                                sin.ss_family == ip_family) {
+                        if (s->mode == IPv4) {
+                                struct sockaddr_in *s_in4 = (struct sockaddr_in *) &sin;
+                                s->tx_port = ntohs(s_in4->sin_port);
+                                ((struct sockaddr_in *) &s->sock)->sin_port = s_in4->sin_port;
+                        } else if (s->mode == IPv6) {
+#ifdef HAVE_IPv6
+                                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                                s->tx_port = ntohs(s_in6->sin6_port);
+                                ((struct sockaddr_in6 *) &s->sock)->sin6_port = s_in6->sin6_port;
+#endif
+                        } else {
+                                abort();
+                        }
                 }
         }
-	
-        return res;
+
+        switch (s->mode) {
+        case IPv4:
+                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->fd, ttl, ifindex)) {
+                        goto error;
+                }
+                break;
+        case IPv6:
+                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->fd, ttl, ifindex)) {
+                        goto error;
+                }
+                break;
+        default:
+                abort();
+        }
+
+        s->addr = strdup(addr);
+
+        s->multithreaded = multithreaded;
+        if (multithreaded) {
+                for (int i = 0; i < MAX_UDP_READER_QUEUE_LEN; i++)
+                        s->queue[i].next = s->queue + i + 1;
+                s->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = s->queue;
+                s->queue_head = s->queue_tail = s->queue;
+
+                pthread_create(&s->thread_id, NULL, udp_reader, s);
+        }
+
+        return s;
+
+error:
+        if (s->fd != INVALID_SOCKET) {
+                CLOSESOCKET(s->fd);
+        }
+        delete s;
+        return NULL;
 }
 
 static fd_set rfd;
@@ -973,6 +828,17 @@ void udp_fd_zero_r(struct udp_fd_r *fd_struct)
  **/
 void udp_exit(socket_udp * s)
 {
+        switch (s->mode) {
+        case IPv4:
+                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->fd);
+                break;
+        case IPv6:
+                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->fd);
+                break;
+        default:
+                abort();
+        }
+
         if (s->multithreaded) {
                 pthread_cancel(s->thread_id);
 #ifdef WIN32
@@ -987,16 +853,9 @@ void udp_exit(socket_udp * s)
 
         udp_clean_async_state(s);
 
-        switch (s->mode) {
-        case IPv4:
-                udp_exit4(s);
-                break;
-        case IPv6:
-                udp_exit6(s);
-                break;
-        default:
-                abort();
-        }
+        CLOSESOCKET(s->fd);
+        free(s->addr);
+        delete s;
 }
 
 /**
@@ -1333,6 +1192,86 @@ static int resolve_address(socket_udp *s, const char *addr)
         freeaddrinfo(res0);
 
         return TRUE;
+}
+
+int udp_set_recv_buf(socket_udp *s, int size)
+{
+        int opt = 0;
+        socklen_t opt_size;
+        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const sockopt_t)&size,
+                        sizeof(size)) != 0) {
+                perror("Unable to set socket buffer size");
+                return FALSE;
+        }
+
+        opt_size = sizeof(opt);
+        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
+                        &opt_size) != 0) {
+                perror("Unable to get socket buffer size");
+                return FALSE;
+        }
+
+        if(opt < size) {
+                return FALSE;
+        }
+
+        debug_msg("Socket buffer size set to %d B.\n", opt);
+
+        return TRUE;
+}
+
+int udp_set_send_buf(socket_udp *s, int size)
+{
+        int opt = 0;
+        socklen_t opt_size;
+        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (const sockopt_t)&size,
+                        sizeof(size)) != 0) {
+                perror("Unable to set socket buffer size");
+                return FALSE;
+        }
+
+        opt_size = sizeof(opt);
+        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
+                        &opt_size) != 0) {
+                perror("Unable to get socket buffer size");
+                return FALSE;
+        }
+
+        if(opt < size) {
+                return FALSE;
+        }
+
+        debug_msg("Socket buffer size set to %d B.\n", opt);
+
+        return TRUE;
+}
+
+/*
+ * TODO: This should be definitely removed. We need to solve audio burst avoidance first.
+ */
+void udp_flush_recv_buf(socket_udp *s)
+{
+        const int len = 1024 * 1024;
+        fd_set select_fd;
+        struct timeval timeout;
+
+        char *buf = (char *) malloc(len);
+
+        assert (buf != NULL);
+
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 0;
+
+        FD_ZERO(&select_fd);
+        FD_SET(s->fd, &select_fd);
+
+        while(select(s->fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
+                ssize_t bytes = recv(s->fd, buf, len, 0);
+                if(bytes <= 0)
+                        break;
+        }
+
+        free(buf);
 }
 
 int udp_change_dest(socket_udp *s, const char *addr)
