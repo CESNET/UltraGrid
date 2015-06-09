@@ -236,7 +236,7 @@ static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
                 tok = strtok_r(fmt, ":", &save_ptr);
                 s->encoder_param.quality = atoi(tok);
                 if (s->encoder_param.quality <= 0 || s->encoder_param.quality > 100) {
-                        fprintf(stderr, "[JPEG] Error: Quality should be in interval (0-100]!\n");
+                        fprintf(stderr, "[JPEG] Error: Quality should be in interval [1-100]!\n");
                         return false;
                 }
 
