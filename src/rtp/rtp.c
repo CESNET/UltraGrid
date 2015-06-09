@@ -2190,6 +2190,8 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
  * Receive RTP packets and dispatch them.
  *
  * Returns: TRUE if data received, FALSE if the timeout occurred.
+ *
+ * @deprecated Use thread-safe rtp_recv_r() instead.
  */
 int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {

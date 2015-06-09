@@ -1068,6 +1068,8 @@ int udp_recvv(socket_udp * s, struct msghdr *m)
  * @s: UDP session.
  * 
  * Adds file descriptor associated of @s to set associated with UDP sessions.
+ *
+ * @deprecated Use thread-safe udp_fd_set_r() instead.
  **/
 void udp_fd_set(socket_udp * s)
 {
@@ -1093,6 +1095,8 @@ void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
  * reading.  This function should be called after udp_select().
  *
  * Returns: non-zero if set, zero otherwise.
+ *
+ * @deprecated Use thread-safe udp_fd_set_r() instead.
  **/
 int udp_fd_isset(socket_udp * s)
 {
