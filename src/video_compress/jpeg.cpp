@@ -355,21 +355,21 @@ shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame
         for (x = 0; x < tx->tile_count;  ++x) {
                 struct tile *in_tile = vf_get_tile(tx.get(), x);
                 struct tile *out_tile = vf_get_tile(out.get(), x);
+                uint8_t *jpeg_enc_input_data;
 
-                line1 = (unsigned char *) in_tile->data;
-                line2 = (unsigned char *) s->decoded.get();
+                if ((void *) s->decoder != (void *) memcpy) {
+                        line1 = (unsigned char *) in_tile->data;
+                        line2 = (unsigned char *) s->decoded.get();
 
-                for (i = 0; i < (int) in_tile->height; ++i) {
-                        s->decoder(line2, line1, s->encoder_input_linesize,
-                                        0, 8, 16);
-                        line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                        line2 += s->encoder_input_linesize;
-                }
-
-                line1 = (unsigned char *) out_tile->data + (in_tile->height - 1) * s->encoder_input_linesize;
-                for( ; i < (int) out->tiles[0].height; ++i) {
-                        memcpy(line2, line1, s->encoder_input_linesize);
-                        line2 += s->encoder_input_linesize;
+                        for (i = 0; i < (int) in_tile->height; ++i) {
+                                s->decoder(line2, line1, s->encoder_input_linesize,
+                                                0, 8, 16);
+                                line1 += vc_get_linesize(in_tile->width, tx->color_spec);
+                                line2 += s->encoder_input_linesize;
+                        }
+                        jpeg_enc_input_data = (uint8_t *) s->decoded.get();
+                } else {
+                        jpeg_enc_input_data = (uint8_t *) in_tile->data;
                 }
 
                 /*if(s->interlaced_input)
@@ -382,7 +382,7 @@ shared_ptr<video_frame> jpeg_compress(struct module *mod, shared_ptr<video_frame
 
 
                 struct gpujpeg_encoder_input encoder_input;
-                gpujpeg_encoder_input_set_image(&encoder_input, (uint8_t *) s->decoded.get());
+                gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
                 ret = gpujpeg_encoder_encode(s->encoder, &encoder_input, &compressed, &size);
 
                 if(ret != 0) {
