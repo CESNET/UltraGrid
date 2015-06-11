@@ -76,6 +76,30 @@ bool init_gl_context(struct gl_context *context, int which) {
         context->legacy = TRUE;
 #endif
 
+        {
+                char *save_ptr;
+                const char *gl_ver = (const char *) glGetString(GL_VERSION);
+                if (!gl_ver) {
+                        fprintf(stderr, "Unable to determine OpenGL version!\n");
+                        return false;
+                }
+
+                char *tmp = strdup(gl_ver);
+                char *item = strtok_r(tmp, ".", &save_ptr);
+                if (!item) {
+                        fprintf(stderr, "Unable to determine OpenGL version!\n");
+                        return false;
+                }
+                context->gl_major = atoi(item);
+                item = strtok_r(NULL, ".", &save_ptr);
+                if (!item) {
+                        fprintf(stderr, "Unable to determine OpenGL version!\n");
+                        return false;
+                }
+                context->gl_minor = atoi(item);
+                free(tmp);
+        }
+
         if(context->context) {
                 return true;
         } else {

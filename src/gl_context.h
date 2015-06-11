@@ -30,6 +30,8 @@ extern "C" {
 struct gl_context {
         int legacy:1;
         void *context;
+        int gl_major;
+        int gl_minor;
 };
 
 #define GL_CONTEXT_ANY 0x00
