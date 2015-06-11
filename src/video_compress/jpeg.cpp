@@ -106,47 +106,23 @@ static bool configure_with(struct state_video_compress_jpeg *s, struct video_fra
         compressed_desc = video_desc_from_frame(frame);
         compressed_desc.color_spec = JPEG;
 
-        switch (frame->color_spec) {
-                case RGB:
-                        s->decoder = (decoder_t) memcpy;
+        bool try_slow = false;
+
+        s->decoder = get_decoder_from_to(frame->color_spec, UYVY, try_slow);
+        if (s->decoder) {
+                s->rgb = FALSE;
+        } else {
+                s->decoder = get_decoder_from_to(frame->color_spec, RGB, try_slow);
+                if (s->decoder) {
                         s->rgb = TRUE;
-                        break;
-                case RGBA:
-                        s->decoder = (decoder_t) vc_copylineRGBAtoRGB;
-                        s->rgb = TRUE;
-                        break;
-                case BGR:
-                        s->decoder = (decoder_t) vc_copylineBGRtoRGB;
-                        s->rgb = TRUE;
-                        break;
-                /* TODO: enable (we need R10k -> RGB)
-                 * case R10k:
-                        s->decoder = (decoder_t) vc_copyliner10k;
-                        s->rgb = TRUE;
-                        break;*/
-                case YUYV:
-                        s->decoder = (decoder_t) vc_copylineYUYV;
-                        s->rgb = FALSE;
-                        break;
-                case UYVY:
-                        s->decoder = (decoder_t) memcpy;
-                        s->rgb = FALSE;
-                        break;
-                case v210:
-                        s->decoder = (decoder_t) vc_copylinev210;
-                        s->rgb = FALSE;
-                        break;
-                case DVS10:
-                        s->decoder = (decoder_t) vc_copylineDVS10;
-                        s->rgb = FALSE;
-                        break;
-                case DPX10:
-                        s->decoder = (decoder_t) vc_copylineDPX10toRGB;
-                        s->rgb = TRUE;
-                        break;
-                default:
-                        fprintf(stderr, "[JPEG] Unknown codec: %d\n", frame->color_spec);
+                } else {
+                        fprintf(stderr, "[JPEG] Unsupported codec: %s\n",
+                                        get_codec_name(frame->color_spec));
+                        if (!try_slow) {
+                                fprintf(stderr, "[JPEG] Slow decoders not tried!\n");
+                        }
                         return false;
+                }
         }
 
 	s->encoder_param.verbose = 0;
