@@ -87,6 +87,12 @@ struct testcard_pixmap {
         void *data;
 };
 
+enum class image_pattern : int {
+        BARS = 0,
+        BLANK,
+        NOISE
+};
+
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
         int count;
@@ -109,7 +115,7 @@ struct testcard_state {
         unsigned int grab_audio:1;
 
         unsigned int still_image;
-        bool blank;
+        enum image_pattern pattern;
 };
 
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
@@ -281,7 +287,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         struct testcard_state *s;
         char *filename;
         const char *strip_fmt = NULL;
-        FILE *in;
+        FILE *in = NULL;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
         codec_t codec = RGBA;
@@ -290,13 +296,13 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:blank]\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=bars|blank|noise]\n");
                 printf("\t<filename> - use file named filename instead of default bars\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
-                printf("\tblank - instead of moving lines or image simply display black video\n");
+                printf("\tpattern - pattern to use\n");
                 show_codec_help("testcard");
                 return &vidcap_init_noerr;
         }
@@ -345,7 +351,8 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         codec = get_codec_from_name(tmp);
         if (codec == VIDEO_CODEC_NONE) {
-                codec = UYVY;
+                fprintf(stderr, "Unknown codec '%s'\n", tmp);
+                goto error;
         }
         h_align = get_halign(codec);
         bpp = get_bpp(codec);
@@ -354,10 +361,8 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         s->still_image = FALSE;
 
         if(bpp == 0) {
-                fprintf(stderr, "Unknown codec '%s'\n", tmp);
-                free(tmp);
-                delete s;
-                return NULL;
+                fprintf(stderr, "Unsupported codec '%s'\n", tmp);
+                goto error;
         }
 
         aligned_x = vf_get_tile(s->frame, 0)->width;
@@ -382,9 +387,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         in = fopen(filename, "r");
                         if (!in) {
                                 perror("fopen");
-                                free(fmt);
-                                delete s;
-                                return NULL;
+                                goto error;
                         }
                         fseek(in, 0L, SEEK_END);
                         long filesize = ftell(in);
@@ -397,24 +400,16 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                                 fprintf(stderr, "Error wrong file size for selected "
                                                 "resolution and codec. File size %ld, "
                                                 "computed size %d\n", filesize, s->size);
-                                free(fmt);
-                                free(s->data);
-                                delete s;
-                                fclose(in);
-                                return NULL;
+                                goto error;
                         }
 
                         if (!in || fread(s->data, filesize, 1, in) == 0) {
                                 fprintf(stderr, "Cannot read file %s\n", filename);
-                                free(fmt);
-                                free(s->data);
-                                delete s;
-                                if (in)
-                                        fclose(in);
-                                return NULL;
+                                goto error;
                         }
 
                         fclose(in);
+                        in = NULL;
                         tmp = strtok_r(NULL, ":", &save_ptr);
 
                         memcpy(s->data + s->size, s->data, s->size);
@@ -427,12 +422,21 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->frame->interlacing = SEGMENTED_FRAME;
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = TRUE;
-                } else if (strcmp(tmp, "blank") == 0) {
-                        s->blank = true;
+                } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
+                        const char *pattern = tmp + strlen("pattern=");
+                        if (strcmp(pattern, "bars") == 0) {
+                                s->pattern = image_pattern::BARS;
+                        } else if (strcmp(pattern, "blank") == 0) {
+                                s->pattern = image_pattern::BLANK;
+                        } else if (strcmp(pattern, "noise") == 0) {
+                                s->pattern = image_pattern::NOISE;
+                        } else {
+                                fprintf(stderr, "[testcard] Unknown pattern!\n");;
+                                goto error;
+                        }
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
-                        delete s;
-                        return NULL;
+                        goto error;
                 }
                 tmp = strtok_r(NULL, ":", &save_ptr);
         }
@@ -442,11 +446,18 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                 int col_num = 0;
                 s->pixmap.w = aligned_x;
                 s->pixmap.h = vf_get_tile(s->frame, 0)->height * 2;
-                s->pixmap.data = malloc(s->pixmap.w * s->pixmap.h * sizeof(int));
+                int pixmap_len = s->pixmap.w * s->pixmap.h * 4; // maximal size (RGBA/r10k - has 4 bpp)
+                s->pixmap.data = malloc(pixmap_len);
 
-                if (s->blank) {
-                        memset(s->pixmap.data, 0, s->pixmap.w * s->pixmap.h * sizeof(int));
+                if (s->pattern == image_pattern::BLANK) {
+                        memset(s->pixmap.data, 0, pixmap_len);
+                } else if (s->pattern == image_pattern::NOISE) {
+                        uint8_t *sample = (uint8_t *) s->pixmap.data;
+                        for (int i = 0; i < pixmap_len; ++i) {
+                                *sample++ = random() % 0xff;
+                        }
                 } else {
+                        assert (s->pattern == image_pattern::BARS);
                         for (j = 0; j < vf_get_tile(s->frame, 0)->height; j += rect_size) {
                                 int grey = 0xff010101;
                                 if (j == rect_size * 2) {
@@ -544,6 +555,10 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
 error:
         free(fmt);
+        free(s->data);
+        vf_free(s->frame);
+        if (in)
+                fclose(in);
         delete s;
         return NULL;
 }
