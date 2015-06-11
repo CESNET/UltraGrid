@@ -142,7 +142,7 @@ static bool configure_with(struct state_video_compress_jpeg *s, struct video_fra
                 s->encoder_param.sampling_factor[2].vertical = 1;
         } else {
                 s->encoder_param.interleaved = 1;
-                s->encoder_param.restart_interval = s->restart_interval == -1 ? 2
+                s->encoder_param.restart_interval = s->restart_interval == -1 ? 4
                         : s->restart_interval;
                 /* LUMA */
                 s->encoder_param.sampling_factor[0].horizontal = 2;
