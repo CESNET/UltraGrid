@@ -373,6 +373,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         filename = NULL;
 
+        tmp = strtok_r(NULL, ":", &save_ptr);
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
@@ -392,7 +393,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
                         s->data = (char *) malloc(s->size * bpp * 2);
 
-                        if (s->size < filesize) {
+                        if (s->size != filesize) {
                                 fprintf(stderr, "Error wrong file size for selected "
                                                 "resolution and codec. File size %ld, "
                                                 "computed size %d\n", filesize, s->size);
@@ -428,6 +429,10 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         s->still_image = TRUE;
                 } else if (strcmp(tmp, "blank") == 0) {
                         s->blank = true;
+                } else {
+                        fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
+                        delete s;
+                        return NULL;
                 }
                 tmp = strtok_r(NULL, ":", &save_ptr);
         }
