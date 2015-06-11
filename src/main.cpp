@@ -404,8 +404,8 @@ int main(int argc, char *argv[])
         const char *audio_scale = "mixauto";
         int rtsp_port = 0;
         bool isStd = FALSE;
-        int recv_port_number = PORT_BASE;
-        int send_port_number = PORT_BASE;
+        int port_base = PORT_BASE;
+        int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
 
         bool echo_cancellation = false;
 
@@ -418,7 +418,6 @@ int main(int argc, char *argv[])
         struct control_state *control = NULL;
 
         const char *audio_host = NULL;
-        int audio_rx_port = -1, audio_tx_port = -1;
         enum video_mode decoder_mode = VIDEO_NORMAL;
         const char *requested_compression = "none";
 
@@ -449,7 +448,7 @@ int main(int argc, char *argv[])
 
         int bitrate = RATE_AUTO;
 
-        int rxtx_mode = 0;
+        int audio_rxtx_mode = 0, video_rxtx_mode = 0;
         int audio_delay = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
@@ -639,8 +638,8 @@ int main(int argc, char *argv[])
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
                                 char *tok;
-                                recv_port_number = atoi(strtok_r(optarg, ":", &save_ptr));
-                                send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
+                                video_rx_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                video_tx_port = atoi(strtok_r(NULL, ":", &save_ptr));
                                 if((tok = strtok_r(NULL, ":", &save_ptr))) {
                                         audio_rx_port = atoi(tok);
                                         if((tok = strtok_r(NULL, ":", &save_ptr))) {
@@ -651,9 +650,7 @@ int main(int argc, char *argv[])
                                         }
                                 }
                         } else {
-                                recv_port_number =
-                                        send_port_number =
-                                        atoi(optarg);
+                                port_base = atoi(optarg);
                         }
                         break;
                 case 'l':
@@ -830,9 +827,55 @@ int main(int argc, char *argv[])
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
 
-        if(audio_rx_port == -1) {
-                audio_tx_port = send_port_number + 2;
-                audio_rx_port = recv_port_number + 2;
+        if (strcmp("none", audio_recv) != 0) {
+                audio_rxtx_mode |= MODE_RECEIVER;
+        }
+
+        if (strcmp("none", audio_send) != 0) {
+                audio_rxtx_mode |= MODE_SENDER;
+        }
+
+        if (strcmp("none", requested_display) != 0) {
+                video_rxtx_mode |= MODE_RECEIVER;
+        }
+        if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
+                video_rxtx_mode |= MODE_SENDER;
+        }
+
+        if (video_rx_port == -1) {
+                if ((video_rxtx_mode & MODE_RECEIVER) == 0) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        video_rx_port = 0;
+                } else {
+                        video_rx_port = port_base;
+                }
+        }
+
+        if (video_tx_port == -1) {
+                if ((video_rxtx_mode & MODE_SENDER) == 0) {
+                        video_tx_port = 0;
+                } else {
+                        video_tx_port = port_base;
+                }
+        }
+
+        if (audio_rx_port == -1) {
+                if ((audio_rxtx_mode & MODE_RECEIVER) == 0) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        audio_rx_port = 0;
+                } else {
+                        audio_rx_port = port_base + 2;
+                }
+        }
+
+        if (audio_tx_port == -1) {
+                if ((audio_rxtx_mode & MODE_SENDER) == 0) {
+                        audio_tx_port = 0;
+                } else {
+                        audio_tx_port = port_base + 2;
+                }
         }
 
         if(should_export) {
@@ -962,13 +1005,6 @@ int main(int argc, char *argv[])
 #endif /* HAVE_SCHED_SETSCHEDULER */
 #endif /* USE_RT */
 
-        if (strcmp("none", requested_display) != 0) {
-                rxtx_mode |= MODE_RECEIVER;
-        }
-        if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
-                rxtx_mode |= MODE_SENDER;
-        }
-
         control_start(control);
 
         try {
@@ -978,23 +1014,23 @@ int main(int argc, char *argv[])
                 params["parent"].ptr = &root_mod;
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
-                params["rxtx_mode"].i = rxtx_mode;
+                params["rxtx_mode"].i = video_rxtx_mode;
 
                 // iHDTV
                 params["argc"].i = argc;
                 params["argv"].ptr = argv;
                 params["capture_device"].ptr = NULL;
                 params["display_device"].ptr = NULL;
-                if (rxtx_mode & MODE_SENDER)
+                if (video_rxtx_mode & MODE_SENDER)
                         params["capture_device"].ptr = uv->capture_device;
-                if (rxtx_mode & MODE_RECEIVER)
+                if (video_rxtx_mode & MODE_RECEIVER)
                         params["display_device"].ptr = uv->display_device;
 
                 //RTP
                 params["mtu"].i = requested_mtu;
                 params["receiver"].ptr = (void *) requested_receiver;
-                params["rx_port"].i = recv_port_number;
-                params["tx_port"].i = send_port_number;
+                params["rx_port"].i = video_rx_port;
+                params["tx_port"].i = video_tx_port;
                 params["use_ipv6"].b = ipv6;
                 params["mcast_if"].ptr = (void *) requested_mcast_if;
                 params["mtu"].i = requested_mtu;
@@ -1039,7 +1075,7 @@ int main(int argc, char *argv[])
 
                 uv->state_video_rxtx->start();
 
-                if(rxtx_mode & MODE_RECEIVER) {
+                if (video_rxtx_mode & MODE_RECEIVER) {
                         if (!uv->state_video_rxtx->supports_receiving()) {
                                 fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
                                 exit_uv(EXIT_FAILURE);
@@ -1057,7 +1093,7 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if(rxtx_mode & MODE_SENDER) {
+                if (video_rxtx_mode & MODE_SENDER) {
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
                                          (void *) &root_mod) != 0) {
@@ -1095,7 +1131,7 @@ cleanup:
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (rxtx_mode & MODE_SENDER
+        if (video_rxtx_mode & MODE_SENDER
                         && capture_thread_started)
                 pthread_join(capture_thread_id, NULL);
 
