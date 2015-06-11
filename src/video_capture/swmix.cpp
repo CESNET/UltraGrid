@@ -1117,6 +1117,11 @@ vidcap_swmix_init(const struct vidcap_params *params)
                 goto error;
         }
 
+        if (s->gl_context.gl_major < 2) {
+                fprintf(stderr, "[swmix] Unsufficient OpenGL version to run SWMix.\n");
+                goto error;
+        }
+
         gl_context_make_current(&s->gl_context);
 
         {
