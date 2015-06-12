@@ -79,6 +79,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
+#include <string>
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
 
@@ -109,7 +110,7 @@ struct device_state {
 struct vidcap_decklink_state {
         struct device_state     state[MAX_DEVICES];
         int                     devices_cnt;
-	int			mode;
+	string			mode;
 	// void*			rtp_buffer;
 	unsigned int		next_frame_time; // avarege time between frames
         struct video_frame     *frame;
@@ -513,7 +514,7 @@ settings_init(void *state, char *fmt)
                 // choose mode
                 tmp = strtok_r(NULL, ":", &save_ptr_top);
                 if(tmp) {
-                        s->mode = atoi(tmp);
+                        s->mode = tmp;
 
                         tmp = strtok_r(NULL, ":", &save_ptr_top);
                         if (tmp) {
@@ -561,11 +562,9 @@ settings_init(void *state, char *fmt)
                 } else {
                         s->autodetect_mode = TRUE;
                         printf("[DeckLink] Trying to autodetect format.\n");
-                        s->mode = 0;
                 }
         } else {
                 printf("[DeckLink] Trying to autodetect format.\n");
-                s->mode = 0;
                 s->autodetect_mode = TRUE;
                 s->devices_cnt = 1;
                 s->state[s->devices_cnt].index = 0;
@@ -891,23 +890,37 @@ vidcap_decklink_init(const struct vidcap_params *params)
 
                                 while (displayModeIterator->Next(&displayMode) == S_OK)
                                 {
-                                        if (s->mode != mnum) {
-                                                mnum++;
-                                                // Release the IDeckLinkDisplayMode object to prevent a leak
-                                                displayMode->Release();
-                                                continue;
-                                        }
+					if (s->mode.length() <= 2) {
+						if (atoi(s->mode.c_str()) != mnum) {
+							mnum++;
+							// Release the IDeckLinkDisplayMode object to prevent a leak
+							displayMode->Release();
+							continue;
+						}
 
-                                        mode_found = true;
-                                        mnum++;
-                                        break;
+						mode_found = true;
+						mnum++;
+						break;
+					} else {
+						union {
+							uint32_t fourcc;
+							char tmp[4];
+						};
+						memcpy(tmp, s->mode.c_str(), s->mode.length());
+						if (s->mode.length() == 3) tmp[3] = ' ';
+						fourcc = htonl(fourcc);
+						if (displayMode->GetDisplayMode() == fourcc) {
+							mode_found = true;
+							break;
+						}
+					}
                                 }
 
                                 if(mode_found) {
-                                        printf("The desired display mode is supported: %d\n",s->mode);
+                                        printf("The desired display mode is supported: %s\n", s->mode.c_str());
                                 } else {
-                                        fprintf(stderr, "Desired mode index %d is out of bounds.\n",
-                                                        s->mode);
+                                        fprintf(stderr, "Desired mode index %s is out of bounds.\n",
+                                                        s->mode.c_str());
                                         goto error;
                                 }
 
@@ -1403,7 +1416,8 @@ static void print_input_modes (IDeckLink* deckLink)
 			modeWidth = displayMode->GetWidth();
 			modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-			printf("%d.) %-20s \t %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
+                        uint32_t mode = ntohl(displayMode->GetDisplayMode());
+                        printf("%d (%.4s)) %-20s \t %d x %d \t %2.2f FPS%s\n", displayModeNumber, (char *) &mode, displayModeCString,
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);
