@@ -177,6 +177,7 @@ struct vidcap_import_state {
         bool o_direct;
         int video_reading_threads_count;
         bool should_exit_at_end;
+        int force_fps;
 };
 
 #ifdef WIN32
@@ -298,7 +299,8 @@ try {
         char *suffix;
         if (!s->directory || strcmp(s->directory, "help") == 0) {
                 throw string("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end}");
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>}\n"
+                                "\t\t<fps> - overrides FPS from sequence metadata\n");
         }
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (strcmp(suffix, "loop") == 0) {
@@ -313,6 +315,8 @@ try {
                         s->o_direct = true;
                 } else if (strcmp(suffix, "exit_at_end") == 0) {
                         s->should_exit_at_end = true;
+                } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
+                        s->force_fps = atoi(suffix + strlen("fps="));
                 } else {
                         throw string("[Playback] Unrecognized"
                                         " option ") + suffix + ".\n";
@@ -417,6 +421,11 @@ try {
                         s->count = atoi(ptr);
                         items_found |= 1<<6;
                 }
+        }
+
+        // override metadata fps setting
+        if (s->force_fps > 0) {
+                desc.fps = s->force_fps;
         }
 
         assert(desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
