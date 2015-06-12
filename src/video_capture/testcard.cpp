@@ -410,7 +410,6 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
                         fclose(in);
                         in = NULL;
-                        tmp = strtok_r(NULL, ":", &save_ptr);
 
                         memcpy(s->data + s->size, s->data, s->size);
                         vf_get_tile(s->frame, 0)->data = s->data;
