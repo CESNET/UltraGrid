@@ -54,6 +54,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include "crypto/random.h"
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -453,7 +454,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                 } else if (s->pattern == image_pattern::NOISE) {
                         uint8_t *sample = (uint8_t *) s->pixmap.data;
                         for (int i = 0; i < pixmap_len; ++i) {
-                                *sample++ = random() % 0xff;
+                                *sample++ = lrand48() % 0xff;
                         }
                 } else {
                         assert (s->pattern == image_pattern::BARS);
