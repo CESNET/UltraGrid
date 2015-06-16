@@ -314,15 +314,15 @@ static int udp_addr_valid4(const char *dst)
         return FALSE;
 }
 
-static int udp_join_mcast_grp4(unsigned long s_addr, int fd, int ttl, unsigned int ifindex)
+static int udp_join_mcast_grp4(unsigned long addr, int fd, int ttl, unsigned int ifindex)
 {
-        if (IN_MULTICAST(ntohl(s_addr))) {
+        if (IN_MULTICAST(ntohl(addr))) {
 #ifndef WIN32
                 char loop = 1;
 #endif
                 struct ip_mreq imr;
 
-                imr.imr_multiaddr.s_addr = s_addr;
+                imr.imr_multiaddr.s_addr = addr;
                 imr.imr_interface.s_addr = ifindex;
 
                 if (SETSOCKOPT
@@ -355,11 +355,11 @@ static int udp_join_mcast_grp4(unsigned long s_addr, int fd, int ttl, unsigned i
         return TRUE;
 }
 
-static void udp_leave_mcast_grp4(unsigned long s_addr, int fd)
+static void udp_leave_mcast_grp4(unsigned long addr, int fd)
 {
-        if (IN_MULTICAST(ntohl(s_addr))) {
+        if (IN_MULTICAST(ntohl(addr))) {
                 struct ip_mreq imr;
-                imr.imr_multiaddr.s_addr = s_addr;
+                imr.imr_multiaddr.s_addr = addr;
                 imr.imr_interface.s_addr = INADDR_ANY;
                 if (SETSOCKOPT
                     (fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
