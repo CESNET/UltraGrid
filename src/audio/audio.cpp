@@ -576,6 +576,7 @@ static void *audio_receiver_thread(void *arg)
 
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
+                        auto curr_time_hr = std::chrono::high_resolution_clock::now();
                         ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
@@ -612,12 +613,12 @@ static void *audio_receiver_thread(void *arg)
                                         // We iterate in loop since there can be more than one frmae present in
                                         // the playout buffer and it would be discarded by following pbuf_remove()
                                         // call.
-                                        while (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, decode_audio_frame, &pbuf_data)) {
                                                 decoded = true;
                                         }
                                 }
 
-                                pbuf_remove(cp->playout_buffer, curr_time);
+                                pbuf_remove(cp->playout_buffer, curr_time_hr);
                                 cp = pdb_iter_next(&it);
 
                                 if (decoded)
@@ -627,6 +628,7 @@ static void *audio_receiver_thread(void *arg)
                 }else if(s->receiver == NET_STANDARD){
                 //TODO now expecting to receive mulaw standard RTP (decode frame mulaw callback) , next steps, to be dynamic...
                     gettimeofday(&curr_time, NULL);
+                    auto curr_time_hr = std::chrono::high_resolution_clock::now();
                     ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                     rtp_update(s->audio_network_device, curr_time);
                     rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
@@ -639,7 +641,7 @@ static void *audio_receiver_thread(void *arg)
 
                     while (cp != NULL) {
                         // should be perhaps run iteratively? similarly to NET_NATIVE
-                        if (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
+                        if (pbuf_decode(cp->playout_buffer, curr_time_hr, decode_audio_frame_mulaw, &pbuf_data)) {
                             bool failed = false;
                             if(s->echo_state) {
 #ifdef HAVE_SPEEX
@@ -672,7 +674,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                 audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
                         }
 
-                        pbuf_remove(cp->playout_buffer, curr_time);
+                        pbuf_remove(cp->playout_buffer, curr_time_hr);
                         cp = pdb_iter_next(&it);
                     }
                     pdb_iter_done(&it);

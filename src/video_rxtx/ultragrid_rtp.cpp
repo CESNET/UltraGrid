@@ -322,6 +322,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
+                auto curr_time_hr = std::chrono::high_resolution_clock::now();
                 ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
 
                 rtp_update(m_network_devices[0], curr_time);
@@ -392,7 +393,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
+                            (cp->playout_buffer, curr_time_hr, decode_video_frame, vdecoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == m_connections_count)
@@ -441,7 +442,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 }
                         }
 
-                        pbuf_remove(cp->playout_buffer, curr_time);
+                        pbuf_remove(cp->playout_buffer, curr_time_hr);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);

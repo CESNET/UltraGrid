@@ -58,7 +58,6 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "perf.h"
-#include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
@@ -72,8 +71,8 @@ struct pbuf_node {
         struct pbuf_node *nxt;
         struct pbuf_node *prv;
         uint32_t rtp_timestamp; /* RTP timestamp for the frame           */
-        struct timeval arrival_time;    /* Arrival time of first packet in frame */
-        struct timeval playout_time;    /* Playout time for the frame            */
+        std::chrono::high_resolution_clock::time_point arrival_time;    /* Arrival time of first packet in frame */
+        std::chrono::high_resolution_clock::time_point playout_time;    /* Playout time for the frame            */
         struct coded_data *cdata;       /*                                       */
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
@@ -84,7 +83,7 @@ struct pbuf_node {
 struct pbuf {
         struct pbuf_node *frst;
         struct pbuf_node *last;
-        double playout_delay;
+        long long int playout_delay_us;
 
         // for statistics
         /// @todo figure out packet duplication
@@ -159,14 +158,14 @@ struct pbuf *pbuf_init(int delay_ms)
 {
         struct pbuf *playout_buf = NULL;
 
-        playout_buf = calloc(1, sizeof(struct pbuf));
+        playout_buf = (struct pbuf *) calloc(1, sizeof(struct pbuf));
         if (playout_buf != NULL) {
                 playout_buf->frst = NULL;
                 playout_buf->last = NULL;
                 /* Playout delay... should really be adaptive, based on the */
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
-                playout_buf->playout_delay = 0.032 + delay_ms / 1000.0;
+                playout_buf->playout_delay_us = 0.032 * 1000 * 1000 + delay_ms * 1000.0;
                 playout_buf->last_rtp_seq = -1;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
@@ -188,7 +187,7 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
         assert(node->rtp_timestamp == pkt->ts);
         assert(node->cdata != NULL);
 
-        tmp = malloc(sizeof(struct coded_data));
+        tmp = (struct coded_data *) malloc(sizeof(struct coded_data));
         if (tmp == NULL) {
                 /* this is bad, out of memory, drop the packet... */
                 free(pkt);
@@ -232,26 +231,22 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
         }
 }
 
-static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay)
+static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_delay_us)
 {
         struct pbuf_node *tmp;
 
         perf_record(UVP_CREATEPBUF, pkt->ts);
 
-        tmp = malloc(sizeof(struct pbuf_node));
+        tmp = new struct pbuf_node();
         if (tmp != NULL) {
                 tmp->magic = PBUF_MAGIC;
-                tmp->completed = false;
-                tmp->nxt = NULL;
-                tmp->prv = NULL;
-                tmp->decoded = 0;
                 tmp->rtp_timestamp = pkt->ts;
                 tmp->mbit = pkt->m;
-                gettimeofday(&(tmp->arrival_time), NULL);
-                gettimeofday(&(tmp->playout_time), NULL);
-                tv_add(&(tmp->playout_time), playout_delay);
+                tmp->playout_time =
+                        tmp->arrival_time = std::chrono::high_resolution_clock::now();
+                tmp->playout_time += std::chrono::microseconds(playout_delay_us);
 
-                tmp->cdata = malloc(sizeof(struct coded_data));
+                tmp->cdata = (struct coded_data *) malloc(sizeof(struct coded_data));
                 if (tmp->cdata != NULL) {
                         tmp->cdata->nxt = NULL;
                         tmp->cdata->prv = NULL;
@@ -259,7 +254,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
                         tmp->cdata->data = pkt;
                 } else {
                         free(pkt);
-                        free(tmp);
+                        delete tmp;
                         return NULL;
                 }
         } else {
@@ -319,7 +314,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
                 /* playout buffer is empty - add new frame */
-                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay);
+                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay_us);
                 playout_buf->last = playout_buf->frst;
                 return;
         }
@@ -331,7 +326,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         } else {
                 if (playout_buf->last->rtp_timestamp < pkt->ts) {
                         /* Packet belongs to a new frame... */
-                        tmp = create_new_pnode(pkt, playout_buf->playout_delay);
+                        tmp = create_new_pnode(pkt, playout_buf->playout_delay_us);
                         playout_buf->last->nxt = tmp;
                         playout_buf->last->completed = true;
                         tmp->prv = playout_buf->last;
@@ -381,7 +376,7 @@ static void free_cdata(struct coded_data *head)
         }
 }
 
-void pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time)
+void pbuf_remove(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time)
 {
         /* Remove previously decoded frames that have passed their playout  */
         /* time from the playout buffer. Incomplete frames that have passed */
@@ -394,7 +389,7 @@ void pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time)
         curr = playout_buf->frst;
         while (curr != NULL) {
                 temp = curr->nxt;
-                if (tv_gt(curr_time, curr->playout_time) && frame_complete(curr)) {
+                if (curr_time > curr->playout_time && frame_complete(curr)) {
                         if (curr == playout_buf->frst) {
                                 playout_buf->frst = curr->nxt;
                         }
@@ -408,7 +403,7 @@ void pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time)
                                 curr->prv->nxt = curr->nxt;
                         }
                         free_cdata(curr->cdata);
-                        free(curr);
+                        delete curr;
                 } else {
                         /* The playout buffer is stored in order, so once  */
                         /* we see one packet that has not yet reached it's */
@@ -445,7 +440,7 @@ int pbuf_is_empty(struct pbuf *playout_buf)
 }
 
 int
-pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
+pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time,
                              decode_frame_t decode_func, void *data)
 {
         /* Find the first complete frame that has reached it's playout */
@@ -458,7 +453,7 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         curr = playout_buf->frst;
         while (curr != NULL) {
                 if (!curr->decoded 
-                                && tv_gt(curr_time, curr->playout_time)
+                                && curr_time > curr->playout_time
                    ) {
                         if (frame_complete(curr)) {
                                 struct pbuf_stats stats = { playout_buf->received_pkts_cum,
@@ -479,6 +474,6 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
 
 void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 {
-        playout_buf->playout_delay = playout_delay;
+        playout_buf->playout_delay_us = playout_delay * 1000 * 1000;
 }
 
