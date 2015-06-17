@@ -44,7 +44,15 @@
 #ifndef _RTP_DEC_H264_H
 #define _RTP_DEC_H264_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

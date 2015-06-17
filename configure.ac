@@ -1321,26 +1321,22 @@ AC_ARG_ENABLE(rtsp,
     [rtsp_req=auto]
     )
 
-case $host in
-    *-linux-*)
-		PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
+PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
 
-		if test $rtsp_req != no -a $FOUND_RTSP_DEPS = yes
-		then
-			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
-                        SAVED_CFLAGS=$CFLAGS
-                        CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
-                        SAVED_CXXFLAGS=$CXXFLAGS
-                        CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-                        RTSP_INC=
-                        RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-                        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
-                        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
-                        LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
-                        rtsp=yes
-		fi
-    ;;
-esac
+if test $rtsp_req != no -a $FOUND_RTSP_DEPS = yes
+then
+        AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
+        SAVED_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
+        SAVED_CXXFLAGS=$CXXFLAGS
+        CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
+        RTSP_INC=
+        RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
+        rtsp=yes
+fi
 
 if test $rtsp_req = yes -a $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);

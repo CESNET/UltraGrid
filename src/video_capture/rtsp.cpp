@@ -73,6 +73,7 @@
 #include "audio/audio.h"
 
 #include <curl/curl.h>
+#include <chrono>
 
 #define VERSION_STR  "V1.0"
 
@@ -149,7 +150,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state);
 void
 rtsp_keepalive(void *state);
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data);
+int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *);
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
@@ -290,7 +291,7 @@ keep_alive_thread(void *arg){
     }
 }
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data) {
+int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *) {
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
 
@@ -313,6 +314,7 @@ vidcap_rtsp_thread(void *arg) {
 
     while (!s->should_exit) {
     	usleep(10);
+        auto curr_time_hr = std::chrono::high_resolution_clock::now();
         gettimeofday(&s->vrtsp_state->curr_time, NULL);
         s->vrtsp_state->timestamp = tv_diff(s->vrtsp_state->curr_time, s->vrtsp_state->start_time) * 90000;
 
@@ -335,7 +337,7 @@ vidcap_rtsp_thread(void *arg) {
                                 pthread_cond_wait(&s->vrtsp_state->worker_cv, &s->vrtsp_state->lock);
                                 s->vrtsp_state->worker_waiting = false;
                             }
-                            if (pbuf_decode(s->vrtsp_state->cp->playout_buffer, s->vrtsp_state->curr_time,
+                            if (pbuf_decode(s->vrtsp_state->cp->playout_buffer, curr_time_hr,
                                 decode_frame_by_pt, s->vrtsp_state->frame))
                             {
                                  s->vrtsp_state->new_frame = true;
@@ -346,7 +348,7 @@ vidcap_rtsp_thread(void *arg) {
                     }
                     pthread_mutex_unlock(&s->vrtsp_state->lock);
                 }
-                pbuf_remove(s->vrtsp_state->cp->playout_buffer, s->vrtsp_state->curr_time);
+                pbuf_remove(s->vrtsp_state->cp->playout_buffer, curr_time_hr);
                 s->vrtsp_state->cp = pdb_iter_next(&it);
             }
 
@@ -376,7 +378,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             gettimeofday(&s->vrtsp_state->curr_time, NULL);
 
             s->vrtsp_state->frame->tiles[0].data_len = s->vrtsp_state->frame->h264_buffer_len;
-            s->vrtsp_state->frame->tiles[0].data = s->vrtsp_state->frame->h264_buffer;
+            s->vrtsp_state->frame->tiles[0].data = (char *) s->vrtsp_state->frame->h264_buffer;
 
             if(s->vrtsp_state->frame->h264_offset_len>0 && s->vrtsp_state->frame->h264_frame_type == INTRA){
                     memcpy(s->vrtsp_state->frame->tiles[0].data, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len);
@@ -437,12 +439,12 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
 
     struct rtsp_state *s;
 
-    s = calloc(1, sizeof(struct rtsp_state));
+    s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
     if (!s)
         return NULL;
 
-    s->artsp_state = calloc(1,sizeof(struct audio_rtsp_state));
-    s->vrtsp_state = calloc(1,sizeof(struct video_rtsp_state));
+    s->artsp_state = (struct audio_rtsp_state *) calloc(1,sizeof(struct audio_rtsp_state));
+    s->vrtsp_state = (struct video_rtsp_state *) calloc(1,sizeof(struct video_rtsp_state));
 
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state->codec = "";
@@ -475,10 +477,10 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
 
     s->vrtsp_state->new_frame = FALSE;
 
-    s->vrtsp_state->in_codec = malloc(sizeof(uint32_t *) * 10);
+    s->vrtsp_state->in_codec = (uint32_t *) malloc(sizeof(uint32_t *) * 10);
 
     s->vrtsp_state->frame = vf_alloc(1);
-    s->vrtsp_state->frame->h264_offset_buffer = malloc(2048);
+    s->vrtsp_state->frame->h264_offset_buffer = (unsigned char *) malloc(2048);
     s->vrtsp_state->frame->h264_offset_len = 0;
 
     s->uri = NULL;
@@ -502,12 +504,12 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
                 case 0:
                     if (tmp) {
                         tmp = strtok_r(NULL, ":", &save_ptr);
-                        uri_tmp1 = malloc(strlen(tmp) + 32);
+                        uri_tmp1 = (char *) malloc(strlen(tmp) + 32);
                         sprintf(uri_tmp1, "%s", tmp);
                         tmp = strtok_r(NULL, ":", &save_ptr);
-                        uri_tmp2 = malloc(strlen(tmp) + 32);
+                        uri_tmp2 = (char *) malloc(strlen(tmp) + 32);
                         sprintf(uri_tmp2, "%s", tmp);
-                        s->uri = malloc(1024 + 32);
+                        s->uri = (char *) malloc(1024 + 32);
                         sprintf(s->uri, "rtsp:%s:%s", uri_tmp1, uri_tmp2);
                     } else {
                         printf("\n[rtsp] Wrong format for uri! \n");
@@ -582,7 +584,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     if (uri_tmp2 != NULL)
         free(uri_tmp2);
 
-    len = init_rtsp(s->uri, s->vrtsp_state->port, s, s->vrtsp_state->frame->h264_offset_buffer);
+    len = init_rtsp(s->uri, s->vrtsp_state->port, s, (char *) s->vrtsp_state->frame->h264_offset_buffer);
 
     if(len < 0){
         return NULL;
@@ -590,7 +592,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
         s->vrtsp_state->frame->h264_offset_len = len;
     }
 
-    s->vrtsp_state->frame->h264_buffer = malloc(4 * s->vrtsp_state->frame->h264_width * s->vrtsp_state->frame->h264_height);
+    s->vrtsp_state->frame->h264_buffer = (unsigned char *) malloc(4 * s->vrtsp_state->frame->h264_width * s->vrtsp_state->frame->h264_height);
 
     s->vrtsp_state->frame->h264_buffer_len = 0;
     s->vrtsp_state->frame->h264_media_time = 0;
@@ -607,12 +609,12 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->vrtsp_state->fps = 30;
     s->vrtsp_state->frame->interlacing = PROGRESSIVE;
 
-    s->vrtsp_state->frame->tiles[0].data = calloc(1, s->vrtsp_state->frame->h264_width * s->vrtsp_state->frame->h264_height);
+    s->vrtsp_state->frame->tiles[0].data = (char *) calloc(1, s->vrtsp_state->frame->h264_width * s->vrtsp_state->frame->h264_height);
 
     s->should_exit = FALSE;
 
     s->vrtsp_state->device = rtp_init_if("::1", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
-        0, rtp_recv_callback, (void *) s->vrtsp_state->participants, false, true);
+        0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, false, true);
 
     if (s->vrtsp_state->device != NULL) {
         if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {
@@ -676,9 +678,9 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
     debug_msg("    Requires cURL V7.20 or greater\n\n");
     const char *url = rtsp_uri;
-    char *uri = malloc(strlen(url) + 32);
-    char *sdp_filename = malloc(strlen(url) + 32);
-    char *control = malloc(150 * sizeof(char *));
+    char *uri = (char *) malloc(strlen(url) + 32);
+    char *sdp_filename = (char *) malloc(strlen(url) + 32);
+    char *control = (char *) malloc(150 * sizeof(char *));
     memset(control, 0, 150 * sizeof(char *));
     char Atransport[256];
     char Vtransport[256];
@@ -757,7 +759,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
             }
 
             /* get start nal size attribute from sdp file */
-            len_nals = get_nals(sdp_filename, nals, &s->vrtsp_state->frame->h264_width, &s->vrtsp_state->frame->h264_height);
+            len_nals = get_nals(sdp_filename, nals, (int *) &s->vrtsp_state->frame->h264_width, (int *) &s->vrtsp_state->frame->h264_height);
 
             s->curl = curl;
             s->uri = uri;
@@ -821,7 +823,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
             tracks[countT][strlen(tmpBuff)-2] = '\0';
             countT++;
         }
-        tmpBuff='\0';
+        tmpBuff=NULL;
         sscanf(line, " a=rtpmap:96 %s", tmpBuff);
         tmpBuff = strstr(line, "H264");
         if(tmpBuff!=NULL){
@@ -830,7 +832,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
             codecs[countC][4] = '\0';
             countC++;
         }
-        tmpBuff='\0';
+        tmpBuff=NULL;
         sscanf(line, " a=rtpmap:97 %s", tmpBuff);
         tmpBuff = strstr(line, "PCMU");
         if(tmpBuff!=NULL){
@@ -839,7 +841,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
             codecs[countC][4] = '\0';
             countC++;
         }
-        tmpBuff='\0';
+        tmpBuff=NULL;
 
         if(countT > 1 && countC > 1) break;
     }
@@ -902,7 +904,7 @@ init_decompressor(void *state) {
             vc_get_linesize(sr->des.width, UYVY), UYVY);
     } else
         return 0;
-    sr->out_frame = malloc(sr->frame->h264_width * sr->frame->h264_height * 4);
+    sr->out_frame = (char *) malloc(sr->frame->h264_width * sr->frame->h264_height * 4);
     return 1;
 }
 
@@ -930,8 +932,8 @@ rtsp_get_parameters(CURL *curl, const char *uri) {
 static int
 rtsp_options(CURL *curl, const char *uri) {
     char control[1500], *user, *pass, *strtoken;
-    user = malloc(1500);
-    pass = malloc(1500);
+    user = (char *) malloc(1500);
+    pass = (char *) malloc(1500);
     bzero(control, 1500);
     bzero(user, 1500);
     bzero(pass, 1500);
@@ -1087,7 +1089,7 @@ vidcap_rtsp_probe(bool verbose) {
 
 void
 vidcap_rtsp_done(void *state) {
-    struct rtsp_state *s = state;
+    struct rtsp_state *s = (struct rtsp_state *) state;
 
     s->should_exit = TRUE;
     pthread_join(s->vrtsp_state->vrtsp_thread_id, NULL);
@@ -1125,7 +1127,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
     int k;
     int sizeSPS  = 0;
     int max_len = 1500, len_nals = 0;
-    char *s = malloc(max_len);
+    char *s = (char *) malloc(max_len);
     char *sprop;
     bzero(s, max_len);
     FILE *sdp_fp = fopen(sdp_filename, "rt");
@@ -1136,14 +1138,14 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
             if (sprop != NULL) {
                 gsize length;   //gsize is an unsigned int.
                 char *nal_aux, *nals_aux, *nal;
-                nals_aux = malloc(max_len);
+                nals_aux = (char *) malloc(max_len);
                 memcpy(nals, start_sequence, sizeof(start_sequence));
                 len_nals = sizeof(start_sequence);
                 nal_aux = strstr(sprop, "=");
                 nal_aux++;
                 nal = strtok(nal_aux, ",;");
                 //convert base64 to hex
-                nals_aux = g_base64_decode(nal, &length);
+                nals_aux = (char *) g_base64_decode(nal, &length);
                 memcpy(nals + len_nals, nals_aux, length);
                 len_nals += length;
 
@@ -1152,11 +1154,11 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
                 nri = nalInfo & 0x60;
 
                 if (type == 7){
-                    width_height_from_SDP(width, height , (nals+4), length);
+                    width_height_from_SDP(width, height , (unsigned char *) (nals+4), length);
                 }
 
                 while ((nal = strtok(NULL, ",;")) != NULL) {
-                    nals_aux = g_base64_decode(nal, &length);
+                    nals_aux = (char *) g_base64_decode(nal, &length);
                     if (length) {
                         //convert base64 to hex
                         memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
@@ -1169,7 +1171,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
                         nri = nalInfo & 0x60;
 
                         if (type == 7){
-                            width_height_from_SDP(width, height , (nals+(len_nals - length)), length);
+                            width_height_from_SDP(width, height , (unsigned char *) (nals+(len_nals - length)), length);
                         }
                         //assure start sequence injection between sps, pps and other nals
                         memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
