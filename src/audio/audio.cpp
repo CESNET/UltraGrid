@@ -709,7 +709,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                 fprintf(stderr, " (%d channels, %d bps, %d Hz)\n",
                                                 curr_desc.ch_count,
                                                 curr_desc.bps, curr_desc.sample_rate);
-
+                                rtp_flush_recv_buf(s->audio_network_device);
                         }
 
                         if(!failed)
