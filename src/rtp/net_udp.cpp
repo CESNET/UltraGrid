@@ -635,6 +635,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 {
         int ip_family;
         int reuse = 1;
+        int ipv6only = 0;
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_storage s_in{};
         socklen_t sin_len;
@@ -683,6 +684,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 #endif
         if (s->fd == INVALID_SOCKET) {
                 socket_error("Unable to initialize socket");
+                goto error;
+        }
+        if (SETSOCKOPT(s->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                         sizeof(ipv6only)) != 0) {
+                socket_error("setsockopt IPV6_V6ONLY");
                 goto error;
         }
         if (SETSOCKOPT
