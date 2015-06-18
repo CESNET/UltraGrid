@@ -686,10 +686,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 socket_error("Unable to initialize socket");
                 goto error;
         }
-        if (SETSOCKOPT(s->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
-                         sizeof(ipv6only)) != 0) {
-                socket_error("setsockopt IPV6_V6ONLY");
-                goto error;
+        if (s->mode == IPv6) {
+                if (SETSOCKOPT(s->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                        sizeof(ipv6only)) != 0) {
+                        socket_error("setsockopt IPV6_V6ONLY");
+                        goto error;
+                }
         }
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
