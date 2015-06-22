@@ -445,6 +445,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         s->current_display_desc = desc;
 
 	if (!update_size(s, desc.width, desc.height)) {
+                memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
                 return FALSE;
 	}
         if (window_title) {
@@ -461,6 +462,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                                     FOURCC_UYVY : FOURCC_YUYV, s->sdl_screen);
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
+                        memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
                         return FALSE;
                 }
         }
