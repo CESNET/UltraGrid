@@ -47,7 +47,7 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 POST_COMPILE_MSG=""
 CFLAGS="$CFLAGS -I$srcdir"
 CPPFLAGS="$CPPFLAGS -I$srcdir"
-CXXFLAGS="$CXXFLAGS -I$srcdir -D__STRICT_ANSI__ -std=c++11"
+CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++11"
 LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
