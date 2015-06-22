@@ -481,19 +481,22 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                  * correctly. So we assume that the decompression went good even with the 
                  * reported error.
                  */
-                if(len < 0 && s->in_codec == JPEG) {
-                        // this hack doesn;t seem to work in recent Libav versions
+                if (len < 0) {
+                        if (s->in_codec == JPEG) {
+                                // this hack doesn;t seem to work in recent Libav versions
 #if 0
-                        return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
-                                        s->out_codec, s->width, s->height, s->pitch);
+                                return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
+                                                s->out_codec, s->width, s->height, s->pitch);
 #else
-                        fprintf(stderr, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
+                                fprintf(stderr, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
 #endif
-                }
-
-                if(len < 0) {
-                        fprintf(stderr, "[lavd] Error while decoding frame.\n");
-                        return FALSE;
+                        } else if (s->in_codec == MJPG) {
+                                fprintf(stderr, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
+                                return FALSE;
+                        } else {
+                                fprintf(stderr, "[lavd] Error while decoding frame.\n");
+                                return FALSE;
+                        }
                 }
 
                 if(got_frame) {

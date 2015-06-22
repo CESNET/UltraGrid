@@ -58,15 +58,16 @@
 #include "video.h"
 #include "video_compress.h"
 
+#include <string>
 #include <thread>
 #include <unordered_map>
 
 #define DEFAULT_CODEC MJPG
 #define DEFAULT_X264_PRESET "superfast"
 
-namespace {
-
 using namespace std;
+
+namespace {
 
 struct setparam_param {
         AVCodec *codec;
@@ -75,6 +76,7 @@ struct setparam_param {
         bool interlaced;
         bool h264_no_periodic_intra;
         int cpu_count;
+        string threads;
 };
 
 typedef struct {
@@ -180,7 +182,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
                         "[:subsampling=<subsampling>][:preset=<preset>]"
-                        "[:h264_no_periodic_intra]\n");
+                        "[:h264_no_periodic_intra][:threads=<thr_mode>]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
                 if(param.second.av_codec != 0) {
@@ -194,9 +196,10 @@ static void usage() {
         }
         printf("\t\th264_no_periodic_intra - do not use Periodic Intra Refresh with H.264\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
+        printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
-        printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
+        printf("\t\t<thr_mode> can be one of \"no\", \"frame\" or \"slice\"\n");
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
@@ -233,6 +236,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 s->preset = strdup(preset);
                         } else if (strcasecmp("h264_no_periodic_intra", item) == 0) {
                                 s->params.h264_no_periodic_intra = true;
+                        } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
+                                char *threads = item + strlen("threads=");
+                                s->params.threads = threads;
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -259,7 +265,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         struct state_video_compress_libav *s;
         const char *opts = params->cfg;
 
-        s = (struct state_video_compress_libav *) calloc(1, sizeof(struct state_video_compress_libav));
+        s = new state_video_compress_libav();
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         if (verbose) {
                 av_log_set_level(AV_LOG_VERBOSE);
@@ -283,7 +289,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         int ret = parse_fmt(s, fmt);
         free(fmt);
         if(ret != 0) {
-                free(s);
+                delete s;
                 if(ret > 0)
                         return &compress_init_noerr;
                 else
@@ -791,26 +797,31 @@ static void libavcodec_compress_done(struct module *mod)
                 av_free(s->in_frame_part[i]);
         }
         free(s->in_frame_part);
-        free(s);
+        delete s;
 }
 
 static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        UNUSED(param);
-        // zero should mean count equal to the number of virtual cores
-        if(param->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-                codec_ctx->thread_count = 0;
-                codec_ctx->thread_type = FF_THREAD_SLICE;
-        } else {
-                fprintf(stderr, "[Lavc] Warning: Codec doesn't support slice-based multithreading.\n");
-#if 0
-                if(codec->capabilities & CODEC_CAP_FRAME_THREADS) {
-                        codec_ctx->thread_count = 0;
-                        codec_ctx->thread_type = FF_THREAD_FRAME;
+        if (param->threads != "no")  {
+                if (param->threads.empty() // default mode
+                                || param->threads == "slice") {
+                        // zero should mean count equal to the number of virtual cores
+                        if (param->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+                                codec_ctx->thread_count = 0;
+                                codec_ctx->thread_type = FF_THREAD_SLICE;
+                        } else {
+                                fprintf(stderr, "[Lavc] Warning: Codec doesn't support slice-based multithreading.\n");
+                        }
+                } else if (param->threads == "frame") {
+                        if (param->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                                codec_ctx->thread_count = 0;
+                                codec_ctx->thread_type = FF_THREAD_FRAME;
+                        } else {
+                                fprintf(stderr, "[Lavc] Warning: Codec doesn't support frame-based multithreading.\n");
+                        }
                 } else {
-                        fprintf(stderr, "[Lavc] Warning: Codec doesn't support frame-based multithreading.\n");
+                        fprintf(stderr, "[Lavc] Warning: unknown thread mode: %s.\n", param->threads.c_str());
                 }
-#endif
         }
 }
 
