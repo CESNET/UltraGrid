@@ -802,9 +802,8 @@ static void libavcodec_compress_done(struct module *mod)
 
 static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        if (param->threads != "no")  {
-                if (param->threads.empty() // default mode
-                                || param->threads == "slice") {
+        if (!param->threads.empty() || param->threads != "no")  {
+                if (param->threads == "slice") {
                         // zero should mean count equal to the number of virtual cores
                         if (param->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
                                 codec_ctx->thread_count = 0;
