@@ -467,7 +467,12 @@ decklink_help()
 
         printf("audioConsumerLevels\n");
         printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
-        printf("\tIf set false the selected analog input gain levels are used.\n");
+        printf("\tIf set false the selected analog input gain levels are used.\n\n");
+
+        printf("Examples:\n");
+        printf("\t%s -t decklink # captures autodetected video from first detected decklink\n", uv_argv[0]);
+        printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
+        printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
 
 	printf("\n");
 
