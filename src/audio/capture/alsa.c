@@ -77,6 +77,8 @@ struct state_alsa_capture {
 
         struct timeval start_time;
         long long int captured_samples;
+
+        bool non_interleaved;
 };
 
 void audio_cap_alsa_help(const char *driver_name)
@@ -87,7 +89,24 @@ void audio_cap_alsa_help(const char *driver_name)
 void * audio_cap_alsa_init(char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Enter -s alsa:fullhelp to see all config options\n");
                 printf("Available ALSA capture devices\n");
+                audio_cap_alsa_help(NULL);
+                return &audio_init_state_ok;
+        }
+        if(cfg && strcmp(cfg, "fullhelp") == 0) {
+                printf("Usage\n");
+                printf("\t-s alsa\n");
+                printf("\t-s alsa:<device>\n");
+                printf("\t-s alsa:<device>:opts=<opts>\n");
+                printf("\t-s alsa:opts=<opts>\n\n");
+                printf("\t<opts> can be in format key1=value1:key2=value2\n");
+                printf("\t\trate=<sample_rate>\n");
+                printf("\t\tbps=<bits_per_sample>\n");
+                printf("\t\tframes=<frames>\n");
+                printf("\t\tni - non-interleaved\n");
+
+                printf("\nAvailable ALSA capture devices\n");
                 audio_cap_alsa_help(NULL);
                 return &audio_init_state_ok;
         }
@@ -96,10 +115,23 @@ void * audio_cap_alsa_init(char *cfg)
         snd_pcm_hw_params_t *params;
         unsigned int val;
         int dir;
-        char *name = "default";
+        const char *name = "default";
+        char *opts = NULL;
         int format;
 
         s = calloc(1, sizeof(struct state_alsa_capture));
+
+        if (cfg && strlen(cfg) > 0) {
+                if (strncmp(cfg, "opts=", strlen("opts")) == 0) {
+                        opts = cfg + strlen("opts=");
+                } else {
+                        name = cfg;
+                        if (strstr(cfg, ":opts=") != NULL) {
+                                opts = strstr(cfg, ":opts=") + strlen(":opts=");
+                                *strstr(cfg, ":opts=") = '\0';
+                        }
+                }
+        }
 
         gettimeofday(&s->start_time, NULL);
         s->frame.bps = 2;
@@ -107,9 +139,33 @@ void * audio_cap_alsa_init(char *cfg)
         s->min_device_channels = s->frame.ch_count = audio_capture_channels;
         s->tmp_data = NULL;
 
-        if(cfg && strlen(cfg) > 0) {
-                name = cfg;
+        /* Set period size to 128 frames or more. */
+        s->frames = 128;
+
+        if (opts) {
+                char *item, *save_ptr;
+                while ((item = strtok_r(opts, ":", &save_ptr)) != NULL) {
+                        if (strncmp(item, "rate=", strlen("rate=")) == 0) {
+                                s->frame.sample_rate = atoi(item + strlen("rate="));
+                        } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
+                                s->frame.bps = atoi(item + strlen("bps=")) / 8;
+                        } else if (strncmp(item, "frames=", strlen("frames=")) == 0) {
+                                s->frames = atoi(item + strlen("frames="));
+                        } else if (strcmp(item, "ni") == 0) {
+                                s->non_interleaved = true;
+                                if (audio_capture_channels > 1) {
+                                        fprintf(stderr, "[ALSA cap.] Non-interleaved mode "
+                                                        "available only when capturing mono!\n");
+                                        goto error;
+                                }
+                        } else {
+                                fprintf(stderr, "[ALSA cap.] Unknown option: %s\n", item);
+                                goto error;
+                        }
+                        opts = NULL;
+                }
         }
+
 
         /* Open PCM device for recording (capture). */
         rc = snd_pcm_open(&s->handle, name,
@@ -135,7 +191,7 @@ void * audio_cap_alsa_init(char *cfg)
 
         /* Interleaved mode */
         rc = snd_pcm_hw_params_set_access(s->handle, params,
-                SND_PCM_ACCESS_RW_INTERLEAVED);
+                s->non_interleaved ? SND_PCM_ACCESS_RW_NONINTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED);
         if (rc < 0) {
                 fprintf(stderr, MOD_NAME "unable to set interleaved mode: %s\n",
                         snd_strerror(rc));
@@ -199,12 +255,10 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        /* Set period size to 128 frames or more. */
-        /* This must follow the setting of sample rate for Chat 150 - increases
+        /* This must be set after setting of sample rate for Chat 150 which increases
          * value to 1024. But if this setting precedes, setting sample rate of 48000
-         * fails (1024 period) of does not work properly (128).
+         * fails (1024 period) or does not work properly (128).
          * */
-        s->frames = 128;
         dir = 0;
         rc = snd_pcm_hw_params_set_period_size_near(s->handle,
                 params, &s->frames, &dir);
@@ -251,7 +305,12 @@ struct audio_frame *audio_cap_alsa_read(void *state)
                 read_ptr = s->tmp_data;
         }
 
-        rc = snd_pcm_readi(s->handle, read_ptr, s->frames);
+        if (s->non_interleaved) {
+                assert(audio_capture_channels == 1);
+                rc = snd_pcm_readn(s->handle, (void **) &read_ptr, s->frames);
+        } else {
+                rc = snd_pcm_readi(s->handle, read_ptr, s->frames);
+        }
         if (rc == -EPIPE) {
                 /* EPIPE means overrun */
                 fprintf(stderr, MOD_NAME "overrun occurred\n");
