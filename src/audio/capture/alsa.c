@@ -208,6 +208,9 @@ void * audio_cap_alsa_init(char *cfg)
                 case 2:
                         format = SND_PCM_FORMAT_S16_LE;
                         break;
+                case 1:
+                        format = SND_PCM_FORMAT_U8;
+                        break;
                 default:
                         fprintf(stderr, "[ALSA] %d bits per second are not supported by UG.\n",
                                         s->frame.bps * 8);
@@ -330,6 +333,10 @@ struct audio_frame *audio_cap_alsa_read(void *state)
                                 );
                 }
                 s->frame.data_len = rc * s->frame.bps * s->frame.ch_count;
+                if (s->frame.bps == 1) {
+                        // should be unsigned2signed but it works in both directions
+                        signed2unsigned(s->frame.data, s->frame.data, s->frame.data_len);
+                }
                 s->captured_samples += rc;
                 return &s->frame;
         } else {
