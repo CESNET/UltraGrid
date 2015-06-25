@@ -1,32 +1,23 @@
+/**
+ * @file   video_decompress/libavcodec.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_decompress/dxt_glsl.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2011 CESNET z.s.p.o.
+ * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -255,29 +246,24 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
-        for(int y = 0; y < (int) height; ++y) {
-                char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = dst_buffer + 1 + pitch * y;
-                for(int x = 0; x < width; ++x) {
-                        *dst = *src++;
-                        dst += 2;
-                }
-        }
-
         for(int y = 0; y < (int) height / 2; ++y) {
+                char *src_y1 = (char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
+                char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * (y + 1) * 2;
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 char *dst1 = dst_buffer + (y * 2) * pitch;
                 char *dst2 = dst_buffer + (y * 2 + 1) * pitch;
+
                 for(int x = 0; x < width / 2; ++x) {
-                        *dst1 = *src_cb;
-                        dst1 += 2;
-                        *dst1 = *src_cr;
-                        dst1 += 2;
-                        *dst2 = *src_cb++;
-                        dst2 += 2;
-                        *dst2 = *src_cr++;
-                        dst2 += 2;
+                        *dst1++ = *src_cb;
+                        *dst1++ = *src_y1++;
+                        *dst1++ = *src_cr;
+                        *dst1++ = *src_y1++;
+
+                        *dst2++ = *src_cb++;
+                        *dst2++ = *src_y2++;
+                        *dst2++ = *src_cr++;
+                        *dst2++ = *src_y2++;
                 }
         }
 }
@@ -286,23 +272,15 @@ static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
         for(int y = 0; y < (int) height; ++y) {
-                char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = dst_buffer + 1 + pitch * y;
-                for(int x = 0; x < width; ++x) {
-                        *dst = *src++;
-                        dst += 2;
-                }
-        }
-
-        for(int y = 0; y < (int) height; ++y) {
+                char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 char *dst = dst_buffer + pitch * y;
                 for(int x = 0; x < width / 2; ++x) {
-                        *dst = *src_cb++;
-                        dst += 2;
-                        *dst = *src_cr++;
-                        dst += 2;
+                        *dst++ = *src_cb++;
+                        *dst++ = *src_y++;
+                        *dst++ = *src_cr++;
+                        *dst++ = *src_y++;
                 }
         }
 }
@@ -311,25 +289,17 @@ static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
         for(int y = 0; y < (int) height; ++y) {
-                char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = dst_buffer + 1 + pitch * y;
-                for(int x = 0; x < width; ++x) {
-                        *dst = *src++;
-                        dst += 2;
-                }
-        }
-
-        for(int y = 0; y < (int) height; ++y) {
+                char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 char *dst = dst_buffer + pitch * y;
                 for(int x = 0; x < width / 2; ++x) {
-                        *dst = (*src_cb + *(src_cb + 1)) / 2;
+                        *dst++ = (*src_cb + *(src_cb + 1)) / 2;
                         src_cb += 2;
-                        dst += 2;
-                        *dst = (*src_cr + *(src_cr + 1)) / 2;
+                        *dst++ = *src_y++;
+                        *dst++ = (*src_cr + *(src_cr + 1)) / 2;
                         src_cr += 2;
-                        dst += 2;
+                        *dst++ = *src_y++;
                 }
         }
 }
