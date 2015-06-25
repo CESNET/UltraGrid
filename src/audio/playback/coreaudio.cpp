@@ -1,35 +1,26 @@
+/**
+ * @file   audio/playback/coreaudio.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/playback/coreaudio.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #include "config.h"
@@ -51,18 +40,22 @@
 #ifdef HAVE_COREAUDIO
 
 #include "audio/audio.h"
-#include "audio/playback/coreaudio.h" 
+#include "audio/playback/coreaudio.h"
 #include "utils/ring_buffer.h"
 #include "debug.h"
+#include <chrono>
 #include <stdlib.h>
 #include <string.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
 
+using namespace std::chrono;
+
+#define NO_DATA_STOP_SEC 2
 
 struct state_ca_playback {
 #if OS_VERSION_MAJOR <= 9
-        ComponentInstance 
+        ComponentInstance
 #else
         AudioComponentInstance
 #endif
@@ -70,6 +63,8 @@ struct state_ca_playback {
         struct audio_desc desc;
         struct ring_buffer *buffer;
         int audio_packet_size;
+        steady_clock::time_point last_audio_read;
+        bool stopped;
 };
 
 static OSStatus theRenderProc(void *inRefCon,
@@ -91,15 +86,22 @@ static OSStatus theRenderProc(void *inRefCon,
         struct state_ca_playback * s = (struct state_ca_playback *) inRefCon;
         int write_bytes = inNumFrames * s->audio_packet_size;
         int ret;
-       
-        ret = ring_buffer_read(s->buffer, ioData->mBuffers[0].mData, write_bytes);
+
+        ret = ring_buffer_read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
         ioData->mBuffers[0].mDataByteSize = ret;
 
         if(!ret) {
                 fprintf(stderr, "[CoreAudio] Audio buffer underflow.\n");
-		memset(ioData->mBuffers[0].mData, 0, write_bytes);
-		ioData->mBuffers[0].mDataByteSize = write_bytes;
-        }  
+                memset(ioData->mBuffers[0].mData, 0, write_bytes);
+                ioData->mBuffers[0].mDataByteSize = write_bytes;
+                if (duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
+                        fprintf(stderr, "[CoreAudio] No data for %d seconds! Stopping.\n", NO_DATA_STOP_SEC);
+                        AudioOutputUnitStop(s->auHALComponentInstance);
+                        s->stopped = true;
+                }
+        } else {
+                s->last_audio_read = steady_clock::now();
+        }
         return noErr;
 }
 
@@ -112,7 +114,7 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
         OSErr ret = noErr;
         AURenderCallbackStruct  renderStruct;
 
-        printf("[CoreAudio] Audio reinitialized to %d-bit, %d channels, %d Hz\n", 
+        printf("[CoreAudio] Audio reinitialized to %d-bit, %d channels, %d Hz\n",
                         quant_samples, channels, sample_rate);
 
         s->desc.bps = quant_samples / 8;
@@ -124,10 +126,12 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
 
         s->buffer = ring_buffer_init(quant_samples / 8 * channels * sample_rate);
 
-        ret = AudioOutputUnitStop(s->auHALComponentInstance);
-        if(ret) {
-                fprintf(stderr, "[CoreAudio playback] Cannot stop AUHAL instance.\n");
-                goto error;
+        if (!s->stopped) {
+                ret = AudioOutputUnitStop(s->auHALComponentInstance);
+                if(ret) {
+                        fprintf(stderr, "[CoreAudio playback] Cannot stop AUHAL instance.\n");
+                        goto error;
+                }
         }
 
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
@@ -150,7 +154,7 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
         stream_desc.mFormatFlags = kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked;
         stream_desc.mFramesPerPacket = 1;
         s->audio_packet_size = stream_desc.mBytesPerFrame = stream_desc.mBytesPerPacket = stream_desc.mFramesPerPacket * channels * (quant_samples / 8);
-        
+
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, sizeof(stream_desc));
         if(ret) {
@@ -179,6 +183,8 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
                 goto error;
         }
 
+        s->stopped = false;
+
         return TRUE;
 
 error:
@@ -198,7 +204,7 @@ void audio_play_ca_help(const char *driver_name)
         printf("\tcoreaudio : default CoreAudio output\n");
         ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
         if(ret) goto error;
-        dev_ids = malloc(size);
+        dev_ids = (AudioDeviceID *) malloc(size);
         dev_items = size / sizeof(AudioDeviceID);
         ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
         if(ret) goto error;
@@ -206,7 +212,7 @@ void audio_play_ca_help(const char *driver_name)
         for(i = 0; i < dev_items; ++i)
         {
                 char name[128];
-                
+
                 size = sizeof(name);
                 ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
                 fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
@@ -233,7 +239,7 @@ void * audio_play_ca_init(char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
-        s = (struct state_ca_playback *) calloc(1, sizeof(struct state_ca_playback));
+        s = new struct state_ca_playback();
 
         //There are several different types of Audio Units.
         //Some audio units serve as Outputs, Mixers, or DSP
@@ -245,7 +251,7 @@ void * audio_play_ca_init(char *cfg)
         //comp_desc.componentSubType = kAudioUnitSubType_DefaultOutput;
         comp_desc.componentSubType = kAudioUnitSubType_HALOutput;
 
-        //all Audio Units in AUComponent.h must use 
+        //all Audio Units in AUComponent.h must use
         //"kAudioUnitManufacturer_Apple" as the Manufacturer
         comp_desc.componentManufacturer = kAudioUnitManufacturer_Apple;
         comp_desc.componentFlags = 0;
@@ -262,7 +268,7 @@ void * audio_play_ca_init(char *cfg)
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
         if (ret != noErr) goto error;
 #endif
-        
+
         s->buffer = NULL;
 
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
@@ -273,7 +279,7 @@ void * audio_play_ca_init(char *cfg)
                 if(strcmp(cfg, "help") == 0) {
                         printf("Available CoreAudio devices:\n");
                         audio_play_ca_help(NULL);
-                        free(s);
+                        delete s;
                         return &audio_init_state_ok;
                 } else {
                         device = atoi(cfg);
@@ -285,23 +291,29 @@ void * audio_play_ca_init(char *cfg)
 
 
         ret = AudioUnitSetProperty(s->auHALComponentInstance,
-                         kAudioOutputUnitProperty_CurrentDevice, 
-                         kAudioUnitScope_Global, 
-                         1, 
-                         &device, 
+                         kAudioOutputUnitProperty_CurrentDevice,
+                         kAudioUnitScope_Global,
+                         1,
+                         &device,
                          sizeof(device));
         if(ret) goto error;
 
         return s;
 
 error:
-        free(s);
+        delete s;
         return NULL;
 }
 
 void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
+
+        if (s->stopped) {
+                fprintf(stderr, "[CoreAudio] Starting again.\n");
+                AudioOutputUnitStart(s->auHALComponentInstance);
+                s->stopped = false;
+        }
 
         ring_buffer_write(s->buffer, frame->data, frame->data_len);
 }
@@ -310,10 +322,12 @@ void audio_play_ca_done(void *state)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
-        AudioOutputUnitStop(s->auHALComponentInstance);
+        if (!s->stopped) {
+                AudioOutputUnitStop(s->auHALComponentInstance);
+        }
         AudioUnitUninitialize(s->auHALComponentInstance);
         ring_buffer_destroy(s->buffer);
-        free(s);
+        delete s;
 }
 
 #endif /* HAVE_COREAUDIO */

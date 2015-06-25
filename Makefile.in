@@ -242,8 +242,8 @@ src/audio/mdf.o:
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
-src/audio/playback/coreaudio.o: src/audio/playback/coreaudio.c $(ALL_INCLUDES)
-	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
+src/audio/playback/coreaudio.o: src/audio/playback/coreaudio.cpp $(ALL_INCLUDES)
+	$(CXX) $(CXXLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
 src/video_display/quicktime.o: src/video_display/quicktime.c $(ALL_INCLUDES)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
