@@ -90,10 +90,10 @@ static OSStatus theRenderProc(void *inRefCon,
         ret = ring_buffer_read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
         ioData->mBuffers[0].mDataByteSize = ret;
 
-        if(!ret) {
+        if(ret < write_bytes) {
                 fprintf(stderr, "[CoreAudio] Audio buffer underflow.\n");
-                memset(ioData->mBuffers[0].mData, 0, write_bytes);
-                ioData->mBuffers[0].mDataByteSize = write_bytes;
+                //memset(ioData->mBuffers[0].mData, 0, write_bytes);
+                ioData->mBuffers[0].mDataByteSize = ret;
                 if (duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
                         fprintf(stderr, "[CoreAudio] No data for %d seconds! Stopping.\n", NO_DATA_STOP_SEC);
                         AudioOutputUnitStop(s->auHALComponentInstance);
