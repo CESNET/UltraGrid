@@ -59,8 +59,9 @@ static void show_help()
 {
         printf("switcher capture\n");
         printf("Usage\n");
-        printf("\t-t switcher[:excl_init] -t <dev1_config> -t <dev2_config> ....]\n");
-        printf("\t\tdevn_config is a configuration of device to be switched\n");
+        printf("\t--control-port <port> -t switcher[:excl_init] -t <dev1_config> -t <dev2_config> ....]\n");
+        printf("\t\t<devn_config> is a configuration of device to be switched\n");
+        printf("\t\t<port> specifies port which should be used to control switching\n");
         printf("\t\texcl_init - devices will be initialized after switching to and deinitialized after switching to another\n");
 
 }
