@@ -51,6 +51,7 @@
 #include "config_win32.h"
 #endif
 
+#include <chrono>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -67,6 +68,10 @@
 #define MODULE_NAME "[Portaudio playback] "
 #define BUFFER_LEN_SEC 1
 
+using namespace std::chrono;
+
+#define NO_DATA_STOP_SEC 2
+
 struct state_portaudio_playback {
         struct audio_desc desc;
         int samples;
@@ -76,6 +81,9 @@ struct state_portaudio_playback {
 
         struct ring_buffer *data;
         char *tmp_buffer;
+
+        steady_clock::time_point last_audio_read;
+        bool quiet;
 };
 
 enum audio_device_kind {
@@ -90,7 +98,6 @@ enum audio_device_kind {
 
 /* prototyping */
 static void      print_device_info(PaDeviceIndex device);
-static int       portaudio_start_stream(PaStream *stream);
 static void      portaudio_close(PaStream *stream);  /* closes and frees all audio resources ( according to valgrind this is not true..  ) */
 static void      portaudio_print_available_devices(enum audio_device_kind);
 static int callback( const void *inputBuffer, void *outputBuffer,
@@ -103,7 +110,7 @@ static void     cleanup(struct state_portaudio_playback * s);
  /*
   * Shared functions
   */
-static int portaudio_start_stream(PaStream *stream)
+static bool portaudio_start_stream(PaStream *stream)
 {
 	PaError error;
 
@@ -112,10 +119,10 @@ static int portaudio_start_stream(PaStream *stream)
 	{
 		printf("Error starting stream:%s\n", Pa_GetErrorText(error));
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return -1;
+		return false;
 	}
 
-	return 0;
+	return true;
 }
 
 
@@ -214,7 +221,7 @@ void * portaudio_playback_init(char *cfg)
 		return NULL;
 	}
         
-        s = calloc(1, sizeof(struct state_portaudio_playback));
+        s = new state_portaudio_playback();
         assert(output_device >= -1);
         s->device = output_device;
         s->data = NULL;
@@ -229,21 +236,26 @@ void * portaudio_playback_init(char *cfg)
                 fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
                                 MODULE_NAME "Follows list of available Portaudio devices.\n");
                 portaudio_playback_help(NULL);
-                free(s);
+                delete s;
                 Pa_Terminate();
                 return NULL;
         }
 	s->max_output_channels = device_info->maxOutputChannels;
+
+        s->quiet = true;
         
-        portaudio_reconfigure(s, 16, 2, 48000);
-         
+        if (!portaudio_reconfigure(s, 16, 2, 48000)) {
+                return NULL;
+        }
+
 	return s;
 }
 
 void portaudio_close_playback(void *state)
 {
-        cleanup(state);
-        free(state);
+        auto s = (state_portaudio_playback *) state;
+        cleanup(s);
+        delete s;
 }
 
 static void cleanup(struct state_portaudio_playback * s)
@@ -269,7 +281,7 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
         int size = BUFFER_LEN_SEC * channels * (quant_samples/8) *
                         sample_rate;
         s->data = ring_buffer_init(size);
-        s->tmp_buffer = malloc(size);
+        s->tmp_buffer = (char *) malloc(size);
         
         s->desc.bps = quant_samples / 8;
         s->desc.ch_count = channels;
@@ -333,15 +345,11 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
                         callback,
                         s
                         );
-        portaudio_start_stream(s->stream);
-        
-	if(error != paNoError)
-	{
-		printf("Error opening audio stream\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return FALSE;
-	}
 
+        if (!portaudio_start_stream(s->stream)) {
+                return FALSE;
+        }
+        
         return TRUE;
 }                        
 
@@ -361,8 +369,24 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         UNUSED(timeInfo);
         UNUSED(statusFlags);
 
-        ring_buffer_read(s->data, outputBuffer, framesPerBuffer *
-                        s->desc.ch_count * s->desc.bps);
+        ssize_t req_bytes = framesPerBuffer * s->desc.ch_count * s->desc.bps;
+        ssize_t bytes_read = ring_buffer_read(s->data, (char *) outputBuffer, req_bytes);
+
+        if (bytes_read < req_bytes) {
+                if (!s->quiet)
+                        fprintf(stderr, "[Portaudio] Buffer underflow.\n");
+                memset((int8_t *) outputBuffer + bytes_read, 0, req_bytes - bytes_read);
+                if (!s->quiet && duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
+                        fprintf(stderr, "[Portaudio] No data for %d seconds!\n", NO_DATA_STOP_SEC);
+                        s->quiet = true;
+                }
+        } else {
+                if (s->quiet) {
+                        fprintf(stderr, "[Portaudio] Starting again.\n");
+                }
+                s->quiet = false;
+                s->last_audio_read = steady_clock::now();
+        }
 
         return paContinue;
 }
@@ -371,7 +395,7 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
-                
+
         const int samples_count = buffer->data_len / (buffer->bps * buffer->ch_count);
 
         /* if we got more channel we can play - skip the additional channels */
