@@ -649,8 +649,10 @@ static void * control_thread(void *args)
                                                 CLOSESOCKET(cur->fd);
                                                 if(cur->prev) {
                                                         cur->prev->next = cur->next;
+                                                        cur->next->prev = cur->prev;
                                                 } else {
                                                         clients = cur->next;
+                                                        clients->prev = NULL;
                                                 }
                                                 next = cur->next;
                                                 free(cur);
