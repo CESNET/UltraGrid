@@ -64,7 +64,8 @@ struct state_ca_playback {
         struct ring_buffer *buffer;
         int audio_packet_size;
         steady_clock::time_point last_audio_read;
-        bool stopped;
+        bool quiet; ///< do not report buffer underruns if we do not receive data at all for a long period
+        bool initialized;
 };
 
 static OSStatus theRenderProc(void *inRefCon,
@@ -91,15 +92,20 @@ static OSStatus theRenderProc(void *inRefCon,
         ioData->mBuffers[0].mDataByteSize = ret;
 
         if(ret < write_bytes) {
-                fprintf(stderr, "[CoreAudio] Audio buffer underflow.\n");
+                if (!s->quiet) {
+                        fprintf(stderr, "[CoreAudio] Audio buffer underflow.\n");
+                }
                 //memset(ioData->mBuffers[0].mData, 0, write_bytes);
                 ioData->mBuffers[0].mDataByteSize = ret;
-                if (duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
+                if (!s->quiet && duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
                         fprintf(stderr, "[CoreAudio] No data for %d seconds! Stopping.\n", NO_DATA_STOP_SEC);
-                        AudioOutputUnitStop(s->auHALComponentInstance);
-                        s->stopped = true;
+                        s->quiet = true;
                 }
         } else {
+                if (s->quiet) {
+                        fprintf(stderr, "[CoreAudio] Starting again.\n");
+                }
+                s->quiet = false;
                 s->last_audio_read = steady_clock::now();
         }
         return noErr;
@@ -117,6 +123,21 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
         printf("[CoreAudio] Audio reinitialized to %d-bit, %d channels, %d Hz\n",
                         quant_samples, channels, sample_rate);
 
+        if (s->initialized) {
+                ret = AudioOutputUnitStop(s->auHALComponentInstance);
+                if(ret) {
+                        fprintf(stderr, "[CoreAudio playback] Cannot stop AUHAL instance.\n");
+                        goto error;
+                }
+
+                ret = AudioUnitUninitialize(s->auHALComponentInstance);
+                if(ret) {
+                        fprintf(stderr, "[CoreAudio playback] Cannot uninitialize AUHAL instance.\n");
+                        goto error;
+                }
+                s->initialized = false;
+        }
+
         s->desc.bps = quant_samples / 8;
         s->desc.ch_count = channels;
         s->desc.sample_rate = sample_rate;
@@ -125,20 +146,6 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
         s->buffer = NULL;
 
         s->buffer = ring_buffer_init(quant_samples / 8 * channels * sample_rate);
-
-        if (!s->stopped) {
-                ret = AudioOutputUnitStop(s->auHALComponentInstance);
-                if(ret) {
-                        fprintf(stderr, "[CoreAudio playback] Cannot stop AUHAL instance.\n");
-                        goto error;
-                }
-        }
-
-        ret = AudioUnitUninitialize(s->auHALComponentInstance);
-        if(ret) {
-                fprintf(stderr, "[CoreAudio playback] Cannot uninitialize AUHAL instance.\n");
-                goto error;
-        }
 
         size = sizeof(stream_desc);
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
@@ -183,7 +190,7 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
                 goto error;
         }
 
-        s->stopped = false;
+        s->initialized = true;
 
         return TRUE;
 
@@ -200,22 +207,30 @@ void audio_play_ca_help(const char *driver_name)
         int dev_items;
         int i;
         UInt32 size;
+        AudioObjectPropertyAddress propertyAddress;
 
         printf("\tcoreaudio : default CoreAudio output\n");
-        ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
+        propertyAddress.mSelector = kAudioHardwarePropertyDevices;
+        propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
+        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+        ret = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size);
         if(ret) goto error;
         dev_ids = (AudioDeviceID *) malloc(size);
         dev_items = size / sizeof(AudioDeviceID);
-        ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
+        ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, dev_ids);
         if(ret) goto error;
 
         for(i = 0; i < dev_items; ++i)
         {
-                char name[128];
+                CFStringRef deviceName = NULL;
+                char cname[128] = "";
 
-                size = sizeof(name);
-                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
+                size = sizeof(deviceName);
+                propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
+                ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
+                CFStringGetCString(deviceName, (char *) cname, sizeof cname, kCFStringEncodingMacRoman);
+                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], cname);
+                CFRelease(deviceName);
         }
         free(dev_ids);
 
@@ -285,7 +300,13 @@ void * audio_play_ca_init(char *cfg)
                         device = atoi(cfg);
                 }
         } else {
-                ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultOutputDevice, &size, &device);
+                AudioObjectPropertyAddress propertyAddress;
+                UInt32 size = sizeof device;
+                propertyAddress.mSelector = kAudioHardwarePropertyDefaultOutputDevice;
+                propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
+                propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+                ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device);
+
                 if(ret) goto error;
         }
 
@@ -309,12 +330,6 @@ void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
-        if (s->stopped) {
-                fprintf(stderr, "[CoreAudio] Starting again.\n");
-                AudioOutputUnitStart(s->auHALComponentInstance);
-                s->stopped = false;
-        }
-
         ring_buffer_write(s->buffer, frame->data, frame->data_len);
 }
 
@@ -322,10 +337,10 @@ void audio_play_ca_done(void *state)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
-        if (!s->stopped) {
+        if (s->initialized) {
                 AudioOutputUnitStop(s->auHALComponentInstance);
+                AudioUnitUninitialize(s->auHALComponentInstance);
         }
-        AudioUnitUninitialize(s->auHALComponentInstance);
         ring_buffer_destroy(s->buffer);
         delete s;
 }
