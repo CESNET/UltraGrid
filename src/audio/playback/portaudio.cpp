@@ -418,7 +418,7 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
         ring_buffer_write(s->data, buffer->data, samples_count * buffer->bps * out_channels);
 
         if (ring_get_current_size(s->data) > buffer->bps * out_channels * buffer->sample_rate * BUFFER_LEN_SEC / 2) {
-                fprintf(stderr, MODULE_NAME "Warning: more than 0.5 sec in playout buffer!");
+                fprintf(stderr, MODULE_NAME "Warning: more than 0.5 sec in playout buffer!\n");
         }
 }
 
