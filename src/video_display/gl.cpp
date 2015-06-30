@@ -174,6 +174,7 @@ struct state_gl {
         struct video_desc current_desc;
         struct video_desc current_display_desc;
         mutex           lock;
+        condition_variable new_frame_ready_cv;
         condition_variable frame_consumed_cv;
 
         double          aspect;
@@ -600,9 +601,9 @@ static void glut_idle_callback(void)
                 return;
         }
 #endif
+        s->new_frame_ready_cv.wait_for(lk, std::chrono::duration<double>(2.0/s->current_display_desc.fps), [s] {
+                        return s->frame_queue.size() > 0;});
         if (s->frame_queue.size() == 0) {
-                lk.unlock();
-                usleep(1000);
                 return;
         }
         frame = s->frame_queue.front();
@@ -1065,6 +1066,9 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         }
         s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
         s->frame_queue.push(frame);
+
+        lk.unlock();
+        s->new_frame_ready_cv.notify_one();
 
         return 0;
 }
