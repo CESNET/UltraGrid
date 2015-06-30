@@ -83,6 +83,7 @@ OBJS	      = @OBJS@ \
 		src/audio/codec.o \
 		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
+		src/audio/playback/dummy.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
 		src/audio/resampler.o \

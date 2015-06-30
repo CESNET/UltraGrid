@@ -64,6 +64,7 @@
 #include "audio/playback/alsa.h" 
 #include "audio/playback/coreaudio.h" 
 #include "audio/playback/decklink.h" 
+#include "audio/playback/dummy.h"
 #include "audio/playback/none.h" 
 #include "audio/playback/jack.h" 
 #include "audio/playback/sdi.h" 
@@ -197,6 +198,15 @@ static struct audio_playback_t audio_playback_table[] = {
         },
 #endif
 #endif
+        { "dummy",
+                NULL,
+                MK_STATIC(audio_play_dummy_help),
+                MK_STATIC(audio_play_dummy_init),
+                MK_STATIC(audio_play_dummy_put_frame),
+                MK_STATIC(audio_play_dummy_done),
+                MK_STATIC(audio_play_dummy_reconfigure),
+                NULL
+        },
         { "none",
                 NULL,
                 MK_STATIC(audio_play_none_help),
