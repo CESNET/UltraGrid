@@ -653,7 +653,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 @OPENSSL_LIB_TARGET@: @OPENSSL_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_openssl.so $^ @CRYPTO_LIBS@ -o $@
 
-@LDGM_GPU_LIB_TARGET@: @LDGM_GPU_OBJS@
+@LDGM_GPU_LIB_TARGET@: @LDGM_GPU_OBJS@ @CUDA_COMMON_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_ldgm_gpu.so $^ @LDGM_GPU_LIBS@ -o $@
 
 install: all
