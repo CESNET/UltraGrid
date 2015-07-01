@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,8 @@ void open_all(const char *pattern) {
 
         for(unsigned int i = 0; i < glob_buf.gl_pathc; ++i) {
                 if(!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL))
-                        verbose_msg("Library opening warning: %s \n", dlerror());
+                        verbose_msg("Library %s opening warning: %s \n", glob_buf.gl_pathv[i],
+                                        dlerror());
         }
 
         globfree(&glob_buf);
@@ -107,7 +108,8 @@ void *open_library(const char *name)
                         if(!handle && stat(path, &buf) == 0) {
                                 handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                                 if(!handle)
-                                        verbose_msg("Library opening warning: %s \n", dlerror());
+                                        verbose_msg("Library %s opening warning: %s \n",
+                                                        path, dlerror());
                         }
                 }
                 free(tmp);
@@ -120,11 +122,11 @@ void *open_library(const char *name)
         if(!handle && stat(path, &buf) == 0) {
                 handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                 if(!handle)
-                        verbose_msg("Library opening warning: %s \n", dlerror());
+                        verbose_msg("Library %s opening warning: %s \n", path, dlerror());
         }
 
         if(!handle) {
-                fprintf(stderr, "Unable to load %s library.\n", kLibName);
+                verbose_msg("Unable to load %s library.\n", kLibName);
         }
 
         return handle;
