@@ -105,19 +105,19 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         { MJPG, {
                 AV_CODEC_ID_MJPEG,
                 nullptr,
-                0.3,
+                1.2,
                 setparam_default
         }},
         { J2K, {
                 AV_CODEC_ID_JPEG2000,
                 nullptr,
-                0.3,
+                1.0,
                 setparam_default
         }},
         { VP8, {
                 AV_CODEC_ID_VP8,
                 nullptr,
-                0.2,
+                0.4,
                 setparam_vp8
         }},
 };
