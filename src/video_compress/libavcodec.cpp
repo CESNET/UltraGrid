@@ -62,11 +62,12 @@
 #include <thread>
 #include <unordered_map>
 
-#define DEFAULT_CODEC MJPG
-#define DEFAULT_X264_PRESET "superfast"
-
 using namespace std;
 
+#define DEFAULT_CODEC MJPG
+#define DEFAULT_X264_PRESET "superfast"
+static constexpr const char *DEFAULT_NVENC_H264_PRESET = "llhp";
+static constexpr const int DEFAULT_GOP_SIZE = 20;
 namespace {
 
 struct setparam_param {
@@ -153,6 +154,8 @@ struct state_video_compress_libav {
         struct video_desc compressed_desc;
 
         struct setparam_param params;
+        string              backend;
+        int                 requested_gop;
 };
 
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -181,8 +184,8 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *frame) {
 static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
-                        "[:subsampling=<subsampling>][:preset=<preset>]"
-                        "[:h264_no_periodic_intra][:threads=<thr_mode>]\n");
+                        "[:subsampling=<subsampling>][:preset=<preset>][:gop=<gop>]"
+                        "[:h264_no_periodic_intra][:threads=<thr_mode>][:backend=<backend>]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
                 if(param.second.av_codec != 0) {
@@ -200,6 +203,8 @@ static void usage() {
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
         printf("\t\t<thr_mode> can be one of \"no\", \"frame\" or \"slice\"\n");
+        printf("\t\t<gop> specifies GOP size\n");
+        printf("\t\t<backend> specifies encoder backend (eg. nvenc or libx264 for H.264)\n");
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
@@ -239,6 +244,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                                 char *threads = item + strlen("threads=");
                                 s->params.threads = threads;
+                        } else if(strncasecmp("backend=", item, strlen("backend=")) == 0) {
+                                char *backend = item + strlen("backend=");
+                                s->backend = backend;
+                        } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
+                                char *gop = item + strlen("gop=");
+                                s->requested_gop = atoi(gop);
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -358,7 +369,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 #endif
 
         s->codec = nullptr;
-        if (prefered_encoder) {
+        if (!s->backend.empty()) {
+                s->codec = avcodec_find_encoder_by_name(s->backend.c_str());
+                if (!s->codec) {
+                        fprintf(stderr, "[lavc] Warning: requested encoder \"%s\" not found!\n",
+                                        s->backend.c_str());
+                        return false;
+                }
+        } else if (prefered_encoder) {
                 s->codec = avcodec_find_encoder_by_name(prefered_encoder);
                 if (!s->codec) {
                         fprintf(stderr, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
@@ -378,37 +396,78 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
-        bool f422_ok = false;
-        /* either user has explicitly requested subsampling
-         * or for interlaced format is better to have 422 */
-        if(s->requested_subsampling == 422 ||
-                        (desc.interlacing == INTERLACED_MERGED &&
-                         s->requested_subsampling != 420)) {
-                memcpy(requested_pix_fmts + total_pix_fmts,
-                                fmts422, sizeof(fmts422));
-                total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
-                f422_ok = true;
+        if (s->requested_subsampling == 0) {
+                // for interlaced formats, it is better to use either 422 or 444
+                if (desc.interlacing == INTERLACED_MERGED) {
+                        // 422
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts422, sizeof(fmts422));
+                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                        // 444
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts444, sizeof(fmts444));
+                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                        // 420
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts420, sizeof(fmts420));
+                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                } else {
+                        // 420
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts420, sizeof(fmts420));
+                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                        // 422
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts422, sizeof(fmts422));
+                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                        // 444
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts444, sizeof(fmts444));
+                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                }
+                // there was a problem with codecs other than PIX_FMT_NV12 with NVENC.
+                // Therefore, use only this with NVENC for now.
+                if (strcmp(s->codec->name, "nvenc") == 0) {
+                        fprintf(stderr, "[Lavc] Using %s. Other pix formats seem to be broken with NVENC.\n",
+                                        av_get_pix_fmt_name(AV_PIX_FMT_NV12));
+                        requested_pix_fmts[0] = AV_PIX_FMT_NV12;
+                        total_pix_fmts = 1;
+                }
+        } else {
+                switch (s->requested_subsampling) {
+                case 420:
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts420, sizeof(fmts420));
+                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                        break;
+                case 422:
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts422, sizeof(fmts422));
+                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                        break;
+                case 444:
+                        memcpy(requested_pix_fmts + total_pix_fmts,
+                                        fmts444, sizeof(fmts444));
+                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                        break;
+                default:
+                        abort();
+                }
         }
-        memcpy(requested_pix_fmts + total_pix_fmts, fmts420, sizeof(fmts420));
-        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
-        memcpy(requested_pix_fmts + total_pix_fmts, fmts444, sizeof(fmts444));
-        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
-        // we still use 422 as a fallback
-        if(!f422_ok) {
-                memcpy(requested_pix_fmts + total_pix_fmts,
-                                fmts422, sizeof(fmts422));
-                total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
-                f422_ok = true;
-        }
-
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
 
         pix_fmt = get_best_pix_fmt(requested_pix_fmts, s->codec->pix_fmts);
         if(pix_fmt == AV_PIX_FMT_NONE) {
                 fprintf(stderr, "[Lavc] Unable to find suitable pixel format.\n");
+                if (s->requested_subsampling != 0) {
+                        fprintf(stderr, "[Lavc] Requested subsampling not supported. "
+                                        "Try different subsampling, eg. "
+                                        "\"subsampling={420,422,444}\".\n");
+                }
                 return false;
         }
 
+        printf("[Lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
 
         // avcodec_alloc_context3 allocates context and sets default value
@@ -435,7 +494,11 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->codec_ctx->height = desc.height;
         /* frames per second */
         s->codec_ctx->time_base= (AVRational){1,(int) desc.fps};
-        s->codec_ctx->gop_size = 20; /* emit one intra frame every ten frames */
+        if (s->requested_gop) {
+                s->codec_ctx->gop_size = s->requested_gop;
+        } else {
+                s->codec_ctx->gop_size = DEFAULT_GOP_SIZE;
+        }
         s->codec_ctx->max_b_frames = 0;
         switch(desc.color_spec) {
                 case UYVY:
@@ -535,7 +598,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
-        for(int y = 0; y < (int) height; y += 2) {
+        for(int y = 0; y < height; y += 2) {
                 /*  every even row */
                 unsigned char *src = in_data + y * (width * 2);
                 /*  every odd row */
@@ -572,7 +635,7 @@ void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
 
 void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
-        for(int y = 0; y < (int) height; ++y) {
+        for(int y = 0; y < height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
                 unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
@@ -589,7 +652,7 @@ void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
 
 void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
-        for(int y = 0; y < (int) height; y += 2) {
+        for(int y = 0; y < height; y += 2) {
                 /*  every even row */
                 unsigned char *src = in_data + y * (width * 2);
                 /*  every odd row */
@@ -826,58 +889,71 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        if (!param->have_preset) {
-                // ultrafast + --aq-mode 2
-                // AQ=0 causes posterization. Enabling it requires some 20% additional
-                // percent of CPU.
-                string params("no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
-                        "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:aq_mode=2");
+        if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
+                if (!param->have_preset) {
+                        // ultrafast + --aq-mode 2
+                        // AQ=0 causes posterization. Enabling it requires some 20% additional
+                        // percent of CPU.
+                        string params("no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
+                                        "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
+                                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:aq_mode=2");
 
-                // this options increases variance in frame sizes quite a lot
-                //if (param->interlaced) {
-                //        params += ":tff=1";
-                //}
+                        // this options increases variance in frame sizes quite a lot
+                        //if (param->interlaced) {
+                        //        params += ":tff=1";
+                        //}
 
-                int ret;
-                // newer LibAV
-                ret = av_opt_set(codec_ctx->priv_data, "x264-params", params.c_str(), 0);
-                if (ret != 0) {
-                        // newer FFMPEG
-                        ret = av_opt_set(codec_ctx->priv_data, "x264opts", params.c_str(), 0);
+                        int ret;
+                        // newer LibAV
+                        ret = av_opt_set(codec_ctx->priv_data, "x264-params", params.c_str(), 0);
+                        if (ret != 0) {
+                                // newer FFMPEG
+                                ret = av_opt_set(codec_ctx->priv_data, "x264opts", params.c_str(), 0);
+                        }
+                        if (ret != 0) {
+                                // older version of both
+                                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_PRESET, 0);
+                                fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected - consider "
+                                                "upgrading. Using preset %s.\n", DEFAULT_X264_PRESET);
+                        }
+                        if (ret != 0) {
+                                fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
+                        }
                 }
-                if (ret != 0) {
-                        // older version of both
-                        ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_PRESET, 0);
-                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected - consider "
-                                        "upgrading. Using preset %s.\n", DEFAULT_X264_PRESET);
+                //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
+                av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
+
+                // try to keep frame sizes as even as possible
+                codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+                //codec_ctx->rc_buffer_aggressivity = 1.0;
+                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
+                codec_ctx->qcompress = 0.0f;
+                //codec_ctx->qblur = 0.0f;
+                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+                //codec_ctx->rc_max_available_vbv_use = 1.0f;
+                codec_ctx->qmin = 0;
+                codec_ctx->qmax = 69;
+                codec_ctx->max_qdiff = 69;
+                //codec_ctx->rc_qsquish = 0;
+                //codec_ctx->scenechange_threshold = 100;
+
+                if (!param->h264_no_periodic_intra) {
+                        codec_ctx->refs = 1;
+                        av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 }
-                if (ret != 0) {
-                        fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
+        } else if (strcmp(codec_ctx->codec->name, "nvenc") == 0) {
+                if (!param->have_preset) {
+                        av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_H264_PRESET, 0);
                 }
-        }
-
-        //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
-        av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
-
-        // try to keep frame sizes as even as possible
-        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-        //codec_ctx->rc_buffer_aggressivity = 1.0;
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
-        codec_ctx->qcompress = 0.0f;
-        //codec_ctx->qblur = 0.0f;
-        //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-        //codec_ctx->rc_max_available_vbv_use = 1.0f;
-        codec_ctx->qmin = 0;
-        codec_ctx->qmax = 69;
-        codec_ctx->max_qdiff = 69;
-        //codec_ctx->rc_qsquish = 0;
-        //codec_ctx->scenechange_threshold = 100;
-
-        if (!param->h264_no_periodic_intra) {
-                codec_ctx->refs = 1;
-                av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+                av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
+                char gpu[3] = "";
+                snprintf(gpu, 2, "%d", cuda_devices[0]);
+                av_opt_set(codec_ctx->priv_data, "gpu", gpu, 0);
+                codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
+	} else {
+                fprintf(stderr, "[Lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
 }
 
