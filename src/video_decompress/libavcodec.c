@@ -248,7 +248,7 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
 {
         for(int y = 0; y < (int) height / 2; ++y) {
                 char *src_y1 = (char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
-                char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * (y + 1) * 2;
+                char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 char *dst1 = dst_buffer + (y * 2) * pitch;
