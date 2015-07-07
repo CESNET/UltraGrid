@@ -1,14 +1,10 @@
+/**
+ * @file   src/capture_filter/blank.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    capture_filter/blank.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,14 +17,9 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of CESNET nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,11 +42,19 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
+#include "libavcodec_common.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 
 #include "video.h"
 #include "video_codec.h"
+
+extern "C" {
+#include <libswscale/swscale.h>
+}
+
+#define FACTOR 6
 
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
@@ -72,7 +69,10 @@ struct state_blank {
         struct video_desc saved_desc;
 
         bool in_relative_units;
-        bool outline;
+        bool black;
+
+        struct SwsContext *ctx_downscale,
+                          *ctx_upscale;
 };
 
 static bool parse(struct state_blank *s, char *cfg)
@@ -80,7 +80,7 @@ static bool parse(struct state_blank *s, char *cfg)
         int vals[4];
         double vals_relative[4];
         unsigned int counter = 0;
-        bool outline = false;
+        bool black = false;
 
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
 
@@ -108,8 +108,8 @@ static bool parse(struct state_blank *s, char *cfg)
                         break;
         }
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
-                if (strcmp(item, "outline") == 0) {
-                        outline = true;
+                if (strcmp(item, "black") == 0) {
+                        black = true;
                 } else {
                         fprintf(stderr, "[Blank] Unknown config value: %s\n",
                                         item);
@@ -130,10 +130,10 @@ static bool parse(struct state_blank *s, char *cfg)
         } else {
                 s->x = vals[0];
                 s->y = vals[1];
-                s->width = vals[2];
+                s->width = (vals[2] + FACTOR - 1) / FACTOR * FACTOR;
                 s->height = vals[3];
         }
-        s->outline = outline;
+        s->black = black;
 
         return true;
 }
@@ -143,14 +143,14 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (cfg && strcasecmp(cfg, "help") == 0) {
                 printf("Blanks specified rectangular area:\n\n");
                 printf("blank usage:\n");
-                printf("\tblank:x:y:widht:height[:outline]\n");
+                printf("\tblank:x:y:widht:height[:black]\n");
                 printf("\t\tor\n");
-                printf("\tblank:x%%:y%%:widht%%:height%%[:outline]\n");
+                printf("\tblank:x%%:y%%:widht%%:height%%[:black]\n");
                 printf("\t(all values in pixels)\n");
                 return 1;
         }
 
-        struct state_blank *s = calloc(1, sizeof(struct state_blank));
+        struct state_blank *s = new state_blank();
         assert(s);
 
         if (cfg) {
@@ -158,7 +158,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 bool ret = parse(s, tmp);
                 free(tmp);
                 if (!ret) {
-                        free(s);
+                        delete s;
                         return -1;
                 }
         }
@@ -173,9 +173,12 @@ static int init(struct module *parent, const char *cfg, void **state)
 
 static void done(void *state)
 {
-        struct state_blank *s = state;
+        auto s = (struct state_blank *) state;
         module_done(&s->mod);
-        free(state);
+
+        sws_freeContext(s->ctx_downscale);
+        sws_freeContext(s->ctx_upscale);
+        delete s;
 }
 
 static void process_message(struct state_blank *s, struct msg_universal *msg)
@@ -188,17 +191,63 @@ static void process_message(struct state_blank *s, struct msg_universal *msg)
  */
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-        struct state_blank *s = state;
-        codec_t codec = in->color_spec;
-
         assert(in->tile_count == 1);
 
-        if (s->in_relative_units && !video_desc_eq(s->saved_desc,
-                                video_desc_from_frame(in))) {
+        auto s = (struct state_blank *) state;
+        codec_t codec = in->color_spec;
+        int bpp = get_bpp(codec);
+        enum AVPixelFormat av_pixfmt = AV_PIX_FMT_NONE;
+
+        if (ug_to_av_pixfmt_map.find(codec) != ug_to_av_pixfmt_map.end()) {
+                av_pixfmt = ug_to_av_pixfmt_map.at(codec);
+        }
+
+        if (s->in_relative_units) {
                 s->x = s->x_relative * in->tiles[0].width;
                 s->y = s->y_relative * in->tiles[0].height;
                 s->width = s->width_relative * in->tiles[0].width;
+                s->width = (s->width + FACTOR - 1) / FACTOR * FACTOR;
                 s->height = s->height_relative * in->tiles[0].height;
+        }
+
+        int width = s->width;
+        int height = s->height;
+        int x = s->x;
+        int y = s->y;
+
+        x = (x + bpp - 1) / bpp * bpp;
+
+        if (y + height > (int) in->tiles[0].height) {
+                height = in->tiles[0].height - y;
+        }
+
+        if (x + width > (int) in->tiles[0].width) {
+                width = in->tiles[0].width - x;
+                width = width / FACTOR * FACTOR;
+        }
+
+        if (!video_desc_eq(s->saved_desc,
+                                video_desc_from_frame(in))) {
+
+                if (av_pixfmt == AV_PIX_FMT_NONE || !sws_isSupportedInput(av_pixfmt) ||
+                                !sws_isSupportedOutput(av_pixfmt)) {
+                        fprintf(stderr, "Unable to find suitable pixfmt!\n");
+                        return in;
+                }
+
+                sws_freeContext(s->ctx_downscale);
+                sws_freeContext(s->ctx_upscale);
+
+                s->ctx_downscale = sws_getContext(width, height, av_pixfmt,
+                                width / FACTOR, height / FACTOR, av_pixfmt, SWS_FAST_BILINEAR,0,0,0);
+                s->ctx_upscale = sws_getContext(width / FACTOR, height / FACTOR, av_pixfmt,
+                                width, height, av_pixfmt, SWS_FAST_BILINEAR,0,0,0);
+
+                if (s->ctx_downscale == NULL || s->ctx_upscale == NULL) {
+                        fprintf(stderr, "Unable to initialize scaling context!");
+                        return in;
+                }
+
                 s->saved_desc = video_desc_from_frame(in);
         }
 
@@ -208,51 +257,31 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 free_message(msg);
         }
 
-        for(int y = s->y; y < s->y + s->height; ++y) {
-                if(y >= (int) in->tiles[0].height) {
-                        break;
-                }
-                unsigned char pattern[4];
+        if (width <= 0 || height <= 0)
+                return in;
 
-                memset(pattern, 0, sizeof(pattern));
+        int orig_stride = vc_get_linesize(in->tiles[0].width, in->color_spec);
+        char *orig = in->tiles[0].data + x * bpp + y * orig_stride;
+        int tmp_stride = vc_get_linesize(width / FACTOR, in->color_spec);
+        size_t tmp_len = tmp_stride * (height / FACTOR);
+        uint8_t *tmp = (uint8_t *) malloc(tmp_len);
+        if (s->black) {
                 if (codec == UYVY) {
-                        pattern[0] = 127;
-                        pattern[1] = 0;
-                }
+                        unsigned char pattern[] = { 127, 0 };
 
-                int start = s->x * get_bpp(codec);
-                int length = s->width * get_bpp(codec);
-                int linesize = vc_get_linesize(in->tiles[0].width, codec);
-                // following code won't work correctly eg. for v210
-                if(start >= linesize) {
-                        return in;
-                }
-                if(start + length > linesize) {
-                        length = linesize - start;
-                }
-                if (codec == UYVY || codec_is_a_rgb(codec)) {
-                        // bpp should be integer here, so we can afford this
-                        for (int x = start; x < start + length; x += get_bpp(codec)) {
-                                memcpy(in->tiles[0].data  + y * linesize + x, pattern,
-                                                get_bpp(codec));
-                                if (x == start && s->outline &&
-                                                y != s->y && y != s->y + s->height - 1) {
-                                        x = start + length - 2 * get_bpp(codec);
-                                }
+                        for (size_t i = 0; i < tmp_len; i += get_bpp(codec)) {
+                                memcpy(tmp + i, pattern, get_bpp(codec));
                         }
-                } else { //fallback
-                        if (s->outline &&
-                                        y != s->y && y != s->y + s->height - 1) {
-                                memset(in->tiles[0].data + y * linesize + start, 0,
-                                                get_pf_block_size(codec));
-                                memset(in->tiles[0].data + y * linesize + start + length -
-                                                get_pf_block_size(codec), 0,
-                                                get_pf_block_size(codec));
-                        } else {
-                                memset(in->tiles[0].data + y * linesize + start, 0, length);
-                        }
+                } else {
+                        memset(tmp, 0, tmp_len);
                 }
+        } else {
+                sws_scale(s->ctx_downscale, (uint8_t **) &orig, &orig_stride, 0, height, &tmp, &tmp_stride);
         }
+        sws_scale(s->ctx_upscale, &tmp, &tmp_stride, 0, height / FACTOR, (uint8_t **) &orig, &orig_stride);
+
+        free(tmp);
+
         return in;
 }
 
@@ -262,4 +291,11 @@ struct capture_filter_info capture_filter_blank = {
         .done = done,
         .filter = filter,
 };
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("capture_filter_blank", &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+}
 

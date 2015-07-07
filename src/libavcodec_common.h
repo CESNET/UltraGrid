@@ -116,5 +116,33 @@ static bool is420(enum AVPixelFormat pix_fmt) {
         return false;
 }
 
+#ifdef __cplusplus
+#include <unordered_map>
+#include "types.h"
+
+static const std::unordered_map<codec_t, enum AVPixelFormat, std::hash<int>> ug_to_av_pixfmt_map = {
+        {RGBA, AV_PIX_FMT_RGBA},
+        {UYVY, AV_PIX_FMT_UYVY422},
+        {YUYV,AV_PIX_FMT_YUYV422},
+        //R10k,
+        //v210,
+        //DVS10,
+        //DXT1,
+        //DXT1_YUV,
+        //DXT5,
+        {RGB, AV_PIX_FMT_RGB24},
+        // DPX10,
+        //JPEG,
+        //RAW,
+        //H264,
+        //MJPG,
+        //VP8,
+        {BGR, AV_PIX_FMT_BGR24}
+        //J2K,
+
+};
+
+#endif // __cplusplus
+
 #endif // LIBAVCODEC_COMMON_H_
 

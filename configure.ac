@@ -1438,6 +1438,43 @@ fi
 AC_SUBST(RESIZE_LIBS)
 AC_SUBST(RESIZE_OBJ)
 
+# -------------------------------------------------------------------------------------------------
+# Blank stuff
+# -------------------------------------------------------------------------------------------------
+BLANK_LIBS=
+BLANK_OBJ=
+blank=no
+
+define(blank_dep, libswscale)
+
+AC_ARG_ENABLE(blank,
+[  --disable-blank        disable blank capture filter (default is auto)]
+[                          Requires: blank_dep],
+    [blank_req=$enableval],
+    [blank_req=auto]
+    )
+
+PKG_CHECK_MODULES([BLANK], [blank_dep], FOUND_BLANK_DEP=yes, FOUND_BLANK_DEP=no)
+
+if test $blank_req != no -a $FOUND_BLANK_DEP = yes
+then
+        CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
+        BLANK_OBJ="src/capture_filter/blank.o"
+        AC_SUBST(VCAPTURE_FILTER_BLANK_LIB_TARGET, "lib/ultragrid/module_vcapfilter_blank.so")
+
+        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_BLANK_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $BLANK_OBJ"
+        LIB_MODULES="$LIB_MODULES $BLANK_LIBS"
+        blank=yes
+fi
+
+if test $blank_req = yes -a $blank = no; then
+        AC_MSG_ERROR([Blank dep not found (libswscale)]);
+fi
+
+AC_SUBST(BLANK_LIBS)
+AC_SUBST(BLANK_OBJ)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -2872,6 +2909,7 @@ RESULT=\
   Libavcodec .................. $libavcodec
 
   resize capture filter ....... $resize
+  blank capture filter ........ $blank
   RTSP Server ................. $rtsp_server
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req

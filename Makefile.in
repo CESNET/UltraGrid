@@ -93,7 +93,6 @@ OBJS	      = @OBJS@ \
 		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \
 		src/capture_filter.o \
-		src/capture_filter/blank.o \
 		src/capture_filter/every.o \
 		src/capture_filter/logo.o \
 		src/capture_filter/none.o \
@@ -649,6 +648,9 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 @VCAPTURE_FILTER_RESIZE_LIB_TARGET@: @RESIZE_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcapfilter_resize.so $^ @RESIZE_LIBS@ -o $@
+
+@VCAPTURE_FILTER_BLANK_LIB_TARGET@: @BLANK_OBJ@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcapfilter_blank.so $^ @BLANK_LIBS@ -o $@
 
 @OPENSSL_LIB_TARGET@: @OPENSSL_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_openssl.so $^ @CRYPTO_LIBS@ -o $@

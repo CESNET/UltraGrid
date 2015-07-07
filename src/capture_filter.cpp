@@ -62,7 +62,6 @@ using namespace std;
 
 static void init_capture_filters() __attribute__((constructor));
 static void init_capture_filters() {
-        register_library("blank", &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         register_library("every", &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         register_library("logo", &capture_filter_logo, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         register_library("none", &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
