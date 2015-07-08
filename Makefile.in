@@ -507,6 +507,9 @@ osx-gui-dmg: bundle
 		MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
 		mv "build/Release/UltraGrid GUI.app" "$$MOUNT_PT"; \
 		hdiutil eject "$$MOUNT_PT"; \
+		hdiutil convert UltraGrid.dmg -format UDRO -o UltraGrid-ro.dmg; \
+		rm UltraGrid.dmg; \
+		mv UltraGrid-ro.dmg UltraGrid.dmg; \
 
 
 perf: src/tv.o src/crypto/random.o
