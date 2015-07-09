@@ -636,7 +636,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         int ip_family;
         int reuse = 1;
         int ipv6only = 0;
-        int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_storage s_in{};
         socklen_t sin_len;
         unsigned int ifindex;
@@ -692,16 +691,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         socket_error("setsockopt IPV6_V6ONLY");
                         goto error;
                 }
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP sendbuffer\n");
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_RCVBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
         }
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
