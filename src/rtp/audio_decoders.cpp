@@ -557,8 +557,8 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
                 int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                printf("[Audio decoder] Received %u bytes (expected %d B), "
-                                "decoded %d samples in last %f seconds.\n",
+                printf("[Audio decoder] Received %u/%d B, "
+                                "decoded %d samples in %.2f sec.\n",
                                 bytes_received,
                                 packet_counter_get_all_bytes(decoder->packet_counter),
                                 decoder->decoded->get_sample_count(),

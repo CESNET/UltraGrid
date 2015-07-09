@@ -81,6 +81,7 @@
 #include "transmit.h"
 #include "pdb.h"
 
+#include <iostream>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -664,10 +665,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                     device_desc = curr_desc;
                                     rtp_flush_recv_buf(s->audio_network_device);
                                 }
-                                fprintf(stderr, " (%d channels, %d bps, %d Hz)\n",
-                                    curr_desc.ch_count,
-                                    curr_desc.bps, curr_desc.sample_rate);
-
+                                std::cerr << " (" << curr_desc << ")\n";
                             }
 
                             if(!failed)
@@ -708,9 +706,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                         device_desc = curr_desc;
                                         rtp_flush_recv_buf(s->audio_network_device);
                                 }
-                                fprintf(stderr, " (%d channels, %d bps, %d Hz)\n",
-                                                curr_desc.ch_count,
-                                                curr_desc.bps, curr_desc.sample_rate);
+                                std::cerr << " (" << curr_desc << ")\n";
                                 rtp_flush_recv_buf(s->audio_network_device);
                         }
 
@@ -1014,7 +1010,7 @@ struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
 
 std::ostream& operator<<(std::ostream& os, const audio_desc& desc)
 {
-    os << desc.ch_count << " channels, " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_name_to_audio_codec(desc.codec);
+    os << desc.ch_count << " channel" << (desc.ch_count > 1 ? "s" : "") << ", " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_name_to_audio_codec(desc.codec);
     return os;
 }
 

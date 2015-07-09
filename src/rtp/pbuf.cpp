@@ -298,7 +298,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         playout_buf->expected_pkts > 0) {
                 // print stats
                 printf("SSRC %08x: %d packets expected, %d was received "
-                                "successfully (%f%%).\n",
+                                "(%.2f%%).\n",
                                 pkt->ssrc,
                                 playout_buf->expected_pkts,
                                 playout_buf->received_pkts,
