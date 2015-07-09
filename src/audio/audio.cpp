@@ -255,17 +255,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->mod.cls = MODULE_CLASS_AUDIO;
         module_register(&s->mod, parent);
 
-        module_init_default(&s->audio_receiver_module);
-        s->audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
-        s->audio_receiver_module.priv_data = s;
-        module_register(&s->audio_receiver_module, &s->mod);
-
-        module_init_default(&s->audio_sender_module);
-        s->audio_sender_module.cls = MODULE_CLASS_SENDER;
-        s->audio_sender_module.priv_data = s;
-        module_register(&s->audio_sender_module, &s->mod);
-
-
         s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
@@ -307,12 +296,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
-        if(!s->tx_session) {
-                fprintf(stderr, "Unable to initialize audio transmit.\n");
-                goto error;
-        }
-
         gettimeofday(&s->t0, NULL);
         s->captured = new audio_frame2;
         
@@ -358,6 +341,16 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
+                module_init_default(&s->audio_sender_module);
+                s->audio_sender_module.cls = MODULE_CLASS_SENDER;
+                s->audio_sender_module.priv_data = s;
+                module_register(&s->audio_sender_module, &s->mod);
+                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
+                if(!s->tx_session) {
+                        fprintf(stderr, "Unable to initialize audio transmit.\n");
+                        goto error;
+                }
+
                 s->audio_tx_mode |= MODE_SENDER;
         } else {
                 s->audio_capture_device = audio_capture_init_null_device();
@@ -381,6 +374,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
+                module_init_default(&s->audio_receiver_module);
+                s->audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
+                s->audio_receiver_module.priv_data = s;
+                module_register(&s->audio_receiver_module, &s->mod);
+
                 s->audio_tx_mode |= MODE_RECEIVER;
         } else {
                 s->audio_playback_device = audio_playback_init_null_device();
