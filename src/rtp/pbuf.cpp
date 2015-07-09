@@ -65,7 +65,7 @@
 
 #define PBUF_MAGIC	0xcafebabe
 
-#define STATS_INTERVAL 1000
+#define STATS_INTERVAL 10
 
 struct pbuf_node {
         struct pbuf_node *nxt;
