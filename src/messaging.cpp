@@ -10,6 +10,9 @@
 #include "utils/list.h"
 #include "utils/lock_guard.h"
 
+#define MAX_MESSAGES 100
+#define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
+
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
         /**
@@ -33,11 +36,10 @@ struct response *send_message(struct module *root, const char *const_path, struc
                 receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
-                        printf("Receiver %s not yet exists. Message will be delivered "
-                                        "when it's created.\n", const_path);
+                        printf("Receiver %s does not exist.\n", const_path);
                         //dump_tree(root, 0);
-                        if (simple_linked_list_size(old_receiver->msg_queue_childs) > 10) {
-                                printf("Dropping some old messages.\n");
+                        if (simple_linked_list_size(old_receiver->msg_queue_childs) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
+                                printf("Dropping some old messages for %s (queue full).\n", const_path);
                                 struct pair_msg_path *mp = (struct pair_msg_path *) simple_linked_list_pop(old_receiver->msg_queue_childs);
                                 free_message(mp->msg);
                                 free(mp);
@@ -63,7 +65,14 @@ struct response *send_message(struct module *root, const char *const_path, struc
 
         lock_guard guard(receiver->lock, lock_guard_retain_ownership_t());
 
+        if (simple_linked_list_size(receiver->msg_queue) >= MAX_MESSAGES) {
+                struct message *m = (struct message *) simple_linked_list_pop(receiver->msg_queue);
+                free_message(m);
+                printf("Dropping some messages for %s - queue full.\n", const_path);
+        }
+
         simple_linked_list_append(receiver->msg_queue, msg);
+
         return new_response(RESPONSE_ACCEPTED, NULL);
 }
 
