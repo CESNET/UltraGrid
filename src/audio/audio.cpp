@@ -523,7 +523,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         return r;
 }
 
-static void audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg)
+static void audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg, struct state_audio_decoder *decoder)
 {
         switch (msg->type) {
         case RECEIVER_MSG_CHANGE_RX_PORT:
@@ -535,6 +535,15 @@ static void audio_receiver_process_message(struct state_audio *s, struct msg_rec
                 if (!s->audio_network_device) {
                         fprintf(stderr, "Changing RX port failed!");
                 }
+                break;
+        case RECEIVER_MSG_INCREASE_VOLUME:
+                audio_decoder_increase_volume(decoder);
+                break;
+        case RECEIVER_MSG_DECREASE_VOLUME:
+                audio_decoder_decrease_volume(decoder);
+                break;
+        case RECEIVER_MSG_MUTE:
+                audio_decoder_mute(decoder);
                 break;
         default:
                 abort();
@@ -565,7 +574,7 @@ static void *audio_receiver_thread(void *arg)
         while (!should_exit_audio) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_receiver_module))) {
-                        audio_receiver_process_message(s, (struct msg_receiver *) msg);
+                        audio_receiver_process_message(s, (struct msg_receiver *) msg, pbuf_data.decoder);
                         free_message(msg);
                 }
 

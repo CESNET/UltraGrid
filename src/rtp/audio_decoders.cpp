@@ -108,6 +108,8 @@ struct state_audio_decoder {
 
         struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
+
+        bool muted;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -526,24 +528,26 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
         memset(s->buffer.data + s->buffer.data_len, 0, new_data_len - s->buffer.data_len);
 
-        // there is a mapping for channel
-        for(int channel = 0; channel < device_frame->get_channel_count(); ++channel) {
-                if(decoder->channel_remapping) {
-                        if(channel < decoder->channel_map.size) {
-                                for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
-                                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
-                                                        device_frame->get_data(channel),
-                                                        device_frame->get_bps(), device_frame->get_data_len(channel),
-                                                        output_channels, decoder->channel_map.map[channel][i],
-                                                        decoder->scale[decoder->fixed_scale ? 0 :
-                                                        decoder->channel_map.map[channel][i]].scale);
+        if (!decoder->muted) {
+                // there is a mapping for channel
+                for(int channel = 0; channel < device_frame->get_channel_count(); ++channel) {
+                        if(decoder->channel_remapping) {
+                                if(channel < decoder->channel_map.size) {
+                                        for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
+                                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
+                                                                device_frame->get_data(channel),
+                                                                device_frame->get_bps(), device_frame->get_data_len(channel),
+                                                                output_channels, decoder->channel_map.map[channel][i],
+                                                                decoder->scale[decoder->fixed_scale ? 0 :
+                                                                decoder->channel_map.map[channel][i]].scale);
+                                        }
                                 }
+                        } else {
+                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len, device_frame->get_data(channel),
+                                                device_frame->get_bps(),
+                                                device_frame->get_data_len(channel), output_channels, channel,
+                                                decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                         }
-                } else {
-                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len, device_frame->get_data(channel),
-                                        device_frame->get_bps(),
-                                        device_frame->get_data_len(channel), output_channels, channel,
-                                        decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                 }
         }
         s->buffer.data_len = new_data_len;
@@ -648,5 +652,30 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
     }
 
     return true;
+}
+
+void audio_decoder_increase_volume(void *state)
+{
+    auto s = (struct state_audio_decoder *) state;
+    s->scale->scale *= 1.1;
+    printf("Volume: %f%%\n", s->scale->scale * 100.0);
+}
+
+void audio_decoder_decrease_volume(void *state)
+{
+    auto s = (struct state_audio_decoder *) state;
+    s->scale->scale /= 1.1;
+    printf("Volume: %f%%\n", s->scale->scale * 100.0);
+}
+
+void audio_decoder_mute(void *state)
+{
+    auto s = (struct state_audio_decoder *) state;
+    s->muted = !s->muted;
+    if (s->muted) {
+            printf("Muted.\n");
+    } else {
+            printf("Unmuted.\n");
+    }
 }
 

@@ -238,6 +238,10 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 }
                         }
                         break;
+                case RECEIVER_MSG_INCREASE_VOLUME:
+                case RECEIVER_MSG_DECREASE_VOLUME:
+                case RECEIVER_MSG_MUTE:
+                        abort();
                 }
 
                 free_message((struct message *) msg);

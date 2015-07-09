@@ -60,6 +60,9 @@ struct msg_sender {
 enum msg_receiver_type {
         RECEIVER_MSG_CHANGE_RX_PORT,
         RECEIVER_MSG_VIDEO_PROP_CHANGED,
+        RECEIVER_MSG_INCREASE_VOLUME,
+        RECEIVER_MSG_DECREASE_VOLUME,
+        RECEIVER_MSG_MUTE,
 };
 struct msg_receiver {
         struct message m;

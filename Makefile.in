@@ -56,6 +56,7 @@ OBJS	      = @OBJS@ \
 		src/control_socket.o \
 		src/debug.o \
 		src/host.o \
+		src/keyboard_control.o \
 		src/messaging.o \
 		src/perf.o \
 		src/ntp.o \

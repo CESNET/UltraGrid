@@ -182,6 +182,8 @@ else
 fi
 AC_SUBST(NVCCFLAGS)
 
+AC_CHECK_HEADERS([termios.h])
+
 AH_BOTTOM([
 /*
  * Mac OS X Snow Leopard does not have posix_memalign

@@ -1,9 +1,9 @@
 /**
- * @file   rtp/audio_decoders.h
+ * @file   keyboard_control.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2014 CESNET z.s.p.o.
+ * Copyright (c) 2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,24 +35,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef keyboard_control_h_
+#define keyboard_control_h_
 
-struct coded_data;
+#include <thread>
 
-int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
-int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
-                const char *encryption);
-void audio_decoder_destroy(void *state);
-void audio_decoder_increase_volume(void *state);
-void audio_decoder_decrease_volume(void *state);
-void audio_decoder_mute(void *state);
+struct module;
 
-bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
+class keyboard_control {
+public:
+        void start(struct module *root);
+        void stop();
+        void run();
 
-#ifdef __cplusplus
-}
-#endif
+private:
+        std::thread m_keyboard_thread;
+        struct module *m_root;
+        int m_should_exit_pipe[2];
+        bool m_started;
+};
+
+#endif // keyboard_control_h_
 

@@ -69,6 +69,7 @@
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
+#include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
@@ -452,6 +453,7 @@ int main(int argc, char *argv[])
         int audio_delay = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
+        keyboard_control kc{};
 
 #ifdef USE_MTRACE
         mtrace();
@@ -1006,6 +1008,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */
 
         control_start(control);
+        kc.start(&root_mod);
 
         try {
                 map<string, param_u> params;
@@ -1153,6 +1156,7 @@ cleanup:
 
         free(export_dir);
 
+        kc.stop();
         control_done(control);
 
         while  (vidcap_params_head) {
