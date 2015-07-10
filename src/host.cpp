@@ -31,12 +31,8 @@ char **uv_argv;
 char *export_dir = NULL;
 volatile bool should_exit_receiver = false;
 
-volatile bool verbose =
-#ifdef DEBUG
-        true;
-#else
-        false;
-#endif
+volatile int log_level = LOG_LEVEL_INFO;
+bool color_term = (strcmp(getenv("TERM"), "xterm") == 0 || strcmp(getenv("TERM"), "xterm-256color") == 0) && isatty(1) && isatty(2);
 
 bool ldgm_device_gpu = false;
 

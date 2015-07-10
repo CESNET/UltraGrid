@@ -201,7 +201,7 @@ void * libavcodec_decompress_init(void)
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
         s->global_lavcd_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
-        if (verbose) {
+        if (log_level >= LOG_LEVEL_VERBOSE) {
                 av_log_set_level(AV_LOG_VERBOSE);
         }
         /*   register all the codecs (you can also register only the codec

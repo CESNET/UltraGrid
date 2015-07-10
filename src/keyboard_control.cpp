@@ -132,8 +132,8 @@ void keyboard_control::run()
                                 usage();
                                 break;
                         case 'v':
-                                verbose = !verbose;
-                                cout << "Verbose: " << (verbose ? "ON" : "OFF") << "\n";
+                                log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                                cout << "Log level: " << log_level << "\n";
                                 break;
                         }
                 }

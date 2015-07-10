@@ -192,7 +192,7 @@ static void usage(void)
         printf("          [--mcast-if <iface>]\n");
         printf("          [--export[=<d>]|--import <d>]\n");
         printf("          address(es)\n\n");
-        printf("\t--verbose                \tprint verbose messages\n");
+        printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
         printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
@@ -504,7 +504,7 @@ int main(int argc, char *argv[])
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
-                {"verbose", no_argument, 0, OPT_VERBOSE},
+                {"verbose", optional_argument, 0, OPT_VERBOSE},
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
@@ -774,7 +774,11 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_VERBOSE:
-                        verbose = true;
+                        if (optarg) {
+                                log_level = atoi(optarg);
+                        } else {
+                                log_level = LOG_LEVEL_VERBOSE;
+                        }
                         break;
                 case OPT_LDGM_DEVICE:
                         if (strcasecmp(optarg, "GPU") == 0) {

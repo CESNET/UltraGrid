@@ -88,7 +88,17 @@ extern unsigned int audio_capture_channels;
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
-extern volatile bool verbose;
+#define LOG_LEVEL_QUIET   0
+#define LOG_LEVEL_PANIC   1
+#define LOG_LEVEL_ERROR   2
+#define LOG_LEVEL_WARNING 3
+#define LOG_LEVEL_NOTICE  4
+#define LOG_LEVEL_INFO    5
+#define LOG_LEVEL_VERBOSE 6
+#define LOG_LEVEL_DEBUG   7
+#define LOG_LEVEL_MAX LOG_LEVEL_DEBUG
+extern volatile int log_level;
+extern bool color_term;
 
 extern bool ldgm_device_gpu;
 

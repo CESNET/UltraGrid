@@ -41,21 +41,42 @@
 #define _RAT_DEBUG_H
 
 #define UNUSED(x)	(x=x)
-#define debug_msg	_dprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _dprintf
-#define error_msg	_errprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _errprintf
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void _errprintf(const char *format, ...);
-void _dprintf(const char *format, ...);
 void debug_dump(void*lp, int len);
 
-void verbose_msg(const char *format, ...);
+#include "host.h"
+
+#define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
+#define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
+#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
+void log_msg(int log_level, const char *format, ...);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#include <sstream>
+// Log, version 0.1: a simple logging class
+class Logger
+{
+public:
+        inline Logger(int l) : level(l) {}
+        inline virtual ~Logger() {
+                log_msg(level, os.str().c_str());
+        }
+        inline std::ostringstream& Get() {
+                return os;
+        }
+protected:
+        std::ostringstream os;
+private:
+        int level;
+};
 #endif
 
 #endif

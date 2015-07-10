@@ -1,12 +1,12 @@
 /*
  * FILE:    debug.c
  * PROGRAM: RAT
- * AUTHORS: Isidor Kouvelas 
- *          Colin Perkins 
- *          Mark Handley 
+ * AUTHORS: Isidor Kouvelas
+ *          Colin Perkins
+ *          Mark Handley
  *          Orion Hodson
  *          Jerry Isdale
- * 
+ *
  * $Revision: 1.1 $
  * $Date: 2007/11/08 09:48:59 $
  *
@@ -14,7 +14,7 @@
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, is permitted provided that the following conditions 
+ * modification, is permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
@@ -48,18 +48,12 @@
 
 #include "host.h"
 
-void _errprintf(const char *format, ...)
+static void _dprintf(const char *format, ...)
 {
-        va_list ap;
+        if (log_level < LOG_LEVEL_DEBUG) {
+                return;
+        }
 
-        va_start(ap, format);
-        vfprintf(stderr, format, ap);
-        va_end(ap);
-}
-
-void _dprintf(const char *format, ...)
-{
-#ifdef DEBUG
 #ifdef WIN32
         char msg[65535];
         va_list ap;
@@ -75,21 +69,50 @@ void _dprintf(const char *format, ...)
         vfprintf(stderr, format, ap);
         va_end(ap);
 #endif                          /* WIN32 */
-#else
-        UNUSED(format);
-#endif                          /* DEBUG */
 }
 
-void verbose_msg(const char *format, ...)
+void log_msg(int level, const char *format, ...)
 {
-        if (!verbose) {
+        if (log_level < level) {
                 return;
         }
 
+#ifdef WIN32
+        if (log_level == LOG_LEVEL_DEBUG) {
+                char msg[65535];
+                va_list ap;
+
+                va_start(ap, format);
+                _vsnprintf(msg, 65535, format, ap);
+                va_end(ap);
+                OutputDebugString(msg);
+                return;
+        }
+#endif                          /* WIN32 */
+
         va_list ap;
+        FILE *f = level >= LOG_LEVEL_INFO ? stdout : stderr;
+        const char *color = "";
+        const char *ending = "\033[0m";
+
+        switch (level) {
+        case LOG_LEVEL_PANIC:   color = "\033[1;31m"; break;
+        case LOG_LEVEL_ERROR:   color = "\033[0;31m"; break;
+        case LOG_LEVEL_WARNING: color = "\033[0;33m"; break;
+        case LOG_LEVEL_NOTICE:  color = "\033[0;32m"; break;
+        }
+
+        char *format_new = (char *) alloca(strlen(format) + 4 + 7 + 1);
+        if (color_term) {
+                format_new[0] = '\0';
+                strcat(format_new, color);
+                strcat(format_new, format);
+                strcat(format_new, ending);
+                format = format_new;
+        }
 
         va_start(ap, format);
-        vfprintf(stderr, format, ap);
+        vfprintf(f, format, ap);
         va_end(ap);
 }
 
@@ -97,10 +120,10 @@ void verbose_msg(const char *format, ...)
  * debug_dump:
  * @lp: pointer to memory region.
  * @len: length of memory region in bytes.
- * 
+ *
  * Writes a dump of a memory region to stdout.  The dump contains a
  * hexadecimal and an ascii representation of the memory region.
- * 
+ *
  **/
 void debug_dump(void *lp, int len)
 {
