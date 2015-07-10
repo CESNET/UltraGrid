@@ -820,9 +820,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
-        if (verbose) {
-                printf("[lavc] Compressed frame size: %d\n", out->tiles[0].data_len);
-        }
+        verbose_msg("[lavc] Compressed frame size: %d\n", out->tiles[0].data_len);
 
         return out;
 

@@ -47,6 +47,7 @@ public:
         void start(struct module *root);
         void stop();
         void run();
+        static void usage();
 
 private:
         std::thread m_keyboard_thread;

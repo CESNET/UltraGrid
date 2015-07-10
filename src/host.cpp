@@ -31,7 +31,12 @@ char **uv_argv;
 char *export_dir = NULL;
 volatile bool should_exit_receiver = false;
 
-bool verbose = false;
+volatile bool verbose =
+#ifdef DEBUG
+        true;
+#else
+        false;
+#endif
 
 bool ldgm_device_gpu = false;
 

@@ -44,8 +44,11 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "host.h"
 #include "keyboard_control.h"
 #include "messaging.h"
+
+#include <iostream>
 
 #ifdef HAVE_TERMIOS_H
 #include <unistd.h>
@@ -109,7 +112,7 @@ void keyboard_control::run()
                         case '/':
                         case '9':
                         case '0':
-                        case 'm':
+                        case 'm': {
                                 char path[] = "audio.receiver";
                                 auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
                                 switch (c) {
@@ -123,6 +126,14 @@ void keyboard_control::run()
                                 auto resp = send_message(m_root, path, (struct message *) m);
                                 resp->deleter(resp);
 
+                                break;
+                                }
+                        case 'h':
+                                usage();
+                                break;
+                        case 'v':
+                                verbose = !verbose;
+                                cout << "Verbose: " << (verbose ? "ON" : "OFF") << "\n";
                                 break;
                         }
                 }
@@ -138,4 +149,15 @@ void keyboard_control::run()
 #endif
 }
 
+
+void keyboard_control::usage()
+{
+        cout << "\nAvailable keybindings:\n" <<
+                "\t* 0 - increase volume\n" <<
+                "\t/ 9 - decrease volume\n" <<
+                "\t m  - mute/unmute\n" <<
+                "\t v  - toggle verbose mode\n" <<
+                "\t h  - show help\n" <<
+                "\n";
+}
 

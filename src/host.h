@@ -88,7 +88,7 @@ extern unsigned int audio_capture_channels;
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
-extern bool verbose;
+extern volatile bool verbose;
 
 extern bool ldgm_device_gpu;
 
