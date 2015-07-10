@@ -601,7 +601,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                 std::chrono::duration_cast<std::chrono::duration<double>>(curr_time - state->t0).count();
         if (seconds >= 5.0) {
                 float fps = state->count / seconds;
-                fprintf(stderr, "[testcard] %d frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[testcard] %d frames in %g seconds = %g FPS\n",
                                 state->count, seconds, fps);
                 state->t0 = curr_time;
                 state->count = 0;

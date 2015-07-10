@@ -858,13 +858,13 @@ static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
         gettimeofday(&t, 0);
         seconds = tv_diff(t, s->t0);
         if (seconds > 5.0) {
-                printf("[Audio sender] Sent %d samples in last %f seconds.\n",
+                log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
                                 s->captured->get_sample_count(),
                                 seconds);
                 for (int i = 0; i < s->captured->get_channel_count(); ++i) {
                         double rms, peak;
                         rms = calculate_rms(s->captured, i, &peak);
-                        printf("[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                        log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
                                         i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
                 }
                 s->t0 = t;

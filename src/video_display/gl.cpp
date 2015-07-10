@@ -639,7 +639,7 @@ static void glut_idle_callback(void)
 
         if (seconds > 5) {
                 double fps = s->frames / seconds;
-                fprintf(stderr, "[GL] %lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, "[GL] %lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                 s->frames = 0;
                 s->tv = tv;
         }

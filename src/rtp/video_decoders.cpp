@@ -336,7 +336,7 @@ static void *fec_thread(void *args) {
                                 desc = data->frame->fec_params;
                                 fec_state = fec::create_from_desc(desc);
                                 if(fec_state == NULL) {
-                                        fprintf(stderr, "[decoder] Unable to initialize FEC.\n");
+                                        log_msg(LOG_LEVEL_PANIC, "[decoder] Unable to initialize FEC.\n");
                                         exit_uv(1);
                                         goto cleanup;
                                 }
@@ -641,13 +641,13 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                 s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
-                                fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
+                                log_msg(LOG_LEVEL_PANIC, "UltraGrid was build without OpenSSL support!\n");
                                 delete s;
                                 return NULL;
                 }
                 if (s->dec_funcs->init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
-                        fprintf(stderr, "Unable to create decompress!\n");
+                        log_msg(LOG_LEVEL_PANIC, "Unable to create decompress!\n");
                         delete s;
                         return NULL;
                 }
@@ -665,7 +665,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                         return NULL;
                 }
                 if(!s->postprocess) {
-                        fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", postprocess);
+                        log_msg(LOG_LEVEL_PANIC, "Initializing postprocessor \"%s\" failed.\n", postprocess);
                         delete s;
                         exit_uv(129);
                         return NULL;
@@ -733,7 +733,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &decoder->native_count);
         decoder->native_count /= sizeof(codec_t);
         if(!ret) {
-                fprintf(stderr, "Failed to query codecs from video display.\n");
+                log_msg(LOG_LEVEL_ERROR, "Failed to query codecs from video display.\n");
                 return false;
         }
 
@@ -745,7 +745,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 
                 if(ret) {
                         if(len == 0) { // problem detected
-                                fprintf(stderr, "[Decoder] Unable to get supported codecs.\n");
+                                log_msg(LOG_LEVEL_ERROR, "[Decoder] Unable to get supported codecs.\n");
                                 return false;
 
                         }
@@ -823,14 +823,14 @@ static void cleanup(struct state_video_decoder *decoder)
         decoder->change_il_state.resize(0);
 }
 
-#define PRINT_STATISTICS fprintf(stderr, "Video decoder statistics: %lu total: %lu displayed / %lu "\
+#define PRINT_STATISTICS log_msg(LOG_LEVEL_INFO, "Video decoder statistics: %lu total: %lu displayed / %lu "\
                                 "dropped / %lu corrupted / %lu missing frames.",\
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
                                 decoder->missing); \
-                         if (decoder->fec_ok + decoder->fec_nok > 0) fprintf(stderr, " FEC OK/NOK: %ld/%ld", \
+                         if (decoder->fec_ok + decoder->fec_nok > 0) log_msg(LOG_LEVEL_INFO, " FEC OK/NOK: %ld/%ld", \
                          decoder->fec_ok, decoder->fec_nok); \
-                         fprintf(stderr, "\n");
+                         log_msg(LOG_LEVEL_INFO, "\n");
 
 /**
  * @brief Destroys decoder created with decoder_init()
@@ -1064,8 +1064,7 @@ after_linedecoder_lookup:
 after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
-                fprintf(stderr, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
-                exit_uv(128);
+                log_msg(LOG_LEVEL_ERROR, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
                 return VIDEO_CODEC_NONE;
         }
 
@@ -1111,7 +1110,7 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
                 }
         }
 
-        fprintf(stderr, "[Warning] Cannot find transition between incoming and display "
+        log_msg(LOG_LEVEL_WARNING, "[Warning] Cannot find transition between incoming and display "
                         "interlacing modes!\n");
         return NULL;
 }
@@ -1171,7 +1170,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                         &pp_does_change_tiling_mode, &len)) {
                         if(len == 0) {
                                 // just for sake of completness since it shouldn't be a case
-                                fprintf(stderr, "[Decoder] Warning: unable to get pp tiling mode!\n");
+                                log_msg(LOG_LEVEL_WARNING, "[Decoder] Warning: unable to get pp tiling mode!\n");
                         }
                 }
         }
@@ -1212,8 +1211,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 /* reconfigure VO and give it opportunity to pass us pitch */
                 ret = display_reconfigure(decoder->display, display_desc);
                 if(!ret) {
-                        fprintf(stderr, "[decoder] Unable to reconfigure display.\n");
-                        exit_uv(128);
+                        log_msg(LOG_LEVEL_ERROR, "[decoder] Unable to reconfigure display.\n");
                         return false;
                 }
                 decoder->display_desc = display_desc;
@@ -1373,7 +1371,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
         if(desc->color_spec == VIDEO_CODEC_NONE) {
-                fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
+                log_msg(LOG_LEVEL_ERROR, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
                 return false;
         }
 
@@ -1393,7 +1391,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc)
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
-                cout << "New incoming video format detected: " << network_desc << endl;
+                Logger(LOG_LEVEL_NOTICE).Get() << "New incoming video format detected: " << network_desc << endl;
                 decoder->received_vid_desc = network_desc;
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
@@ -1405,7 +1403,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 if (ret) {
                         decoder->frame = display_get_frame(decoder->display);
                 } else {
-                        fprintf(stderr, "Decoder reconfiguration failed!!!\n");
+                        log_msg(LOG_LEVEL_ERROR, "Decoder reconfiguration failed!!!\n");
                         decoder->frame = NULL;
                 }
 #endif
@@ -1484,7 +1482,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         if (ret) {
                                 decoder->frame = display_get_frame(decoder->display);
                         } else {
-                                fprintf(stderr, "Decoder reconfiguration failed!!!\n");
+                                log_msg(LOG_LEVEL_ERROR, "Decoder reconfiguration failed!!!\n");
                                 decoder->frame = NULL;
                         }
                         decoder->reconfiguration_in_progress = false;
@@ -1537,12 +1535,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
                 if (pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
                         if(!decoder->decrypt) {
-                                fprintf(stderr, ENCRYPTED_ERR);
+                                log_msg(LOG_LEVEL_ERROR, ENCRYPTED_ERR);
                                 ERROR_GOTO_CLEANUP
                         }
                 } else {
                         if(decoder->decrypt) {
-                                fprintf(stderr, NOT_ENCRYPTED_ERR);
+                                log_msg(LOG_LEVEL_ERROR, NOT_ENCRYPTED_ERR);
                                 ERROR_GOTO_CLEANUP
                         }
                 }
@@ -1570,25 +1568,25 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 + sizeof(crypto_payload_hdr_t);
                         break;
                 default:
-                        fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
-                        exit_uv(1);
+                        log_msg(LOG_LEVEL_WARNING, "[decoder] Unknown packet type: %d.\n", pckt->pt);
                         ret = FALSE;
                         goto cleanup;
                 }
 
                 if ((int) substream >= max_substreams) {
-                        fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n",
+                        log_msg(LOG_LEVEL_WARNING, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n",
                                         substream, max_substreams);
                         // the guess is valid - we start with highest substream number (anytime - since it holds a m-bit)
                         // in next iterations, index is valid
                         enum video_mode video_mode =
                                 guess_video_mode(substream + 1);
                         if (video_mode != VIDEO_UNKNOWN) {
-                                fprintf(stderr, "[decoder] Guessing mode: ");
+                                log_msg(LOG_LEVEL_NOTICE, "[decoder] Guessing mode: ");
                                 decoder_set_video_mode(decoder, video_mode);
                                 decoder->received_vid_desc.width = 0; // just for sure, that we reconfigure in next iteration
-                                fprintf(stderr, "%s. Check if it is correct.\n", get_video_mode_description(decoder->video_mode));
+                                log_msg(LOG_LEVEL_NOTICE, "%s. Check if it is correct.\n", get_video_mode_description(decoder->video_mode));
                         } else {
+                                log_msg(LOG_LEVEL_PANIC, "[decoder] Unknown video mode!\n");
                                 exit_uv(1);
                         }
                         // we need skip this frame (variables are illegal in this iteration
@@ -1609,7 +1607,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
                                         sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t),
                                         plaintext)) == 0) {
-                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
                                 goto next_packet;
                         }
                         data = (char *) plaintext;
@@ -1722,7 +1720,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                          * say it loudly
                                          */
                                         if((prints % 100) == 0) {
-                                                fprintf(stderr, "WARNING!! Discarding input data as frame buffer is too small.\n"
+                                                log_msg(LOG_LEVEL_ERROR, "WARNING!! Discarding input data as frame buffer is too small.\n"
                                                                 "Well this should not happened. Expect troubles pretty soon.\n");
                                         }
                                         prints++;

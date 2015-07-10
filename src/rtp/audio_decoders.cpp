@@ -122,7 +122,7 @@ static int validate_mapping(struct channel_map *map)
         for(int i = 0; i < map->size; ++i) {
                 for(int j = 0; j < map->sizes[i]; ++j) {
                         if(map->map[i][j] < 0) {
-                                fprintf(stderr, "Audio channel mapping - negative parameter occured.\n");
+                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
                                 ret = FALSE;
                                 goto return_value;
                         }
@@ -187,14 +187,14 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
-                        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                        log_msg(LOG_LEVEL_ERROR, "This " PACKAGE_NAME " version was build "
                                         "without OpenSSL support!\n");
                         free(s);
                         return NULL;
                 }
                 if (s->dec_funcs->init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
-                        fprintf(stderr, "Unable to create decompress!\n");
+                        log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
                         free(s);
                         return NULL;
                 }
@@ -239,7 +239,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                                 src = -1;
                         }
                         if(!isdigit(strchr(item, ':')[1])) {
-                                fprintf(stderr, "Audio destination channel not entered!\n");
+                                log_msg(LOG_LEVEL_ERROR, "Audio destination channel not entered!\n");
                                 goto error;
                         }
                         int dst = atoi(strchr(item, ':') + 1);
@@ -257,7 +257,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
 
                 if(!validate_mapping(&s->channel_map)) {
-                        fprintf(stderr, "Wrong audio mapping.\n");
+                        log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
                         goto error;
                 } else {
                         s->channel_remapping = TRUE;
@@ -287,7 +287,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 scale_auto = false;
                 scale_factor = atof(audio_scale);
                 if(scale_factor <= 0.0) {
-                        fprintf(stderr, "Invalid audio scaling factor!\n");
+                        log_msg(LOG_LEVEL_ERROR, "Invalid audio scaling factor!\n");
                         goto error;
                 }
         }
@@ -379,19 +379,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
                 if(pt == PT_ENCRYPT_AUDIO) {
                         if(!decoder->decrypt) {
-                                fprintf(stderr, "Receiving encrypted audio data but "
+                                log_msg(LOG_LEVEL_WARNING, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");
                                 return FALSE;
                         }
                 } else if(pt == PT_AUDIO) {
                         if(decoder->decrypt) {
-                                fprintf(stderr, "Receiving unencrypted audio data "
+                                log_msg(LOG_LEVEL_WARNING, "Receiving unencrypted audio data "
                                                 "while expecting encrypted.\n");
                                 return FALSE;
                         }
                 } else {
-                        fprintf(stderr, "Unknown audio packet type: %d\n", pt);
-                        abort();
+                        log_msg(LOG_LEVEL_WARNING, "Unknown audio packet type: %d\n", pt);
+                        return FALSE;
                 }
 
                 unsigned int length;
@@ -411,7 +411,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                         plaintext
                                         )) == 0) {
-                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
                                 return FALSE;
                         }
                         data = plaintext;
@@ -450,7 +450,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         if(DEVICE_SAMPLE_RATE == sample_rate) // no resampling
                                 device_bps = bps;
 
-                        printf("New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
+                        log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
                                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
@@ -482,7 +482,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
-                                fprintf(stderr, "Unable to create audio decompress!\n");
+                                log_msg(LOG_LEVEL_PANIC, "Unable to create audio decompress!\n");
                                 exit_uv(1);
                                 return FALSE;
                         }
@@ -561,7 +561,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
                 int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                printf("[Audio decoder] Received %u/%d B, "
+                log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %u/%d B, "
                                 "decoded %d samples in %.2f sec.\n",
                                 bytes_received,
                                 packet_counter_get_all_bytes(decoder->packet_counter),
@@ -570,7 +570,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                 for (int i = 0; i < decoder->decoded->get_channel_count(); ++i) {
                         double rms, peak;
                         rms = calculate_rms(decoder->decoded, i, &peak);
-                        printf("[Audio decoder] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
                                         i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
                 }
                 decoder->t0 = t;
@@ -658,14 +658,14 @@ void audio_decoder_increase_volume(void *state)
 {
     auto s = (struct state_audio_decoder *) state;
     s->scale->scale *= 1.1;
-    printf("Volume: %f%%\n", s->scale->scale * 100.0);
+    log_msg(LOG_LEVEL_INFO, "Volume: %f%%\n", s->scale->scale * 100.0);
 }
 
 void audio_decoder_decrease_volume(void *state)
 {
     auto s = (struct state_audio_decoder *) state;
     s->scale->scale /= 1.1;
-    printf("Volume: %f%%\n", s->scale->scale * 100.0);
+    log_msg(LOG_LEVEL_INFO, "Volume: %f%%\n", s->scale->scale * 100.0);
 }
 
 void audio_decoder_mute(void *state)
@@ -673,9 +673,9 @@ void audio_decoder_mute(void *state)
     auto s = (struct state_audio_decoder *) state;
     s->muted = !s->muted;
     if (s->muted) {
-            printf("Muted.\n");
+            log_msg(LOG_LEVEL_INFO, "Muted.\n");
     } else {
-            printf("Unmuted.\n");
+            log_msg(LOG_LEVEL_INFO, "Unmuted.\n");
     }
 }
 
