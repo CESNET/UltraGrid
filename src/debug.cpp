@@ -95,7 +95,7 @@ void log_msg(int level, const char *format, ...)
         const char *ending = "\033[0m";
 
         switch (level) {
-        case LOG_LEVEL_PANIC:   color = "\033[1;31m"; break;
+        case LOG_LEVEL_FATAL:   color = "\033[1;31m"; break;
         case LOG_LEVEL_ERROR:   color = "\033[0;31m"; break;
         case LOG_LEVEL_WARNING: color = "\033[0;33m"; break;
         case LOG_LEVEL_NOTICE:  color = "\033[0;32m"; break;

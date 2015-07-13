@@ -89,7 +89,7 @@ extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
 #define LOG_LEVEL_QUIET   0
-#define LOG_LEVEL_PANIC   1
+#define LOG_LEVEL_FATAL   1
 #define LOG_LEVEL_ERROR   2
 #define LOG_LEVEL_WARNING 3
 #define LOG_LEVEL_NOTICE  4

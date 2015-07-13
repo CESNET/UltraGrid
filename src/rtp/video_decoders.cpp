@@ -336,7 +336,7 @@ static void *fec_thread(void *args) {
                                 desc = data->frame->fec_params;
                                 fec_state = fec::create_from_desc(desc);
                                 if(fec_state == NULL) {
-                                        log_msg(LOG_LEVEL_PANIC, "[decoder] Unable to initialize FEC.\n");
+                                        log_msg(LOG_LEVEL_FATAL, "[decoder] Unable to initialize FEC.\n");
                                         exit_uv(1);
                                         goto cleanup;
                                 }
@@ -641,13 +641,13 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                 s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
-                                log_msg(LOG_LEVEL_PANIC, "UltraGrid was build without OpenSSL support!\n");
+                                log_msg(LOG_LEVEL_FATAL, "UltraGrid was build without OpenSSL support!\n");
                                 delete s;
                                 return NULL;
                 }
                 if (s->dec_funcs->init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
-                        log_msg(LOG_LEVEL_PANIC, "Unable to create decompress!\n");
+                        log_msg(LOG_LEVEL_FATAL, "Unable to create decompress!\n");
                         delete s;
                         return NULL;
                 }
@@ -665,7 +665,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                         return NULL;
                 }
                 if(!s->postprocess) {
-                        log_msg(LOG_LEVEL_PANIC, "Initializing postprocessor \"%s\" failed.\n", postprocess);
+                        log_msg(LOG_LEVEL_FATAL, "Initializing postprocessor \"%s\" failed.\n", postprocess);
                         delete s;
                         exit_uv(129);
                         return NULL;
@@ -1586,7 +1586,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 decoder->received_vid_desc.width = 0; // just for sure, that we reconfigure in next iteration
                                 log_msg(LOG_LEVEL_NOTICE, "%s. Check if it is correct.\n", get_video_mode_description(decoder->video_mode));
                         } else {
-                                log_msg(LOG_LEVEL_PANIC, "[decoder] Unknown video mode!\n");
+                                log_msg(LOG_LEVEL_FATAL, "[decoder] Unknown video mode!\n");
                                 exit_uv(1);
                         }
                         // we need skip this frame (variables are illegal in this iteration

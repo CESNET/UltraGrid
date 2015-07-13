@@ -482,7 +482,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
-                                log_msg(LOG_LEVEL_PANIC, "Unable to create audio decompress!\n");
+                                log_msg(LOG_LEVEL_FATAL, "Unable to create audio decompress!\n");
                                 exit_uv(1);
                                 return FALSE;
                         }
