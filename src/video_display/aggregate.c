@@ -377,7 +377,7 @@ void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
 
         if (seconds >= 5) {
             float fps  = s->frames / seconds;
-            fprintf(stderr, "[aggregate disp.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+            log_msg(LOG_LEVEL_INFO, "[aggregate disp.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
             s->t0 = s->t;
             s->frames = 0;
         }  

@@ -156,7 +156,7 @@ void keyboard_control::usage()
                 "\t* 0 - increase volume\n" <<
                 "\t/ 9 - decrease volume\n" <<
                 "\t m  - mute/unmute\n" <<
-                "\t v  - toggle verbose mode\n" <<
+                "\t v  - increase verbosity level\n" <<
                 "\t h  - show help\n" <<
                 "\n";
 }

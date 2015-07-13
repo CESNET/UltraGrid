@@ -211,7 +211,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
                 double seconds = tv_diff(t, s->t0);
                 if (seconds >= 5) {
                         float fps = s->frames / seconds;
-                        fprintf(stderr, "[QuickTime cap.] %d frames in %g seconds = %g FPS\n", s->frames,
+                        log_msg(LOG_LEVEL_INFO, "[QuickTime cap.] %d frames in %g seconds = %g FPS\n", s->frames,
                                 seconds, fps);
                         s->t0 = t;
                         s->frames = 0;

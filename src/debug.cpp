@@ -91,7 +91,6 @@ void log_msg(int level, const char *format, ...)
 #endif                          /* WIN32 */
 
         va_list ap;
-        FILE *f = level >= LOG_LEVEL_INFO ? stdout : stderr;
         const char *color = "";
         const char *ending = "\033[0m";
 
@@ -112,7 +111,7 @@ void log_msg(int level, const char *format, ...)
         }
 
         va_start(ap, format);
-        vfprintf(f, format, ap);
+        vfprintf(stderr, format, ap);
         va_end(ap);
 }
 

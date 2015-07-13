@@ -560,7 +560,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
                         chrono::system_clock::time_point now = chrono::system_clock::now();
                         double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
                         if (seconds >= 5) {
-                                cout << "[AJA] " << mFrames << " frames in "
+                                LOG(LOG_LEVEL_INFO) << "[AJA] " << mFrames << " frames in "
                                         << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
                                 mT0 = now;
                                 mFrames = 0;

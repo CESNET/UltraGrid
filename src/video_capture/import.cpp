@@ -1245,7 +1245,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         double seconds = tv_diff(cur_time, s->t0);
         if (seconds >= 5) {
                 float fps  = (s->frames - s->frames_prev) / seconds;
-                fprintf(stderr, "[import] %d frames in %g seconds = %g FPS\n", s->frames - s->frames_prev, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, "[import] %d frames in %g seconds = %g FPS\n", s->frames - s->frames_prev, seconds, fps);
                 s->t0 = cur_time;
                 s->frames_prev = s->frames;
         }

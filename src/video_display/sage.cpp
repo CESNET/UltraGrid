@@ -158,7 +158,7 @@ void display_sage_run(void *arg)
                 double seconds = tv_diff(s->t, s->t0);
                 if (seconds >= 5) {
                         float fps = s->frames / seconds;
-                        fprintf(stderr, "[SAGE] %d frames in %g seconds = %g FPS\n",
+                        log_msg(LOG_LEVEL_INFO, "[SAGE] %d frames in %g seconds = %g FPS\n",
                                 s->frames, seconds, fps);
                         s->t0 = s->t;
                         s->frames = 0;

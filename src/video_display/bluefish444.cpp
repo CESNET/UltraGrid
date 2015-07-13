@@ -430,7 +430,7 @@ void *display_bluefish444_state::playback_loop() throw()
                 double seconds = tv_diff(t, t0);
                 if (seconds >= 5) {
                         float fps  = FrameCount / seconds;
-                        fprintf(stderr, "[Blue disp] %d frames in %g seconds = %g FPS\n",
+                        log_msg(LOG_LEVEL_INFO, "[Blue disp] %d frames in %g seconds = %g FPS\n",
                                         FrameCount, seconds, fps);
                         t0 = t;
                         FrameCount = 0;

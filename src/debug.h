@@ -77,6 +77,11 @@ protected:
 private:
         int level;
 };
+
+#define LOG(level) \
+if (level > log_level) ; \
+else Logger(level).Get()
+
 #endif
 
 #endif

@@ -382,7 +382,7 @@ free_frame:
 		double seconds = tv_diff(tv, s->tv);
 		if (seconds > 5) {
 			double fps = s->frames / seconds;
-			fprintf(stdout, "[SDL] %d frames in %g seconds = %g FPS\n",
+			log_msg(LOG_LEVEL_INFO, "[SDL] %d frames in %g seconds = %g FPS\n",
 				s->frames, seconds, fps);
 			s->tv = tv;
 			s->frames = 0;

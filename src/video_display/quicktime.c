@@ -398,7 +398,7 @@ void display_quicktime_run(void *arg)
                 double seconds = tv_diff(t, t0);
                 if (seconds >= 5) {
                         float fps = frames / seconds;
-                        fprintf(stderr, "[QuickTime disp.] %d frames in %g seconds = %g FPS\n",
+                        log_msg(LOG_LEVEL_INFO, "[QuickTime disp.] %d frames in %g seconds = %g FPS\n",
                                 frames, seconds, fps);
                         t0 = t;
                         frames = 0;

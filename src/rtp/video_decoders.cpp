@@ -1391,7 +1391,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc)
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
-                Logger(LOG_LEVEL_NOTICE).Get() << "New incoming video format detected: " << network_desc << endl;
+                LOG(LOG_LEVEL_NOTICE) << "New incoming video format detected: " << network_desc << endl;
                 decoder->received_vid_desc = network_desc;
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
