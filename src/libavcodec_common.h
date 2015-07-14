@@ -24,6 +24,10 @@ extern "C" {
 ///
 /// compat
 ///
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(55, 35, 100)
+#define AV_CODEC_ID_HEVC AV_CODEC_ID_NONE
+#endif
+
 #if LIBAVCODEC_VERSION_MAJOR < 55
 #define av_frame_alloc avcodec_alloc_frame
 #define av_frame_free avcodec_free_frame

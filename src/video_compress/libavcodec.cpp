@@ -105,11 +105,7 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 setparam_h264
         }},
         { H265, {
-#if (LIBAVCODEC_VERSION_MAJOR > 55) || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR > 35) || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR > 35 && LIBAVCODEC_VERSION_MICRO > 100)
                 AV_CODEC_ID_HEVC,
-#else
-                AV_CODEC_ID_NONE,
-#endif
                 "libx265", //nullptr,
                 0.07 * 2 * 2,
                 setparam_h265
