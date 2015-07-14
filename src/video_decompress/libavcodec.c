@@ -77,8 +77,8 @@ struct state_libavcodec_decompress {
         int              last_frame_seq;
 
         struct video_desc saved_desc;
-        unsigned int     warning_displayed;
-        bool             uses_single_threaded_decoder;
+        unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
+        bool             broken_h264_mt_decoding_workaroud_active;
 };
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
@@ -96,7 +96,6 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
 static void error_callback(void *, int, const char *, va_list);
 
 static bool broken_h264_mt_decoding = false;
-static bool broken_h265_mt_decoding = false;
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -153,12 +152,12 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         // zero should mean count equal to the number of virtual cores
         if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-                if(!broken_h264_mt_decoding && !broken_h265_mt_decoding) { // TODO: does this make sense for h265?
+                if(!broken_h264_mt_decoding) {
                         s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
-                        s->uses_single_threaded_decoder = false;
+                        s->broken_h264_mt_decoding_workaroud_active = false;
                 } else {
-                        s->uses_single_threaded_decoder = true;
+                        s->broken_h264_mt_decoding_workaroud_active = true;
                 }
         } else {
                 fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
@@ -433,7 +432,6 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
 static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
         if(strcmp("unset current_picture_ptr on %d. slice\n", fmt) == 0)
                 broken_h264_mt_decoding = true;
-                broken_h265_mt_decoding = true; // TODO: do a proper check for h265
         av_log_default_callback(ptr, level, fmt, vl);
 }
 
@@ -513,12 +511,12 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 }
         }
 
-        if(broken_h264_mt_decoding || broken_h265_mt_decoding) { // TODO: does this make sense for h265?
-                if(!s->uses_single_threaded_decoder) {
+        if(broken_h264_mt_decoding) {
+                if(!s->broken_h264_mt_decoding_workaroud_active) {
                         libavcodec_decompress_reconfigure(s, s->saved_desc,
                                         s->rshift, s->gshift, s->bshift, s->pitch, s->out_codec);
                 }
-                if(s->warning_displayed++ % 1000 == 0)
+                if(s->broken_h264_mt_decoding_workaroud_warning_displayed++ % 1000 == 0)
                         av_log(NULL, AV_LOG_WARNING, "Broken multi-threaded decoder detected, "
                                         "switching to a single-threaded one! Consider upgrading your Libavcodec.\n");
         }
