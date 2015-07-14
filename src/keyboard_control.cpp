@@ -53,6 +53,8 @@
 #ifdef HAVE_TERMIOS_H
 #include <unistd.h>
 #include <termios.h>
+#else
+#include <conio.h>
 #endif
 
 using namespace std;
@@ -61,9 +63,9 @@ void keyboard_control::start(struct module *root)
 {
         m_root = root;
 #ifdef HAVE_TERMIOS_H
-        pipe(m_should_exit_pipe);
-        m_keyboard_thread = thread(&keyboard_control::run, this);
+        assert(pipe(m_should_exit_pipe) == 0);
 #endif
+        m_keyboard_thread = thread(&keyboard_control::run, this);
         m_started = true;
 }
 
@@ -74,10 +76,12 @@ void keyboard_control::stop()
         }
 #ifdef HAVE_TERMIOS_H
         char c;
-        write(m_should_exit_pipe[1], &c, 1);
+        assert(write(m_should_exit_pipe[1], &c, 1) == 1);
         close(m_should_exit_pipe[1]);
-        m_keyboard_thread.join();
+#else
+        m_should_exit = true;
 #endif
+        m_keyboard_thread.join();
         m_started = false;
 }
 
@@ -97,8 +101,10 @@ void keyboard_control::run()
 
         /* set the new settings immediately */
         tcsetattr(STDIN_FILENO,TCSANOW,&new_tio);
+#endif
 
         while(1) {
+#ifdef HAVE_TERMIOS_H
                 fd_set set;
                 FD_ZERO(&set);
                 FD_SET(0, &set);
@@ -106,6 +112,11 @@ void keyboard_control::run()
                 select(m_should_exit_pipe[0] + 1, &set, NULL, NULL, NULL);
                 if (FD_ISSET(0, &set)) {
                         char c = getchar();
+#else
+                usleep(200000);
+                while (kbhit()) {
+                        char c = getch();
+#endif
                         debug_msg("Key %c pressed\n", c);
                         switch (c) {
                         case '*':
@@ -137,11 +148,16 @@ void keyboard_control::run()
                                 break;
                         }
                 }
+#ifdef HAVE_TERMIOS_H
                 if (FD_ISSET(m_should_exit_pipe[0], &set)) {
+#else
+                if (m_should_exit) {
+#endif
                         break;
                 }
         }
 
+#ifdef HAVE_TERMIOS_H
         /* restore the former settings */
         tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
 
@@ -153,11 +169,13 @@ void keyboard_control::run()
 void keyboard_control::usage()
 {
         cout << "\nAvailable keybindings:\n" <<
-                "\t* 0 - increase volume\n" <<
-                "\t/ 9 - decrease volume\n" <<
-                "\t m  - mute/unmute\n" <<
-                "\t v  - increase verbosity level\n" <<
-                "\t h  - show help\n" <<
+                "\t  * 0  - increase volume\n" <<
+                "\t  / 9  - decrease volume\n" <<
+                "\t   m   - mute/unmute\n" <<
+                "\t   v   - increase verbosity level\n" <<
+                "\t   h   - show help\n" <<
+                "\tCtrl-c - exit\n" <<
                 "\n";
+        cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n\n";
 }
 

@@ -52,7 +52,11 @@ public:
 private:
         std::thread m_keyboard_thread;
         struct module *m_root;
+#ifdef HAVE_TERMIOS_H
         int m_should_exit_pipe[2];
+#else
+        bool m_should_exit;
+#endif
         bool m_started;
 };
 
