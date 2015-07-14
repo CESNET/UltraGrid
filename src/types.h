@@ -71,6 +71,7 @@ typedef enum {
         JPEG,     ///< JPEG image, restart intervals may be used. Compatible with GPUJPEG
         RAW,      ///< RAW HD-SDI frame
         H264,     ///< H.264 frame
+        H265,     ///< H.264 frame
         MJPG,     ///< JPEG image, without restart intervals.
         VP8,      ///< VP8 frame
         BGR,      ///< 8-bit BGR

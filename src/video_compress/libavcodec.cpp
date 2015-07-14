@@ -90,6 +90,7 @@ typedef struct {
 
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264(AVCodecContext *, struct setparam_param *);
+static void setparam_h265(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
@@ -102,6 +103,11 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                 setparam_h264
+        }},
+        { H265, { AV_CODEC_ID_HEVC,
+                "libx265", //nullptr,
+                0.07 * 2 * 2,
+                setparam_h265
         }},
         { MJPG, {
                 AV_CODEC_ID_MJPEG,
@@ -360,7 +366,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
 #ifndef HAVE_GPL
         if(s->selected_codec_id == H264) {
-                fprintf(stderr, "H.264 not available in UltraGrid BSD build. "
+                fprintf(stderr, "H.264 is not available in UltraGrid BSD build. "
+                                "Reconfigure UltraGrid with --enable-gpl if "
+                                "needed.\n");
+                exit_uv(1);
+                return false;
+        } else if (s->selected_codec_id == H265) {
+                fprintf(stderr, "H.265 is not available in UltraGrid BSD build. "
                                 "Reconfigure UltraGrid with --enable-gpl if "
                                 "needed.\n");
                 exit_uv(1);
@@ -884,6 +896,80 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
                 }
         }
 }
+
+static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+       char params[512] = "";
+
+        strncat(params,
+               //"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
+               "b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
+                "no-deblock=1:no-sao=1:no-weightb=1:no-weightp=1:no-b-intra=1:" 
+               "me=dia:max-merge=1:subme=0:no-strong-intra-smoothing=1:"
+                "rc-lookahead=2:ref=1:scenecut=0:" 
+               "no-cutree=1:no-weightp=1:"
+               "rd=0:" // RDO mode decision
+               "ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
+               "frame-threads=3:pme=1:" // trade some latency for better parallelism
+               "keyint=180:min-keyint=120", // I frames
+                sizeof(params) - strlen(params) - 1);
+
+        if (param->exact_bitrate) {
+                APPEND_PARAM(params, "aq_mode=0");
+        } else {
+                APPEND_PARAM(params, "aq_mode=1");
+        }
+
+        if (param->interlaced && !param->exact_bitrate) {
+                APPEND_PARAM(params, "tff=1");
+        }
+
+        if(strlen(params) > 0) {
+                int ret;
+                // newer LibAV
+                ret = av_opt_set(codec_ctx->priv_data, "x265-params", params, 0);
+                if(ret != 0) {
+                        // newer FFMPEG
+                        ret = av_opt_set(codec_ctx->priv_data, "x265opts", params, 0);
+                }
+                if(ret != 0) {
+                        // older version of both
+                        // or superfast?? requires + some 70 % CPU but does not cause posterization
+                        ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
+                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected. "
+                                        "Try supplying 'preset=superfast' argument to "
+                                        "avoid posterization!\n");
+                }
+                if(ret != 0) {
+                        fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
+                }
+        }
+
+        av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+        av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
+
+        if (param->exact_bitrate) { // TODO this needs to be tested and fixed
+                codec_ctx->rc_max_rate = codec_ctx->bit_rate / 2 * 3;
+                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+                codec_ctx->rc_buffer_aggressivity = 1.0;
+                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
+                codec_ctx->qcompress = 0.0f;
+                //codec_ctx->qblur = 0.0f;
+                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+                //codec_ctx->rc_max_available_vbv_use = 1.0f;
+                codec_ctx->qmin = 0;
+                codec_ctx->qmax = 69;
+                codec_ctx->max_qdiff = 69;
+                codec_ctx->rc_qsquish = 0;
+                //codec_ctx->scenechange_threshold = 100;
+        }
+
+#ifndef DISABLE_H265_INTRA_REFRESH
+        codec_ctx->refs = 1;
+        av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+#endif // not defined DISABLE_H265_INTRA_REFRESH       
+}
+
 
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {

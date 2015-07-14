@@ -150,6 +150,7 @@ struct decode_from_to decoders_for_codec[] = {
         { JPEG, RGB, JPEG_MAGIC, 500 },
         { JPEG, UYVY, JPEG_MAGIC, 500 },
         { H264, UYVY, LIBAVCODEC_MAGIC, 500 },
+        { H265, UYVY, LIBAVCODEC_MAGIC, 500 },
         { JPEG, UYVY, LIBAVCODEC_MAGIC, 600 },
         { MJPG, UYVY, LIBAVCODEC_MAGIC, 500 },
         { J2K, RGB, LIBAVCODEC_MAGIC, 500 },
