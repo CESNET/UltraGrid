@@ -494,7 +494,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 #else // Windows
 	LARGE_INTEGER start, stop, freq;
 #endif
-        long delta;
+        long delta, overslept = 0;
         uint32_t tmp;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
@@ -627,6 +627,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         do {
+                GET_STARTTIME;
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
                 }
@@ -645,7 +646,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         data_len = tile->data_len - pos;
                 }
                 pos += data_len;
-                GET_STARTTIME;
                 if(data_len) { /* check needed for FEC_MULT */
                         char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
 
@@ -671,16 +671,21 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                         mult_index = (mult_index + 1) % tx->mult_count;
                 }
 
-                do {
-                        GET_STOPTIME;
-                        GET_DELTA;
-                } while (packet_rate - delta > 0);
-
                 /* when trippling, we need all streams goes to end */
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[tx->mult_count - 1];
                 }
                 rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
+
+                // TRAFFIS SHAPER
+                if (pos < (unsigned int) tile->data_len) { // wait for all but last packet
+                        do {
+                                GET_STOPTIME;
+                                GET_DELTA;
+                        } while (packet_rate - delta - overslept > 0);
+                        overslept = -(packet_rate - delta - overslept);
+                        //fprintf(stdout, "%ld ", overslept);
+                }
         } while (pos < (unsigned int) tile->data_len);
 
         if (!tx->encryption) {
