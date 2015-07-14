@@ -755,7 +755,7 @@ void *display_decklink_init(struct module *parent, const char *fmt, unsigned int
         s->emit_timecode = false;
         s->link = LINK_UNSPECIFIED;
 
-        if(fmt == NULL) {
+        if(fmt == NULL || strlen(fmt) == 0) {
                 cardIdx[0] = 0;
                 s->devices_cnt = 1;
                 fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");

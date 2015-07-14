@@ -181,7 +181,7 @@ public:
                 BMDPixelFormat pf;
                 HRESULT result;
 
-                printf("[DeckLink] Format change detected.\n");
+                log_msg(LOG_LEVEL_NOTICE, "[DeckLink] Format change detected.\n");
 
                 unique_lock<mutex> lk(s->lock);
                 switch(flags) {
@@ -239,7 +239,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	{
 		if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
-			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", s->frames);
+			log_msg(LOG_LEVEL_INFO, "Frame received (#%d) - No input signal detected\n", s->frames);
                         noSignal = true;
 		}
 		else{
@@ -1270,8 +1270,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
                 if (rc != cv_status::no_timeout || timeout) { //(rc == ETIMEDOUT) {
-                        printf("Waiting for new frame timed out!\n");
-                        debug_msg("Waiting for new frame timed out!\n");
+                        log_msg(LOG_LEVEL_VERBOSE, "Waiting for new frame timed out!\n");
 
                         // try to restart stream
                         /*
