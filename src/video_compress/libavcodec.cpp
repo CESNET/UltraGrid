@@ -899,9 +899,7 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 
 static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-       char params[512] = "";
-
-        strncat(params,
+        string params(
                //"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
                "b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
                 "no-deblock=1:no-sao=1:no-weightb=1:no-weightp=1:no-b-intra=1:" 
@@ -911,26 +909,20 @@ static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *para
                "rd=0:" // RDO mode decision
                "ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
                "frame-threads=3:pme=1:" // trade some latency for better parallelism
-               "keyint=180:min-keyint=120", // I frames
-                sizeof(params) - strlen(params) - 1);
+               "keyint=180:min-keyint=120:" // I frames
+               "aq_mode=0");
 
-        if (param->exact_bitrate) {
-                APPEND_PARAM(params, "aq_mode=0");
-        } else {
-                APPEND_PARAM(params, "aq_mode=1");
+        if (param->interlaced) {
+                params += ":tff=1";
         }
 
-        if (param->interlaced && !param->exact_bitrate) {
-                APPEND_PARAM(params, "tff=1");
-        }
-
-        if(strlen(params) > 0) {
+        if(strlen(params.c_str()) > 0) {
                 int ret;
                 // newer LibAV
-                ret = av_opt_set(codec_ctx->priv_data, "x265-params", params, 0);
+                ret = av_opt_set(codec_ctx->priv_data, "x265-params", params.c_str(), 0);
                 if(ret != 0) {
                         // newer FFMPEG
-                        ret = av_opt_set(codec_ctx->priv_data, "x265opts", params, 0);
+                        ret = av_opt_set(codec_ctx->priv_data, "x265opts", params.c_str(), 0);
                 }
                 if(ret != 0) {
                         // older version of both
@@ -948,21 +940,20 @@ static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *para
         av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
         av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
 
-        if (param->exact_bitrate) { // TODO this needs to be tested and fixed
-                codec_ctx->rc_max_rate = codec_ctx->bit_rate / 2 * 3;
-                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-                codec_ctx->rc_buffer_aggressivity = 1.0;
-                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
-                codec_ctx->qcompress = 0.0f;
-                //codec_ctx->qblur = 0.0f;
-                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-                //codec_ctx->rc_max_available_vbv_use = 1.0f;
-                codec_ctx->qmin = 0;
-                codec_ctx->qmax = 69;
-                codec_ctx->max_qdiff = 69;
-                codec_ctx->rc_qsquish = 0;
-                //codec_ctx->scenechange_threshold = 100;
-        }
+        // try to keep frame sizes as even as possible
+        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+        //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+        //codec_ctx->rc_buffer_aggressivity = 1.0;
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
+        codec_ctx->qcompress = 0.0f;
+        //codec_ctx->qblur = 0.0f;
+        //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+        //codec_ctx->rc_max_available_vbv_use = 1.0f;
+        codec_ctx->qmin = 0;
+        codec_ctx->qmax = 69;
+        codec_ctx->max_qdiff = 69;
+        //codec_ctx->rc_qsquish = 0;
+        //codec_ctx->scenechange_threshold = 100;
 
 #ifndef DISABLE_H265_INTRA_REFRESH
         codec_ctx->refs = 1;
