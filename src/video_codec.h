@@ -80,7 +80,6 @@ codec_t          get_codec_from_name(const char *name) __attribute__((pure));
 const char      *get_codec_file_extension(codec_t codec) __attribute__((pure));
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) __attribute__((pure));
 
-uint32_t get_fcc_from_codec(codec_t codec) __attribute__((pure));
 int get_aligned_length(int width, codec_t codec) __attribute__((pure));
 int get_pf_block_size(codec_t codec) __attribute__((pure));
 int vc_get_linesize(unsigned int width, codec_t codec) __attribute__((pure));

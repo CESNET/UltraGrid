@@ -77,7 +77,7 @@ void log_msg(int level, const char *format, ...)
                 return;
         }
 
-#ifdef WIN32
+#if 0 // WIN32
         if (log_level == LOG_LEVEL_DEBUG) {
                 char msg[65535];
                 va_list ap;
