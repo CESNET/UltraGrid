@@ -132,7 +132,6 @@ static const struct codec_info_t codec_info[] = {
         [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
         [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
         [J2K] = {J2K, "J2K", to_fourcc('M','J','2','C'), 0, 0.0, 0, FALSE, TRUE, FALSE, "j2k"},
-        {(codec_t) 0, NULL, 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL}
 };
 
 /**
@@ -190,71 +189,50 @@ void show_codec_help(const char *module)
 
 double get_bpp(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].bpp;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].bpp;
+        } else {
+                return 0;
         }
-        return 0;
 }
 
 uint32_t get_fourcc(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].fcc;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].fcc;
+        } else {
+                return 0;
         }
-        return 0;
 }
 
 const char * get_codec_name(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].name;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].name;
+        } else {
+                return 0;
         }
-        return 0;
-}
-
-/** @brief Returns FourCC for specified codec. */
-uint32_t get_fcc_from_codec(codec_t codec)
-{
-        int i = 0;
-
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].fcc;
-                i++;
-        }
-
-        return 0;
 }
 
 codec_t get_codec_from_fcc(uint32_t fourcc)
 {
-        int i = 0;
-        while (codec_info[i].name != NULL) {
+        for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
                 if (fourcc == codec_info[i].fcc)
                         return codec_info[i].codec;
-                i++;
         }
 
         // try to look through aliases
         for (size_t i = 0; i < sizeof(fourcc_aliases) / sizeof(struct alternative_fourcc); ++i) {
                 if (fourcc == fourcc_aliases[i].alias) {
-                        int j = 0;
-                        while (codec_info[j].name != NULL) {
+                        for (unsigned int j = 0; j < sizeof codec_info / sizeof(struct codec_info_t); ++j) {
                                 if (fourcc_aliases[i].primary_fcc == codec_info[j].fcc)
                                         return codec_info[j].codec;
-                                j++;
                         }
                 }
         }
@@ -270,8 +248,8 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
  */
 static codec_t get_codec_from_name_wo_alias(const char *name)
 {
-        for (int i = 0; codec_info[i].name != NULL; i++) {
-                if (strcmp(codec_info[i].name, name) == 0) {
+        for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
+                if (codec_info[i].name && strcmp(codec_info[i].name, name) == 0) {
                         return codec_info[i].codec;
                 }
         }
@@ -300,15 +278,13 @@ codec_t get_codec_from_name(const char *name)
 
 const char *get_codec_file_extension(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].file_extension;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].file_extension;
+        } else {
+                return 0;
         }
-
-        return 0;
 }
 
 /**
@@ -317,14 +293,13 @@ const char *get_codec_file_extension(codec_t codec)
  */
 int is_codec_opaque(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].opaque;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].opaque;
+        } else {
+                return 0;
         }
-        return 0;
 }
 
 /**
@@ -335,26 +310,40 @@ int is_codec_opaque(codec_t codec)
  */
 int is_codec_interframe(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].interframe;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].interframe;
+        } else {
+                return 0;
         }
-        return 0;
+}
+
+/** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
+ *
+ * Unspecified for compressed codecs.
+ * @retval TRUE  if pixelformat is RGB
+ * @retval FALSE if pixelformat is not a RGB */
+int codec_is_a_rgb(codec_t codec)
+{
+        unsigned int i = (unsigned int) codec;
+
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].rgb;
+        } else {
+                return 0;
+        }
 }
 
 int get_halign(codec_t codec)
 {
-        int i = 0;
+        unsigned int i = (unsigned int) codec;
 
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].h_align;
-                i++;
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].h_align;
+        } else {
+                return 0;
         }
-       return 0;
 }
 
 /** @brief Returns aligned linesize according to pixelformat specification (in pixels) */
@@ -368,6 +357,10 @@ int get_aligned_length(int width_pixels, codec_t codec)
 /** @brief Returns aligned linesize according to pixelformat specification (in bytes) */
 int vc_get_linesize(unsigned int width, codec_t codec)
 {
+        if (codec >= sizeof codec_info / sizeof(struct codec_info_t)) {
+                return 0;
+        }
+
         if (codec_info[codec].h_align) {
                 width =
                     ((width + codec_info[codec].h_align -
@@ -380,13 +373,13 @@ int vc_get_linesize(unsigned int width, codec_t codec)
 /// @brief returns @ref codec_info_t::block_size
 int get_pf_block_size(codec_t codec)
 {
-        int i = 0;
-        while (codec_info[i].name != NULL) {
-                if (codec == codec_info[i].codec)
-                        return codec_info[i].block_size;
-                i++;
+        unsigned int i = (unsigned int) codec;
+
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].block_size;
+        } else {
+                return 0;
         }
-       return 0;
 }
 
 /** @brief Deinterlaces framebuffer.
@@ -1291,23 +1284,6 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
                 return (decoder_t) memcpy;
 
         return NULL;
-}
-
-/** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
- *
- * Unspecified for compressed codecs.
- * @retval TRUE  if pixelformat is RGB
- * @retval FALSE if pixelformat is not a RGB */
-int codec_is_a_rgb(codec_t codec)
-{
-        int i;
-
-        for (i = 0; codec_info[i].name != NULL; i++) {
-		if (codec == codec_info[i].codec) {
-			return codec_info[i].rgb;
-		}
-	}
-        return 0;
 }
 
 /**

@@ -175,7 +175,7 @@ void output_summary(struct video_export *s)
         fprintf(summary, "version %d\n", VIDEO_EXPORT_SUMMARY_VERSION);
         fprintf(summary, "width %d\n", s->saved_desc.width);
         fprintf(summary, "height %d\n", s->saved_desc.height);
-        uint32_t fourcc = get_fcc_from_codec(s->saved_desc.color_spec);
+        uint32_t fourcc = get_fourcc(s->saved_desc.color_spec);
         fprintf(summary, "fourcc %.4s\n", (char *) &fourcc);
         fprintf(summary, "fps %.2f\n", s->saved_desc.fps);
         fprintf(summary, "interlacing %d\n", (int) s->saved_desc.interlacing);
