@@ -76,7 +76,7 @@
 #endif
 
 #ifdef __cplusplus
-#include <algorighm>
+#include <algorithm>
 using std::max;
 using std::min;
 #else
@@ -100,7 +100,6 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
  * and interframe for not opaque) should be zero.
  */
 struct codec_info_t {
-        codec_t codec;                ///< codec descriptor
         const char *name;             ///< displayed name
         uint32_t fcc;                 ///< FourCC
         int h_align;                  ///< Number of pixels each line is aligned to
@@ -113,26 +112,26 @@ struct codec_info_t {
 };
 
 static const struct codec_info_t codec_info[] = {
-        [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
-        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('U','Y','V','Y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
-        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
-        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 4, FALSE, FALSE, FALSE, "dvs10"},
-        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 0, 0.5, 0, TRUE, TRUE, FALSE, "dxt1"},
-        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 0, 0.5, 0, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 0, 1.0, 0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
-        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, 3, TRUE, FALSE, FALSE, "rgb"},
-        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, 4, TRUE, FALSE, FALSE, "dpx"},
-        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, 0, FALSE, TRUE, FALSE, "jpg"},
-        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
-        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h264"},
-        [H265] = {H265, "H.265", to_fourcc('H','E','V','C'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h265"},
-        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
-        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
-        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
-        [J2K] = {J2K, "J2K", to_fourcc('M','J','2','C'), 0, 0.0, 0, FALSE, TRUE, FALSE, "j2k"},
+        [VIDEO_CODEC_NONE] = {"(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
+        [RGBA] = {"RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
+        [UYVY] = {"UYVY", to_fourcc('U','Y','V','Y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [YUYV] = {"YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [R10k] = {"R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
+        [v210] = {"v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
+        [DVS10] = {"DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 4, FALSE, FALSE, FALSE, "dvs10"},
+        [DXT1] = {"DXT1", to_fourcc('D','X','T','1'), 0, 0.5, 0, TRUE, TRUE, FALSE, "dxt1"},
+        [DXT1_YUV] = {"DXT1 YUV", to_fourcc('D','X','T','Y'), 0, 0.5, 0, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {"DXT5", to_fourcc('D','X','T','5'), 0, 1.0, 0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
+        [RGB] = {"RGB", to_fourcc('R','G','B','2'), 1, 3.0, 3, TRUE, FALSE, FALSE, "rgb"},
+        [DPX10] = {"DPX10", to_fourcc('D','P','1','0'), 1, 4.0, 4, TRUE, FALSE, FALSE, "dpx"},
+        [JPEG] = {"JPEG", to_fourcc('J','P','E','G'), 0, 0.0, 0, FALSE, TRUE, FALSE, "jpg"},
+        [RAW] = {"raw", to_fourcc('r','a','w','s'), 0, 1.0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
+        [H264] = {"H.264", to_fourcc('A','V','C','1'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h264"},
+        [H265] = {"H.265", to_fourcc('H','E','V','C'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h265"},
+        [MJPG] = {"MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
+        [VP8] = {"VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
+        [BGR] = {"BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
+        [J2K] = {"J2K", to_fourcc('M','J','2','C'), 0, 0.0, 0, FALSE, TRUE, FALSE, "j2k"},
 };
 
 /**
@@ -225,7 +224,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
 {
         for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
                 if (fourcc == codec_info[i].fcc)
-                        return codec_info[i].codec;
+                        return i;
         }
 
         // try to look through aliases
@@ -233,7 +232,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
                 if (fourcc == fourcc_aliases[i].alias) {
                         for (unsigned int j = 0; j < sizeof codec_info / sizeof(struct codec_info_t); ++j) {
                                 if (fourcc_aliases[i].primary_fcc == codec_info[j].fcc)
-                                        return codec_info[j].codec;
+                                        return j;
                         }
                 }
         }
@@ -251,7 +250,7 @@ static codec_t get_codec_from_name_wo_alias(const char *name)
 {
         for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
                 if (codec_info[i].name && strcmp(codec_info[i].name, name) == 0) {
-                        return codec_info[i].codec;
+                        return i;
                 }
         }
 
@@ -1250,7 +1249,7 @@ struct decoder_item {
         bool slow;
 };
 
-const static struct decoder_item decoders[] = {
+static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
         { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
         { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
