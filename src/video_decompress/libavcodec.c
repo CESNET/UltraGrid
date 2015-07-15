@@ -123,7 +123,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 case MJPG:
                 case JPEG:
                         codec_id = AV_CODEC_ID_MJPEG;
-                        fprintf(stderr, "[lavd] Warning: JPEG decoder "
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
                                         "will use full-scale YUV.\n");
                         break;
                 case J2K:
@@ -133,19 +133,21 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         codec_id = AV_CODEC_ID_VP8;
                         break;
                 default:
-                        fprintf(stderr, "[lavd] Unsupported codec!!!\n");
+                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
                         return false;
         }
 
         s->codec = avcodec_find_decoder(codec_id);
         if(s->codec == NULL) {
-                fprintf(stderr, "[lavd] Unable to find codec.\n");
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to find codec.\n");
                 return false;
+        } else {
+                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s.\n", s->codec->name);
         }
 
         s->codec_ctx = avcodec_alloc_context3(s->codec);
         if(s->codec_ctx == NULL) {
-                fprintf(stderr, "[lavd] Unable to allocate codec context.\n");
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to allocate codec context.\n");
                 return false;
         }
 
@@ -160,7 +162,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         s->broken_h264_mt_decoding_workaroud_active = true;
                 }
         } else {
-                fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
+                log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
 #if 0
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
@@ -176,7 +178,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         pthread_mutex_lock(s->global_lavcd_lock);
         if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
-                fprintf(stderr, "[lavd] Unable to open decoder.\n");
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to open decoder.\n");
                 pthread_mutex_unlock(s->global_lavcd_lock);
                 return false;
         }
@@ -184,7 +186,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         s->frame = av_frame_alloc();
         if(!s->frame) {
-                fprintf(stderr, "[lavd] Unable allocate frame.\n");
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable allocate frame.\n");
                 return false;
         }
 
@@ -419,7 +421,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                                         vc_get_linesize(width, RGB));
                 }
         } else {
-                fprintf(stderr, "Unsupported pixel "
+                log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
                                 "format: %s (id %d)\n",
                                 av_get_pix_fmt_name(
                                         av_codec), av_codec);
@@ -462,13 +464,13 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                                 return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
                                                 s->out_codec, s->width, s->height, s->pitch);
 #else
-                                fprintf(stderr, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
 #endif
                         } else if (s->in_codec == MJPG) {
-                                fprintf(stderr, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
                                 return FALSE;
                         } else {
-                                fprintf(stderr, "[lavd] Error while decoding frame.\n");
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
                                 return FALSE;
                         }
                 }
@@ -498,7 +500,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                                         s->last_frame_seq = frame_seq;
                                 }
                         } else {
-                                fprintf(stderr, "[lavd] Missing appropriate I-frame "
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
                                                 "(last valid %d, this %d).\n", s->last_frame_seq,
                                                 frame_seq);
                                 res = FALSE;
