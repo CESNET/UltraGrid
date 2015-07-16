@@ -466,8 +466,9 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                                         r.x = 0;
                                         r.y = j;
                                         testcard_fillRect(&s->pixmap, &r, 0xffffffff);
+                                        r.h = rect_size - (rect_size * 3 / 4);
                                         r.y = j + rect_size * 3 / 4;
-                                        testcard_fillRect(&s->pixmap, &r, 0);
+                                        testcard_fillRect(&s->pixmap, &r, 0xff000000);
                                 }
                                 for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
                                         r.w = rect_size;
