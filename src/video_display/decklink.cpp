@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -118,7 +118,11 @@ public:
 };
 
 class DeckLinkFrame;
-typedef pair<queue<DeckLinkFrame *> , mutex> buffer_pool_t;
+
+struct buffer_pool_t {
+        queue<DeckLinkFrame *> frame_queue;
+        mutex lock;
+};
 
 class DeckLinkTimecode : public IDeckLinkTimecode{
                 BMDTimecodeBCD timecode;
@@ -302,6 +306,8 @@ static void show_help(void)
                         print_output_modes(deckLink);
 #ifdef HAVE_MACOSX
                         CFRelease(deviceNameString);
+#elif defined WIN32
+                        SysFreeString(deviceNameString);
 #endif
                         free((void *)deviceNameCString);
                 } else {
@@ -343,26 +349,30 @@ struct video_frame *
 display_decklink_getf(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
+        assert(s->magic == DECKLINK_MAGIC);
+
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
         auto deckLinkFrames =  new vector<IDeckLinkMutableVideoFrame *>(s->devices_cnt);
         out->dispose_udata = (void *) deckLinkFrames;
-
-        assert(s->magic == DECKLINK_MAGIC);
+        out->dispose = [](struct video_frame *frame) {
+                delete (vector<IDeckLinkMutableVideoFrame *> *) frame->dispose_udata;
+                vf_free(frame);
+        };
 
         if (s->initialized) {
                 for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
                         const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
                         IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
-                        lock_guard<mutex> lg(s->buffer_pool.second);
+                        lock_guard<mutex> lg(s->buffer_pool.lock);
 
-                        while (!s->buffer_pool.first.empty()) {
-                                auto tmp = s->buffer_pool.first.front();
+                        while (!s->buffer_pool.frame_queue.empty()) {
+                                auto tmp = s->buffer_pool.frame_queue.front();
                                 IDeckLinkMutableVideoFrame *frame;
                                 if (s->stereo)
                                         frame = dynamic_cast<DeckLink3DFrame *>(tmp);
                                 else
                                         frame = dynamic_cast<DeckLinkFrame *>(tmp);
-                                s->buffer_pool.first.pop();
+                                s->buffer_pool.frame_queue.pop();
                                 if (!frame || // wrong type
                                                 frame->GetWidth() != (long) s->vid_desc.width ||
                                                 frame->GetHeight() != (long) s->vid_desc.height ||
@@ -489,8 +499,7 @@ int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
                 }
         }
 
-        delete (vector<IDeckLinkMutableVideoFrame *> *) frame->dispose_udata;
-        vf_free(frame);
+        frame->dispose(frame);
 
         gettimeofday(&tv, NULL);
         double seconds = tv_diff(tv, s->tv);
@@ -558,7 +567,14 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                         break;
                                 }
                         }
+                        free((void *) modeNameCString);
+#if defined WIN32
+                        SysFreeString(modeNameString);
+#elif defined HAVE_MACOSX
+                        CFRelease(modeNameString);
+#endif
                 }
+                deckLinkDisplayMode->Release();
         }
         displayModeIterator->Release();
         
@@ -1044,9 +1060,9 @@ void display_decklink_done(void *state)
                 }
         }
 
-        while (!s->buffer_pool.first.empty()) {
-                auto tmp = s->buffer_pool.first.front();
-                s->buffer_pool.first.pop();
+        while (!s->buffer_pool.frame_queue.empty()) {
+                auto tmp = s->buffer_pool.frame_queue.front();
+                s->buffer_pool.frame_queue.pop();
                 delete tmp;
         }
 
@@ -1237,8 +1253,8 @@ ULONG DeckLinkFrame::AddRef()
 ULONG DeckLinkFrame::Release()
 {
         if (--ref == 0) {
-                lock_guard<mutex> lg(buffer_pool.second);
-                buffer_pool.first.push(this);
+                lock_guard<mutex> lg(buffer_pool.lock);
+                buffer_pool.frame_queue.push(this);
         }
 	return ref;
 }
@@ -1448,6 +1464,8 @@ static void print_output_modes (IDeckLink* deckLink)
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
 #ifdef HAVE_MACOSX
                         CFRelease(displayModeString);
+#elif defined WIN32
+                        SysFreeString(displayModeString);
 #endif
                         free((void *)displayModeCString);
                 }
