@@ -595,12 +595,13 @@ static void * control_thread(void *args)
                                         if(ret <= 0) {
                                                 struct client *next;
                                                 CLOSESOCKET(cur->fd);
-                                                if(cur->prev) {
+                                                if (cur->prev) {
                                                         cur->prev->next = cur->next;
-                                                        cur->next->prev = cur->prev;
                                                 } else {
                                                         clients = cur->next;
-                                                        clients->prev = NULL;
+                                                }
+                                                if (cur->next) {
+                                                        cur->next->prev = cur->prev;
                                                 }
                                                 next = cur->next;
                                                 free(cur);
