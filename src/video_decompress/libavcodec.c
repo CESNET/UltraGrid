@@ -162,8 +162,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         s->broken_h264_mt_decoding_workaroud_active = true;
                 }
         } else {
-                log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
 #if 0
+                log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
@@ -476,6 +476,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 }
 
                 if(got_frame) {
+                        log_msg(LOG_LEVEL_DEBUG, "%c", av_get_picture_type_char(s->frame->pict_type));
                         /* pass frame only if this is I-frame or we have complete
                          * GOP (assuming we are not using B-frames */
                         if(
