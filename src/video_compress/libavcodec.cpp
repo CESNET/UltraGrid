@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,20 +64,21 @@
 
 using namespace std;
 
-#define DEFAULT_CODEC MJPG
-#define DEFAULT_X264_PRESET "superfast"
+static constexpr const codec_t DEFAULT_CODEC = MJPG;
+static constexpr const char *DEFAULT_X264_PRESET = "superfast";
 static constexpr const char *DEFAULT_NVENC_H264_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
+static constexpr const char *DEFAULT_THREAD_MODE = "slice";
+
 namespace {
 
 struct setparam_param {
-        AVCodec *codec;
         bool have_preset;
         double fps;
         bool interlaced;
         bool no_periodic_intra;
         int cpu_count;
-        string threads;
+        string thread_mode;
 };
 
 typedef struct {
@@ -87,15 +88,12 @@ typedef struct {
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
 
-
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264(AVCodecContext *, struct setparam_param *);
 static void setparam_h265(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
-static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
-
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         {H264, { AV_CODEC_ID_H264,
@@ -151,7 +149,6 @@ struct state_video_compress_libav {
         // for every core - parts of the above
         AVFrame           **in_frame_part;
         int                 cpu_count;
-        AVCodec            *codec;
         AVCodecContext     *codec_ctx;
 
         unsigned char      *decoded;
@@ -186,17 +183,6 @@ pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt);
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
-
-static void libavcodec_vid_enc_frame_dispose(struct video_frame *frame) {
-#if LIBAVCODEC_VERSION_MAJOR >= 54
-        AVPacket *pkt = (AVPacket *) frame->dispose_udata;
-        av_free_packet(pkt);
-        free(pkt);
-#else
-        free(frame->tiles[0].data);
-#endif // LIBAVCODEC_VERSION_MAJOR >= 54
-        vf_free(frame);
-}
 
 static void print_codec_info(const AVCodecID id, char *buf, size_t buflen)
 {
@@ -235,7 +221,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
                         "[:subsampling=<subsampling>][:preset=<preset>][:gop=<gop>]"
-                        "[:no_periodic_intra][:threads=<thr_mode>][]\n");
+                        "[:disable_intra_refresh][:threads=<thr_mode>][]\n");
         printf("\t\t<encoder> specifies encoder (eg. nvenc or libx264 for H.264)\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
@@ -253,7 +239,7 @@ static void usage() {
                 }
 
         }
-        printf("\t\tno_periodic_intra - do not use Periodic Intra Refresh with H.264\n");
+        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh with H.264\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
@@ -295,11 +281,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
                                 char *preset = item + strlen("preset=");
                                 s->preset = strdup(preset);
-                        } else if (strcasecmp("no_periodic_intra", item) == 0) {
+                        } else if (strcasecmp("disable_intra_refresh", item) == 0) {
                                 s->params.no_periodic_intra = true;
                         } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                                 char *threads = item + strlen("threads=");
-                                s->params.threads = threads;
+                                s->params.thread_mode = threads;
                         } else if(strncasecmp("encoder=", item, strlen("encoder=")) == 0) {
                                 char *backend = item + strlen("encoder=");
                                 s->backend = backend;
@@ -341,12 +327,12 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
          *         you wish to have smaller code */
         avcodec_register_all();
 
-        s->codec = NULL;
         s->codec_ctx = NULL;
         s->in_frame = NULL;
         s->requested_codec_id = VIDEO_CODEC_NONE;
         s->requested_subsampling = 0;
         s->preset = NULL;
+        s->params.thread_mode = DEFAULT_THREAD_MODE;
 
         s->requested_bitrate = -1;
 
@@ -389,6 +375,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         int ret;
         codec_t ug_codec = VIDEO_CODEC_NONE;
         AVPixelFormat pix_fmt;
+        AVCodec *codec = nullptr;
         double avg_bpp; // average bit per pixel
 
 #ifndef HAVE_GPL
@@ -401,22 +388,20 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 #endif
 
-        s->codec = nullptr;
-
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
-                s->codec = avcodec_find_encoder_by_name(s->backend.c_str());
-                if (!s->codec) {
+                codec = avcodec_find_encoder_by_name(s->backend.c_str());
+                if (!codec) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: requested encoder \"%s\" not found!\n",
                                         s->backend.c_str());
                         return false;
                 }
-                if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_ug_for_av_codec(s->codec->id)) {
+                if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_ug_for_av_codec(codec->id)) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Codec and encoder don't match!\n");
                         return false;
 
                 }
-                ug_codec = get_ug_for_av_codec(s->codec->id);
+                ug_codec = get_ug_for_av_codec(codec->id);
                 if (ug_codec == VIDEO_CODEC_NONE) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Requested encoder not supported in UG!\n");
                         return false;
@@ -437,26 +422,26 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         // Else, try to open prefered encoder for requested codec
-        if (!s->codec && codec_params[ug_codec].prefered_encoder) {
+        if (!codec && codec_params[ug_codec].prefered_encoder) {
                 const char *prefered_encoder = codec_params[ug_codec].prefered_encoder;
-                s->codec = avcodec_find_encoder_by_name(prefered_encoder);
-                if (!s->codec) {
+                codec = avcodec_find_encoder_by_name(prefered_encoder);
+                if (!codec) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
                                         prefered_encoder);
                 }
         }
         // Finally, try to open any encoder for requested codec
-        if (!s->codec) {
-                s->codec = avcodec_find_encoder(codec_params[ug_codec].av_codec);
+        if (!codec) {
+                codec = avcodec_find_encoder(codec_params[ug_codec].av_codec);
         }
 
-        if (!s->codec) {
+        if (!codec) {
                 log_msg(LOG_LEVEL_ERROR, "Libavcodec doesn't contain encoder for specified codec.\n"
                                 "Hint: Check if you have libavcodec-extra package installed.\n");
                 return false;
         } else {
                 log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
-                                get_codec_name(ug_codec), s->codec->name);
+                                get_codec_name(ug_codec), codec->name);
         }
 
         enum AVPixelFormat requested_pix_fmts[100];
@@ -493,7 +478,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
                 // there was a problem with codecs other than PIX_FMT_NV12 with NVENC.
                 // Therefore, use only this with NVENC for now.
-                if (strcmp(s->codec->name, "nvenc") == 0) {
+                if (strcmp(codec->name, "nvenc") == 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Using %s. Other pix formats seem to be broken with NVENC.\n",
                                         av_get_pix_fmt_name(AV_PIX_FMT_NV12));
                         requested_pix_fmts[0] = AV_PIX_FMT_NV12;
@@ -522,7 +507,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
 
-        pix_fmt = get_best_pix_fmt(requested_pix_fmts, s->codec->pix_fmts);
+        pix_fmt = get_best_pix_fmt(requested_pix_fmts, codec->pix_fmts);
         if(pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format.\n");
                 if (s->requested_subsampling != 0) {
@@ -537,7 +522,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->selected_pixfmt = pix_fmt;
 
         // avcodec_alloc_context3 allocates context and sets default value
-        s->codec_ctx = avcodec_alloc_context3(s->codec);
+        s->codec_ctx = avcodec_alloc_context3(codec);
         if (!s->codec_ctx) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video codec context\n");
                 return false;
@@ -610,7 +595,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->params.have_preset = s->preset != 0;
         s->params.fps = desc.fps;
-        s->params.codec = s->codec;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
         s->params.cpu_count = s->cpu_count;
 
@@ -618,7 +602,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         pthread_mutex_lock(s->lavcd_global_lock);
         /* open it */
-        if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
+        if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not open codec\n");
                 pthread_mutex_unlock(s->lavcd_global_lock);
                 return false;
@@ -798,11 +782,21 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 cleanup(s);
                 int ret = configure_with(s, video_desc_from_frame(tx.get()));
                 if(!ret) {
-                        goto error;
+                        return {};
                 }
         }
 
-        out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), libavcodec_vid_enc_frame_dispose);
+        auto dispose = [](struct video_frame *frame) {
+#if LIBAVCODEC_VERSION_MAJOR >= 54
+                AVPacket *pkt = (AVPacket *) frame->dispose_udata;
+                av_free_packet(pkt);
+                free(pkt);
+#else
+                free(frame->tiles[0].data);
+#endif // LIBAVCODEC_VERSION_MAJOR >= 54
+                vf_free(frame);
+        };
+        out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
 #if LIBAVCODEC_VERSION_MAJOR >= 54
         pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
@@ -868,7 +862,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                         s->in_frame, &got_output);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
-                goto error;
+                return {};
         }
 
         if (got_output) {
@@ -876,7 +870,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 out->tiles[0].data = (char *) pkt->data;
                 out->tiles[0].data_len = pkt->size;
         } else {
-                goto error;
+                return {};
         }
 #else
         /* encode the image */
@@ -885,23 +879,20 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                         s->in_frame);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
-                goto error;
+                return {};
         }
 
         if (ret) {
                 //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
                 out->tiles[0].data_len = ret;
         } else {
-                goto error;
+                return {};
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
         log_msg(LOG_LEVEL_VERBOSE, "[lavc] Compressed frame size: %d\n", out->tiles[0].data_len);
 
         return out;
-
-error:
-        return NULL;
 }
 
 static void cleanup(struct state_video_compress_libav *s)
@@ -939,24 +930,24 @@ static void libavcodec_compress_done(struct module *mod)
 
 static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        if (!param->threads.empty() && param->threads != "no")  {
-                if (param->threads == "slice") {
+        if (!param->thread_mode.empty() && param->thread_mode != "no")  {
+                if (param->thread_mode == "slice") {
                         // zero should mean count equal to the number of virtual cores
-                        if (param->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+                        if (codec_ctx->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
                                 codec_ctx->thread_count = 0;
                                 codec_ctx->thread_type = FF_THREAD_SLICE;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
                         }
-                } else if (param->threads == "frame") {
-                        if (param->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                } else if (param->thread_mode == "frame") {
+                        if (codec_ctx->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                                 codec_ctx->thread_count = 0;
                                 codec_ctx->thread_type = FF_THREAD_FRAME;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support frame-based multithreading.\n");
                         }
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->threads.c_str());
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->thread_mode.c_str());
                 }
         }
 }

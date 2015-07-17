@@ -62,7 +62,6 @@ using std::min;
 
 struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;
-        AVCodec         *codec;
         AVCodecContext  *codec_ctx;
         AVFrame         *frame;
         AVPacket         pkt;
@@ -113,6 +112,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc)
 {
         int codec_id;
+        AVCodec *codec;
         switch(desc.color_spec) {
                 case H264:
                         codec_id = AV_CODEC_ID_H264;
@@ -137,15 +137,15 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         return false;
         }
 
-        s->codec = avcodec_find_decoder(codec_id);
-        if(s->codec == NULL) {
+        codec = avcodec_find_decoder(codec_id);
+        if (codec == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to find codec.\n");
                 return false;
         } else {
-                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s.\n", s->codec->name);
+                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s.\n", codec->name);
         }
 
-        s->codec_ctx = avcodec_alloc_context3(s->codec);
+        s->codec_ctx = avcodec_alloc_context3(codec);
         if(s->codec_ctx == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to allocate codec context.\n");
                 return false;
@@ -153,7 +153,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
 
         // zero should mean count equal to the number of virtual cores
-        if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+        if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
                 if(!broken_h264_mt_decoding) {
                         s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
@@ -177,7 +177,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
 
         pthread_mutex_lock(s->global_lavcd_lock);
-        if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
+        if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                 log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to open decoder.\n");
                 pthread_mutex_unlock(s->global_lavcd_lock);
                 return false;
