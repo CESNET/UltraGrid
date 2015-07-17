@@ -278,7 +278,7 @@ struct state_video_decoder
         volatile unsigned long int fec_ok, fec_nok;
         long int last_buffer_number;
         /// @}
-        timed_message       slow_msg; ///< shows warning ony in certain interval
+        timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
 
         synchronized_queue<main_msg_reconfigure *> msg_queue;
 
@@ -1775,10 +1775,14 @@ next_packet:
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
 
-                if(decoder->fec_queue.size() > 0) {
-                        decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
-                }
+                auto t0 = std::chrono::high_resolution_clock::now();
                 decoder->fec_queue.push(move(fec_msg));
+                auto t1 = std::chrono::high_resolution_clock::now();
+                double tpf = 1.0 / decoder->display_desc.fps;
+                if (std::chrono::duration_cast<std::chrono::duration<double>>(t1 - t0).count() > tpf && decoder->displayed > 20) {
+                        decoder->slow_msg.print("Your computer may be too SLOW to play this !!!\n");
+                }
+
         }
 cleanup:
         ;

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,15 +38,28 @@
 #ifndef TIMED_MESSAGE_H_
 #define TIMED_MESSAGE_H_
 
+#include <chrono>
+
+#include "debug.h"
+
 /**
  * Simple tool to display a warning message at most in some amount of seconds
  * (default 5).
  */
+template<int log_level = LOG_LEVEL_INFO>
 struct timed_message {
-        timed_message(double sec = 5);
-        void print(const char *str);
+        inline timed_message(double sec = 5) : m_last_displayed(std::chrono::steady_clock::now() - std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::duration<double>(sec))), m_sec(sec) {}
+        inline void print(const char *str) {
+                auto t = std::chrono::steady_clock::now();
 
-        struct timeval m_last_displayed;
+                if (std::chrono::duration_cast<std::chrono::duration<double>>(t - m_last_displayed).count() > m_sec) {
+                        LOG(log_level) << str;
+                        m_last_displayed = t;
+                }
+
+        }
+private:
+        std::chrono::steady_clock::time_point m_last_displayed;
         double m_sec;
 };
 

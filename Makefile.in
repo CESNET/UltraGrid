@@ -123,7 +123,6 @@ OBJS	      = @OBJS@ \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
-		src/utils/timed_message.o \
 		src/utils/vf_split.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
