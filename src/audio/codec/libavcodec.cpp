@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2014 CESNET z.s.p.o.
+ * Copyright (c) 2012-2015 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "audio/codec/libavcodec.h"
+#include "debug.h"
 
 #include <memory>
 
@@ -55,6 +56,7 @@ extern "C" {
 #include <libavutil/mem.h>
 }
 
+#include <vector>
 #include <unordered_map>
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -118,7 +120,6 @@ struct libavcodec_codec_state {
         audio_channel       output_channel;
 
         void               *samples;
-        int                 change_bps_to;
 
         int                 bitrate;
 };
@@ -178,6 +179,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 return NULL;
         }
 
+        s->codec_ctx->strict_std_compliance = -2;
+
         s->bitrate = bitrate;
 
         s->samples = NULL;
@@ -223,42 +226,55 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         pthread_mutex_unlock(s->libav_global_lock);
 
         /*  put sample parameters */
-        s->codec_ctx->bit_rate = s->bitrate;
+        if (s->bitrate > 0) {
+                s->codec_ctx->bit_rate = s->bitrate;
+        }
         s->codec_ctx->sample_rate = desc.sample_rate;
-        s->change_bps_to = 0;
+
+        vector<enum AVSampleFormat> sample_fmts;
+
         switch(desc.bps) {
                 case 1:
-                        s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_U8;
+                        sample_fmts.push_back(AV_SAMPLE_FMT_U8);
+                        sample_fmts.push_back(AV_SAMPLE_FMT_U8P);
                         break;
                 case 2:
-                        s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_S16;
+                        sample_fmts.push_back(AV_SAMPLE_FMT_S16);
+                        sample_fmts.push_back(AV_SAMPLE_FMT_S16P);
                         break;
                 case 3:
-                        s->change_bps_to = 4;
                 case 4:
-                        s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_S32;
+                        sample_fmts.push_back(AV_SAMPLE_FMT_S32);
+                        sample_fmts.push_back(AV_SAMPLE_FMT_S32P);
+                        sample_fmts.push_back(AV_SAMPLE_FMT_FLT);
+                        sample_fmts.push_back(AV_SAMPLE_FMT_FLTP);
                         break;
         }
 
-        /// @todo
-        /// Check also planar formats since we can use both (we encode always one channel only)
-        if(!check_sample_fmt(s->codec, s->codec_ctx->sample_fmt)) {
-                s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_NONE;
+        s->codec_ctx->sample_fmt = AV_SAMPLE_FMT_NONE;
+
+        for (auto it = sample_fmts.begin(); it != sample_fmts.end(); ++it) {
+                if (check_sample_fmt(s->codec, *it)) {
+                        s->codec_ctx->sample_fmt = *it;
+                        break;
+                }
+        }
+
+        if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_NONE) {
                 int i = 0;
                 while (s->codec->sample_fmts[i] != AV_SAMPLE_FMT_NONE) {
-                        if (s->codec->sample_fmts[i] == AV_SAMPLE_FMT_FLT ||
-                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_FLTP ||
-                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_DBL ||
-                                        s->codec->sample_fmts[i] == AV_SAMPLE_FMT_DBLP) {
-                                i++;
-                                continue;
-                        } else {
+                        if (s->codec->sample_fmts[i] != AV_SAMPLE_FMT_DBL &&
+                                        s->codec->sample_fmts[i] != AV_SAMPLE_FMT_DBLP) {
                                 s->codec_ctx->sample_fmt = s->codec->sample_fmts[i];
                                 break;
                         }
+                        i++;
                 }
-                assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_NONE);
-                s->change_bps_to = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+        }
+
+        if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_NONE) {
+                log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unsupported audio sample!\n");
+                return false;
         }
 
         s->codec_ctx->channels = 1;
@@ -307,7 +323,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
 
         s->output_channel.sample_rate = desc.sample_rate;
-        s->output_channel.bps = s->change_bps_to == 0 ? desc.bps : s->change_bps_to;
+        s->output_channel.bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         s->saved_desc = desc;
 
         return true;
@@ -343,6 +359,9 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
         assert(s->magic == MAGIC);
 
+        assert(s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBL && // not supported yet
+                        s->codec_ctx->sample_fmt != AV_SAMPLE_FMT_DBLP);
+
         if(channel) {
                 if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
                         if(!reinitialize_coder(s, audio_desc_from_audio_channel(channel))) {
@@ -351,10 +370,23 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         }
                 }
 
-                if(s->change_bps_to) {
-                        change_bps((char *) s->tmp.data + s->tmp.data_len, s->change_bps_to,
-                                        channel->data, s->saved_desc.bps, channel->data_len);
-                        s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->change_bps_to;
+                if (s->output_channel.bps != channel->bps || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
+                        if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
+                                if (s->output_channel.bps == channel->bps) {
+                                        int2float((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
+                                        s->tmp.data_len += channel->data_len;
+                                } else {
+                                        size_t data_len = channel->data_len / channel->bps * 4;
+                                        unique_ptr<char []> tmp(new char[data_len]);
+                                        change_bps((char *) tmp.get(), 4, channel->data, channel->bps, channel->data_len);
+                                        int2float((char *) s->tmp.data + s->tmp.data_len, tmp.get(), data_len);
+                                        s->tmp.data_len += data_len;
+                                }
+                        } else {
+                                change_bps((char *) s->tmp.data + s->tmp.data_len, s->output_channel.bps,
+                                                channel->data, s->saved_desc.bps, channel->data_len);
+                                s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->output_channel.bps;
+                        }
                 } else {
                         memcpy((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
                         s->tmp.data_len += channel->data_len;

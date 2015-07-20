@@ -57,6 +57,7 @@
 #include "audio/codec/libavcodec.h"
 #include "audio/utils.h"
 #include "debug.h"
+#include "utils/misc.h"
 
 #include "lib_common.h"
 
@@ -398,7 +399,7 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg)
 {
         char *val = get_val_from_cfg(audio_codec_cfg, "bitrate=");
         if (val) {
-                int ret =  atoi(val);
+                int ret =  unit_evaluate(val);
                 free(val);
                 return ret;
         } else {
