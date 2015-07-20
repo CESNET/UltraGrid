@@ -128,6 +128,7 @@ static const struct codec_info_t codec_info[] = {
         [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, 0, FALSE, TRUE, FALSE, "jpg"},
         [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
         [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h264"},
+        [H265] = {H265, "H.265", to_fourcc('H','E','V','C'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h265"},
         [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
         [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
         [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
