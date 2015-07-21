@@ -64,6 +64,8 @@
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
 
+#include "syphon_server.h"
+
 #include <algorithm>
 #include <condition_variable>
 #include <mutex>
@@ -189,6 +191,7 @@ struct state_gl {
         bool            sync_on_vblank;
         bool            paused;
         bool            show_cursor;
+        string          syphon_srv_name;
 
         bool should_exit_main_loop; // used only for GLUT (not freeglut)
 
@@ -196,12 +199,15 @@ struct state_gl {
 
         struct module   mod;
 
+        void *syphon;
+
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 sync_on_vblank(true), paused(false), show_cursor(false), 
-                should_exit_main_loop(false), window_size_factor(1.0)
+                should_exit_main_loop(false), window_size_factor(1.0),
+                syphon(nullptr)
         {
                 gettimeofday(&tv, NULL);
                 memset(&current_desc, 0, sizeof(current_desc));
@@ -242,7 +248,7 @@ extern "C" void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor:|size=X%%]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor:|size=X%%|syphon[=<name>]]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
@@ -250,6 +256,7 @@ static void gl_show_help(void) {
         printf("\t\tcursor\t\tshow visible cursor\n");
         printf("\t\tsize\t\tspecifies desired size of window compared "
                         " to native resolution (in percents)\n");
+        printf("\t\tuse Syphon (optionally with name)\n");
 
         printf("\n\nKeyboard shortcuts:\n");
         printf("\t\t'f'\t\ttoggle fullscreen\n");
@@ -328,6 +335,18 @@ void * display_gl_init(struct module *parent, const char *fmt, unsigned int flag
                                 s->sync_on_vblank = false;
                         } else if (!strcasecmp(tok, "cursor")) {
                                 s->show_cursor = true;
+                        } else if (!strncmp(tok, "syphon", strlen("syphon"))) {
+#ifdef HAVE_SYPHON
+                                if (!strncmp(tok, "syphon=", strlen("syphon="))) {
+                                        s->syphon_srv_name = tok + strlen("syphon=");
+                                } else {
+                                        s->syphon_srv_name = "UltraGrid";
+                                }
+#else
+                                log_msg(LOG_LEVEL_ERROR, "[GL] Syphon support not compiled in.\n");
+                                delete s;
+                                return NULL;
+#endif
                         } else if(!strncmp(tok, "size=",
                                                 strlen("size="))) {
                                 s->window_size_factor =
@@ -518,6 +537,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         display_gl_set_sync_on_vblank(s->sync_on_vblank ? 1 : 0);
         gl_check_error();
 
+#ifdef HAVE_SYPHON
+        if (!s->syphon && !s->syphon_srv_name.empty()) {
+                s->syphon = syphon_server_register(CGLGetCurrentContext(), s->syphon_srv_name.c_str());
+        }
+#endif
+
         s->current_display_desc = desc;
 }
 
@@ -635,6 +660,11 @@ static void glut_idle_callback(void)
 
         gl_render(s, frame->tiles[0].data);
         gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
+#ifdef HAVE_SYPHON
+        if (s->syphon) {
+                syphon_server_publish(s->syphon, frame->tiles[0].width, frame->tiles[0].height, s->texture_display);
+        }
+#endif
         glutPostRedisplay();
 
         /* FPS Data, this is pretty ghetto though.... */
@@ -1022,6 +1052,12 @@ void display_gl_done(void *state)
         }
 
         vf_free(s->current_frame);
+
+#ifdef HAVE_SYPHON
+        if (s->syphon) {
+                syphon_server_unregister(s->syphon);
+        }
+#endif
         
         delete s;
 }

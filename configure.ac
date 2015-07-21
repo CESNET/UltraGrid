@@ -2846,6 +2846,25 @@ AC_SUBST(LDGM_GPU_LIBS)
 AC_SUBST(LDGM_GPU_LIB_TARGET)
 
 # -------------------------------------------------------------------------------------------------
+# Syphon
+# -------------------------------------------------------------------------------------------------
+syphon=no
+AC_ARG_ENABLE(syphon,
+[  --disable-syphon        enables Syphon support (default is disabled)]
+[                          Requires: Syphon],
+    [syphon_req=$enableval],
+    [syphon_req=no]
+    )
+
+if test $syphon_req == yes
+then
+        AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
+        LIBS="$LIBS -framework Syphon"
+        OBJS="$OBJS src/syphon_server.o"
+        syphon=yes
+fi
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 
@@ -2880,6 +2899,7 @@ RESULT=\
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA
   Library live555 ............. $livemedia
+  Syphon ...................... $syphon
 
   AJA ......................... $aja
   AV Foundation ............... $avfoundation
