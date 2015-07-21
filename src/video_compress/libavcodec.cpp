@@ -66,7 +66,7 @@ using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr const char *DEFAULT_X264_PRESET = "superfast";
-static constexpr const char *DEFAULT_NVENC_H264_PRESET = "llhp";
+static constexpr const char *DEFAULT_NVENC_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 
@@ -239,7 +239,7 @@ static void usage() {
                 }
 
         }
-        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh with H.264\n");
+        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (H.264/H.265)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
@@ -478,7 +478,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
                 // there was a problem with codecs other than PIX_FMT_NV12 with NVENC.
                 // Therefore, use only this with NVENC for now.
-                if (strcmp(codec->name, "nvenc") == 0) {
+                if (strncmp(codec->name, "nvenc", strlen("nvenc")) == 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Using %s. Other pix formats seem to be broken with NVENC.\n",
                                         av_get_pix_fmt_name(AV_PIX_FMT_NV12));
                         requested_pix_fmts[0] = AV_PIX_FMT_NV12;
@@ -952,74 +952,30 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
-static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        string params(
-               //"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
-               "b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
-                "no-deblock=1:no-sao=1:no-weightb=1:no-weightp=1:no-b-intra=1:" 
-               "me=dia:max-merge=1:subme=0:no-strong-intra-smoothing=1:"
-                "rc-lookahead=2:ref=1:scenecut=0:" 
-               "no-cutree=1:no-weightp=1:"
-               "rd=0:" // RDO mode decision
-               "ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
-               "frame-threads=3:pme=1:" // trade some latency for better parallelism
-               "keyint=180:min-keyint=120:" // I frames
-               "aq_mode=0");
-
-        if (param->interlaced) {
-                params += ":tff=1";
+        int ret;
+        if (!param->have_preset) {
+                av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_PRESET, 0);
         }
-
-        if(strlen(params.c_str()) > 0) {
-                int ret;
-                // newer LibAV
-                ret = av_opt_set(codec_ctx->priv_data, "x265-params", params.c_str(), 0);
-                if(ret != 0) {
-                        // newer FFMPEG
-                        ret = av_opt_set(codec_ctx->priv_data, "x265opts", params.c_str(), 0);
-                }
-                if(ret != 0) {
-                        // older version of both
-                        // or superfast?? requires + some 70 % CPU but does not cause posterization
-                        ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Old FFMPEG/LibAV detected. "
-                                        "Try supplying 'preset=superfast' argument to "
-                                        "avoid posterization!\n");
-                }
-                if(ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
-                }
+        ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CBR.\n");
         }
-
-        av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
-        av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
-
-        // try to keep frame sizes as even as possible
+        char gpu[3] = "";
+        snprintf(gpu, 2, "%d", cuda_devices[0]);
+        ret = av_opt_set(codec_ctx->priv_data, "gpu", gpu, 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set GPU.\n");
+        }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-        //codec_ctx->rc_buffer_aggressivity = 1.0;
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
-        codec_ctx->qcompress = 0.0f;
-        //codec_ctx->qblur = 0.0f;
-        //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-        //codec_ctx->rc_max_available_vbv_use = 1.0f;
-        codec_ctx->qmin = 0;
-        codec_ctx->qmax = 69;
-        codec_ctx->max_qdiff = 69;
-        //codec_ctx->rc_qsquish = 0;
-        //codec_ctx->scenechange_threshold = 100;
-
-#ifndef DISABLE_H265_INTRA_REFRESH
-        codec_ctx->refs = 1;
-        av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
-#endif // not defined DISABLE_H265_INTRA_REFRESH       
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
 }
-
 
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
+        int intra_refresh_refs = 0;
         if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
                 if (!param->have_preset) {
                         // ultrafast + --aq-mode 2
@@ -1071,28 +1027,95 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 codec_ctx->max_qdiff = 69;
                 //codec_ctx->rc_qsquish = 0;
                 //codec_ctx->scenechange_threshold = 100;
-        } else if (strcmp(codec_ctx->codec->name, "nvenc") == 0) {
-                if (!param->have_preset) {
-                        av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_H264_PRESET, 0);
-                }
-                ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
+                intra_refresh_refs = 1;
+        } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
+                        strcmp(codec_ctx->codec->name, "nvenc") == 0) {
+                configure_nvenc(codec_ctx, param);
+                intra_refresh_refs = 0; /// @todo consider using 16 and notifying encoder about missing reference frames with NvEncInvalidateRefFrames (0 is default)
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
+        }
+
+        if (!param->no_periodic_intra) { // for NVENC, this is not currently available upstream
+                codec_ctx->refs = intra_refresh_refs;
+                ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CBR.\n");
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
                 }
-                char gpu[3] = "";
-                snprintf(gpu, 2, "%d", cuda_devices[0]);
-                ret = av_opt_set(codec_ctx->priv_data, "gpu", gpu, 0);
+        }
+}
+
+static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        int ret;
+        int intra_refresh_refs = 0;
+        if (strcmp(codec_ctx->codec->name, "libx265") == 0) {
+		string params(
+				//"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
+				"b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
+				"no-deblock=1:no-sao=1:no-weightb=1:no-weightp=1:no-b-intra=1:" 
+				"me=dia:max-merge=1:subme=0:no-strong-intra-smoothing=1:"
+				"rc-lookahead=2:ref=1:scenecut=0:" 
+				"no-cutree=1:no-weightp=1:"
+				"rd=0:" // RDO mode decision
+				"ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
+				"frame-threads=3:pme=1:" // trade some latency for better parallelism
+				"keyint=180:min-keyint=120:" // I frames
+				"aq_mode=0");
+
+		if(strlen(params.c_str()) > 0) {
+			// newer LibAV
+			ret = av_opt_set(codec_ctx->priv_data, "x265-params", params.c_str(), 0);
+			if(ret != 0) {
+				// newer FFMPEG
+				ret = av_opt_set(codec_ctx->priv_data, "x265opts", params.c_str(), 0);
+			}
+			if(ret != 0) {
+				// older version of both
+				// or superfast?? requires + some 70 % CPU but does not cause posterization
+				ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
+				log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Old FFMPEG/LibAV detected. "
+						"Try supplying 'preset=superfast' argument to "
+						"avoid posterization!\n");
+			}
+			if(ret != 0) {
+				log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
+			}
+		}
+
+		ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
                 if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set GPU.\n");
+				log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency.\n");
                 }
-                codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
+		ret = av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
+                if (ret != 0) {
+				log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune fastdecode.\n");
+                }
+
+		// try to keep frame sizes as even as possible
+		codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+		//codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+		//codec_ctx->rc_buffer_aggressivity = 1.0;
+		codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
+		codec_ctx->qcompress = 0.0f;
+		//codec_ctx->qblur = 0.0f;
+		//codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+		//codec_ctx->rc_max_available_vbv_use = 1.0f;
+		codec_ctx->qmin = 0;
+		codec_ctx->qmax = 69;
+		codec_ctx->max_qdiff = 69;
+		//codec_ctx->rc_qsquish = 0;
+		//codec_ctx->scenechange_threshold = 100;
+                intra_refresh_refs = 1;
+        } else if (strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
+                intra_refresh_refs = 0;
+		configure_nvenc(codec_ctx, param);
 	} else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
 
         if (!param->no_periodic_intra) { // for NVENC, this is not currently available upstream
-                codec_ctx->refs = 1;
+                codec_ctx->refs = intra_refresh_refs;
                 ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
