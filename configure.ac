@@ -2092,7 +2092,6 @@ CPPFLAGS=$SAVED_CPPFLAGS
 if test $system = Windows
 then
         JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
-        DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $JPEG_LIB"
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
@@ -2102,6 +2101,7 @@ then
                 "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
         then
                 found_gpujpeg=yes
+                DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
         else
                 found_gpujpeg=no
         fi
