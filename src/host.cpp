@@ -16,7 +16,7 @@
 using namespace std;
 
 unsigned int cuda_device = 0;
-unsigned int audio_capture_channels = 1;
+unsigned int audio_capture_channels = DEFAULT_AUDIO_CAPTURE_CHANNELS;
 
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;

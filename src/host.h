@@ -82,6 +82,7 @@ extern volatile bool should_exit_receiver;
 
 void exit_uv(int status);
 
+#define DEFAULT_AUDIO_CAPTURE_CHANNELS 1
 extern unsigned int audio_capture_channels;
 
 #define MAX_CUDA_DEVICES 4

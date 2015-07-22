@@ -251,7 +251,8 @@ static void usage(void)
         printf("\t                         \tscales received audio\n");
         printf("\n");
         printf("\t--audio-capture-channels <count> number of input channels that will\n");
-        printf("\t                                 be captured (default 2).\n");
+        printf("\t                                 be captured (default %d).\n",
+                        DEFAULT_AUDIO_CAPTURE_CHANNELS);
         printf("\n");
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
