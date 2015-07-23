@@ -122,13 +122,6 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr)
 {
-        if (params.at("mtu").i > RTP_MAX_MTU) {
-                ostringstream oss;
-                oss << "Requested MTU exceeds maximal value allowed by RTP library (" <<
-                        RTP_MAX_PACKET_LEN << ").";
-                throw ug_runtime_error(oss.str(), EXIT_FAIL_USAGE);
-        }
-
         m_participants = pdb_init(0);
         m_requested_receiver = (const char *) params.at("receiver").ptr;
         m_recv_port_number = params.at("rx_port").i;

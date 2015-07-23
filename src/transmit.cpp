@@ -197,6 +197,11 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 {
         struct tx *tx;
 
+        if (mtu > RTP_MAX_MTU) {
+                log_msg(LOG_LEVEL_ERROR, "Requested MTU exceeds maximal value allowed by RTP library (%d B).\n", RTP_MAX_MTU);
+                return NULL;
+        }
+
         tx = (struct tx *) calloc(1, sizeof(struct tx));
         if (tx != NULL) {
                 module_init_default(&tx->mod);
