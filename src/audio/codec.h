@@ -59,7 +59,6 @@ typedef enum {
 
 struct audio_codec {
         const audio_codec_t *supported_codecs;
-        const int *supported_bytes_per_second;
         void *(*init)(audio_codec_t, audio_codec_direction_t, bool, int bitrate);
         audio_channel *(*compress)(void *, audio_channel *);
         audio_channel *(*decompress)(void *, audio_channel *);
@@ -84,7 +83,6 @@ struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
                 audio_codec_t audio_codec, audio_codec_direction_t);
 const audio_frame2 *audio_codec_compress(struct audio_codec_state *, const audio_frame2 *);
 audio_frame2 *audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
-const int *audio_codec_get_supported_bps(struct audio_codec_state *);
 void audio_codec_done(struct audio_codec_state *);
 
 void list_audio_codecs(void);

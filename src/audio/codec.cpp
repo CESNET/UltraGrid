@@ -343,11 +343,6 @@ void audio_codec_done(struct audio_codec_state *s)
         free(s);
 }
 
-const int *audio_codec_get_supported_bps(struct audio_codec_state *s)
-{
-        return audio_codecs[s->index]->supported_bytes_per_second;
-}
-
 audio_codec_t get_audio_codec(const char *codec_str) {
         char *codec = strdup(codec_str);
         if (strchr(codec, ':')) {
@@ -383,6 +378,9 @@ static char *get_val_from_cfg(const char *audio_codec_cfg, const char *key)
         return NULL;
 }
 
+/**
+ * @returns user specified sample rate or 0 if unspecified
+ */
 int get_audio_codec_sample_rate(const char *audio_codec_cfg)
 {
         char *val = get_val_from_cfg(audio_codec_cfg, "sample_rate=");
@@ -391,7 +389,7 @@ int get_audio_codec_sample_rate(const char *audio_codec_cfg)
                 free(val);
                 return ret;
         } else {
-                return 48000;
+                return 0;
         }
 }
 

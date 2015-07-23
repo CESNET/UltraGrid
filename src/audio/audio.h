@@ -111,6 +111,21 @@ struct module;
 #include <utility>
 #include <vector>
 
+class audio_frame2;
+
+class audio_frame2_resampler {
+public:
+        audio_frame2_resampler();
+        ~audio_frame2_resampler();
+private:
+        void *resampler; // type is (SpeexResamplerState *)
+        int resample_from;
+        size_t resample_ch_count;
+        int resample_to;
+
+        friend class audio_frame2;
+};
+
 class audio_frame2
 {
 public:
@@ -135,6 +150,20 @@ public:
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
         static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
+        void change_bps(int new_bps);
+        /**
+         * @note
+         * bps of the frame needs to be 16 bits!
+         *
+         * @param resampler_state opaque state that can holds resampler that dosn't need
+         *                        to be reinitalized during calls on various audio frames.
+         *                        It reinitializes itself when needed (when source or new
+         *                        sample rate changes). Therefore, it is very recommended
+         *                        to use it only in a stream that may change sometimes but
+         *                        do not eg. share it between two streams that has different
+         *                        properties.
+         */
+        void resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
 private:
         int bps;                /* bytes per sample */
         int sample_rate;

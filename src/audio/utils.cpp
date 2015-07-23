@@ -45,9 +45,11 @@
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h" 
+#include "debug.h"
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
+#include <speex/speex_resampler.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -58,6 +60,17 @@
 #endif // WORDS_BIGENDIAN
 
 using namespace std;
+
+audio_frame2_resampler::audio_frame2_resampler() : resampler(nullptr), resample_from(0),
+        resample_ch_count(0), resample_to(0)
+{
+}
+
+audio_frame2_resampler::~audio_frame2_resampler() {
+        if (resampler) {
+                speex_resampler_destroy((SpeexResamplerState *) resampler);
+        }
+}
 
 /**
  * @brief Creates empty audio_frame2
@@ -237,12 +250,99 @@ audio_frame2 audio_frame2::copy_with_bps_change(audio_frame2 const &frame, int n
         for (size_t i = 0; i < ret.channels.size(); i++) {
                 ret.channels[i].second = frame.get_data_len(i) / frame.get_bps() * new_bps;
                 ret.channels[i].first = unique_ptr<char []>(new char[ret.channels[i].second]);
-                change_bps(ret.channels[i].first.get(), new_bps, frame.get_data(i), frame.get_bps(),
+                ::change_bps(ret.channels[i].first.get(), new_bps, frame.get_data(i), frame.get_bps(),
                                 frame.get_data_len(i));
         }
 
         return ret;
 }
+
+void  audio_frame2::change_bps(int new_bps)
+{
+        if (new_bps == bps) {
+                return;
+        }
+
+        std::vector<pair<unique_ptr<char []>, size_t> > new_channels(channels.size());
+
+        for (size_t i = 0; i < channels.size(); i++) {
+                size_t new_size = channels[i].second / bps * new_bps;
+                new_channels[i] = make_pair(unique_ptr<char []>(new char[new_size]), new_size);
+        }
+
+        for (size_t i = 0; i < channels.size(); i++) {
+                ::change_bps(new_channels[i].first.get(), new_bps, get_data(i), get_bps(),
+                                get_data_len(i));
+        }
+
+        bps = new_bps;
+        channels = move(new_channels);
+}
+
+void audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
+{
+        if (new_sample_rate == sample_rate) {
+                return;
+        }
+
+        /// @todo
+        /// speex supports also floats so there could be possibility also to add support for more bps
+        if (bps != 2) {
+                throw logic_error("Only 16 bits per sample are currently for resamling supported!");
+        }
+
+        std::vector<pair<unique_ptr<char []>, size_t> > new_channels(channels.size());
+
+        if (sample_rate != resampler_state.resample_from || new_sample_rate != resampler_state.resample_to || channels.size() != resampler_state.resample_ch_count) {
+                if (resampler_state.resampler) {
+                        speex_resampler_destroy((SpeexResamplerState *) resampler_state.resampler);
+                }
+                resampler_state.resampler = nullptr;
+
+                int err;
+                /// @todo
+                /// Consider lower quality than 10 (max). This will improve both latency and
+                /// performance.
+                resampler_state.resampler = speex_resampler_init(channels.size(), sample_rate,
+                                new_sample_rate, 10, &err);
+                if(err) {
+                        abort();
+                }
+                resampler_state.resample_from = sample_rate;
+                resampler_state.resample_to = new_sample_rate;
+                resampler_state.resample_ch_count = channels.size();
+        }
+
+        for (size_t i = 0; i < channels.size(); i++) {
+                // allocate new storage + 10 ms headroom
+                size_t new_size = channels[i].second * new_sample_rate / sample_rate + new_sample_rate * sizeof(int16_t) / 100;
+                new_channels[i] = make_pair(unique_ptr<char []>(new char[new_size]), new_size);
+        }
+
+        /// @todo 
+        /// Consider doing this in parallel - complex resampling requires some milliseconds.
+        /// Parallel resampling would reduce latency (and improve performance if there is not
+        /// enough single-core power).
+        for (size_t i = 0; i < channels.size(); i++) {
+                uint32_t in_frames = get_data_len(i) / sizeof(int16_t);
+                uint32_t in_frames_orig = in_frames;
+                uint32_t write_frames = new_channels[i].second;
+
+                speex_resampler_process_int(
+                                (SpeexResamplerState *) resampler_state.resampler,
+                                i,
+                                (spx_int16_t *)get_data(i), &in_frames,
+                                (spx_int16_t *)(void *) new_channels[i].first.get(), &write_frames);
+                if (in_frames != in_frames_orig) {
+                        LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
+                }
+                new_channels[i].second = write_frames * sizeof(int16_t);
+        }
+
+        sample_rate = new_sample_rate;
+        channels = move(new_channels);
+}
+
 
 static double get_normalized(const char *in, int bps) {
         int64_t sample = 0;

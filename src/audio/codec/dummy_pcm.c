@@ -107,7 +107,6 @@ static void dummy_pcm_done(void *state)
 
 struct audio_codec dummy_pcm_audio_codec = {
         .supported_codecs = (audio_codec_t[]){ AC_PCM, AC_NONE },
-        .supported_bytes_per_second = NULL,
         .init = dummy_pcm_init,
         .compress = dummy_pcm_compress,
         .decompress = dummy_pcm_decompress,

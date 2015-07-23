@@ -539,11 +539,9 @@ static void libavcodec_done(void *state)
 }
 
 static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
-static int supported_bytes_per_second[] = { 1, 2, 3, 4, 0 };
 
 struct audio_codec libavcodec_audio_codec = {
         supported_codecs,
-        supported_bytes_per_second,
         libavcodec_init,
         libavcodec_compress,
         libavcodec_decompress,
