@@ -1123,15 +1123,15 @@ int main(int argc, char *argv[])
                         display_run(uv->display_device);
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
-                exit_status = e.get_code();
+                exit_uv(e.get_code());
         } catch (runtime_error const &e) {
                 cerr << e.what() << endl;
-                exit_status = EXIT_FAILURE;
+                exit_uv(EXIT_FAILURE);
         } catch (string const &str) {
                 cerr << str << endl;
-                exit_status = EXIT_FAILURE;
+                exit_uv(EXIT_FAILURE);
         } catch (int i) {
-                exit_status = i;
+                exit_uv(i);
         }
 
 cleanup:
