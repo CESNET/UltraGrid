@@ -88,6 +88,7 @@
 #define STRINGIFY(A) #A
 
 #define MAX_BUFFER_SIZE 1
+#define SYSTEM_VSYNC 0xFF
 
 using namespace std;
 
@@ -188,7 +189,7 @@ struct state_gl {
 
         struct timeval  tv;
 
-        bool            sync_on_vblank;
+        int             vsync;
         bool            paused;
         bool            show_cursor;
         string          syphon_srv_name;
@@ -205,7 +206,7 @@ struct state_gl {
                 fbo_id(0), texture_display(0), texture_uyvy(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
-                sync_on_vblank(true), paused(false), show_cursor(false), 
+                vsync(1), paused(false), show_cursor(false),
                 should_exit_main_loop(false), window_size_factor(1.0),
                 syphon(nullptr)
         {
@@ -252,6 +253,7 @@ static void gl_show_help(void) {
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
+        printf("\t\nvsync=<x>\t\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
         printf("\t\tcursor\t\tshow visible cursor\n");
         printf("\t\tsize\t\tspecifies desired size of window compared "
@@ -332,7 +334,13 @@ void * display_gl_init(struct module *parent, const char *fmt, unsigned int flag
                                 char *pos = strchr(tok,'/');
                                 if(pos) s->video_aspect /= atof(pos + 1);
                         } else if(!strcasecmp(tok, "novsync")) {
-                                s->sync_on_vblank = false;
+                                s->vsync = 0;
+                        } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
+                                if (toupper((tok + strlen("vsync="))[0]) == 'D') {
+                                        s->vsync = SYSTEM_VSYNC;
+                                } else {
+                                        s->vsync = atoi(tok + strlen("vsync="));
+                                }
                         } else if (!strcasecmp(tok, "cursor")) {
                                 s->show_cursor = true;
                         } else if (!strncmp(tok, "syphon", strlen("syphon"))) {
@@ -406,6 +414,32 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
  * documentation. However. reportedly NVidia driver does unset VSync.
  */
 static void display_gl_set_sync_on_vblank(int value) {
+        if (value == SYSTEM_VSYNC) {
+                return;
+        }
+        bool have_ext_swap_control_tear = false;
+#ifdef HAVE_LINUX
+        if (strstr(glXQueryExtensionsString(glXGetCurrentDisplay(), 0),
+                                "GLX_EXT_swap_control_tear")) {
+                have_ext_swap_control_tear = true;
+        }
+#elif defined WIN32
+        const char * (*wglGetExtensionsStringARBProc)(HDC hdc) = (const char *(*)(HDC))
+                wglGetProcAddress("wglGetExtensionsStringARB");
+        if (strstr(wglGetExtensionsStringARBProc(wglGetCurrentDC()),
+                                "WGL_EXT_swap_control_tear")) {
+                have_ext_swap_control_tear = true;
+        }
+#endif
+        if (value == -1) {
+                if (!have_ext_swap_control_tear) {
+                        log_msg(LOG_LEVEL_WARNING, "WGL/GLX_EXT_swap_control_tear not detected, using normal vsync.\n");
+                        value = 1;
+                } else {
+                        log_msg(LOG_LEVEL_VERBOSE, "WGL/GLX_EXT_swap_control_tear detected, using adaptive vsync\n");
+                }
+        }
+
 #ifdef HAVE_MACOSX
         int swap_interval = value;
         CGLContextObj cgl_context = CGLGetCurrentContext();
@@ -546,7 +580,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         gl_check_error();
 
-        display_gl_set_sync_on_vblank(s->sync_on_vblank ? 1 : 0);
+        display_gl_set_sync_on_vblank(s->vsync);
         gl_check_error();
 
 #ifdef HAVE_SYPHON
