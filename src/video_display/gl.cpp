@@ -424,10 +424,22 @@ static void display_gl_set_sync_on_vblank(int value) {
         if(glXSwapIntervalSGIProc) {
                 glXSwapIntervalSGIProc(value);
         } else {
-                fprintf(stderr, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
+                log_msg(LOG_LEVEL_WARNING, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
         }
 #elif WIN32
-        /// @todo
+        BOOL (*wglSwapIntervalEXTProc)(int interval) = 0;
+
+        wglSwapIntervalEXTProc = (BOOL (*)(int))
+                wglGetProcAddress("wglSwapIntervalEXT");
+
+        if (wglSwapIntervalEXTProc) {
+                BOOL ret = wglSwapIntervalEXTProc(value);
+                if (!ret) {
+                        log_msg(LOG_LEVEL_WARNING, "[GL display] Unable to set sync-on-VBlank.\n");
+                }
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "[GL display] WGL_EXT_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
+        }
 #endif
 }
 
