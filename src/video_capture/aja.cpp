@@ -314,6 +314,8 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.ch_count = audio_capture_channels;
         mAudio.max_size = NTV2_AUDIOSIZE_MAX;
 
+        LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized sucessfully: " << audio_desc_from_frame(&mAudio) << "\n";
+
         return AJA_STATUS_SUCCESS;
 
 }       //      SetupAudio

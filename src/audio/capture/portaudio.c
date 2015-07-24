@@ -7,8 +7,9 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2015 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -67,8 +68,6 @@
 
 
 /* default variables for sender */
-#define BPS 2 /* paInt16 */
-#define SAMPLE_RATE 48000
 #define SAMPLES_PER_FRAME 2048
 #define SECONDS 5
 
@@ -268,12 +267,23 @@ void * portaudio_capture_init(char *cfg)
                 free(s);
 		return NULL;
         }
-        inputParameters.sampleFormat = paInt16;
+        if (audio_capture_bps == 4) {
+                inputParameters.sampleFormat = paInt32;
+                s->frame.bps = 4;
+        } else {
+                if (audio_capture_bps != 2 && audio_capture_bps != 4) {
+                        log_msg(LOG_LEVEL_WARNING, "[Portaudio] Ignoring unsupported Bps %d!\n",
+                                        audio_capture_bps);
+                }
+                inputParameters.sampleFormat = paInt16;
+                s->frame.bps = 2;
+        }
         inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
 
-        error = Pa_OpenStream( &s->stream, &inputParameters, NULL, SAMPLE_RATE, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
+        error = Pa_OpenStream( &s->stream, &inputParameters, NULL, audio_capture_sample_rate,
+                        paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
                         paNoFlag,
                         callback,	// callback function; NULL, because we use blocking functions
                         s	// user data - none, because we use blocking functions
@@ -285,9 +295,8 @@ void * portaudio_capture_init(char *cfg)
 		return NULL;
 	}
 
-	s->frame.bps = BPS;
         s->frame.ch_count = inputParameters.channelCount;
-        s->frame.sample_rate = SAMPLE_RATE;
+        s->frame.sample_rate = audio_capture_sample_rate;
         s->frame.max_size = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
         
         s->frame.data = (char*)malloc(s->frame.max_size);

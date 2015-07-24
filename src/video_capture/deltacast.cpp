@@ -48,6 +48,7 @@
 #include "tv.h"
 
 #include "audio/audio.h"
+#include "audio/utils.h"
 #include "deltacast_common.h"
 
 #include <stdio.h>
@@ -307,7 +308,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 s->pAudioChn->pData = (BYTE *)
                         s->audio_frame.data;
 
-                printf("[DELTACAST] Grabbing audio enabled.\n");
+                LOG(LOG_LEVEL_NOTICE) << "[DELTACAST] Grabbing audio enabled: " << audio_desc_from_frame(&s->audio_frame) << "\n";
                 s->grab_audio = TRUE;
         }
 

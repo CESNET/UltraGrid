@@ -208,7 +208,8 @@ public:
                         } else {
                                 deckLinkInput->EnableAudioInput(
                                         bmdAudioSampleRate48kHz,
-                                        bmdAudioSampleType16bitInteger,
+                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
+                                                bmdAudioSampleType32bitInteger,
                                         audio_capture_channels == 1 ? 2 : audio_capture_channels); // BMD isn't able to grab single channel
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
@@ -261,11 +262,11 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 if(audioPacket) {
                         audioPacket->GetBytes(&audioFrame);
                         if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
-                                demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * 2 /* channels */ * 2,
+                                demux_channel(s->audio.data, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps,
                                                 2, /* channels (originally( */
                                         0 /* we want first channel */
                                                 );
-                                s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * 2;
+                                s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
                         } else {
                                 s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * 2;
                                 memcpy(s->audio.data, audioFrame, s->audio.data_len);
@@ -802,7 +803,17 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                 fprintf(stderr, "[Decklink capture] Unexpected audio flag encountered.\n");
                                 abort();
                 }
-                s->audio.bps = 2;
+                if (audio_capture_bps == 2) {
+                        s->audio.bps = 2;
+                } else {
+                        if (audio_capture_bps != 4 && audio_capture_bps != 0) {
+                                log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported Bps!\n");
+                        }
+                        s->audio.bps = 4;
+                }
+                if (audio_capture_sample_rate != 48000) {
+                                log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported sample rate!\n");
+                }
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = audio_capture_channels;
                 s->audio.data = (char *) malloc (48000 * audio_capture_channels * 2);
@@ -1040,10 +1051,13 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                                                 fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
                                                         }
                                                 }
-                                                deckLinkInput->EnableAudioInput(
+                                                result = deckLinkInput->EnableAudioInput(
                                                         bmdAudioSampleRate48kHz,
-                                                        bmdAudioSampleType16bitInteger,
+                                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
                                                         audio_capture_channels == 1 ? 2 : audio_capture_channels);
+                                                if (result == S_OK) {
+                                                        LOG(LOG_LEVEL_NOTICE) << "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
+                                                }
                                         }
 
                                         // set Callback which returns frames

@@ -474,6 +474,8 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         s->audio.max_size = s->audio.sample_rate * s->audio.bps;
                         s->audio.data = (char *) malloc(s->audio.max_size);
                 }
+
+                log_msg(LOG_LEVEL_NOTICE, "[DVS] Capturing audio: %d channels, %d Bps, sample rate %d Hz\n", s->audio.ch_count, s->audio.bps, s->audio.sample_rate);
         }
 
         res = sv_fifo_init(s->sv, &(s->fifo), 1, /* jack - must be 1 for default input FIFO */

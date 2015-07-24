@@ -1,35 +1,26 @@
+/**
+ * @file   audio/capture/alsa.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/capture/alsa.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,9 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
+
 #include "config.h"
 
 #include "host.h"
@@ -101,8 +91,6 @@ void * audio_cap_alsa_init(char *cfg)
                 printf("\t-s alsa:<device>:opts=<opts>\n");
                 printf("\t-s alsa:opts=<opts>\n\n");
                 printf("\t<opts> can be in format key1=value1:key2=value2\n");
-                printf("\t\trate=<sample_rate>\n");
-                printf("\t\tbps=<bits_per_sample>\n");
                 printf("\t\tframes=<frames>\n");
                 printf("\t\tni - non-interleaved\n");
 
@@ -134,8 +122,8 @@ void * audio_cap_alsa_init(char *cfg)
         }
 
         gettimeofday(&s->start_time, NULL);
-        s->frame.bps = 2;
-        s->frame.sample_rate = 48000;
+        s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
+        s->frame.sample_rate = audio_capture_sample_rate;
         s->min_device_channels = s->frame.ch_count = audio_capture_channels;
         s->tmp_data = NULL;
 
@@ -145,11 +133,7 @@ void * audio_cap_alsa_init(char *cfg)
         if (opts) {
                 char *item, *save_ptr;
                 while ((item = strtok_r(opts, ":", &save_ptr)) != NULL) {
-                        if (strncmp(item, "rate=", strlen("rate=")) == 0) {
-                                s->frame.sample_rate = atoi(item + strlen("rate="));
-                        } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
-                                s->frame.bps = atoi(item + strlen("bps=")) / 8;
-                        } else if (strncmp(item, "frames=", strlen("frames=")) == 0) {
+                        if (strncmp(item, "frames=", strlen("frames=")) == 0) {
                                 s->frames = atoi(item + strlen("frames="));
                         } else if (strcmp(item, "ni") == 0) {
                                 s->non_interleaved = true;

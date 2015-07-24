@@ -57,6 +57,7 @@
 #include "bluefish444_common.h"
 
 #include "audio/audio.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -442,6 +443,8 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
         s->audio.ch_count = audio_capture_channels;
         s->audio.sample_rate = 48000; // perhaps the driver does not support different
         s->audio.max_size = 4*4096*16;
+
+        LOG(LOG_LEVEL_NOTICE) << "[Blue cap] audio initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
         
         s->hanc_buffer = (unsigned int *) page_aligned_alloc(MAX_HANC_SIZE);
 
