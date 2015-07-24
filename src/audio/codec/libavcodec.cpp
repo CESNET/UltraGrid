@@ -519,6 +519,13 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         return &s->output_channel;
 }
 
+static const int *libavcodec_get_sample_rates(void *state)
+{
+        struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
+
+        return s->codec->supported_samplerates;
+}
+
 static void libavcodec_done(void *state)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
@@ -545,6 +552,7 @@ struct audio_codec libavcodec_audio_codec = {
         libavcodec_init,
         libavcodec_compress,
         libavcodec_decompress,
+        libavcodec_get_sample_rates,
         libavcodec_done
 };
 

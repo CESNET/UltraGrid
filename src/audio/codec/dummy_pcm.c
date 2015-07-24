@@ -98,6 +98,12 @@ static audio_channel *dummy_pcm_decompress(void *state, audio_channel * channel)
         return channel;
 }
 
+static const int *dummy_pcm_get_sample_rates(void *state)
+{
+        UNUSED(state);
+        return NULL;
+}
+
 static void dummy_pcm_done(void *state)
 {
         struct dummy_pcm_codec_state *s = (struct dummy_pcm_codec_state *) state;
@@ -110,6 +116,7 @@ struct audio_codec dummy_pcm_audio_codec = {
         .init = dummy_pcm_init,
         .compress = dummy_pcm_compress,
         .decompress = dummy_pcm_decompress,
+        .get_samplerates = dummy_pcm_get_sample_rates,
         .done = dummy_pcm_done
 };
 

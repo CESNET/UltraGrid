@@ -795,6 +795,32 @@ static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
         }
 }
 
+static int find_codec_sample_rate(int sample_rate, const int *supported) {
+        if (!supported) {
+                return 0;
+        }
+
+        int rate_hi = 0, // nearest high
+           rate_lo = 0; // nearest low
+
+        const int *tmp = supported;
+        while (*tmp != 0) {
+                if (*tmp == sample_rate) {
+                        return sample_rate;
+                }
+                if (*tmp > sample_rate && (rate_hi == 0 || *tmp < rate_hi)) {
+                        rate_hi = *tmp;
+                }
+
+                if (*tmp < sample_rate && *tmp > rate_lo) {
+                        rate_lo = *tmp;
+                }
+                tmp++;
+        }
+
+        return rate_hi > 0 ? rate_hi : rate_lo;
+}
+
 static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
@@ -841,12 +867,18 @@ static void *audio_sender_thread(void *arg)
                         audio_frame2 bf_n(buffer);
 
                         // RESAMPLE
-                        if (s->resample_to != 0 && bf_n.get_sample_rate() != s->resample_to) {
+                        int resample_to = s->resample_to;
+                        if (resample_to == 0) {
+                                const int *supp_sample_rates = audio_codec_get_supported_samplerates(s->audio_coder);
+                                resample_to = find_codec_sample_rate(bf_n.get_sample_rate(),
+                                                supp_sample_rates);
+                        }
+                        if (resample_to != 0 && bf_n.get_sample_rate() != s->resample_to) {
                                 if (bf_n.get_bps() != 2) {
                                         bf_n.change_bps(2);
                                 }
 
-                                bf_n.resample(resampler_state, s->resample_to);
+                                bf_n.resample(resampler_state, resample_to);
                         }
                         // COMPRESS
                         process_statistics(s, &bf_n);

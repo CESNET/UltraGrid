@@ -330,6 +330,11 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
         return s->out;
 }
 
+const int *audio_codec_get_supported_samplerates(struct audio_codec_state *s)
+{
+        return audio_codecs[s->index]->get_samplerates(s->state[0]);
+}
+
 void audio_codec_done(struct audio_codec_state *s)
 {
         if(!s)
