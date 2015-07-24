@@ -50,9 +50,17 @@
 
 struct audio_frame;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void audio_cap_testcard_help(const char *driver_name);
 void * audio_cap_testcard_init(char *cfg);
 struct audio_frame *audio_cap_testcard_read(void *state);
 void audio_cap_testcard_finish(void *state);
 void audio_cap_testcard_done(void *state);
+
+#ifdef __cplusplus
+}
+#endif
 
