@@ -110,6 +110,7 @@
 
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
+#define OPT_AUDIO_CAPTURE_FORMAT (('C' << 8) | 'F')
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
 #define OPT_CUDA_DEVICE (('C' << 8) | 'D')
@@ -254,6 +255,8 @@ static void usage(void)
         printf("\t                                 be captured (default %d).\n",
                         DEFAULT_AUDIO_CAPTURE_CHANNELS);
         printf("\n");
+        printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
+        printf("\n");
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
@@ -387,6 +390,46 @@ static void init_root_module(struct module *mod, struct state_uv *uv)
         mod->priv_data = uv;
 }
 
+bool parse_audio_capture_format(const char *optarg)
+{
+        if (strcmp(optarg, "help") == 0) {
+                printf("Usage:\n");
+                printf("\t--audio-capture-format {channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n");
+                return false;
+        }
+
+        unique_ptr<char[]> arg_copy(new char[strlen(optarg) + 1]);
+        char *arg = arg_copy.get();
+        strcpy(arg, optarg);
+
+        char *item, *save_ptr, *tmp;
+        tmp = arg;
+
+        while ((item = strtok_r(tmp, ":", &save_ptr))) {
+                if (strncmp(item, "channels=", strlen("channels=")) == 0) {
+                        audio_capture_channels = atoi(item + strlen("channels="));
+                } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
+                        int bps = atoi(item + strlen("bps="));
+                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32)) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %d!\n", bps);
+                                log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
+                                return false;
+
+                        }
+                        audio_capture_bps = bps / 8;
+                } else if (strncmp(item, "rate=", strlen("bps=")) == 0) {
+                        audio_capture_sample_rate = unit_evaluate(item + strlen("rate="));
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "Unkonwn format for --audio-capture-format!\n");
+                        return false;
+                }
+
+                tmp = NULL;
+        }
+
+        return true;
+}
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
@@ -495,6 +538,7 @@ int main(int argc, char *argv[])
                 {"audio-channel-map", required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
                 {"audio-scale", required_argument, 0, OPT_AUDIO_SCALE},
                 {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
+                {"audio-capture-format", required_argument, 0, OPT_AUDIO_CAPTURE_FORMAT},
                 {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
@@ -679,7 +723,14 @@ int main(int argc, char *argv[])
                         audio_scale = optarg;
                         break;
                 case OPT_AUDIO_CAPTURE_CHANNELS:
+                        log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
+                                        "Use \"--audio-capure-format channels=<count>\" instead.\n");
                         audio_capture_channels = atoi(optarg);
+                        break;
+                case OPT_AUDIO_CAPTURE_FORMAT:
+                        if (!parse_audio_capture_format(optarg)) {
+                                return EXIT_FAIL_USAGE;
+                        }
                         break;
                 case OPT_ECHO_CANCELLATION:
                         echo_cancellation = true;
