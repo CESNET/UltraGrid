@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,6 +64,7 @@
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
 
+#include <algorithm>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -189,7 +190,7 @@ struct state_gl {
         bool            paused;
         bool            show_cursor;
 
-        bool should_exit_main_loop;
+        bool should_exit_main_loop; // used only for GLUT (not freeglut)
 
         double          window_size_factor;
 
@@ -406,6 +407,8 @@ static void display_gl_set_sync_on_vblank(int value) {
         } else {
                 fprintf(stderr, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
         }
+#elif WIN32
+        /// @todo
 #endif
 }
 
@@ -595,13 +598,8 @@ static void glut_idle_callback(void)
         }
 
         unique_lock<mutex> lk(s->lock);
-#ifdef FREEGLUT
-        if (s->should_exit_main_loop) {
-                glutLeaveMainLoop();
-                return;
-        }
-#endif
-        s->new_frame_ready_cv.wait_for(lk, std::chrono::duration<double>(2.0/s->current_display_desc.fps), [s] {
+        double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
+        s->new_frame_ready_cv.wait_for(lk, std::chrono::duration<double>(timeout), [s] {
                         return s->frame_queue.size() > 0;});
         if (s->frame_queue.size() == 0) {
                 return;
@@ -610,6 +608,13 @@ static void glut_idle_callback(void)
         s->frame_queue.pop();
         lk.unlock();
         s->frame_consumed_cv.notify_one();
+
+        if (!frame) {
+#ifdef FREEGLUT
+                glutLeaveMainLoop();
+#endif
+                return;
+        }
 
         if (s->paused) {
                 unique_lock<mutex> lk(s->lock);
@@ -660,6 +665,9 @@ static void glut_key_callback(unsigned char key, int x, int y)
 #if defined FREEGLUT || defined HAVE_MACOSX
                         exit_uv(0);
 #else
+                        /// @todo
+                        /// This shouldn't happen (?). We have either freeglut (Linux, MSW) or
+                        /// original GLUT on OS X
 			glutDestroyWindow(gl->window);
 			exit(1);
 #endif
@@ -792,13 +800,13 @@ void display_gl_run(void *arg)
                 return;
         }
 
-#if defined HAVE_MACOSX
+#if defined FREEGLUT
+	glutMainLoop();
+#else
         while (!s->should_exit_main_loop) {
                 glut_idle_callback();
                 glutCheckLoop();
         }
-#else /* ! defined HAVE_MACOSX */
-	glutMainLoop();
 #endif
 }
 
@@ -1051,8 +1059,12 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         assert(s->magic == MAGIC_GL);
 
         std::unique_lock<std::mutex> lk(s->lock);
+
         if(!frame) {
-                s->should_exit_main_loop = true;
+                s->should_exit_main_loop = true; // used only for GLUT (not freeglut)
+                s->frame_queue.push(frame);
+                lk.unlock();
+                s->new_frame_ready_cv.notify_one();
                 return 0;
         }
 
