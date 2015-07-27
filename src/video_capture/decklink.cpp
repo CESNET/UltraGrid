@@ -811,7 +811,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
                         }
                         s->audio.bps = 4;
                 }
-                if (audio_capture_sample_rate != 48000) {
+                if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != 48000) {
                                 log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported sample rate!\n");
                 }
                 s->audio.sample_rate = 48000;

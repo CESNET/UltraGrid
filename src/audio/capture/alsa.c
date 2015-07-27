@@ -85,6 +85,65 @@ static const snd_pcm_format_t fmts[] = {
 
 static const int fmts_preference[] = { 2, 4, 3, 1 };
 
+#define DEFAULT_SAMPLE_RATE 48000
+
+static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigned int approx_val) {
+        int ret = 0;
+        int dir = 0;
+        int rc;
+        unsigned int rate = approx_val;
+        rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+        if (rc != 0) {
+                dir = 1;
+                rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+        }
+
+        if (rc == 0) {
+                rc = snd_pcm_hw_params_get_rate_min(params, &rate, NULL);
+                if (rc == 0) {
+                        ret = rate;
+                }
+                // restore configuration space
+                rate = 0;
+                dir = 1;
+                rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+                assert(rc == 0);
+                if (ret > 0) {
+                        return ret;
+                }
+        }
+
+        if (rc != 0) {
+                unsigned int rate = DEFAULT_SAMPLE_RATE;
+                dir = 0;
+                unsigned int orig_max;
+                rc = snd_pcm_hw_params_get_rate_max(params, &orig_max, NULL);
+                assert(rc == 0);
+
+                rc = snd_pcm_hw_params_set_rate_max(handle, params, &rate, &dir);
+                if (rc != 0) {
+                        dir = -1;
+                        rc = snd_pcm_hw_params_set_rate_max(handle, params, &rate, &dir);
+                }
+
+                if (rc == 0) {
+                        rc = snd_pcm_hw_params_get_rate_max(params, &rate, NULL);
+                        if (rc == 0) {
+                                ret = rate;
+                        }
+                        // restore configuration space
+                        rate = 0;
+                        dir = 0;
+                        rc = snd_pcm_hw_params_set_rate_max(handle, params, &orig_max, &dir);
+                        assert(rc == 0);
+                        if (ret > 0) {
+                                return ret;
+                        }
+                }
+        }
+        return 0;
+}
+
 void * audio_cap_alsa_init(char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
@@ -180,18 +239,6 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        /* Set the desired hardware parameters. */
-
-        /* Interleaved mode */
-        rc = snd_pcm_hw_params_set_access(s->handle, params,
-                s->non_interleaved ? SND_PCM_ACCESS_RW_NONINTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED);
-        if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to set interleaved mode: %s\n",
-                        snd_strerror(rc));
-                goto error;
-        }
-
-
         if (s->frame.bps < 0 || s->frame.bps > 4) {
                 log_msg(LOG_LEVEL_ERROR, "[ALSA] %d bits per second are not supported by UG.\n",
                                 s->frame.bps * 8);
@@ -206,10 +253,29 @@ void * audio_cap_alsa_init(char *cfg)
                         }
                 }
                 if (s->frame.bps == 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[ALSA] Cannot find suitable sample format, "
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find suitable sample format, "
                                         "please contact %s.\n", PACKAGE_BUGREPORT);
                         goto error;
                 }
+        }
+
+        if (s->frame.sample_rate == 0) {
+                s->frame.sample_rate = get_rate_near(s->handle, params, DEFAULT_SAMPLE_RATE);
+                if (s->frame.sample_rate == 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find usable sample rate!\n");
+                        goto error;
+                }
+        }
+
+        /* Set the desired hardware parameters. */
+
+        /* Interleaved mode */
+        rc = snd_pcm_hw_params_set_access(s->handle, params,
+                s->non_interleaved ? SND_PCM_ACCESS_RW_NONINTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED);
+        if (rc < 0) {
+                fprintf(stderr, MOD_NAME "unable to set interleaved mode: %s\n",
+                        snd_strerror(rc));
+                goto error;
         }
 
         format = fmts[s->frame.bps];
@@ -284,7 +350,7 @@ void * audio_cap_alsa_init(char *cfg)
 
         s->tmp_data = malloc(s->frames  * s->min_device_channels * s->frame.bps);
 
-        printf("ALSA capture configuration: %d channel%s, %d Bps, %d Hz, "
+        log_msg(LOG_LEVEL_NOTICE, "ALSA capture configuration: %d channel%s, %d Bps, %d Hz, "
                        "%ld samples per frame.\n", s->frame.ch_count,
                        s->frame.ch_count == 1 ? "" : "s", s->frame.bps,
                        s->frame.sample_rate, s->frames);

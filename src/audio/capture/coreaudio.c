@@ -259,7 +259,9 @@ void * audio_cap_ca_init(char *cfg)
         double rate;
         size = sizeof(double);
         ret = AudioDeviceGetProperty(device, 0, 0, kAudioDevicePropertyNominalSampleRate, &size, &rate);
-        s->nominal_sample_rate =  rate;
+        s->nominal_sample_rate = rate;
+        s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
+                rate;
 #if !defined HAVE_SPEEX || defined DISABLE_SPPEX_RESAMPLER
         s->frame.sample_rate = rate;
 #if !defined HAVE_SPEEX
@@ -267,7 +269,6 @@ void * audio_cap_ca_init(char *cfg)
 #endif
 #else
         s->resampler = NULL;
-        s->frame.sample_rate = audio_capture_sample_rate;
         if(s->frame.sample_rate != s->nominal_sample_rate) {
                 int err;
                 s->resampler = speex_resampler_init(s->frame.ch_count, s->nominal_sample_rate, s->frame.sample_rate, 10, &err); 

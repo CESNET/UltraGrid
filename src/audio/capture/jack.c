@@ -200,6 +200,9 @@ void * audio_cap_jack_init(char *cfg)
 
         s->frame.ch_count = audio_capture_channels;
         s->frame.bps = 4;
+        if (audio_capture_sample_rate) {
+                log_msg(LOG_LEVEL_WARNING, "[JACK capture] Ignoring user specified sample rate!\n");
+        }
         s->frame.sample_rate = jack_get_sample_rate (s->client);
         s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
         s->frame.data = malloc(s->frame.max_size);

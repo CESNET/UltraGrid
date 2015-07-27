@@ -271,7 +271,7 @@ void * portaudio_capture_init(char *cfg)
                 inputParameters.sampleFormat = paInt32;
                 s->frame.bps = 4;
         } else {
-                if (audio_capture_bps != 2 && audio_capture_bps != 4) {
+                if (audio_capture_bps != 0 && audio_capture_bps != 2) {
                         log_msg(LOG_LEVEL_WARNING, "[Portaudio] Ignoring unsupported Bps %d!\n",
                                         audio_capture_bps);
                 }
@@ -281,8 +281,10 @@ void * portaudio_capture_init(char *cfg)
         inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
+        s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
+                48000;
 
-        error = Pa_OpenStream( &s->stream, &inputParameters, NULL, audio_capture_sample_rate,
+        error = Pa_OpenStream( &s->stream, &inputParameters, NULL, s->frame.sample_rate,
                         paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
                         paNoFlag,
                         callback,	// callback function; NULL, because we use blocking functions
@@ -296,7 +298,6 @@ void * portaudio_capture_init(char *cfg)
 	}
 
         s->frame.ch_count = inputParameters.channelCount;
-        s->frame.sample_rate = audio_capture_sample_rate;
         s->frame.max_size = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
         
         s->frame.data = (char*)malloc(s->frame.max_size);

@@ -63,6 +63,7 @@ using namespace std::chrono;
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
 #define DEFAULT_AUDIO_BPS 2
+#define DEFAULT_AUDIO_SAMPLE_RATE 48000
 
 #define CHUNKS_PER_SEC 25 // 1 video frame time @25 fps
                    // has to be divisor of AUDIO_SAMLE_RATE
@@ -140,7 +141,7 @@ void * audio_cap_testcard_init(char *cfg)
         char *item, *save_ptr;
 
         double volume = DEFAULT_VOLUME;
-        int chunk_size = audio_capture_sample_rate / CHUNKS_PER_SEC;
+        int chunk_size = 0;
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
@@ -170,23 +171,22 @@ void * audio_cap_testcard_init(char *cfg)
         assert(s != 0);
         s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
 
-        s->chunk_size = chunk_size;
-
         if(!wav_file) {
                 s->audio.ch_count = audio_capture_channels;
-                s->audio.sample_rate = audio_capture_sample_rate;
-
+                s->audio.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
+                        DEFAULT_AUDIO_SAMPLE_RATE;
                 s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;
+                s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) EBU tone ", FREQUENCY,
                                 volume);
                 LOG(LOG_LEVEL_NOTICE) << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
 
-                s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, audio_capture_channels,
+                s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
                                 FREQUENCY, volume, &s->total_samples);
 
                 s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
-                                audio_capture_channels * s->audio.bps) + s->chunk_size - 1);
-                memcpy(s->audio_samples + s->total_samples * s->audio.bps * audio_capture_channels,
+                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
+                memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
                                 s->audio_samples, s->chunk_size - 1);
         } else {
                 FILE *wav = fopen(wav_file, "r");
@@ -206,6 +206,7 @@ void * audio_cap_testcard_init(char *cfg)
                 s->audio.bps = metadata.bits_per_sample / 8;
                 s->audio.ch_count = metadata.ch_count;
                 s->audio.sample_rate = metadata.sample_rate;
+                s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 s->audio.max_size = metadata.data_size + (s->chunk_size - 1) * metadata.ch_count *
                         (metadata.bits_per_sample / 8);
 
@@ -254,10 +255,10 @@ struct audio_frame *audio_cap_testcard_read(void *state)
         if (s->samples_played + s->chunk_size  > s->total_samples) {
                 samples = s->total_samples - s->samples_played;
         }
-        size_t len = samples * s->audio.bps * audio_capture_channels;
-        memcpy(s->audio.data, s->audio_samples + s->audio.bps * s->samples_played * audio_capture_channels, len);
+        size_t len = samples * s->audio.bps * s->audio.ch_count;
+        memcpy(s->audio.data, s->audio_samples + s->audio.bps * s->samples_played * s->audio.ch_count, len);
         if (samples < s->chunk_size) {
-                memcpy(s->audio.data + len, s->audio_samples, s->chunk_size * s->audio.bps * audio_capture_channels - len);
+                memcpy(s->audio.data + len, s->audio_samples, s->chunk_size * s->audio.bps * s->audio.ch_count - len);
         }
 
         s->samples_played = ((s->samples_played + s->chunk_size) % s->total_samples);

@@ -84,10 +84,10 @@ void exit_uv(int status);
 
 #define DEFAULT_AUDIO_CAPTURE_CHANNELS 1
 extern unsigned int audio_capture_channels;
-#define DEFAULT_AUDIO_CAPTURE_BPS 0 // 0 means that the acap module decides
-extern unsigned int audio_capture_bps;
-#define DEFAULT_AUDIO_CAPTURE_SAMPLE_RATE 48000
-extern unsigned int audio_capture_sample_rate;
+extern unsigned int audio_capture_bps;         // user-specified bps, if zero, module should choose
+                                               // best bps by itself
+extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if zero, module should
+                                               // choose best value by itself (usually 48000)
 
 #define MAX_CUDA_DEVICES 4
 extern unsigned int cuda_devices[];
