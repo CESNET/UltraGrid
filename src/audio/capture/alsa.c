@@ -34,6 +34,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @note
+ * In code below, state_alsa_capture::frame::ch_count can differ from
+ * state_alsa_capture::min_device_channels, if device doesn't support
+ * mono and we want to capture it. In this case state_alsa_capture::frame::ch_count
+ * is set to 1 and min_device_channels to minimal number of channels
+ * that device supports.
+ */
 
 #include "config.h"
 
@@ -83,22 +91,31 @@ static const snd_pcm_format_t fmts[] = {
         [4] = SND_PCM_FORMAT_S32_LE,
 };
 
-static const int fmts_preference[] = { 2, 4, 3, 1 };
+static const int bps_preference[] = { 2, 4, 3, 1 };
 
 #define DEFAULT_SAMPLE_RATE 48000
 
+/**
+ * Finds equal or nearest higher sample rate that device supports. If none exist, pick highest
+ * lower value.
+ *
+ * @returns sample rate, 0 if none was found
+ */
 static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigned int approx_val) {
         int ret = 0;
         int dir = 0;
         int rc;
         unsigned int rate = approx_val;
+        // try exact sample rate
         rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
         if (rc != 0) {
                 dir = 1;
+                // or higher
                 rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
         }
 
         if (rc == 0) {
+                // read the rate
                 rc = snd_pcm_hw_params_get_rate_min(params, &rate, NULL);
                 if (rc == 0) {
                         ret = rate;
@@ -108,12 +125,10 @@ static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigne
                 dir = 1;
                 rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
                 assert(rc == 0);
-                if (ret > 0) {
-                        return ret;
-                }
         }
 
-        if (rc != 0) {
+        // we did not succeed, try lower sample rate
+        if (ret == 0) {
                 unsigned int rate = DEFAULT_SAMPLE_RATE;
                 dir = 0;
                 unsigned int orig_max;
@@ -132,16 +147,12 @@ static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigne
                                 ret = rate;
                         }
                         // restore configuration space
-                        rate = 0;
                         dir = 0;
                         rc = snd_pcm_hw_params_set_rate_max(handle, params, &orig_max, &dir);
                         assert(rc == 0);
-                        if (ret > 0) {
-                                return ret;
-                        }
                 }
         }
-        return 0;
+        return ret;
 }
 
 void * audio_cap_alsa_init(char *cfg)
@@ -160,7 +171,6 @@ void * audio_cap_alsa_init(char *cfg)
                 printf("\t-s alsa:opts=<opts>\n\n");
                 printf("\t<opts> can be in format key1=value1:key2=value2\n");
                 printf("\t\tframes=<frames>\n");
-                printf("\t\tni - non-interleaved\n");
 
                 printf("\nAvailable ALSA capture devices\n");
                 audio_cap_alsa_help(NULL);
@@ -203,13 +213,6 @@ void * audio_cap_alsa_init(char *cfg)
                 while ((item = strtok_r(opts, ":", &save_ptr)) != NULL) {
                         if (strncmp(item, "frames=", strlen("frames=")) == 0) {
                                 s->frames = atoi(item + strlen("frames="));
-                        } else if (strcmp(item, "ni") == 0) {
-                                s->non_interleaved = true;
-                                if (audio_capture_channels > 1) {
-                                        fprintf(stderr, "[ALSA cap.] Non-interleaved mode "
-                                                        "available only when capturing mono!\n");
-                                        goto error;
-                                }
                         } else {
                                 fprintf(stderr, "[ALSA cap.] Unknown option: %s\n", item);
                                 goto error;
@@ -217,7 +220,6 @@ void * audio_cap_alsa_init(char *cfg)
                         opts = NULL;
                 }
         }
-
 
         /* Open PCM device for recording (capture). */
         rc = snd_pcm_open(&s->handle, name,
@@ -239,6 +241,7 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
+        /* Find appropriate parameters if not given by user */
         if (s->frame.bps < 0 || s->frame.bps > 4) {
                 log_msg(LOG_LEVEL_ERROR, "[ALSA] %d bits per second are not supported by UG.\n",
                                 s->frame.bps * 8);
@@ -246,9 +249,9 @@ void * audio_cap_alsa_init(char *cfg)
         }
 
         if (s->frame.bps == 0) {
-                for (unsigned int i = 0; i < sizeof fmts_preference / sizeof(fmts_preference[0]); i++) {
-                        if (!snd_pcm_hw_params_test_format(s->handle, params, fmts[fmts_preference[i]])) {
-                                s->frame.bps = fmts_preference[i];
+                for (unsigned int i = 0; i < sizeof bps_preference / sizeof(bps_preference[0]); i++) {
+                        if (!snd_pcm_hw_params_test_format(s->handle, params, fmts[bps_preference[i]])) {
+                                s->frame.bps = bps_preference[i];
                                 break;
                         }
                 }
@@ -267,9 +270,25 @@ void * audio_cap_alsa_init(char *cfg)
                 }
         }
 
+        if (!snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_INTERLEAVED)) {
+                s->non_interleaved = false;
+        } else if (!snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_NONINTERLEAVED)) {
+                if (audio_capture_channels > 1) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Non-interleaved mode "
+                                        "available only when capturing mono!\n");
+                        goto error;
+                } else {
+                        s->non_interleaved = true;
+                }
+        } else {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported access mode!\n");
+                goto error;
+
+        }
+
         /* Set the desired hardware parameters. */
 
-        /* Interleaved mode */
+        /* Access mode */
         rc = snd_pcm_hw_params_set_access(s->handle, params,
                 s->non_interleaved ? SND_PCM_ACCESS_RW_NONINTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED);
         if (rc < 0) {
@@ -278,9 +297,8 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
+        /* Sample format */
         format = fmts[s->frame.bps];
-
-        /* Signed 16-bit little-endian format */
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 format);
         if (rc < 0) {
@@ -289,10 +307,10 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        /* Two channels (stereo) */
+        /* Channels count */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
         if (rc < 0) {
-                if(s->frame.ch_count == 1) { // some devices cannot do mono
+                if (s->frame.ch_count == 1) { // some devices cannot do mono
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
                 } else {
                         fprintf(stderr, MOD_NAME "unable to set channel count: %s\n",
@@ -334,7 +352,6 @@ void * audio_cap_alsa_init(char *cfg)
                                 s->frames, snd_strerror(rc));
         }
 
-
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
         if (rc < 0) {
@@ -366,17 +383,23 @@ struct audio_frame *audio_cap_alsa_read(void *state)
 {
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
         int rc;
+        char *discard_data;
 
-        char *read_ptr = s->frame.data;
+        char *read_ptr[s->min_device_channels];
+        read_ptr[0] = s->frame.data;
         if((int) s->min_device_channels > s->frame.ch_count && s->frame.ch_count == 1) {
-                read_ptr = s->tmp_data;
+                read_ptr[0] = s->tmp_data;
         }
 
         if (s->non_interleaved) {
                 assert(audio_capture_channels == 1);
-                rc = snd_pcm_readn(s->handle, (void **) &read_ptr, s->frames);
+                discard_data = (char *) alloca(s->frames * s->frame.bps * (s->min_device_channels-1));
+                for (unsigned int i = 1; i < s->min_device_channels; ++i) {
+                        read_ptr[i] = discard_data + (i - 1) * s->frames * s->frame.bps;
+                }
+                rc = snd_pcm_readn(s->handle, (void **) read_ptr, s->frames);
         } else {
-                rc = snd_pcm_readi(s->handle, read_ptr, s->frames);
+                rc = snd_pcm_readi(s->handle, read_ptr[0], s->frames);
         }
         if (rc == -EPIPE) {
                 /* EPIPE means overrun */
@@ -389,7 +412,7 @@ struct audio_frame *audio_cap_alsa_read(void *state)
         }
 
         if(rc > 0) {
-                if(s->min_device_channels == 2 && s->frame.ch_count == 1) {
+                if ((int) s->min_device_channels > s->frame.ch_count && s->frame.ch_count == 1) {
                         demux_channel(s->frame.data, (char *) s->tmp_data, s->frame.bps,
                                         rc * s->frame.bps * s->min_device_channels,
                                         s->min_device_channels, /* channels (originally) */
