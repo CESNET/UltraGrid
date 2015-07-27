@@ -76,6 +76,15 @@ void audio_cap_alsa_help(const char *driver_name)
         audio_play_alsa_help(driver_name);
 }
 
+static const snd_pcm_format_t fmts[] = {
+        [1] = SND_PCM_FORMAT_U8,
+        [2] = SND_PCM_FORMAT_S16_LE,
+        [3] = SND_PCM_FORMAT_S24_3LE,
+        [4] = SND_PCM_FORMAT_S32_LE,
+};
+
+static const int fmts_preference[] = { 2, 4, 3, 1 };
+
 void * audio_cap_alsa_init(char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
@@ -122,7 +131,7 @@ void * audio_cap_alsa_init(char *cfg)
         }
 
         gettimeofday(&s->start_time, NULL);
-        s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
+        s->frame.bps = audio_capture_bps;
         s->frame.sample_rate = audio_capture_sample_rate;
         s->min_device_channels = s->frame.ch_count = audio_capture_channels;
         s->tmp_data = NULL;
@@ -182,24 +191,29 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        switch (s->frame.bps) {
-                case 4:
-                        format = SND_PCM_FORMAT_S32_LE;
-                        break;
-                case 3:
-                        format = SND_PCM_FORMAT_S24_3LE;
-                        break;
-                case 2:
-                        format = SND_PCM_FORMAT_S16_LE;
-                        break;
-                case 1:
-                        format = SND_PCM_FORMAT_U8;
-                        break;
-                default:
-                        fprintf(stderr, "[ALSA] %d bits per second are not supported by UG.\n",
-                                        s->frame.bps * 8);
-                        abort();
+
+        if (s->frame.bps < 0 || s->frame.bps > 4) {
+                log_msg(LOG_LEVEL_ERROR, "[ALSA] %d bits per second are not supported by UG.\n",
+                                s->frame.bps * 8);
+                goto error;
         }
+
+        if (s->frame.bps == 0) {
+                for (unsigned int i = 0; i < sizeof fmts_preference / sizeof(fmts_preference[0]); i++) {
+                        if (!snd_pcm_hw_params_test_format(s->handle, params, fmts[fmts_preference[i]])) {
+                                s->frame.bps = fmts_preference[i];
+                                break;
+                        }
+                }
+                if (s->frame.bps == 0) {
+                        log_msg(LOG_LEVEL_ERROR, "[ALSA] Cannot find suitable sample format, "
+                                        "please contact %s.\n", PACKAGE_BUGREPORT);
+                        goto error;
+                }
+        }
+
+        format = fmts[s->frame.bps];
+
         /* Signed 16-bit little-endian format */
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 format);
