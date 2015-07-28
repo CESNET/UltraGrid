@@ -50,6 +50,19 @@
 extern "C" {
 #endif
 
+#define AUDIO_PLAYBACK_ABI_VERSION 1
+
+struct audio_frame;
+
+struct audio_playback_info {
+        void (*help)(const char *driver_name);
+        void *(*init)(const char *cfg);
+        void (*write)(void *state, struct audio_frame *frame);
+        int (*reconfigure)(void *state, int quant_samples, int channels,
+                int sample_rate);
+        void (*done)(void *state);
+};
+
 struct state_audio_playback;
 
 void                            audio_playback_help(void);
@@ -57,7 +70,7 @@ void                            audio_playback_init_devices(void);
 /**
  * @see display_init
  */
-int                             audio_playback_init(char *device, char *cfg,
+int                             audio_playback_init(const char *device, const char *cfg,
                 struct state_audio_playback **);
 struct state_audio_playback    *audio_playback_init_null_device(void);
 int                             audio_playback_reconfigure(struct state_audio_playback *state,
@@ -68,12 +81,6 @@ void                            audio_playback_finish(struct state_audio_playbac
 void                            audio_playback_done(struct state_audio_playback *state);
 
 unsigned int                    audio_playback_get_display_flags(struct state_audio_playback *s);
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
-                void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata);
-void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(void *, int, int, int),
-                void *udata);
 
 /**
  * @returns directly state of audio capture device. Little bit silly, but it is needed for

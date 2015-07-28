@@ -43,15 +43,19 @@
  * that device supports.
  */
 
+/* Use the newer ALSA API */
+#define ALSA_PCM_NEW_HW_PARAMS_API
+
 #include "config.h"
+#include "config_unix.h"
 
 #include "host.h"
 
 #ifdef HAVE_ALSA
 
+#include "alsa_common.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
-#include "audio/playback/alsa.h"
 #include "audio/utils.h"
 
 #include "debug.h"
@@ -59,8 +63,6 @@
 #include "tv.h"
 #include <stdlib.h>
 #include <string.h>
-/* Use the newer ALSA API */
-#define ALSA_PCM_NEW_HW_PARAMS_API
 
 #include <alsa/asoundlib.h>
 
@@ -82,7 +84,8 @@ struct state_alsa_capture {
 
 static void audio_cap_alsa_help(const char *driver_name)
 {
-        audio_play_alsa_help(driver_name);
+        UNUSED(driver_name);
+        audio_alsa_help();
 }
 
 static const snd_pcm_format_t fmts[] = {

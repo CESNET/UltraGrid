@@ -46,24 +46,18 @@
  *
  */
 
-struct audio_frame;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void                     sdi_playback_help(const char *driver_name);
-void                    *sdi_playback_init(char *cfg);
-void                     sdi_put_frame(void *state, struct audio_frame *frame);
-void                     sdi_playback_done(void *state);
-int                      sdi_reconfigure(void *state, int quant_samples, int channels,
-                int sample_rate);
 
 void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
                 void *udata);
 void sdi_register_reconfigure_callback(void *s, int (*callback)(void *, int, int,
                         int),
                 void *udata);
+
+struct audio_playback_info;
+extern const struct audio_playback_info aplay_sdi_info;
 
 #ifdef __cplusplus
 }

@@ -622,13 +622,13 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_alsa.so.@audio_playback_abi_version@ $^ @ALSA_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_alsa.so $^ @ALSA_LIB@ -o $@
 
-@ALSA_CAP_LIB_TARGET@: @ALSA_CAP_OBJ@ src/audio/playback/alsa.o
+@ALSA_CAP_LIB_TARGET@: @ALSA_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_alsa.so $^ @ALSA_LIB@ -o $@
 
 @PORTAUDIO_PLAY_LIB_TARGET@: @PORTAUDIO_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_portaudio.so.@audio_playback_abi_version@ $^ @PORTAUDIO_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_portaudio.so $^ @PORTAUDIO_LIB@ -o $@
 
 @PORTAUDIO_CAP_LIB_TARGET@: @PORTAUDIO_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_portaudio.so $^ @PORTAUDIO_LIB@ -o $@
@@ -637,10 +637,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_jack.so $^ @JACK_LIB@ -o $@
 
 @JACK_PLAY_LIB_TARGET@: @JACK_PLAY_OBJ@ @SPEEX_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $^ @JACK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_jack.so $^ @JACK_LIB@ -o $@
 
 @DECKLINK_SOUND_PLAY_LIB_TARGET@: @DECKLINK_SOUND_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $^ @DECKLINK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_decklink.so $^ @DECKLINK_LIB@ -o $@
 
 @SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@ @X_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $^ @SCALE_LIB@ -o $@

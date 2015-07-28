@@ -51,6 +51,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
+
+#include "audio/audio_playback.h"
 #include "audio/playback/none.h" 
 #include "debug.h"
 #include <stdlib.h>
@@ -63,12 +65,12 @@ struct state_audio_playback_none
         uint32_t magic;
 };
 
-void audio_play_none_help(const char *driver_name)
+static void audio_play_none_help(const char *driver_name)
 {
         UNUSED(driver_name);
 }
 
-void * audio_play_none_init(char *cfg)
+static void * audio_play_none_init(const char *cfg)
 {
         UNUSED(cfg);
         struct state_audio_playback_none *s;
@@ -81,7 +83,7 @@ void * audio_play_none_init(char *cfg)
         return s;
 }
 
-void audio_play_none_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_none_put_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(frame);
         struct state_audio_playback_none *s = 
@@ -89,7 +91,7 @@ void audio_play_none_put_frame(void *state, struct audio_frame *frame)
         assert(s->magic == AUDIO_PLAYBACK_NONE_MAGIC);
 }
 
-void audio_play_none_done(void *state)
+static void audio_play_none_done(void *state)
 {
         struct state_audio_playback_none *s = 
                 (struct state_audio_playback_none *) state;
@@ -97,7 +99,7 @@ void audio_play_none_done(void *state)
         free(s);
 }
 
-int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
                                                 int sample_rate)
 {
         UNUSED(quant_samples);
@@ -109,3 +111,12 @@ int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
 
         return TRUE;
 }
+
+const struct audio_playback_info aplay_none_info = {
+        audio_play_none_help,
+        audio_play_none_init,
+        audio_play_none_put_frame,
+        audio_play_none_reconfigure,
+        audio_play_none_done
+};
+

@@ -61,8 +61,9 @@
 #include <portaudio.h> /* from PortAudio */
 
 #include "audio/audio.h"
-#include "audio/playback/portaudio.h"
+#include "audio/audio_playback.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "utils/ring_buffer.h"
 
 #define MODULE_NAME "[Portaudio playback] "
@@ -106,6 +107,8 @@ static int callback( const void *inputBuffer, void *outputBuffer,
                 PaStreamCallbackFlags statusFlags,
                 void *userData );
 static void     cleanup(struct state_portaudio_playback * s);
+static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate);
 
  /*
   * Shared functions
@@ -138,7 +141,7 @@ static void print_device_info(PaDeviceIndex device)
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
-void portaudio_playback_help(const char *driver_name)
+static void audio_play_portaudio_help(const char *driver_name)
 {
         UNUSED(driver_name);
         portaudio_print_available_devices(AUDIO_OUT);
@@ -197,7 +200,7 @@ static void portaudio_close(PaStream * stream) // closes and frees all audio res
 /*
  * Playback functions 
  */
-void * portaudio_playback_init(char *cfg)
+static void * audio_play_portaudio_init(const char *cfg)
 {	
         struct state_portaudio_playback *s;
         int output_device;
@@ -205,7 +208,7 @@ void * portaudio_playback_init(char *cfg)
         if(cfg) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("Available PortAudio playback devices:\n");
-                        portaudio_playback_help(NULL);
+                        audio_play_portaudio_help(NULL);
                         return &audio_init_state_ok;
                 } else {
                         output_device = atoi(cfg);
@@ -235,7 +238,7 @@ void * portaudio_playback_init(char *cfg)
         if(device_info == NULL) {
                 fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
                                 MODULE_NAME "Follows list of available Portaudio devices.\n");
-                portaudio_playback_help(NULL);
+                audio_play_portaudio_help(NULL);
                 delete s;
                 Pa_Terminate();
                 return NULL;
@@ -244,14 +247,14 @@ void * portaudio_playback_init(char *cfg)
 
         s->quiet = true;
         
-        if (!portaudio_reconfigure(s, 16, 2, 48000)) {
+        if (!audio_play_portaudio_reconfigure(s, 16, 2, 48000)) {
                 return NULL;
         }
 
 	return s;
 }
 
-void portaudio_close_playback(void *state)
+static void audio_play_portaudio_done(void *state)
 {
         auto s = (state_portaudio_playback *) state;
         cleanup(s);
@@ -266,7 +269,7 @@ static void cleanup(struct state_portaudio_playback * s)
         free(s->tmp_buffer);
 }
 
-int portaudio_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct state_portaudio_playback * s = 
@@ -391,7 +394,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         return paContinue;
 }
 
-void portaudio_put_frame(void *state, struct audio_frame *buffer)
+static void audio_play_portaudio_put_frame(void *state, struct audio_frame *buffer)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
@@ -421,4 +424,20 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
                 fprintf(stderr, MODULE_NAME "Warning: more than 0.5 sec in playout buffer!\n");
         }
 }
+
+static const struct audio_playback_info aplay_portaudio_info = {
+        audio_play_portaudio_help,
+        audio_play_portaudio_init,
+        audio_play_portaudio_put_frame,
+        audio_play_portaudio_reconfigure,
+        audio_play_portaudio_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("portaudio", &aplay_portaudio_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+}
+
 

@@ -53,10 +53,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alsa_common.h"
 #include "audio/audio.h"
+#include "audio/audio_playback.h"
 #include "audio/utils.h"
-#include "audio/playback/alsa.h" 
 #include "debug.h"
+#include "lib_common.h"
 #include "tv.h"
 
 #define BUFFER_MIN 41
@@ -76,7 +78,7 @@ struct state_alsa_playback {
         snd_config_t * local_config;
 };
 
-int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
@@ -216,48 +218,10 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         return TRUE;
 }
 
-void audio_play_alsa_help(const char *driver_name)
+static void audio_play_alsa_help(const char *driver_name)
 {
         UNUSED(driver_name);
-        void **hints;
-
-        printf("\talsa %27s default ALSA device (same as \"alsa:default\")\n", ":");
-        snd_device_name_hint(-1, "pcm", &hints); 
-        while(*hints != NULL) {
-                char *tmp = strdup(*(char **) hints);
-                char *save_ptr = NULL;
-                char *name_part = NULL;
-                char *desc = NULL;
-                char *desc_short = NULL;
-                char *desc_long = NULL;
-                char *name = NULL;
-
-                name_part = strtok_r(tmp + 4, "|", &save_ptr);
-                desc = strtok_r(NULL, "|", &save_ptr);
-                if (desc) {
-                        desc_short = strtok_r(desc + 4, "\n", &save_ptr);
-                        desc_long = strtok_r(NULL, "\n", &save_ptr);
-                }
-
-                name = malloc(strlen("alsa:") + strlen(name_part) + 1);
-                strcpy(name, "alsa:");
-                strcat(name, name_part);
-
-                printf("\t%s", name);
-                int i;
-
-                if (desc_short) {
-                        for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
-                        printf(" : %s", desc_short);
-                        if(desc_long) {
-                                printf(" - %s", desc_long);
-                        }
-                }
-                printf("\n");
-                hints++;
-                free(tmp);
-                free(name);
-        }
+        audio_alsa_help();
 }
 
 static bool is_default_pulse(void)
@@ -367,11 +331,11 @@ init_local_config_with_workaround(char const * pcm_node_name)
         return lconf;
 }
 
-void * audio_play_alsa_init(char *cfg)
+static void * audio_play_alsa_init(const char *cfg)
 {
         int rc;
         struct state_alsa_playback *s;
-        char *name;
+        const char *name;
 
         s = calloc(1, sizeof(struct state_alsa_playback));
 
@@ -423,7 +387,7 @@ error:
         return NULL;
 }
 
-void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
@@ -477,7 +441,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         free(tmp_data);
 }
 
-void audio_play_alsa_done(void *state)
+static void audio_play_alsa_done(void *state)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
 
@@ -491,6 +455,21 @@ void audio_play_alsa_done(void *state)
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
         free(s);
+}
+
+static const struct audio_playback_info aplay_alsa_info = {
+        audio_play_alsa_help,
+        audio_play_alsa_init,
+        audio_play_alsa_put_frame,
+        audio_play_alsa_reconfigure,
+        audio_play_alsa_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("alsa", &aplay_alsa_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 }
 
 #endif /* HAVE_ALSA */

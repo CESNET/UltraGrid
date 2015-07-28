@@ -53,6 +53,7 @@
 #endif
 
 #include "audio/audio.h"
+#include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
 #include "debug.h"
 
@@ -68,7 +69,7 @@ struct state_sdi_playback {
 };
 
 
-void sdi_playback_help(const char *driver_name)
+static void audio_play_sdi_help(const char *driver_name)
 {
         if(strcmp(driver_name, "embedded") == 0) {
                 printf("\tembedded : SDI audio (if available)\n");
@@ -79,13 +80,13 @@ void sdi_playback_help(const char *driver_name)
         }
 }
 
-void * sdi_playback_init(char *cfg)
+static void * audio_play_sdi_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available embedded devices:\n");
-                sdi_playback_help("embedded");
-                sdi_playback_help("AESEBU");
-                sdi_playback_help("analog");
+                audio_play_sdi_help("embedded");
+                audio_play_sdi_help("AESEBU");
+                audio_play_sdi_help("analog");
                 return &audio_init_state_ok;
         }
         struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
@@ -113,7 +114,7 @@ void sdi_register_reconfigure_callback(void *state, int (*callback)(void *, int,
         s->reconfigure_udata = udata;
 }
 
-void sdi_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_sdi_playback *s;
         s = (struct state_sdi_playback *) state;
@@ -122,7 +123,7 @@ void sdi_put_frame(void *state, struct audio_frame *frame)
                 s->put_callback(s->put_udata, frame);
 }
 
-int sdi_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_sdi_reconfigure(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct state_sdi_playback *s;
@@ -135,11 +136,19 @@ int sdi_reconfigure(void *state, int quant_samples, int channels,
         }
 }
 
-
-void sdi_playback_done(void *s)
+static void audio_play_sdi_done(void *s)
 {
         UNUSED(s);
 }
+
+const struct audio_playback_info aplay_sdi_info = {
+        audio_play_sdi_help,
+        audio_play_sdi_init,
+        audio_play_sdi_put_frame,
+        audio_play_sdi_reconfigure,
+        audio_play_sdi_done
+};
+
 
 /* vim: set expandtab: sw=8 */
 

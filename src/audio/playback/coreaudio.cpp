@@ -40,6 +40,7 @@
 #ifdef HAVE_COREAUDIO
 
 #include "audio/audio.h"
+#include "audio/audio_playback.h"
 #include "audio/playback/coreaudio.h"
 #include "utils/ring_buffer.h"
 #include "debug.h"
@@ -111,7 +112,7 @@ static OSStatus theRenderProc(void *inRefCon,
         return noErr;
 }
 
-int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
                                                 int sample_rate)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
@@ -198,8 +199,7 @@ error:
         return FALSE;
 }
 
-
-void audio_play_ca_help(const char *driver_name)
+static void audio_play_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
         OSErr ret;
@@ -240,7 +240,7 @@ error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
 }
 
-void * audio_play_ca_init(char *cfg)
+static void * audio_play_ca_init(const char *cfg)
 {
         struct state_ca_playback *s;
         OSErr ret = noErr;
@@ -326,14 +326,14 @@ error:
         return NULL;
 }
 
-void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
         ring_buffer_write(s->buffer, frame->data, frame->data_len);
 }
 
-void audio_play_ca_done(void *state)
+static void audio_play_ca_done(void *state)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
@@ -344,6 +344,14 @@ void audio_play_ca_done(void *state)
         ring_buffer_destroy(s->buffer);
         delete s;
 }
+
+const struct audio_playback_info aplay_coreaudio_info = {
+        audio_play_ca_help,
+        audio_play_ca_init,
+        audio_play_ca_put_frame,
+        audio_play_ca_reconfigure,
+        audio_play_ca_done
+};
 
 #endif /* HAVE_COREAUDIO */
 

@@ -57,8 +57,9 @@
 #include "config_win32.h"
 #include "video_codec.h"
 #include "tv.h"
-#include "audio/playback/decklink.h"
+#include "audio/audio_playback.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video_capture.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
@@ -94,7 +95,7 @@ namespace {
 class PlaybackDelegate;
 }
 
-#define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
+#define DECKLINK_MAGIC 0x415f46d0
 
 
 struct state_decklink {
@@ -178,7 +179,7 @@ static int blackmagic_api_version_check(STRING *current_version)
         return ret;
 }
 
-void decklink_playback_help(const char *driver_name)
+static void audio_play_decklink_help(const char *driver_name)
 {
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
@@ -246,7 +247,7 @@ void decklink_playback_help(const char *driver_name)
         } 
 }
 
-void *decklink_playback_init(char *cfg)
+static void *audio_play_decklink_init(const char *cfg)
 {
         struct state_decklink *s = NULL;
         IDeckLinkIterator*                              deckLinkIterator;
@@ -311,7 +312,7 @@ void *decklink_playback_init(char *cfg)
                 fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
         } else if (strcmp(cfg, "help") == 0) {
                 printf("Available Blackmagic audio playback devices:\n");
-                decklink_playback_help(NULL);
+                audio_play_decklink_help(NULL);
                 printf("Options:\n");
                 printf("\t-r decklink[:<index>][:audioConsumerLevels={true|false}]\n");
                 printf("audioConsumerLevels\n");
@@ -450,7 +451,7 @@ error:
         return NULL;
 }
 
-void decklink_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len /
@@ -490,7 +491,7 @@ void decklink_put_frame(void *state, struct audio_frame *frame)
 
 }
 
-int decklink_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_decklink_reconfigure(void *state, int quant_samples, int channels,
                                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
@@ -540,7 +541,7 @@ int decklink_reconfigure(void *state, int quant_samples, int channels,
         return TRUE;
 }
 
-void decklink_close_playback(void *state)
+static void audio_play_decklink_done(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
@@ -551,4 +552,20 @@ void decklink_close_playback(void *state)
         s->deckLinkOutput->Release();
         free(s);
 }
+
+static const struct audio_playback_info aplay_decklink_info = {
+        audio_play_decklink_help,
+        audio_play_decklink_init,
+        audio_play_decklink_put_frame,
+        audio_play_decklink_reconfigure,
+        audio_play_decklink_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("decklink", &aplay_decklink_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+}
+
 

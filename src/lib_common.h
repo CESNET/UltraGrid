@@ -66,6 +66,7 @@ enum library_class {
         LIBRARY_CLASS_UNDEFINED,
         LIBRARY_CLASS_CAPTURE_FILTER,
         LIBRARY_CLASS_AUDIO_CAPTURE,
+        LIBRARY_CLASS_AUDIO_PLAYBACK,
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);

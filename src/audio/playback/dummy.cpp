@@ -40,29 +40,40 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
+
+#include "audio/audio_playback.h"
 #include "audio/playback/dummy.h"
 
 static int state;
 
-void audio_play_dummy_help(const char *)
+static void audio_play_dummy_help(const char *)
 {
         printf("\tdummy: dummy audio playback\n");
 }
 
-void * audio_play_dummy_init(char *)
+static void * audio_play_dummy_init(const char *)
 {
         return &state;
 }
 
-void audio_play_dummy_put_frame(void *, struct audio_frame *)
+static void audio_play_dummy_put_frame(void *, struct audio_frame *)
 {
 }
 
-void audio_play_dummy_done(void *)
+static void audio_play_dummy_done(void *)
 {
 }
 
-int audio_play_dummy_reconfigure(void *, int, int, int)
+static int audio_play_dummy_reconfigure(void *, int, int, int)
 {
         return TRUE;
 }
+
+const struct audio_playback_info aplay_dummy_info = {
+        audio_play_dummy_help,
+        audio_play_dummy_init,
+        audio_play_dummy_put_frame,
+        audio_play_dummy_reconfigure,
+        audio_play_dummy_done
+};
+

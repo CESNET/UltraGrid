@@ -35,20 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-struct audio_frame;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void audio_play_dummy_help(const char *driver_name);
-void * audio_play_dummy_init(char *cfg);
-void audio_play_dummy_put_frame(void *state, struct audio_frame *frame);
-void audio_play_dummy_done(void *state);
-int audio_play_dummy_reconfigure(void *state, int quant_samples, int channels,
-                                                int sample_rate);
-
-#ifdef __cplusplus
-}
-#endif
+struct audio_playback_info;
+extern const struct audio_playback_info aplay_dummy_info;
 

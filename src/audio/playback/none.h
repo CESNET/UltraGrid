@@ -46,14 +46,6 @@
  *
  */
 
-#include "config.h"
-
-struct audio_frame;
-
-void audio_play_none_help(const char *driver_name);
-void * audio_play_none_init(char *cfg);
-void audio_play_none_put_frame(void *state, struct audio_frame *frame);
-void audio_play_none_done(void *state);
-int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
-                                                int sample_rate);
+struct audio_playback_info;
+extern const struct audio_playback_info aplay_none_info;
 

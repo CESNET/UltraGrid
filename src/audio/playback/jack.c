@@ -53,10 +53,11 @@
 #endif
 
 #include "audio/audio.h"
-#include "audio/playback/jack.h"
+#include "audio/audio_playback.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "utils/ring_buffer.h"
 
 #include <jack/jack.h>
@@ -129,9 +130,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         return 0;
 }
 
-
-
-void audio_play_jack_help(const char *driver_name)
+static void audio_play_jack_help(const char *driver_name)
 {
         UNUSED(driver_name);
         jack_client_t *client;
@@ -179,8 +178,7 @@ void audio_play_jack_help(const char *driver_name)
         jack_client_close(client);
 }
 
-
-void * audio_play_jack_init(char *cfg)
+static void * audio_play_jack_init(const char *cfg)
 {
         struct state_jack_playback *s;
         const char **ports;
@@ -250,7 +248,7 @@ error:
         return NULL;
 }
 
-int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
+static int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
@@ -325,7 +323,7 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
         return TRUE;
 }
 
-void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         int i;
@@ -355,7 +353,7 @@ void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
         }
 }
 
-void audio_play_jack_done(void *state)
+static void audio_play_jack_done(void *state)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         int i;
@@ -374,4 +372,20 @@ void audio_play_jack_done(void *state)
 
         free(s);
 }
+
+static const struct audio_playback_info aplay_jack_info = {
+        audio_play_jack_help,
+        audio_play_jack_init,
+        audio_play_jack_put_frame,
+        audio_play_jack_reconfigure,
+        audio_play_jack_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("jack", &aplay_jack_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+}
+
 
