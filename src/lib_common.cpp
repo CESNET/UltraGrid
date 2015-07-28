@@ -152,13 +152,13 @@ struct init_libraries {
 
 static struct init_libraries loader;
 
-void register_library(string const & name, void *data, enum library_class cls, int abi_version)
+void register_library(const char *name, void *data, enum library_class cls, int abi_version)
 {
         struct init_libraries loader;
         (*libraries)[cls][name] = make_pair(data, abi_version);
 }
 
-void *load_library(std::string const & name, enum library_class cls, int abi_version)
+void *load_library(const char *name, enum library_class cls, int abi_version)
 {
         if (libraries->find(cls) != libraries->end()) {
                 auto it_cls = libraries->find(cls)->second;
