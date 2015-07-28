@@ -44,36 +44,13 @@
 
 typedef void *cuda_wrapper_stream_t;
 
-struct error_mapping {
-        cudaError_t cuda_error;
-        int wrapper_error;
-        const char *str;
-};
-static struct error_mapping mapping[] = {
-        { cudaSuccess, CUDA_WRAPPER_SUCCESS, "success" },
-};
-
 static inline int map_cuda_error(cudaError_t cuda_error) {
-
-        int i;
-        for (i = 0; i < sizeof(mapping)/sizeof(struct error_mapping); ++i) {
-                if (cuda_error == mapping[i].cuda_error) {
-                        return mapping[i].wrapper_error;
-                }
-        }
-
-        return CUDA_UNKNOWN_ERROR;
+        return (int) cuda_error;
 };
 
 static inline const char * map_error_string(int error) {
 
-        for (int i = 0; i < sizeof(mapping)/sizeof(struct error_mapping); ++i) {
-                if (error == mapping[i].wrapper_error) {
-                        return mapping[i].str;
-                }
-        }
-
-        return "(not implemented in wrapper CUDA error)";
+        return cudaGetErrorString((cudaError_t) error);
 };
 
 static inline enum cudaMemcpyKind map_cuda_memcpy_kind(int our_kind) {

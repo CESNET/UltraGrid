@@ -56,7 +56,6 @@ extern "C" {
 
 /// @{
 #define CUDA_WRAPPER_SUCCESS 0
-#define CUDA_UNKNOWN_ERROR 1 ///< error for which there is no mapping in wrapper
 /// @}
 
 /// @{
