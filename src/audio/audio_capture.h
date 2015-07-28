@@ -48,6 +48,15 @@
 extern "C" {
 #endif
 
+#define AUDIO_CAPTURE_ABI_VERSION 1
+
+struct audio_capture_info {
+        void (*help)(const char *driver_name);
+        void *(*init)(const char *cfg);
+        struct audio_frame *(*read)(void *state);
+        void (*done)(void *state);
+};
+
 struct state_audio_capture;
 struct audio_frame;
 
@@ -58,11 +67,10 @@ void                        audio_capture_print_help(void);
 /**
  * @see display_init
  */
-int                         audio_capture_init(char *driver, char *cfg,
+int                         audio_capture_init(const char *driver, char *cfg,
                 struct state_audio_capture **);
 struct state_audio_capture *audio_capture_init_null_device(void);
 struct audio_frame         *audio_capture_read(struct state_audio_capture * state);
-void                        audio_capture_finish(struct state_audio_capture * state);
 void                        audio_capture_done(struct state_audio_capture * state);
 
 unsigned int                audio_capture_get_vidcap_flags(const char *device_name);

@@ -50,11 +50,12 @@
 #ifdef HAVE_ALSA
 
 #include "audio/audio.h"
+#include "audio/audio_capture.h"
 #include "audio/playback/alsa.h"
 #include "audio/utils.h"
 
-#include "audio/capture/alsa.h" 
 #include "debug.h"
+#include "lib_common.h"
 #include "tv.h"
 #include <stdlib.h>
 #include <string.h>
@@ -79,7 +80,7 @@ struct state_alsa_capture {
         bool non_interleaved;
 };
 
-void audio_cap_alsa_help(const char *driver_name)
+static void audio_cap_alsa_help(const char *driver_name)
 {
         audio_play_alsa_help(driver_name);
 }
@@ -155,7 +156,7 @@ static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigne
         return ret;
 }
 
-void * audio_cap_alsa_init(char *cfg)
+static void * audio_cap_alsa_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Enter -s alsa:fullhelp to see all config options\n");
@@ -184,17 +185,19 @@ void * audio_cap_alsa_init(char *cfg)
         const char *name = "default";
         char *opts = NULL;
         int format;
+        char *tmp = NULL;
 
         s = calloc(1, sizeof(struct state_alsa_capture));
 
         if (cfg && strlen(cfg) > 0) {
-                if (strncmp(cfg, "opts=", strlen("opts")) == 0) {
-                        opts = cfg + strlen("opts=");
+                tmp = strdup(cfg);
+                if (strncmp(tmp, "opts=", strlen("opts")) == 0) {
+                        opts = tmp + strlen("opts=");
                 } else {
-                        name = cfg;
-                        if (strstr(cfg, ":opts=") != NULL) {
-                                opts = strstr(cfg, ":opts=") + strlen(":opts=");
-                                *strstr(cfg, ":opts=") = '\0';
+                        name = tmp;
+                        if (strstr(tmp, ":opts=") != NULL) {
+                                opts = strstr(tmp, ":opts=") + strlen(":opts=");
+                                *strstr(tmp, ":opts=") = '\0';
                         }
                 }
         }
@@ -372,14 +375,16 @@ void * audio_cap_alsa_init(char *cfg)
                        s->frame.ch_count == 1 ? "" : "s", s->frame.bps,
                        s->frame.sample_rate, s->frames);
 
+        free(tmp);
         return s;
 
 error:
         free(s);
+        free(tmp);
         return NULL;
 }
 
-struct audio_frame *audio_cap_alsa_read(void *state)
+static struct audio_frame *audio_cap_alsa_read(void *state)
 {
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
         int rc;
@@ -431,7 +436,7 @@ struct audio_frame *audio_cap_alsa_read(void *state)
         }
 }
 
-void audio_cap_alsa_done(void *state)
+static void audio_cap_alsa_done(void *state)
 {
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
         struct timeval t;
@@ -445,6 +450,20 @@ void audio_cap_alsa_done(void *state)
         free(s->frame.data);
         free(s->tmp_data);
         free(s);
+}
+
+static const struct audio_capture_info acap_alsa_info = {
+        audio_cap_alsa_help,
+        audio_cap_alsa_init,
+        audio_cap_alsa_read,
+        audio_cap_alsa_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("alsa", &acap_alsa_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 }
 
 #endif /* HAVE_ALSA */

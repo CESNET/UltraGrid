@@ -180,6 +180,13 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
         }
 }
 
+void list_modules(enum library_class cls, int abi_version) {
+        const auto & class_set = get_libraries_for_class(cls, abi_version);
+        for (auto && item : class_set) {
+                printf("\t%s\n", item.first.c_str());
+        }
+}
+
 map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version)
 {
         map<string, const void *> ret;

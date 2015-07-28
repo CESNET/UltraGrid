@@ -46,17 +46,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-struct audio_frame;
-
-void audio_cap_none_help(const char *driver_name);
-void * audio_cap_none_init(char *cfg);
-struct audio_frame *audio_cap_none_read(void *state);
-void audio_cap_none_finish(void *state);
-void audio_cap_none_done(void *state);
+struct audio_capture_info;
+extern const struct audio_capture_info acap_none_info;
 

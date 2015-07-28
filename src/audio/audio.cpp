@@ -209,7 +209,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         char *addr;
         int resample_to = get_audio_codec_sample_rate(audio_codec_cfg);
         
-        audio_capture_init_devices();
         audio_playback_init_devices();
 
         assert(send_cfg != NULL);

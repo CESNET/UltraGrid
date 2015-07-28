@@ -61,9 +61,11 @@
 #include <portaudio.h> /* from PortAudio API */
 
 #include "audio/audio.h"
+#include "audio/audio_capture.h"
 #include "portaudio.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "utils/ring_buffer.h"
 
 
@@ -101,11 +103,9 @@ static int         callback( const void *inputBuffer, void *outputBuffer,
                 const PaStreamCallbackTimeInfo* timeInfo,
                 PaStreamCallbackFlags statusFlags,
                 void *userData );
+static void audio_cap_portaudio_help(const char *driver_name);
 
- /*
-  * Shared functions
-  */
-int portaudio_start_stream(PaStream *stream)
+static int portaudio_start_stream(PaStream *stream)
 {
 	PaError error;
 
@@ -133,7 +133,7 @@ static void print_device_info(PaDeviceIndex device)
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
-void portaudio_capture_help(const char *driver_name)
+static void audio_cap_portaudio_help(const char *driver_name)
 {
         UNUSED(driver_name);
         portaudio_print_available_devices(AUDIO_IN);
@@ -182,7 +182,7 @@ static void portaudio_print_available_devices(enum audio_device_kind kind)
 	return;
 }
 
-void portaudio_close(PaStream * stream)	// closes and frees all audio resources
+static void portaudio_close(PaStream * stream)	// closes and frees all audio resources
 {
 	Pa_StopStream(stream);	// may not be necessary
         Pa_CloseStream(stream);
@@ -192,11 +192,11 @@ void portaudio_close(PaStream * stream)	// closes and frees all audio resources
 /*
  * capture funcitons
  */
-void * portaudio_capture_init(char *cfg)
+static void * audio_cap_portaudio_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available PortAudio capture devices:\n");
-                portaudio_capture_help(NULL);
+                audio_cap_portaudio_help(NULL);
                 return &audio_init_state_ok;
         }
 
@@ -252,7 +252,7 @@ void * portaudio_capture_init(char *cfg)
         if(device_info == NULL) {
                 fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
                                MODULE_NAME "Follows list of available Portaudio devices.\n");
-                portaudio_capture_help(NULL);
+                audio_cap_portaudio_help(NULL);
                 free(s);
                 Pa_Terminate();
                 return NULL;
@@ -334,7 +334,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
 }
 
 // read from input device
-struct audio_frame * portaudio_read(void *state)
+static struct audio_frame * audio_cap_portaudio_read(void *state)
 {
         struct state_portaudio_capture *s = 
                         (struct state_portaudio_capture *) state;
@@ -352,12 +352,7 @@ struct audio_frame * portaudio_read(void *state)
 	return &s->frame;
 }
 
-void portaudio_capture_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void portaudio_capture_done(void *state)
+static void audio_cap_portaudio_done(void *state)
 {
         struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
         portaudio_close(s->stream);
@@ -366,5 +361,19 @@ void portaudio_capture_done(void *state)
         pthread_cond_destroy(&s->cv);
         ring_buffer_destroy(s->buffer);
         free(s);
+}
+
+static const struct audio_capture_info acap_portaudio_info = {
+        audio_cap_portaudio_help,
+        audio_cap_portaudio_init,
+        audio_cap_portaudio_read,
+        audio_cap_portaudio_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("portaudio", &acap_portaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 }
 

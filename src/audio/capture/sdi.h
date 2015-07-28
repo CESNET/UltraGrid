@@ -46,22 +46,15 @@
  *
  */
 
+struct audio_capture_info;
+extern const struct audio_capture_info acap_sdi_info;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
-//int audio_does_send_sdi(struct state_audio *s);
-struct audio_frame;
-
-/* audio capture API */
-void sdi_capture_help(const char *driver_name);
-void * sdi_capture_init(char *cfg);
-void sdi_capture_finish(void *state);
-void sdi_capture_done(void *state);
-struct audio_frame * sdi_read(void *state);
-
 /* SDI specific API */
+struct audio_frame;
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame);
 
 #ifdef __cplusplus

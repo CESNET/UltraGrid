@@ -445,7 +445,6 @@ video_capture_abi_version=3
 video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
-audio_capture_abi_version=4
 audio_playback_abi_version=4
 audio_codec_abi_version=1
 vo_pp_abi_version=3
@@ -454,7 +453,6 @@ AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Spe
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
-AC_DEFINE_UNQUOTED([AUDIO_CAPTURE_ABI_VERSION], $audio_capture_abi_version, [Specifies ABI version for audio capture])
 AC_DEFINE_UNQUOTED([AUDIO_PLAYBACK_ABI_VERSION], $audio_playback_abi_version, [Specifies ABI version for audio playback])
 AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
@@ -462,7 +460,6 @@ AC_SUBST(video_display_abi_version)
 AC_SUBST(video_capture_abi_version)
 AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
-AC_SUBST(audio_capture_abi_version)
 AC_SUBST(audio_playback_abi_version)
 AC_SUBST(audio_codec_abi_version)
 AC_SUBST(vo_pp_abi_version)
@@ -2335,7 +2332,7 @@ then
             PORTAUDIO_CAP_OBJ="src/audio/capture/portaudio.o"
             PORTAUDIO_PLAY_OBJ="src/audio/playback/portaudio.o"
             AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
-            AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/acap_portaudio.so.$audio_capture_abi_version")
+            AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/module_acap_portaudio.so")
             AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/aplay_portaudio.so.$audio_playback_abi_version")
             LIB_TARGETS="$LIB_TARGETS $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET"
             LIB_OBJS="$LIB_OBJS $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
@@ -2414,7 +2411,7 @@ then
     JACK_LIB="-ljack"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
-    AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/acap_jack.so.$audio_capture_abi_version")
+    AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/module_acap_jack.so")
     AC_SUBST(JACK_PLAY_LIB_TARGET, "lib/ultragrid/aplay_jack.so.$audio_playback_abi_version")
     LIB_TARGETS="$LIB_TARGETS $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET"
     LIB_OBJS="$LIB_OBJS $JACK_CAP_OBJ $JACK_PLAY_OBJ"
@@ -2458,7 +2455,7 @@ then
         ALSA_CAP_OBJ="src/audio/capture/alsa.o"
         ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
         ALSA_LIB="-lasound"
-        AC_SUBST(ALSA_CAP_LIB_TARGET, "lib/ultragrid/acap_alsa.so.$audio_capture_abi_version")
+        AC_SUBST(ALSA_CAP_LIB_TARGET, "lib/ultragrid/module_acap_alsa.so")
         AC_SUBST(ALSA_PLAY_LIB_TARGET, "lib/ultragrid/aplay_alsa.so.$audio_playback_abi_version")
         LIB_TARGETS="$LIB_TARGETS $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $ALSA_CAP_OBJ $ALSA_PLAY_OBJ"

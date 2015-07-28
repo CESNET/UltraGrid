@@ -46,11 +46,14 @@
  *
  */
 
-#include "audio/capture/none.h" 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #endif
+
+#include "audio/audio_capture.h"
+#include "audio/capture/none.h"
+
 #include "debug.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -62,12 +65,12 @@ struct state_audio_capture_none {
         uint32_t magic;
 };
 
-void audio_cap_none_help(const char *driver_name)
+static void audio_cap_none_help(const char *driver_name)
 {
         UNUSED(driver_name);
 }
 
-void * audio_cap_none_init(char *cfg)
+static void * audio_cap_none_init(const char *cfg)
 {
         struct state_audio_capture_none *s;
 
@@ -78,22 +81,24 @@ void * audio_cap_none_init(char *cfg)
         return s;
 }
 
-struct audio_frame *audio_cap_none_read(void *state)
+static struct audio_frame *audio_cap_none_read(void *state)
 {
         UNUSED(state);
         return NULL;
 }
 
-void audio_cap_none_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void audio_cap_none_done(void *state)
+static void audio_cap_none_done(void *state)
 {
         struct state_audio_capture_none *s = (struct state_audio_capture_none *) state;
 
         assert(s->magic == AUDIO_CAPTURE_NONE_MAGIC);
         free(s);
 }
+
+const struct audio_capture_info acap_none_info = {
+        audio_cap_none_help,
+        audio_cap_none_init,
+        audio_cap_none_read,
+        audio_cap_none_done
+};
 

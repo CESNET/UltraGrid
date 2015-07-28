@@ -53,8 +53,9 @@
 #include "host.h"
 
 #include "audio/audio.h"
+#include "audio/audio_capture.h"
 #include "audio/utils.h"
-#include "audio/capture/jack.h" 
+#include "lib_common.h"
 #include "utils/ring_buffer.h"
 #include <jack/jack.h>
 #include <stdlib.h>
@@ -106,7 +107,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         return 0;
 }
 
-void audio_cap_jack_help(const char *driver_name)
+static void audio_cap_jack_help(const char *driver_name)
 {
         UNUSED(driver_name);
         jack_client_t *client;
@@ -154,8 +155,7 @@ void audio_cap_jack_help(const char *driver_name)
         jack_client_close(client);
 }
 
-
-void * audio_cap_jack_init(char *cfg)
+static void * audio_cap_jack_init(const char *cfg)
 {
         struct state_jack_capture *s;
         jack_status_t status;
@@ -253,7 +253,7 @@ error:
         return NULL;
 }
 
-struct audio_frame *audio_cap_jack_read(void *state)
+static struct audio_frame *audio_cap_jack_read(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 
@@ -265,12 +265,7 @@ struct audio_frame *audio_cap_jack_read(void *state)
         return &s->frame;
 }
 
-void audio_cap_jack_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void audio_cap_jack_done(void *state)
+static void audio_cap_jack_done(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 
@@ -279,5 +274,19 @@ void audio_cap_jack_done(void *state)
         ring_buffer_destroy(s->data);
         free(s->frame.data);
         free(s);
+}
+
+static const struct audio_capture_info acap_jack_info = {
+        audio_cap_jack_help,
+        audio_cap_jack_init,
+        audio_cap_jack_read,
+        audio_cap_jack_done
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("jack", &acap_jack_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 }
 

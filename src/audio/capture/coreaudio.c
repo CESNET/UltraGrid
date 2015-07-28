@@ -41,6 +41,7 @@
 #ifdef HAVE_COREAUDIO
 
 #include "audio/audio.h"
+#include "audio/audio_capture.h"
 #include "audio/utils.h"
 #include "audio/capture/coreaudio.h" 
 #include "utils/ring_buffer.h"
@@ -90,11 +91,11 @@ static OSStatus InputProc(void *inRefCon,
                 UInt32 inBusNumber,
                 UInt32 inNumberFrames,
                 AudioBufferList * ioData);
-AudioBufferList *AllocateAudioBufferList(UInt32 numChannels, UInt32 size);
-void DestroyAudioBufferList(AudioBufferList* list);
+static AudioBufferList *AllocateAudioBufferList(UInt32 numChannels, UInt32 size);
+static void DestroyAudioBufferList(AudioBufferList* list);
 
 // Convenience function to allocate our audio buffers
-AudioBufferList *AllocateAudioBufferList(UInt32 numChannels, UInt32 size)
+static AudioBufferList *AllocateAudioBufferList(UInt32 numChannels, UInt32 size)
 {
         AudioBufferList*                        list;
         UInt32                                          i;
@@ -117,7 +118,7 @@ AudioBufferList *AllocateAudioBufferList(UInt32 numChannels, UInt32 size)
 }
 
 // Convenience function to dispose of our audio buffers
-void DestroyAudioBufferList(AudioBufferList* list)
+static void DestroyAudioBufferList(AudioBufferList* list)
 {
         UInt32                                          i;
         
@@ -184,7 +185,7 @@ static OSStatus InputProc(void *inRefCon,
         return err;
 }
 
-void audio_cap_ca_help(const char *driver_name)
+static void audio_cap_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
         OSErr ret;
@@ -217,7 +218,7 @@ error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
 }
 
-void * audio_cap_ca_init(char *cfg)
+static void * audio_cap_ca_init(char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available Core Audio capture devices:\n");
@@ -445,7 +446,7 @@ error:
         return NULL;
 }
 
-struct audio_frame *audio_cap_ca_read(void *state)
+static struct audio_frame *audio_cap_ca_read(void *state)
 {
         struct state_ca_capture *s = (struct state_ca_capture *) state;
         int ret = FALSE;
@@ -468,12 +469,7 @@ struct audio_frame *audio_cap_ca_read(void *state)
         return &s->frame;
 }
 
-void audio_cap_ca_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void audio_cap_ca_done(void *state)
+static void audio_cap_ca_done(void *state)
 {
         struct state_ca_capture *s = (struct state_ca_capture *) state;
 
@@ -496,6 +492,14 @@ void audio_cap_ca_done(void *state)
 
         free(s);
 }
+
+const struct audio_capture_info acap_coreaudio_info = {
+        audio_cap_ca_help,
+        audio_cap_ca_init,
+        audio_cap_ca_read,
+        audio_cap_ca_done
+};
+
 
 #endif /* HAVE_COREAUDIO */
 

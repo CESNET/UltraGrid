@@ -43,6 +43,7 @@
 #include "config_win32.h"
 #endif
 
+#include "audio/audio_capture.h"
 #include "audio/capture/testcard.h"
 
 #include "audio/audio.h"
@@ -88,7 +89,7 @@ struct state_audio_capture_testcard {
         unsigned int total_samples;
 };
 
-void audio_cap_testcard_help(const char *driver_name)
+static void audio_cap_testcard_help(const char *driver_name)
 {
         UNUSED(driver_name);
         printf("\ttestcard : Testing sound signal\n");
@@ -134,7 +135,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
                 return ret;
 }
 
-void * audio_cap_testcard_init(char *cfg)
+static void * audio_cap_testcard_init(const char *cfg)
 {
         struct state_audio_capture_testcard *s;
         char *wav_file = NULL;
@@ -154,7 +155,9 @@ void * audio_cap_testcard_init(char *cfg)
         }
 
         if(cfg) {
-                while((item = strtok_r(cfg, ":", &save_ptr))) {
+                char *tmp, *fmt;
+                tmp = fmt = strdup(cfg);
+                while((item = strtok_r(fmt, ":", &save_ptr))) {
                         if(strncasecmp(item, "vol=", strlen("vol=")) == 0) {
                                 volume = atof(item + strlen("vol="));
                         } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
@@ -163,8 +166,9 @@ void * audio_cap_testcard_init(char *cfg)
                                 chunk_size = atoi(item + strlen("frames="));
                         }
 
-                        cfg = NULL;
+                        fmt = NULL;
                 }
+                free(tmp);
         }
 
         s = new state_audio_capture_testcard();
@@ -233,7 +237,7 @@ void * audio_cap_testcard_init(char *cfg)
         return s;
 }
 
-struct audio_frame *audio_cap_testcard_read(void *state)
+static struct audio_frame *audio_cap_testcard_read(void *state)
 {
         struct state_audio_capture_testcard *s;
         s = (struct state_audio_capture_testcard *) state;
@@ -266,12 +270,7 @@ struct audio_frame *audio_cap_testcard_read(void *state)
         return &s->audio;
 }
 
-void audio_cap_testcard_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void audio_cap_testcard_done(void *state)
+static void audio_cap_testcard_done(void *state)
 {
         struct state_audio_capture_testcard *s = (struct state_audio_capture_testcard *) state;
 
@@ -282,4 +281,11 @@ void audio_cap_testcard_done(void *state)
 
         delete s;
 }
+
+const struct audio_capture_info acap_testcard_info = {
+        audio_cap_testcard_help,
+        audio_cap_testcard_init,
+        audio_cap_testcard_read,
+        audio_cap_testcard_done
+};
 

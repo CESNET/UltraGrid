@@ -65,11 +65,13 @@ extern "C" {
 enum library_class {
         LIBRARY_CLASS_UNDEFINED,
         LIBRARY_CLASS_CAPTURE_FILTER,
+        LIBRARY_CLASS_AUDIO_CAPTURE,
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
 void *open_library(const char *name);
 void register_library(const char *name, const void *info, enum library_class, int abi_version);
+void list_modules(enum library_class, int abi_version);
 #ifdef __cplusplus
 }
 #endif

@@ -42,6 +42,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "audio/audio.h" 
+#include "audio/audio_capture.h"
 #include "audio/capture/sdi.h" 
 
 #include "compat/platform_semaphore.h"
@@ -70,13 +71,15 @@ struct state_sdi_capture {
         condition_variable audio_frame_ready_cv;
 };
 
-void * sdi_capture_init(char *cfg)
+static void audio_cap_sdi_help(const char *driver_name);
+
+static void * audio_cap_sdi_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available vidcap audio devices:\n");
-                sdi_capture_help("embedded");
-                sdi_capture_help("AESEBU");
-                sdi_capture_help("analog");
+                audio_cap_sdi_help("embedded");
+                audio_cap_sdi_help("AESEBU");
+                audio_cap_sdi_help("analog");
                 printf("\t\twhere <index> is index of vidcap device "
                                 "to be taken audio from.\n");
                 return &audio_init_state_ok;
@@ -85,7 +88,7 @@ void * sdi_capture_init(char *cfg)
         return new state_sdi_capture();
 }
 
-struct audio_frame * sdi_read(void *state)
+static struct audio_frame * audio_cap_sdi_read(void *state)
 {
         struct state_sdi_capture *s = (struct state_sdi_capture *) state;
 
@@ -107,7 +110,7 @@ struct audio_frame * sdi_read(void *state)
         return &s->audio_frame[FRAME_NETWORK];
 }
 
-void sdi_capture_done(void *state)
+static void audio_cap_sdi_done(void *state)
 {
         struct state_sdi_capture *s;
 
@@ -117,7 +120,7 @@ void sdi_capture_done(void *state)
         }
 }
 
-void sdi_capture_help(const char *driver_name)
+static void audio_cap_sdi_help(const char *driver_name)
 {
         if(strcmp(driver_name, "embedded") == 0) {
                 printf("\tembedded[:<index>] : SDI audio (if available)\n");
@@ -167,5 +170,13 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         lk.unlock();
         s->audio_frame_ready_cv.notify_one();
 }
+
+
+const struct audio_capture_info acap_sdi_info = {
+        audio_cap_sdi_help,
+        audio_cap_sdi_init,
+        audio_cap_sdi_read,
+        audio_cap_sdi_done
+};
 
 /* vim: set expandtab: sw=8 */
