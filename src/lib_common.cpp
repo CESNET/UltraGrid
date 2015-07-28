@@ -136,7 +136,7 @@ void *open_library(const char *name)
 #endif
 }
 
-static map<enum library_class, map<string, pair<void *, int>>> *libraries = nullptr;
+static map<enum library_class, map<string, pair<const void *, int>>> *libraries = nullptr;
 
 /**
  * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()
@@ -145,20 +145,20 @@ static map<enum library_class, map<string, pair<void *, int>>> *libraries = null
 struct init_libraries {
         init_libraries() {
                 if (libraries == nullptr) {
-                        libraries = new map<enum library_class, map<string, pair<void *, int>>>();
+                        libraries = new remove_pointer<decltype(libraries)>::type();
                 }
         }
 };
 
 static struct init_libraries loader;
 
-void register_library(const char *name, void *data, enum library_class cls, int abi_version)
+void register_library(const char *name, const void *data, enum library_class cls, int abi_version)
 {
         struct init_libraries loader;
         (*libraries)[cls][name] = make_pair(data, abi_version);
 }
 
-void *load_library(const char *name, enum library_class cls, int abi_version)
+const void *load_library(const char *name, enum library_class cls, int abi_version)
 {
         if (libraries->find(cls) != libraries->end()) {
                 auto it_cls = libraries->find(cls)->second;
@@ -180,9 +180,9 @@ void *load_library(const char *name, enum library_class cls, int abi_version)
         }
 }
 
-map<string, void *> get_libraries_for_class(enum library_class cls, int abi_version)
+map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version)
 {
-        map<string, void *> ret;
+        map<string, const void *> ret;
         auto it = libraries->find(cls);
         if (it != libraries->end()) {
                 for (auto && item : it->second) {

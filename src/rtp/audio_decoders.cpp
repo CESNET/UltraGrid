@@ -106,7 +106,7 @@ struct state_audio_decoder {
 
         audio_frame2 *decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
 
-        struct openssl_decrypt_info *dec_funcs;
+        const struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
 
         bool muted;
@@ -184,7 +184,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->decoded = new audio_frame2;
 
         if (encryption) {
-                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
+                s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
                         log_msg(LOG_LEVEL_ERROR, "This " PACKAGE_NAME " version was build "

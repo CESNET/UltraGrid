@@ -282,7 +282,7 @@ struct state_video_decoder
 
         synchronized_queue<main_msg_reconfigure *> msg_queue;
 
-        struct openssl_decrypt_info *dec_funcs; ///< decrypt state
+        const struct openssl_decrypt_info *dec_funcs; ///< decrypt state
         struct openssl_decrypt      *decrypt; ///< decrypt state
 
         std::future<bool> reconfiguration_future;
@@ -638,7 +638,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->last_buffer_number = -1;
 
         if (encryption) {
-                s->dec_funcs = static_cast<struct openssl_decrypt_info *>(load_library("openssl_decrypt",
+                s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
                                         LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
                 if (!s->dec_funcs) {
                                 log_msg(LOG_LEVEL_FATAL, "UltraGrid was build without OpenSSL support!\n");

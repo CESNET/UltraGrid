@@ -216,8 +216,10 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
 {
         if (ldgm_device_gpu) {
                 LDGM_session_gpu *(*loader)();
-                loader = reinterpret_cast<LDGM_session_gpu *(*)()>(load_library("ldgm_gpu",
-                                        LIBRARY_CLASS_UNDEFINED, LDGM_GPU_API_VERSION));
+                loader = reinterpret_cast<LDGM_session_gpu *(*)()>(
+                                const_cast<void *>(
+                                        load_library("ldgm_gpu",
+                                                LIBRARY_CLASS_UNDEFINED, LDGM_GPU_API_VERSION)));
                 if (!loader) {
                         throw string("GPU accelerated LDGM support is not compiled in");
                 } else {

@@ -67,9 +67,9 @@ enum library_class {
         LIBRARY_CLASS_CAPTURE_FILTER,
 };
 void open_all(const char *pattern);
-void *load_library(const char *name, enum library_class, int abi_version);
+const void *load_library(const char *name, enum library_class, int abi_version);
 void *open_library(const char *name);
-void register_library(const char *name, void *info, enum library_class, int abi_version);
+void register_library(const char *name, const void *info, enum library_class, int abi_version);
 #ifdef __cplusplus
 }
 #endif
@@ -77,6 +77,6 @@ void register_library(const char *name, void *info, enum library_class, int abi_
 #ifdef __cplusplus
 #include <map>
 #include <string>
-std::map<std::string, void *> get_libraries_for_class(enum library_class cls, int abi_version);
+std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version);
 #endif
 

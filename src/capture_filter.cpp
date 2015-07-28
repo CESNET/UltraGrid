@@ -74,7 +74,7 @@ struct capture_filter {
 };
 
 struct capture_filter_instance {
-        capture_filter_info *functions;
+        const struct capture_filter_info *functions;
         void *state;
 };
 
@@ -89,7 +89,7 @@ static int create_filter(struct capture_filter *s, char *cfg)
         }
         const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         for (auto && item : capture_filters) {
-                struct capture_filter_info *capture_filter_info = static_cast<struct capture_filter_info*>(item.second);
+                auto capture_filter_info = static_cast<const struct capture_filter_info*>(item.second);
                 if(strcasecmp(capture_filter_info->name, filter_name) == 0) {
                         struct capture_filter_instance *instance = (struct capture_filter_instance *)
                                 malloc(sizeof(struct capture_filter_instance));
@@ -135,7 +135,7 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                         const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
                         printf("Available capture filters:\n");
                         for (auto && item : capture_filters) {
-                                struct capture_filter_info *cfi = static_cast<struct capture_filter_info*>(item.second);
+                                auto cfi = static_cast<const struct capture_filter_info*>(item.second);
                                 printf("\t%s\n", cfi->name);
                         }
                         module_done(&s->mod);
