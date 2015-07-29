@@ -55,7 +55,6 @@
 #include "rtp/audio_decoders.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
-#include "audio/resampler.h"
 #include "audio/utils.h"
 #include "crypto/crc.h"
 #include "crypto/openssl_decrypt.h"
@@ -100,7 +99,6 @@ struct state_audio_decoder {
         bool fixed_scale;
 
         struct audio_codec_state *audio_decompress;
-        struct resampler *resampler;
 
         struct audio_desc saved_desc;
         uint32_t saved_audio_tag;
@@ -111,6 +109,8 @@ struct state_audio_decoder {
         struct openssl_decrypt *decrypt;
 
         bool muted;
+
+        audio_frame2_resampler resampler;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -180,8 +180,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->packet_counter = NULL;
 
         s->audio_decompress = NULL;
-
-        s->resampler = resampler_init(DEVICE_SAMPLE_RATE);
 
         if (encryption) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
@@ -324,7 +322,6 @@ void audio_decoder_destroy(void *state)
         free(s->channel_map.sizes);
         packet_counter_destroy(s->packet_counter);
         audio_codec_done(s->audio_decompress);
-        resampler_done(s->resampler);
 
         if (s->dec_funcs) {
                 s->dec_funcs->destroy(s->decrypt);
@@ -532,22 +529,24 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                 cdata = cdata->nxt;
         }
 
-        const audio_frame2 & decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
-        if(!decompressed) {
+        audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
+        if (!decompressed) {
                 return FALSE;
         }
 
-        const audio_frame2 *resampled = resampler_resample(decoder->resampler, &decompressed);
-        audio_frame2 tmp;
-        const audio_frame2 *device_frame; // with correct device sample rate and bps
-        if (resampled->get_bps() != s->buffer.bps) {
-                tmp = audio_frame2::copy_with_bps_change(*resampled, s->buffer.bps);
-                device_frame = &tmp;
-        } else {
-                device_frame = resampled;
+        if (DEVICE_SAMPLE_RATE != decompressed.get_sample_rate()) {
+                if (decompressed.get_bps() != 2) {
+                        decompressed.change_bps(2);
+                }
+                decompressed.resample(decoder->resampler, DEVICE_SAMPLE_RATE);
+
         }
 
-        size_t new_data_len = s->buffer.data_len + device_frame->get_data_len(0) * output_channels;
+        if (decompressed.get_bps() != s->buffer.bps) {
+                decompressed.change_bps(s->buffer.bps);
+        }
+
+        size_t new_data_len = s->buffer.data_len + decompressed.get_data_len(0) * output_channels;
         if(s->buffer.max_size < new_data_len) {
                 s->buffer.max_size = new_data_len;
                 s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
@@ -557,29 +556,29 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
         if (!decoder->muted) {
                 // there is a mapping for channel
-                for(int channel = 0; channel < device_frame->get_channel_count(); ++channel) {
+                for(int channel = 0; channel < decompressed.get_channel_count(); ++channel) {
                         if(decoder->channel_remapping) {
                                 if(channel < decoder->channel_map.size) {
                                         for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
                                                 mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
-                                                                device_frame->get_data(channel),
-                                                                device_frame->get_bps(), device_frame->get_data_len(channel),
+                                                                decompressed.get_data(channel),
+                                                                decompressed.get_bps(), decompressed.get_data_len(channel),
                                                                 output_channels, decoder->channel_map.map[channel][i],
                                                                 decoder->scale[decoder->fixed_scale ? 0 :
                                                                 decoder->channel_map.map[channel][i]].scale);
                                         }
                                 }
                         } else {
-                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len, device_frame->get_data(channel),
-                                                device_frame->get_bps(),
-                                                device_frame->get_data_len(channel), output_channels, channel,
+                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len, decompressed.get_data(channel),
+                                                decompressed.get_bps(),
+                                                decompressed.get_data_len(channel), output_channels, channel,
                                                 decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                         }
                 }
         }
         s->buffer.data_len = new_data_len;
 
-        decoder->decoded.append(*device_frame);
+        decoder->decoded.append(decompressed);
 
         double seconds;
         struct timeval t;
