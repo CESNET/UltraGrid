@@ -131,8 +131,9 @@ class audio_frame2
 public:
         audio_frame2();
         audio_frame2(audio_frame2 &&) = default;
-        audio_frame2(struct audio_frame *);
+        explicit audio_frame2(const struct audio_frame *);
         audio_frame2& operator=(audio_frame2 &&) = default;
+        bool operator!() const;
         void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
         void append(audio_frame2 const &frame);
         void append(int channel, const char *data, size_t length);

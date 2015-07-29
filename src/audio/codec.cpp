@@ -276,7 +276,7 @@ const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audi
         }
 }
 
-audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame)
+audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *frame)
 {
         if (s->state_count < frame->get_channel_count()) {
                 s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
@@ -284,7 +284,7 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
                         s->state[i] = audio_codecs[s->index]->init(s->codec, s->direction, false, 0);
                         if(s->state[i] == NULL) {
                                         fprintf(stderr, "Error: initialization of audio codec failed!\n");
-                                        return NULL;
+                                        return {};
                         }
                 }
                 s->state_count = frame->get_channel_count();
@@ -296,6 +296,7 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
         }
 #endif
 
+        audio_frame2 ret;
         audio_channel channel;
         int nonzero_channels = 0;
         bool out_frame_initialized = false;
@@ -304,30 +305,35 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
                 audio_channel *out = audio_codecs[s->index]->decompress(s->state[i], &channel);
                 if (out) {
                         if (!out_frame_initialized) {
-                                s->out->init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);
+                                ret.init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);
                                 out_frame_initialized = true;
                         } else {
-                                assert(out->bps == s->out->get_bps()
-                                                && out->sample_rate == s->out->get_sample_rate());
+                                assert(out->bps == ret.get_bps()
+                                                && out->sample_rate == ret.get_sample_rate());
                         }
-                        s->out->append(i, out->data, out->data_len);
+                        ret.append(i, out->data, out->data_len);
                         nonzero_channels += 1;
                 }
         }
 
         if(nonzero_channels != frame->get_channel_count()) {
                 fprintf(stderr, "[Audio decompress] Empty channel returned !\n");
-                return NULL;
+                return {};
         }
+        /// @todo
+        /// Drop the whole frame? It seems to be better to avoid filling remaining with silence
+        /// since it
+        /// could cause problems if we didn't miss any data but we are processing data from
+        /// different channels not simultaneously.
         for(int i = 1; i < frame->get_channel_count(); ++i) {
-                if(s->out->get_data_len(i) != s->out->get_data_len(0)) {
+                if(ret.get_data_len(i) != ret.get_data_len(0)) {
                         fprintf(stderr, "[Audio decompress] Inequal channel lenghth detected (%zd vs %zd)!\n",
-                                        s->out->get_data_len(0), s->out->get_data_len(i));
-                        return NULL;
+                                        ret.get_data_len(0), ret.get_data_len(i));
+                        return {};
                 }
         }
 
-        return s->out;
+        return ret;
 }
 
 const int *audio_codec_get_supported_samplerates(struct audio_codec_state *s)

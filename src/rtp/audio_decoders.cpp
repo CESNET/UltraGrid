@@ -532,12 +532,12 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                 cdata = cdata->nxt;
         }
 
-        audio_frame2 *decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
+        const audio_frame2 & decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
         if(!decompressed) {
                 return FALSE;
         }
 
-        const audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
+        const audio_frame2 *resampled = resampler_resample(decoder->resampler, &decompressed);
         audio_frame2 tmp;
         const audio_frame2 *device_frame; // with correct device sample rate and bps
         if (resampled->get_bps() != s->buffer.bps) {

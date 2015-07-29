@@ -83,15 +83,21 @@ audio_frame2::audio_frame2() :
 /**
  * @brief creates audio_frame2 from POD audio_frame
  */
-audio_frame2::audio_frame2(struct audio_frame *old)
+audio_frame2::audio_frame2(const struct audio_frame *old) :
+                bps(old ? old->bps : 0), sample_rate(old ? old->sample_rate : 0),
+                channels(old ? old->ch_count : 0),
+                codec(old ? AC_PCM : AC_NONE), duration(0.0)
 {
-        init(old->ch_count, AC_PCM, old->bps, old->sample_rate);
-
         for (int i = 0; i < old->ch_count; i++) {
                 resize(i, old->data_len / old->ch_count);
                 char *data = channels[i].first.get();
                 demux_channel(data, old->data, old->bps, old->data_len, old->ch_count, i);
         }
+}
+
+bool audio_frame2::operator!() const
+{
+        return codec == AC_NONE;
 }
 
 /**
