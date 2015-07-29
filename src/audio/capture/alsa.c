@@ -313,18 +313,6 @@ static void * audio_cap_alsa_init(const char *cfg)
                 goto error;
         }
 
-        /* Channels count */
-        rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
-        if (rc < 0) {
-                if (s->frame.ch_count == 1) { // some devices cannot do mono
-                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
-                } else {
-                        fprintf(stderr, MOD_NAME "unable to set channel count: %s\n",
-                                        snd_strerror(rc));
-                        goto error;
-                }
-        }
-
         /* we want to resample if device doesn't support default sample rate */
         val = 1;
         rc = snd_pcm_hw_params_set_rate_resample(s->handle,
@@ -344,6 +332,18 @@ static void * audio_cap_alsa_init(const char *cfg)
                         dir == 0 ? "=" : (dir == -1 ? "<" : ">"),
                         val, snd_strerror(rc));
                 goto error;
+        }
+
+        /* Channels count */
+        rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
+        if (rc < 0) {
+                if (s->frame.ch_count == 1) { // some devices cannot do mono
+                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
+                } else {
+                        fprintf(stderr, MOD_NAME "unable to set channel count: %s\n",
+                                        snd_strerror(rc));
+                        goto error;
+                }
         }
 
         /* This must be set after setting of sample rate for Chat 150 which increases
