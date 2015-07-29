@@ -61,6 +61,7 @@
 #include "crypto/openssl_decrypt.h"
 
 #include "utils/packet_counter.h"
+#include "utils/worker.h"
 
 #include <algorithm>
 #include <ctype.h>
@@ -104,7 +105,7 @@ struct state_audio_decoder {
         struct audio_desc saved_desc;
         uint32_t saved_audio_tag;
 
-        audio_frame2 *decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
+        audio_frame2 decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
 
         const struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
@@ -172,7 +173,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         assert(audio_scale != NULL);
 
-        s = (struct state_audio_decoder *) calloc(1, sizeof(struct state_audio_decoder));
+        s = new struct state_audio_decoder();
         s->magic = AUDIO_DECODER_MAGIC;
 
         gettimeofday(&s->t0, NULL);
@@ -181,7 +182,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->audio_decompress = NULL;
 
         s->resampler = resampler_init(DEVICE_SAMPLE_RATE);
-        s->decoded = new audio_frame2;
 
         if (encryption) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
@@ -189,13 +189,13 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 if (!s->dec_funcs) {
                         log_msg(LOG_LEVEL_ERROR, "This " PACKAGE_NAME " version was build "
                                         "without OpenSSL support!\n");
-                        free(s);
+                        delete s;
                         return NULL;
                 }
                 if (s->dec_funcs->init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
-                        free(s);
+                        delete s;
                         return NULL;
                 }
         }
@@ -308,7 +308,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 error:
         free(tmp);
         audio_decoder_destroy(s);
-        free(s);
+        delete s;
         return NULL;
 }
 
@@ -325,13 +325,12 @@ void audio_decoder_destroy(void *state)
         packet_counter_destroy(s->packet_counter);
         audio_codec_done(s->audio_decompress);
         resampler_done(s->resampler);
-        delete s->decoded;
 
         if (s->dec_funcs) {
                 s->dec_funcs->destroy(s->decrypt);
         }
 
-        free(s);
+        delete s;
 }
 
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
@@ -345,6 +344,34 @@ bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
 
         return true;
 }
+
+struct adec_stats_processing_data {
+        audio_frame2 frame;
+        double seconds;
+        int bytes_received;
+        int bytes_expected;
+};
+
+static void *adec_compute_and_print_stats(void *arg) {
+        auto d = (struct adec_stats_processing_data*) arg;
+        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %u/%d B, "
+                        "decoded %d samples in %.2f sec.\n",
+                        d->bytes_received,
+                        d->bytes_expected,
+                        d->frame.get_sample_count(),
+                        d->seconds);
+        for (int i = 0; i < d->frame.get_channel_count(); ++i) {
+                double rms, peak;
+                rms = calculate_rms(&d->frame, i, &peak);
+                log_msg(LOG_LEVEL_INFO, "[Audio decoder] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                                i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+        }
+
+        delete d;
+
+        return NULL;
+}
+
 
 int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *)
 {
@@ -478,7 +505,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
                         received_frame.init(input_channels, audio_codec, bps, sample_rate); 
-                        decoder->decoded->init(input_channels, AC_PCM, device_bps, DEVICE_SAMPLE_RATE);
+                        decoder->decoded.init(input_channels, AC_PCM, device_bps, DEVICE_SAMPLE_RATE);
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
@@ -552,7 +579,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
         }
         s->buffer.data_len = new_data_len;
 
-        decoder->decoded->append(*device_frame);
+        decoder->decoded.append(*device_frame);
 
         double seconds;
         struct timeval t;
@@ -560,22 +587,18 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
         gettimeofday(&t, 0);
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
-                int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %u/%d B, "
-                                "decoded %d samples in %.2f sec.\n",
-                                bytes_received,
-                                packet_counter_get_all_bytes(decoder->packet_counter),
-                                decoder->decoded->get_sample_count(),
-                                seconds);
-                for (int i = 0; i < decoder->decoded->get_channel_count(); ++i) {
-                        double rms, peak;
-                        rms = calculate_rms(decoder->decoded, i, &peak);
-                        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
-                                        i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
-                }
+                auto d = new adec_stats_processing_data;
+                d->frame.init(decoder->decoded.get_channel_count(), decoder->decoded.get_codec(), decoder->decoded.get_bps(), decoder->decoded.get_sample_rate());
+
+                std::swap(d->frame, decoder->decoded);
+                d->seconds = seconds;
+                d->bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
+                d->bytes_expected = packet_counter_get_all_bytes(decoder->packet_counter);
+
+                task_run_async_detached(adec_compute_and_print_stats, d);
+
                 decoder->t0 = t;
                 packet_counter_clear(decoder->packet_counter);
-                decoder->decoded->reset();
         }
 
         if(!decoder->fixed_scale) {

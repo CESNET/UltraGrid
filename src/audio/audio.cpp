@@ -79,6 +79,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "utils/worker.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -127,7 +128,7 @@ struct state_audio {
         std::chrono::steady_clock::time_point start_time;
 
         struct timeval t0; // for statistics
-        audio_frame2 *captured;
+        audio_frame2 captured;
 
         struct tx *tx_session;
         
@@ -293,7 +294,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
         
         gettimeofday(&s->t0, NULL);
-        s->captured = new audio_frame2;
         
         tmp = strdup(addrs);
         s->audio_participants = pdb_init(audio_delay);
@@ -442,8 +442,6 @@ error:
                 module_done(&s->mod);
         }
 
-        delete s->captured;
-
         audio_codec_done(s->audio_coder);
         delete s;
         exit_uv(1);
@@ -492,8 +490,6 @@ void audio_done(struct state_audio *s)
 
                 free(s->audio_network_parameters.addr);
                 free(s->audio_network_parameters.mcast_if);
-
-                delete s->captured;
 
                 delete s;
         }
@@ -765,30 +761,48 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
         }
 }
 
+struct asend_stats_processing_data {
+        audio_frame2 frame;
+        double seconds;
+};
+
+static void *asend_compute_and_print_stats(void *arg) {
+        auto d = (struct asend_stats_processing_data*) arg;
+
+        log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
+                        d->frame.get_sample_count(),
+                        d->seconds);
+        for (int i = 0; i < d->frame.get_channel_count(); ++i) {
+                double rms, peak;
+                rms = calculate_rms(&d->frame, i, &peak);
+                log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                                i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+        }
+
+        delete d;
+
+        return NULL;
+}
+
 static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
 {
-        if (!s->captured->has_same_prop_as(*buffer)) {
-                s->captured->init(buffer->get_channel_count(), buffer->get_codec(),
+        if (!s->captured.has_same_prop_as(*buffer)) {
+                s->captured.init(buffer->get_channel_count(), buffer->get_codec(),
                                 buffer->get_bps(), buffer->get_sample_rate());
         }
-        s->captured->append(*buffer);
+        s->captured.append(*buffer);
 
         struct timeval t;
         double seconds;
         gettimeofday(&t, 0);
         seconds = tv_diff(t, s->t0);
         if (seconds > 5.0) {
-                log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
-                                s->captured->get_sample_count(),
-                                seconds);
-                for (int i = 0; i < s->captured->get_channel_count(); ++i) {
-                        double rms, peak;
-                        rms = calculate_rms(s->captured, i, &peak);
-                        log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
-                                        i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
-                }
+                auto d = new asend_stats_processing_data;
+                std::swap(d->frame, s->captured);
+                d->seconds = seconds;
+
+                task_run_async_detached(asend_compute_and_print_stats, d);
                 s->t0 = t;
-                s->captured->reset();
         }
 }
 
