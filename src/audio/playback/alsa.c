@@ -454,6 +454,9 @@ static void audio_play_alsa_done(void *state)
 
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
+        if (s->local_config) {
+                snd_config_delete(s->local_config);
+        }
         free(s);
 }
 
