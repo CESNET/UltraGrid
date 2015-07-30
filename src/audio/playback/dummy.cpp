@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif
 
+#include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/playback/dummy.h"
 
@@ -64,7 +65,12 @@ static void audio_play_dummy_done(void *)
 {
 }
 
-static int audio_play_dummy_reconfigure(void *, int, int, int)
+static struct audio_desc audio_play_dummy_query_format(void *, struct audio_desc d)
+{
+        return d;
+}
+
+static int audio_play_dummy_reconfigure(void *, struct audio_desc)
 {
         return TRUE;
 }
@@ -73,6 +79,7 @@ const struct audio_playback_info aplay_dummy_info = {
         audio_play_dummy_help,
         audio_play_dummy_init,
         audio_play_dummy_put_frame,
+        audio_play_dummy_query_format,
         audio_play_dummy_reconfigure,
         audio_play_dummy_done
 };

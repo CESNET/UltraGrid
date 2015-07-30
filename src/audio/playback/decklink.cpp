@@ -491,14 +491,17 @@ static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame
 
 }
 
-static int audio_play_decklink_reconfigure(void *state, int quant_samples, int channels,
-                                int sample_rate) {
+static struct audio_desc audio_play_decklink_query_format(void *, struct audio_desc desc) {
+        return audio_desc{desc.bps <= 2 ? 2 : 4, 48000, desc.ch_count <= 2 ? 2 :
+                (desc.ch_count <= 8 ? 8 : 16), AC_PCM};
+}
+
+static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
-        s->audio_desc.bps = quant_samples / 8;
-        s->audio_desc.sample_rate = sample_rate;
-        s->output_audio_channel_count = s->audio_desc.ch_count = channels;
+        s->audio_desc = desc;
+        s->output_audio_channel_count = desc.ch_count;
         
         if (s->audio_desc.ch_count != 1 &&
                         s->audio_desc.ch_count != 2 &&
@@ -514,18 +517,17 @@ static int audio_play_decklink_reconfigure(void *state, int quant_samples, int c
                  s->output_audio_channel_count = 2;
         }
         
-        if((quant_samples != 16 && quant_samples != 32) ||
-                        sample_rate != 48000) {
-                fprintf(stderr, "[decklink] audio format isn't supported: "
-                        "samples: %d, sample rate: %d\n",
-                        quant_samples, sample_rate);
+        if((desc.bps != 2 && desc.bps != 4) ||
+                        desc.sample_rate != 48000) {
+                LOG(LOG_LEVEL_ERROR) << "[decklink] audio format isn't supported: " <<
+                        desc;
                 return FALSE;
         }
-        switch(quant_samples) {
-                case 16:
+        switch(desc.bps) {
+                case 2:
                         sample_type = bmdAudioSampleType16bitInteger;
                         break;
-                case 32:
+                case 4:
                         sample_type = bmdAudioSampleType32bitInteger;
                         break;
                 default:
@@ -557,6 +559,7 @@ static const struct audio_playback_info aplay_decklink_info = {
         audio_play_decklink_help,
         audio_play_decklink_init,
         audio_play_decklink_put_frame,
+        audio_play_decklink_query_format,
         audio_play_decklink_reconfigure,
         audio_play_decklink_done
 };

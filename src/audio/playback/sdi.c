@@ -123,14 +123,22 @@ static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
                 s->put_callback(s->put_udata, frame);
 }
 
-static int audio_play_sdi_reconfigure(void *state, int quant_samples, int channels,
-                int sample_rate)
+static struct audio_desc audio_play_sdi_query_format(void *state, struct audio_desc desc)
+{
+        UNUSED(state);
+        UNUSED(desc);
+        /// @todo
+        return (struct audio_desc){2, 48000, 2, AC_PCM};
+}
+
+static int audio_play_sdi_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_sdi_playback *s;
         s = (struct state_sdi_playback *) state;
 
         if(s->reconfigure_callback) {
-                return s->reconfigure_callback(s->reconfigure_udata, quant_samples, channels, sample_rate);
+                return s->reconfigure_callback(s->reconfigure_udata, desc.bps * 8,
+                                desc.ch_count, desc.sample_rate);
         } else {
                 return FALSE;
         }
@@ -145,6 +153,7 @@ const struct audio_playback_info aplay_sdi_info = {
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
+        audio_play_sdi_query_format,
         audio_play_sdi_reconfigure,
         audio_play_sdi_done
 };

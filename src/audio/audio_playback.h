@@ -46,20 +46,21 @@
  *
  */
 
+#include "audio/audio.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 1
-
-struct audio_frame;
+#define AUDIO_PLAYBACK_ABI_VERSION 2
 
 struct audio_playback_info {
         void (*help)(const char *driver_name);
         void *(*init)(const char *cfg);
         void (*write)(void *state, struct audio_frame *frame);
-        int (*reconfigure)(void *state, int quant_samples, int channels,
-                int sample_rate);
+        /** Returns device supported format that matches best with propsed audio desc */
+        struct audio_desc (*query_format)(void *state, struct audio_desc);
+        int (*reconfigure)(void *state, struct audio_desc);
         void (*done)(void *state);
 };
 
@@ -73,6 +74,7 @@ void                            audio_playback_init_devices(void);
 int                             audio_playback_init(const char *device, const char *cfg,
                 struct state_audio_playback **);
 struct state_audio_playback    *audio_playback_init_null_device(void);
+struct audio_desc               audio_playback_query_supported_format(struct state_audio_playback *s, struct audio_desc prop);
 int                             audio_playback_reconfigure(struct state_audio_playback *state,
                 int quant_samples, int channels,
                 int sample_rate);

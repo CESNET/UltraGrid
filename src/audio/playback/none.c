@@ -52,6 +52,7 @@
 #include "config_win32.h"
 #endif
 
+#include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/playback/none.h" 
 #include "debug.h"
@@ -99,12 +100,15 @@ static void audio_play_none_done(void *state)
         free(s);
 }
 
-static int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
-                                                int sample_rate)
+static struct audio_desc audio_play_none_query_format(void *state, struct audio_desc desc)
 {
-        UNUSED(quant_samples);
-        UNUSED(channels);
-        UNUSED(sample_rate);
+        UNUSED(state);
+        return desc;
+}
+
+static int audio_play_none_reconfigure(void *state, struct audio_desc desc)
+{
+        UNUSED(desc);
         struct state_audio_playback_none *s = 
                 (struct state_audio_playback_none *) state;
         assert(s->magic == AUDIO_PLAYBACK_NONE_MAGIC);
@@ -116,6 +120,7 @@ const struct audio_playback_info aplay_none_info = {
         audio_play_none_help,
         audio_play_none_init,
         audio_play_none_put_frame,
+        audio_play_none_query_format,
         audio_play_none_reconfigure,
         audio_play_none_done
 };

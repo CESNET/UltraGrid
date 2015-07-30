@@ -561,7 +561,7 @@ static void *audio_receiver_thread(void *arg)
         memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
         memset(&device_desc, 0, sizeof(struct audio_desc));
 
-        pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
+        pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (query_supported_format_t) audio_playback_query_supported_format, s->audio_playback_device);
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");

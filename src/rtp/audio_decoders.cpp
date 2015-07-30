@@ -69,8 +69,6 @@
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 
-static constexpr int DEVICE_SAMPLE_RATE = 48000; // todo...
-
 struct scale_data {
         double vol_avg;
         int samples;
@@ -100,7 +98,7 @@ struct state_audio_decoder {
 
         struct audio_codec_state *audio_decompress;
 
-        struct audio_desc saved_desc;
+        struct audio_desc saved_desc; // from network
         uint32_t saved_audio_tag;
 
         audio_frame2 decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
@@ -111,6 +109,9 @@ struct state_audio_decoder {
         bool muted;
 
         audio_frame2_resampler resampler;
+
+        query_supported_format_t query_func;
+        void *query_func_data;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -164,7 +165,7 @@ static void compute_scale(struct scale_data *scale_data, float vol_avg, int samp
         }
 }
 
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption)
+void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, query_supported_format_t q, void *q_state)
 {
         struct state_audio_decoder *s;
         bool scale_auto = false;
@@ -175,6 +176,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s = new struct state_audio_decoder();
         s->magic = AUDIO_DECODER_MAGIC;
+        s->query_func = q;
+        s->query_func_data = q_state;
 
         gettimeofday(&s->t0, NULL);
         s->packet_counter = NULL;
@@ -463,25 +466,21 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
 
                 /*
                  * Reconfiguration
-                 *
-                 * @todo obtain supported rates from device
                  */
-                int device_bps = 2;
                 if(decoder->saved_desc.ch_count != input_channels ||
                                 decoder->saved_desc.bps != bps ||
                                 decoder->saved_desc.sample_rate != sample_rate ||
                                 decoder->saved_audio_tag != audio_tag) {
-                        if(DEVICE_SAMPLE_RATE == sample_rate) // no resampling
-                                device_bps = bps;
-
                         log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
                                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
+                        audio_desc device_desc = decoder->query_func(decoder->query_func_data,
+                                        audio_desc{bps, sample_rate, output_channels, AC_PCM});
 
-                        s->buffer.bps = device_bps;
-                        s->buffer.ch_count = output_channels;
-                        s->buffer.sample_rate = DEVICE_SAMPLE_RATE;
+                        s->buffer.bps = device_desc.bps;
+                        s->buffer.ch_count = device_desc.ch_count;
+                        s->buffer.sample_rate = device_desc.sample_rate;
 
                         if(!decoder->fixed_scale) {
                                 free(decoder->scale);
@@ -502,7 +501,8 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
                         received_frame.init(input_channels, audio_codec, bps, sample_rate); 
-                        decoder->decoded.init(input_channels, AC_PCM, device_bps, DEVICE_SAMPLE_RATE);
+                        decoder->decoded.init(input_channels, AC_PCM,
+                                        device_desc.bps, device_desc.sample_rate);
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
@@ -534,19 +534,18 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                 return FALSE;
         }
 
-        if (DEVICE_SAMPLE_RATE != decompressed.get_sample_rate()) {
+        if (s->buffer.sample_rate != decompressed.get_sample_rate()) {
                 if (decompressed.get_bps() != 2) {
                         decompressed.change_bps(2);
                 }
-                decompressed.resample(decoder->resampler, DEVICE_SAMPLE_RATE);
-
+                decompressed.resample(decoder->resampler, s->buffer.sample_rate);
         }
 
         if (decompressed.get_bps() != s->buffer.bps) {
                 decompressed.change_bps(s->buffer.bps);
         }
 
-        size_t new_data_len = s->buffer.data_len + decompressed.get_data_len(0) * output_channels;
+        size_t new_data_len = s->buffer.data_len + decompressed.get_data_len(0) * s->buffer.ch_count;
         if(s->buffer.max_size < new_data_len) {
                 s->buffer.max_size = new_data_len;
                 s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
@@ -560,18 +559,22 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         if(decoder->channel_remapping) {
                                 if(channel < decoder->channel_map.size) {
                                         for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
+                                                int new_position = decoder->channel_map.map[channel][i];
+                                                if (new_position >= s->buffer.ch_count)
+                                                        continue;
                                                 mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
                                                                 decompressed.get_data(channel),
                                                                 decompressed.get_bps(), decompressed.get_data_len(channel),
-                                                                output_channels, decoder->channel_map.map[channel][i],
-                                                                decoder->scale[decoder->fixed_scale ? 0 :
-                                                                decoder->channel_map.map[channel][i]].scale);
+                                                                s->buffer.ch_count, new_position,
+                                                                decoder->scale[decoder->fixed_scale ? 0 : new_position].scale);
                                         }
                                 }
                         } else {
+                                if (channel >= s->buffer.ch_count)
+                                        continue;
                                 mux_and_mix_channel(s->buffer.data + s->buffer.data_len, decompressed.get_data(channel),
                                                 decompressed.get_bps(),
-                                                decompressed.get_data_len(channel), output_channels, channel,
+                                                decompressed.get_data_len(channel), s->buffer.ch_count, channel,
                                                 decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                         }
                 }

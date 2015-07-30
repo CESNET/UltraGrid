@@ -154,10 +154,14 @@ void audio_playback_put_frame(struct state_audio_playback *s, struct audio_frame
         s->funcs->write(s->state, frame);
 }
 
+struct audio_desc audio_playback_query_supported_format(struct state_audio_playback *s, struct audio_desc prop) {
+        return s->funcs->query_format(s->state, prop);
+}
+
 int audio_playback_reconfigure(struct state_audio_playback *s, int quant_samples, int channels,
                 int sample_rate)
 {
-        return s->funcs->reconfigure(s->state, quant_samples, channels, sample_rate);
+        return s->funcs->reconfigure(s->state, (struct audio_desc){quant_samples / 8, sample_rate, channels, AC_PCM});
 }
 
 void  *audio_playback_get_state_pointer(struct state_audio_playback *s)

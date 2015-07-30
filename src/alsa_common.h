@@ -86,5 +86,12 @@ static inline void audio_alsa_help(void)
         }
 }
 
+static const snd_pcm_format_t bps_to_snd_fmts[] = {
+        [1] = SND_PCM_FORMAT_U8,
+        [2] = SND_PCM_FORMAT_S16_LE,
+        [3] = SND_PCM_FORMAT_S24_3LE,
+        [4] = SND_PCM_FORMAT_S32_LE,
+};
+
 #endif // defined ALSA_COMMON_H
 

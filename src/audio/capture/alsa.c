@@ -88,13 +88,6 @@ static void audio_cap_alsa_help(const char *driver_name)
         audio_alsa_help();
 }
 
-static const snd_pcm_format_t fmts[] = {
-        [1] = SND_PCM_FORMAT_U8,
-        [2] = SND_PCM_FORMAT_S16_LE,
-        [3] = SND_PCM_FORMAT_S24_3LE,
-        [4] = SND_PCM_FORMAT_S32_LE,
-};
-
 static const int bps_preference[] = { 2, 4, 3, 1 };
 
 #define DEFAULT_SAMPLE_RATE 48000
@@ -256,7 +249,7 @@ static void * audio_cap_alsa_init(const char *cfg)
 
         if (s->frame.bps == 0) {
                 for (unsigned int i = 0; i < sizeof bps_preference / sizeof(bps_preference[0]); i++) {
-                        if (!snd_pcm_hw_params_test_format(s->handle, params, fmts[bps_preference[i]])) {
+                        if (!snd_pcm_hw_params_test_format(s->handle, params, bps_to_snd_fmts[bps_preference[i]])) {
                                 s->frame.bps = bps_preference[i];
                                 break;
                         }
@@ -304,7 +297,7 @@ static void * audio_cap_alsa_init(const char *cfg)
         }
 
         /* Sample format */
-        format = fmts[s->frame.bps];
+        format = bps_to_snd_fmts[s->frame.bps];
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 format);
         if (rc < 0) {

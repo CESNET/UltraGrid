@@ -78,8 +78,15 @@ struct state_alsa_playback {
         snd_config_t * local_config;
 };
 
-static int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
-                                int sample_rate)
+static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_desc desc)
+{
+        UNUSED(state);
+        UNUSED(desc);
+        ///@todo
+        return (struct audio_desc){2, 48000, 2, AC_PCM};
+}
+
+static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         snd_pcm_hw_params_t *params;
@@ -89,9 +96,9 @@ static int audio_play_alsa_reconfigure(void *state, int quant_samples, int chann
         int rc;
         unsigned int frames;
 
-        s->desc.bps = quant_samples / 8;
-        s->min_device_channels = s->desc.ch_count = channels;
-        s->desc.sample_rate = sample_rate;
+        s->desc.bps = desc.bps;
+        s->min_device_channels = s->desc.ch_count = desc.ch_count;
+        s->desc.sample_rate = desc.sample_rate;
 
 
         /* Allocate a hardware parameters object. */
@@ -116,23 +123,14 @@ static int audio_play_alsa_reconfigure(void *state, int quant_samples, int chann
                 return FALSE;
         }
 
-        switch(quant_samples) {
-                case 8:
-                        format = SND_PCM_FORMAT_U8;
-                        break;
-                case 16:
-                        format = SND_PCM_FORMAT_S16_LE;
-                        break;
-                case 24:
-                        format = SND_PCM_FORMAT_S24_3LE;
-                        break;
-                case 32:
-                        format = SND_PCM_FORMAT_S32_LE;
-                        break;
-                default:
-                        fprintf(stderr, "[ALSA playback] Unsupported BPS for audio (%d).\n", quant_samples);
-                        return FALSE;
+        if (desc.bps > 4 || desc.bps < 1) {
+                log_msg(LOG_LEVEL_ERROR, "[ALSA playback] Unsupported BPS for audio (%d).\n",
+                                desc.bps * 8);
+                return FALSE;
+
         }
+        format = bps_to_snd_fmts[desc.bps];
+
         /* Signed 16-bit little-endian format */
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                         format);
@@ -143,9 +141,9 @@ static int audio_play_alsa_reconfigure(void *state, int quant_samples, int chann
         }
 
         /* Two channels (stereo) */
-        rc = snd_pcm_hw_params_set_channels(s->handle, params, channels);
+        rc = snd_pcm_hw_params_set_channels(s->handle, params, desc.ch_count);
         if (rc < 0) {
-                if(channels == 1) {
+                if (desc.ch_count == 1) {
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
                 } else {
                         fprintf(stderr, "cannot set requested channel count: %s\n",
@@ -165,7 +163,7 @@ static int audio_play_alsa_reconfigure(void *state, int quant_samples, int chann
 
 
         /* 44100 bits/second sampling rate (CD quality) */
-        val = sample_rate;
+        val = desc.sample_rate;
         dir = 0;
         rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                         &val, &dir);
@@ -464,6 +462,7 @@ static const struct audio_playback_info aplay_alsa_info = {
         audio_play_alsa_help,
         audio_play_alsa_init,
         audio_play_alsa_put_frame,
+        audio_play_alsa_query_format,
         audio_play_alsa_reconfigure,
         audio_play_alsa_done
 };

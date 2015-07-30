@@ -112,8 +112,12 @@ static OSStatus theRenderProc(void *inRefCon,
         return noErr;
 }
 
-static int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
-                                                int sample_rate)
+static struct audio_desc audio_play_ca_query_format(void *, struct audio_desc desc)
+{
+        return audio_desc{desc.bps, desc.sample_rate, desc.ch_count, AC_PCM};
+}
+
+static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
         AudioStreamBasicDescription stream_desc;
@@ -122,7 +126,7 @@ static int audio_play_ca_reconfigure(void *state, int quant_samples, int channel
         AURenderCallbackStruct  renderStruct;
 
         printf("[CoreAudio] Audio reinitialized to %d-bit, %d channels, %d Hz\n",
-                        quant_samples, channels, sample_rate);
+                        desc.bps * 8, desc.ch_count, desc.sample_rate);
 
         if (s->initialized) {
                 ret = AudioOutputUnitStop(s->auHALComponentInstance);
@@ -139,14 +143,12 @@ static int audio_play_ca_reconfigure(void *state, int quant_samples, int channel
                 s->initialized = false;
         }
 
-        s->desc.bps = quant_samples / 8;
-        s->desc.ch_count = channels;
-        s->desc.sample_rate = sample_rate;
+        s->desc = desc;
 
         ring_buffer_destroy(s->buffer);
         s->buffer = NULL;
 
-        s->buffer = ring_buffer_init(quant_samples / 8 * channels * sample_rate);
+        s->buffer = ring_buffer_init(desc.bps * desc.ch_count * desc.sample_rate);
 
         size = sizeof(stream_desc);
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
@@ -155,13 +157,13 @@ static int audio_play_ca_reconfigure(void *state, int quant_samples, int channel
                 fprintf(stderr, "[CoreAudio playback] Cannot get device format from AUHAL instance.\n");
                 goto error;
         }
-        stream_desc.mSampleRate = sample_rate;
+        stream_desc.mSampleRate = desc.sample_rate;
         stream_desc.mFormatID = kAudioFormatLinearPCM;
-        stream_desc.mChannelsPerFrame = channels;
-        stream_desc.mBitsPerChannel = quant_samples;
+        stream_desc.mChannelsPerFrame = desc.ch_count;
+        stream_desc.mBitsPerChannel = desc.bps * 8;
         stream_desc.mFormatFlags = kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked;
         stream_desc.mFramesPerPacket = 1;
-        s->audio_packet_size = stream_desc.mBytesPerFrame = stream_desc.mBytesPerPacket = stream_desc.mFramesPerPacket * channels * (quant_samples / 8);
+        s->audio_packet_size = stream_desc.mBytesPerFrame = stream_desc.mBytesPerPacket = stream_desc.mFramesPerPacket * desc.ch_count * desc.bps;
 
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, sizeof(stream_desc));
@@ -349,6 +351,7 @@ const struct audio_playback_info aplay_coreaudio_info = {
         audio_play_ca_help,
         audio_play_ca_init,
         audio_play_ca_put_frame,
+        audio_play_ca_query_format,
         audio_play_ca_reconfigure,
         audio_play_ca_done
 };

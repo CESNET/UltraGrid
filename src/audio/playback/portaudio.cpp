@@ -51,6 +51,7 @@
 #include "config_win32.h"
 #endif
 
+#include <algorithm>
 #include <chrono>
 #include <stdio.h>
 #include <assert.h>
@@ -69,6 +70,7 @@
 #define MODULE_NAME "[Portaudio playback] "
 #define BUFFER_LEN_SEC 1
 
+using namespace std;
 using namespace std::chrono;
 
 #define NO_DATA_STOP_SEC 2
@@ -107,8 +109,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
                 PaStreamCallbackFlags statusFlags,
                 void *userData );
 static void     cleanup(struct state_portaudio_playback * s);
-static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int channels,
-                int sample_rate);
+static int audio_play_portaudio_reconfigure(void *state, struct audio_desc);
 
  /*
   * Shared functions
@@ -247,7 +248,7 @@ static void * audio_play_portaudio_init(const char *cfg)
 
         s->quiet = true;
         
-        if (!audio_play_portaudio_reconfigure(s, 16, 2, 48000)) {
+        if (!audio_play_portaudio_reconfigure(s, audio_desc{2, 48000, 2, AC_PCM})) {
                 return NULL;
         }
 
@@ -269,8 +270,16 @@ static void cleanup(struct state_portaudio_playback * s)
         free(s->tmp_buffer);
 }
 
-static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int channels,
-                int sample_rate)
+static struct audio_desc audio_play_portaudio_query_format(void *state, struct audio_desc desc)
+{
+        struct state_portaudio_playback * s =
+                (struct state_portaudio_playback *) state;
+        return audio_desc{desc.bps, desc.sample_rate, min(desc.ch_count, s->max_output_channels),
+                        AC_PCM};
+
+}
+
+static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
@@ -281,14 +290,12 @@ static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int 
                 cleanup(s);
         }
 
-        int size = BUFFER_LEN_SEC * channels * (quant_samples/8) *
-                        sample_rate;
+        int size = BUFFER_LEN_SEC * desc.ch_count * desc.bps *
+                        desc.sample_rate;
         s->data = ring_buffer_init(size);
         s->tmp_buffer = (char *) malloc(size);
         
-        s->desc.bps = quant_samples / 8;
-        s->desc.ch_count = channels;
-        s->desc.sample_rate = sample_rate;
+        s->desc = desc;
         
 	printf("(Re)initializing portaudio playback.\n");
 
@@ -320,22 +327,22 @@ static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int 
 	}
 		
                 
-        if(channels <= s->max_output_channels)
-                outputParameters.channelCount = channels; // output channels
+        if(desc.ch_count <= s->max_output_channels)
+                outputParameters.channelCount = desc.ch_count; // output channels
         else
                 outputParameters.channelCount = s->max_output_channels; // output channels
-        assert(quant_samples % 8 == 0 && quant_samples <= 32 && quant_samples != 0);
-        switch(quant_samples) {
-                case 8:
+        assert(desc.bps <= 4 && desc.bps != 0);
+        switch(desc.bps) {
+                case 1:
                         outputParameters.sampleFormat = paInt8;
                         break;
-                case 16:
+                case 2:
                         outputParameters.sampleFormat = paInt16;
                         break;
-                case 24:
+                case 3:
                         outputParameters.sampleFormat = paInt24;
                         break;
-                case 32:
+                case 4:
                         outputParameters.sampleFormat = paInt32;
                         break;
         }
@@ -343,7 +350,7 @@ static int audio_play_portaudio_reconfigure(void *state, int quant_samples, int 
         outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
 
-        error = Pa_OpenStream( &s->stream, NULL, &outputParameters, sample_rate, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
+        error = Pa_OpenStream( &s->stream, NULL, &outputParameters, desc.sample_rate, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
                         paNoFlag,
                         callback,
                         s
@@ -429,6 +436,7 @@ static const struct audio_playback_info aplay_portaudio_info = {
         audio_play_portaudio_help,
         audio_play_portaudio_init,
         audio_play_portaudio_put_frame,
+        audio_play_portaudio_query_format,
         audio_play_portaudio_reconfigure,
         audio_play_portaudio_done
 };

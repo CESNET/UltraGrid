@@ -71,6 +71,10 @@
 
 #define MAX_PORTS 64
 
+#ifndef __cplusplus
+#define min(a, b)      (((a) < (b))? (a): (b))
+#endif
+
 struct state_jack_playback {
         char *jack_ports_pattern;
         int jack_sample_rate;
@@ -248,8 +252,13 @@ error:
         return NULL;
 }
 
-static int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
-                                int sample_rate)
+static struct audio_desc audio_play_jack_query_format(void *state, struct audio_desc desc)
+{
+        struct state_jack_playback *s = (struct state_jack_playback *) state;
+        return (struct audio_desc){4, s->jack_sample_rate, min(s->jack_ports_count, desc.ch_count), AC_PCM};
+}
+
+static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         const char **ports;
@@ -263,8 +272,8 @@ static int audio_play_jack_reconfigure(void *state, int quant_samples, int chann
                 return FALSE;
         }
 
-        if(channels > s->jack_ports_count) {
-                fprintf(stderr, "[JACK playback] Warning: received %d audio channels, JACK can process only %d.", channels, s->jack_ports_count);
+        if(desc.ch_count > s->jack_ports_count) {
+                fprintf(stderr, "[JACK playback] Warning: received %d audio channels, JACK can process only %d.", desc.ch_count, s->jack_ports_count);
         }
 
         for(i = 0; i < MAX_PORTS; ++i) {
@@ -272,15 +281,15 @@ static int audio_play_jack_reconfigure(void *state, int quant_samples, int chann
                 s->data[i] = NULL;
         }
         /* for all channels previously connected */
-        for(i = 0; i < channels; ++i) {
+        for(i = 0; i < desc.ch_count; ++i) {
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
 		fprintf(stderr, "[JACK playback] Port %d: %s\n", i, ports[i]);
         }
         free(s->channel);
         free(s->converted);
-        s->desc.bps = quant_samples / 8;
-        s->desc.ch_count = channels;
-        s->desc.sample_rate = sample_rate;
+        s->desc.bps = desc.bps;
+        s->desc.ch_count = desc.ch_count;
+        s->desc.sample_rate = desc.sample_rate;
 
 #ifdef HAVE_SPEEX
         free(s->converted_resampled);
@@ -292,7 +301,7 @@ static int audio_play_jack_reconfigure(void *state, int quant_samples, int chann
 
         {
                 int err;
-                s->resampler = speex_resampler_init(channels, sample_rate, s->jack_sample_rate, 10, &err); 
+                s->resampler = speex_resampler_init(desc.ch_count, desc.sample_rate, s->jack_sample_rate, 10, &err);
                 if(err) {
                         fprintf(stderr, "[JACK playback] Unable to create resampler.\n");
                         return FALSE;
@@ -300,10 +309,10 @@ static int audio_play_jack_reconfigure(void *state, int quant_samples, int chann
         }
 #endif
 
-        s->channel = malloc(s->desc.bps * sample_rate);
-        s->converted = (float *) malloc(sample_rate * sizeof(float));
+        s->channel = malloc(s->desc.bps * desc.sample_rate);
+        s->converted = (float *) malloc(desc.sample_rate * sizeof(float));
 
-        for(i = 0; i < channels; ++i) {
+        for(i = 0; i < desc.ch_count; ++i) {
                 s->data[i] = ring_buffer_init(sizeof(float) * s->jack_sample_rate);
         }
 
@@ -312,7 +321,7 @@ static int audio_play_jack_reconfigure(void *state, int quant_samples, int chann
                 return FALSE;
         }
 
-        for(i = 0; i < channels; ++i) {
+        for(i = 0; i < desc.ch_count; ++i) {
                 if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
                         fprintf (stderr, "Cannot connect output port: %d.\n", i);
                         return FALSE;
@@ -377,6 +386,7 @@ static const struct audio_playback_info aplay_jack_info = {
         audio_play_jack_help,
         audio_play_jack_init,
         audio_play_jack_put_frame,
+        audio_play_jack_query_format,
         audio_play_jack_reconfigure,
         audio_play_jack_done
 };

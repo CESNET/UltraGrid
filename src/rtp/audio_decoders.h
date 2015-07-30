@@ -35,16 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "audio/audio.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct coded_data;
 
+typedef struct audio_desc (*query_supported_format_t)(void *state, struct audio_desc prop);
+
 int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
-                const char *encryption);
+                const char *encryption, query_supported_format_t q, void *q_state);
 void audio_decoder_destroy(void *state);
 void audio_decoder_increase_volume(void *state);
 void audio_decoder_decrease_volume(void *state);
