@@ -65,10 +65,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_SPEEX
-#include <speex/speex_resampler.h> 
-#endif
-
 #define MAX_PORTS 64
 
 #ifndef __cplusplus
@@ -83,12 +79,6 @@ struct state_jack_playback {
         struct audio_desc desc;
         char *channel;
         float *converted;
-#ifdef HAVE_SPEEX
-        float *converted_resampled;
-        size_t converted_resampled_size;
-        SpeexResamplerState *resampler; 
-#endif
-
 
         int jack_ports_count;
         struct ring_buffer *data[MAX_PORTS];
@@ -100,6 +90,11 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg);
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) arg;
+
+        log_msg(LOG_LEVEL_WARNING, "JACK sample rate changed from %d to %d. "
+                        "Runtime change is not supported in UG and will likely "
+                        "cause malfunctioning. If so, pleaser report to %s.",
+                        s->jack_sample_rate, nframes, PACKAGE_BUGREPORT);
 
         s->jack_sample_rate = nframes;
 
@@ -264,6 +259,8 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         const char **ports;
         int i;
 
+        assert(desc.bps == 4 && desc.sample_rate == s->jack_sample_rate && desc.codec == AC_PCM);
+
         jack_deactivate(s->client);
 
         ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
@@ -291,24 +288,6 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         s->desc.ch_count = desc.ch_count;
         s->desc.sample_rate = desc.sample_rate;
 
-#ifdef HAVE_SPEEX
-        free(s->converted_resampled);
-        if(s->resampler) {
-                speex_resampler_destroy(s->resampler);
-        }
-        s->converted_resampled_size = sizeof(float) * s->jack_sample_rate;
-        s->converted_resampled = (float *) malloc(s->converted_resampled_size);
-
-        {
-                int err;
-                s->resampler = speex_resampler_init(desc.ch_count, desc.sample_rate, s->jack_sample_rate, 10, &err);
-                if(err) {
-                        fprintf(stderr, "[JACK playback] Unable to create resampler.\n");
-                        return FALSE;
-                }
-        }
-#endif
-
         s->channel = malloc(s->desc.bps * desc.sample_rate);
         s->converted = (float *) malloc(desc.sample_rate * sizeof(float));
 
@@ -335,30 +314,14 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 static void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
-        int i;
+        assert(frame->bps == 4);
 
         int channel_size = frame->data_len / frame->ch_count;
-        int converted_size = channel_size * sizeof(int32_t) / frame->bps;
 
-
-        for(i = 0; i < frame->ch_count; ++i) {
+        for (int i = 0; i < frame->ch_count; ++i) {
                 demux_channel(s->channel, frame->data, frame->bps, frame->data_len, frame->ch_count, i);
-                change_bps((char *) s->converted, sizeof(int32_t), s->channel, frame->bps, channel_size);
-                int2float((char *) s->converted, (char *) s->converted, converted_size);
-#ifdef HAVE_SPEEX
-                spx_uint32_t in_len = channel_size / frame->bps;
-                spx_uint32_t out_len = s->converted_resampled_size;
-                speex_resampler_process_float(s->resampler, 
-                                           i, 
-                                           s->converted, 
-                                           &in_len, 
-                                           s->converted_resampled, 
-                                           &out_len);
-                out_len *= sizeof(float);
-                ring_buffer_write(s->data[i], (const char *) s->converted_resampled, out_len);
-#else
-                ring_buffer_write(s->data[i], s->converted, converted_size);
-#endif
+                int2float((char *) s->converted, (char *) s->channel, channel_size);
+                ring_buffer_write(s->data[i], (char *) s->converted, channel_size);
         }
 }
 
@@ -368,10 +331,6 @@ static void audio_play_jack_done(void *state)
         int i;
 
         jack_client_close(s->client);
-#ifdef HAVE_SPEEX
-        free(s->converted_resampled);
-        speex_resampler_destroy(s->resampler);
-#endif
         free(s->channel);
         free(s->converted);
         free(s->jack_ports_pattern);
