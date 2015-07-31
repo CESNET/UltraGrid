@@ -93,6 +93,7 @@ struct state_sdl {
         bool                    deinterlace;
         bool                    fs;
         bool                    nodecorate;
+        bool                    fixed_size;
 
         int                     screen_w, screen_h;
         
@@ -112,13 +113,12 @@ struct state_sdl {
         void                   *autorelease_pool;
 #endif
         volatile bool           should_exit;
-        int bpp;
         uint32_t sdl_flags_win, sdl_flags_fs;
 
         struct module   mod;
 
         state_sdl(struct module *parent) : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
-                      deinterlace(false), fs(false), nodecorate(false),
+                      deinterlace(false), fs(false), nodecorate(false), fixed_size(false),
                       screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false),
                       current_desc(), current_display_desc(),
 #ifdef HAVE_MACOSX
@@ -234,7 +234,7 @@ static bool update_size(struct state_sdl *s, int win_w, int win_h)
                 x_res_y = win_h;
         }
         SDL_Surface *sdl_screen_old = s->sdl_screen;
-        s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, s->bpp, s->fs ? s->sdl_flags_fs : s->sdl_flags_win);
+        s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, s->fs ? s->sdl_flags_fs : s->sdl_flags_win);
         fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
         compute_dst_rect(s, s->current_display_desc.width, s->current_display_desc.height, x_res_x, x_res_y, s->current_display_desc.color_spec);
 	if (s->sdl_screen == NULL) {
@@ -343,21 +343,28 @@ void display_sdl_run(void *arg)
 
                 if (codec_is_a_rgb(frame->color_spec)) {
                         decoder_t decoder = nullptr;
+                        if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
+                                log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bps %d!\n",
+                                                s->sdl_screen->format->BitsPerPixel);
+                                goto free_frame;
+                        }
+                        codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
                         if (frame->color_spec == RGBA) {
-                                decoder = vc_copylineRGBA;
+                                decoder = dst_codec == RGBA ? vc_copylineRGBA : vc_copylineRGBAtoRGB;
                         } else {
-                                decoder = vc_copylineRGB;
+                                decoder = dst_codec == RGBA ? vc_copylineRGBtoRGBA : vc_copylineRGB;
                         }
                         assert(decoder != nullptr);
                         SDL_LockSurface(s->sdl_screen);
                         size_t linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
-                        for (size_t i = 0; i < frame->tiles[0].height; ++i) {
+                        size_t dst_linesize = vc_get_linesize(frame->tiles[0].width, dst_codec);
+                        for (size_t i = 0; i < min<size_t>(frame->tiles[0].height, s->sdl_screen->h); ++i) {
                                 decoder((unsigned char *) s->sdl_screen->pixels +
                                                 s->sdl_screen->pitch * (s->dst_rect.y + i) +
                                                 s->dst_rect.x *
                                                 s->sdl_screen->format->BytesPerPixel,
                                                 (unsigned char *) frame->tiles[0].data + i * linesize,
-                                                linesize,
+                                                min<long>(dst_linesize,s->sdl_screen->pitch),
                                                 s->sdl_screen->format->Rshift,
                                                 s->sdl_screen->format->Gshift,
                                                 s->sdl_screen->format->Bshift);
@@ -397,6 +404,7 @@ static void show_help(void)
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
         printf("\tnodecorate - disable WM decoration\n");
+        printf("\tfixed_size - do not change window size automatically\n");
         //printf("\t<f> - read frame content from the filename\n");
         show_codec_help((char *) "sdl");
 }
@@ -430,24 +438,23 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 	fprintf(stdout, "Reconfigure to size %dx%d\n", desc.width,
 			desc.height);
 
-        if (desc.color_spec == RGB) {
-                s->bpp = 24;
-        } else if (desc.color_spec == RGBA) {
-                s->bpp = 32;
-        } else {
-                s->bpp = 0; /* screen defautl */
-        }
-        s->sdl_flags_fs = SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF;
-        s->sdl_flags_win = SDL_HWSURFACE | SDL_DOUBLEBUF | (s->nodecorate ? SDL_NOFRAME : 0);
-        if (!codec_is_a_rgb(desc.color_spec)) {
-                s->sdl_flags_win |= SDL_RESIZABLE;
-        }
+        uint32_t flags_common = SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE;
+        s->sdl_flags_fs = flags_common | SDL_FULLSCREEN;
+        s->sdl_flags_win =  flags_common | (s->nodecorate ? SDL_NOFRAME : 0);
         s->current_display_desc = desc;
 
-	if (!update_size(s, desc.width, desc.height)) {
-                memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
-                return FALSE;
-	}
+        if (!s->fixed_size ||
+                        !s->sdl_screen /* first run */) {
+                if (!update_size(s, desc.width, desc.height)) {
+                        memset(&s->current_display_desc, 0, sizeof s->current_display_desc);
+                        return FALSE;
+                }
+        } else {
+                SDL_FillRect(s->sdl_screen, NULL, 0x000000);
+                SDL_Flip(s->sdl_screen);
+                compute_dst_rect(s, s->current_display_desc.width, s->current_display_desc.height, s->sdl_screen->w, s->sdl_screen->h, s->current_display_desc.color_spec);
+        }
+
         if (window_title) {
                 SDL_WM_SetCaption(window_title, window_title);
         } else {
@@ -500,6 +507,8 @@ void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flag
                                 s->deinterlace = 1;
                         } else if (strcmp(tok, "nodecorate") == 0) {
                                 s->nodecorate = true;
+                        } else if (strcmp(tok, "fixed_size") == 0) {
+                                s->fixed_size = true;
                         }
                         ptr = NULL;
                 }
