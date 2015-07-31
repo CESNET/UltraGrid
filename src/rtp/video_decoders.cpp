@@ -992,12 +992,15 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                         out_codec == DXT5)
                                         && decoder->video_mode != VIDEO_NORMAL)
                                 continue; /* it is a exception, see NOTES #1 */
-                        if(desc.color_spec == RGBA || /* another exception - we may change shifts */
-                                        desc.color_spec == RGB)
-                                continue;
 
                         *decode_line = (decoder_t) memcpy;
                         decoder->decoder_type = LINE_DECODER;
+
+                        if(desc.color_spec == RGBA || /* another exception - we may change shifts */
+                                        desc.color_spec == RGB) {
+                                *decode_line = desc.color_spec == RGBA ?
+                                        vc_copylineRGBA : vc_copylineRGB;
+                        }
 
                         goto after_linedecoder_lookup;
                 }
