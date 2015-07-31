@@ -57,7 +57,6 @@
 #endif
 
 #include "video_display.h"
-#include "video_display/bluefish444.h"
 
 #include <iomanip>
 #include <iostream>
@@ -72,12 +71,13 @@
 #include "audio/audio.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "utils/ring_buffer.h"
 #include "video.h"
 #include "video_display.h"
 
-#define BLUEFISH444_MAGIC DISPLAY_BLUEFISH444_ID
+#define BLUEFISH444_MAGIC 0x15b75db8
 
 #define BUFFER_COUNT 4
 
@@ -837,7 +837,7 @@ static void show_help(void)
         }
 }
 
-void *display_bluefish444_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_bluefish444_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         int deviceId = 1;
@@ -863,7 +863,7 @@ void *display_bluefish444_init(struct module *parent, const char *fmt, unsigned 
         return state;
 }
 
-struct video_frame *
+static struct video_frame *
 display_bluefish444_getf(void *state)
 {
         display_bluefish444_state *s =
@@ -879,7 +879,7 @@ display_bluefish444_getf(void *state)
         return frame;
 }
 
-int display_bluefish444_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_bluefish444_putf(void *state, struct video_frame *frame, int nonblock)
 {
         UNUSED(nonblock);
         display_bluefish444_state *s =
@@ -897,7 +897,7 @@ int display_bluefish444_putf(void *state, struct video_frame *frame, int nonbloc
         return ret;
 }
 
-int
+static int
 display_bluefish444_reconfigure(void *state, struct video_desc desc)
 {
         display_bluefish444_state *s =
@@ -915,12 +915,12 @@ display_bluefish444_reconfigure(void *state, struct video_desc desc)
         return ret;
 }
 
-void display_bluefish444_run(void *state)
+static void display_bluefish444_run(void *state)
 {
         UNUSED(state);
 }
 
-void display_bluefish444_done(void *state)
+static void display_bluefish444_done(void *state)
 {
         display_bluefish444_state *s =
                 (display_bluefish444_state *) state;
@@ -928,20 +928,7 @@ void display_bluefish444_done(void *state)
         delete s;
 }
 
-display_type_t *display_bluefish444_probe(void)
-{
-        display_type_t *dtype;
-
-        dtype = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dtype != NULL) {
-                dtype->id = DISPLAY_BLUEFISH444_ID;
-                dtype->name = "bluefish444";
-                dtype->description = "bluefish444 card";
-        }
-        return dtype;
-}
-
-int display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
+static int display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = { UYVY };
@@ -986,7 +973,7 @@ int display_bluefish444_get_property(void *state, int property, void *val, size_
         return TRUE;
 }
 
-int display_bluefish444_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_bluefish444_reconfigure_audio(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
 #ifdef HAVE_BLUE_AUDIO
@@ -1008,7 +995,7 @@ int display_bluefish444_reconfigure_audio(void *state, int quant_samples, int ch
 #endif
 }
 
-void display_bluefish444_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_bluefish444_put_audio_frame(void *state, struct audio_frame *frame)
 {
 #ifdef HAVE_BLUE_AUDIO
         display_bluefish444_state *s =
@@ -1020,5 +1007,24 @@ void display_bluefish444_put_audio_frame(void *state, struct audio_frame *frame)
                 cerr << "[Blue444 disp] " << e.what() << endl;
         }
 #endif
+}
+
+static const struct video_display_info display_bluefish444_info = {
+        display_bluefish444_init,
+        display_bluefish444_run,
+        display_bluefish444_done,
+        display_bluefish444_getf,
+        display_bluefish444_putf,
+        display_bluefish444_reconfigure,
+        display_bluefish444_get_property,
+        display_bluefish444_put_audio_frame,
+        display_bluefish444_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("bluefish444", &display_bluefish444_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 }
 

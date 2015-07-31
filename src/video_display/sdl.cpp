@@ -43,10 +43,10 @@
 #include "host.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "video_display.h"
-#include "video_display/sdl.h"
 #include "tv.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
@@ -72,7 +72,7 @@ extern "C" void NSApplicationLoad();
 /* splashscreen (xsedmik) */
 #include "video_display/splashscreen.h"
 
-#define MAGIC_SDL   DISPLAY_SDL_ID
+#define MAGIC_SDL   0x155734ae
 #define FOURCC_UYVY 0x59565955
 #define FOURCC_YUYV 0x32595559
 
@@ -140,6 +140,8 @@ struct state_sdl {
 
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
+static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_sdl_reconfigure(void *state, struct video_desc desc);
 static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
 static void cleanup_screen(struct state_sdl *s);
@@ -310,7 +312,7 @@ static int display_sdl_handle_events(struct state_sdl *s)
 
 }
 
-void display_sdl_run(void *arg)
+static void display_sdl_run(void *arg)
 {
         struct state_sdl *s = (struct state_sdl *)arg;
         struct timeval tv;
@@ -348,7 +350,7 @@ void display_sdl_run(void *arg)
                 if (codec_is_a_rgb(frame->color_spec)) {
                         decoder_t decoder = nullptr;
                         if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
-                                log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bps %d!\n",
+                                log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bpp %d!\n",
                                                 s->sdl_screen->format->BitsPerPixel);
                                 goto free_frame;
                         }
@@ -427,7 +429,7 @@ static void cleanup_screen(struct state_sdl *s)
         }
 }
 
-int display_sdl_reconfigure(void *state, struct video_desc desc)
+static int display_sdl_reconfigure(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
@@ -481,7 +483,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         return TRUE;
 }
 
-void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_sdl *s = new state_sdl(parent);
         int ret;
@@ -583,7 +585,7 @@ void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flag
         return (void *)s;
 }
 
-void display_sdl_done(void *state)
+static void display_sdl_done(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
 
@@ -608,7 +610,7 @@ void display_sdl_done(void *state)
         delete s;
 }
 
-struct video_frame *display_sdl_getf(void *state)
+static struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
@@ -628,7 +630,7 @@ struct video_frame *display_sdl_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_sdl *s = (struct state_sdl *)state;
 
@@ -658,20 +660,7 @@ int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-display_type_t *display_sdl_probe(void)
-{
-        display_type_t *dt;
-
-        dt = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_SDL_ID;
-                dt->name = "sdl";
-                dt->description = "SDL";
-        }
-        return dt;
-}
-
-int display_sdl_get_property(void *state, int property, void *val, size_t *len)
+static int display_sdl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, YUYV, RGBA, RGB};
@@ -716,7 +705,7 @@ static void configure_audio(struct state_sdl *s)
         s->audio_buffer = ring_buffer_init(1<<20);
 }
 
-int display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_sdl *s = (struct state_sdl *)state;
         SDL_AudioSpec desired, obtained;
@@ -785,7 +774,7 @@ error:
         return FALSE;
 }
 
-void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) {
+static void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) {
         struct state_sdl *s = (struct state_sdl *)state;
         char *tmp;
 
@@ -800,5 +789,24 @@ void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) {
         } else {
                 ring_buffer_write(s->audio_buffer, frame->data, frame->data_len);
         }
+}
+
+static const struct video_display_info display_sdl_info = {
+        display_sdl_init,
+        display_sdl_run,
+        display_sdl_done,
+        display_sdl_getf,
+        display_sdl_putf,
+        display_sdl_reconfigure,
+        display_sdl_get_property,
+        display_sdl_put_audio_frame,
+        display_sdl_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("sdl", &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 }
 

@@ -74,15 +74,15 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/gl.h"
 #include "video_display/splashscreen.h"
 #include "tv.h"
 
-#define MAGIC_GL         DISPLAY_GL_ID
+#define MAGIC_GL         0x1331018e
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define STRINGIFY(A) #A
@@ -227,6 +227,9 @@ struct state_gl {
 static struct state_gl *gl;
 
 /* Prototyping */
+static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_gl_reconfigure(void *state, struct video_desc desc);
+
 static void gl_draw(double ratio, double bottom_offset);
 static void gl_show_help(void);
 
@@ -305,7 +308,7 @@ static void gl_load_splashscreen(struct state_gl *s)
         display_gl_putf(s, frame, PUTF_BLOCKING);
 }
 
-void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
+static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl *s = new state_gl(parent);
         
@@ -379,7 +382,7 @@ void * display_gl_init(struct module *parent, const char *fmt, unsigned int flag
 /**
  * This function just sets new video description.
  */
-int display_gl_reconfigure(void *state, struct video_desc desc)
+static int display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
@@ -869,7 +872,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         return true;
 }
 
-void display_gl_run(void *arg)
+static void display_gl_run(void *arg)
 {
         struct state_gl *s = 
                 (struct state_gl *) arg;
@@ -1016,20 +1019,7 @@ static void glut_close_callback(void)
         exit_uv(0);
 }
 
-display_type_t *display_gl_probe(void)
-{
-        display_type_t          *dt;
-
-        dt = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id          = DISPLAY_GL_ID;
-                dt->name        = "gl";
-                dt->description = "OpenGL";
-        }
-        return dt;
-}
-
-int display_gl_get_property(void *state, int property, void *val, size_t *len)
+static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
@@ -1071,7 +1061,7 @@ int display_gl_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-void display_gl_done(void *state)
+static void display_gl_done(void *state)
 {
         struct state_gl *s = (struct state_gl *) state;
 
@@ -1111,7 +1101,7 @@ void display_gl_done(void *state)
         delete s;
 }
 
-struct video_frame * display_gl_getf(void *state)
+static struct video_frame * display_gl_getf(void *state)
 {
         struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
@@ -1137,7 +1127,7 @@ struct video_frame * display_gl_getf(void *state)
         return buffer;
 }
 
-int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_gl *s = (struct state_gl *) state;
 
@@ -1170,13 +1160,13 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-void display_gl_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_gl_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-int display_gl_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_gl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -1187,4 +1177,22 @@ int display_gl_reconfigure_audio(void *state, int quant_samples, int channels,
         return FALSE;
 }
 
+static const struct video_display_info display_gl_info = {
+        display_gl_init,
+        display_gl_run,
+        display_gl_done,
+        display_gl_getf,
+        display_gl_putf,
+        display_gl_reconfigure,
+        display_gl_get_property,
+        display_gl_put_audio_frame,
+        display_gl_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("gl", &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+}
 

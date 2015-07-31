@@ -45,7 +45,6 @@ struct video_frame;
 extern "C" {
 #endif
 
-display_type_t		*display_dummy_probe(void);
 void 			*display_dummy_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_dummy_run(void *state);
 void 			 display_dummy_done(void *state);
@@ -58,6 +57,9 @@ int                      display_dummy_get_property(void *state, int property, v
 void                     display_dummy_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_dummy_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+struct video_display_info;
+extern const struct video_display_info display_dummy_info;
 
 #ifdef __cplusplus
 }

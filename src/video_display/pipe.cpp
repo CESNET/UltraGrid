@@ -106,19 +106,6 @@ int display_pipe_putf(void *state, struct video_frame *frame, int flags)
         return TRUE;
 }
 
-display_type_t *display_pipe_probe(void)
-{
-        display_type_t *dt;
-
-        dt = (display_type_t *) calloc(1, sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_PIPE_ID;
-                dt->name = "pipe";
-                dt->description = "No display device";
-        }
-        return dt;
-}
-
 void display_pipe_run(void *state)
 {
         UNUSED(state);
@@ -201,4 +188,17 @@ int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
 
         return FALSE;
 }
+
+const struct video_display_info display_pipe_info = {
+        display_pipe_init,
+        display_pipe_run,
+        display_pipe_done,
+        display_pipe_getf,
+        display_pipe_putf,
+        display_pipe_reconfigure,
+        display_pipe_get_property,
+        display_pipe_put_audio_frame,
+        display_pipe_reconfigure_audio,
+};
+
 

@@ -56,6 +56,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "deltacast_common.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
@@ -65,7 +66,7 @@
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
 
-#define DELTACAST_MAGIC DISPLAY_DELTACAST_ID
+#define DELTACAST_MAGIC 0x01005e02
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz",
@@ -174,7 +175,7 @@ static void show_help(void)
 
 }
 
-struct video_frame *
+static struct video_frame *
 display_deltacast_getf(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -204,7 +205,7 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
-int display_deltacast_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_deltacast_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         struct timeval tv;
@@ -262,7 +263,7 @@ int display_deltacast_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-int
+static int
 display_deltacast_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deltacast            *s = (struct state_deltacast *)state;
@@ -334,7 +335,7 @@ error:
 }
 
 
-void *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         struct state_deltacast *s;
@@ -440,12 +441,12 @@ error:
         return NULL;
 }
 
-void display_deltacast_run(void *state)
+static void display_deltacast_run(void *state)
 {
         UNUSED(state);
 }
 
-void display_deltacast_done(void *state)
+static void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
 
@@ -462,20 +463,7 @@ void display_deltacast_done(void *state)
         free(s);
 }
 
-display_type_t *display_deltacast_probe(void)
-{
-        display_type_t *dtype;
-
-        dtype = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dtype != NULL) {
-                dtype->id = DISPLAY_DELTACAST_ID;
-                dtype->name = "deltacast";
-                dtype->description = "DELTACAST card";
-        }
-        return dtype;
-}
-
-int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
+static int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {v210, UYVY, RAW};
@@ -517,7 +505,7 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
         return TRUE;
 }
 
-int display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -572,7 +560,7 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
         return TRUE;
 }
 
-void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         int i;
@@ -584,5 +572,24 @@ void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
                  ring_buffer_write(s->audio_channels[i], s->audio_tmp, channel_len);
         }
         pthread_mutex_unlock(&s->lock);
+}
+
+static const struct video_display_info display_deltacast_info = {
+        display_deltacast_init,
+        display_deltacast_run,
+        display_deltacast_done,
+        display_deltacast_getf,
+        display_deltacast_putf,
+        display_deltacast_reconfigure,
+        display_deltacast_get_property,
+        display_deltacast_put_audio_frame,
+        display_deltacast_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("deltacast", &display_deltacast_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 }
 

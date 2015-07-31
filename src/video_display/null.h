@@ -43,13 +43,10 @@
  *
  */
 
-#define DISPLAY_NULL_ID	0xa4bfe107
-
 struct audio_frame;
 struct video_desc;
 struct video_frame;
 
-display_type_t		*display_null_probe(void);
 void 			*display_null_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_null_run(void *state);
 void 			 display_null_done(void *state);
@@ -62,4 +59,7 @@ int                      display_null_get_property(void *state, int property, vo
 void                     display_null_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_null_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+struct video_display_info;
+extern const struct video_display_info display_null_info;
 

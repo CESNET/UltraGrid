@@ -35,8 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DISPLAY_PROXY_ID	0xa4bfe108
-
 struct audio_frame;
 struct video_desc;
 struct video_frame;
@@ -45,7 +43,6 @@ struct video_frame;
 extern "C" {
 #endif
 
-display_type_t		*display_proxy_probe(void);
 void 			*display_proxy_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_proxy_run(void *state);
 void 			 display_proxy_done(void *state);
@@ -58,6 +55,10 @@ int                      display_proxy_get_property(void *state, int property, v
 void                     display_proxy_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_proxy_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+struct video_display_info;
+extern const struct video_display_info display_proxy_info;
+
 
 #ifdef __cplusplus
 }

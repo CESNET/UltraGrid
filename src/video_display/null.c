@@ -99,19 +99,6 @@ int display_null_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-display_type_t *display_null_probe(void)
-{
-        display_type_t *dt;
-
-        dt = malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_NULL_ID;
-                dt->name = "none";
-                dt->description = "No display device";
-        }
-        return dt;
-}
-
 int display_null_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
@@ -147,4 +134,16 @@ int display_null_reconfigure_audio(void *state, int quant_samples, int channels,
 
         return FALSE;
 }
+
+const struct video_display_info display_null_info = {
+        display_null_init,
+        display_null_run,
+        display_null_done,
+        display_null_getf,
+        display_null_putf,
+        display_null_reconfigure,
+        display_null_get_property,
+        display_null_put_audio_frame,
+        display_null_reconfigure_audio,
+};
 

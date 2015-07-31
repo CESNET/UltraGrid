@@ -51,6 +51,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 
@@ -65,7 +66,6 @@
 #include <assert.h>
 
 #include "video_display.h"
-#include "video_display/quicktime.h"
 
 #include "audio/audio.h"
 
@@ -77,7 +77,7 @@ PixMapHandle GetGWorldPixMap(GWorldPtr offscreenGWorld) __attribute__((deprecate
 void InitCursor() __attribute__((deprecated));
 void DisposeGWorld(GWorldPtr offscreenGWorld) __attribute__((deprecated));
 
-#define MAGIC_QT_DISPLAY        DISPLAY_QUICKTIME_ID
+#define MAGIC_QT_DISPLAY        0x5291332e
 
 #define MAX_DEVICES     4
 
@@ -347,7 +347,7 @@ static void reconf_common(struct state_quicktime *s)
         }
 }
 
-void display_quicktime_run(void *arg)
+static void display_quicktime_run(void *arg)
 {
         struct state_quicktime *s = (struct state_quicktime *)arg;
 
@@ -406,7 +406,7 @@ void display_quicktime_run(void *arg)
         }
 }
 
-struct video_frame *
+static struct video_frame *
 display_quicktime_getf(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
@@ -423,7 +423,7 @@ display_quicktime_getf(void *state)
         return &s->frame[0];
 }
 
-int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         assert(s->magic == MAGIC_QT_DISPLAY);
@@ -597,7 +597,7 @@ static void show_help(int full)
         print_modes(full);
 }
 
-void *display_quicktime_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_quicktime_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         struct state_quicktime *s;
@@ -796,7 +796,7 @@ void *display_quicktime_init(struct module *parent, const char *fmt, unsigned in
         return (void *)s;
 }
 
-void display_quicktime_audio_init(struct state_quicktime *s)
+static void display_quicktime_audio_init(struct state_quicktime *s)
 {
         OSErr ret = noErr;
 #if OS_VERSION_MAJOR <= 9
@@ -861,7 +861,7 @@ audio_error:
         s->play_audio = FALSE;
 }
 
-void display_quicktime_done(void *state)
+static void display_quicktime_done(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         int ret;
@@ -891,20 +891,7 @@ void display_quicktime_done(void *state)
         free(s);
 }
 
-display_type_t *display_quicktime_probe(void)
-{
-        display_type_t *dtype;
-
-        dtype = malloc(sizeof(display_type_t));
-        if (dtype != NULL) {
-                dtype->id = DISPLAY_QUICKTIME_ID;
-                dtype->name = "quicktime";
-                dtype->description = "QuickTime display device";
-        }
-        return dtype;
-}
-
-int display_quicktime_get_property(void *state, int property, void *val, size_t *len)
+static int display_quicktime_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_quicktime *s = (struct state_quicktime *) state;
         codec_t codecs[] = {v210, UYVY, RGBA};
@@ -944,7 +931,7 @@ int display_quicktime_get_property(void *state, int property, void *val, size_t 
         return TRUE;
 }
 
-int display_quicktime_reconfigure(void *state, struct video_desc desc)
+static int display_quicktime_reconfigure(void *state, struct video_desc desc)
 {
         struct state_quicktime *s = (struct state_quicktime *) state;
         int i;
@@ -1153,7 +1140,7 @@ static int find_mode(ComponentInstance *ci, int width, int height,
         }
 }
 
-void display_quicktime_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_quicktime_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_quicktime * s = (struct state_quicktime *) state;
 
@@ -1206,7 +1193,7 @@ static OSStatus theRenderProc(void *inRefCon,
         return noErr;
 }
 
-int display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) 
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
@@ -1305,6 +1292,25 @@ error:
 
         s->play_audio = FALSE;
         return FALSE;
+}
+
+static const struct video_display_info display_quicktime_info = {
+        display_quicktime_init,
+        display_quicktime_run,
+        display_quicktime_done,
+        display_quicktime_getf,
+        display_quicktime_putf,
+        display_quicktime_reconfigure,
+        display_quicktime_get_property,
+        display_quicktime_put_audio_frame,
+        display_quicktime_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("quicktime", &display_quicktime_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 }
 
 #endif                          /* HAVE_MACOSX */

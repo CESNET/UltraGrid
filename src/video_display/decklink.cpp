@@ -48,9 +48,8 @@
 #include "video.h"
 #include "tv.h"
 #include "video_display.h"
-#include "video_display/decklink.h"
 #include "debug.h"
-#include "video_capture.h"
+#include "lib_common.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 
@@ -87,10 +86,8 @@ enum link {
         LINK_DUAL
 };
 
-// defined int video_capture/decklink.cpp
 static void print_output_modes(IDeckLink *);
-static int blackmagic_api_version_check(STRING *current_version);
-
+static void display_decklink_done(void *state);
 
 #define MAX_DEVICES 4
 
@@ -215,7 +212,7 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 };
 } // end of unnamed namespace
 
-#define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
+#define DECKLINK_MAGIC 0x12de326b
 
 struct device_state {
         PlaybackDelegate        *delegate;
@@ -345,7 +342,7 @@ static void show_help(void)
 }
 
 
-struct video_frame *
+static struct video_frame *
 display_decklink_getf(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
@@ -454,7 +451,7 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         struct timeval tv;
@@ -581,7 +578,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         return displayMode;
 }
 
-int
+static int
 display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
@@ -711,7 +708,7 @@ static int blackmagic_api_version_check(STRING *current_version)
 }
 
 
-void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         struct state_decklink *s;
@@ -1008,12 +1005,12 @@ error:
         return NULL;
 }
 
-void display_decklink_run(void *state)
+static void display_decklink_run(void *state)
 {
         UNUSED(state);
 }
 
-void display_decklink_done(void *state)
+static void display_decklink_done(void *state)
 {
         debug_msg("display_decklink_done\n"); /* TOREMOVE */
         struct state_decklink *s = (struct state_decklink *)state;
@@ -1069,20 +1066,7 @@ void display_decklink_done(void *state)
         delete s;
 }
 
-display_type_t *display_decklink_probe(void)
-{
-        display_type_t *dtype;
-
-        dtype = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dtype != NULL) {
-                dtype->id = DISPLAY_DECKLINK_ID;
-                dtype->name = "decklink";
-                dtype->description = "Blackmagick DeckLink card";
-        }
-        return dtype;
-}
-
-int display_decklink_get_property(void *state, int property, void *val, size_t *len)
+static int display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         codec_t codecs[] = {v210, UYVY, RGBA};
@@ -1125,7 +1109,7 @@ int display_decklink_get_property(void *state, int property, void *val, size_t *
 /*
  * AUDIO
  */
-void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len / (frame->bps *
@@ -1170,7 +1154,7 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
         free(tmp_frame.data);
 }
 
-int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
@@ -1484,4 +1468,24 @@ bail:
         if (deckLinkOutput != NULL)
                 deckLinkOutput->Release();
 }
+
+static const struct video_display_info display_decklink_info = {
+        display_decklink_init,
+        display_decklink_run,
+        display_decklink_done,
+        display_decklink_getf,
+        display_decklink_putf,
+        display_decklink_reconfigure,
+        display_decklink_get_property,
+        display_decklink_put_audio_frame,
+        display_decklink_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("decklink", &display_decklink_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+}
+
 

@@ -54,9 +54,9 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/sage.h"
 
 #include <GL/gl.h>
 
@@ -76,7 +76,7 @@
 
 #include <video_codec.h>
 
-#define MAGIC_SAGE	DISPLAY_SAGE_ID
+#define MAGIC_SAGE	0x3e960c47
 
 struct state_sage {
         struct video_frame *frame;
@@ -110,12 +110,12 @@ struct state_sage {
 };
 
 /** Prototyping */
-int display_sage_handle_events(void)
+static int display_sage_handle_events(void)
 {
         return 0;
 }
 
-void display_sage_run(void *arg)
+static void display_sage_run(void *arg)
 {
         struct state_sage *s = (struct state_sage *)arg;
         s->magic = MAGIC_SAGE;
@@ -166,7 +166,7 @@ void display_sage_run(void *arg)
         }
 }
 
-void *display_sage_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_sage_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);
@@ -296,7 +296,7 @@ void *display_sage_init(struct module *parent, const char *fmt, unsigned int fla
         return (void *)s;
 }
 
-void display_sage_done(void *state)
+static void display_sage_done(void *state)
 {
         struct state_sage *s = (struct state_sage *)state;
 
@@ -312,7 +312,7 @@ void display_sage_done(void *state)
         free(s);
 }
 
-struct video_frame *display_sage_getf(void *state)
+static struct video_frame *display_sage_getf(void *state)
 {
         struct state_sage *s = (struct state_sage *)state;
 
@@ -330,7 +330,7 @@ struct video_frame *display_sage_getf(void *state)
         return s->frame;
 }
 
-int display_sage_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_sage_putf(void *state, struct video_frame *frame, int nonblock)
 {
         int tmp;
         struct state_sage *s = (struct state_sage *)state;
@@ -440,7 +440,7 @@ static sail *initSage(const char *confName, const char *fsIP, int appID, int nod
         return sageInf;
 }
 
-int display_sage_reconfigure(void *state, struct video_desc desc)
+static int display_sage_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sage *s = (struct state_sage *)state;
 
@@ -484,20 +484,7 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-display_type_t *display_sage_probe(void)
-{
-        display_type_t *dt;
-
-        dt = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_SAGE_ID;
-                dt->name = "sage";
-                dt->description = "SAGE";
-        }
-        return dt;
-}
-
-int display_sage_get_property(void *state, int property, void *val, size_t *len)
+static int display_sage_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sage *s = (struct state_sage *)state;
         UNUSED(state);
@@ -543,13 +530,13 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-void display_sage_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_sage_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-int display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -558,5 +545,24 @@ int display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
         UNUSED(sample_rate);
 
         return FALSE;
+}
+
+static const struct video_display_info display_sage_info = {
+        display_sage_init,
+        display_sage_run,
+        display_sage_done,
+        display_sage_getf,
+        display_sage_putf,
+        display_sage_reconfigure,
+        display_sage_get_property,
+        display_sage_put_audio_frame,
+        display_sage_reconfigure_audio,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("sage", &display_sage_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 }
 

@@ -35,8 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DISPLAY_PIPE_ID	0xa4bfe222
-
 struct audio_frame;
 struct video_desc;
 struct video_frame;
@@ -45,7 +43,6 @@ struct video_frame;
 extern "C" {
 #endif
 
-display_type_t		*display_pipe_probe(void);
 void 			*display_pipe_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_pipe_run(void *state);
 void 			 display_pipe_done(void *state);
@@ -58,6 +55,9 @@ int                      display_pipe_get_property(void *state, int property, vo
 void                     display_pipe_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+struct video_display_info;
+extern const struct video_display_info display_pipe_info;
 
 #ifdef __cplusplus
 }

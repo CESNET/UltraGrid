@@ -78,18 +78,6 @@ extern "C" {
 struct audio_frame;
 struct module;
 
-/*
- * Interface to probing the valid display types. 
- */
-typedef uint32_t	display_id_t; ///< driver unique ID
-
-/** Defines video display device */
-typedef struct {
-        display_id_t		 id;          ///< @copydoc display_id_t
-        const char		*name;        ///< single word name
-        const char		*description; ///< longer device description
-} display_type_t;
-
 struct multi_sources_supp_info {
         bool val;
         struct display *(*fork_display)(void *state);
@@ -116,11 +104,20 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-int		 display_init_devices(void);
-void		 display_free_devices(void);
-int		 display_get_device_count(void);
-display_type_t	*display_get_device_details(int index);
-display_id_t 	 display_get_null_device_id(void);
+#define VIDEO_DISPLAY_ABI_VERSION 7
+
+struct video_display_info {
+        void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
+        void                    (*run) (void *state);
+        void                    (*done) (void *state);
+        struct video_frame     *(*getf) (void *state);
+        int                     (*putf) (void *state, struct video_frame *frame, int nonblock);
+        int                     (*reconfigure_video)(void *state, struct video_desc desc);
+        int                     (*get_property)(void *state, int property, void *val, size_t *len);
+        void                    (*put_audio_frame) (void *state, struct audio_frame *frame);
+        int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
+                        int sample_rate);
+};
 
 /* 
  * Interface to initialize displays, and playout video

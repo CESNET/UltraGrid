@@ -42,14 +42,6 @@
 
 #include "types.h"
 
-#define DISPLAY_DELTACAST_ID	0xf46d5550
-
-struct audio_frame;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct deltacast_frame_mode_t {
         int              mode;
         const char  *     name;
@@ -62,23 +54,4 @@ struct deltacast_frame_mode_t {
 
 extern const struct deltacast_frame_mode_t deltacast_frame_modes[];
 extern const int deltacast_frame_modes_count;
-
-display_type_t      *display_deltacast_probe(void);
-void                *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags);
-void                 display_deltacast_run(void *state);
-void                 display_deltacast_done(void *state);
-struct video_frame  *display_deltacast_getf(void *state);
-int                  display_deltacast_putf(void *state, struct video_frame *frame,
-                int nonblock);
-int                  display_deltacast_reconfigure(void *state,
-                                struct video_desc desc);
-int                  display_deltacast_get_property(void *state, int property, void *val, size_t *len);
-
-void                 display_deltacast_put_audio_frame(void *state, struct audio_frame *frame);
-int                  display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
-
-#ifdef __cplusplus
-} // END extern "C"
-#endif
 

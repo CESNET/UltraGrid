@@ -40,12 +40,6 @@
  *
  */
 
-#define DISPLAY_DVS_ID	0x74ac3e0f
-
-struct audio_frame;
-struct video_desc;
-struct video_frame;
-
 typedef struct {
         int mode;
         unsigned int width;
@@ -55,20 +49,4 @@ typedef struct {
 } hdsp_mode_table_t;
 
 extern const hdsp_mode_table_t hdsp_mode_table[];
-
-display_type_t      *display_dvs_probe(void);
-
-void                *display_dvs_init(struct module *parent, const char *fmt, unsigned int flags);
-void                 display_dvs_run(void *state);
-void                 display_dvs_done(void *state);
-struct video_frame  *display_dvs_getf(void *state);
-int                  display_dvs_putf(void *state, struct video_frame *frame,
-                int nonblock);
-int                  display_dvs_reconfigure(void *state,
-                                struct video_desc desc);
-int                  display_dvs_get_property(void *state, int property, void *val, size_t *len);
-
-void                 display_dvs_put_audio_frame(void *state, struct audio_frame *frame);
-int                  display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
 

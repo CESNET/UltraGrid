@@ -551,10 +551,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $^ @SDL_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sdl.so $^ @SDL_LIBS@ -o $@
 
 @GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@ @GL_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_gl.so $^ @GL_LIB@ -o $@
 
 @RTSP_LIB_TARGET@: @RTSP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIBS@ -o $@
@@ -571,32 +571,32 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 @DECKLINK_CAP_LIB_TARGET@: @DECKLINK_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_decklink.so.@video_capture_abi_version@ $^ @DECKLINK_LIB@ -o $@
 
-@DECKLINK_DISP_LIB_TARGET@: src/video_capture/decklink.o @DECKLINK_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $^ @DECKLINK_LIB@ -o $@
+@DECKLINK_DISP_LIB_TARGET@: @DECKLINK_DISP_OBJ@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_decklink.so $^ @DECKLINK_LIB@ -o $@
 
 @BLUEFISH444_CAP_LIB_TARGET@: @BLUEFISH444_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_bluefish444.so.@video_capture_abi_version@ $^ @BLUEFISH444_LIB@ -o $@
 
 @BLUEFISH444_DISP_LIB_TARGET@: @BLUEFISH444_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_bluefish444.so.@video_display_abi_version@ $^ @BLUEFISH444_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_bluefish444.so $^ @BLUEFISH444_LIB@ -o $@
 
 @DELTACAST_CAP_LIB_TARGET@: @DELTACAST_DISP_OBJ@ @DELTACAST_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_deltacast.so.@video_capture_abi_version@ $^ @DELTACAST_LIB@ -o $@
 
 @DELTACAST_DISP_LIB_TARGET@: @DELTACAST_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_deltacast.so.@video_display_abi_version@ $^ @DELTACAST_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_deltacast.so $^ @DELTACAST_LIB@ -o $@
 
 @DVS_CAP_LIB_TARGET@: src/video_display/dvs.o @DVS_CAP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_dvs.so.@video_capture_abi_version@ $^ @DVS_LIB@ -o $@
 
 @DVS_DISP_LIB_TARGET@: @DVS_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_dvs.so.@video_display_abi_version@ $^ @DVS_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_dvs.so $^ @DVS_LIB@ -o $@
 
 @SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@ @X_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $^ @SCREEN_CAP_LIB@ -o $@
 
 @SAGE_LIB_TARGET@: @SAGE_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sage.so.@video_display_abi_version@ $^ @SAGE_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sage.so $^ @SAGE_LIB@ -o $@
 
 @RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@

@@ -44,8 +44,6 @@
 #include "video_display.h"
 #include "video_display/dummy.h"
 
-#define DISPLAY_DUMMY_ID 0x0a7f1a9b
-
 struct dummy_display_state {
         struct video_desc desc;
 };
@@ -73,19 +71,6 @@ int display_dummy_putf(void *, struct video_frame *frame, int)
 {
         vf_free(frame);
         return 0;
-}
-
-display_type_t *display_dummy_probe(void)
-{
-        display_type_t *dt;
-
-        dt = (display_type_t *) malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_DUMMY_ID;
-                dt->name = "dummy";
-                dt->description = "Dummy display device";
-        }
-        return dt;
 }
 
 int display_dummy_get_property(void *, int property, void *val, size_t *len)
@@ -123,4 +108,16 @@ int display_dummy_reconfigure_audio(void *, int, int, int)
 {
         return FALSE;
 }
+
+const struct video_display_info display_dummy_info = {
+        display_dummy_init,
+        display_dummy_run,
+        display_dummy_done,
+        display_dummy_getf,
+        display_dummy_putf,
+        display_dummy_reconfigure,
+        display_dummy_get_property,
+        display_dummy_put_audio_frame,
+        display_dummy_reconfigure_audio,
+};
 

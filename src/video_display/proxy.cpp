@@ -342,19 +342,6 @@ int display_proxy_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-display_type_t *display_proxy_probe(void)
-{
-        display_type_t *dt;
-
-        dt = (display_type_t *) calloc(1, sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_PROXY_ID;
-                dt->name = "proxy";
-                dt->description = "No display device";
-        }
-        return dt;
-}
-
 int display_proxy_get_property(void *state, int property, void *val, size_t *len)
 {
         shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
@@ -395,4 +382,16 @@ int display_proxy_reconfigure_audio(void *state, int quant_samples, int channels
 
         return FALSE;
 }
+
+const struct video_display_info display_proxy_info = {
+        display_proxy_init,
+        display_proxy_run,
+        display_proxy_done,
+        display_proxy_getf,
+        display_proxy_putf,
+        display_proxy_reconfigure,
+        display_proxy_get_property,
+        display_proxy_put_audio_frame,
+        display_proxy_reconfigure_audio,
+};
 

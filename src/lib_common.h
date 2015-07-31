@@ -35,6 +35,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef LIB_COMMON_H
+#define LIB_COMMON_H
+
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define MK_STATIC_REF(A) &A, NULL
@@ -67,6 +70,7 @@ enum library_class {
         LIBRARY_CLASS_CAPTURE_FILTER,
         LIBRARY_CLASS_AUDIO_CAPTURE,
         LIBRARY_CLASS_AUDIO_PLAYBACK,
+        LIBRARY_CLASS_VIDEO_DISPLAY,
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
@@ -82,4 +86,6 @@ void list_modules(enum library_class, int abi_version);
 #include <string>
 std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version);
 #endif
+
+#endif // defined LIB_COMMON_H
 

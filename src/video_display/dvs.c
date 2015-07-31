@@ -57,6 +57,7 @@
 #ifdef HAVE_DVS           /* From config.h */
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/dvs.h"
@@ -386,7 +387,7 @@ static void show_help(void)
         show_codec_help("dvs");
 }
 
-void display_dvs_run(void *arg)
+static void display_dvs_run(void *arg)
 {
         struct state_hdsp *s = (struct state_hdsp *)arg;
         int res;
@@ -447,7 +448,7 @@ void display_dvs_run(void *arg)
         }
 }
 
-struct video_frame *
+static struct video_frame *
 display_dvs_getf(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -496,7 +497,7 @@ display_dvs_getf(void *state)
         return s->frame;
 }
 
-int display_dvs_putf(void *state, struct video_frame *frame, int flags)
+static int display_dvs_putf(void *state, struct video_frame *frame, int flags)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
@@ -534,7 +535,7 @@ int display_dvs_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-int display_dvs_reconfigure(void *state,
+static int display_dvs_reconfigure(void *state,
                                 struct video_desc desc)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -649,7 +650,7 @@ int display_dvs_reconfigure(void *state,
 }
 
 
-void *display_dvs_init(struct module *parent, const char *cfg, unsigned int flags)
+static void *display_dvs_init(struct module *parent, const char *cfg, unsigned int flags)
 {
         UNUSED(parent);
         struct state_hdsp *s;
@@ -803,7 +804,7 @@ error:
         return NULL;
 }
 
-void display_dvs_done(void *state)
+static void display_dvs_done(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
@@ -813,7 +814,7 @@ void display_dvs_done(void *state)
         free(s);
 }
 
-int display_dvs_get_property(void *state, int property, void *val, size_t *len)
+static int display_dvs_get_property(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {DVS10, UYVY, RGBA, RGB};
         int rgb_shift[] = {0, 8, 16};
@@ -850,7 +851,7 @@ int display_dvs_get_property(void *state, int property, void *val, size_t *len)
 /*
  * AUDIO
  */
-void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         
@@ -893,7 +894,7 @@ void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
         free(tmp);
 }
 
-int display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         int ret;
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -1008,18 +1009,23 @@ unlock:
         return ret;
 }
 
-display_type_t *display_dvs_probe(void)
-{
-        display_type_t *dtype;
- 
-        dtype = malloc(sizeof(display_type_t));
-        if (dtype != NULL) {
-                dtype->id = DISPLAY_DVS_ID;
-                dtype->name = "dvs";
-                dtype->description = "DVS card";
-        }
-        return dtype;
-}
+static const struct video_display_info display_dvs_info = {
+        display_dvs_init,
+        display_dvs_run,
+        display_dvs_done,
+        display_dvs_getf,
+        display_dvs_putf,
+        display_dvs_reconfigure,
+        display_dvs_get_property,
+        display_dvs_put_audio_frame,
+        display_dvs_reconfigure_audio,
+};
 
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("dvs", &display_dvs_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+}
 
 #endif                          /* HAVE_DVS */

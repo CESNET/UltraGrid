@@ -440,21 +440,18 @@ then
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-video_display_abi_version=6
 video_capture_abi_version=3
 video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
 audio_codec_abi_version=1
 vo_pp_abi_version=3
-AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
 AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
-AC_SUBST(video_display_abi_version)
 AC_SUBST(video_capture_abi_version)
 AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
@@ -614,7 +611,7 @@ then
 		DVS_LIB="$DVS_LIB -framework IOKit"
 	fi
         AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_capture_abi_version")
-        AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/display_dvs.so.$video_display_abi_version")
+        AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/module_display_dvs.so")
         LIB_TARGETS="$LIB_TARGETS $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $DVS_CAP_OBJ $DVS_DISP_OBJ"
         dvs=yes
@@ -721,7 +718,7 @@ then
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
-    AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
+    AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/module_display_decklink.so")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_decklink.so")
     LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
     LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
@@ -856,7 +853,7 @@ then
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
         AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/vidcap_bluefish444.so.$video_capture_abi_version")
-        AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/display_bluefish444.so.$video_display_abi_version")
+        AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/module_display_bluefish444.so")
         LIB_TARGETS="$LIB_TARGETS $BLUEFISH444_CAP_LIB_TARGET $BLUEFISH444_DISP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $BLUEFISH444_CAP_OBJ $BLUEFISH444_DISP_OBJ"
         if test x$blue_audio = xyes; then
@@ -1070,7 +1067,7 @@ then
 	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
 	AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
 	AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
-	AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
+	AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/module_display_deltacast.so")
 	LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
 	LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
 	deltacast=yes
@@ -1286,7 +1283,7 @@ esac
 
 if test $sdl = yes
 then
-        AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/display_sdl.so.$video_display_abi_version")
+        AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/module_display_sdl.so")
         LIB_TARGETS="$LIB_TARGETS $SDL_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SDL_OBJ"
 fi
@@ -1714,7 +1711,7 @@ esac
 
 if test $gl = yes
 then
-        AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/display_gl.so.$video_display_abi_version")
+        AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/module_display_gl.so")
         LIB_TARGETS="$LIB_TARGETS $GL_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $GL_OBJ"
 fi
@@ -2274,7 +2271,7 @@ then
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
     SAGE_OBJ="src/video_display/sage.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-    AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
+    AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/module_display_sage.so")
     CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
     LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
     LIB_OBJS="$LIB_OBJS $SAGE_OBJ"

@@ -46,13 +46,11 @@
  *
  */
 
-#define DISPLAY_AGGREGATE_ID	0xbbcaa321
 struct audio_frame;
 struct module;
 struct video_desc;
 struct video_frame;
 
-display_type_t		*display_aggregate_probe(void);
 void 			*display_aggregate_init(struct module *parent, const char *fmt, unsigned int flags);
 void 			 display_aggregate_run(void *state);
 void 			 display_aggregate_done(void *state);
@@ -64,4 +62,7 @@ int                      display_aggregate_get_property(void *state, int propert
 void                    display_aggregate_put_audio_frame(void *state, struct audio_frame *frame);
 int                     display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+struct video_display_info;
+extern const struct video_display_info display_aggregate_info;
 

@@ -52,7 +52,7 @@
 #include <assert.h>
 #include <host.h>
 
-#define MAGIC_AGGREGATE DISPLAY_AGGREGATE_ID
+#define MAGIC_AGGREGATE 0xbbcaa321
 
 struct display_aggregate_state {
         struct display        **devices;
@@ -257,19 +257,6 @@ int display_aggregate_reconfigure(void *state, struct video_desc desc)
         return ret;
 }
 
-display_type_t *display_aggregate_probe(void)
-{
-        display_type_t *dt;
-
-        dt = malloc(sizeof(display_type_t));
-        if (dt != NULL) {
-                dt->id = DISPLAY_AGGREGATE_ID;
-                dt->name = "aggregate";
-                dt->description = "Aggregate video display";
-        }
-        return dt;
-}
-
 int display_aggregate_get_property(void *state, int property, void *val, size_t *len)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
@@ -391,3 +378,17 @@ int display_aggregate_reconfigure_audio(void *state, int quant_samples, int chan
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         return display_reconfigure_audio(s->devices[0], quant_samples, channels, sample_rate);
 }
+
+const struct video_display_info display_aggregate_info = {
+        display_aggregate_init,
+        display_aggregate_run,
+        display_aggregate_done,
+        display_aggregate_getf,
+        display_aggregate_putf,
+        display_aggregate_reconfigure,
+        display_aggregate_get_property,
+        display_aggregate_put_audio_frame,
+        display_aggregate_reconfigure_audio,
+};
+
+
