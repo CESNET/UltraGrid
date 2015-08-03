@@ -967,6 +967,16 @@ static int display_bluefish444_get_property(void *state, int property, void *val
                 case DISPLAY_PROPERTY_VIDEO_MODE:
                         *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         break;
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        {
+                                assert(*len == sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+                                desc->sample_rate = 48000;
+                                desc->ch_count = max(desc->ch_count, 4);
+                                desc->codec = AC_PCM;
+                                desc->bps = desc->bps < 3 ? 2 : 3;
+                        }
+                        break;
                 default:
                         return FALSE;
         }

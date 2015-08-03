@@ -950,27 +950,14 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         sdi_capture_new_incoming_frame(sdi_capture, frame);
 }
 
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
-                void *udata)
+void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
 {
         struct state_sdi_playback *sdi_playback;
         if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
         sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
-        sdi_register_put_callback(sdi_playback, callback, udata);
-}
-
-void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(void *, int, int,
-                        int),
-                void *udata)
-{
-        struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_get_display_flags(s->audio_playback_device))
-                return;
-        
-        sdi_playback = (struct state_sdi_playback *) audio_playback_get_state_pointer(s->audio_playback_device);
-        sdi_register_reconfigure_callback(sdi_playback, callback, udata);
+        sdi_register_display_callbacks(sdi_playback, udata, putf, reconfigure, get_property);
 }
 
 unsigned int audio_get_display_flags(struct state_audio *s)

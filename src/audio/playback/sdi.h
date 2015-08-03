@@ -50,11 +50,10 @@
 extern "C" {
 #endif
 
-void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
-                void *udata);
-void sdi_register_reconfigure_callback(void *s, int (*callback)(void *, int, int,
-                        int),
-                void *udata);
+void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, struct audio_frame *),
+                int (*reconfigure)(void *, int, int, int),
+                int (*get_property)(void *, int, void *, size_t *)
+ );
 
 struct audio_playback_info;
 extern const struct audio_playback_info aplay_sdi_info;

@@ -1178,9 +1178,11 @@ int main(int argc, char *argv[])
                 }
 
                 if(audio_get_display_flags(uv->audio)) {
-                        audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
-                        audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int,
-                                                        int)) display_reconfigure_audio, uv->display_device);
+                        audio_register_display_callbacks(uv->audio,
+                                       uv->display_device,
+                                       (void (*)(void *, struct audio_frame *)) display_put_audio_frame,
+                                       (int (*)(void *, int, int, int)) display_reconfigure_audio,
+                                       (int (*)(void *, int, void *, size_t *)) display_get_property);
                 }
 
                 audio_start(uv->audio);

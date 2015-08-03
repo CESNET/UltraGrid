@@ -94,6 +94,7 @@ enum display_property {
         DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 4, ///< display supported interlacing modes - enum interlacing_t[]
         DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES = 5, ///< whether display supports receiving data from - returns (struct multi_sources_supp_info *)
                                                      ///< multiple network sources concurrently
+        DISPLAY_PROPERTY_AUDIO_FORMAT = 6, ///< @see audio_display_info::query_format - in/out parameter is struct audio_desc
 };
 
 #define PITCH_DEFAULT -1 ///< default pitch, i. e. respective linesize

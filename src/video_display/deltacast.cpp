@@ -66,6 +66,8 @@
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
 
+#include <algorithm>
+
 #define DELTACAST_MAGIC 0x01005e02
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
@@ -498,6 +500,16 @@ static int display_deltacast_get_property(void *state, int property, void *val, 
                                 return FALSE;
                         }
                         *len = sizeof(supported_il_modes);
+                        break;
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        {
+                                assert(*len == sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+                                desc->sample_rate = 48000;
+                                desc->ch_count = std::max(desc->ch_count, 16);
+                                desc->codec = AC_PCM;
+                                desc->bps = desc->bps < 3 ? 2 : 3;
+                        }
                         break;
                 default:
                         return FALSE;

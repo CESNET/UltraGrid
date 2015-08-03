@@ -62,7 +62,6 @@
 #include "video_display.h"
 #include "video_display/dvs.h"
 #include "audio/audio.h"
-#include "audio/utils.h"
 #include "tv.h"
 #include "utils/ring_buffer.h"
 
@@ -305,7 +304,6 @@ volatile int worker_waiting;
         uint32_t magic;
         char *bufs[2];
         int bufs_index;
-        struct audio_frame audio;
         struct video_frame *frame;
         struct tile *tile;
         const hdsp_mode_table_t *mode;
@@ -323,7 +321,6 @@ volatile int worker_waiting;
         char *audio_fifo_data; /* temporary memory for the data that gets immediatelly
                                     decoded */
         int audio_fifo_required_size;
-        int output_audio_channel_count;
         
         unsigned int mode_set_manually:1;
 
@@ -724,12 +721,10 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
                 fmt = NULL;
         }
 
-        s->audio.data = NULL;
         s->audio_ring_buffer = NULL;
         s->audio_fifo_data = NULL;
         if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
-                s->audio.ch_count = 0;
         } else {
                 s->play_audio = FALSE;
                 sv_option(s->sv, SV_OPTION_AUDIOMUTE, TRUE);
@@ -842,6 +837,19 @@ static int display_dvs_get_property(void *state, int property, void *val, size_t
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
                         break;
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        {
+                                assert(*len == sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+                                desc->sample_rate = 48000;
+                                desc->ch_count = 2;
+                                if (desc->ch_count > 2) {
+                                        desc->ch_count = 16;
+                                }
+                                desc->codec = AC_PCM;
+                                desc->bps = 4;
+                        }
+                        break;
                 default:
                         return FALSE;
         }
@@ -855,43 +863,10 @@ static void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         
-        char *tmp;
-        struct audio_frame tmp_frame,
-             *play_frame;
-
         if(!s->play_audio)
                 return;
 
-
-        memset(&tmp_frame, 0, sizeof(struct audio_frame));
-
-        /* we got probably count that cannot be rendered directly (aka 1) */
-        if(s->output_audio_channel_count != s->audio.ch_count) {
-                assert(s->audio.ch_count == 1); /* only reasonable value so far */
-                
-                memcpy(&tmp_frame, frame, sizeof(tmp_frame));
-                tmp_frame.max_size = frame->data_len * s->output_audio_channel_count;
-                tmp_frame.data = (char *) malloc(tmp_frame.max_size);
-                memcpy(tmp_frame.data, frame->data, frame->data_len);
-                audio_frame_multiply_channel(&tmp_frame,
-                                s->output_audio_channel_count);
-                play_frame = &tmp_frame;
-        } else {
-                play_frame = frame;
-        }
-        
-        
-        const int dst_len = play_frame->data_len * s->output_audio_channel_count / play_frame->ch_count
-                        * sizeof(int32_t) / play_frame->bps;
-        const int src_len = dst_len * play_frame->bps / sizeof(int32_t);
-        
-        tmp = malloc(dst_len);
-        change_bps(tmp, sizeof(int32_t), play_frame->data, play_frame->bps, src_len);
-        
-        
-        ring_buffer_write(s->audio_ring_buffer, tmp, dst_len);
-        free(tmp_frame.data);
-        free(tmp);
+        ring_buffer_write(s->audio_ring_buffer, frame->data, frame->data_len);
 }
 
 static int display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -908,37 +883,21 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
         if(s->sv)
                 sv_fifo_free(s->sv, s->fifo);
 
-        free(s->audio.data);
         ring_buffer_destroy(s->audio_ring_buffer);
         free(s->audio_fifo_data);
-        s->audio.data = NULL;
         s->audio_ring_buffer = NULL;
         s->audio_fifo_data = NULL;
                 
-        s->audio.bps = quant_samples / 8;
-        s->audio.sample_rate = sample_rate;
-        
-        if(quant_samples != 8 && quant_samples != 16 && quant_samples != 24
-                        && quant_samples != 32) {
+        if (quant_samples != 32) {
                 fprintf(stderr, "[dvs] Unsupported number of audio samples: %d\n",
                                 quant_samples);
                 goto error;
         }
         
-        
-        s->output_audio_channel_count = s->audio.ch_count = channels;
-        
-        if (s->audio.ch_count != 1 &&
-                        s->audio.ch_count != 2 &&
-                        s->audio.ch_count != 16) {
+        if (channels != 2 && channels != 16) {
                 fprintf(stderr, "[DVS] requested channel count isn't supported: "
-                        "%d\n", s->audio.ch_count);
+                        "%d\n", channels);
                 goto error;
-        }
-        
-        /* toggle one channel to supported two */
-        if(s->audio.ch_count == 1) {
-                 s->output_audio_channel_count = 2;
         }
         
         if(sample_rate != 48000) {
@@ -947,7 +906,7 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
                 goto error;
         }
 
-        res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, s->output_audio_channel_count/2); /* channels are in pairs ! */
+        res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, channels/2); /* channels are in pairs ! */
         if (res != SV_OK) {
                 goto error;
         }
@@ -960,14 +919,7 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
                 goto error;
         }        
 
-        s->audio.max_size = 5 * s->audio.bps * s->audio.ch_count *
-                        sample_rate;                
-        s->audio.data = (char *) malloc (s->audio.max_size);
-        
-        int ring_buffer_size = s->audio.max_size / s->audio.bps
-                        * sizeof(int32_t);
-        /* make channel count correct to match with s->audio (but it is not needed) */
-        ring_buffer_size = ring_buffer_size * s->output_audio_channel_count /  s->audio.ch_count;
+        int ring_buffer_size = 5 * sizeof(int32_t) * channels * sample_rate;
         s->audio_ring_buffer = ring_buffer_init(ring_buffer_size);
         
         s->audio_fifo_data = (char *) calloc(1, 
@@ -997,7 +949,6 @@ static int display_dvs_reconfigure_audio(void *state, int quant_samples, int cha
 error:
         fprintf(stderr, "Setting audio error  %s\n",
                   sv_geterrortext(res));
-        s->audio.max_size = 0;
         s->play_audio = FALSE;
         ret = FALSE;
 

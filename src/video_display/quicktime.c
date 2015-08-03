@@ -924,7 +924,10 @@ static int display_quicktime_get_property(void *state, int property, void *val, 
                         else
                                         *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         break;
-
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        assert(*len == sizeof(struct audio_desc));
+                        desc->codec = AC_PCM;
+                        break;
                 default:
                         return FALSE;
         }

@@ -51,7 +51,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "audio/audio.h"
-#include "audio/utils.h"
 
 #include <mutex>
 #include <queue>
@@ -243,7 +242,6 @@ struct state_decklink {
         int                 devices_cnt;
         unsigned int        play_audio:1;
 
-        int                 output_audio_channel_count;
         BMDPixelFormat      pixelFormat;
 
         enum link           link;
@@ -1099,7 +1097,22 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         else
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         break;
-
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        {
+                                assert(*len == sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+                                desc->sample_rate = 48000;
+                                desc->ch_count = 2;
+                                if (desc->ch_count > 2) {
+                                        desc->ch_count = 8;
+                                }
+                                if (desc->ch_count > 8) {
+                                        desc->ch_count = 16;
+                                }
+                                desc->codec = AC_PCM;
+                                desc->bps = desc->bps < 3 ? 2 : 4;
+                        }
+                                break;
                 default:
                         return FALSE;
         }
@@ -1115,13 +1128,8 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         unsigned int sampleFrameCount = frame->data_len / (frame->bps *
                         frame->ch_count);
 
-        struct audio_frame tmp_frame,
-                           *play_frame;
-
         if(!s->play_audio)
                 return;
-
-        memset(&tmp_frame, 0, sizeof(tmp_frame));
 
 #ifdef WIN32
         unsigned long int sampleFramesWritten;
@@ -1129,29 +1137,10 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         unsigned int sampleFramesWritten;
 #endif
 
-        /* we got probably count that cannot be played directly (probably 1) */
-        if(s->output_audio_channel_count != frame->ch_count) {
-                assert(frame->ch_count == 1); /* only reasonable value so far */
-
-                memcpy(&tmp_frame, frame, sizeof(tmp_frame));
-                tmp_frame.max_size = sampleFrameCount * s->output_audio_channel_count
-                                * frame->bps;
-                tmp_frame.data = (char *) malloc(tmp_frame.max_size);
-                memcpy(tmp_frame.data, frame->data, frame->data_len);
-                
-                audio_frame_multiply_channel(&tmp_frame,
-                                s->output_audio_channel_count);
-                play_frame = &tmp_frame;
-        } else {
-                play_frame = frame;
-        }
-        
-	s->state[0].deckLinkOutput->ScheduleAudioSamples (play_frame->data, sampleFrameCount, 0,
+	s->state[0].deckLinkOutput->ScheduleAudioSamples (frame->data, sampleFrameCount, 0,
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
                 fprintf(stderr, "[decklink] audio buffer underflow!\n");
-
-        free(tmp_frame.data);
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -1159,20 +1148,12 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
-        s->output_audio_channel_count = channels;
-        
-        if (channels != 1 &&
-                        channels != 2 && channels != 8 &&
+        if (channels != 2 && channels != 8 &&
                         channels != 16) {
                 fprintf(stderr, "[decklink] requested channel count isn't supported: "
                         "%d\n", channels);
                 s->play_audio = FALSE;
                 return FALSE;
-        }
-        
-        /* toggle one channel to supported two */
-        if(channels == 1) {
-                 s->output_audio_channel_count = 2;
         }
         
         if((quant_samples != 16 && quant_samples != 32) ||
@@ -1196,7 +1177,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         
         s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
                         sample_type,
-                        s->output_audio_channel_count,
+                        channels,
                         bmdAudioOutputStreamContinuous);
         s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
         

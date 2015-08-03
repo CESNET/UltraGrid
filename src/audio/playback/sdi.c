@@ -56,16 +56,17 @@
 #include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
 #include "debug.h"
+#include "video_display.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 struct state_sdi_playback {
+        void *udata;
         void (*put_callback)(void *, struct audio_frame *);
         int (*reconfigure_callback)(void *state, int quant_samples, int channels,
                 int sample_rate);
-        void *put_udata;
-        void *reconfigure_udata;
+        int (*get_property_callback)(void *, int, void *, size_t *);
 };
 
 
@@ -95,23 +96,14 @@ static void * audio_play_sdi_init(const char *cfg)
         return s;
 }
 
-void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
-                void *udata)
+void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
 {
         struct state_sdi_playback *s = (struct state_sdi_playback *) state;
         
-        s->put_callback = callback;
-        s->put_udata = udata;
-}
-
-void sdi_register_reconfigure_callback(void *state, int (*callback)(void *, int, int,
-                        int),
-                void *udata)
-{
-        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
-        
-        s->reconfigure_callback = callback;
-        s->reconfigure_udata = udata;
+        s->udata = udata;
+        s->put_callback = putf;
+        s->reconfigure_callback = reconfigure;
+        s->get_property_callback = get_property;
 }
 
 static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
@@ -120,15 +112,19 @@ static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
         s = (struct state_sdi_playback *) state;
 
         if(s->put_callback)
-                s->put_callback(s->put_udata, frame);
+                s->put_callback(s->udata, frame);
 }
 
 static struct audio_desc audio_play_sdi_query_format(void *state, struct audio_desc desc)
 {
-        UNUSED(state);
-        UNUSED(desc);
-        /// @todo
-        return (struct audio_desc){2, 48000, 2, AC_PCM};
+        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
+        size_t len = sizeof desc;
+        if (s->get_property_callback(s->udata, DISPLAY_PROPERTY_AUDIO_FORMAT, &desc, &len)) {
+                return desc;
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "Cannot get audio format from playback card!\n");
+                return (struct audio_desc){2, 48000, 2, AC_PCM};
+        }
 }
 
 static int audio_play_sdi_reconfigure(void *state, struct audio_desc desc)
@@ -137,7 +133,7 @@ static int audio_play_sdi_reconfigure(void *state, struct audio_desc desc)
         s = (struct state_sdi_playback *) state;
 
         if(s->reconfigure_callback) {
-                return s->reconfigure_callback(s->reconfigure_udata, desc.bps * 8,
+                return s->reconfigure_callback(s->udata, desc.bps * 8,
                                 desc.ch_count, desc.sample_rate);
         } else {
                 return FALSE;
