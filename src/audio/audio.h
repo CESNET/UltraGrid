@@ -188,6 +188,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
 extern "C" {
 #endif
 
+void audio_start(struct state_audio *s);
 void audio_finish(void);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);

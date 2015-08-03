@@ -1183,6 +1183,8 @@ int main(int argc, char *argv[])
                                                         int)) display_reconfigure_audio, uv->display_device);
                 }
 
+                audio_start(uv->audio);
+
                 if (strcmp("none", requested_display) != 0)
                         display_run(uv->display_device);
         } catch (ug_runtime_error const &e) {

@@ -120,6 +120,7 @@ struct state_audio {
         struct audio_network_parameters audio_network_parameters;
         struct rtp *audio_network_device;
         struct pdb *audio_participants;
+        std::string jack_cfg;
         void *jack_connection;
         enum audio_transport_device sender;
         enum audio_transport_device receiver;
@@ -379,48 +380,20 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->audio_playback_device = audio_playback_init_null_device();
         }
 
-        if (strcmp(send_cfg, "none") != 0) {
-                if (pthread_create
-                    (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
-                        fprintf(stderr,
-                                "Error creating audio thread. Quitting\n");
-                        goto error;
-                } else {
-			s->audio_sender_thread_started = true;
-		}
-        }
-
-        if (strcmp(recv_cfg, "none") != 0) {
-                if (pthread_create
-                    (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
-                        fprintf(stderr,
-                                "Error creating audio thread. Quitting\n");
-                        goto error;
-                } else {
-			s->audio_receiver_thread_started = true;
-		}
-        }
-        
         s->sender = NET_NATIVE;
         s->receiver = NET_NATIVE;
         if(isStd && strcmp(recv_cfg, "none") != 0) s->receiver = NET_STANDARD;
         if(isStd && strcmp(send_cfg, "none") != 0) s->sender = NET_STANDARD;
 
+        if (jack_cfg) {
 #ifdef HAVE_JACK_TRANS
-        s->jack_connection = jack_start(jack_cfg);
-        if(s->jack_connection) {
-                if(is_jack_sender(s->jack_connection))
-                        s->sender = NET_JACK;
-                if(is_jack_receiver(s->jack_connection))
-                        s->receiver = NET_JACK;
-        }
+                s->jack_cfg = jack_cfg;
 #else
-        if(jack_cfg) {
                 fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
                                 "but JACK support isn't compiled.\n");
                 goto error;
-        }
 #endif
+        }
 
         return s;
 
@@ -443,8 +416,40 @@ error:
 
         audio_codec_done(s->audio_coder);
         delete s;
-        exit_uv(1);
+        exit_uv(EXIT_FAIL_AUDIO);
         return NULL;
+}
+
+void audio_start(struct state_audio *s) {
+#ifdef HAVE_JACK_TRANS
+        s->jack_connection = jack_start(s->jack_cfg.c_str());
+        if(s->jack_connection) {
+                if(is_jack_sender(s->jack_connection))
+                        s->sender = NET_JACK;
+                if(is_jack_receiver(s->jack_connection))
+                        s->receiver = NET_JACK;
+        }
+#endif
+
+        if (s->audio_tx_mode & MODE_SENDER) {
+                if (pthread_create
+                    (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
+                        log_msg(LOG_LEVEL_FATAL, "Error creating audio thread. Quitting\n");
+                        exit_uv(EXIT_FAIL_AUDIO);
+                } else {
+			s->audio_sender_thread_started = true;
+		}
+        }
+
+        if (s->audio_tx_mode & MODE_RECEIVER) {
+                if (pthread_create
+                    (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
+                        log_msg(LOG_LEVEL_FATAL, "Error creating audio thread. Quitting\n");
+                        exit_uv(EXIT_FAIL_AUDIO);
+                } else {
+			s->audio_receiver_thread_started = true;
+		}
+        }
 }
 
 void audio_join(struct state_audio *s) {
