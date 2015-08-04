@@ -63,12 +63,12 @@
 
 #define BUFFER_MIN 41
 #define BUFFER_MAX 200
+#define MOD_NAME "[ALSA cap.] "
 
 struct state_alsa_playback {
         snd_pcm_t *handle;
         struct audio_desc desc;
 
-        unsigned int min_device_channels;
         struct timeval start_time;
         long long int played_samples;
 
@@ -76,14 +76,127 @@ struct state_alsa_playback {
            ALSA plugin.  Will be NULL if the PA ALSA plugin is not in use or the
            workaround is not required. */
         snd_config_t * local_config;
+
+        bool non_interleaved;
 };
 
 static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_desc desc)
 {
-        UNUSED(state);
-        UNUSED(desc);
-        ///@todo
-        return (struct audio_desc){2, 48000, 2, AC_PCM};
+        struct state_alsa_playback *s = (struct state_alsa_playback *) state;
+
+        int rc;
+        unsigned int val;
+        int dir;
+        snd_pcm_hw_params_t *params;
+        struct audio_desc ret;
+
+        memset(&ret, 0, sizeof ret);
+
+        ret.codec = AC_PCM;
+
+        snd_pcm_hw_params_alloca(&params);
+
+        /* Fill it in with default values. */
+        rc = snd_pcm_hw_params_any(s->handle, params);
+        if (rc < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set default parameters: %s\n",
+                        snd_strerror(rc));
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        assert (desc.bps > 0 && desc.bps <= 4);
+        int bps = desc.bps;
+        for ( ; ; ) {
+                if (!snd_pcm_hw_params_test_format(s->handle, params, bps_to_snd_fmts[bps])) {
+                        break;
+                }
+                // We try to find nearest higher
+                if (bps >= desc.bps) {
+                        bps++;
+                } else { // or nearest lower
+                        bps--;
+                }
+                if (bps > 4) {
+                        bps = desc.bps - 1;
+                }
+                if (bps == 0) {
+                        break;
+                }
+        }
+
+        ret.bps = bps;
+
+        rc = snd_pcm_hw_params_set_format(s->handle, params, bps_to_snd_fmts[bps]);
+        if (rc < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set capture format: %s\n",
+                                snd_strerror(rc));
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        ret.sample_rate = get_rate_near(s->handle, params, desc.sample_rate);
+        if (!ret.sample_rate) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to find sample rate:\n");
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        /* set sampling rate */
+        val = desc.sample_rate;
+        dir = 0;
+        rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
+                &val, &dir);
+        if (rc < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set sampling rate (%s %d): %s\n",
+                        dir == 0 ? "=" : (dir == -1 ? "<" : ">"),
+                        val, snd_strerror(rc));
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        int channels = desc.ch_count;
+        unsigned int max_channels;
+        rc = snd_pcm_hw_params_get_channels_max(params, &max_channels);
+        if (rc < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get max number of channels!\n");
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+        for ( ; ; ) {
+                if (!snd_pcm_hw_params_test_channels(s->handle, params, channels)) {
+                        break;
+                }
+                // We try to find nearest higher
+                if (channels >= desc.ch_count) {
+                        channels++;
+                } else { // or nearest lower
+                        channels--;
+                }
+                if (channels > (int) max_channels) {
+                        channels = desc.ch_count - 1;
+                }
+                if (channels == 0) {
+                        break;
+                }
+        }
+
+        if (channels == 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get usable channe countl!\n");
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        rc = snd_pcm_hw_params_set_channels(s->handle, params, channels);
+        if (rc < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set channels!\n");
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        ret.ch_count = channels;
+
+        if (snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_INTERLEAVED)
+                && snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_NONINTERLEAVED)) {
+
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot find supported access mode!\n");
+                return (struct audio_desc){0, 0, 0, AC_NONE};
+        }
+
+        return ret;
 }
 
 static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
@@ -97,7 +210,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         unsigned int frames;
 
         s->desc.bps = desc.bps;
-        s->min_device_channels = s->desc.ch_count = desc.ch_count;
+        s->desc.ch_count = desc.ch_count;
         s->desc.sample_rate = desc.sample_rate;
 
 
@@ -120,7 +233,16 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (rc < 0) {
                 fprintf(stderr, "cannot set interleaved hw access: %s\n",
                         snd_strerror(rc));
-                return FALSE;
+                rc = snd_pcm_hw_params_set_access(s->handle, params,
+                                SND_PCM_ACCESS_RW_NONINTERLEAVED);
+                if (rc < 0) {
+                        fprintf(stderr, "cannot set non-interleaved hw access: %s\n",
+                                        snd_strerror(rc));
+                        return FALSE;
+                }
+                s->non_interleaved = true;
+        } else {
+                s->non_interleaved = false;
         }
 
         if (desc.bps > 4 || desc.bps < 1) {
@@ -143,13 +265,9 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         /* Two channels (stereo) */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, desc.ch_count);
         if (rc < 0) {
-                if (desc.ch_count == 1) {
-                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
-                } else {
-                        fprintf(stderr, "cannot set requested channel count: %s\n",
-                                        snd_strerror(rc));
-                        return FALSE;
-                }
+                fprintf(stderr, "cannot set requested channel count: %s\n",
+                                snd_strerror(rc));
+                return FALSE;
         }
 
         /* we want to resample if device doesn't support default sample rate */
@@ -385,13 +503,24 @@ error:
         return NULL;
 }
 
+static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int frames, bool noninterleaved) {
+        if (noninterleaved) {
+                char *write_ptr[frame->ch_count];
+                char *tmp_data = (char *) alloca(frame->data_len);
+                interleaved2noninterleaved(tmp_data, frame->data, frame->bps, frame->data_len, frame->ch_count);
+                for (int i = 0; i < frame->ch_count; ++i) {
+                        write_ptr[i] = tmp_data + frame->data_len / frame->ch_count * i;
+                }
+                return snd_pcm_writen(handle, (void **) &write_ptr, frames);
+        } else {
+                return snd_pcm_writei(handle, frame->data, frames);
+        }
+}
+
 static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
-        char *data = frame->data;
-        char *tmp_data = NULL;
-        int frames = frame->data_len / (frame->bps * frame->ch_count);
 
 #ifdef DEBUG
         snd_pcm_sframes_t delay;
@@ -403,15 +532,10 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 signed2unsigned(frame->data, frame->data, frame->data_len);
         }
 
-        if((int) s->min_device_channels > frame->ch_count && frame->ch_count == 1) {
-                tmp_data = (char *) malloc(frame->data_len * s->min_device_channels);
-                copy_channel(tmp_data, frame->data, frame->bps, frame->data_len, s->min_device_channels);
-                data = tmp_data;
-        }
-
         s->played_samples += frame->data_len / frame->bps / frame->ch_count;
     
-        rc = snd_pcm_writei(s->handle, data, frames);
+        int frames = frame->data_len / (frame->bps * frame->ch_count);
+        rc = write_samples(s->handle, frame, frames, s->non_interleaved);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */
                 fprintf(stderr, "underrun occurred\n");
@@ -422,7 +546,7 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                         if(sec + (double) frames/frame->sample_rate > BUFFER_MAX / 1000.0) {
                                 frames_to_write = (BUFFER_MAX / 1000.0 - sec) * frame->sample_rate;
                         }
-                        int rc = snd_pcm_writei(s->handle, data, frames_to_write);
+                        int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved);
                         if(rc < 0) {
                                 fprintf(stderr, "error from writei: %s\n",
                                                 snd_strerror(rc));
@@ -435,8 +559,6 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         }  else if (rc != (int)frames) {
                 fprintf(stderr, "short write, written %d frames (overrun)\n", rc);
         }
-
-        free(tmp_data);
 }
 
 static void audio_play_alsa_done(void *state)

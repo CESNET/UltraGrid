@@ -87,11 +87,72 @@ static inline void audio_alsa_help(void)
 }
 
 static const snd_pcm_format_t bps_to_snd_fmts[] = {
+        [0] = SND_PCM_FORMAT_UNKNOWN,
         [1] = SND_PCM_FORMAT_U8,
         [2] = SND_PCM_FORMAT_S16_LE,
         [3] = SND_PCM_FORMAT_S24_3LE,
         [4] = SND_PCM_FORMAT_S32_LE,
 };
+
+/**
+ * Finds equal or nearest higher sample rate that device supports. If none exist, pick highest
+ * lower value.
+ *
+ * @returns sample rate, 0 if none was found
+ */
+static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigned int approx_val) {
+        int ret = 0;
+        int dir = 0;
+        int rc;
+        unsigned int rate = approx_val;
+        // try exact sample rate
+        rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+        if (rc != 0) {
+                dir = 1;
+                // or higher
+                rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+        }
+
+        if (rc == 0) {
+                // read the rate
+                rc = snd_pcm_hw_params_get_rate_min(params, &rate, NULL);
+                if (rc == 0) {
+                        ret = rate;
+                }
+                // restore configuration space
+                rate = 0;
+                dir = 1;
+                rc = snd_pcm_hw_params_set_rate_min(handle, params, &rate, &dir);
+                assert(rc == 0);
+        }
+
+        // we did not succeed, try lower sample rate
+        if (ret == 0) {
+                unsigned int rate = approx_val;
+                dir = 0;
+                unsigned int orig_max;
+                rc = snd_pcm_hw_params_get_rate_max(params, &orig_max, NULL);
+                assert(rc == 0);
+
+                rc = snd_pcm_hw_params_set_rate_max(handle, params, &rate, &dir);
+                if (rc != 0) {
+                        dir = -1;
+                        rc = snd_pcm_hw_params_set_rate_max(handle, params, &rate, &dir);
+                }
+
+                if (rc == 0) {
+                        rc = snd_pcm_hw_params_get_rate_max(params, &rate, NULL);
+                        if (rc == 0) {
+                                ret = rate;
+                        }
+                        // restore configuration space
+                        dir = 0;
+                        rc = snd_pcm_hw_params_set_rate_max(handle, params, &orig_max, &dir);
+                        assert(rc == 0);
+                }
+        }
+        return ret;
+}
 
 #endif // defined ALSA_COMMON_H
 
