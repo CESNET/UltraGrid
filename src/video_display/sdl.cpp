@@ -94,6 +94,7 @@ struct state_sdl {
         bool                    fs;
         bool                    nodecorate;
         bool                    fixed_size;
+        int                     fixed_w, fixed_h;
 
         int                     screen_w, screen_h;
         
@@ -103,7 +104,7 @@ struct state_sdl {
 
         queue<struct video_frame *> frame_queue;
         queue<struct video_frame *> free_frame_queue;
-        struct video_desc current_desc;
+        struct video_desc current_desc; /// with those desc new data frames will be generated (getf)
         struct video_desc current_display_desc;
         mutex                   lock;
         condition_variable      frame_ready_cv;
@@ -400,11 +401,11 @@ free_frame:
 static void show_help(void)
 {
         printf("SDL options:\n");
-        printf("\t-d sdl[:fs|:d|:nodecorate]* | help\n");
+        printf("\t-d sdl[:fs|:d|:nodecorate|:fixed_size[=WxH]]* | help\n");
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
         printf("\tnodecorate - disable WM decoration\n");
-        printf("\tfixed_size - do not change window size automatically\n");
+        printf("\tfixed_size[=WxH] - use fixed sized window\n");
         //printf("\t<f> - read frame content from the filename\n");
         show_codec_help((char *) "sdl");
 }
@@ -507,8 +508,15 @@ void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flag
                                 s->deinterlace = 1;
                         } else if (strcmp(tok, "nodecorate") == 0) {
                                 s->nodecorate = true;
-                        } else if (strcmp(tok, "fixed_size") == 0) {
+                        } else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
                                 s->fixed_size = true;
+                                if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
+                                        char *size = tok + strlen("fixed_size=");
+                                        if (strchr(size, 'x')) {
+                                                s->fixed_w = atoi(size);
+                                                s->fixed_h = atoi(strchr(size, 'x') + 1);
+                                        }
+                                }
                         }
                         ptr = NULL;
                 }
@@ -549,6 +557,17 @@ void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flag
         } else abort();
 #endif
 
+        if (s->fixed_size && s->fixed_w && s->fixed_h) {
+                struct video_desc desc;
+                desc.width = s->fixed_w;
+                desc.height = s->fixed_h;
+                desc.color_spec = RGBA;
+                desc.interlacing = PROGRESSIVE;
+                desc.fps = 1;
+                desc.tile_count = 1;
+
+                display_sdl_reconfigure_real(s, desc);
+        }
         loadSplashscreen(s);	
         
         if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
