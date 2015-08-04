@@ -61,6 +61,11 @@
 
 using namespace std;
 
+bool audio_desc::operator!() const
+{
+        return codec == AC_NONE;
+}
+
 audio_frame2_resampler::audio_frame2_resampler() : resampler(nullptr), resample_from(0),
         resample_ch_count(0), resample_to(0)
 {
@@ -76,7 +81,7 @@ audio_frame2_resampler::~audio_frame2_resampler() {
  * @brief Creates empty audio_frame2
  */
 audio_frame2::audio_frame2() :
-        bps(0), sample_rate(0), codec(AC_PCM), duration(0.0)
+        bps(0), sample_rate(0), codec(AC_NONE), duration(0.0)
 {
 }
 

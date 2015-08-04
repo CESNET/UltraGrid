@@ -478,6 +478,11 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         audio_desc device_desc = decoder->query_func(decoder->query_func_data,
                                         audio_desc{bps, sample_rate, output_channels, AC_PCM});
 
+                        if (!device_desc) {
+                                log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
+                                return FALSE;
+                        }
+
                         s->buffer.bps = device_desc.bps;
                         s->buffer.ch_count = device_desc.ch_count;
                         s->buffer.sample_rate = device_desc.sample_rate;

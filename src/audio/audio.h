@@ -73,6 +73,9 @@ struct audio_desc {
         int sample_rate;
         int ch_count;		/* count of channels */
         audio_codec_t codec;
+#ifdef __cplusplus
+        bool operator!() const;
+#endif
 };
 
 #ifdef __cplusplus
