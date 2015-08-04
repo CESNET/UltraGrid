@@ -263,6 +263,9 @@ static void *audio_play_decklink_init(const char *cfg)
         //BMDDisplayMode                    displayMode = bmdModeUnknown;
         int width, height;
 
+        log_msg(LOG_LEVEL_WARNING, "Decklink audio playback is most likely broken! Consider using "
+                        "\"-t decklink -r analog\" instead.\n");
+
 #ifdef WIN32
 	// Initialize COM on this thread
 	result = CoInitialize(NULL);

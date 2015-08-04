@@ -930,6 +930,9 @@ static void libavcodec_compress_done(struct module *mod)
 
 static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        if (codec_ctx->codec->id == AV_CODEC_ID_JPEG2000) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] J2K support is experimental and may be broken!\n");
+        }
         if (!param->thread_mode.empty() && param->thread_mode != "no")  {
                 if (param->thread_mode == "slice") {
                         // zero should mean count equal to the number of virtual cores
