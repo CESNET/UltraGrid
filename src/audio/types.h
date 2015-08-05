@@ -131,6 +131,7 @@ public:
         void append(audio_frame2 const &frame);
         void append(int channel, const char *data, size_t length);
         void replace(int channel, size_t offset, const char *data, size_t length);
+        void reserve(size_t len);
         void resize(int channel, size_t len);
         void reset();
         int get_bps() const;
@@ -162,7 +163,9 @@ private:
         struct channel {
                 std::unique_ptr<char []> data;
                 size_t len;
+                size_t max_len;
         };
+        void reserve(int channel, size_t len);
         int bps;                /* bytes per sample */
         int sample_rate;
         std::vector<channel> channels; /* data should be at least 4B aligned */

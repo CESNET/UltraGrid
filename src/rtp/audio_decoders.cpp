@@ -508,6 +508,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                         received_frame.init(input_channels, audio_codec, bps, sample_rate); 
                         decoder->decoded.init(input_channels, AC_PCM,
                                         device_desc.bps, device_desc.sample_rate);
+                        decoder->decoded.reserve(device_desc.bps * device_desc.sample_rate * 6);
 
                         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
                         if(!decoder->audio_decompress) {
@@ -596,6 +597,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
         if(seconds > 5.0) {
                 auto d = new adec_stats_processing_data;
                 d->frame.init(decoder->decoded.get_channel_count(), decoder->decoded.get_codec(), decoder->decoded.get_bps(), decoder->decoded.get_sample_rate());
+                /// @todo
+                /// this will certainly result in a syscall, maybe use some pool?
+                d->frame.reserve(decoder->decoded.get_bps() * decoder->decoded.get_sample_rate() * 6);
 
                 std::swap(d->frame, decoder->decoded);
                 d->seconds = seconds;

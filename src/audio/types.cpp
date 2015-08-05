@@ -116,22 +116,19 @@ void audio_frame2::append(audio_frame2 const &src)
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
-                unique_ptr<char []> new_data(new char[channels[i].len + src.channels[i].len]);
-                copy(channels[i].data.get(), channels[i].data.get() + channels[i].len, new_data.get());
-                copy(src.channels[i].data.get(), src.channels[i].data.get() + src.channels[i].len, new_data.get() + channels[i].len);
-                channels[i].len += src.channels[i].len;
-                channels[i].data = std::move(new_data);
+                append(i, src.get_data(i), src.get_data_len(i));
         }
 }
 
 void audio_frame2::append(int channel, const char *data, size_t length)
 {
-        unique_ptr<char []> new_data(new char[channels[channel].len + length]);
-        copy(channels[channel].data.get(), channels[channel].data.get() + channels[channel].len, new_data.get());
-        copy(data, data + length, new_data.get() + channels[channel].len);
+        // allocate twice as much as we need to avoid frequent reallocations
+        // when append is called repeatedly
+        reserve(channel, 2 * (channels[channel].len + length));
+        copy(data, data + length, channels[channel].data.get() + channels[channel].len);
         channels[channel].len += length;
-        channels[channel].data = std::move(new_data);
 }
+
 
 /**
  * @brief replaces portion of data of specified channel. If the size of the channel is not sufficient,
@@ -139,32 +136,39 @@ void audio_frame2::append(int channel, const char *data, size_t length)
  */
 void audio_frame2::replace(int channel, size_t offset, const char *data, size_t length)
 {
-        if (channels[channel].len < length + offset) {
-                unique_ptr<char []> new_data(new char[length + offset]);
-                copy(channels[channel].data.get(), channels[channel].data.get() +
-                                channels[channel].len, new_data.get());
-
-                channels[channel].len = length + offset;
-                channels[channel].data = std::move(new_data);
-        }
-
+        resize(channel, offset + length);
         copy(data, data + length, channels[channel].data.get() + offset);
 }
 
 /**
- * If the size of the specified channel is less than lenght. Channel length is extended. Otherwise,
- * no action is performed (no shrinking when requestedlength is less than current channel length).
+ * Reserves data for every channel with the specified length.
  */
-void audio_frame2::resize(int channel, size_t length)
+void audio_frame2::reserve(size_t length)
 {
-        if (channels[channel].len < length) {
+        for (size_t channel = 0; channel < channels.size(); ++channel) {
+                reserve(channel, length);
+        }
+}
+
+void audio_frame2::reserve(int channel, size_t length)
+{
+        if (channels[channel].max_len < length) {
                 unique_ptr<char []> new_data(new char[length]);
                 copy(channels[channel].data.get(), channels[channel].data.get() +
                                 channels[channel].len, new_data.get());
 
-                channels[channel].len = length;
+                channels[channel].max_len = length;
                 channels[channel].data = std::move(new_data);
         }
+}
+
+/**
+ * Changes actual size of channel.
+ */
+void audio_frame2::resize(int channel, size_t length)
+{
+        reserve(channel, length);
+        channels[channel].len = length;
 }
 
 /**
@@ -268,7 +272,7 @@ void  audio_frame2::change_bps(int new_bps)
 
         for (size_t i = 0; i < channels.size(); i++) {
                 size_t new_size = channels[i].len / bps * new_bps;
-                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size};
+                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size};
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
@@ -317,7 +321,7 @@ void audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
                 size_t new_size = channels[i].len * new_sample_rate / sample_rate + new_sample_rate * sizeof(int16_t) / 100;
-                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size};
+                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size};
         }
 
         /// @todo
