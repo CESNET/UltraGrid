@@ -304,7 +304,9 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
                 printf("\tpattern - pattern to use\n");
-                show_codec_help("testcard");
+                codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
+                codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
+                show_codec_help("testcard", codecs_8b, codecs_10b);
                 return &vidcap_init_noerr;
         }
 

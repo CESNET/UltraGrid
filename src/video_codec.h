@@ -66,13 +66,13 @@ typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_
                 int rshift, int gshift, int bshift);
 
 /** Prints list of suppored codecs for video module
- * @deprecated Individual modules should print list of supported codecs by itself.
  */
-void             show_codec_help(const char *module);
+void             show_codec_help(const char *module, codec_t *codecs8, codec_t *codecs10);
 double           get_bpp(codec_t codec) __attribute__((pure));
 uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
 int              get_halign(codec_t codec) __attribute__((pure));
 const char      *get_codec_name(codec_t codec) __attribute__((pure));
+const char      *get_codec_name_long(codec_t codec) __attribute__((pure));
 int              is_codec_opaque(codec_t codec) __attribute__((pure));
 int              is_codec_interframe(codec_t codec) __attribute__((pure));
 codec_t          get_codec_from_fcc(uint32_t fourcc) __attribute__((pure));

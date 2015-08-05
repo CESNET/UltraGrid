@@ -134,7 +134,9 @@ void *vidcap_testcard2_init(const struct vidcap_params *params)
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
-                show_codec_help("testcard");
+                show_codec_help("testcard2", (codec_t[]){RGBA, RGB, UYVY, VIDEO_CODEC_NONE},
+                                (codec_t[]){R10k, v210, VIDEO_CODEC_NONE});
+
                 return &vidcap_init_noerr;
         }
 

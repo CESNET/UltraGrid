@@ -412,7 +412,6 @@ static void show_help(void)
         printf("\tnodecorate - disable WM decoration\n");
         printf("\tfixed_size[=WxH] - use fixed sized window\n");
         //printf("\t<f> - read frame content from the filename\n");
-        show_codec_help((char *) "sdl");
 }
 
 static void cleanup_screen(struct state_sdl *s)

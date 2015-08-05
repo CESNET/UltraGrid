@@ -381,7 +381,6 @@ static void show_help(void)
                 printf("\n");
         }
         printf("\n");
-        show_codec_help("dvs");
 }
 
 static void display_dvs_run(void *arg)

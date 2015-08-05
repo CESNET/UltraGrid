@@ -101,9 +101,11 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
  */
 struct codec_info_t {
         const char *name;             ///< displayed name
+        const char *name_long;        ///< more descriptive name
         uint32_t fcc;                 ///< FourCC
         int h_align;                  ///< Number of pixels each line is aligned to
         double bpp;                   ///< Number of bytes per pixel
+        int bits_per_channel;         ///< Number of bits per color channel
         int block_size;               ///< Bytes per pixel block (pixelformats only)
         unsigned rgb:1;               ///< Whether pixelformat is RGB
         unsigned opaque:1;            ///< If codec is opaque (= compressed)
@@ -112,26 +114,46 @@ struct codec_info_t {
 };
 
 static const struct codec_info_t codec_info[] = {
-        [VIDEO_CODEC_NONE] = {"(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
-        [RGBA] = {"RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {"UYVY", to_fourcc('U','Y','V','Y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [YUYV] = {"YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [R10k] = {"R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
-        [v210] = {"v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
-        [DVS10] = {"DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 4, FALSE, FALSE, FALSE, "dvs10"},
-        [DXT1] = {"DXT1", to_fourcc('D','X','T','1'), 0, 0.5, 0, TRUE, TRUE, FALSE, "dxt1"},
-        [DXT1_YUV] = {"DXT1 YUV", to_fourcc('D','X','T','Y'), 0, 0.5, 0, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        [DXT5] = {"DXT5", to_fourcc('D','X','T','5'), 0, 1.0, 0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
-        [RGB] = {"RGB", to_fourcc('R','G','B','2'), 1, 3.0, 3, TRUE, FALSE, FALSE, "rgb"},
-        [DPX10] = {"DPX10", to_fourcc('D','P','1','0'), 1, 4.0, 4, TRUE, FALSE, FALSE, "dpx"},
-        [JPEG] = {"JPEG", to_fourcc('J','P','E','G'), 0, 0.0, 0, FALSE, TRUE, FALSE, "jpg"},
-        [RAW] = {"raw", to_fourcc('r','a','w','s'), 0, 1.0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
-        [H264] = {"H.264", to_fourcc('A','V','C','1'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h264"},
-        [H265] = {"H.265", to_fourcc('H','E','V','C'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h265"},
-        [MJPG] = {"MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
-        [VP8] = {"VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
-        [BGR] = {"BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
-        [J2K] = {"J2K", to_fourcc('M','J','2','C'), 0, 0.0, 0, FALSE, TRUE, FALSE, "j2k"},
+        [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
+                0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, NULL},
+        [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
+                to_fourcc('R','G','B','A'), 2, 4.0, 8, 4, TRUE, FALSE, FALSE, "rgba"},
+        [UYVY] = {"UYVY", "YUV 4:2:2",
+                to_fourcc('U','Y','V','Y'), 2, 2, 8, 4, FALSE, FALSE, FALSE, "yuv"},
+        [YUYV] = {"YUYV", "YUV 4:2:2",
+                to_fourcc('Y','U','Y','V'), 2, 2, 8, 4, FALSE, FALSE, FALSE, "yuv"},
+        [R10k] = {"R10k", "RGB 4:4:4",
+                to_fourcc('R','1','0','k'), 64, 4, 10, 4, TRUE, FALSE, FALSE, "r10k"},
+        [v210] = {"v210", "YUV 4:2:2",
+                to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 10, 16, FALSE, FALSE, FALSE, "v210"},
+        [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
+                to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 10, 4, FALSE, FALSE, FALSE, "dvs10"},
+        [DXT1] = {"DXT1", "S3 Compressed Texture DXT1",
+                to_fourcc('D','X','T','1'), 0, 0.5, 2, 0, TRUE, TRUE, FALSE, "dxt1"},
+        [DXT1_YUV] = {"DXT1 YUV", "S3 Compressed Texture DXT1 YUV",
+                to_fourcc('D','X','T','Y'), 0, 0.5, 2, 0, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {"DXT5", "S3 Compressed Texture DXT5 YCoCg",
+                to_fourcc('D','X','T','5'), 0, 1.0, 4, 0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
+        [RGB] = {"RGB", "Red Green Blue 24bit",
+                to_fourcc('R','G','B','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, "rgb"},
+        [DPX10] = {"DPX10", "DPX10",
+                to_fourcc('D','P','1','0'), 1, 4.0, 10, 4, TRUE, FALSE, FALSE, "dpx"},
+        [JPEG] = {"JPEG",  "JPEG",
+                to_fourcc('J','P','E','G'), 0, 0.0, 8, 0, FALSE, TRUE, FALSE, "jpg"},
+        [RAW] = {"raw", "Raw SDI video",
+                to_fourcc('r','a','w','s'), 0, 1.0, 0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
+        [H264] = {"H.264", "H.264/AVC",
+                to_fourcc('A','V','C','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, "h264"},
+        [H265] = {"H.265", "H.265/HEVC",
+                to_fourcc('H','E','V','C'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, "h265"},
+        [MJPG] = {"MJPEG", "MJPEG",
+                to_fourcc('M','J','P','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, "jpg"},
+        [VP8] = {"VP8", "Google VP8",
+                to_fourcc('V','P','8','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, "vp8"},
+        [BGR] = {"BGR", "Blue Green Red 24bit",
+                to_fourcc('B','G','R','2'), 1, 3.0, 8, 0, TRUE, FALSE, FALSE, "bgr"},
+        [J2K] = {"J2K", "JPEG 2000",
+                to_fourcc('M','J','2','C'), 0, 0.0, 8, 0, FALSE, TRUE, FALSE, "j2k"},
 };
 
 /**
@@ -169,22 +191,22 @@ const struct alternative_codec_name codec_name_aliases[] = {
         {"2vuy", "UYVY"},
 };
 
-void show_codec_help(const char *module)
+void show_codec_help(const char *module, codec_t *codecs8, codec_t *codecs10)
 {
         printf("\tSupported codecs (%s):\n", module);
 
         printf("\t\t8bits\n");
 
-        printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
-        printf("\t\t\t'RGB' - Red Green Blue 24bit\n");
-        printf("\t\t\t'UYVY' - YUV 4:2:2\n");
+        while (*codecs8 != VIDEO_CODEC_NONE) {
+                printf("\t\t\t'%s' - %s\n", codec_info[*codecs8].name, codec_info[*codecs8].name_long);
+                codecs8++;
+        }
 
         printf("\t\t10bits\n");
-	if (strcmp(module, "dvs") != 0) {
-		printf("\t\t\t'R10k' - RGB 4:4:4\n");
-		printf("\t\t\t'v210' - YUV 4:2:2\n");
-	} 
-        printf("\t\t\t'DVS10' - Centaurus 10bit YUV 4:2:2\n");
+        while (*codecs10 != VIDEO_CODEC_NONE) {
+                printf("\t\t\t'%s' - %s\n", codec_info[*codecs10].name, codec_info[*codecs10].name_long);
+                codecs10++;
+        }
 }
 
 double get_bpp(codec_t codec)
@@ -215,6 +237,17 @@ const char * get_codec_name(codec_t codec)
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].name;
+        } else {
+                return 0;
+        }
+}
+
+const char * get_codec_name_long(codec_t codec)
+{
+        unsigned int i = (unsigned int) codec;
+
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].name_long;
         } else {
                 return 0;
         }
