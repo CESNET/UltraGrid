@@ -62,6 +62,9 @@ typedef void *task_result_handle_t;
 typedef void *(*runnable_t)(void *);
 
 task_result_handle_t task_run_async(runnable_t task, void *data);
+/**
+ * Detached task should own its resources. Moreover, it must not use any static variables/objects.
+ */
 void task_run_async_detached(runnable_t task, void *data);
 void *wait_task(task_result_handle_t handle);
 

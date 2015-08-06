@@ -186,13 +186,19 @@ class worker_pool : public worker_state_observer
         public:
                 worker_pool() {
                         pthread_mutex_init(&m_lock, NULL);
+                        pthread_cond_init(&m_worker_finished, NULL);
                 }
 
                 ~worker_pool() {
+                        pthread_mutex_lock(&m_lock);
+                        while (m_occupied_workers.size() > 0) {
+                                pthread_cond_wait(&m_worker_finished, &m_lock);
+                        }
+                        pthread_mutex_unlock(&m_lock);
+
                         for_each(m_empty_workers.begin(),
                                         m_empty_workers.end(), func_delete);
-                        for_each(m_occupied_workers.begin(),
-                                        m_occupied_workers.end(), func_delete);
+                        pthread_cond_destroy(&m_worker_finished);
                         pthread_mutex_destroy(&m_lock);
                 }
 
@@ -201,6 +207,7 @@ class worker_pool : public worker_state_observer
                         m_occupied_workers.erase(w);
                         m_empty_workers.insert(w);
                         pthread_mutex_unlock(&m_lock);
+                        pthread_cond_signal(&m_worker_finished);
                 }
 
                 task_result_handle_t run_async(runnable_t task, void *data, bool detached);
@@ -210,6 +217,7 @@ class worker_pool : public worker_state_observer
                 set<wp_worker*>    m_empty_workers;
                 set<wp_worker*>    m_occupied_workers;
                 pthread_mutex_t m_lock;
+                pthread_cond_t     m_worker_finished;
 };
 
 task_result_handle_t worker_pool::run_async(runnable_t task, void *data, bool detached)
