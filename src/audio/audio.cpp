@@ -515,6 +515,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
         }
+        rtp_set_recv_buf(r, 256*1024);
 
         return r;
 }
