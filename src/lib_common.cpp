@@ -57,6 +57,21 @@
 
 using namespace std;
 
+struct library_class_info_t {
+        const char *class_name;
+        const char *file_prefix;
+};
+
+const map<enum library_class, library_class_info_t> library_class_info = {
+        { LIBRARY_CLASS_UNDEFINED, { "General module", "" }},
+        { LIBRARY_CLASS_CAPTURE_FILTER, { "Video capture filter" , "vcapfilter" }},
+        { LIBRARY_CLASS_AUDIO_CAPTURE, { "Audio capture device", "acap" }},
+        { LIBRARY_CLASS_AUDIO_PLAYBACK, { "Audio playback device", "aplay" }},
+        { LIBRARY_CLASS_VIDEO_DISPLAY, { "Video display device", "display" }},
+};
+
+static map<string, string> lib_errors;
+
 void open_all(const char *pattern) {
 #ifdef BUILD_LIBRARIES
         char path[512];
@@ -75,9 +90,15 @@ void open_all(const char *pattern) {
         glob(path, 0, NULL, &glob_buf);
 
         for(unsigned int i = 0; i < glob_buf.gl_pathc; ++i) {
-                if(!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL))
+                if (!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL)) {
+                        char *error = dlerror();
                         verbose_msg("Library %s opening warning: %s \n", glob_buf.gl_pathv[i],
-                                        dlerror());
+                                        error);
+                        char *filename = basename(glob_buf.gl_pathv[i]);
+                        if (filename && error) {
+                                lib_errors.emplace(filename, error);
+                        }
+                }
         }
 
         globfree(&glob_buf);
@@ -136,7 +157,12 @@ void *open_library(const char *name)
 #endif
 }
 
-static map<enum library_class, map<string, pair<const void *, int>>> *libraries = nullptr;
+struct lib_info {
+        const void *data;
+        int abi_version;
+};
+
+static map<enum library_class, map<string, lib_info>> *libraries = nullptr;
 
 /**
  * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()
@@ -155,7 +181,7 @@ static struct init_libraries loader;
 void register_library(const char *name, const void *data, enum library_class cls, int abi_version)
 {
         struct init_libraries loader;
-        (*libraries)[cls][name] = make_pair(data, abi_version);
+        (*libraries)[cls][name] = {data, abi_version};
 }
 
 const void *load_library(const char *name, enum library_class cls, int abi_version)
@@ -165,19 +191,31 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
                 auto it_module = it_cls.find(name);
                 if (it_module != it_cls.end()) {
                         auto mod_pair = it_cls.find(name)->second;
-                        if (mod_pair.second == abi_version) {
-                                return mod_pair.first;
+                        if (mod_pair.abi_version == abi_version) {
+                                return mod_pair.data;
                         } else {
-                                std::cerr << "Module " << name << " API version mismatch (required " <<
-                                        abi_version << ", have " << mod_pair.second << ")\n";
-                                return NULL;
+                                LOG(LOG_LEVEL_WARNING) << "Module " << name << " ABI version mismatch (required " <<
+                                        abi_version << ", have " << mod_pair.abi_version << ")\n";
                         }
-                } else {
-                        return NULL;
                 }
-        } else {
-                return NULL;
         }
+
+        if (library_class_info.find(cls) != library_class_info.end()) {
+                string filename = "module_";
+                if (strlen(library_class_info.at(cls).file_prefix) > 0) {
+                        filename += library_class_info.at(cls).file_prefix;
+                        filename += "_";
+                }
+
+                filename += name + string(".so");
+                cout << filename;
+
+                if (lib_errors.find(filename) != lib_errors.end()) {
+                        LOG(LOG_LEVEL_WARNING) << filename << ": " << lib_errors.find(filename)->second << "\n";
+                }
+        }
+
+        return NULL;
 }
 
 void list_modules(enum library_class cls, int abi_version) {
@@ -187,17 +225,39 @@ void list_modules(enum library_class cls, int abi_version) {
         }
 }
 
+void list_all_modules() {
+        for (auto cls_it = library_class_info.begin(); cls_it != library_class_info.end();
+                        ++cls_it) {
+                cout << cls_it->second.class_name << "\n";
+                auto it = libraries->find(cls_it->first);
+                if (it != libraries->end()) {
+                        for (auto && item : it->second) {
+                                cout << "\t" << item.first << "\n";
+                        }
+                }
+                cout << "\n";
+        }
+
+        if (!lib_errors.empty()) {
+                cout << "Errors:\n";
+                for (auto && item : lib_errors) {
+                        cout << "\t" << item.first << "\n\t\t" << item.second << "\n";
+                }
+                cout << "\n";
+        }
+}
+
 map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version)
 {
         map<string, const void *> ret;
         auto it = libraries->find(cls);
         if (it != libraries->end()) {
                 for (auto && item : it->second) {
-                        if (abi_version == item.second.second) {
-                                ret[item.first] = item.second.first;
+                        if (abi_version == item.second.abi_version) {
+                                ret[item.first] = item.second.data;
                         } else {
-                                std::cerr << "Module " << item.first << " API version mismatch (required " <<
-                                        abi_version << ", have " << item.second.second << ")\n";
+                                LOG(LOG_LEVEL_WARNING) << "Module " << item.first << " ABI version mismatch (required " <<
+                                        abi_version << ", have " << item.second.abi_version << ")\n";
 
                         }
                 }

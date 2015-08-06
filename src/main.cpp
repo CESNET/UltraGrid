@@ -126,6 +126,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
+#define OPT_LIST_MODULES (('L' << 8) | 'M')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -195,6 +196,8 @@ static void usage(void)
         printf("          address(es)\n\n");
         printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
         printf("\n");
+        printf("\t--list-modules           \tprints list of modules\n");
+        printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
         printf("\n");
@@ -250,10 +253,6 @@ static void usage(void)
         printf("\n");
         printf("\t--audio-scale <factor> | <method> | help\n");
         printf("\t                         \tscales received audio\n");
-        printf("\n");
-        printf("\t--audio-capture-channels <count> number of input channels that will\n");
-        printf("\t                                 be captured (default %d).\n",
-                        DEFAULT_AUDIO_CAPTURE_CHANNELS);
         printf("\n");
         printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
         printf("\n");
@@ -555,6 +554,7 @@ int main(int argc, char *argv[])
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
+                {"list-modules", no_argument, 0, OPT_LIST_MODULES},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -852,6 +852,9 @@ int main(int argc, char *argv[])
                                 return EXIT_FAIL_USAGE;
                         }
                         break;
+                case OPT_LIST_MODULES:
+                        list_all_modules();
+                        return EXIT_SUCCESS;
                 case '?':
                 default:
                         usage();
