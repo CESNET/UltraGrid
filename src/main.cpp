@@ -102,9 +102,7 @@
 
 #define PORT_BASE               5004
 
-/* please see comments before transmit.c:audio_tx_send() */
-/* also note that this actually differs from video */
-#define DEFAULT_AUDIO_FEC       "mult:3"
+#define DEFAULT_AUDIO_FEC       "none"
 static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
