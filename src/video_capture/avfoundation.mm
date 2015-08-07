@@ -40,9 +40,9 @@
 #include "config_unix.h"
 #endif
 
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/avfoundation.h"
 
 #import <AVFoundation/AVFoundation.h>
 #include <AppKit/NSApplication.h>
@@ -51,8 +51,6 @@
 #include <mutex>
 #include <queue>
 #include <unordered_map>
-
-#define VIDCAP_AVFOUNDATION_ID 0x522B376F
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
@@ -433,13 +431,12 @@ fromConnection:(AVCaptureConnection *)connection
 }
 @end
 
-struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
+static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
 {
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = VIDCAP_AVFOUNDATION_ID;
                 vt->name = "avfoundation";
                 vt->description = "AV Foundation capture device";
 
@@ -462,7 +459,7 @@ struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
         return vt;
 }
 
-void *vidcap_avfoundation_init(const struct vidcap_params *params)
+static void *vidcap_avfoundation_init(const struct vidcap_params *params)
 {
         if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
                 [vidcap_avfoundation_state usage: false];
@@ -500,14 +497,28 @@ void *vidcap_avfoundation_init(const struct vidcap_params *params)
         return ret;
 }
 
-void vidcap_avfoundation_done(void *state)
+static void vidcap_avfoundation_done(void *state)
 {
         [(vidcap_avfoundation_state *) state release];
 }
 
-struct video_frame *vidcap_avfoundation_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_avfoundation_grab(void *state, struct audio_frame **audio)
 {
 	*audio = nullptr;
         return [(vidcap_avfoundation_state *) state grab];
+}
+
+static const struct video_capture_info vidcap_avfoundation_info = {
+        vidcap_avfoundation_probe,
+        vidcap_avfoundation_init,
+        vidcap_avfoundation_done,
+        vidcap_avfoundation_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("avfoundation", &vidcap_avfoundation_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

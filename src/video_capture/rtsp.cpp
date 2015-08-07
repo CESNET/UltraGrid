@@ -54,6 +54,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -69,7 +70,6 @@
 #include "video.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "video_capture/rtsp.h"
 #include "audio/audio.h"
 
 #include <curl/curl.h>
@@ -151,6 +151,8 @@ void
 rtsp_keepalive(void *state);
 
 int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *);
+
+static void vidcap_rtsp_done(void *state);
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
@@ -358,7 +360,7 @@ vidcap_rtsp_thread(void *arg) {
     return NULL;
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
@@ -434,7 +436,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     return s->vrtsp_state->frame;
 }
 
-void *
+static void *
 vidcap_rtsp_init(const struct vidcap_params *params) {
 
     struct rtsp_state *s;
@@ -1073,21 +1075,20 @@ get_sdp_filename(const char *url, char *sdp_filename) {
     }
 }
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_rtsp_probe(bool verbose) {
     UNUSED(verbose);
     struct vidcap_type *vt;
 
     vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
     if (vt != NULL) {
-        vt->id = VIDCAP_RTSP_ID;
         vt->name = "rtsp";
         vt->description = "Video capture from RTSP remote server";
     }
     return vt;
 }
 
-void
+static void
 vidcap_rtsp_done(void *state) {
     struct rtsp_state *s = (struct rtsp_state *) state;
 
@@ -1186,3 +1187,18 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
     free(s);
     return len_nals;
 }
+
+static const struct video_capture_info vidcap_rtsp_info = {
+        vidcap_rtsp_probe,
+        vidcap_rtsp_init,
+        vidcap_rtsp_done,
+        vidcap_rtsp_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("rtsp", &vidcap_rtsp_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+}
+

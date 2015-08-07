@@ -45,9 +45,9 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/aja.h"
 
 #include "ajatypes.h"
 #include "ntv2boardscan.h"
@@ -575,7 +575,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         return NULL;
 }
 
-void *vidcap_aja_init(const struct vidcap_params *params)
+static void *vidcap_aja_init(const struct vidcap_params *params)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));
@@ -604,28 +604,41 @@ void *vidcap_aja_init(const struct vidcap_params *params)
         return ret;
 }
 
-void vidcap_aja_done(void *state)
+static void vidcap_aja_done(void *state)
 {
         auto s = static_cast<vidcap_state_aja *>(state);
         s->Quit();
         delete s;
 }
 
-struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio)
 {
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-struct vidcap_type *vidcap_aja_probe(bool)
+static struct vidcap_type *vidcap_aja_probe(bool)
 {
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *)calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = 0x52095a04;
                 vt->name = "aja";
                 vt->description = "AJA capture card";
         }
         return vt;
+}
+
+static const struct video_capture_info vidcap_aja_info = {
+        vidcap_aja_probe,
+        vidcap_aja_init,
+        vidcap_aja_done,
+        vidcap_aja_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("aja", &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

@@ -54,7 +54,6 @@
 #include <queue>
 #include <thread>
 
-static constexpr int VIDCAP_UG_INPUT_ID  = 0xa44b19ee;
 static constexpr int MAX_QUEUE_SIZE = 2;
 
 using namespace std;
@@ -83,7 +82,7 @@ void ug_input_state::frame_arrived(struct video_frame *f)
         }
 }
 
-void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
+static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
 {
         if (strcmp("help", vidcap_params_get_fmt(cap_params)) == 0) {
                 printf("Usage:\n");
@@ -133,7 +132,7 @@ void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
         return s;
 }
 
-void vidcap_ug_input_done(void *state)
+static void vidcap_ug_input_done(void *state)
 {
         auto s = (ug_input_state *) state;
 
@@ -155,7 +154,7 @@ void vidcap_ug_input_done(void *state)
         delete s;
 }
 
-struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame **audio)
 {
         auto s = (ug_input_state *) state;
         *audio = NULL;
@@ -170,16 +169,22 @@ struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame **audio
         }
 }
 
-struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */)
+static struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */)
 {
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = VIDCAP_UG_INPUT_ID;
                 vt->name = "ug_input";
                 vt->description = "Dummy capture from UG received network";
         }
         return vt;
 }
+
+const struct video_capture_info vidcap_ug_input_info = {
+        vidcap_ug_input_probe,
+        vidcap_ug_input_init,
+        vidcap_ug_input_done,
+        vidcap_ug_input_grab,
+};
 

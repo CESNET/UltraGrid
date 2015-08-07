@@ -78,7 +78,7 @@ struct vidcap_aggregate_state {
 };
 
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_aggregate_probe(bool verbose)
 {
         UNUSED(verbose);
@@ -86,14 +86,13 @@ vidcap_aggregate_probe(bool verbose)
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_AGGREGATE_ID;
 		vt->name        = "aggregate";
 		vt->description = "Aggregate video capture";
 	}
 	return vt;
 }
 
-void *
+static void *
 vidcap_aggregate_init(const struct vidcap_params *params)
 {
 	struct vidcap_aggregate_state *s;
@@ -160,7 +159,7 @@ error:
         return NULL;
 }
 
-void
+static void
 vidcap_aggregate_done(void *state)
 {
 	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
@@ -177,7 +176,7 @@ vidcap_aggregate_done(void *state)
         vf_free(s->frame);
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
@@ -240,4 +239,11 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 
 	return s->frame;
 }
+
+const struct video_capture_info vidcap_aggregate_info = {
+        vidcap_aggregate_probe,
+        vidcap_aggregate_init,
+        vidcap_aggregate_done,
+        vidcap_aggregate_grab,
+};
 

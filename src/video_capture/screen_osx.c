@@ -43,12 +43,12 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
 
-#include "video_capture/screen_osx.h"
 #include "audio/audio.h"
 
 #include <stdio.h>
@@ -114,13 +114,12 @@ error:
         exit_uv(128);
 }
 
-struct vidcap_type * vidcap_screen_osx_probe(bool verbose)
+static struct vidcap_type * vidcap_screen_osx_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id          = VIDCAP_SCREEN_ID;
                 vt->name        = "screen";
                 vt->description = "Grabbing screen";
 
@@ -134,7 +133,7 @@ struct vidcap_type * vidcap_screen_osx_probe(bool verbose)
         return vt;
 }
 
-void * vidcap_screen_osx_init(const struct vidcap_params *params)
+static void * vidcap_screen_osx_init(const struct vidcap_params *params)
 {
         struct vidcap_screen_osx_state *s;
 
@@ -172,7 +171,7 @@ void * vidcap_screen_osx_init(const struct vidcap_params *params)
         return s;
 }
 
-void vidcap_screen_osx_done(void *state)
+static void vidcap_screen_osx_done(void *state)
 {
         struct vidcap_screen_osx_state *s = (struct vidcap_screen_osx_state *) state;
 
@@ -185,7 +184,7 @@ void vidcap_screen_osx_done(void *state)
         free(s);
 }
 
-struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_frame **audio)
+static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_screen_osx_state *s = (struct vidcap_screen_osx_state *) state;
 
@@ -235,5 +234,19 @@ struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_frame **au
         s->frames++;
 
         return s->frame;
+}
+
+static const struct video_capture_info vidcap_screen_osx_info = {
+        vidcap_screen_osx_probe,
+        vidcap_screen_osx_init,
+        vidcap_screen_osx_done,
+        vidcap_screen_osx_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("screen", &vidcap_screen_osx_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

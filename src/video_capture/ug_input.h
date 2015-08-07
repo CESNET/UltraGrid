@@ -35,18 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct audio_frame;
-
-struct vidcap_type	*vidcap_ug_input_probe(bool verbose);
-void			*vidcap_ug_input_init(const struct vidcap_params *params);
-void			 vidcap_ug_input_done(void *state);
-struct video_frame	*vidcap_ug_input_grab(void *state, struct audio_frame **audio);
-
-#ifdef __cplusplus
-}
-#endif
+struct video_capture_info;
+extern const struct video_capture_info vidcap_ug_input_info;
 

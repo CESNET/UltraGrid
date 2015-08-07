@@ -7,13 +7,11 @@
 #include "config_win32.h"
 #endif
 
-
 #include "debug.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 #include "video_capture.h"
-
-#include "DirectShowGrabber.h"
 
 #include <tchar.h>
 #include <DShow.h>
@@ -299,7 +297,7 @@ error:
 	return false;
 }
 
-void show_help(struct vidcap_dshow_state *s) {
+static void show_help(struct vidcap_dshow_state *s) {
 	printf("dshow grabber options:\n");
 	printf("\t-t dshow:[Device]<DeviceNumber>:[Mode]<ModeNumber>[:RGB]\n");
 	printf("\t    Flag RGB forces use of RGB codec, otherwise native is used if possible.\n");
@@ -427,14 +425,13 @@ error:
 	return;
 }
 
-struct vidcap_type * vidcap_dshow_probe(bool verbose)
+static struct vidcap_type * vidcap_dshow_probe(bool verbose)
 {
         UNUSED(verbose);
 	struct vidcap_type*		vt;
 
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_DSHOW_ID;
 		vt->name        = "dshow";
 		vt->description = "DirectShow Capture";
 
@@ -677,7 +674,7 @@ HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
-void * vidcap_dshow_init(const struct vidcap_params *params) {
+static void * vidcap_dshow_init(const struct vidcap_params *params) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 
@@ -1071,7 +1068,7 @@ error:
 	return NULL;
 }
 
-void vidcap_dshow_done(void *state) {
+static void vidcap_dshow_done(void *state) {
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
 
 	HRESULT res = s->mediaControl->Stop();
@@ -1104,7 +1101,7 @@ static void convert_yuyv_rgb(BYTE *src, BYTE *dst, int input_len) {
 	}
 }
 
-struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **audio) {
+static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **audio) {
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
 	*audio = NULL;
 
@@ -1289,6 +1286,20 @@ static const CHAR * GetSubtypeName(const GUID *pSubtype)
         } else {
                 return GetSubtypeNameA(pSubtype);
         }
+}
+
+static const struct video_capture_info vidcap_dshow_info = {
+        vidcap_dshow_probe,
+        vidcap_dshow_init,
+        vidcap_dshow_done,
+        vidcap_dshow_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("dshow", &vidcap_dshow_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 
 /* vim: set noexpandtab: */

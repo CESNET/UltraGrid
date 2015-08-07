@@ -54,10 +54,10 @@
 #include "config_unix.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video_display.h"
 #include "video_capture.h"
-#include "video_capture/quicktime.h"
 #include "video_display/quicktime.h"
 #include "video.h"
 #include "audio/audio.h"
@@ -68,7 +68,7 @@
 #include <QuickTime/QuickTime.h>
 #include <QuickTime/QuickTimeComponents.h>
 
-#define MAGIC_QT_GRABBER        VIDCAP_QUICKTIME_ID
+#define MAGIC_QT_GRABBER        0x765a391a
 
 static struct {
         uint32_t qt_fourcc;
@@ -133,7 +133,7 @@ struct qt_grabber_state {
         bool translate_yuv2;
 };
 
-void * vidcap_quicktime_thread(void *state);
+static void * vidcap_quicktime_thread(void *state);
 void InitCursor(void);
 void GetPort(GrafPtr *port);
 void SetPort(GrafPtr port);
@@ -1012,14 +1012,13 @@ error:
 /*******************************************************************************
  * Public API
  ******************************************************************************/
-struct vidcap_type *vidcap_quicktime_probe(bool verbose)
+static struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 {
         UNUSED(verbose);
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = VIDCAP_QUICKTIME_ID;
                 vt->name = "quicktime";
                 vt->description = "QuickTime capture device";
         }
@@ -1028,7 +1027,7 @@ struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 }
 
 /* Initialize the QuickTime grabbing system */
-void *vidcap_quicktime_init(const struct vidcap_params *params)
+static void *vidcap_quicktime_init(const struct vidcap_params *params)
 {
         struct qt_grabber_state *s;
 
@@ -1088,7 +1087,7 @@ void *vidcap_quicktime_init(const struct vidcap_params *params)
 }
 
 /* Finalize the grabbing system */
-void vidcap_quicktime_done(void *state)
+static void vidcap_quicktime_done(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -1113,7 +1112,7 @@ void vidcap_quicktime_done(void *state)
         }
 }
 
-void * vidcap_quicktime_thread(void *state) 
+static void * vidcap_quicktime_thread(void *state) 
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -1150,7 +1149,7 @@ void * vidcap_quicktime_thread(void *state)
 }
 
 /* Grab a frame */
-struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audio)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -1209,6 +1208,20 @@ struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audi
         }
         
         return s->frame;
+}
+
+static const struct video_capture_info vidcap_quicktime_info = {
+        vidcap_quicktime_probe,
+        vidcap_quicktime_init,
+        vidcap_quicktime_done,
+        vidcap_quicktime_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("quicktime", &vidcap_quicktime_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 
 #endif                          /* HAVE_MACOSX */

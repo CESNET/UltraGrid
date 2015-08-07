@@ -52,13 +52,13 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
+#include "lib_common.h"
 #include "utils/config_file.h"
 #include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
 
-#include "video_capture/swmix.h"
 #include "audio/audio.h"
 
 #include <queue>
@@ -266,7 +266,7 @@ struct vidcap_swmix_state {
 };
 
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_swmix_probe(bool verbose)
 {
         UNUSED(verbose);
@@ -274,7 +274,6 @@ vidcap_swmix_probe(bool verbose)
 
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_SWMIX_ID;
 		vt->name        = "swmix";
 		vt->description = "SW mix video capture";
 	}
@@ -1057,7 +1056,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         return true;
 }
 
-void *
+static void *
 vidcap_swmix_init(const struct vidcap_params *params)
 {
 	struct vidcap_swmix_state *s;
@@ -1205,7 +1204,7 @@ error:
         return NULL;
 }
 
-void
+static void
 vidcap_swmix_done(void *state)
 {
 	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
@@ -1276,7 +1275,7 @@ vidcap_swmix_done(void *state)
         delete s;
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_swmix_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
@@ -1321,5 +1320,19 @@ vidcap_swmix_grab(void *state, struct audio_frame **audio)
         }
 
 	return s->frame;
+}
+
+static const struct video_capture_info vidcap_swmix_info = {
+        vidcap_swmix_probe,
+        vidcap_swmix_init,
+        vidcap_swmix_done,
+        vidcap_swmix_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("swmix", &vidcap_swmix_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

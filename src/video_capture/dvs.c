@@ -59,10 +59,10 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
-#include "video_capture/dvs.h"
 #include "video_display/dvs.h"
 #include "tv.h"
 #include "dvs_clib.h"           /* From the DVS SDK */
@@ -230,7 +230,7 @@ static void show_help(void)
 
 /* External API ***********************************************************************************/
 
-void *vidcap_dvs_init(const struct vidcap_params *params)
+static void *vidcap_dvs_init(const struct vidcap_params *params)
 {
         struct vidcap_dvs_state *s;
         int i;
@@ -525,7 +525,7 @@ error:
         return NULL;
 }
 
-void vidcap_dvs_done(void *state)
+static void vidcap_dvs_done(void *state)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
@@ -548,7 +548,7 @@ void vidcap_dvs_done(void *state)
         free(s);
 }
 
-struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
@@ -610,13 +610,12 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
         return NULL;
 }
 
-struct vidcap_type *vidcap_dvs_probe(bool verbose)
+static struct vidcap_type *vidcap_dvs_probe(bool verbose)
 {
        struct vidcap_type *vt;
  
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = VIDCAP_DVS_ID;
                 vt->name = "dvs";
                 vt->description = "DVS (SMPTE 274M/25i)";
 
@@ -643,6 +642,20 @@ struct vidcap_type *vidcap_dvs_probe(bool verbose)
                 }
         }
         return vt;
+}
+
+static const struct video_capture_info vidcap_dvs_info = {
+        vidcap_dvs_probe,
+        vidcap_dvs_init,
+        vidcap_dvs_done,
+        vidcap_dvs_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("dvs", &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 
 #endif                          /* HAVE_DVS */

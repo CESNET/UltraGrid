@@ -53,7 +53,6 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "video_capture.h"
-#include "video_capture/v4l2.h"
 
 #include <arpa/inet.h> // ntohl
 #include <libv4l2.h>
@@ -68,13 +67,14 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
-void print_fps(int fd, struct v4l2_frmivalenum *param);
+static void print_fps(int fd, struct v4l2_frmivalenum *param);
 
 #define DEFAULT_DEVICE "/dev/video0"
 
@@ -99,7 +99,7 @@ struct vidcap_v4l2_state {
 };
 
 
-void print_fps(int fd, struct v4l2_frmivalenum *param) {
+static void print_fps(int fd, struct v4l2_frmivalenum *param) {
         int res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param);
 
         if(res == -1) {
@@ -238,13 +238,12 @@ next_device:
         }
 }
 
-struct vidcap_type * vidcap_v4l2_probe(bool verbose)
+static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
 {
         struct vidcap_type*		vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id          = VIDCAP_V4L2_ID;
                 vt->name        = "v4l2";
                 vt->description = "V4L2 capture";
 
@@ -277,7 +276,7 @@ struct vidcap_type * vidcap_v4l2_probe(bool verbose)
         return vt;
 }
 
-void * vidcap_v4l2_init(const struct vidcap_params *params)
+static void * vidcap_v4l2_init(const struct vidcap_params *params)
 {
         struct vidcap_v4l2_state *s;
         const char *dev_name = DEFAULT_DEVICE;
@@ -585,7 +584,7 @@ error:
         return NULL;
 }
 
-void vidcap_v4l2_done(void *state)
+static void vidcap_v4l2_done(void *state)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
 
@@ -623,7 +622,7 @@ static void vidcap_v4l2_dispose_video_frame(struct video_frame *frame) {
         vf_free(frame);
 }
 
-struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
+static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
         struct video_frame *out;
@@ -690,5 +689,19 @@ struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
 
 
         return out;
+}
+
+static const struct video_capture_info vidcap_v4l2_info = {
+        vidcap_v4l2_probe,
+        vidcap_v4l2_init,
+        vidcap_v4l2_done,
+        vidcap_v4l2_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("v4l2", &vidcap_v4l2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

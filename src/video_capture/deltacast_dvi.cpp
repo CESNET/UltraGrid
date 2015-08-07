@@ -51,6 +51,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -71,8 +72,6 @@
 #endif
 #include <sys/time.h>
 #include <semaphore.h>
-
-#include "video_capture/deltacast_dvi.h"
 
 #include <string>
 
@@ -194,14 +193,13 @@ static const char * GetErrorDescription(ULONG CodeError)
         }
 }
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_deltacast_dvi_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_DELTACAST_DVI_ID;
 		vt->name        = "deltacast-dvi";
 		vt->description = "DELTACAST DVI/HDMI card";
 
@@ -445,7 +443,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         return true;
 }
 
-void *
+static void *
 vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 {
 	struct vidcap_deltacast_dvi_state *s;
@@ -682,7 +680,7 @@ error:
         return NULL;
 }
 
-void
+static void
 vidcap_deltacast_dvi_done(void *state)
 {
 	struct vidcap_deltacast_dvi_state *s = (struct vidcap_deltacast_dvi_state *) state;
@@ -704,7 +702,7 @@ static void vidcap_deltacast_dvi_dispose(struct video_frame *f)
        vf_free(f);
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_deltacast_dvi_state   *s = (struct vidcap_deltacast_dvi_state *) state;
@@ -766,5 +764,19 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         s->frames++;
         
 	return out;
+}
+
+static const struct video_capture_info vidcap_deltacast_dvi_info = {
+        vidcap_deltacast_dvi_probe,
+        vidcap_deltacast_dvi_init,
+        vidcap_deltacast_dvi_done,
+        vidcap_deltacast_dvi_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("deltacast_dvi", &vidcap_deltacast_dvi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

@@ -43,20 +43,6 @@
  *
  */
 
-#define VIDCAP_NULL_ID	0xb0a6a01a
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct audio_frame;
-
-struct vidcap_type	*vidcap_null_probe(bool verbose);
-void			*vidcap_null_init(const struct vidcap_params *params);
-void			 vidcap_null_done(void *state);
-struct video_frame	*vidcap_null_grab(void *state, struct audio_frame **audio);
-
-#ifdef __cplusplus
-}
-#endif
+struct video_capture_info;
+extern const struct video_capture_info vidcap_null_info;
 

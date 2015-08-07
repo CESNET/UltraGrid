@@ -548,7 +548,7 @@ rtsp: @RTSP_LIB_TARGET@
 rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 @AJA_LIB_TARGET@: @AJA_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_aja.so.@video_capture_abi_version@ $^ @AJA_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_aja.so $^ @AJA_LIB@ -o $@
 
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
@@ -558,43 +558,43 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_gl.so $^ @GL_LIB@ -o $@
 
 @RTSP_LIB_TARGET@: @RTSP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_rtsp.so $^ @RTSP_LIBS@ -o $@
 	
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_testcard.so $^ @TESTCARD_LIB@ -o $@
 
 @SWMIX_LIB_TARGET@: @GL_COMMON_OBJ@ @SWMIX_OBJ@ @X_OBJ@ src/host.o
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_swmix.so.@video_capture_abi_version@ $^ @SWMIX_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_swmix.so $^ @SWMIX_LIB@ -o $@
 
 @TESTCARD2_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD2_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard2.so.@video_capture_abi_version@ $^ @TESTCARD2_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_testcard2.so $^ @TESTCARD2_LIB@ -o $@
 
 @DECKLINK_CAP_LIB_TARGET@: @DECKLINK_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_decklink.so.@video_capture_abi_version@ $^ @DECKLINK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_decklink.so $^ @DECKLINK_LIB@ -o $@
 
 @DECKLINK_DISP_LIB_TARGET@: @DECKLINK_DISP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_decklink.so $^ @DECKLINK_LIB@ -o $@
 
 @BLUEFISH444_CAP_LIB_TARGET@: @BLUEFISH444_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_bluefish444.so.@video_capture_abi_version@ $^ @BLUEFISH444_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_bluefish444.so $^ @BLUEFISH444_LIB@ -o $@
 
 @BLUEFISH444_DISP_LIB_TARGET@: @BLUEFISH444_DISP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_bluefish444.so $^ @BLUEFISH444_LIB@ -o $@
 
 @DELTACAST_CAP_LIB_TARGET@: @DELTACAST_DISP_OBJ@ @DELTACAST_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_deltacast.so.@video_capture_abi_version@ $^ @DELTACAST_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_deltacast.so $^ @DELTACAST_LIB@ -o $@
 
 @DELTACAST_DISP_LIB_TARGET@: @DELTACAST_DISP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_deltacast.so $^ @DELTACAST_LIB@ -o $@
 
 @DVS_CAP_LIB_TARGET@: src/video_display/dvs.o @DVS_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_dvs.so.@video_capture_abi_version@ $^ @DVS_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_dvs.so $^ @DVS_LIB@ -o $@
 
 @DVS_DISP_LIB_TARGET@: @DVS_DISP_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_dvs.so $^ @DVS_LIB@ -o $@
 
 @SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $^ @SCREEN_CAP_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_screen.so $^ @SCREEN_CAP_LIB@ -o $@
 
 @SAGE_LIB_TARGET@: @SAGE_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sage.so $^ @SAGE_LIB@ -o $@
@@ -655,7 +655,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $^ @SCALE_LIB@ -o $@
 
 @V4L2_LIB_TARGET@: @V4L2_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_v4l2.so.@video_capture_abi_version@ $^ @V4L2_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_v4l2.so $^ @V4L2_LIBS@ -o $@
 
 @RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIBS@ -o $@

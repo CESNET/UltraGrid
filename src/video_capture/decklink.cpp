@@ -54,6 +54,7 @@
 #include "tv.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 #include "audio/audio.h"
@@ -66,7 +67,6 @@
 #ifdef HAVE_DECKLINK		/* From config.h */
 
 #include "blackmagic_common.h"
-#include "video_capture/decklink.h"
 
 #ifdef WIN32
 #include "DeckLinkAPI_h.h" /* From DeckLink SDK */
@@ -366,7 +366,7 @@ static int blackmagic_api_version_check(BMD_STR *current_version)
 }
 
 /* HELP */
-int
+static int
 decklink_help()
 {
 	IDeckLinkIterator*		deckLinkIterator;
@@ -482,7 +482,7 @@ decklink_help()
 
 /* SETTINGS */
 
-int
+static int
 settings_init(void *state, char *fmt)
 {
 	struct vidcap_decklink_state *s = (struct vidcap_decklink_state *) state;
@@ -582,14 +582,13 @@ settings_init(void *state, char *fmt)
 
 /* External API ***************************************************************/
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_decklink_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
 
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_DECKLINK_ID;
 		vt->name        = "decklink";
 		vt->description = "Blackmagic DeckLink card";
 
@@ -708,7 +707,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         return result;
 }
 
-void *
+static void *
 vidcap_decklink_init(const struct vidcap_params *params)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
@@ -1152,7 +1151,7 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         delete s;
 }
 
-void
+static void
 vidcap_decklink_done(void *state)
 {
 	debug_msg("vidcap_decklink_done\n"); /* TOREMOVE */
@@ -1197,7 +1196,7 @@ vidcap_decklink_done(void *state)
  * @param s Blackmagic state
  * @return number of captured tiles
  */
-int nr_frames(struct vidcap_decklink_state *s) {
+static int nr_frames(struct vidcap_decklink_state *s) {
         BMDTimecodeBCD max_timecode = 0u;
         int tiles_total = 0;
         int i;
@@ -1241,7 +1240,7 @@ int nr_frames(struct vidcap_decklink_state *s) {
         return tiles_total;
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
@@ -1455,6 +1454,20 @@ bail:
 	
 	if (deckLinkInput != NULL)
 		deckLinkInput->Release();
+}
+
+static const struct video_capture_info vidcap_decklink_info = {
+        vidcap_decklink_probe,
+        vidcap_decklink_init,
+        vidcap_decklink_done,
+        vidcap_decklink_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("decklink", &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 
 #endif /* HAVE_DECKLINK */

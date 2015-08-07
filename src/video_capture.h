@@ -84,6 +84,8 @@
 #ifndef _VIDEO_CAPTURE_H_
 #define _VIDEO_CAPTURE_H_
 
+#define VIDEO_CAPTURE_ABI_VERSION 4
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -96,8 +98,6 @@ extern "C" {
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)   ///< (balanced) analog audio
 /** @} */
 
-typedef uint32_t        vidcap_id_t; ///< driver unique ID
-
 struct audio_frame;
 
 struct vidcap_card {
@@ -107,7 +107,6 @@ struct vidcap_card {
 
 /** Defines video capture device */
 struct vidcap_type {
-        vidcap_id_t              id;          ///< device unique identifier
         const char              *name;        ///< short name (one word)
         const char              *description; ///< description of the video device
 
@@ -115,13 +114,27 @@ struct vidcap_type {
         struct vidcap_card      *cards;
 };
 
+struct vidcap_params;
+
+struct video_capture_info {
+        struct vidcap_type    *(*probe) (bool verbose);
+        /**
+         * @param[in] driver configuration string
+         * @param[in] param  driver parameters
+         * @retval NULL if initialization failed
+         * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
+         * @retval other_ptr if initialization succeeded, contains pointer to state
+         */
+        void                  *(*init) (const struct vidcap_params *param);
+        void                   (*done) (void *state);
+        struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
+};
+
 struct module;
 
 /**
  * @name Vidcap Parameters Handling Functions
  * @{ */
-struct vidcap_params;
-
 struct vidcap_params *vidcap_params_allocate(void);
 struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
@@ -139,10 +152,6 @@ void                  vidcap_params_set_capture_filter(struct vidcap_params *par
 void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
 /// @}
 
-int			 vidcap_get_device_count(void);
-struct vidcap_type	*vidcap_get_device_details(int index);
-vidcap_id_t 		 vidcap_get_null_device_id(void);
-
 struct module;
 struct vidcap;
 
@@ -151,8 +160,6 @@ void                     print_available_capturers(void);
 int initialize_video_capture(struct module *parent,
                 struct vidcap_params *params,
                 struct vidcap **state);
-int                      vidcap_init(struct module *parent, vidcap_id_t id,
-                struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 

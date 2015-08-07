@@ -60,10 +60,10 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/bluefish444.h"
 
 #ifndef UINT
 #define UINT uint32_t
@@ -355,14 +355,13 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
         }
 }
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_bluefish444_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_BLUEFISH444_ID;
 		vt->name        = "bluefish444";
 		vt->description = "Bluefish444 video capture";
 
@@ -772,7 +771,7 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
         }
 }
 
-void *
+static void *
 vidcap_bluefish444_init(const struct vidcap_params *params)
 {
 	struct vidcap_bluefish444_state *s;
@@ -967,7 +966,7 @@ error:
         return NULL;
 }
 
-void vidcap_bluefish444_done(void *state)
+static void vidcap_bluefish444_done(void *state)
 {
 	struct vidcap_bluefish444_state *s = (struct vidcap_bluefish444_state *) state;
 
@@ -1017,7 +1016,7 @@ void vidcap_bluefish444_done(void *state)
         delete s;
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_bluefish444_state *s = (struct vidcap_bluefish444_state *) state;
@@ -1082,5 +1081,19 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         pthread_mutex_unlock(&s->lock);
 
         return res;
+}
+
+static const struct video_capture_info vidcap_bluefish444_info = {
+        vidcap_bluefish444_probe,
+        vidcap_bluefish444_init,
+        vidcap_bluefish444_done,
+        vidcap_bluefish444_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("bluefish444", &vidcap_bluefish444_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 

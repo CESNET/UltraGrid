@@ -209,7 +209,7 @@ static void message_queue_clear(struct message_queue *queue) {
         queue->len = 0;
 }
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_import_probe(bool verbose)
 {
         UNUSED(verbose);
@@ -217,7 +217,6 @@ vidcap_import_probe(bool verbose)
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_IMPORT_ID;
 		vt->name        = "import";
 		vt->description = "Video importer (not to be called directly)";
 	}
@@ -276,7 +275,7 @@ error_format:
         return false;
 }
 
-void *
+static void *
 vidcap_import_init(const struct vidcap_params *params)
 {
 	struct vidcap_import_state *s = NULL;
@@ -588,7 +587,7 @@ static void cleanup_common(struct vidcap_import_state *s) {
         }
 }
 
-void vidcap_import_done(void *state)
+static void vidcap_import_done(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 	assert(s != NULL);
@@ -1155,7 +1154,7 @@ static void vidcap_import_dispose_video_frame(struct video_frame *frame) {
         vf_free(frame);
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_import_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) state;
@@ -1254,4 +1253,11 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
 	return ret;
 }
+
+const struct video_capture_info vidcap_import_info = {
+        vidcap_import_probe,
+        vidcap_import_init,
+        vidcap_import_done,
+        vidcap_import_grab,
+};
 

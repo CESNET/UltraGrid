@@ -78,7 +78,7 @@ struct vidcap_switcher_state {
 };
 
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_switcher_probe(bool verbose)
 {
         UNUSED(verbose);
@@ -86,14 +86,13 @@ vidcap_switcher_probe(bool verbose)
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = 0x1D3E1956;
 		vt->name        = "switcher";
 		vt->description = "Video switcher pseudodevice";
 	}
 	return vt;
 }
 
-void *
+static void *
 vidcap_switcher_init(const struct vidcap_params *params)
 {
 	struct vidcap_switcher_state *s;
@@ -185,7 +184,7 @@ error:
         return NULL;
 }
 
-void
+static void
 vidcap_switcher_done(void *state)
 {
 	struct vidcap_switcher_state *s = (struct vidcap_switcher_state *) state;
@@ -204,7 +203,7 @@ vidcap_switcher_done(void *state)
         free(s);
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_switcher_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_switcher_state *s = (struct vidcap_switcher_state *) state;
@@ -239,4 +238,11 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
 
 	return frame;
 }
+
+const struct video_capture_info vidcap_switcher_info = {
+        vidcap_switcher_probe,
+        vidcap_switcher_init,
+        vidcap_switcher_done,
+        vidcap_switcher_grab,
+};
 

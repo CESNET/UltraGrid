@@ -70,6 +70,7 @@ enum library_class {
         LIBRARY_CLASS_CAPTURE_FILTER,
         LIBRARY_CLASS_AUDIO_CAPTURE,
         LIBRARY_CLASS_AUDIO_PLAYBACK,
+        LIBRARY_CLASS_VIDEO_CAPTURE,
         LIBRARY_CLASS_VIDEO_DISPLAY,
 };
 void open_all(const char *pattern);

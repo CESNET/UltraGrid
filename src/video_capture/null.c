@@ -58,35 +58,42 @@
 
 static int capture_state = 0;
 
-void *vidcap_null_init(const struct vidcap_params *params)
+static void *vidcap_null_init(const struct vidcap_params *params)
 {
         UNUSED(params);
         capture_state = 0;
         return &capture_state;
 }
 
-void vidcap_null_done(void *state)
+static void vidcap_null_done(void *state)
 {
         assert(state == &capture_state);
 }
 
-struct video_frame *vidcap_null_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_null_grab(void *state, struct audio_frame **audio)
 {
         assert(state == &capture_state);
         *audio = NULL;
         return NULL;
 }
 
-struct vidcap_type *vidcap_null_probe(bool verbose)
+static struct vidcap_type *vidcap_null_probe(bool verbose)
 {
         UNUSED(verbose);
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id = VIDCAP_NULL_ID;
                 vt->name = "none";
                 vt->description = "No video capture device";
         }
         return vt;
 }
+
+const struct video_capture_info vidcap_null_info = {
+        vidcap_null_probe,
+        vidcap_null_init,
+        vidcap_null_done,
+        vidcap_null_grab,
+};
+

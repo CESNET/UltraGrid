@@ -42,6 +42,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -64,7 +65,6 @@
 #include <sys/time.h>
 #include <semaphore.h>
 
-#include "video_capture/deltacast.h"
 #include "video_display.h"
 #include "video_display/deltacast.h"
 
@@ -119,14 +119,13 @@ static void usage(void)
                         "(except of UHD modes). Default codec is UYVY.\n");
 }
 
-struct vidcap_type *
+static struct vidcap_type *
 vidcap_deltacast_probe(bool verbose)
 {
 	struct vidcap_type*		vt;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_DELTACAST_ID;
 		vt->name        = "deltacast";
 		vt->description = "DELTACAST card";
 
@@ -324,7 +323,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         return true;
 }
 
-void *
+static void *
 vidcap_deltacast_init(const struct vidcap_params *params)
 {
 	struct vidcap_deltacast_state *s = nullptr;
@@ -471,7 +470,7 @@ error:
         return NULL;
 }
 
-void
+static void
 vidcap_deltacast_done(void *state)
 {
 	struct vidcap_deltacast_state *s = (struct vidcap_deltacast_state *) state;
@@ -491,7 +490,7 @@ vidcap_deltacast_done(void *state)
         free(s);
 }
 
-struct video_frame *
+static struct video_frame *
 vidcap_deltacast_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_deltacast_state   *s = (struct vidcap_deltacast_state *) state;
@@ -570,3 +569,18 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
         
 	return s->frame;
 }
+
+static const struct video_capture_info vidcap_deltacast_info = {
+        vidcap_deltacast_probe,
+        vidcap_deltacast_init,
+        vidcap_deltacast_done,
+        vidcap_deltacast_grab,
+};
+
+static void mod_reg(void)  __attribute__((constructor));
+
+static void mod_reg(void)
+{
+        register_library("deltacast", &vidcap_deltacast_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+}
+

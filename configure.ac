@@ -440,19 +440,16 @@ then
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-video_capture_abi_version=3
 video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
 audio_codec_abi_version=1
 vo_pp_abi_version=3
-AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
 AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
-AC_SUBST(video_capture_abi_version)
 AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
 AC_SUBST(audio_codec_abi_version)
@@ -610,7 +607,7 @@ then
 	then
 		DVS_LIB="$DVS_LIB -framework IOKit"
 	fi
-        AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_capture_abi_version")
+        AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_dvs.so")
         AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/module_display_dvs.so")
         LIB_TARGETS="$LIB_TARGETS $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $DVS_CAP_OBJ $DVS_DISP_OBJ"
@@ -717,7 +714,7 @@ then
         OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-    AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
+    AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_decklink.so")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/module_display_decklink.so")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_decklink.so")
     LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
@@ -852,7 +849,7 @@ then
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
-        AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/vidcap_bluefish444.so.$video_capture_abi_version")
+        AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_bluefish444.so")
         AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/module_display_bluefish444.so")
         LIB_TARGETS="$LIB_TARGETS $BLUEFISH444_CAP_LIB_TARGET $BLUEFISH444_DISP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $BLUEFISH444_CAP_OBJ $BLUEFISH444_DISP_OBJ"
@@ -921,7 +918,7 @@ then
                 AJA_CAP_OBJ="src/video_capture/aja.o"
                 AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
-                AC_SUBST(AJA_LIB_TARGET, "lib/ultragrid/vidcap_aja.so.$video_capture_abi_version")
+                AC_SUBST(AJA_LIB_TARGET, "lib/ultragrid/module_vidcap_aja.so")
                 LIB_TARGETS="$LIB_TARGETS $AJA_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $AJA_CAP_OBJ"
         fi
@@ -1066,7 +1063,7 @@ then
 	DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
 	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
 	AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-	AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
+	AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_deltacast.so")
 	AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/module_display_deltacast.so")
 	LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
 	LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
@@ -1325,7 +1322,7 @@ then
         CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
         RTSP_INC=
         RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
+        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/module_vidcap_rtsp.so")
         LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
         rtsp=yes
@@ -1487,7 +1484,7 @@ TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
-AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/vidcap_testcard.so.$video_capture_abi_version")
+AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/module_vidcap_testcard.so")
 LIB_TARGETS="$LIB_TARGETS $TESTCARD_LIB_TARGET"
 TESTCARD_COMMON="src/video_capture/testcard_common.o"
 LIB_OBJS="$LIB_OBJS $TESTCARD_OBJ $TESTCARD_COMMON"
@@ -1516,7 +1513,7 @@ then
                         AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
                 AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
-                AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
+                AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/module_vidcap_testcard2.so")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
         fi
@@ -1783,7 +1780,7 @@ then
         swmix=yes
         SWMIX_LIB="$OPENGL_LIB $X11_LIB"
         SWMIX_OBJ="$SWMIX_OBJ src/video_capture/swmix.o"
-        AC_SUBST(SWMIX_LIB_TARGET, "lib/ultragrid/vidcap_swmix.so.$video_capture_abi_version")
+        AC_SUBST(SWMIX_LIB_TARGET, "lib/ultragrid/module_vidcap_swmix.so")
         LIB_TARGETS="$LIB_TARGETS $SWMIX_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SWMIX_OBJ"
         AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
@@ -1868,7 +1865,7 @@ esac
 if test $screen_cap = yes
 then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
-        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
+        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_screen.so")
         if test $system = MacOSX; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
         else if test $system = Linux; then
@@ -2596,7 +2593,7 @@ if test $v4l2_req != no -a $found_v4l2 = yes
 then
         V4L2_OBJ="src/video_capture/v4l2.o"
         AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
-        AC_SUBST(V4L2_LIB_TARGET, "lib/ultragrid/vidcap_v4l2.so.$video_capture_abi_version")
+        AC_SUBST(V4L2_LIB_TARGET, "lib/ultragrid/module_vidcap_v4l2.so")
         LIB_TARGETS="$LIB_TARGETS $V4L2_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $V4L2_OBJ"
         CFLAGS="$CFLAGS $V4L2_CFLAGS"

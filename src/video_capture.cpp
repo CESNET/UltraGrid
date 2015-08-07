@@ -62,39 +62,18 @@
 #include "lib_common.h"
 #include "module.h"
 #include "utils/config_file.h"
-#include "utils/resource_manager.h"
-#include "video.h"
 #include "video_capture.h"
-#include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
-#include "video_capture/aja.h"
-#include "video_capture/avfoundation.h"
-#include "video_capture/bluefish444.h"
-#include "video_capture/decklink.h"
-#include "video_capture/deltacast.h"
-#include "video_capture/deltacast_dvi.h"
-#include "video_capture/dvs.h"
 #include "video_capture/import.h"
 #include "video_capture/null.h"
-#include "video_capture/quicktime.h"
-#include "video_capture/screen_osx.h"
-#include "video_capture/screen_x11.h"
-#include "video_capture/swmix.h"
 #include "video_capture/switcher.h"
-#include "video_capture/testcard.h"
-#include "video_capture/testcard2.h"
 #include "video_capture/ug_input.h"
-#include "video_capture/v4l2.h"
-#include "video_capture/rtsp.h"
 
 #include <string>
 
 using namespace std;
 
 #define VIDCAP_MAGIC	0x76ae98f0
-
-static int vidcap_init_devices(bool verbose);
-static void vidcap_free_devices(void);
 
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help).
@@ -122,412 +101,41 @@ struct vidcap_params {
 struct vidcap {
         struct module mod;
         void    *state; ///< state of the created video capture driver
-        int      index; ///< index to @ref vidcap_device_table
+        const struct video_capture_info *funcs;
         uint32_t magic; ///< For debugging. Conatins @ref VIDCAP_MAGIC
 
         struct capture_filter *capture_filter; ///< capture_filter_state
 };
 
-/**
- * This struct describes individual vidcap modules
- * @copydetails decoder_table_t
- */
-struct vidcap_device_api {
-        vidcap_id_t id;                        ///< @copydoc decoder_table_t::magic
-
-        const char              *library_name; ///< @copydoc decoder_table_t::library_name
-
-        struct vidcap_type    *(*func_probe) (bool verbose);
-        const char              *func_probe_str;
-        void                  *(*func_init) (const struct vidcap_params *param);
-        const char              *func_init_str;
-        void                   (*func_done) (void *state);
-        const char              *func_done_str;
-        struct video_frame    *(*func_grab) (void *state, struct audio_frame **audio);
-        const char              *func_grab_str;
-
-        void                    *handle;       ///< @copydoc decoder_table_t::handle
-        /** @var func_init
-         * @param[in] driver configuration string
-         * @param[in] param  driver parameters
-         * @retval NULL if initialization failed
-         * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
-         * @retval other_ptr if initialization succeeded, contains pointer to state
-         */
-};
-
-/** @brief This table contains list of video capture devices compiled with this UltraGrid version.
- *  @copydetails decoders */
-struct vidcap_device_api vidcap_device_table[] = {
+static void init_static_vidcap() __attribute__((constructor));
+static void init_static_vidcap() {
 #ifndef UV_IN_YURI
-        {
-         /* The aggregate capture card */
-         0,
-         NULL,
-         MK_STATIC(vidcap_aggregate_probe),
-         MK_STATIC(vidcap_aggregate_init),
-         MK_STATIC(vidcap_aggregate_done),
-         MK_STATIC(vidcap_aggregate_grab),
-         NULL
-        },
-#if defined HAVE_AJA
-        {
-         0,
-         "aja",
-         MK_NAME(vidcap_aja_probe),
-         MK_NAME(vidcap_aja_init),
-         MK_NAME(vidcap_aja_done),
-         MK_NAME(vidcap_aja_grab),
-         NULL
-        },
-#endif // HAVE_AJA
-#if defined HAVE_AVFOUNDATION
-        {
-         0,
-         "avfoundation",
-         MK_NAME(vidcap_avfoundation_probe),
-         MK_NAME(vidcap_avfoundation_init),
-         MK_NAME(vidcap_avfoundation_done),
-         MK_NAME(vidcap_avfoundation_grab),
-         NULL
-        },
+        register_library("aggregate", &vidcap_aggregate_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        register_library("import", &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        register_library("switcher", &vidcap_switcher_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        register_library("none", &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        register_library("ug_input", &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 #endif
-        {
-         0,
-         NULL,
-         MK_STATIC(vidcap_import_probe),
-         MK_STATIC(vidcap_import_init),
-         MK_STATIC(vidcap_import_done),
-         MK_STATIC(vidcap_import_grab),
-         NULL
-        },
-        {
-         0,
-         NULL,
-         MK_STATIC(vidcap_switcher_probe),
-         MK_STATIC(vidcap_switcher_init),
-         MK_STATIC(vidcap_switcher_done),
-         MK_STATIC(vidcap_switcher_grab),
-         NULL
-        },
-#if defined HAVE_RTSP
-        {
-         0,
-         "rtsp",
-         MK_NAME(vidcap_rtsp_probe),
-         MK_NAME(vidcap_rtsp_init),
-         MK_NAME(vidcap_rtsp_done),
-         MK_NAME(vidcap_rtsp_grab),
-         NULL
-        },
-#endif
-#if defined HAVE_SWMIX || defined BUILD_LIBRARIES
-        {
-         /* The SW mix capture card */
-         0,
-         "swmix",
-         MK_NAME(vidcap_swmix_probe),
-         MK_NAME(vidcap_swmix_init),
-         MK_NAME(vidcap_swmix_done),
-         MK_NAME(vidcap_swmix_grab),
-         NULL
-        },
-#endif
-#if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
-        {
-         /* The Bluefish444 capture card */
-         0,
-         "bluefish444",
-         MK_NAME(vidcap_bluefish444_probe),
-         MK_NAME(vidcap_bluefish444_init),
-         MK_NAME(vidcap_bluefish444_done),
-         MK_NAME(vidcap_bluefish444_grab),
-         NULL
-        },
-#endif /* HAVE_BLUEFISH444 */
-#if defined HAVE_DSHOW || defined BUILD_LIBRARIES
-        {
-         /* The DirectShow capture card */
-         0,
-         "dshow",
-         MK_NAME(vidcap_dshow_probe),
-         MK_NAME(vidcap_dshow_init),
-         MK_NAME(vidcap_dshow_done),
-         MK_NAME(vidcap_dshow_grab),
-         NULL
-        },
-#endif /* HAVE_DSHOW */
-#if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
-        {
-         /* The screen capture card */
-         0,
-         "screen",
-#ifdef HAVE_LINUX
-         MK_NAME(vidcap_screen_x11_probe),
-         MK_NAME(vidcap_screen_x11_init),
-         MK_NAME(vidcap_screen_x11_done),
-         MK_NAME(vidcap_screen_x11_grab),
-#else
-         MK_NAME(vidcap_screen_osx_probe),
-         MK_NAME(vidcap_screen_osx_init),
-         MK_NAME(vidcap_screen_osx_done),
-         MK_NAME(vidcap_screen_osx_grab),
-#endif // ! defined HAVE_LINUX
-         NULL
-        },
-#endif /* HAVE_SCREEN */
-#if defined HAVE_DVS || defined BUILD_LIBRARIES
-        {
-         /* The DVS capture card */
-         0,
-         "dvs",
-         MK_NAME(vidcap_dvs_probe),
-         MK_NAME(vidcap_dvs_init),
-         MK_NAME(vidcap_dvs_done),
-         MK_NAME(vidcap_dvs_grab),
-         NULL
-        },
-#endif                          /* HAVE_DVS */
-#if defined HAVE_DECKLINK || defined BUILD_LIBRARIES
-        {
-         /* The Blackmagic DeckLink capture card */
-         0,
-         "decklink",
-         MK_NAME(vidcap_decklink_probe),
-         MK_NAME(vidcap_decklink_init),
-         MK_NAME(vidcap_decklink_done),
-         MK_NAME(vidcap_decklink_grab),
-         NULL
-        },
-#endif                          /* HAVE_DECKLINK */
-#if defined HAVE_DELTACAST || defined BUILD_LIBRARIES
-        {
-         /* The Blackmagic DeckLink capture card */
-         0,
-         "deltacast",
-         MK_NAME(vidcap_deltacast_probe),
-         MK_NAME(vidcap_deltacast_init),
-         MK_NAME(vidcap_deltacast_done),
-         MK_NAME(vidcap_deltacast_grab),
-         NULL
-        },
-        {
-         0,
-         "deltacast",
-         MK_NAME(vidcap_deltacast_dvi_probe),
-         MK_NAME(vidcap_deltacast_dvi_init),
-         MK_NAME(vidcap_deltacast_dvi_done),
-         MK_NAME(vidcap_deltacast_dvi_grab),
-         NULL
-        },
-#endif                          /* HAVE_DELTACAST */
-#if defined HAVE_QUICKTIME
-        {
-         /* The QuickTime API */
-         0,
-         "quicktime",
-         MK_NAME(vidcap_quicktime_probe),
-         MK_NAME(vidcap_quicktime_init),
-         MK_NAME(vidcap_quicktime_done),
-         MK_NAME(vidcap_quicktime_grab),
-         NULL
-        },
-#endif                          /* HAVE_MACOSX */
-        {
-         /* Dummy sender for testing purposes */
-         0,
-         "testcard",
-         MK_NAME(vidcap_testcard_probe),
-         MK_NAME(vidcap_testcard_init),
-         MK_NAME(vidcap_testcard_done),
-         MK_NAME(vidcap_testcard_grab),
-         NULL
-        },
-#if defined HAVE_TESTCARD2 || defined BUILD_LIBRARIES
-        {
-         /* Dummy sender for testing purposes */
-         0,
-         "testcard2",
-         MK_NAME(vidcap_testcard2_probe),
-         MK_NAME(vidcap_testcard2_init),
-         MK_NAME(vidcap_testcard2_done),
-         MK_NAME(vidcap_testcard2_grab),
-         NULL
-        },
-#endif /* HAVE_TESTCARD2 */
-#if defined HAVE_V4L2 || defined BUILD_LIBRARIES
-        {
-         /* Dummy sender for testing purposes */
-         0,
-         "v4l2",
-         MK_NAME(vidcap_v4l2_probe),
-         MK_NAME(vidcap_v4l2_init),
-         MK_NAME(vidcap_v4l2_done),
-         MK_NAME(vidcap_v4l2_grab),
-         NULL
-        },
-#endif /* HAVE_V4L2 */
-#endif
-        {
-         0,
-         NULL,
-         MK_STATIC(vidcap_null_probe),
-         MK_STATIC(vidcap_null_init),
-         MK_STATIC(vidcap_null_done),
-         MK_STATIC(vidcap_null_grab),
-         NULL
-        },
-        {
-         0,
-         NULL,
-         MK_STATIC(vidcap_ug_input_probe),
-         MK_STATIC(vidcap_ug_input_init),
-         MK_STATIC(vidcap_ug_input_done),
-         MK_STATIC(vidcap_ug_input_grab),
-         NULL
-        },
-};
-
-#define VIDCAP_DEVICE_TABLE_SIZE (sizeof(vidcap_device_table)/sizeof(struct vidcap_device_api))
+}
 
 /* API for probing capture devices ****************************************************************/
-
-/** @brief List of available vidcap devices
- * Initialized with @ref vidcap_init_devices */
-static struct vidcap_type *available_vidcap_devices[VIDCAP_DEVICE_TABLE_SIZE];
-/** @brief Count of @ref available_vidcap_devices
- * Initialized with @ref vidcap_init_devices */
-static int available_vidcap_device_count = 0;
-
-#ifdef BUILD_LIBRARIES
-#include <dlfcn.h>
-/** Opens vidcap library of given name. */
-static void *vidcap_open_library(const char *vidcap_name)
-{
-        char name[128];
-        snprintf(name, sizeof(name), "vidcap_%s.so.%d", vidcap_name, VIDEO_CAPTURE_ABI_VERSION);
-
-        return open_library(name);
-}
-
-/** For a given device, load individual functions from library handle (previously opened). */
-static int vidcap_fill_symbols(struct vidcap_device_api *device)
-{
-        void *handle = device->handle;
-
-        device->func_probe = (struct vidcap_type *(*) (bool))
-                dlsym(handle, device->func_probe_str);
-        device->func_init = (void *(*) (const struct vidcap_params *))
-                dlsym(handle, device->func_init_str);
-        device->func_done = (void (*) (void *))
-                dlsym(handle, device->func_done_str);
-        device->func_grab = (struct video_frame *(*) (void *, struct audio_frame **))
-                dlsym(handle, device->func_grab_str);
-        if(!device->func_probe || !device->func_init ||
-                        !device->func_done || !device->func_grab) {
-                fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
-                return FALSE;
-        }
-        return TRUE;
-}
-#endif
-
-/** @brief Must be called before initalization of vidcap.
- * In modular UltraGrid build, it also opens available libraries.
- * @todo
- * Figure out where to close libraries. vidcap_free_devices() is not the right place because
- * it is called to early.
- */
-static int vidcap_init_devices(bool verbose)
-{
-        unsigned int i;
-        struct vidcap_type *dt;
-
-        assert(available_vidcap_device_count == 0);
-
-        for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
-                //printf("probe: %d\n",i);
-#ifdef BUILD_LIBRARIES
-                vidcap_device_table[i].handle = NULL;
-                if(vidcap_device_table[i].library_name) {
-                        vidcap_device_table[i].handle =
-                                vidcap_open_library(vidcap_device_table[i].library_name);
-                        if(vidcap_device_table[i].handle) {
-                                int ret;
-                                ret = vidcap_fill_symbols(&vidcap_device_table[i]);
-                                if(!ret) continue;
-                        } else {
-                                continue;
-                        }
-                }
-#endif
-
-                dt = vidcap_device_table[i].func_probe(verbose);
-                if (dt != NULL) {
-                        vidcap_device_table[i].id = dt->id;
-                        available_vidcap_devices[available_vidcap_device_count++] = dt;
-                }
-        }
-
-        return available_vidcap_device_count;
-}
-
-/** Should be called after video capture is initialized. */
-static void vidcap_free_devices(void)
-{
-        int i;
-
-        for (i = 0; i < available_vidcap_device_count; i++) {
-                free(available_vidcap_devices[i]->cards);
-                free(available_vidcap_devices[i]);
-                available_vidcap_devices[i] = NULL;
-        }
-        available_vidcap_device_count = 0;
-}
-
-/** Returns count of available vidcap devices. */
-int vidcap_get_device_count(void)
-{
-        return available_vidcap_device_count;
-}
-
-/** Returns vidcap device metadata for given index. */
-struct vidcap_type *vidcap_get_device_details(int index)
-{
-        assert(index < available_vidcap_device_count);
-        assert(available_vidcap_devices[index] != NULL);
-
-        return available_vidcap_devices[index];
-}
-
-/** Returns index of the noop device. */
-vidcap_id_t vidcap_get_null_device_id(void)
-{
-        return VIDCAP_NULL_ID;
-}
-
 void list_video_capture_devices()
 {
-        int i;
-        struct vidcap_type *vt;
-
         printf("Available capture devices:\n");
-        vidcap_init_devices(false);
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                printf("\t%s\n", vt->name);
-        }
-        vidcap_free_devices();
+        list_modules(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 }
 
 void print_available_capturers()
 {
-        vidcap_init_devices(true);
-        for (int i = 0; i < vidcap_get_device_count(); i++) {
-                struct vidcap_type *vt = vidcap_get_device_details(i);
+        const auto & vidcaps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        for (auto && item : vidcaps) {
+                auto vci = static_cast<const struct video_capture_info *>(item.second);
+
+                struct vidcap_type *vt = vci->probe(true);
                 for (int i = 0; i < vt->card_count; ++i) {
                         printf("(%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
                 }
+
         }
 
         char buf[1024] = "";
@@ -539,104 +147,71 @@ void print_available_capturers()
                 }
         }
         config_file_close(conf);
-        vidcap_free_devices();
-}
-
-int initialize_video_capture(struct module *parent,
-                struct vidcap_params *params,
-                struct vidcap **state)
-{
-        struct vidcap_type *vt;
-        vidcap_id_t id = 0;
-        int i;
-
-        if(!strcmp(vidcap_params_get_driver(params), "none"))
-                id = vidcap_get_null_device_id();
-
-        // locking here is because listing of the devices is not really thread safe
-        pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
-        pthread_mutex_lock(vidcap_lock);
-
-        vidcap_init_devices(false);
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                if (strcmp(vt->name, vidcap_params_get_driver(params)) == 0) {
-                        id = vt->id;
-                        break;
-                }
-        }
-        if(i == vidcap_get_device_count()) {
-                fprintf(stderr, "WARNING: Selected '%s' capture card "
-                        "was not found.\n", vidcap_params_get_driver(params));
-                return -1;
-        }
-        vidcap_free_devices();
-
-        pthread_mutex_unlock(vidcap_lock);
-        rm_release_shared_lock("VIDCAP_LOCK");
-
-        return vidcap_init(parent, id, params, state);
 }
 
 /** @brief Initializes video capture
- * @param[in] id     index of selected video capture driver
- * @param[in] param  driver parameters
+ * @param[in] parent  parent module
+ * @param[in] param   driver parameters
  * @param[out] state returned state
  * @retval 0    if initialization was successful
  * @retval <0   if initialization failed
  * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
  */
-int vidcap_init(struct module *parent, vidcap_id_t id, struct vidcap_params *param,
+int initialize_video_capture(struct module *parent,
+                struct vidcap_params *param,
                 struct vidcap **state)
 {
-        unsigned int i;
+        const struct video_capture_info *vci = (const struct video_capture_info *)
+                load_library(vidcap_params_get_driver(param), LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-        for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
-                if (vidcap_device_table[i].id == id) {
-                        struct vidcap *d =
-                            (struct vidcap *)malloc(sizeof(struct vidcap));
-                        d->magic = VIDCAP_MAGIC;
-
-                        module_init_default(&d->mod);
-                        d->mod.cls = MODULE_CLASS_CAPTURE;
-                        module_register(&d->mod, parent);
-
-                        param->parent = &d->mod;
-                        d->state = vidcap_device_table[i].func_init(param);
-                        d->index = i;
-                        if (d->state == NULL) {
-                                debug_msg
-                                    ("Unable to start video capture device 0x%08lx\n",
-                                     id);
-                                module_done(&d->mod);
-                                free(d);
-                                return -1;
-                        }
-                        if(d->state == &vidcap_init_noerr) {
-                                module_done(&d->mod);
-                                free(d);
-                                return 1;
-                        }
-
-                        int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
-                                        &d->capture_filter);
-                        if(ret < 0) {
-                                fprintf(stderr, "Unable to initialize capture filter: %s.\n",
-                                        param->requested_capture_filter);
-                        }
-
-                        if (ret != 0) {
-                                module_done(&d->mod);
-                                free(d);
-                                return ret;
-                        }
-
-                        *state = d;
-                        return 0;
-                }
+        if (vci == nullptr) {
+                log_msg(LOG_LEVEL_ERROR, "WARNING: Selected '%s' capture card "
+                        "was not found.\n", vidcap_params_get_driver(param));
+                return -1;
         }
-        debug_msg("Unknown video capture device: 0x%08x\n", id);
-        return -1;
+
+        struct vidcap *d =
+                (struct vidcap *)malloc(sizeof(struct vidcap));
+        d->magic = VIDCAP_MAGIC;
+        d->funcs = vci;
+
+        module_init_default(&d->mod);
+        d->mod.cls = MODULE_CLASS_CAPTURE;
+        module_register(&d->mod, parent);
+
+        param->parent = &d->mod;
+        d->state = vci->init(param);
+
+        if (d->state == NULL) {
+                log_msg(LOG_LEVEL_ERROR,
+                                "Unable to start video capture device %s\n",
+                                vidcap_params_get_driver(param));
+                module_done(&d->mod);
+                free(d);
+                return -1;
+        }
+
+        if (d->state == &vidcap_init_noerr) {
+                module_done(&d->mod);
+                free(d);
+                return 1;
+        }
+
+        int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
+                &d->capture_filter);
+        if (ret < 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter: %s.\n",
+                        param->requested_capture_filter);
+        }
+
+        if (ret != 0) {
+                module_done(&d->mod);
+                free(d);
+                return ret;
+        }
+
+        *state = d;
+        return 0;
 }
 
 /** @brief Destroys vidap state
@@ -644,7 +219,7 @@ int vidcap_init(struct module *parent, vidcap_id_t id, struct vidcap_params *par
 void vidcap_done(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        vidcap_device_table[state->index].func_done(state->state);
+        state->funcs->done(state->state);
         capture_filter_destroy(state->capture_filter);
         module_done(&state->mod);
         free(state);
@@ -666,7 +241,7 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
 {
         assert(state->magic == VIDCAP_MAGIC);
         struct video_frame *frame;
-        frame = vidcap_device_table[state->index].func_grab(state->state, audio);
+        frame = state->funcs->grab(state->state, audio);
         if (frame != NULL)
                 frame = capture_filter(state->capture_filter, frame);
         return frame;
@@ -865,3 +440,4 @@ void vidcap_params_free_struct(struct vidcap_params *buf)
 
         free(buf);
 }
+
