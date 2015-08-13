@@ -48,14 +48,26 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 
 struct state_pipe {
+        struct module *parent;
         frame_recv_delegate *delegate;
         struct video_desc desc;
 };
 
+static struct display *display_pipe_fork(void *state)
+{
+        struct state_pipe *s = (struct state_pipe *) state;
+        char fmt[2 + sizeof(void *) * 2 + 1] = "";
+        struct display *out;
+
+        snprintf(fmt, sizeof fmt, "%p", s->delegate);
+        int rc = initialize_video_display(s->parent,
+                "pipe", fmt, 0, &out);
+        if (rc == 0) return out; else return NULL;
+}
+
 void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
-        UNUSED(parent);
         frame_recv_delegate *delegate;
 
         if (!fmt || strlen(fmt) == 0 || strcmp(fmt, "help") == 0) {
@@ -65,7 +77,7 @@ void *display_pipe_init(struct module *parent, const char *fmt, unsigned int fla
 
         sscanf(fmt, "%p", &delegate);
 
-        struct state_pipe *s = new state_pipe{delegate, video_desc()};
+        struct state_pipe *s = new state_pipe{parent, delegate, video_desc()};
 
         return s;
 }
@@ -153,8 +165,10 @@ int display_pipe_get_property(void *state, int property, void *val, size_t *len)
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES:
-                        *(int *) val = TRUE;
-                        *len = sizeof(int);
+                        ((struct multi_sources_supp_info *) val)->val = true;
+                        ((struct multi_sources_supp_info *) val)->fork_display = display_pipe_fork;
+                        ((struct multi_sources_supp_info *) val)->state = state;
+                        *len = sizeof(struct multi_sources_supp_info);
                         break;
                 default:
                         return FALSE;

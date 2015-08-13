@@ -49,6 +49,7 @@
 #include <chrono>
 #include <list>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <unordered_map>
@@ -60,9 +61,17 @@ static constexpr int BUFFER_LEN = 5;
 static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
-struct state_proxy {
+struct state_proxy_common {
+        ~state_proxy_common() {
+                display_done(real_display);
+
+                for (auto && ssrc_map : frames) {
+                        for (auto && frame : ssrc_map.second) {
+                                vf_free(frame);
+                        }
+                }
+        }
         struct display *real_display;
-        struct video_desc desc;
         struct video_desc display_desc;
 
         uint32_t current_ssrc;
@@ -79,11 +88,31 @@ struct state_proxy {
 
         mutex lock;
         condition_variable cv;
+
+        struct module *parent;
 };
+
+struct state_proxy {
+        shared_ptr<struct state_proxy_common> common;
+        struct video_desc desc;
+};
+
+static struct display *display_proxy_fork(void *state)
+{
+        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
+        struct display *out;
+        char fmt[2 + sizeof(void *) * 2 + 1] = "";
+        snprintf(fmt, sizeof fmt, "%p", state);
+
+        int rc = initialize_video_display(s->parent,
+                        "proxy", fmt, 0, &out);
+        if (rc == 0) return out; else return NULL;
+
+        return out;
+}
 
 void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        UNUSED(parent);
         struct state_proxy *s;
         char *fmt_copy = NULL;
         const char *requested_display = "gl";
@@ -92,26 +121,45 @@ void *display_proxy_init(struct module *parent, const char *fmt, unsigned int fl
         s = new state_proxy();
 
         if (fmt && strlen(fmt) > 0) {
-                fmt_copy = strdup(fmt);
-                requested_display = fmt_copy;
-                char *delim = strchr(fmt_copy, ':');
-                if (delim) {
-                        *delim = '\0';
-                        cfg = delim + 1;
+                if (isdigit(fmt[0])) { // fork
+                        struct state_proxy *orig;
+                        sscanf(fmt, "%p", &orig);
+                        s->common = orig->common;
+                        return s;
+                } else {
+                        fmt_copy = strdup(fmt);
+                        requested_display = fmt_copy;
+                        char *delim = strchr(fmt_copy, ':');
+                        if (delim) {
+                                *delim = '\0';
+                                cfg = delim + 1;
+                        }
                 }
         }
-        assert (initialize_video_display(parent, requested_display, cfg, flags, &s->real_display) == 0);
+        s->common = shared_ptr<state_proxy_common>(new state_proxy_common());
+        assert (initialize_video_display(parent, requested_display, cfg, flags, &s->common->real_display) == 0);
         free(fmt_copy);
 
-        pthread_create(&s->thread_id, NULL, (void *(*)(void *)) display_run,
-                        s->real_display);
+        pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
+                        s->common->real_display);
+
+        s->common->parent = parent;
 
         return s;
 }
 
+static void check_reconf(struct state_proxy_common *s, struct video_desc desc)
+{
+        if (!video_desc_eq(desc, s->display_desc)) {
+                s->display_desc = desc;
+                fprintf(stderr, "RECONFIGURED\n");
+                display_reconfigure(s->real_display, s->display_desc);
+        }
+}
+
 void display_proxy_run(void *state)
 {
-        struct state_proxy *s = (struct state_proxy *)state;
+        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
         bool prefill = false;
 
         while (1) {
@@ -153,16 +201,6 @@ void display_proxy_run(void *state)
                         prefill = true;
                 }
 
-                /// @todo....
-                if (frame->tiles[0].data == NULL) {
-                        if (!video_desc_eq(video_desc_from_frame(frame), s->display_desc)) {
-                                s->display_desc = video_desc_from_frame(frame);
-                                fprintf(stderr, "RECONFIGURED\n");
-                                display_reconfigure(s->real_display, s->display_desc);
-                        }
-                        continue;
-                }
-
                 s->frames[frame->ssrc].push_back(frame);
 
                 if (s->frames[s->current_ssrc].size() >= BUFFER_LEN) {
@@ -183,6 +221,9 @@ void display_proxy_run(void *state)
                                 } else {
                                         frame = ssrc_list.front();
                                         ssrc_list.pop_front();
+
+                                        check_reconf(s.get(), video_desc_from_frame(frame));
+
                                         struct video_frame *real_display_frame = display_get_frame(s->real_display);
                                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
                                         vf_free(frame);
@@ -206,12 +247,24 @@ void display_proxy_run(void *state)
                                         new_frame = new_list.front();
                                         new_list.pop_front();
 
+                                        struct video_desc old_desc = video_desc_from_frame(old_frame),
+                                                          new_desc = video_desc_from_frame(new_frame);
+
+                                        check_reconf(s.get(), new_desc);
+
                                         struct video_frame *real_display_frame = display_get_frame(s->real_display);
-                                        for (unsigned int i = 0; i < new_frame->tiles[0].data_len; ++i) {
-                                                int old_val = ((unsigned char *) old_frame->tiles[0].data)[i];
-                                                int new_val = ((unsigned char *) new_frame->tiles[0].data)[i];
-                                                ((unsigned char *) real_display_frame->tiles[0].data)[i] =
-                                                        ((new_val * s->transition) + (old_val * (TRANSITION_COUNT - s->transition))) / TRANSITION_COUNT;
+
+                                        if (video_desc_eq(old_desc, new_desc)) {
+                                                for (unsigned int i = 0; i < new_frame->tiles[0].data_len; ++i) {
+                                                        int old_val = ((unsigned char *) old_frame->tiles[0].data)[i];
+                                                        int new_val = ((unsigned char *) new_frame->tiles[0].data)[i];
+                                                        ((unsigned char *) real_display_frame->tiles[0].data)[i] =
+                                                                ((new_val * s->transition) + (old_val * (TRANSITION_COUNT - s->transition))) / TRANSITION_COUNT;
+                                                }
+                                        } else {
+                                                // new desc is different than old desc!
+                                                fprintf(stderr, "SMOLIK4!\n");
+                                                memcpy(real_display_frame->tiles[0].data, new_frame->tiles[0].data, new_frame->tiles[0].data_len);
                                         }
                                         vf_free(old_frame);
                                         vf_free(new_frame);
@@ -226,6 +279,8 @@ void display_proxy_run(void *state)
                                 } else {
                                         frame = s->frames[s->current_ssrc].front();
                                         s->frames[s->current_ssrc].pop_front();
+
+                                        check_reconf(s.get(), video_desc_from_frame(frame));
 
                                         struct video_frame *real_display_frame = display_get_frame(s->real_display);
                                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
@@ -254,14 +309,6 @@ void display_proxy_run(void *state)
 void display_proxy_done(void *state)
 {
         struct state_proxy *s = (struct state_proxy *)state;
-        display_done(s->real_display);
-
-        for (auto && ssrc_map : s->frames) {
-                for (auto && frame : ssrc_map.second) {
-                        vf_free(frame);
-                }
-        }
-
         delete s;
 }
 
@@ -269,13 +316,12 @@ struct video_frame *display_proxy_getf(void *state)
 {
         struct state_proxy *s = (struct state_proxy *)state;
 
-        unique_lock<mutex> lg(s->lock);
         return vf_alloc_desc_data(s->desc);
 }
 
 int display_proxy_putf(void *state, struct video_frame *frame, int flags)
 {
-        struct state_proxy *s = (struct state_proxy *) state;
+        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
 
         if (flags == PUTF_DISCARD) {
                 vf_free(frame);
@@ -311,10 +357,12 @@ display_type_t *display_proxy_probe(void)
 
 int display_proxy_get_property(void *state, int property, void *val, size_t *len)
 {
-        struct state_proxy *s = (struct state_proxy *)state;
+        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
-                *(int *) val = TRUE;
-                *len = sizeof(int);
+                ((struct multi_sources_supp_info *) val)->val = true;
+                ((struct multi_sources_supp_info *) val)->fork_display = display_proxy_fork;
+                ((struct multi_sources_supp_info *) val)->state = state;
+                *len = sizeof(struct multi_sources_supp_info);
                 return TRUE;
 
         } else {
@@ -324,17 +372,9 @@ int display_proxy_get_property(void *state, int property, void *val, size_t *len
 
 int display_proxy_reconfigure(void *state, struct video_desc desc)
 {
-        /**
-         * @todo this is wrong, because reconfigure will be used from multiple threads...
-         */
         struct state_proxy *s = (struct state_proxy *) state;
 
-        unique_lock<mutex> lg(s->lock);
         s->desc = desc;
-        s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
-        s->incoming_queue.push(vf_alloc_desc(desc));
-        lg.unlock();
-        s->cv.notify_one();
 
         return 1;
 }

@@ -274,6 +274,9 @@ void ultragrid_rtp_video_rxtx::destroy_video_decoder(void *state) {
         }
 
         video_decoder_destroy(video_decoder_state->decoder);
+        if (video_decoder_state->display_forked) {
+                display_done(video_decoder_state->display);
+        }
 
         free(video_decoder_state);
 }
@@ -369,28 +372,35 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 #else
                                 // we are assigning our display so we make sure it is removed from other dispaly
 
-                                int supp_for_mult_sources;
-                                size_t len = sizeof(int);
+                                struct multi_sources_supp_info supp_for_mult_sources;
+                                size_t len = sizeof(multi_sources_supp_info);
                                 int ret = display_get_property(m_display_device,
                                                 DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES, &supp_for_mult_sources, &len);
                                 if (!ret) {
-                                        supp_for_mult_sources = FALSE;
+                                        supp_for_mult_sources.val = false;
                                 }
 
-                                if (supp_for_mult_sources == FALSE) {
-                                        remove_display_from_decoders();
+                                if (supp_for_mult_sources.val == false) {
+                                        remove_display_from_decoders(); // must be called before creating new decoder state
                                 }
 
                                 cp->decoder_state = new_video_decoder();
                                 cp->decoder_state_deleter = destroy_video_decoder;
-#endif // SHARED_DECODER
+
                                 if (cp->decoder_state == NULL) {
-                                        fprintf(stderr, "Fatal: unable to create decoder state for "
+                                        log_msg(LOG_LEVEL_FATAL, "Fatal: unable to create decoder state for "
                                                         "participant %u.\n", cp->ssrc);
                                         exit_uv(1);
                                         break;
                                 }
-                                ((struct vcodec_state*) cp->decoder_state)->display = m_display_device;
+
+                                if (supp_for_mult_sources.val == false) {
+                                        ((struct vcodec_state*) cp->decoder_state)->display = m_display_device;
+                                } else {
+                                        ((struct vcodec_state*) cp->decoder_state)->display = supp_for_mult_sources.fork_display(supp_for_mult_sources.state);
+                                        ((struct vcodec_state*) cp->decoder_state)->display_forked = true;
+                                }
+#endif // SHARED_DECODER
                         }
 
                         struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;

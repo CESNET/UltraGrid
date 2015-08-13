@@ -90,6 +90,12 @@ typedef struct {
         const char		*description; ///< longer device description
 } display_type_t;
 
+struct multi_sources_supp_info {
+        bool val;
+        struct display *(*fork_display)(void *state);
+        void *state;
+};
+
 /** @name Display Properties
  * @{ */
 enum display_property {
@@ -98,7 +104,7 @@ enum display_property {
         DISPLAY_PROPERTY_BUF_PITCH = 2, ///< requested framebuffer pitch - int (bytes), may be @ref PITCH_DEFAULT
         DISPLAY_PROPERTY_VIDEO_MODE = 3, ///< requested video mode - int (one of @ref display_prop_vid_mode)
         DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 4, ///< display supported interlacing modes - enum interlacing_t[]
-        DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES = 5, ///< whether display supports receiving data from
+        DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES = 5, ///< whether display supports receiving data from - returns (struct multi_sources_supp_info *)
                                                      ///< multiple network sources concurrently
 };
 
