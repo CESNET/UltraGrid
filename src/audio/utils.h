@@ -54,17 +54,8 @@
 #include <audio/audio.h>
 
 #ifdef __cplusplus
-audio_frame2 *audio_frame2_init(void);
-void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
-void audio_frame2_free(audio_frame2 *);
-void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src);
-void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
-int audio_frame2_get_sample_count(audio_frame2 *frame);
-void audio_frame2_reset(audio_frame2 *frame);
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
-struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
 void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
-void audio_channel_mux(audio_frame2 *, int, audio_channel*);
 #endif
 
 #ifdef __cplusplus
@@ -99,6 +90,8 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
 void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
 void remux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream);
+
+void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len /* bytes */, int channel_count);
 
 /*
  * Additional function that allosw mixing channels
