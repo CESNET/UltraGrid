@@ -53,7 +53,7 @@ struct state_transcoder_decompress : public frame_recv_delegate {
 
         vector<output_port_info> output_ports;
 
-        unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
+        ultragrid_rtp_video_rxtx* video_rxtx;
 
         queue<message> received_frame;
 
@@ -208,12 +208,12 @@ void *hd_rum_decompress_init(struct module *parent)
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 
-        s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params)));
+        s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params));
         assert (s->video_rxtx);
         s->video_rxtx->start();
 
         s->worker_thread = thread(&state_transcoder_decompress::worker, s);
-        s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
+        s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
         s->display_thread = thread(display_run, s->display);
 
         return (void *) s;
@@ -241,9 +241,11 @@ void hd_rum_decompress_done(void *state) {
 
         display_put_frame(s->display, NULL, 0);
         s->display_thread.join();
-        display_done(s->display);
-
         s->video_rxtx->join();
+
+        delete s->video_rxtx;
+
+        display_done(s->display);
 
         delete s;
 }
