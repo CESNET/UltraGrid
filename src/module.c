@@ -51,6 +51,8 @@
 #include "config_win32.h"
 #endif
 
+#include "debug.h"
+
 #include "module.h"
 #include "utils/list.h"
 
@@ -111,11 +113,17 @@ void module_done(struct module *module_data)
         if(module_data->deleter)
                 module_data->deleter(module_data);
 
-        pthread_mutex_destroy(&tmp.lock);
-
         if(simple_linked_list_size(tmp.childs) > 0) {
-                fprintf(stderr, "Warning: Child database not empty! Remaining:\n");
+                log_msg(LOG_LEVEL_WARNING, "Warning: Child database not empty! Remaining:\n");
                 dump_tree(&tmp, 0);
+                pthread_mutex_lock(&tmp.lock);
+                for(void *it = simple_linked_list_it_init(module_data->childs); it != NULL; ) {
+                        struct module *child = simple_linked_list_it_next(&it);
+                        pthread_mutex_lock(&child->lock);
+                        child->parent = NULL;
+                        pthread_mutex_unlock(&child->lock);
+                }
+                pthread_mutex_unlock(&tmp.lock);
         }
         simple_linked_list_destroy(tmp.childs);
 
@@ -125,6 +133,8 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(tmp.msg_queue);
 
         simple_linked_list_destroy(tmp.msg_queue_childs);
+
+        pthread_mutex_destroy(&tmp.lock);
 }
 
 static const char *module_class_name_pairs[] = {
