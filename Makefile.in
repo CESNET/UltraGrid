@@ -422,6 +422,14 @@ configure-messages:
 tests: test/run_tests
 	@test/run_tests
 
+UNITTEST_OBJS = unittest/run_tests.o
+
+unittest/run_tests: $(UNITTEST_OBJS) $(OBJS)
+	$(LINKER) $(LDFLAGS) $(UNITTEST_OBJS) $(OBJS) $(LIBS) -lcppunit -o $@
+
+unittests: unittest/run_tests
+	@unittest/run_tests
+
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 
