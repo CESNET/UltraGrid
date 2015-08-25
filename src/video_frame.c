@@ -193,23 +193,33 @@ const char *get_interlacing_description(enum interlacing_t interlacing)
         return NULL;
 }
 
+static const char *interlacing_suffixes[] = {
+                [PROGRESSIVE] = "p",
+                [UPPER_FIELD_FIRST] = "tff",
+                [LOWER_FIELD_FIRST] = "bff",
+                [INTERLACED_MERGED] = "i",
+                [SEGMENTED_FRAME] = "psf",
+};
+
 const char *get_interlacing_suffix(enum interlacing_t interlacing)
 {
-        switch (interlacing) {
-                case PROGRESSIVE:
-                        return "p";
-                case UPPER_FIELD_FIRST:
-                        return "tff";
-                case LOWER_FIELD_FIRST:
-                        return "bff";
-                case INTERLACED_MERGED:
-                        return "i";
-                case SEGMENTED_FRAME:
-                        return "psf";
+        if (interlacing < sizeof interlacing_suffixes / sizeof interlacing_suffixes[0])
+                return interlacing_suffixes[interlacing];
+        else
+                return NULL;
+}
+
+enum interlacing_t get_interlacing_from_suffix(const char *suffix)
+{
+        for (size_t i = 0; i < sizeof interlacing_suffixes / sizeof interlacing_suffixes[0]; ++i) {
+                if (interlacing_suffixes[i] && strcmp(suffix, interlacing_suffixes[i]) == 0) {
+                        return i;
+                }
         }
 
-        return NULL;
+        return PROGRESSIVE;
 }
+
 
 /**
  * @todo

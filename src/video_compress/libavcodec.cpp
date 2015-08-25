@@ -1139,13 +1139,16 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s)
         while ((msg = check_message(&s->module_data))) {
                 struct msg_change_compress_data *data =
                         (struct msg_change_compress_data *) msg;
+                struct response *r;
                 if (parse_fmt(s, data->config_string) == 0) {
                         log_msg(LOG_LEVEL_NOTICE, "[Libavcodec] Compression successfully changed.\n");
+                        r = new_response(RESPONSE_OK, NULL);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unable to change compression!\n");
+                        r = new_response(RESPONSE_INT_SERV_ERR, NULL);
                 }
                 memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-                free_message(msg);
+                free_message(msg, r);
         }
 
 }
@@ -1159,9 +1162,9 @@ struct compress_info_t libavcodec_info = {
         libavcodec_compress_tile,
         libavcodec_is_supported,
         {
-                { "codec=H.264:bpp=0.096", 20, 5*1000*1000, {25, 1.5, 0}, {15, 1, 0} },
-                { "codec=H.264:bpp=0.193", 30, 10*1000*1000, {28, 1.5, 0}, {20, 1, 0} },
-                { "codec=H.264:bitrate=0.289", 50, 15*1000*1000, {30, 1.5, 0}, {25, 1, 0} },
+                { "codec=H.264:bpp=0.096", 20, 0.096, {25, 1.5, 0}, {15, 1, 0} },
+                { "codec=H.264:bpp=0.193", 30, 0.193, {28, 1.5, 0}, {20, 1, 0} },
+                { "codec=H.264:bitrate=0.289", 50, 0.289, {30, 1.5, 0}, {25, 1, 0} },
 #if 0
                 { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
 #endif

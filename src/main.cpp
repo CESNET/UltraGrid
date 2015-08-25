@@ -484,7 +484,7 @@ int main(int argc, char *argv[])
         long packet_rate;
         const char *requested_mcast_if = NULL;
 
-        unsigned requested_mtu = 0;
+        unsigned requested_mtu = 1500;
         const char *postprocess = NULL;
         const char *requested_display = "none";
         const char *requested_receiver = "::1";
@@ -498,6 +498,8 @@ int main(int argc, char *argv[])
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
         keyboard_control kc{};
+
+        bool print_capabilities_req = false;
 
 #ifdef USE_MTRACE
         mtrace();
@@ -843,8 +845,7 @@ int main(int argc, char *argv[])
                         window_title = optarg;
                         break;
                 case OPT_CAPABILITIES:
-                        print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS);
-                        return EXIT_SUCCESS;
+                        print_capabilities_req = true;
                         break;
                 case OPT_AUDIO_DELAY:
                         audio_delay = atoi(optarg);
@@ -862,11 +863,6 @@ int main(int argc, char *argv[])
 
         argc -= optind;
         argv += optind;
-
-        if (requested_mtu == 0)     // mtu wasn't specified on the command line
-        {
-                requested_mtu = 1500;       // the default value for RTP
-        }
 
         printf("%s", PACKAGE_STRING);
 #ifdef GIT_VERSION
@@ -1183,6 +1179,11 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_FAILURE);
         } catch (int i) {
                 exit_uv(i);
+        }
+
+        if (print_capabilities_req) {
+                print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS, &root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
+                exit_uv(EXIT_SUCCESS);
         }
 
 cleanup:

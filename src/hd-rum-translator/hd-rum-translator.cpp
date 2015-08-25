@@ -158,7 +158,7 @@ static struct item *qinit(int qsize)
     return queue;
 }
 
-void change_replica_type(struct hd_rum_translator_state *s,
+struct response *change_replica_type(struct hd_rum_translator_state *s,
         struct module *mod, struct message *msg)
 {
     struct replica *r = (struct replica *) mod->priv_data;
@@ -171,11 +171,13 @@ void change_replica_type(struct hd_rum_translator_state *s,
         r->type = replica::type_t::RECOMPRESS;
     } else {
         fprintf(stderr, "Unknown replica type \"%s\"\n", data->text);
-        return;
+        return new_response(RESPONSE_BAD_REQUEST, NULL);
     }
 
     hd_rum_decompress_set_active(s->decompress, r->recompress,
             r->type == replica::type_t::RECOMPRESS);
+
+    return new_response(RESPONSE_OK, NULL);
 }
 
 static void *writer(void *arg)
@@ -188,13 +190,14 @@ static void *writer(void *arg)
         for (unsigned int i = 0; i < s->replicas.size(); i++) {
             struct message *msg;
             while ((msg = check_message(&s->replicas[i]->mod))) {
-                change_replica_type(s, &s->replicas[i]->mod, msg);
-                free_message(msg);
+                struct response *r = change_replica_type(s, &s->replicas[i]->mod, msg);
+                free_message(msg, r);
             }
         }
 
         struct msg_universal *msg;
         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
+            struct response *r = NULL;
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
                 int index = atoi(msg->text + strlen("delete-port "));
                 hd_rum_decompress_remove_port(s->decompress, index);
@@ -228,9 +231,11 @@ static void *writer(void *arg)
                     hd_rum_decompress_append_port(s->decompress, rep->recompress);
                     hd_rum_decompress_set_active(s->decompress, rep->recompress, false);
                 }
+            } else {
+                r = new_response(RESPONSE_BAD_REQUEST, NULL);
             }
 
-            free_message((struct message *) msg);
+            free_message((struct message *) msg, r ? r : new_response(RESPONSE_OK, NULL));
         }
 
         // then process incoming packets
@@ -311,7 +316,7 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                 *control_connection_type = atoi(strchr(item, ':') + 1);
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
-            print_capabilities(CAPABILITY_COMPRESS);
+            print_capabilities(CAPABILITY_COMPRESS, NULL, false);
             return false;
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);

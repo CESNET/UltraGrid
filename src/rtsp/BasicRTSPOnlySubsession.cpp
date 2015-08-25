@@ -305,7 +305,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
 			struct response *resp;
 			resp = send_message(fmod, pathV, (struct message *) msgV1);
-			resp->deleter(resp);
+			free_response(resp);
 
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
@@ -313,7 +313,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 			strncpy(msgV2->receiver, "127.0.0.1", sizeof(msgV2->receiver) - 1);
 			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 			resp = send_message(fmod, pathV, (struct message *) msgV2);
-			resp->deleter(resp);
+			free_response(resp);
 		}
 	}
 
@@ -335,7 +335,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
 			struct response *resp;
                         resp = send_message(fmod, pathA, (struct message *) msgA1);
-			resp->deleter(resp);
+			free_response(resp);
 
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgA2 = (struct msg_sender *) new_message(
@@ -343,7 +343,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 			strncpy(msgA2->receiver, "127.0.0.1", sizeof(msgA2->receiver) - 1);
 			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
 			resp = send_message(fmod, pathA, (struct message *) msgA2);
-			resp->deleter(resp);
+			free_response(resp);
 		}
 	}
 }

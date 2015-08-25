@@ -183,7 +183,7 @@ void capture_filter_destroy(struct capture_filter *state)
         free(state);
 }
 
-static void process_message(struct capture_filter *s, struct msg_universal *msg)
+static struct response *process_message(struct capture_filter *s, struct msg_universal *msg)
 {
         if (strncmp("delete ", msg->text, strlen("delete ")) == 0) {
                 int index = atoi(msg->text + strlen("delete "));
@@ -192,6 +192,7 @@ static void process_message(struct capture_filter *s, struct msg_universal *msg)
                 if (!inst) {
                         fprintf(stderr, "Unable to remove capture filter index %d.\n",
                                         index);
+                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
                 } else {
                         printf("Capture filter #%d removed successfully.\n", index);
                         inst->functions->done(inst->state);
@@ -208,12 +209,15 @@ static void process_message(struct capture_filter *s, struct msg_universal *msg)
                 if (create_filter(s, fmt) != 0) {
                         fprintf(stderr, "Cannot create capture filter: %s.\n",
                                         msg->text);
+                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
                 } else {
                         printf("Capture filter \"%s\" created successfully.\n",
                                         msg->text);
                 }
                 free(fmt);
         }
+
+        return new_response(RESPONSE_OK, NULL);
 }
 
 struct video_frame *capture_filter(struct capture_filter *state, struct video_frame *frame) {
@@ -221,8 +225,8 @@ struct video_frame *capture_filter(struct capture_filter *state, struct video_fr
 
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
-                process_message(s, (struct msg_universal *) msg);
-                free_message(msg);
+                struct response *r = process_message(s, (struct msg_universal *) msg);
+                free_message(msg, r);
         }
 
         for(void *it = simple_linked_list_it_init(s->filters);

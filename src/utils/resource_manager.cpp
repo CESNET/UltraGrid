@@ -69,6 +69,7 @@
 typedef int type_t;
 
 using namespace std;
+using namespace ultragrid;
 
 class options_t {
         public:
@@ -190,7 +191,7 @@ class resource_manager_t {
 
                 resource *acquire(string name, type_t type, options_t const & options) {
                         resource *ret;
-                        spinlock_guard lock(m_access_lock);
+                        platform_spin_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -207,7 +208,7 @@ class resource_manager_t {
                 }
 
                 void release(string name, type_t type) {
-                        spinlock_guard lock(m_access_lock);
+                        platform_spin_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);

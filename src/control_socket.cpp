@@ -361,7 +361,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         send_message(s->root_module, path, (struct message *) msg);
                 struct response *resp_audio =
                         send_message(s->root_module, path_audio, (struct message *) msg_audio);
-                resp_audio->deleter(resp_audio);
+                free_response(resp_audio);
         } else if (prefix_matches(message, "receiver-port ")) {
                 struct msg_receiver *msg =
                         (struct msg_receiver *)
@@ -382,7 +382,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         send_message(s->root_module, path, (struct message *) msg);
                 struct response *resp_audio =
                         send_message(s->root_module, path_audio, (struct message *) msg_audio);
-                resp_audio->deleter(resp_audio);
+                free_response(resp_audio);
         } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data *msg = (struct msg_change_fec_data *)
                         new_message(sizeof(struct msg_change_fec_data));
@@ -395,7 +395,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         msg->media_type = TX_MEDIA_VIDEO;
                         strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else {
-                        resp = new_response(RESPONSE_NOT_FOUND, strdup("unknown media type"));
+                        resp = new_response(RESPONSE_NOT_FOUND, "unknown media type");
                         free(msg);
                 }
 
@@ -453,7 +453,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         if(!resp) {
                 fprintf(stderr, "No response received!\n");
                 snprintf(buf, sizeof(buf), "(unknown path: %s)", path);
-                resp = new_response(RESPONSE_INT_SERV_ERR, strdup(buf));
+                resp = new_response(RESPONSE_INT_SERV_ERR, buf);
         }
         send_response(client_fd, resp);
 
@@ -464,12 +464,12 @@ static void send_response(fd_t fd, struct response *resp)
 {
         char buffer[1024];
 
-        snprintf(buffer, sizeof(buffer) - 2, "%d %s", resp->status,
-                        response_status_to_text(resp->status));
+        snprintf(buffer, sizeof(buffer) - 2, "%d %s", response_get_status(resp),
+                        response_status_to_text(response_get_status(resp)));
 
-        if(resp->text) {
+        if (response_get_text(resp)) {
                 strncat(buffer, " ", sizeof(buffer) - strlen(buffer) - 1 - 2);
-                strncat(buffer, resp->text, sizeof(buffer) - strlen(buffer) - 1 - 2);
+                strncat(buffer, response_get_text(resp), sizeof(buffer) - strlen(buffer) - 1 - 2);
         }
         strcat(buffer, "\r\n");
 
@@ -478,7 +478,7 @@ static void send_response(fd_t fd, struct response *resp)
                 perror("Unable to write response");
         }
 
-        resp->deleter(resp);
+        free_response(resp);
 }
 
 static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int *new_buffer_len)

@@ -14,6 +14,8 @@
 #include "compat/platform_spin.h"
 #include <pthread.h>
 
+namespace ultragrid {
+
 struct lock_guard_retain_ownership_t {
 };
 
@@ -40,13 +42,15 @@ class generic_lock_guard {
 };
 
 typedef class generic_lock_guard<pthread_mutex_t, pthread_mutex_lock, pthread_mutex_unlock>
-        lock_guard;
+        pthread_mutex_guard;
 typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_wrlock, pthread_rwlock_unlock>
-        rwlock_guard_write;
+        pthread_rwlock_guard_write;
 typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_rdlock, pthread_rwlock_unlock>
-        rwlock_guard_read;
+        pthread_rwlock_guard_read;
 typedef class generic_lock_guard<platform_spin_t, platform_spin_lock, platform_spin_unlock>
-        spinlock_guard;
+        platform_spin_guard;
+
+} // end of namespace ultragrid
 
 #endif // LOCK_GUARD_H_
 

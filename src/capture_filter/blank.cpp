@@ -181,9 +181,13 @@ static void done(void *state)
         delete s;
 }
 
-static void process_message(struct state_blank *s, struct msg_universal *msg)
+static struct response * process_message(struct state_blank *s, struct msg_universal *msg)
 {
-        parse(s, msg->text);
+        if (parse(s, msg->text)) {
+                return new_response(RESPONSE_OK, NULL);
+        } else {
+                return new_response(RESPONSE_BAD_REQUEST, NULL);
+        }
 }
 
 /**
@@ -253,8 +257,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
-                process_message(s, (struct msg_universal *) msg);
-                free_message(msg);
+                struct response *r = process_message(s, (struct msg_universal *) msg);
+                free_message(msg, r);
         }
 
         if (width <= 0 || height <= 0)

@@ -74,27 +74,32 @@
 
 using namespace std;
 
-void rtp_video_rxtx::process_message(struct msg_sender *msg)
+struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
 {
         int ret;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
-                        assert(m_rxtx_mode == MODE_SENDER); // sender only
-                        assert(m_connections_count == 1);
-                        ret = rtp_change_dest(m_network_devices[0],
-                                        msg->receiver);
-
-                        if(ret == FALSE) {
-                                fprintf(stderr, "Changing receiver to: %s failed!\n",
+                        {
+                                ostringstream oss;
+                                assert(m_rxtx_mode == MODE_SENDER); // sender only
+                                assert(m_connections_count == 1);
+                                ret = rtp_change_dest(m_network_devices[0],
                                                 msg->receiver);
-                        }
 
-                        if (rtcp_change_dest(m_network_devices[0],
-                       				msg->receiver) == FALSE){
-                        		fprintf(stderr, "Changing rtcp receiver to: %s failed!\n",
-                        	                    msg->receiver);
+                                if(ret == FALSE) {
+                                        oss << "Changing receiver to: " << msg->receiver << " failed!\n";
+                                }
+
+                                if (rtcp_change_dest(m_network_devices[0],
+                                                        msg->receiver) == FALSE){
+                                        oss << "Changing rtcp receiver to: " << msg->receiver << "  failed!\n";
+                                }
+                                if (!oss.str().empty()) {
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                } else {
+                                        m_requested_receiver = msg->receiver;
+                                }
                         }
-                        m_requested_receiver = msg->receiver;
                         break;
                 case SENDER_MSG_CHANGE_PORT:
                         assert(m_rxtx_mode == MODE_SENDER); // sender only
@@ -111,16 +116,27 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
                                 delete m_fec_state;
                                 m_fec_state = fec::create_from_config(msg->fec_cfg);
                                 if (!m_fec_state) {
-                                        fprintf(stderr, "Unable to initalize LDGM!\n");
-                                        exit_uv(1);
+                                        log_msg(LOG_LEVEL_ERROR, "Unable to initalize LDGM!\n");
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                 }
                         }
                         break;
+                case SENDER_MSG_QUERY_VIDEO_MODE:
+                        if (!m_video_desc) {
+                                return new_response(RESPONSE_NO_CONTENT, NULL);
+                        } else {
+                                ostringstream oss;
+                                oss << m_video_desc;
+                                return new_response(RESPONSE_OK, oss.str().c_str());
+                        }
+                        break;
         }
+
+        return new_response(RESPONSE_OK, NULL);
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr)
+        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr), m_video_desc{}
 {
         m_participants = pdb_init(0);
         m_requested_receiver = (const char *) params.at("receiver").ptr;

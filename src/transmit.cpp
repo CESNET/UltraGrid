@@ -183,7 +183,7 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
                                 msg->type = SENDER_MSG_CHANGE_FEC;
                                 struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
                                                 (struct message *) msg);
-                                resp->deleter(resp);
+                                free_response(resp);
                                 tx->avg_len_last = tx->avg_len;
                         }
                 }
@@ -287,7 +287,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                 msg->type = SENDER_MSG_CHANGE_FEC;
                                 struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
                                                 (struct message *) msg);
-                                resp->deleter(resp);
+                                free_response(resp);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
@@ -304,7 +304,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                         fec_cfg ? fec_cfg : "");
                         msg->type = SENDER_MSG_CHANGE_FEC;
                         struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
-                        resp->deleter(resp);
+                        free_response(resp);
                         tx->fec_scheme = FEC_RS;
                 }
         } else {
@@ -323,16 +323,19 @@ static void fec_check_messages(struct tx *tx)
                 struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
                 if(tx->media_type != data->media_type) {
                         fprintf(stderr, "[Transmit] FEC media type mismatch!\n");
-                        free_message(msg);
+                        free_message(msg, new_response(RESPONSE_BAD_REQUEST, NULL));
                         continue;
                 }
+                struct response *r;
                 if (set_fec(tx, data->fec)) {
+                        r = new_response(RESPONSE_OK, NULL);
                         printf("[Transmit] FEC set to new setting.\n");
                 } else {
+                        r = new_response(RESPONSE_INT_SERV_ERR, NULL);
                         fprintf(stderr, "[Transmit] Unable to reconfigure FEC!\n");
                 }
 
-                free_message(msg);
+                free_message(msg, r);
         }
 }
 

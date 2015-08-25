@@ -1357,7 +1357,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         msg->new_desc = decoder->received_vid_desc;
         struct response *resp =
                 send_message_to_receiver(decoder->parent, (struct message *) msg);
-        resp->deleter(resp);
+        free_response(resp);
 
         return true;
 }

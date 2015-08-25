@@ -111,6 +111,10 @@ struct video_desc {
         double               fps;
         enum interlacing_t   interlacing;
         unsigned int         tile_count;
+#ifdef __cplusplus
+        bool operator==(video_desc const &) const;
+        bool operator!() const;
+#endif
 };
 
 typedef enum h264_frame_type {
@@ -208,7 +212,6 @@ struct video_frame {
         h264_frame_type_t h264_frame_type;
 
         struct fec_desc fec_params;
-
         uint32_t ssrc;
 };
 

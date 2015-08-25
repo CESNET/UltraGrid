@@ -52,6 +52,8 @@
 #include "config_win32.h"
 #endif
 
+#include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -81,10 +83,7 @@
 #include "pdb.h"
 #include "utils/worker.h"
 
-#include <iostream>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+using namespace std;
 
 static volatile bool should_exit_audio = false;
 
@@ -515,7 +514,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         return r;
 }
 
-static void audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg, struct state_audio_decoder *decoder)
+static struct response * audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg, struct state_audio_decoder *decoder)
 {
         switch (msg->type) {
         case RECEIVER_MSG_CHANGE_RX_PORT:
@@ -525,7 +524,8 @@ static void audio_receiver_process_message(struct state_audio *s, struct msg_rec
                 s->audio_network_device = initialize_audio_network(
                                 &s->audio_network_parameters);
                 if (!s->audio_network_device) {
-                        fprintf(stderr, "Changing RX port failed!");
+                        log_msg(LOG_LEVEL_ERROR, "Changing RX port failed!");
+                        return new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
                 }
                 break;
         case RECEIVER_MSG_INCREASE_VOLUME:
@@ -540,6 +540,8 @@ static void audio_receiver_process_message(struct state_audio *s, struct msg_rec
         default:
                 abort();
         }
+
+        return new_response(RESPONSE_OK, NULL);
 }
 
 struct audio_decoder {
@@ -566,8 +568,8 @@ static void *audio_receiver_thread(void *arg)
         while (!should_exit_audio) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_receiver_module))) {
-                        audio_receiver_process_message(s, (struct msg_receiver *) msg, pbuf_data.decoder);
-                        free_message(msg);
+                        struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg, pbuf_data.decoder);
+                        free_message(msg, r);
                 }
 
                 bool decoded = false;
@@ -720,33 +722,43 @@ echo_play(s->echo_state, &pbuf_data.buffer);
         return NULL;
 }
 
-static void audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
+static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
 {
         assert(s->audio_tx_mode == MODE_SENDER);
 
         int ret;
         switch (msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
-                        ret = rtp_change_dest(s->audio_network_device,
-                                        msg->receiver);
-
-                        if (ret == FALSE) {
-                                fprintf(stderr, "Changing audio receiver to: %s failed!\n",
+                        {
+                                ret = rtp_change_dest(s->audio_network_device,
                                                 msg->receiver);
-                        }
 
-                        if (rtcp_change_dest(s->audio_network_device,
-                       				msg->receiver) == FALSE){
-                        		fprintf(stderr, "Changing rtcp audio receiver to: %s failed!\n",
-                        	                    msg->receiver);
-                        }
+                                ostringstream oss;
+                                if (ret == FALSE) {
+                                        oss << "Changing audio receiver to: " << msg->receiver << " failed!\n";
+                                }
 
-                        break;
+                                if (rtcp_change_dest(s->audio_network_device,
+                                                        msg->receiver) == FALSE){
+                                        oss << "Changing rtcp audio receiver to: " <<
+                                                msg->receiver << " failed!\n";
+                                }
+
+                                if (!oss.str().empty()) {
+                                        LOG(LOG_LEVEL_ERROR) << oss.str();
+                                        return new_response(RESPONSE_INT_SERV_ERR, oss.str().c_str());
+                                }
+
+                                break;
+                        }
                 case SENDER_MSG_CHANGE_PORT:
                         rtp_done(s->audio_network_device);
                         s->audio_network_parameters.send_port = msg->port;
                         s->audio_network_device = initialize_audio_network(
                                         &s->audio_network_parameters);
+                        if (!s->audio_network_device) {
+                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                        }
                         break;
                 case SENDER_MSG_PAUSE:
                         s->paused = true;
@@ -754,11 +766,13 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
                 case SENDER_MSG_PLAY:
                         s->paused = false;
                         break;
+                case SENDER_MSG_QUERY_VIDEO_MODE:
+                        return new_response(RESPONSE_BAD_REQUEST, NULL);
                 case SENDER_MSG_CHANGE_FEC:
-                        fprintf(stderr, "Not implemented!\n");
-                        abort();
-
+                        LOG(LOG_LEVEL_ERROR) << "Not implemented!\n";
+                        return new_response(RESPONSE_NOT_IMPL, NULL);
         }
+        return new_response(RESPONSE_OK, NULL);
 }
 
 struct asend_stats_processing_data {
@@ -842,8 +856,8 @@ static void *audio_sender_thread(void *arg)
         while (!should_exit_audio) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_sender_module))) {
-                        audio_sender_process_message(s, (struct msg_sender *) msg);
-                        free_message(msg);
+                        struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
+                        free_message(msg, r);
                 }
 
                 if ((s->audio_tx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...

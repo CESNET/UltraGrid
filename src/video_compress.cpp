@@ -287,6 +287,7 @@ list<compress_preset> get_compress_capabilities()
  */
 static void compress_process_message(compress_state_proxy *proxy, struct msg_change_compress_data *data)
 {
+        struct response *r;
         /* In this case we are only changing some parameter of compression.
          * This means that we pass the parameter to compress driver. */
         if(data->what == CHANGE_PARAMS) {
@@ -299,7 +300,7 @@ static void compress_process_message(compress_state_proxy *proxy, struct msg_cha
                                         sizeof(tmp_data->config_string) - 1);
                         struct response *resp = send_message_to_receiver(proxy->ptr->state[i],
                                         (struct message *) tmp_data);
-                        resp->deleter(resp);
+                        r = resp;
                 }
 
         } else {
@@ -312,10 +313,13 @@ static void compress_process_message(compress_state_proxy *proxy, struct msg_cha
                         struct compress_state_real *old = proxy->ptr;
                         proxy->ptr = new_state;
                         compress_done_real(old);
+                        r = new_response(RESPONSE_OK, NULL);
+                } else {
+                        r = new_response(RESPONSE_INT_SERV_ERR, NULL);
                 }
         }
 
-        free_message((struct message *) data);
+        free_message((struct message *) data, r);
 }
 
 /**

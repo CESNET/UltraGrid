@@ -124,7 +124,7 @@ struct compress_preset {
 
         std::string name;
         int quality;
-        long bitrate;
+        double bpp; ///< bits per pixel
         compress_prop enc_prop;
         compress_prop dec_prop;
 };

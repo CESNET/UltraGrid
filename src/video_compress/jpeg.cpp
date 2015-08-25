@@ -194,13 +194,16 @@ static void jpeg_check_messages(struct state_video_compress_jpeg *s)
         while ((msg = check_message(&s->module_data))) {
                 struct msg_change_compress_data *data =
                         (struct msg_change_compress_data *) msg;
+                struct response *r;
                 if (parse_fmt(s, data->config_string) == 0) {
+                        r = new_response(RESPONSE_OK, NULL);
                         printf("[Libavcodec] Compression successfully changed.\n");
                 } else {
+                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
                         fprintf(stderr, "[Libavcodec] Unable to change compression!\n");
                 }
                 memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-                free_message(msg);
+                free_message(msg, r);
         }
 }
 
@@ -397,9 +400,9 @@ struct compress_info_t jpeg_info = {
         NULL,
         jpeg_is_supported,
         {
-                { "60", 60, 30*1000*1000, {10, 0.6, 75}, {10, 0.6, 75} },
-                { "80", 70, 36*1000*1000, {12, 0.6, 90}, {15, 0.6, 100} },
-                { "90", 80, 44*1000*1000, {15, 0.6, 100}, {20, 0.6, 150} },
+                { "60", 60, 0.68, {10, 0.6, 75}, {10, 0.6, 75} },
+                { "80", 70, 0.87, {12, 0.6, 90}, {15, 0.6, 100} },
+                { "90", 80, 1.54, {15, 0.6, 100}, {20, 0.6, 150} },
         },
 };
 

@@ -120,6 +120,7 @@ void *(*ultragrid_rtp_video_rxtx::get_receiver_thread())(void *arg) {
 
 void ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
+        m_video_desc = video_desc_from_frame(tx_frame.get());
         if (m_fec_state) {
                 tx_frame = m_fec_state->encode(tx_frame);
         }
@@ -211,20 +212,28 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
         struct msg_receiver *msg;
         while ((msg = (struct msg_receiver *) check_message(&m_receiver_mod))) {
                 lock_guard<mutex> lock(m_network_devices_lock);
+                struct response *r = NULL;
 
                 switch (msg->type) {
                 case RECEIVER_MSG_CHANGE_RX_PORT:
-                        assert(m_rxtx_mode == MODE_RECEIVER); // receiver only
-                        destroy_rtp_devices(m_network_devices);
-                        m_recv_port_number = msg->new_rx_port;
-                        m_network_devices = initialize_network(m_requested_receiver.c_str(),
-                                        m_recv_port_number,
-                                        m_send_port_number, m_participants, m_ipv6,
-                                        m_requested_mcast_if);
-                        if (!m_network_devices) {
-                                throw runtime_error("Changing RX port failed!");
+                        {
+                                assert(m_rxtx_mode == MODE_RECEIVER); // receiver only
+                                auto old_devices = m_network_devices;
+                                auto old_port = m_recv_port_number;
+                                m_recv_port_number = msg->new_rx_port;
+                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                                m_recv_port_number,
+                                                m_send_port_number, m_participants, m_ipv6,
+                                                m_requested_mcast_if);
+                                if (!m_network_devices) {
+                                        r = new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
+                                        m_network_devices = old_devices;
+                                        m_recv_port_number = old_port;
+                                } else {
+                                        destroy_rtp_devices(m_network_devices);
+                                }
+                                break;
                         }
-                        break;
                 case RECEIVER_MSG_VIDEO_PROP_CHANGED:
                         {
                                 pdb_iter_t it;
@@ -244,7 +253,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                         abort();
                 }
 
-                free_message((struct message *) msg);
+                free_message((struct message *) msg, r ? r : new_response(RESPONSE_OK, NULL));
         }
 }
 

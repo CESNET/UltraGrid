@@ -45,6 +45,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "debug.h"
 #include "video.h"
 
 #include <iomanip>
@@ -138,6 +139,9 @@ std::ostream& operator<<(std::ostream& os, const video_desc& desc)
 {
         std::streamsize p = os.precision();
         ios_base::fmtflags f = os.flags();
+        if (desc.tile_count > 1) {
+                os << desc.tile_count << "*";
+        }
         os << desc.width << "x" << desc.height << " @" << setprecision(2) << setiosflags(ios_base::fixed)
                 << desc.fps * (desc.interlacing == PROGRESSIVE || desc.interlacing == SEGMENTED_FRAME ? 1 : 2)
                 << get_interlacing_suffix(desc.interlacing) << ", codec "
@@ -145,5 +149,71 @@ std::ostream& operator<<(std::ostream& os, const video_desc& desc)
         os.precision(p);
         os.flags(f);
         return os;
+}
+
+std::istream& operator>>(std::istream& is, video_desc& desc)
+{
+        video_desc out;
+        char buf[1024];
+        char *line = buf;
+
+        char interl_suffix[4] = "";
+        char codec_name[11] = "";
+
+        out.tile_count = 1;
+
+        unsigned int i = 0;
+        int num_spaces = 0;
+        while (is.good() && i < sizeof buf - 1) {
+                char c;
+                is.get(c);
+                if (!is.good()) {
+                        break;
+                }
+                if (num_spaces == 3 &&
+                                !(isalnum(c) || c == '.')) // allowed symbols in codec name
+                {
+                        is.unget();
+                        break;
+                } else {
+                        buf[i++] = c;
+                }
+                if (c == ' ') {
+                        num_spaces += 1;
+                }
+        }
+        buf[i] = '\0';
+
+        /// @todo regex matching would be better
+        if (strchr(line, '*')) {
+                out.tile_count = atoi(line);
+                line = strchr(line, '*') + 1;
+        }
+        int ret = sscanf(line, "%dx%d @%lf%3[a-z], codec %10s", &out.width, &out.height,
+                &out.fps, interl_suffix, codec_name);
+
+        if (ret != 5) {
+                is.setstate(std::ios::failbit);
+                log_msg(LOG_LEVEL_ERROR, "Malformed video_desc representation!\n");
+                return is;
+        }
+
+        out.color_spec = get_codec_from_name(codec_name);
+        out.interlacing = get_interlacing_from_suffix(interl_suffix);
+        out.fps = out.fps / (out.interlacing == PROGRESSIVE || out.interlacing == SEGMENTED_FRAME ? 1 : 2);
+        desc = out;
+        return is;
+}
+
+bool video_desc::operator==(video_desc const & other) const
+{
+        return video_desc_eq(*this, other);
+
+}
+
+bool video_desc::operator!() const
+{
+        return color_spec == VIDEO_CODEC_NONE;
+
 }
 

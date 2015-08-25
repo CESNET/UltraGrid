@@ -15,17 +15,14 @@ extern "C" {
 
 struct messaging;
 struct module;
-
-struct response {
-        int status;
-        void (*deleter)(struct response*);
-        char *text;
-};
+struct response;
 
 #define RESPONSE_OK           200
 #define RESPONSE_ACCEPTED     202
+#define RESPONSE_NO_CONTENT   204
 #define RESPONSE_BAD_REQUEST  400
 #define RESPONSE_NOT_FOUND    404
+#define RESPONSE_REQ_TIMEOUT  408
 #define RESPONSE_INT_SERV_ERR 500
 #define RESPONSE_NOT_IMPL     501
 
@@ -37,6 +34,11 @@ struct message {
          * Please note that the deleter must not delete the struct itself.
          */
         void (*data_deleter)(struct message *);
+
+        // following members are used internally and should not be touched anyhow
+        // except from messaging.cpp
+        void (*send_response)(void *priv_data, struct response *);
+        void *priv_data;
 };
 
 enum msg_sender_type {
@@ -45,6 +47,7 @@ enum msg_sender_type {
         SENDER_MSG_PLAY,
         SENDER_MSG_PAUSE,
         SENDER_MSG_CHANGE_FEC,
+        SENDER_MSG_QUERY_VIDEO_MODE,
 };
 
 struct msg_sender {
@@ -101,20 +104,17 @@ struct msg_universal {
         char text[8192];
 };
 
-struct pair_msg_path {
-        char path[8192];
-        struct message *msg;
-};
-
-struct response *new_response(int status, char *optional_message);
-
-typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);
+struct response *new_response(int status, const char *optional_message);
+void free_response(struct response *r);
+int response_get_status(struct response *r);
+const char *response_get_text(struct response *r);
 
 void module_check_undelivered_messages(struct module *);
 struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
+struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms) __attribute__ ((warn_unused_result));
 struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
 struct message *new_message(size_t length) __attribute__ ((warn_unused_result));
-void free_message(struct message *m);
+void free_message(struct message *m, struct response *r);
 const char *response_status_to_text(int status);
 
 struct message *check_message(struct module *);

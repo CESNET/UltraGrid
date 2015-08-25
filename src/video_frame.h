@@ -150,6 +150,7 @@ const char *get_interlacing_description(enum interlacing_t interlacing);
  * Eg. p, i or psf
  */
 const char *get_interlacing_suffix(enum interlacing_t interlacing);
+enum interlacing_t get_interlacing_from_suffix(const char *suffix);
 
 void il_lower_to_merged(char *dst, char *src, int linesize, int height, void **stored_state);
 /* these functions transcode one interlacing format to another */

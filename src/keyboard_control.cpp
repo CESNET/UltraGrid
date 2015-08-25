@@ -135,7 +135,7 @@ void keyboard_control::run()
                                 }
 
                                 auto resp = send_message(m_root, path, (struct message *) m);
-                                resp->deleter(resp);
+                                free_response(resp);
 
                                 break;
                                 }

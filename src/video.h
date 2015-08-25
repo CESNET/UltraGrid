@@ -86,7 +86,9 @@ enum video_mode guess_video_mode(int num_substreams);
 #endif // __cplusplus
 
 #ifdef __cplusplus
+#include <istream>
 #include <ostream>
+std::istream& operator>>(std::istream& is, video_desc& desc);
 std::ostream& operator<<(std::ostream& os, const video_desc& desc);
 #endif
 

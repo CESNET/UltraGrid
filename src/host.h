@@ -72,6 +72,7 @@
 extern "C" {
 #endif
 
+struct module;
 struct video_frame;
 struct vidcap_params;
 
@@ -122,7 +123,7 @@ extern char *sage_network_device;
 
 #define CAPABILITY_COMPRESS (1<<0)
 #define CAPABILITY_CAPTURE (1<<1)
-void print_capabilities(int mask);
+void print_capabilities(int mask, struct module *root, bool use_vidcap);
 
 #ifdef __cplusplus
 }

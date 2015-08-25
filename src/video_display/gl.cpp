@@ -660,12 +660,15 @@ static void glut_idle_callback(void)
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
                 auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                struct response *r;
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
                         glutSetWindowTitle(msg_univ->text + strlen("win_title "));
+                        r = new_response(RESPONSE_OK, NULL);
                 } else {
                         fprintf(stderr, "[GL] Unknown command received: %s\n", msg_univ->text);
+                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
                 }
-                free_message(msg);
+                free_message(msg, r);
         }
 
         unique_lock<mutex> lk(s->lock);

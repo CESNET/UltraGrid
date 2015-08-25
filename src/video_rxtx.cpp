@@ -195,8 +195,8 @@ void video_rxtx::check_sender_messages() {
         // process external messages
         struct message *msg_external;
         while((msg_external = check_message(&m_sender_mod))) {
-                process_message((struct msg_sender *) msg_external);
-                free_message(msg_external);
+                struct response *r = process_message((struct msg_sender *) msg_external);
+                free_message(msg_external, r);
         }
 }
 

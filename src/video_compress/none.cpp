@@ -116,7 +116,7 @@ struct compress_info_t none_info = {
         NULL,
         []{return true;}, // uncompressed video is always supported
         {
-                { "", 100, static_cast<long>((1920*1080*25*2*8)*1.03), {0, 1, 0}, {0, 1, 0} },
+                { "", 100, 16.0, {0, 1, 0}, {0, 1, 0} },
         },
 };
 
