@@ -317,7 +317,7 @@ static display_table_t display_device_table[] = {
          },
         {
          0,
-         "pipe",
+         NULL,
          MK_STATIC(display_pipe_probe),
          MK_STATIC(display_pipe_init),
          MK_STATIC(display_pipe_run),
@@ -332,7 +332,7 @@ static display_table_t display_device_table[] = {
          },
         {
          0,
-         "proxy",
+         NULL,
          MK_STATIC(display_proxy_probe),
          MK_STATIC(display_proxy_init),
          MK_STATIC(display_proxy_run),
