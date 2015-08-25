@@ -20,6 +20,7 @@
 #include "host.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "stats.h"
@@ -516,9 +517,10 @@ int main(int argc, char **argv)
         return false;
     }
 
-
     uv_argc = argc;
     uv_argv = argv;
+
+    open_all("module_*.so"); // load modules
 
     main_thread_id = pthread_self();
 
