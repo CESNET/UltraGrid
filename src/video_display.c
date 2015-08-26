@@ -62,12 +62,6 @@
 #include "perf.h"
 #include "video_display.h"
 
-#include "video_display/aggregate.h"
-#include "video_display/dummy.h"
-#include "video_display/null.h"
-#include "video_display/pipe.h"
-#include "video_display/proxy.h"
-
 #define DISPLAY_MAGIC 0x01ba7ef1
 
 /// @brief This struct represents initialized video display state.
@@ -81,17 +75,6 @@ struct display {
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help). */
 int display_init_noerr;
-
-static void init_static_display() __attribute__((constructor));
-static void init_static_display() {
-#ifndef UV_IN_YURI
-        register_library("aggregate", &display_aggregate_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-#endif
-        register_library("dummy", &display_dummy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-        register_library("none", &display_null_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-        register_library("pipe", &display_pipe_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-        register_library("proxy", &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-}
 
 void list_video_display_devices()
 {

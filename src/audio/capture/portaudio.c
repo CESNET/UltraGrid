@@ -370,10 +370,5 @@ static const struct audio_capture_info acap_portaudio_info = {
         audio_cap_portaudio_done
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("portaudio", &acap_portaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(portaudio, &acap_portaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 

@@ -44,14 +44,12 @@
 #endif
 
 #include "audio/audio_capture.h"
-#include "audio/capture/testcard.h"
-
 #include "audio/audio.h"
-
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -282,10 +280,12 @@ static void audio_cap_testcard_done(void *state)
         delete s;
 }
 
-const struct audio_capture_info acap_testcard_info = {
+static const struct audio_capture_info acap_testcard_info = {
         audio_cap_testcard_help,
         audio_cap_testcard_init,
         audio_cap_testcard_read,
         audio_cap_testcard_done
 };
+
+REGISTER_MODULE(testcard, &acap_testcard_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 

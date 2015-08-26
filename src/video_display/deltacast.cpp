@@ -598,10 +598,5 @@ static const struct video_display_info display_deltacast_info = {
         display_deltacast_reconfigure_audio,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("deltacast", &display_deltacast_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-}
+REGISTER_MODULE(deltacast, &display_deltacast_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

@@ -42,12 +42,12 @@
 #include "config_win32.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
 
-#include "video_capture/aggregate.h"
 #include "audio/audio.h"
 
 #include <stdio.h>
@@ -240,10 +240,12 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 	return s->frame;
 }
 
-const struct video_capture_info vidcap_aggregate_info = {
+static const struct video_capture_info vidcap_aggregate_info = {
         vidcap_aggregate_probe,
         vidcap_aggregate_init,
         vidcap_aggregate_done,
         vidcap_aggregate_grab,
 };
+
+REGISTER_MODULE(aggregate, &vidcap_aggregate_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

@@ -243,10 +243,5 @@ static const struct video_capture_info vidcap_screen_osx_info = {
         vidcap_screen_osx_grab,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("screen", &vidcap_screen_osx_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(screen, &vidcap_screen_osx_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

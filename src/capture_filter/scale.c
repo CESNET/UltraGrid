@@ -53,9 +53,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
-
 #include "debug.h"
-
+#include "lib_common.h"
 #include "video.h"
 #include "video_codec.h"
 #include "utils/video_frame_pool.h"
@@ -120,10 +119,12 @@ static struct video_frame *filter(void *state, struct video_frame *in_frame)
         return s->frame;
 }
 
-struct capture_filter_info capture_filter_scale = {
+static const struct capture_filter_info capture_filter_scale = {
         .name = "scale",
         .init = init,
         .done = done,
         .filter = filter,
 };
+
+REGISTER_MODULE(scale, &capture_filter_scale, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

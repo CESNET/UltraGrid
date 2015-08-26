@@ -48,6 +48,7 @@
 #include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 
 #include <condition_variable>
 #include <chrono>
@@ -172,11 +173,15 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 }
 
 
-const struct audio_capture_info acap_sdi_info = {
+static const struct audio_capture_info acap_sdi_info = {
         audio_cap_sdi_help,
         audio_cap_sdi_init,
         audio_cap_sdi_read,
         audio_cap_sdi_done
 };
+
+REGISTER_MODULE(embedded, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(AESEBU, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(analog, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
 /* vim: set expandtab: sw=8 */

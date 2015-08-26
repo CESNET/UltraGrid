@@ -289,17 +289,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return in;
 }
 
-struct capture_filter_info capture_filter_blank = {
+static const struct capture_filter_info capture_filter_blank = {
         .name = "blank",
         .init = init,
         .done = done,
         .filter = filter,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("capture_filter_blank", &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-}
+REGISTER_MODULE(blank, &capture_filter_blank, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

@@ -40,40 +40,40 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/dummy.h"
 
 struct dummy_display_state {
         struct video_desc desc;
 };
 
-void *display_dummy_init(struct module *, const char *, unsigned int)
+static void *display_dummy_init(struct module *, const char *, unsigned int)
 {
         return new dummy_display_state();
 }
 
-void display_dummy_run(void *)
+static void display_dummy_run(void *)
 {
 }
 
-void display_dummy_done(void *state)
+static void display_dummy_done(void *state)
 {
         delete (dummy_display_state *) state;
 }
 
-struct video_frame *display_dummy_getf(void *state)
+static struct video_frame *display_dummy_getf(void *state)
 {
         return vf_alloc_desc_data(((dummy_display_state *) state)->desc);
 }
 
-int display_dummy_putf(void *, struct video_frame *frame, int)
+static int display_dummy_putf(void *, struct video_frame *frame, int)
 {
         vf_free(frame);
         return 0;
 }
 
-int display_dummy_get_property(void *, int property, void *val, size_t *len)
+static int display_dummy_get_property(void *, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {UYVY, YUYV, v210, RGBA, RGB, BGR};
 
@@ -93,23 +93,23 @@ int display_dummy_get_property(void *, int property, void *val, size_t *len)
         return TRUE;
 }
 
-int display_dummy_reconfigure(void *state, struct video_desc desc)
+static int display_dummy_reconfigure(void *state, struct video_desc desc)
 {
         ((dummy_display_state *) state)->desc = desc;
 
         return TRUE;
 }
 
-void display_dummy_put_audio_frame(void *, struct audio_frame *)
+static void display_dummy_put_audio_frame(void *, struct audio_frame *)
 {
 }
 
-int display_dummy_reconfigure_audio(void *, int, int, int)
+static int display_dummy_reconfigure_audio(void *, int, int, int)
 {
         return FALSE;
 }
 
-const struct video_display_info display_dummy_info = {
+static const struct video_display_info display_dummy_info = {
         display_dummy_init,
         display_dummy_run,
         display_dummy_done,
@@ -120,4 +120,6 @@ const struct video_display_info display_dummy_info = {
         display_dummy_put_audio_frame,
         display_dummy_reconfigure_audio,
 };
+
+REGISTER_MODULE(dummy, &display_dummy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

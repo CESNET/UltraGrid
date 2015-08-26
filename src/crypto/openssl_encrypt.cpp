@@ -164,17 +164,12 @@ static int openssl_get_overhead(struct openssl_encrypt *s)
         }
 }
 
-static struct openssl_encrypt_info functions = {
+static const struct openssl_encrypt_info functions = {
         openssl_encrypt_init,
         openssl_encrypt_destroy,
         openssl_encrypt,
         openssl_get_overhead,
 };
 
-static void init(void)  __attribute__((constructor));
-
-static void init(void)
-{
-        register_library("openssl_encrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);
-}
+REGISTER_MODULE(openssl_encrypt, &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION);
 

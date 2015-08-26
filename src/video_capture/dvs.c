@@ -651,12 +651,7 @@ static const struct video_capture_info vidcap_dvs_info = {
         vidcap_dvs_grab,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("dvs", &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(dvs, &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
 #endif                          /* HAVE_DVS */
 

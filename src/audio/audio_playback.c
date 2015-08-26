@@ -49,9 +49,6 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
-#include "audio/playback/coreaudio.h"
-#include "audio/playback/dummy.h"
-#include "audio/playback/none.h"
 #include "audio/playback/sdi.h"
 
 #include "lib_common.h"
@@ -62,20 +59,6 @@ struct state_audio_playback {
         char name[128];
         const struct audio_playback_info *funcs;
         void *state;
-};
-
-static void init_static_aplay() __attribute__((constructor));
-static void init_static_aplay() {
-#ifndef UV_IN_YURI
-        register_library("embedded", &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-        register_library("AESEBU", &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-        register_library("analog", &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-#if defined HAVE_COREAUDIO
-        register_library("coreaudio", &aplay_coreaudio_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-#endif
-        register_library("dummy", &aplay_dummy_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-#endif
-        register_library("none", &aplay_none_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 };
 
 void audio_playback_help()

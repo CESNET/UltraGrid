@@ -567,11 +567,5 @@ static const struct audio_playback_info aplay_decklink_info = {
         audio_play_decklink_done
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("decklink", &aplay_decklink_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-}
-
+REGISTER_MODULE(decklink, &aplay_decklink_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 

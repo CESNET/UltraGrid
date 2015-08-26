@@ -1090,10 +1090,5 @@ static const struct video_capture_info vidcap_bluefish444_info = {
         vidcap_bluefish444_grab,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("bluefish444", &vidcap_bluefish444_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(bluefish444, &vidcap_bluefish444_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

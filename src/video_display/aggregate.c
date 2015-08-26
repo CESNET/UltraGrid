@@ -44,10 +44,10 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/aggregate.h"
 
 #include <assert.h>
 #include <host.h>
@@ -85,7 +85,7 @@ static void show_help() {
         printf("\t\twhere devn_config is a complete configuration string of device involved in an aggregate device\n");
 }
 
-void display_aggregate_run(void *state)
+static void display_aggregate_run(void *state)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *) state;
         unsigned int i;
@@ -99,7 +99,7 @@ void display_aggregate_run(void *state)
         }
 }
 
-void *display_aggregate_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_aggregate_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
         struct display_aggregate_state *s;
@@ -178,7 +178,7 @@ error:
         return NULL;
 }
 
-void display_aggregate_done(void *state)
+static void display_aggregate_done(void *state)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *) state;
 
@@ -197,7 +197,7 @@ void display_aggregate_done(void *state)
         free(s);
 }
 
-struct video_frame *display_aggregate_getf(void *state)
+static struct video_frame *display_aggregate_getf(void *state)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         unsigned int i;
@@ -217,7 +217,7 @@ struct video_frame *display_aggregate_getf(void *state)
         return s->frame;
 }
 
-int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
 {
         unsigned int i;
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
@@ -235,7 +235,7 @@ int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-int display_aggregate_reconfigure(void *state, struct video_desc desc)
+static int display_aggregate_reconfigure(void *state, struct video_desc desc)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         unsigned int i;
@@ -257,7 +257,7 @@ int display_aggregate_reconfigure(void *state, struct video_desc desc)
         return ret;
 }
 
-int display_aggregate_get_property(void *state, int property, void *val, size_t *len)
+static int display_aggregate_get_property(void *state, int property, void *val, size_t *len)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         unsigned int i;
@@ -357,7 +357,7 @@ err:
         return TRUE;
 }
 
-void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         double seconds = tv_diff(s->t, s->t0);    
@@ -372,14 +372,14 @@ void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
         display_put_audio_frame(s->devices[0], frame);
 }
 
-int display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         return display_reconfigure_audio(s->devices[0], quant_samples, channels, sample_rate);
 }
 
-const struct video_display_info display_aggregate_info = {
+static const struct video_display_info display_aggregate_info = {
         display_aggregate_init,
         display_aggregate_run,
         display_aggregate_done,
@@ -391,4 +391,5 @@ const struct video_display_info display_aggregate_info = {
         display_aggregate_reconfigure_audio,
 };
 
+REGISTER_MODULE(aggregate, &display_aggregate_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

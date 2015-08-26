@@ -46,9 +46,6 @@
  *
  */
 
-struct audio_capture_info;
-extern const struct audio_capture_info acap_sdi_info;
-
 #ifdef __cplusplus
 extern "C" {
 #endif

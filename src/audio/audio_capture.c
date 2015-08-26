@@ -52,29 +52,12 @@
 #include "audio/audio_capture.h"
 
 #include "audio/audio.h"
-#include "audio/capture/coreaudio.h"
-#include "audio/capture/none.h"
 #include "audio/capture/sdi.h"
-#include "audio/capture/testcard.h"
 
 /* vidcap flags */
 #include "video_capture.h"
 
 #include "lib_common.h"
-
-static void init_static_acap() __attribute__((constructor));
-static void init_static_acap() {
-#ifndef UV_IN_YURI
-        register_library("embedded", &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-        register_library("AESEBU", &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-        register_library("analog", &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-#if defined HAVE_COREAUDIO
-        register_library("coreaudio", &acap_coreaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-#endif
-        register_library("testcard", &acap_testcard_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-#endif
-        register_library("none", &acap_none_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-};
 
 struct state_audio_capture {
         char name[128];

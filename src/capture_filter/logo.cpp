@@ -45,9 +45,8 @@
 #include <iostream>
 
 #include "capture_filter.h"
-
 #include "debug.h"
-
+#include "lib_common.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -251,10 +250,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return in;
 }
 
-struct capture_filter_info capture_filter_logo = {
+static const struct capture_filter_info capture_filter_logo = {
         "logo",
         init,
         done,
         filter,
 };
+
+REGISTER_MODULE(logo, &capture_filter_logo, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

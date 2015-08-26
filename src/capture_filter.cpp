@@ -50,23 +50,9 @@
 #include "utils/list.h"
 #include "video.h"
 
-#include "capture_filter/blank.h"
-#include "capture_filter/every.h"
-#include "capture_filter/logo.h"
-#include "capture_filter/none.h"
-#include "capture_filter/scale.h"
-
 #include <vector>
 
 using namespace std;
-
-static void init_capture_filters() __attribute__((constructor));
-static void init_capture_filters() {
-        register_library("every", &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_library("logo", &capture_filter_logo, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_library("none", &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-        register_library("scale", &capture_filter_scale, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-};
 
 struct capture_filter {
         struct module mod;

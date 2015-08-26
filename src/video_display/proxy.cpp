@@ -41,9 +41,9 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/proxy.h"
 
 #include <condition_variable>
 #include <chrono>
@@ -111,7 +111,7 @@ static struct display *display_proxy_fork(void *state)
         return out;
 }
 
-void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_proxy *s;
         char *fmt_copy = NULL;
@@ -157,7 +157,7 @@ static void check_reconf(struct state_proxy_common *s, struct video_desc desc)
         }
 }
 
-void display_proxy_run(void *state)
+static void display_proxy_run(void *state)
 {
         shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
         bool prefill = false;
@@ -306,20 +306,20 @@ void display_proxy_run(void *state)
         pthread_join(s->thread_id, NULL);
 }
 
-void display_proxy_done(void *state)
+static void display_proxy_done(void *state)
 {
         struct state_proxy *s = (struct state_proxy *)state;
         delete s;
 }
 
-struct video_frame *display_proxy_getf(void *state)
+static struct video_frame *display_proxy_getf(void *state)
 {
         struct state_proxy *s = (struct state_proxy *)state;
 
         return vf_alloc_desc_data(s->desc);
 }
 
-int display_proxy_putf(void *state, struct video_frame *frame, int flags)
+static int display_proxy_putf(void *state, struct video_frame *frame, int flags)
 {
         shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
 
@@ -342,7 +342,7 @@ int display_proxy_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-int display_proxy_get_property(void *state, int property, void *val, size_t *len)
+static int display_proxy_get_property(void *state, int property, void *val, size_t *len)
 {
         shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
@@ -357,7 +357,7 @@ int display_proxy_get_property(void *state, int property, void *val, size_t *len
         }
 }
 
-int display_proxy_reconfigure(void *state, struct video_desc desc)
+static int display_proxy_reconfigure(void *state, struct video_desc desc)
 {
         struct state_proxy *s = (struct state_proxy *) state;
 
@@ -366,13 +366,13 @@ int display_proxy_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-void display_proxy_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_proxy_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-int display_proxy_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_proxy_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -383,7 +383,7 @@ int display_proxy_reconfigure_audio(void *state, int quant_samples, int channels
         return FALSE;
 }
 
-const struct video_display_info display_proxy_info = {
+static const struct video_display_info display_proxy_info = {
         display_proxy_init,
         display_proxy_run,
         display_proxy_done,
@@ -394,4 +394,6 @@ const struct video_display_info display_proxy_info = {
         display_proxy_put_audio_frame,
         display_proxy_reconfigure_audio,
 };
+
+REGISTER_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

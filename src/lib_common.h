@@ -89,5 +89,26 @@ void list_all_modules();
 std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version);
 #endif
 
+/**
+ * @brief  Registers module to global modules' registry
+ * @param name   name of the module to be used to load the module (Note that
+ *               it has to be without quotation marks!)
+ * @param info   pointer to structure with the (class specific) info about module
+ * @param lclass member of @ref library_class
+ * @param abi    ABI version of info parameter, usually defined per class
+ *               in appropriate class header (eg. video_display.h)
+ * @note
+ * Mangling of the constructor function name is because some files may define
+ * multiple modules (eg. audio playback SDI) and without that, function would
+ * be defined multiple times under the same name.
+ */
+#define REGISTER_MODULE(name, info, lclass, abi) static void mod_reg_##lclass##_##name(void)  __attribute__((constructor));\
+\
+static void mod_reg_##lclass##_##name(void)\
+{\
+        register_library(#name, info, lclass, abi);\
+}\
+struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
+
 #endif // defined LIB_COMMON_H
 

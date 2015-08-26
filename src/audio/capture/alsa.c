@@ -395,11 +395,6 @@ static const struct audio_capture_info acap_alsa_info = {
         audio_cap_alsa_done
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("alsa", &acap_alsa_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(alsa, &acap_alsa_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
 #endif /* HAVE_ALSA */

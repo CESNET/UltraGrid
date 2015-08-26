@@ -1329,10 +1329,5 @@ static const struct video_capture_info vidcap_swmix_info = {
         vidcap_swmix_grab,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("swmix", &vidcap_swmix_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(swmix, &vidcap_swmix_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

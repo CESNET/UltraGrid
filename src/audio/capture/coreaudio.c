@@ -43,9 +43,9 @@
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/utils.h"
-#include "audio/capture/coreaudio.h" 
 #include "utils/ring_buffer.h"
 #include "debug.h"
+#include "lib_common.h"
 #include <stdlib.h>
 #include <string.h>
 #include <AudioUnit/AudioUnit.h>
@@ -493,13 +493,14 @@ static void audio_cap_ca_done(void *state)
         free(s);
 }
 
-const struct audio_capture_info acap_coreaudio_info = {
+static const struct audio_capture_info acap_coreaudio_info = {
         audio_cap_ca_help,
         audio_cap_ca_init,
         audio_cap_ca_read,
         audio_cap_ca_done
 };
 
+MODULE_REGISTER(coreaudio, &acap_coreaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
 #endif /* HAVE_COREAUDIO */
 

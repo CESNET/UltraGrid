@@ -47,9 +47,9 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/null.h"
 
 #define MAGIC_NULL	0x17bad83f
 
@@ -57,7 +57,7 @@ struct state_null {
         uint32_t magic;
 };
 
-void *display_null_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_null_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);
@@ -71,26 +71,26 @@ void *display_null_init(struct module *parent, const char *fmt, unsigned int fla
         return s;
 }
 
-void display_null_run(void *arg)
+static void display_null_run(void *arg)
 {
         UNUSED(arg);
 }
 
-void display_null_done(void *state)
+static void display_null_done(void *state)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
         free(s);
 }
 
-struct video_frame *display_null_getf(void *state)
+static struct video_frame *display_null_getf(void *state)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
         return NULL;
 }
 
-int display_null_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_null_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
@@ -99,7 +99,7 @@ int display_null_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-int display_null_get_property(void *state, int property, void *val, size_t *len)
+static int display_null_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -109,7 +109,7 @@ int display_null_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-int display_null_reconfigure(void *state, struct video_desc desc)
+static int display_null_reconfigure(void *state, struct video_desc desc)
 {
         UNUSED(desc);
         struct state_null *s = (struct state_null *)state;
@@ -118,13 +118,13 @@ int display_null_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-void display_null_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_null_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-int display_null_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_null_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -135,7 +135,7 @@ int display_null_reconfigure_audio(void *state, int quant_samples, int channels,
         return FALSE;
 }
 
-const struct video_display_info display_null_info = {
+static const struct video_display_info display_null_info = {
         display_null_init,
         display_null_run,
         display_null_done,
@@ -146,4 +146,6 @@ const struct video_display_info display_null_info = {
         display_null_put_audio_frame,
         display_null_reconfigure_audio,
 };
+
+REGISTER_MODULE(none, &display_null_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

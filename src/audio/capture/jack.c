@@ -283,10 +283,5 @@ static const struct audio_capture_info acap_jack_info = {
         audio_cap_jack_done
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("jack", &acap_jack_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(jack, &acap_jack_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 

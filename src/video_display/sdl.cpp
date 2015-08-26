@@ -802,10 +802,5 @@ static const struct video_display_info display_sdl_info = {
         display_sdl_reconfigure_audio,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("sdl", &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-}
+REGISTER_MODULE(sdl, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

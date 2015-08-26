@@ -163,16 +163,11 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
         return data_len;
 }
 
-static struct openssl_decrypt_info functions = {
+static const struct openssl_decrypt_info functions = {
         openssl_decrypt_init,
         openssl_decrypt_destroy,
         openssl_decrypt,
 };
 
-static void init(void)  __attribute__((constructor));
-
-static void init(void)
-{
-        register_library("openssl_decrypt", &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION);
-}
+REGISTER_MODULE(openssl_decrypt, &functions, LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION);
 

@@ -40,10 +40,10 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "lib_common.h"
 #include "debug.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/pipe.h"
 
 #include "hd-rum-translator/hd-rum-decompress.h"
 
@@ -65,7 +65,7 @@ static struct display *display_pipe_fork(void *state)
         if (rc == 0) return out; else return NULL;
 }
 
-void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
         frame_recv_delegate *delegate;
@@ -82,20 +82,20 @@ void *display_pipe_init(struct module *parent, const char *fmt, unsigned int fla
         return s;
 }
 
-void display_pipe_done(void *state)
+static void display_pipe_done(void *state)
 {
         struct state_pipe *s = (struct state_pipe *)state;
         delete s;
 }
 
-struct video_frame *display_pipe_getf(void *state)
+static struct video_frame *display_pipe_getf(void *state)
 {
         struct state_pipe *s = (struct state_pipe *)state;
 
         return vf_alloc_desc_data(s->desc);
 }
 
-int display_pipe_putf(void *state, struct video_frame *frame, int flags)
+static int display_pipe_putf(void *state, struct video_frame *frame, int flags)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
@@ -106,12 +106,12 @@ int display_pipe_putf(void *state, struct video_frame *frame, int flags)
         return TRUE;
 }
 
-void display_pipe_run(void *state)
+static void display_pipe_run(void *state)
 {
         UNUSED(state);
 }
 
-int display_pipe_get_property(void *state, int property, void *val, size_t *len)
+static int display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY};
@@ -163,7 +163,7 @@ int display_pipe_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-int display_pipe_reconfigure(void *state, struct video_desc desc)
+static int display_pipe_reconfigure(void *state, struct video_desc desc)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
@@ -172,13 +172,13 @@ int display_pipe_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-void display_pipe_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_pipe_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -189,7 +189,7 @@ int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
         return FALSE;
 }
 
-const struct video_display_info display_pipe_info = {
+static const struct video_display_info display_pipe_info = {
         display_pipe_init,
         display_pipe_run,
         display_pipe_done,
@@ -201,4 +201,5 @@ const struct video_display_info display_pipe_info = {
         display_pipe_reconfigure_audio,
 };
 
+REGISTER_MODULE(pipe, &display_pipe_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

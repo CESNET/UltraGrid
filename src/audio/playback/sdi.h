@@ -55,9 +55,6 @@ void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void 
                 int (*get_property)(void *, int, void *, size_t *)
  );
 
-struct audio_playback_info;
-extern const struct audio_playback_info aplay_sdi_info;
-
 #ifdef __cplusplus
 }
 #endif

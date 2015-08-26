@@ -54,8 +54,8 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
-#include "audio/playback/none.h" 
 #include "debug.h"
+#include "lib_common.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -116,7 +116,7 @@ static int audio_play_none_reconfigure(void *state, struct audio_desc desc)
         return TRUE;
 }
 
-const struct audio_playback_info aplay_none_info = {
+static const struct audio_playback_info aplay_none_info = {
         audio_play_none_help,
         audio_play_none_init,
         audio_play_none_put_frame,
@@ -124,4 +124,6 @@ const struct audio_playback_info aplay_none_info = {
         audio_play_none_reconfigure,
         audio_play_none_done
 };
+
+REGISTER_MODULE(none, &aplay_none_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 

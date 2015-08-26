@@ -56,6 +56,7 @@
 #include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video_display.h"
 
 #include <stdlib.h>
@@ -145,7 +146,7 @@ static void audio_play_sdi_done(void *s)
         UNUSED(s);
 }
 
-const struct audio_playback_info aplay_sdi_info = {
+static const struct audio_playback_info aplay_sdi_info = {
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
@@ -153,6 +154,10 @@ const struct audio_playback_info aplay_sdi_info = {
         audio_play_sdi_reconfigure,
         audio_play_sdi_done
 };
+
+REGISTER_MODULE(embedded, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+REGISTER_MODULE(AESEBU, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+REGISTER_MODULE(analog, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
 
 /* vim: set expandtab: sw=8 */

@@ -43,6 +43,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -53,7 +54,6 @@
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
-#include "video_capture/import.h"
 //#include "audio/audio.h"
 
 #include <stdio.h>
@@ -1254,10 +1254,12 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 	return ret;
 }
 
-const struct video_capture_info vidcap_import_info = {
+static const struct video_capture_info vidcap_import_info = {
         vidcap_import_probe,
         vidcap_import_init,
         vidcap_import_done,
         vidcap_import_grab,
 };
+
+REGISTER_MODULE(import, &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

@@ -52,9 +52,8 @@
 #endif
 
 #include "audio/audio_capture.h"
-#include "audio/capture/none.h"
-
 #include "debug.h"
+#include "lib_common.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,10 +94,12 @@ static void audio_cap_none_done(void *state)
         free(s);
 }
 
-const struct audio_capture_info acap_none_info = {
+static const struct audio_capture_info acap_none_info = {
         audio_cap_none_help,
         audio_cap_none_init,
         audio_cap_none_read,
         audio_cap_none_done
 };
+
+REGISTER_MODULE(none, &acap_none_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 

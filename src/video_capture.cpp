@@ -63,11 +63,6 @@
 #include "module.h"
 #include "utils/config_file.h"
 #include "video_capture.h"
-#include "video_capture/aggregate.h"
-#include "video_capture/import.h"
-#include "video_capture/null.h"
-#include "video_capture/switcher.h"
-#include "video_capture/ug_input.h"
 
 #include <string>
 
@@ -106,17 +101,6 @@ struct vidcap {
 
         struct capture_filter *capture_filter; ///< capture_filter_state
 };
-
-static void init_static_vidcap() __attribute__((constructor));
-static void init_static_vidcap() {
-#ifndef UV_IN_YURI
-        register_library("aggregate", &vidcap_aggregate_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        register_library("import", &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        register_library("switcher", &vidcap_switcher_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        register_library("none", &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        register_library("ug_input", &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-#endif
-}
 
 /* API for probing capture devices ****************************************************************/
 void list_video_capture_devices()

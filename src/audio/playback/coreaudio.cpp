@@ -41,9 +41,9 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
-#include "audio/playback/coreaudio.h"
 #include "utils/ring_buffer.h"
 #include "debug.h"
+#include "lib_common.h"
 #include <chrono>
 #include <stdlib.h>
 #include <string.h>
@@ -347,7 +347,7 @@ static void audio_play_ca_done(void *state)
         delete s;
 }
 
-const struct audio_playback_info aplay_coreaudio_info = {
+static const struct audio_playback_info aplay_coreaudio_info = {
         audio_play_ca_help,
         audio_play_ca_init,
         audio_play_ca_put_frame,
@@ -355,6 +355,8 @@ const struct audio_playback_info aplay_coreaudio_info = {
         audio_play_ca_reconfigure,
         audio_play_ca_done
 };
+
+REGISTER_MODULE(coreaudio, &aplay_coreaudio_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
 #endif /* HAVE_COREAUDIO */
 

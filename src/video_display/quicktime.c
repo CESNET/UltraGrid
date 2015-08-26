@@ -1309,12 +1309,7 @@ static const struct video_display_info display_quicktime_info = {
         display_quicktime_reconfigure_audio,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("quicktime", &display_quicktime_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-}
+REGISTER_MODULE(quicktime, &display_quicktime_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
 #endif                          /* HAVE_MACOSX */
 

@@ -52,9 +52,9 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/null.h"
 
 static int capture_state = 0;
 
@@ -90,10 +90,12 @@ static struct vidcap_type *vidcap_null_probe(bool verbose)
         return vt;
 }
 
-const struct video_capture_info vidcap_null_info = {
+static const struct video_capture_info vidcap_null_info = {
         vidcap_null_probe,
         vidcap_null_init,
         vidcap_null_done,
         vidcap_null_grab,
 };
+
+REGISTER_MODULE(none, &vidcap_null_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

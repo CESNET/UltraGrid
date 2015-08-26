@@ -43,7 +43,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
-#include "audio/playback/dummy.h"
+#include "lib_common.h"
 
 static int state;
 
@@ -75,7 +75,7 @@ static int audio_play_dummy_reconfigure(void *, struct audio_desc)
         return TRUE;
 }
 
-const struct audio_playback_info aplay_dummy_info = {
+static const struct audio_playback_info aplay_dummy_info = {
         audio_play_dummy_help,
         audio_play_dummy_init,
         audio_play_dummy_put_frame,
@@ -83,4 +83,6 @@ const struct audio_playback_info aplay_dummy_info = {
         audio_play_dummy_reconfigure,
         audio_play_dummy_done
 };
+
+REGISTER_MODULE(dummy, &aplay_dummy_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 

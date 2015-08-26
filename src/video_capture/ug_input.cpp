@@ -41,9 +41,9 @@
 #include "debug.h"
 #include "host.h"
 #include "hd-rum-translator/hd-rum-decompress.h" // frame_recv_delegate
+#include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/ug_input.h"
 #include "video_display.h"
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
@@ -181,10 +181,12 @@ static struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */)
         return vt;
 }
 
-const struct video_capture_info vidcap_ug_input_info = {
+static const struct video_capture_info vidcap_ug_input_info = {
         vidcap_ug_input_probe,
         vidcap_ug_input_init,
         vidcap_ug_input_done,
         vidcap_ug_input_grab,
 };
+
+REGISTER_MODULE(ug_input, &vidcap_ug_input_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

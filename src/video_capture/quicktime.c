@@ -1217,11 +1217,6 @@ static const struct video_capture_info vidcap_quicktime_info = {
         vidcap_quicktime_grab,
 };
 
-static void mod_reg(void)  __attribute__((constructor));
-
-static void mod_reg(void)
-{
-        register_library("quicktime", &vidcap_quicktime_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-}
+REGISTER_MODULE(quicktime, &vidcap_quicktime_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
 #endif                          /* HAVE_MACOSX */
