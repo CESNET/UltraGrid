@@ -112,17 +112,22 @@ static void signal_handler(int signal)
 
 #define REPLICA_MAGIC 0xd2ff3323
 
-static void replica_init(struct replica *s, const char *addr, int tx_port, int bufsize, struct module *parent)
+static bool replica_init(struct replica *s, const char *addr, int tx_port, int bufsize, struct module *parent)
 {
         s->magic = REPLICA_MAGIC;
         s->host = addr;
         s->sock = udp_init(addr, 0, tx_port, 255, false, false);
+        if (!s->sock) {
+            fprintf(stderr, "Cannot initialize output port!\n");
+            return false;
+        }
         if (udp_set_send_buf(s->sock, bufsize) != TRUE)
             fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_PORT;
         s->mod.priv_data = s;
         module_register(&s->mod, parent);
+        return true;
 }
 
 static void replica_done(struct replica *s)
@@ -213,7 +218,11 @@ static void *writer(void *arg)
                 host = strtok_r(NULL, " ", &save_ptr);
                 int tx_port = atoi(strtok_r(NULL, " ", &save_ptr));
                 char *compress = strtok_r(NULL, " ", &save_ptr);
-                replica_init(rep, host, tx_port, 100*1000, &s->mod);
+                if (!replica_init(rep, host, tx_port, 100*1000, &s->mod)) {
+                    s->replicas.resize(s->replicas.size() - 1);
+                    free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, "cannot create output port (wrong address?)"));
+                    continue;
+                }
                 if (compress) {
                     rep->type = replica::type_t::RECOMPRESS;
                     char *fec = NULL;
@@ -542,7 +551,9 @@ int main(int argc, char **argv)
             tx_port = hosts[i].port;
         }
 
-        replica_init(state.replicas[i], hosts[i].addr, tx_port, bufsize, &state.mod);
+        if (!replica_init(state.replicas[i], hosts[i].addr, tx_port, bufsize, &state.mod)) {
+                return EXIT_FAILURE;
+        }
 
         if(hosts[i].compression == NULL) {
             state.replicas[i]->type = replica::type_t::USE_SOCK;
