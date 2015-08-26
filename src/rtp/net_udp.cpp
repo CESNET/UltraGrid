@@ -633,6 +633,7 @@ static bool address_is_ipv6(const char *addr)
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded)
 {
+        int ret;
         int ip_family;
         int reuse = 1;
         int ipv6only = 0;
@@ -660,8 +661,9 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 #endif
 	}
 
-        if (!resolve_address(s, addr)) {
-                socket_error("Can't resolve IP address for %s", addr);
+        if ((ret = resolve_address(s, addr)) != 0) {
+                fprintf(stderr, "Can't resolve IP address for %s: %s\n", addr,
+                                gai_strerror(ret));
                 goto error;
         }
         if (iface != NULL) {
@@ -1184,15 +1186,14 @@ static int resolve_address(socket_udp *s, const char *addr)
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                debug_msg("Address conversion failed: %s\n", gai_strerror(err));
-                return FALSE;
+                return err;
         } else {
                 memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
                 s->sock_len = res0->ai_addrlen;
         }
         freeaddrinfo(res0);
 
-        return TRUE;
+        return 0;
 }
 
 int udp_set_recv_buf(socket_udp *s, int size)
@@ -1277,11 +1278,14 @@ void udp_flush_recv_buf(socket_udp *s)
 
 int udp_change_dest(socket_udp *s, const char *addr)
 {
-        if(resolve_address(s, addr)) {
+        int ret;
+        if ((ret = resolve_address(s, addr)) == 0) {
                 free(s->addr);
                 s->addr = strdup(addr);
                 return TRUE;
         } else {
+                fprintf(stderr, "Can't resolve IP address for %s: %s\n", addr,
+                                gai_strerror(ret));
                 return FALSE;
         }
 }
