@@ -125,6 +125,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
+#define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -184,21 +185,8 @@ void exit_uv(int status) {
 
 static void usage(void)
 {
-        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>]\n");
-        printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
-                        "[-m <mtu>] [-c] [-i] [-6]\n");
-        printf("          [-m <video_mode>] [-p <postprocess>] "
-                        "[-f <fec_options>] [-P <port>]\n");
-        printf("          [--mcast-if <iface>]\n");
-        printf("          [--export[=<d>]|--import <d>]\n");
-        printf("          address(es)\n\n");
-        printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
-        printf("\n");
-        printf("\t--list-modules           \tprints list of modules\n");
-        printf("\n");
-        printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
-        printf("\n");
+        printf("\nUsage: %s [options] address(es)\n\n", uv_argv[0]);
+        printf("Options:\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -209,6 +197,19 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
+        printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
+        printf("\n");
+        printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
+        printf("\n");
+        printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
+        printf("\n");
+        printf("\t--list-modules           \tprints list of modules\n");
+        printf("\n");
+        printf("\t--disable-keyboard-control\tdisables keyboard control (usable mainly for non-interactive runs)\n");
+        printf("\n");
+        printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
+        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
+        printf("\n");
         printf("\t--rtsp-server            \tRTSP server: dynamically serving H264 RTP standard transport (use '--rtps-server=help' to see usage)\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
@@ -218,10 +219,6 @@ static void usage(void)
         printf("\n");
 #endif //  HAVE_IPv6
         printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
-        printf("\n");
-        printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
-        printf("\n");
-        printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
         printf("\n");
         printf("\t-j <settings>            \tJACK Audio Connection Kit settings\n");
         printf("\n");
@@ -496,6 +493,10 @@ int main(int argc, char *argv[])
         keyboard_control kc{};
 
         bool print_capabilities_req = false;
+        bool disable_key_control = false;
+
+        uv_argc = argc;
+        uv_argv = argv;
 
 #ifdef USE_MTRACE
         mtrace();
@@ -507,9 +508,6 @@ int main(int argc, char *argv[])
                 usage();
                 return EXIT_FAIL_USAGE;
         }
-
-        uv_argc = argc;
-        uv_argv = argv;
 
         open_all("module_*.so"); // load modules
 
@@ -553,6 +551,7 @@ int main(int argc, char *argv[])
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
+                {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -853,6 +852,9 @@ int main(int argc, char *argv[])
                 case OPT_LIST_MODULES:
                         list_all_modules();
                         return EXIT_SUCCESS;
+                case OPT_DISABLE_KEY_CTRL:
+                        disable_key_control = true;
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1078,7 +1080,9 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */
 
         control_start(control);
-        kc.start(&root_mod);
+        if (!disable_key_control) {
+                kc.start(&root_mod);
+        }
 
         try {
                 map<string, param_u> params;
