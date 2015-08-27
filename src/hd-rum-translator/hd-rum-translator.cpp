@@ -292,6 +292,7 @@ static void usage(const char *progname) {
                 progname);
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
+                "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
                 "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
@@ -313,9 +314,10 @@ struct host_opts {
 };
 
 static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
-        struct host_opts **host_opts, int *host_opts_count, int *control_port, int *control_connection_type)
+        struct host_opts **host_opts, int *host_opts_count, int *control_port, int *control_connection_type, bool *blend)
 {
     int start_index = 1;
+    *blend = false;
 
     while(start_index < argc && argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
@@ -327,6 +329,9 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
             print_capabilities(CAPABILITY_COMPRESS, NULL, false);
+            return false;
+        } else if(strcmp(argv[start_index], "--blend") == 0) {
+            *blend = true;
             return false;
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
@@ -432,6 +437,7 @@ int main(int argc, char **argv)
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
+    bool blend;
 #ifdef WIN32
     WSADATA wsaData;
 
@@ -476,7 +482,7 @@ int main(int argc, char **argv)
 #endif
 
     bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port,
-            &control_connection_type);
+            &control_connection_type, &blend);
 
     if (ret == false) {
         return EXIT_SUCCESS;
@@ -533,7 +539,7 @@ int main(int argc, char **argv)
     control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod);;
+    state.decompress = hd_rum_decompress_init(&state.mod, blend);
     if(!state.decompress) {
         return EXIT_FAIL_DECODER;
     }
