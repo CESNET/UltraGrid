@@ -40,12 +40,21 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
 struct dummy_display_state {
+        dummy_display_state() : desc(), t0(steady_clock::now()), frames(0) {}
         struct video_desc desc;
+        steady_clock::time_point t0;
+        int frames;
 };
 
 static void *display_dummy_init(struct module *, const char *, unsigned int)
@@ -67,8 +76,20 @@ static struct video_frame *display_dummy_getf(void *state)
         return vf_alloc_desc_data(((dummy_display_state *) state)->desc);
 }
 
-static int display_dummy_putf(void *, struct video_frame *frame, int)
+static int display_dummy_putf(void *state, struct video_frame *frame, int)
 {
+        auto s = (dummy_display_state *) state;
+        auto curr_time = steady_clock::now();
+        s->frames += 1;
+        double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
+        if (seconds >= 5.0) {
+                double fps = s->frames / seconds;
+                log_msg(LOG_LEVEL_INFO, "[dummy] %d frames in %g seconds = %g FPS\n",
+                                s->frames, seconds, fps);
+                s->t0 = curr_time;
+                s->frames = 0;
+        }
+
         vf_free(frame);
         return 0;
 }
