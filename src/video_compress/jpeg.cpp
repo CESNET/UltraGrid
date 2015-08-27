@@ -400,9 +400,12 @@ struct compress_info_t jpeg_info = {
         NULL,
         jpeg_is_supported,
         {
-                { "60", 60, 0.68, {10, 0.6, 75}, {10, 0.6, 75} },
-                { "80", 70, 0.87, {12, 0.6, 90}, {15, 0.6, 100} },
-                { "90", 80, 1.54, {15, 0.6, 100}, {20, 0.6, 150} },
+                { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
+                        {10, 0.6, 75}, {10, 0.6, 75} },
+                { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
+                        {12, 0.6, 90}, {15, 0.6, 100} },
+                { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
+                        {15, 0.6, 100}, {20, 0.6, 150} },
         },
 };
 

@@ -292,11 +292,6 @@ struct compress_info_t cuda_dxt_info = {
         NULL,
         cuda_dxt_compress_tile,
         NULL,
-        {
-#if 0
-                { "DXT1", 35, 4.0, {7, 0.2, 10}, {} },
-                { "DXT5", 50, 8.0, 0.2, 20}, {} },
-#endif
-        }
+        {}
 };
 

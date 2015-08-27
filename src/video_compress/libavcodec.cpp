@@ -1162,9 +1162,12 @@ struct compress_info_t libavcodec_info = {
         libavcodec_compress_tile,
         libavcodec_is_supported,
         {
-                { "codec=H.264:bpp=0.096", 20, 0.096, {25, 1.5, 0}, {15, 1, 0} },
-                { "codec=H.264:bpp=0.193", 30, 0.193, {28, 1.5, 0}, {20, 1, 0} },
-                { "codec=H.264:bitrate=0.289", 50, 0.289, {30, 1.5, 0}, {25, 1, 0} },
+                { "codec=H.264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);},
+                        {25, 1.5, 0}, {15, 1, 0} },
+                { "codec=H.264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);},
+                        {28, 1.5, 0}, {20, 1, 0} },
+                { "codec=H.264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);},
+                        {30, 1.5, 0}, {25, 1, 0} },
 #if 0
                 { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
 #endif

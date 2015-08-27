@@ -333,8 +333,10 @@ struct compress_info_t rtdxt_info = {
         NULL,
         dxt_is_supported,
         {
-                { "DXT1", 35, 4.0, {75, 0.3, 25}, {15, 0.1, 10} },
-                { "DXT5", 50, 8.0, {75, 0.3, 35}, {15, 0.1, 20} },
+                { "DXT1", 35, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);},
+                        {75, 0.3, 25}, {15, 0.1, 10} },
+                { "DXT5", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);},
+                        {75, 0.3, 35}, {15, 0.1, 20} },
         }
 };
 

@@ -57,6 +57,7 @@
 #include "debug.h"
 #include "host.h"
 #include "module.h"
+#include "video_codec.h"
 #include "video_compress.h"
 #include "video_frame.h"
 
@@ -116,7 +117,8 @@ struct compress_info_t none_info = {
         NULL,
         []{return true;}, // uncompressed video is always supported
         {
-                { "", 100, 16.0, {0, 1, 0}, {0, 1, 0} },
+                { "", 100, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);},
+                        {0, 1, 0}, {0, 1, 0} },
         },
 };
 

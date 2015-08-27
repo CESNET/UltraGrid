@@ -48,8 +48,8 @@ const char *window_title = NULL;
 void print_capabilities(int mask, struct module *root, bool use_vidcap)
 {
         if (mask & CAPABILITY_COMPRESS) {
-                /// try to figure out actual video format and consequently number of pixels per sec
-                int pixs_per_sec_uncompressed = 0;
+                // try to figure out actual video format
+                struct video_desc desc{};
                 if (use_vidcap && root) {
                         for (int attempt = 0; attempt < 2; ++attempt) {
                                 struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
@@ -57,21 +57,19 @@ void print_capabilities(int mask, struct module *root, bool use_vidcap)
                                 struct response *r = send_message_sync(root, "sender", (struct message *) m, 1000);
                                 if (response_get_status(r) == RESPONSE_OK) {
                                         const char *text = response_get_text(r);
-                                        struct video_desc desc;
                                         istringstream iss(text);
                                         iss >> desc;
-                                        pixs_per_sec_uncompressed = desc.width * desc.height * desc.fps;
-
                                         break;
                                 }
                                 free_response(r);
                                 sleep(1);
                         }
                 }
+
                 cout << "Compressions:" << endl;
                 auto const & compress_capabilities = get_compress_capabilities();
                 for (auto const & it : compress_capabilities) {
-                        cout << "(" << it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) <<  it.bpp * pixs_per_sec_uncompressed << ";" <<
+                        cout << "(" << it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) << it.compute_bitrate(&desc) << ";" <<
                                 it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
                                 it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
                                 ")\n";
