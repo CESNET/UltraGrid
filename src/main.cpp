@@ -640,6 +640,7 @@ int main(int argc, char *argv[])
                         break;
                 case 'H':
                         video_protocol = H264_STD;
+                        requested_receiver = "localhost"; // rtsp seems to expect IPv4 sockets
                         if (optarg == NULL) {
                         	rtsp_port = 0;
                         } else {
