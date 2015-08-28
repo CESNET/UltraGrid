@@ -101,12 +101,12 @@
 #endif
 
 #define PORT_BASE               5004
-#define PORT_AUDIO              5006
 
 /* please see comments before transmit.c:audio_tx_send() */
 /* also note that this actually differs from video */
 #define DEFAULT_AUDIO_FEC       "mult:3"
-#define DEFAULT_BITRATE         (6618ll * 1000 * 1000)
+static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
+static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
@@ -464,21 +464,20 @@ int main(int argc, char *argv[])
 
         const char *audio_host = NULL;
         enum video_mode decoder_mode = VIDEO_NORMAL;
-        const char *requested_compression = "none";
+        const char *requested_compression = nullptr;
 
         bool ipv6 = false;
         struct module root_mod;
         struct state_uv *uv;
         int ch;
 
-        const char *audio_codec = "PCM";
+        const char *audio_codec = nullptr;
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
         bool receiver_thread_started = false,
              capture_thread_started = false;
         unsigned display_flags = 0;
-        int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
         long packet_rate;
@@ -640,7 +639,6 @@ int main(int argc, char *argv[])
                         break;
                 case 'H':
                         video_protocol = H264_STD;
-                        requested_receiver = "localhost"; // rtsp seems to expect IPv4 sockets
                         if (optarg == NULL) {
                         	rtsp_port = 0;
                         } else {
@@ -800,7 +798,6 @@ int main(int argc, char *argv[])
                                                 optarg);
                                 return EXIT_FAIL_USAGE;
                         }
-                        compressed_audio_sample_rate = get_audio_codec_sample_rate(audio_codec);
                         break;
                 case OPT_CAPTURE_FILTER:
                         vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
@@ -864,6 +861,25 @@ int main(int argc, char *argv[])
 
         argc -= optind;
         argv += optind;
+
+        // default values for different RXTX protocols
+        if (video_protocol == H264_STD) {
+                if (audio_codec == nullptr) {
+                        audio_codec = "u-law:sample_rate=44100";
+                }
+                if (requested_compression == nullptr) {
+                        requested_compression = "libavcodec:codec=H.264:subsampling=420";
+                }
+                requested_receiver = "localhost"; // rtsp seems to expect IPv4 sockets
+        } else {
+                if (requested_compression == nullptr) {
+                        requested_compression = DEFAULT_VIDEO_COMPRESSION;
+                }
+                if (audio_codec == nullptr) {
+                        audio_codec = DEFAULT_AUDIO_CODEC;
+                }
+        }
+
 
         printf("%s", PACKAGE_STRING);
 #ifdef GIT_VERSION
@@ -1106,7 +1122,7 @@ int main(int argc, char *argv[])
                 // RTSP
                 params["rtsp_port"].i = rtsp_port;
                 params["audio_codec"].l = get_audio_codec(audio_codec);
-                params["audio_sample_rate"].i = compressed_audio_sample_rate;
+                params["audio_sample_rate"].i = get_audio_codec_sample_rate(audio_codec) ? get_audio_codec_sample_rate(audio_codec) : 48000;
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = audio_rx_port;
