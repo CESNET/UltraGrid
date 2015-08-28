@@ -271,4 +271,6 @@ void ShowMessage(int level, char *msg);
 #define __SSE2__
 #endif
 
+#define sleep(sec) Sleep(1000 * (sec))
+
 #endif

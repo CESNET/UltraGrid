@@ -47,5 +47,5 @@
  */
 
 struct audio_playback_info;
-extern struct audio_playback_info aplay_coreaudio_info;
+extern const struct audio_playback_info aplay_coreaudio_info;
 
