@@ -142,7 +142,7 @@ then
         if test $WORD_LEN = 32; then
                 NVCCFLAGS="$NVCCFLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
         fi
-	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
+	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
 fi
