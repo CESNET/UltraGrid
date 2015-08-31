@@ -173,6 +173,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 #endif
         }
 
+        s->codec_ctx->flags2 |= CODEC_FLAG2_FAST;
+
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
 
