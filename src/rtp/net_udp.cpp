@@ -309,7 +309,8 @@ static int udp_addr_valid4(const char *dst)
         if (h != NULL) {
                 return TRUE;
         }
-        socket_error("Can't resolve IP address for %s", dst);
+        fprintf(stderr, "Can't resolve IP address for %s: %s\n", dst,
+                        hstrerror(h_errno));
 
         return FALSE;
 }
@@ -383,7 +384,7 @@ static char *udp_host_addr4(void)
         }
         hent = gethostbyname(hname);
         if (hent == NULL) {
-                socket_error("Can't resolve IP address for %s", hname);
+                fprintf(stderr, "Can't resolve IP address for %s: %s\n", hname, hstrerror(h_errno));
                 return NULL;
         }
         assert(hent->h_addrtype == AF_INET);
