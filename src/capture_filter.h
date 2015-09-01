@@ -59,9 +59,26 @@ struct module;
 
 struct capture_filter_info {
         const char *name;
+        /// @brief Initializes capture filter
+        /// @param      parent parent module
+        /// @param      cfg    configuration string from cmdline
+        /// @param[out] state  output state
+        /// @retval     0      if initialized successfully
+        /// @retval     <0     if error
+        /// @retval     >0     no error but state was not returned, eg. showing help
         int (*init)(struct module *parent, const char *cfg, void **state);
         void (*done)(void *state);
-        struct video_frame *(*filter)(void *state, struct video_frame *);
+        /// @brief Performs filtering
+        /// @param f input frame
+        /// @note
+        /// Frame management note
+        /// When input frame is no longer used (eg. returned new output frame),
+        /// VIDEO_FRAME_DISPOSE(f) has to be called. Also, if you create
+        /// new output frame, you may use its .dispose and .dispose_udata
+        /// member to manage video_frame lifetime.
+        /// This behavior may change towards use of shared_ptr<video_frame>
+        /// in future.
+        struct video_frame *(*filter)(void *state, struct video_frame *f);
 };
 
 struct capture_filter;
