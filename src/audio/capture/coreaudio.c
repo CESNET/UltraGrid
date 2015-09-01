@@ -500,7 +500,7 @@ static const struct audio_capture_info acap_coreaudio_info = {
         audio_cap_ca_done
 };
 
-MODULE_REGISTER(coreaudio, &acap_coreaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(coreaudio, &acap_coreaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
 #endif /* HAVE_COREAUDIO */
 
