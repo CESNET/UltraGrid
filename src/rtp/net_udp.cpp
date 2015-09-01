@@ -221,6 +221,22 @@ static void socket_error(const char *msg, ...)
 }
 
 #ifdef WIN32
+#define socket_herror socket_error
+#else
+static void socket_herror(const char *msg, ...)
+{
+        va_list ap;
+        char buffer[255];
+        uint32_t blen = sizeof(buffer) / sizeof(buffer[0]);
+
+        va_start(ap, msg);
+        vsnprintf(buffer, blen, msg, ap);
+        va_end(ap);
+        herror(buffer);
+}
+#endif
+
+#ifdef WIN32
 /* ws2tcpip.h defines these constants with different values from
 * winsock.h so files that use winsock 2 values but try to use 
 * winsock 1 fail.  So what was the motivation in changing the
@@ -309,8 +325,7 @@ static int udp_addr_valid4(const char *dst)
         if (h != NULL) {
                 return TRUE;
         }
-        fprintf(stderr, "Can't resolve IP address for %s: %s\n", dst,
-                        hstrerror(h_errno));
+        socket_herror("Can't resolve IP address for %s", dst);
 
         return FALSE;
 }
@@ -384,7 +399,7 @@ static char *udp_host_addr4(void)
         }
         hent = gethostbyname(hname);
         if (hent == NULL) {
-                fprintf(stderr, "Can't resolve IP address for %s: %s\n", hname, hstrerror(h_errno));
+                socket_herror("Can't resolve IP address for %s", hname);
                 return NULL;
         }
         assert(hent->h_addrtype == AF_INET);
