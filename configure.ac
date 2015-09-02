@@ -443,16 +443,13 @@ fi
 video_compress_abi_version=4
 video_decompress_abi_version=3
 video_rxtx_abi_version=1
-audio_codec_abi_version=1
 vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
-AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
 AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
-AC_SUBST(audio_codec_abi_version)
 AC_SUBST(vo_pp_abi_version)
 
 # ------------------------------------------------------------------------------------------------
@@ -2676,7 +2673,7 @@ then
         AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
 
-        AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/acodec_libavcodec.so.$audio_codec_abi_version")
+        AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/module_acompress_libavcodec.so")
         AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
         LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
 

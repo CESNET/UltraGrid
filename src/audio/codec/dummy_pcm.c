@@ -54,9 +54,9 @@
 
 #include "audio/audio.h"
 #include "audio/codec.h"
-#include "audio/codec/dummy_pcm.h"
 
 #include "debug.h"
+#include "lib_common.h"
 
 #define MAGIC 0x552bca11
 
@@ -111,7 +111,7 @@ static void dummy_pcm_done(void *state)
         free(s);
 }
 
-struct audio_codec dummy_pcm_audio_codec = {
+static const struct audio_compress_info dummy_pcm_audio_codec = {
         .supported_codecs = (audio_codec_t[]){ AC_PCM, AC_NONE },
         .init = dummy_pcm_init,
         .compress = dummy_pcm_compress,
@@ -119,4 +119,7 @@ struct audio_codec dummy_pcm_audio_codec = {
         .get_samplerates = dummy_pcm_get_sample_rates,
         .done = dummy_pcm_done
 };
+
+REGISTER_MODULE(dummy_pcm,  &dummy_pcm_audio_codec, LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
+
 

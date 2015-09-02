@@ -612,7 +612,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_libavcodec.so.@video_decompress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
 
 @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@: @LIBAVCODEC_AUDIO_CODEC_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acodec_libavcodec.so.@audio_codec_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acompress.so $^ @LIBAVCODEC_LIBS@ -o $@
 
 @JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@

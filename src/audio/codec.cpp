@@ -53,8 +53,6 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "audio/codec.h"
-#include "audio/codec/dummy_pcm.h"
-#include "audio/codec/libavcodec.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "utils/misc.h"
@@ -63,11 +61,9 @@
 
 #include <unordered_map>
 
-static constexpr int MAX_AUDIO_CODECS = 20;
-
 using namespace std;
 
-unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
+static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
         {AC_NONE, { "(none)", 0 }},
         {AC_PCM, { "PCM", 0x0001 }},
         {AC_ALAW, { "A-law", 0x0006 }},
@@ -80,33 +76,13 @@ unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_codec_info = {
         {AC_FLAC, { "FLAC", 0xF1AC }},
 };
 
-#ifdef BUILD_LIBRARIES
-static pthread_once_t libraries_initialized = PTHREAD_ONCE_INIT;
-static void load_libraries(void);
-#endif
-
-static struct audio_codec *audio_codecs[MAX_AUDIO_CODECS] = {
-        &dummy_pcm_audio_codec,
-        NULL_IF_BUILD_LIBRARIES(LIBAVCODEC_AUDIO_CODEC_HANDLE),
-};
 static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_cfg,
                 audio_codec_direction_t direction, bool try_init);
-
-void register_audio_codec(struct audio_codec *codec)
-{
-        for(int i = 0; i < MAX_AUDIO_CODECS; ++i) {
-                if(audio_codecs[i] == 0) {
-                        audio_codecs[i] = codec;
-                        return;
-                }
-        }
-        error_msg("Warning: not enough slots to register further audio codecs!!!\n");
-}
 
 struct audio_codec_state {
         void **state;
         int state_count;
-        int index;
+        const struct audio_compress_info *funcs;
         audio_codec_t codec;
         audio_codec_direction_t direction;
         audio_frame2 *out;
@@ -134,17 +110,6 @@ void list_audio_codecs(void) {
         }
 }
 
-#ifdef BUILD_LIBRARIES
-static void load_libraries(void)
-{
-        char name[128];
-        snprintf(name, sizeof(name), "acodec_*.so.%d", AUDIO_CODEC_ABI_VERSION);
-
-        open_all(name);
-}
-#endif
-
-
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,
                 audio_codec_direction_t direction) {
         return audio_codec_init_real(get_name_to_audio_codec(audio_codec), direction, false);
@@ -161,17 +126,15 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         audio_codec_t audio_codec = get_audio_codec(audio_codec_cfg);
         int bitrate = get_audio_codec_bitrate(audio_codec_cfg);
         void *state = NULL;
-        int index;
-#ifdef BUILD_LIBRARIES
-        pthread_once(&libraries_initialized, load_libraries);
-#endif
-        for(unsigned int i = 0; i < sizeof(audio_codecs)/sizeof(struct audio_codec *); ++i) {
-                if(!audio_codecs[i])
-                        continue;
-                for(unsigned int j = 0; audio_codecs[i]->supported_codecs[j] != AC_NONE; ++j) {
-                        if(audio_codecs[i]->supported_codecs[j] == audio_codec) {
-                                state = audio_codecs[i]->init(audio_codec, direction, silent, bitrate);
-                                index = i;
+        const struct audio_compress_info *aci = nullptr;
+
+        auto audio_compressions = get_libraries_for_class(LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
+
+        for (auto it : audio_compressions) {
+                aci = static_cast<const struct audio_compress_info *>(it.second);
+                for (unsigned int j = 0; aci->supported_codecs[j] != AC_NONE; ++j) {
+                        if (aci->supported_codecs[j] == audio_codec) {
+                                state = aci->init(audio_codec, direction, silent, bitrate);
                                 if(state) {
                                         break;
                                 } else {
@@ -198,7 +161,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
         s->state = (void **) calloc(1, sizeof(void*));
         s->state[0] = state;
         s->state_count = 1;
-        s->index = index;
+        s->funcs = aci;
         s->codec = audio_codec;
         s->direction = direction;
         s->bitrate = bitrate;
@@ -232,7 +195,7 @@ const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audi
         if(frame && s->state_count < frame->get_channel_count()) {
                 s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
                 for(int i = s->state_count; i < frame->get_channel_count(); ++i) {
-                        s->state[i] = audio_codecs[s->index]->init(s->codec, s->direction, false, s->bitrate);
+                        s->state[i] = s->funcs->init(s->codec, s->direction, false, s->bitrate);
                         if(s->state[i] == NULL) {
                                         fprintf(stderr, "Error: initialization of audio codec failed!\n");
                                         return NULL;
@@ -250,7 +213,7 @@ const audio_frame2 *audio_codec_compress(struct audio_codec_state *s, const audi
                         audio_channel_demux(frame, i, &channel);
                         encode_channel = &channel;
                 }
-                audio_channel *out = audio_codecs[s->index]->compress(s->state[i], encode_channel);
+                audio_channel *out = s->funcs->compress(s->state[i], encode_channel);
                 if (out) {
                         if (!out_frame_initialized) {
                                 if (frame) {
@@ -281,7 +244,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
         if (s->state_count < frame->get_channel_count()) {
                 s->state = (void **) realloc(s->state, sizeof(void *) * frame->get_channel_count());
                 for(int i = s->state_count; i < frame->get_channel_count(); ++i) {
-                        s->state[i] = audio_codecs[s->index]->init(s->codec, s->direction, false, 0);
+                        s->state[i] = s->funcs->init(s->codec, s->direction, false, 0);
                         if(s->state[i] == NULL) {
                                         fprintf(stderr, "Error: initialization of audio codec failed!\n");
                                         return {};
@@ -302,7 +265,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
         bool out_frame_initialized = false;
         for (int i = 0; i < frame->get_channel_count(); ++i) {
                 audio_channel_demux(frame, i, &channel);
-                audio_channel *out = audio_codecs[s->index]->decompress(s->state[i], &channel);
+                audio_channel *out = s->funcs->decompress(s->state[i], &channel);
                 if (out) {
                         if (!out_frame_initialized) {
                                 ret.init(frame->get_channel_count(), AC_PCM, out->bps, out->sample_rate);
@@ -338,7 +301,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
 
 const int *audio_codec_get_supported_samplerates(struct audio_codec_state *s)
 {
-        return audio_codecs[s->index]->get_samplerates(s->state[0]);
+        return s->funcs->get_samplerates(s->state[0]);
 }
 
 void audio_codec_done(struct audio_codec_state *s)
@@ -346,7 +309,7 @@ void audio_codec_done(struct audio_codec_state *s)
         if(!s)
                 return;
         for(int i = 0; i < s->state_count; ++i) {
-                audio_codecs[s->index]->done(s->state[i]);
+                s->funcs->done(s->state[i]);
         }
         free(s->state);
 
@@ -418,12 +381,12 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg)
 
 const char *get_name_to_audio_codec(audio_codec_t codec)
 {
-        return audio_codec_info[codec].name;
+        return audio_codec_info.at(codec).name;
 }
 
 uint32_t get_audio_tag(audio_codec_t codec)
 {
-        return audio_codec_info[codec].tag;
+        return audio_codec_info.at(codec).tag;
 }
 
 audio_codec_t get_audio_codec_to_tag(uint32_t tag)

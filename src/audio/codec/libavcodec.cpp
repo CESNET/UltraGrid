@@ -43,8 +43,8 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include "audio/codec/libavcodec.h"
 #include "debug.h"
+#include "lib_common.h"
 
 #include <memory>
 
@@ -84,13 +84,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 static audio_channel *libavcodec_compress(void *, audio_channel *);
 static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
-
-static void register_module(void) __attribute__((constructor));
-
-static void register_module(void)
-{
-        register_audio_codec(&libavcodec_audio_codec);
-}
 
 static std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
         { AC_ALAW, AV_CODEC_ID_PCM_ALAW },
@@ -545,9 +538,9 @@ static void libavcodec_done(void *state)
         free(s);
 }
 
-static audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
+static const audio_codec_t supported_codecs[] = { AC_ALAW, AC_MULAW, AC_SPEEX, AC_OPUS, AC_G722, AC_FLAC, AC_MP3, AC_AAC, AC_NONE };
 
-struct audio_codec libavcodec_audio_codec = {
+static const struct audio_compress_info libavcodec_audio_codec = {
         supported_codecs,
         libavcodec_init,
         libavcodec_compress,
@@ -555,4 +548,6 @@ struct audio_codec libavcodec_audio_codec = {
         libavcodec_get_sample_rates,
         libavcodec_done
 };
+
+REGISTER_MODULE(libavcodec,  &libavcodec_audio_codec, LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
 

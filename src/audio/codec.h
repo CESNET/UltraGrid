@@ -51,13 +51,14 @@
 
 #include "audio/audio.h"
 
+#define AUDIO_COMPRESS_ABI_VERSION 2
 
 typedef enum {
         AUDIO_CODER,
         AUDIO_DECODER
 } audio_codec_direction_t;
 
-struct audio_codec {
+struct audio_compress_info {
         const audio_codec_t *supported_codecs;
         void *(*init)(audio_codec_t, audio_codec_direction_t, bool, int bitrate);
         audio_channel *(*compress)(void *, audio_channel *);
@@ -66,7 +67,6 @@ struct audio_codec {
         void (*done)(void *);
 };
 
-void register_audio_codec(struct audio_codec *);
 typedef struct {
         const char *name;
         /** @var tag
