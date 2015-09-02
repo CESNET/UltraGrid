@@ -313,25 +313,33 @@ struct host_opts {
     int64_t bitrate;
 };
 
-static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
-        struct host_opts **host_opts, int *host_opts_count, int *control_port, int *control_connection_type, bool *blend)
+struct cmdline_parameters {
+    char *bufsize;
+    unsigned short port;
+    struct host_opts *hosts;
+    int host_count;
+    int control_port = CONTROL_DEFAULT_PORT;
+    int control_connection_type = 0;
+    bool blend = false;
+};
+
+static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
 {
     int start_index = 1;
-    *blend = false;
 
     while(start_index < argc && argv[start_index][0] == '-') {
         if(strcmp(argv[start_index], "--control-port") == 0) {
             char *item = argv[++start_index];
-            *control_port = atoi(item);
-            *control_connection_type = 0;
+            parsed->control_port = atoi(item);
+            parsed->control_connection_type = 0;
             if (strchr(item, ':')) {
-                *control_connection_type = atoi(strchr(item, ':') + 1);
+                parsed->control_connection_type = atoi(strchr(item, ':') + 1);
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
             print_capabilities(CAPABILITY_COMPRESS, NULL, false);
             return false;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
-            *blend = true;
+            parsed->blend = true;
             return false;
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
@@ -348,17 +356,17 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         return false;
     }
 
-    *bufsize = argv[start_index];
-    *port = atoi(argv[start_index + 1]);
+    parsed->bufsize = argv[start_index];
+    parsed->port = atoi(argv[start_index + 1]);
 
     argv += start_index + 1;
     argc -= start_index + 1;
 
-    *host_opts_count = 0;
+    parsed->host_count = 0;
 
     for(int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
-            *host_opts_count += 1;
+            parsed->host_count += 1;
         } else {
             if(strlen(argv[i]) != 2) {
                 fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
@@ -370,16 +378,16 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                 exit(EXIT_FAIL_USAGE);
             }
 
-            *host_opts_count -= 1; // because option argument (mandatory) will be counted as a host
+            parsed->host_count -= 1; // because option argument (mandatory) will be counted as a host
                                    // in next iteration
         }
     }
 
-    *host_opts = (struct host_opts *) calloc(*host_opts_count, sizeof(struct host_opts));
+    parsed->hosts = (struct host_opts *) calloc(parsed->host_count, sizeof(struct host_opts));
     // default values
-    for(int i = 0; i < *host_opts_count; ++i) {
-        (*host_opts)[i].bitrate = RATE_UNLIMITED;
-        (*host_opts)[i].mtu = 1500;
+    for(int i = 0; i < parsed->host_count; ++i) {
+        parsed->hosts[i].bitrate = RATE_UNLIMITED;
+        parsed->hosts[i].mtu = 1500;
     }
 
     int host_idx = 0;
@@ -387,24 +395,24 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
         if (argv[i][0] == '-') {
             switch(argv[i][1]) {
                 case 'P':
-                    (*host_opts)[host_idx].port = atoi(argv[i + 1]);
+                    parsed->hosts[host_idx].port = atoi(argv[i + 1]);
                     break;
                 case 'm':
-                    (*host_opts)[host_idx].mtu = atoi(argv[i + 1]);
+                    parsed->hosts[host_idx].mtu = atoi(argv[i + 1]);
                     break;
                 case 'c':
-                    (*host_opts)[host_idx].compression = argv[i + 1];
+                    parsed->hosts[host_idx].compression = argv[i + 1];
                     break;
                 case 'f':
-                    (*host_opts)[host_idx].fec = argv[i + 1];
+                    parsed->hosts[host_idx].fec = argv[i + 1];
                     break;
                 case 'l':
                     if (strcmp(argv[i + 1], "unlimited") == 0) {
-                        (*host_opts)[host_idx].bitrate = RATE_UNLIMITED;
+                        parsed->hosts[host_idx].bitrate = RATE_UNLIMITED;
                     } else if (strcmp(argv[i + 1], "auto") == 0) {
-                        (*host_opts)[host_idx].bitrate = RATE_AUTO;
+                        parsed->hosts[host_idx].bitrate = RATE_AUTO;
                     } else {
-                        (*host_opts)[host_idx].bitrate = unit_evaluate(argv[i + 1]);
+                        parsed->hosts[host_idx].bitrate = unit_evaluate(argv[i + 1]);
                     }
                     break;
                 default:
@@ -413,7 +421,7 @@ static bool parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
             }
             i += 1;
         } else {
-            (*host_opts)[host_idx].addr = argv[i];
+            parsed->hosts[host_idx].addr = argv[i];
             host_idx += 1;
         }
     }
@@ -425,19 +433,14 @@ int main(int argc, char **argv)
 {
     struct hd_rum_translator_state state;
 
-    unsigned short port;
     int qsize;
     int bufsize;
-    char *bufsize_str;
     socket_udp *sock_in;
     pthread_t thread;
     int err = 0;
     int i;
-    struct host_opts *hosts;
-    int host_count;
-    int control_port = CONTROL_DEFAULT_PORT;
-    int control_connection_type = 0;
-    bool blend;
+    struct cmdline_parameters params;
+
 #ifdef WIN32
     WSADATA wsaData;
 
@@ -481,18 +484,17 @@ int main(int argc, char **argv)
     signal(SIGABRT, signal_handler);
 #endif
 
-    bool ret = parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port,
-            &control_connection_type, &blend);
+    bool ret = parse_fmt(argc, argv, &params);
 
     if (ret == false) {
         return EXIT_SUCCESS;
     }
 
-    if ((bufsize = atoi(bufsize_str)) <= 0) {
+    if ((bufsize = atoi(params.bufsize)) <= 0) {
         fprintf(stderr, "invalid buffer size: %d\n", bufsize);
         return 1;
     }
-    switch (bufsize_str[strlen(bufsize_str) - 1]) {
+    switch (params.bufsize[strlen(params.bufsize) - 1]) {
     case 'K':
     case 'k':
         bufsize *= 1024;
@@ -508,15 +510,15 @@ int main(int argc, char **argv)
 
     printf("using UDP send and receive buffer size of %d bytes\n", bufsize);
 
-    if (port <= 0) {
-        fprintf(stderr, "invalid port: %d\n", port);
+    if (params.port <= 0) {
+        fprintf(stderr, "invalid port: %d\n", params.port);
         return 1;
     }
 
     state.qhead = state.qtail = state.queue = qinit(qsize);
 
     /* input socket */
-    if ((sock_in = udp_init_if("::1", NULL, port, 0, 255, false, false)) == NULL) {
+    if ((sock_in = udp_init_if("::1", NULL, params.port, 0, 255, false, false)) == NULL) {
         perror("input socket");
         return 2;
     }
@@ -525,60 +527,60 @@ int main(int argc, char **argv)
         fprintf(stderr, "Cannot set recv buffer!\n");
     }
 
-    printf("listening on *:%d\n", port);
+    printf("listening on *:%d\n", params.port);
 
-    state.replicas.resize(host_count);
+    state.replicas.resize(params.host_count);
     for (auto && rep : state.replicas) {
         rep = new replica();
     }
 
-    if(control_init(control_port, control_connection_type, &state.control_state, &state.mod) != 0) {
+    if(control_init(params.control_port, params.control_connection_type, &state.control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
         return EXIT_FAILURE;
     }
     control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod, blend);
+    state.decompress = hd_rum_decompress_init(&state.mod, params.blend);
     if(!state.decompress) {
         return EXIT_FAIL_DECODER;
     }
 
-    for (i = 0; i < host_count; i++) {
+    for (i = 0; i < params.host_count; i++) {
         int packet_rate;
-        if (hosts[i].bitrate != RATE_AUTO && hosts[i].bitrate != RATE_UNLIMITED) {
-                packet_rate = compute_packet_rate(hosts[i].bitrate, hosts[i].mtu);
+        if (params.hosts[i].bitrate != RATE_AUTO && params.hosts[i].bitrate != RATE_UNLIMITED) {
+                packet_rate = compute_packet_rate(params.hosts[i].bitrate, params.hosts[i].mtu);
         } else {
-                packet_rate = hosts[i].bitrate;
+                packet_rate = params.hosts[i].bitrate;
         }
 
-        int tx_port = port;
-        if(hosts[i].port) {
-            tx_port = hosts[i].port;
+        int tx_port = params.port;
+        if(params.hosts[i].port) {
+            tx_port = params.hosts[i].port;
         }
 
-        if (!replica_init(state.replicas[i], hosts[i].addr, tx_port, bufsize, &state.mod)) {
+        if (!replica_init(state.replicas[i], params.hosts[i].addr, tx_port, bufsize, &state.mod)) {
                 return EXIT_FAILURE;
         }
 
-        if(hosts[i].compression == NULL) {
+        if(params.hosts[i].compression == NULL) {
             state.replicas[i]->type = replica::type_t::USE_SOCK;
             char compress[] = "none";
             char *fec = NULL;
             state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
-                    hosts[i].addr, compress,
-                    0, tx_port, hosts[i].mtu, fec, packet_rate);
+                    params.hosts[i].addr, compress,
+                    0, tx_port, params.hosts[i].mtu, fec, packet_rate);
             hd_rum_decompress_append_port(state.decompress, state.replicas[i]->recompress);
             hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, false);
         } else {
             state.replicas[i]->type = replica::type_t::RECOMPRESS;
 
             state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
-                    hosts[i].addr, hosts[i].compression,
-                    0, tx_port, hosts[i].mtu, hosts[i].fec, packet_rate);
+                    params.hosts[i].addr, params.hosts[i].compression,
+                    0, tx_port, params.hosts[i].mtu, params.hosts[i].fec, packet_rate);
             if(state.replicas[i]->recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
-                        hosts[i].addr);
+                        params.hosts[i].addr);
                 return EXIT_FAILURE;
             }
             // we don't care about this clients, we only tell decompressor to
