@@ -172,13 +172,11 @@ void audio_frame2::resize(int channel, size_t length)
 }
 
 /**
- * Removes all data from audio_frame2. It is equivalent to call of audio_frame2::init with current frame
- * parameters.
+ * Removes all data from audio_frame2.
  */
 void audio_frame2::reset()
 {
         for (size_t i = 0; i < channels.size(); i++) {
-                channels[i].data = unique_ptr<char []>(new char[0]);
                 channels[i].len = 0;
         }
         duration = 0.0;
