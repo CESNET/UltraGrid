@@ -415,12 +415,22 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 } else {
                         yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
                 }
-        } else if(is444(av_codec) && out_codec == UYVY) {
-                yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
-        } else if (av_codec == AV_PIX_FMT_RGB24 && out_codec == RGB) {
-                for (int y = 0; y < height; ++y) {
-                        memcpy(dst + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                        vc_get_linesize(width, RGB));
+        } else if (is444(av_codec)) {
+                if (out_codec == UYVY) {
+                        yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "For yuv444p, there is transcoding to UYVY only!\n");
+                        return FALSE;
+                }
+        } else if (av_codec == AV_PIX_FMT_RGB24) {
+                if (out_codec == RGB) {
+                        for (int y = 0; y < height; ++y) {
+                                memcpy(dst + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                                vc_get_linesize(width, RGB));
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "For RGB24, there is transcoding to RGB only!\n");
+                        return FALSE;
                 }
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
