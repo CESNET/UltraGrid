@@ -293,6 +293,7 @@ static void usage(const char *progname) {
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
+                "\t\t--capture-filter - apply video capture filter to incoming video\n"
                 "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
@@ -314,15 +315,20 @@ struct host_opts {
 };
 
 struct cmdline_parameters {
-    char *bufsize;
+    const char *bufsize;
     unsigned short port;
     struct host_opts *hosts;
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
     bool blend = false;
+    const char *capture_filter = NULL;
 };
 
+/**
+ * @todo
+ * Use rather getopt() than manual parsing.
+ */
 static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
 {
     int start_index = 1;
@@ -340,7 +346,8 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             return false;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
             parsed->blend = true;
-            return false;
+        } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
+            parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
             return false;
@@ -541,7 +548,7 @@ int main(int argc, char **argv)
     control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod, params.blend);
+    state.decompress = hd_rum_decompress_init(&state.mod, params.blend, params.capture_filter);
     if(!state.decompress) {
         return EXIT_FAIL_DECODER;
     }

@@ -16,6 +16,7 @@
 #include <thread>
 #include <vector>
 
+#include "capture_filter.h"
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
@@ -72,16 +73,27 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         void worker();
 
         thread             display_thread;
+
+        struct capture_filter *capture_filter_state;
 };
 
 void state_transcoder_decompress::frame_arrived(struct video_frame *f)
 {
+        auto deleter = vf_free;
+        // apply capture filter
+        if (f) {
+                f = capture_filter(capture_filter_state, f);
+        }
+        if (f && f->dispose) {
+                deleter = f->dispose;
+        }
+
         unique_lock<mutex> l(lock);
         if (received_frame.size() >= MAX_QUEUE_SIZE) {
                 fprintf(stderr, "Hd-rum-decompress max queue size (%d) reached!\n", MAX_QUEUE_SIZE);
         }
         frame_consumed_cv.wait(l, [this]{ return received_frame.size() < MAX_QUEUE_SIZE; });
-        received_frame.push(shared_ptr<video_frame>(f, vf_free));
+        received_frame.push(shared_ptr<video_frame>(f, deleter));
         l.unlock();
         have_frame_cv.notify_one();
 }
@@ -170,7 +182,7 @@ void state_transcoder_decompress::worker()
         }
 }
 
-void *hd_rum_decompress_init(struct module *parent, bool blend)
+void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capture_filter)
 {
         struct state_transcoder_decompress *s;
         bool use_ipv6 = false;
@@ -222,6 +234,11 @@ void *hd_rum_decompress_init(struct module *parent, bool blend)
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
         s->display_thread = thread(display_run, s->display);
 
+        if (capture_filter_init(parent, capture_filter, &s->capture_filter_state) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter!\n");
+                return nullptr;
+        }
+
         return (void *) s;
 }
 
@@ -252,6 +269,7 @@ void hd_rum_decompress_done(void *state) {
         delete s->video_rxtx;
 
         display_done(s->display);
+        capture_filter_destroy(s->capture_filter_state);
 
         delete s;
 }
