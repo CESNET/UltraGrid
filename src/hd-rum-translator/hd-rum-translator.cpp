@@ -303,6 +303,10 @@ static void usage(const char *progname) {
                 "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
               );
+        printf("\tPlease note that blending and capture filter is used only for host for which\n"
+               "\tcompression is specified (transcoding is active). If compression is not\n"
+               "\tset, simple packet retransmission is used. Compression can be also 'none'\n"
+               "\tfor uncompressed transmission (see 'uv -c help' for list).\n");
 }
 
 struct host_opts {
