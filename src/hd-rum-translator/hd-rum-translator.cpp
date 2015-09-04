@@ -293,7 +293,7 @@ static void usage(const char *progname) {
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
-                "\t\t--capture-filter - apply video capture filter to incoming video\n"
+                "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
                 "\t\t--help\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
