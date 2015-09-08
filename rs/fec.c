@@ -169,7 +169,7 @@ generate_gf (void) {
 
 #define UNROLL 16               /* 1, 4, 8, 16 */
 static void
-_addmul1(register gf*restrict dst, const register gf*restrict src, gf c, size_t sz) {
+_addmul1(gf*restrict dst, const gf*restrict src, gf c, size_t sz) {
     USE_GF_MULC;
     const gf* lim = &dst[sz - UNROLL + 1];
 
@@ -440,7 +440,7 @@ fec_new(unsigned short k, unsigned short n) {
     tmp_m[0] = 1;
     for (col = 1; col < k; col++)
         tmp_m[col] = 0;
-    for (p = tmp_m + k, row = 0; row < n - 1; row++, p += k)
+    for (p = tmp_m + k, row = 0; row < (unsigned) n - 1; row++, p += k)
         for (col = 0; col < k; col++)
             p[col] = gf_exp[modnn (row * col)];
 
