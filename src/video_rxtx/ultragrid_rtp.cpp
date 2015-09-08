@@ -330,8 +330,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         }
 #endif // SHARED_DECODER
 
-        initialize_video_decompress();
-
         fr = 1;
 
         while (!should_exit_receiver) {

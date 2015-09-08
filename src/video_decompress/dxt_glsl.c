@@ -60,7 +60,7 @@
 #include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "video_decompress/dxt_glsl.h"
+#include "lib_common.h"
 
 #include "gl_context.h"
 
@@ -112,7 +112,7 @@ static void configure_with(struct state_decompress_rtdxt *decompressor, struct v
         decompressor->configured = TRUE;
 }
 
-void * dxt_glsl_decompress_init(void)
+static void * dxt_glsl_decompress_init(void)
 {
         struct state_decompress_rtdxt *s;
         
@@ -122,7 +122,7 @@ void * dxt_glsl_decompress_init(void)
         return s;
 }
 
-int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, 
+static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
@@ -146,7 +146,7 @@ int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
         return TRUE;
 }
 
-int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
@@ -198,7 +198,7 @@ int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         return TRUE;
 }
 
-int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(s);
@@ -219,7 +219,7 @@ int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_
         return ret;
 }
 
-void dxt_glsl_decompress_done(void *state)
+static void dxt_glsl_decompress_done(void *state)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         
@@ -231,4 +231,25 @@ void dxt_glsl_decompress_done(void *state)
         }
         free(s);
 }
+
+static const struct decode_from_to dxt_glsl_decoders[] = {
+        { DXT1, RGBA, 500 },
+        { DXT1_YUV, RGBA, 500 },
+        { DXT5, RGBA, 500 },
+        { DXT1, UYVY, 500 },
+        { DXT1_YUV, UYVY, 500 },
+        { DXT5, UYVY, 500 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+};
+
+static const struct video_decompress_info dxt_glsl_info = {
+        dxt_glsl_decompress_init,
+        dxt_glsl_decompress_reconfigure,
+        dxt_glsl_decompress,
+        dxt_glsl_decompress_get_property,
+        dxt_glsl_decompress_done,
+        dxt_glsl_decoders,
+};
+
+REGISTER_MODULE(dxt_glsl, &dxt_glsl_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 

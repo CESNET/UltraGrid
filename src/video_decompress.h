@@ -50,6 +50,8 @@
  *
  */
 
+#define VIDEO_DECOMPRESS_ABI_VERSION 4
+
 /**
  * @defgroup video_decompress Video Decompress
  * @{
@@ -130,19 +132,23 @@ struct decode_from_to {
         codec_t from; ///< input (compressed) codec
         codec_t to;   ///< output pixelformat
 
-        uint32_t decompress_index; ///< unique identifier of decompress module
         /** Priority to select this decoder if there are multiple matches for
          * specified compress/pixelformat pair.
          * Range is [0..1000], lower is better.
          */
         int priority;
 };
-extern struct decode_from_to decoders_for_codec[];
-extern const int decoders_for_codec_count;
 
-void initialize_video_decompress(void);
-int decompress_is_available(unsigned int decoder_index);
-struct state_decompress *decompress_init(unsigned int magic);
+struct video_decompress_info {
+        decompress_init_t init;
+        decompress_reconfigure_t reconfigure;
+        decompress_decompress_t decompress;
+        decompress_get_property_t get_property;
+        decompress_done_t done;
+        const struct decode_from_to *available_decoders;
+};
+
+bool decompress_init_multi(codec_t from, codec_t to, struct state_decompress **out, int count);
 int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
 int decompress_frame(struct state_decompress *, unsigned char *dst,
                 unsigned char *src, unsigned int src_len, int frame_seq);

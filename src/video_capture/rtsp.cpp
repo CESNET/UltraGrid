@@ -62,7 +62,6 @@
 #include "rtsp/rtsp_utils.h"
 
 #include "video_decompress.h"
-#include "video_decompress/libavcodec.h"
 
 #include "pdb.h"
 #include "rtp/pbuf.h"
@@ -891,11 +890,8 @@ init_decompressor(void *state) {
 
     sr->sd = (struct state_decompress *) calloc(2,
         sizeof(struct state_decompress *));
-    initialize_video_decompress();
 
-    if (decompress_is_available(LIBAVCODEC_MAGIC)) {
-        sr->sd = decompress_init(LIBAVCODEC_MAGIC);
-
+    if (decompress_init_multi(H264, UYVY, &sr->sd, 1)) {
         sr->des.width = sr->frame->h264_width;
         sr->des.height = sr->frame->h264_height;
         sr->des.color_spec = sr->frame->color_spec;

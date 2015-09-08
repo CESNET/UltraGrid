@@ -42,11 +42,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_decompress/libavcodec.h"
-
 #include "debug.h"
 #include "host.h"
 #include "libavcodec_common.h"
+#include "lib_common.h"
 #include "utils/resource_manager.h"
 #include "video.h"
 #include "video_decompress.h"
@@ -200,7 +199,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         return true;
 }
 
-void * libavcodec_decompress_init(void)
+static void * libavcodec_decompress_init(void)
 {
         struct state_libavcodec_decompress *s;
         
@@ -228,7 +227,7 @@ void * libavcodec_decompress_init(void)
         return s;
 }
 
-int libavcodec_decompress_reconfigure(void *state, struct video_desc desc, 
+static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_libavcodec_decompress *s =
@@ -450,7 +449,7 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
 }
 
 
-int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
+static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
@@ -539,7 +538,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
         return res;
 }
 
-int libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_libavcodec_decompress *s =
                 (struct state_libavcodec_decompress *) state;
@@ -565,7 +564,7 @@ int libavcodec_decompress_get_property(void *state, int property, void *val, siz
         return ret;
 }
 
-void libavcodec_decompress_done(void *state)
+static void libavcodec_decompress_done(void *state)
 {
         struct state_libavcodec_decompress *s =
                 (struct state_libavcodec_decompress *) state;
@@ -576,4 +575,25 @@ void libavcodec_decompress_done(void *state)
 
         free(s);
 }
+
+static const struct decode_from_to libavcodec_decoders[] = {
+        { H264, UYVY, 500 },
+        { H265, UYVY, 500 },
+        { JPEG, UYVY, 600 },
+        { MJPG, UYVY, 500 },
+        { J2K, RGB, 500 },
+        { VP8, UYVY, 500 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+};
+
+static const struct video_decompress_info libavcodec_info = {
+        libavcodec_decompress_init,
+        libavcodec_decompress_reconfigure,
+        libavcodec_decompress,
+        libavcodec_decompress_get_property,
+        libavcodec_decompress_done,
+        libavcodec_decoders,
+};
+
+REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 

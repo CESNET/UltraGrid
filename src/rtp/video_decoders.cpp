@@ -863,111 +863,6 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
 }
 
 /**
- * Attemps to initialize decompress of given magic
- *
- * @param[in]  magic      magic of the requested decompressor
- * @param[out] decompress_state decoder state
- * @param[in]  substreams number of decoders to be created
- * @return     true if initialization succeeded
- */
-static bool try_initialize_decompress(uint32_t magic,
-                struct state_decompress **decompress_state, int substreams)
-{
-        for(int i = 0; i < substreams; ++i) {
-                decompress_state[i] = decompress_init(magic);
-
-                if(!decompress_state[i]) {
-                        debug_msg("Decompressor with magic %x was not found.\n");
-                        for(int j = 0; j < substreams; ++j) {
-                                if (decompress_state[i] != NULL)
-                                        decompress_done(decompress_state[i]);
-                                decompress_state[i] = NULL;
-                        }
-                        return false;
-                }
-        }
-
-        return true;
-}
-
-/**
- * @param[in] in_codec input codec
- * @param[in] out_codec output codec
- * @param[in] prio_min minimal priority that can be probed
- * @param[in] prio_max maximal priority that can be probed
- * @param[out] magic if decompressor was found here is stored its magic
- * @retval -1       if no found
- * @retval priority best decoder's priority
- */
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic) {
-        int trans;
-        int best_priority = prio_max + 1;
-        // first pass - find the one with best priority (least)
-        for(trans = 0; trans < decoders_for_codec_count;
-                        ++trans) {
-                if(in_codec == decoders_for_codec[trans].from &&
-                                out_codec == decoders_for_codec[trans].to) {
-                        int priority = decoders_for_codec[trans].priority;
-                        if(priority <= prio_max &&
-                                        priority >= prio_min &&
-                                        priority < best_priority) {
-                                if(decompress_is_available(
-                                                        decoders_for_codec[trans].decompress_index)) {
-                                        best_priority = priority;
-                                        *magic = decoders_for_codec[trans].decompress_index;
-                                }
-                        }
-                }
-        }
-
-        if(best_priority == prio_max + 1)
-                return -1;
-        return best_priority;
-}
-
-/**
- * @brief Finds (best) decompress module for specified compression.
- *
- * If more than one decompress module is available, load the one with highest priority.
- *
- * @param[in] in_codec    source compression
- * @param[in] out_codec   requested destination pixelformat
- * @param[out] state      pointer (array) to be filled with state_count instances of decompressor
- * @param[in] state_count number of decompress states to be created.
- * This is important mainly for interlrame compressions which keeps internal state between individual
- * frames. Different tiles need to have different states then.
- * @retval true           if state_count members of state is filled with valid decompressor
- * @retval false          if initialization failed
- */
-bool init_decompress(codec_t in_codec, codec_t out_codec,
-                struct state_decompress **state, int state_count)
-{
-        int prio_max = 1000;
-        int prio_min = 0;
-        int prio_cur;
-        uint32_t decompress_magic = 0u;
-
-        while(1) {
-                prio_cur = find_best_decompress(in_codec, out_codec,
-                                prio_min, prio_max, &decompress_magic);
-                // if found, init decoder
-                if(prio_cur != -1) {
-                        if(try_initialize_decompress(decompress_magic, state, state_count)) {
-                                return true;
-                        } else {
-                                // failed, try to find another one
-                                prio_min = prio_cur + 1;
-                                continue;
-                        }
-                } else {
-                        break;
-                }
-        }
-        return false;
-}
-
-/**
  * This function selects, according to given video description, appropriate
  *
  * @param[in]  decoder     decoder to be taken parameters from (video mode, native codecs etc.)
@@ -1041,7 +936,7 @@ after_linedecoder_lookup:
                         out_codec = decoder->native_codecs[native];
                         decoder->decompress_state = (struct state_decompress **)
                                 calloc(decoder->max_substreams, sizeof(struct state_decompress *));
-                        if(init_decompress(desc.color_spec, decoder->native_codecs[native],
+                        if (decompress_init_multi(desc.color_spec, decoder->native_codecs[native],
                                                 decoder->decompress_state,
                                                 decoder->max_substreams)) {
                                 int res = 0, ret;

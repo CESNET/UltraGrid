@@ -41,7 +41,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_decompress/jpeg_to_dxt.h"
 #include "cuda_dxt/cuda_dxt.h"
 
 #include <pthread.h>
@@ -50,11 +49,11 @@
 #include "libgpujpeg/gpujpeg_decoder.h"
 
 #include "debug.h"
+#include "lib_common.h"
 #include "host.h"
 #include "utils/synchronized_queue.h"
 #include "video.h"
 #include "video_decompress.h"
-#include "video_decompress/jpeg.h"
 
 namespace {
 
@@ -359,4 +358,22 @@ void jpeg_to_dxt_decompress_done(void *state)
 
         delete s;
 }
+
+static const struct decode_from_to jpeg_to_dxt_decoders[] = {
+        { JPEG, DXT1, 900 },
+        { JPEG, DXT5, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+};
+
+static const struct video_decompress_info jpeg_to_dxt_info = {
+        jpeg_to_dxt_decompress_init,
+        jpeg_to_dxt_decompress_reconfigure,
+        jpeg_to_dxt_decompress,
+        jpeg_to_dxt_decompress_get_property,
+        jpeg_to_dxt_decompress_done,
+        jpeg_to_dxt_decoders,
+};
+
+REGISTER_MODULE(jpeg_to_dxt, &jpeg_to_dxt_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
+
 

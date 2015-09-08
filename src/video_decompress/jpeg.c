@@ -59,7 +59,7 @@
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "video_decompress/jpeg.h"
+#include "lib_common.h"
 
 struct state_decompress_jpeg {
         struct gpujpeg_decoder *decoder;
@@ -91,7 +91,7 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
         return TRUE;
 }
 
-void * jpeg_decompress_init(void)
+static void * jpeg_decompress_init(void)
 {
         struct state_decompress_jpeg *s;
 
@@ -113,7 +113,7 @@ void * jpeg_decompress_init(void)
         return s;
 }
 
-int jpeg_decompress_reconfigure(void *state, struct video_desc desc, 
+static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
@@ -140,7 +140,7 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
-int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
         UNUSED(frame_seq);
@@ -197,7 +197,7 @@ int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         return TRUE;
 }
 
-int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         UNUSED(s);
@@ -218,7 +218,7 @@ int jpeg_decompress_get_property(void *state, int property, void *val, size_t *l
         return ret;
 }
 
-void jpeg_decompress_done(void *state)
+static void jpeg_decompress_done(void *state)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
 
@@ -227,3 +227,21 @@ void jpeg_decompress_done(void *state)
         }
         free(s);
 }
+
+static const struct decode_from_to jpeg_decoders[] = {
+        { JPEG, RGB, 500 },
+        { JPEG, UYVY, 500 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+};
+
+static const struct video_decompress_info jpeg_info = {
+        jpeg_decompress_init,
+        jpeg_decompress_reconfigure,
+        jpeg_decompress,
+        jpeg_decompress_get_property,
+        jpeg_decompress_done,
+        jpeg_decoders,
+};
+
+REGISTER_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
+

@@ -70,6 +70,7 @@ const map<enum library_class, library_class_info_t> library_class_info = {
         { LIBRARY_CLASS_VIDEO_CAPTURE, { "Video capture device", "vidcap" }},
         { LIBRARY_CLASS_VIDEO_DISPLAY, { "Video display device", "display" }},
         { LIBRARY_CLASS_AUDIO_COMPRESS, { "Audio compression", "acompress" }},
+        { LIBRARY_CLASS_VIDEO_DECOMPRESS, { "Video decompression", "vdecompress" }},
 };
 
 static map<string, string> lib_errors;

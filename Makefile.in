@@ -138,7 +138,6 @@ OBJS	      = @OBJS@ \
 		src/video_compress.o \
 		src/video_compress/none.o \
 		src/video_decompress.o \
-		src/video_decompress/null.o \
 		src/video_display.o \
 		src/video_display/aggregate.o \
 		src/video_display/dummy.o \
@@ -609,7 +608,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_libavcodec.so.@video_compress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
 
 @LIBAVCODEC_DECOMPRESS_LIB_TARGET@: @LIBAVCODEC_DECOMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_libavcodec.so.@video_decompress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_libavcodec.so $^ @LIBAVCODEC_LIBS@ -o $@
 
 @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@: @LIBAVCODEC_AUDIO_CODEC_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acompress.so $^ @LIBAVCODEC_LIBS@ -o $@
@@ -621,13 +620,13 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
 
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_rtdxt.so  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
 @JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_jpeg.so $^ @JPEG_LIB@ -o $@
 
 @JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @CUDA_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_jpeg_to_dxt.so $^ @JPEG_TO_DXT_LIB@ -o $@
 
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@

@@ -73,6 +73,7 @@ enum library_class {
         LIBRARY_CLASS_VIDEO_CAPTURE,
         LIBRARY_CLASS_VIDEO_DISPLAY,
         LIBRARY_CLASS_AUDIO_COMPRESS,
+        LIBRARY_CLASS_VIDEO_DECOMPRESS,
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
