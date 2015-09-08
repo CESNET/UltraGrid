@@ -230,7 +230,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                         m_network_devices = old_devices;
                                         m_recv_port_number = old_port;
                                 } else {
-                                        destroy_rtp_devices(m_network_devices);
+                                        destroy_rtp_devices(old_devices);
                                 }
                                 break;
                         }
