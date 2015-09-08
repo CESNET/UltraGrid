@@ -890,7 +890,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
-        log_msg(LOG_LEVEL_VERBOSE, "[lavc] Compressed frame size: %d\n", out->tiles[0].data_len);
+        log_msg(LOG_LEVEL_DEBUG, "[lavc] Compressed frame size: %d\n", out->tiles[0].data_len);
 
         return out;
 }
