@@ -203,6 +203,8 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
                 }
         }
 
+        // Library was not found or was not loaded due to unsatisfied
+        // dependencies. If the latter one, display reason why dlopen() failed.
         if (library_class_info.find(cls) != library_class_info.end()) {
                 string filename = "module_";
                 if (strlen(library_class_info.at(cls).file_prefix) > 0) {
@@ -211,7 +213,6 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
                 }
 
                 filename += name + string(".so");
-                cout << filename;
 
                 if (lib_errors.find(filename) != lib_errors.end()) {
                         LOG(LOG_LEVEL_WARNING) << filename << ": " << lib_errors.find(filename)->second << "\n";
