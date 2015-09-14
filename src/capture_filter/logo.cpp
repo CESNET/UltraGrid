@@ -163,7 +163,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 goto error;
         }
 
-        if ((item = strtok_r(tmp, ":", &save_ptr))) {
+        if ((item = strtok_r(NULL, ":", &save_ptr))) {
                 s->x = atoi(item);
                 if ((item = strtok_r(NULL, ":", &save_ptr))) {
                         s->y = atoi(item);
@@ -191,7 +191,6 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_capture_filter_logo *s = (struct state_capture_filter_logo *)
                 state;
-        int linesize = s->width * 3;
         decoder_t decoder, coder;
         decoder = get_decoder_from_to(in->color_spec, RGB, true);
         coder = get_decoder_from_to(RGB, in->color_spec, true);
@@ -215,7 +214,11 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (rect_x < 0 || rect_y < 0)
                 return in;
 
-        unsigned char *segment = (unsigned char *) malloc(s->width * s->height * 3);
+        int dec_width = s->width;
+        dec_width = (dec_width  + 1) / get_pf_block_size(in->color_spec) * get_pf_block_size(in->color_spec);
+        int linesize = dec_width * 3;
+
+        unsigned char *segment = (unsigned char *) malloc(linesize * s->height);
 
         for (unsigned int y = 0; y < s->height; ++y) {
                 decoder(segment + y * linesize, (unsigned char *) in->tiles[0].data + (y + rect_y) *
@@ -224,9 +227,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 0, 8, 16);
         }
 
-        unsigned char *image_data = segment;
         const unsigned char *overlay_data = s->logo.get();
         for (unsigned int y = 0; y < s->height; ++y) {
+                unsigned char *image_data = segment + y * linesize;
                 for (unsigned int x = 0; x < s->width; ++x) {
                         int alpha = overlay_data[3];
                         for (int i = 0; i < 3; ++i) {
