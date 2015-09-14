@@ -869,6 +869,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
           return NULL;
           }*/
 
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
+                                               // 4 bytes which won't work on row-unaligned RGB
+
         return true;
 }
 
