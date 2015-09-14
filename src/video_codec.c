@@ -117,7 +117,7 @@ static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
                 0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, NULL},
         [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
-                to_fourcc('R','G','B','A'), 2, 4.0, 8, 4, TRUE, FALSE, FALSE, "rgba"},
+                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, "rgba"},
         [UYVY] = {"UYVY", "YUV 4:2:2",
                 to_fourcc('U','Y','V','Y'), 2, 2, 8, 4, FALSE, FALSE, FALSE, "yuv"},
         [YUYV] = {"YUYV", "YUV 4:2:2",
@@ -908,7 +908,7 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
         if (rshift == 0 && gshift == 8 && bshift == 16) {
                 memcpy(dst, src, dst_len);
         } else {
-                while(dst_len > 0) {
+                while (dst_len >= 3) {
                         r = *src++;
                         g = *src++;
                         b = *src++;
@@ -925,23 +925,12 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  * @brief Converts from RGBA to RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
-        assert(rshift == 0 && gshift == 8 && bshift == 16);
-
-	register const uint32_t * src = (const uint32_t *)(const void *) src2;
-	register uint32_t * dst = (uint32_t *)(void *) dst2;
-        while(dst_len > 0) {
-		register uint32_t in1 = *src++;
-		register uint32_t in2 = *src++;
-		register uint32_t in3 = *src++;
-		register uint32_t in4 = *src++;
-		*dst++ = ((in2 & 0xff) << 24) | (in1 & 0xffffff);
-		*dst++ = ((in3 & 0xffff) << 16) |  ((in2 & 0xffff00) >> 8);
-		*dst++ = ((in4 & 0xffffff) << 8) | ((in3 & 0xff0000) >> 16) ;
-
-                dst_len -= 12;
-        }
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
 }
 
 /**
@@ -952,7 +941,7 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
 {
 	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
-        while(dst_len > 0) {
+        while (dst_len >= 12) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
 		register uint32_t in3 = *src++;
@@ -973,6 +962,16 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
 
                 dst_len -= 12;
         }
+
+        uint8_t *dst_c = (uint8_t *) dst;
+        while (dst_len >= 4) {
+		register uint32_t in = *src++;
+                *dst_c++ = (in >> rshift) & 0xff;
+                *dst_c++ = (in >> gshift) & 0xff;
+                *dst_c++ = (in >> bshift) & 0xff;
+
+                dst_len -= 4;
+        }
 }
 
 /**
@@ -983,31 +982,11 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
  */
 void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
-        assert(rshift == 0 && gshift == 8 && bshift == 16);
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
 
-	register const uint32_t * src = (const uint32_t *)(const void *) src2;
-	register uint32_t * dst = (uint32_t *)(void *) dst2;
-        while(dst_len > 0) {
-		register uint32_t in1 = *src++;
-		register uint32_t in2 = *src++;
-		register uint32_t in3 = *src++;
-		register uint32_t in4 = *src++;
-
-                *dst++ = (in2 & 0xff0000) << 8 |
-                        (in1 & 0xff) << 16 |
-                        (in1 & 0xff00) |
-                        (in1 & 0xff0000) >> 16;
-                *dst++ = (in3 & 0xff00) << 16 |
-                        (in3 & 0xff0000) |
-                        (in2 & 0xff) << 8 |
-                        (in2 & 0xff00) >> 8;
-                *dst++  = (in4 & 0xff) << 24 |
-                        (in4 & 0xff00) << 8 |
-                        (in4 & 0xff0000) >> 8 |
-                        (in3 & 0xff);
-
-                dst_len -= 12;
-        }
+        vc_copylineRGBAtoRGBwithShift(dst2, src2, dst_len, 16, 8, 0);
 }
 
 /**
@@ -1018,7 +997,7 @@ void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len
 {
 	register const uint32_t * in = (const uint32_t *)(const void *) src;
 	register uint32_t * out = (uint32_t *)(void *) dst;
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
 		register uint32_t in_val = *in++;
 
                 *out++ = ((in_val >> src_rshift) & 0xff) |
@@ -1038,7 +1017,7 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
         
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
                 r = *src++;
                 g = *src++;
                 b = *src++;
@@ -1061,7 +1040,7 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
         register int y1, y2, u ,v;
         register uint32_t *d = (uint32_t *)(void *) dst;
 
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
                 r = *(src + rshift);
                 g = *(src + gshift);
                 b = *(src + bshift);
@@ -1100,7 +1079,7 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
         register int y1, y2, u ,v;
         register uint32_t *d = (uint32_t *)(void *) dst;
 
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
                 r = *(src + rshift);
                 g = *(src + gshift);
                 b = *(src + bshift);
@@ -1133,7 +1112,7 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
  * @todo make it faster if needed
  */
 void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
                 register int y1, y2, u ,v;
                 u = *src++;
                 y1 = *src++;
@@ -1186,24 +1165,11 @@ void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst
  */
 void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
-        register int r, g, b;
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
 
-        assert((rshift == 0 && gshift == 8 && bshift == 16) ||
-                        (rshift == 16 && gshift == 8 && bshift == 0));
-
-        if (rshift == 16 && gshift == 8 && bshift == 0) {
-                memcpy(dst, src, dst_len);
-        } else {
-                while(dst_len > 0) {
-                        b = *src++;
-                        g = *src++;
-                        r = *src++;
-                        *dst++ = r;
-                        *dst++ = g;
-                        *dst++ = b;
-                        dst_len -= 3;
-                }
-        }
+        vc_copylineRGB(dst, src, dst_len, 16, 8, 0);
 }
 
 /**
@@ -1218,7 +1184,7 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r,g,b;
 
-        while(dst_len > 0) {
+        while (dst_len >= 4) {
                 register unsigned int val = *in;
                 r = val >> 24;
                 g = 0xff & (val >> 14);
@@ -1242,7 +1208,7 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
        
-        while(dst_len > 0) {
+        while (dst_len >= 12) {
                 register unsigned int val;
                 
                 val = *in++;
@@ -1272,6 +1238,10 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
                 *out++ = b1 | r2 << 8 | g2 << 16 | b2 << 24;
                 
                 dst_len -= 12;
+        }
+        if (dst_len != 0) {
+                /// @todo
+                log_msg(LOG_LEVEL_WARNING, "TODO: incomplete %s implementation!\n", __func__);
         }
 }
 
