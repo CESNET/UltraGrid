@@ -45,6 +45,7 @@ void *recompress_init(struct module *parent,
         params["exporter"].ptr = NULL;
         params["compression"].ptr = (void *) compress;
         params["rxtx_mode"].i = MODE_SENDER;
+        params["paused"].b = false;
 
         //RTP
         params["mtu"].i = mtu;

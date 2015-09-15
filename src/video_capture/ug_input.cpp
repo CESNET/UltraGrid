@@ -102,6 +102,7 @@ static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
         params["exporter"].ptr = NULL;
         params["compression"].ptr = (void *) "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
+        params["paused"].i = false;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
@@ -117,6 +118,8 @@ static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = 0;
+        auto start_time = std::chrono::steady_clock::now();
+        params["start_time"].ptr = (void *) &start_time;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;
