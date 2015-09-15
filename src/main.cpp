@@ -1192,8 +1192,17 @@ int main(int argc, char *argv[])
 
                 audio_start(uv->audio);
 
+                // This has to be run after start of capture thread since it may request
+                // captured video format information.
+                if (print_capabilities_req) {
+                        print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS, &root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
+                        exit_uv(EXIT_SUCCESS);
+                        goto cleanup;
+                }
+
                 if (strcmp("none", requested_display) != 0)
                         display_run(uv->display_device);
+
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());
@@ -1205,11 +1214,6 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_FAILURE);
         } catch (int i) {
                 exit_uv(i);
-        }
-
-        if (print_capabilities_req) {
-                print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS, &root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
-                exit_uv(EXIT_SUCCESS);
         }
 
 cleanup:
