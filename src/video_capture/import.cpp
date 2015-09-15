@@ -772,6 +772,7 @@ static void * control_thread(void *args)
         rc = bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
         if (rc != 0) {
                 perror("Video import: unable to bind communication pipe");
+                return NULL;
         }
         listen(fd, MAX_CLIENTS);
         struct sockaddr_storage client_addr;
@@ -791,6 +792,7 @@ static void * control_thread(void *args)
                 clients->next = NULL;
         } else {
                 perror("Video import: unable to create communication pipe");
+                return NULL;
         }
 
         while(!exit_control) {
@@ -821,7 +823,7 @@ static void * control_thread(void *args)
                                         new_client->pipe = false;
                                         clients = new_client;
                                 } else {
-                                        fprintf(stderr, "Control socket: cannot accept new connection!");
+                                        perror("Control socket: cannot accept new connection");
                                 }
                         }
 
@@ -832,7 +834,7 @@ static void * control_thread(void *args)
                                 if(FD_ISSET(cur->fd, &set)) {
                                         ssize_t ret = read(cur->fd, cur->buff + cur->buff_len, 1024 - cur->buff_len);
                                         if(ret == -1) {
-                                                fprintf(stderr, "Error reading socket!!!\n");
+                                                perror("Error reading socket");
                                         }
                                         if(ret == 0) {
                                                 if(!cur->pipe) {
