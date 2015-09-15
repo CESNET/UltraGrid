@@ -126,6 +126,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
+#define OPT_START_PAUSED (('S' << 8) | 'P')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -494,6 +495,7 @@ int main(int argc, char *argv[])
 
         bool print_capabilities_req = false;
         bool disable_key_control = false;
+        bool start_paused = false;
 
         uv_argc = argc;
         uv_argv = argv;
@@ -552,6 +554,7 @@ int main(int argc, char *argv[])
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
                 {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
+                {"start-paused", no_argument, 0, OPT_START_PAUSED},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -855,6 +858,9 @@ int main(int argc, char *argv[])
                 case OPT_DISABLE_KEY_CTRL:
                         disable_key_control = true;
                         break;
+                case OPT_START_PAUSED:
+                        start_paused = true;
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1092,6 +1098,7 @@ int main(int argc, char *argv[])
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
                 params["rxtx_mode"].i = video_rxtx_mode;
+                params["paused"].b = start_paused;
 
                 // iHDTV
                 params["argc"].i = argc;
