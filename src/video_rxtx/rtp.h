@@ -83,7 +83,6 @@ protected:
         video_desc       m_video_desc;
 private:
         struct response *process_message(struct msg_sender *);
-        void change_tx_port(int tx_port);
 };
 
 #endif // VIDEO_RXTX_RTP_H_

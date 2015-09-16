@@ -879,7 +879,6 @@ int main(int argc, char *argv[])
                 if (requested_compression == nullptr) {
                         requested_compression = "libavcodec:codec=H.264:subsampling=420";
                 }
-                requested_receiver = "localhost"; // rtsp seems to expect IPv4 sockets
         } else {
                 if (requested_compression == nullptr) {
                         requested_compression = DEFAULT_VIDEO_COMPRESSION;

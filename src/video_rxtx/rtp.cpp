@@ -76,34 +76,48 @@ using namespace std;
 
 struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
 {
-        int ret;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
                         {
-                                ostringstream oss;
                                 assert(m_rxtx_mode == MODE_SENDER); // sender only
-                                assert(m_connections_count == 1);
-                                ret = rtp_change_dest(m_network_devices[0],
-                                                msg->receiver);
-
-                                if(ret == FALSE) {
-                                        oss << "Changing receiver to: " << msg->receiver << " failed!\n";
-                                }
-
-                                if (rtcp_change_dest(m_network_devices[0],
-                                                        msg->receiver) == FALSE){
-                                        oss << "Changing rtcp receiver to: " << msg->receiver << "  failed!\n";
-                                }
-                                if (!oss.str().empty()) {
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                lock_guard<mutex> lock(m_network_devices_lock);
+                                auto old_devices = m_network_devices;
+                                auto old_receiver = m_requested_receiver;
+                                m_requested_receiver = msg->receiver;
+                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                                m_recv_port_number,
+                                                m_send_port_number, m_participants, m_ipv6,
+                                                m_requested_mcast_if);
+                                if (!m_network_devices) {
+                                        abort();
+                                        m_network_devices = old_devices;
+                                        m_requested_receiver = old_receiver;
+                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
                                 } else {
-                                        m_requested_receiver = msg->receiver;
+                                        destroy_rtp_devices(old_devices);
                                 }
                         }
                         break;
                 case SENDER_MSG_CHANGE_PORT:
-                        assert(m_rxtx_mode == MODE_SENDER); // sender only
-                        change_tx_port(msg->port);
+                        {
+                                assert(m_rxtx_mode == MODE_SENDER); // sender only
+                                lock_guard<mutex> lock(m_network_devices_lock);
+                                auto old_devices = m_network_devices;
+                                auto old_port = m_send_port_number;
+
+                                m_send_port_number = msg->port;
+                                m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
+                                                m_send_port_number, m_participants, m_ipv6,
+                                                m_requested_mcast_if);
+
+                                if (!m_network_devices) {
+                                        m_network_devices = old_devices;
+                                        m_send_port_number = old_port;
+                                        return new_response(RESPONSE_INT_SERV_ERR, "Changing TX port failed!");
+                                } else {
+                                        destroy_rtp_devices(old_devices);
+                                }
+                        }
                         break;
                 case SENDER_MSG_PAUSE:
                         m_paused = true;
@@ -194,20 +208,6 @@ rtp_video_rxtx::~rtp_video_rxtx()
         }
 
         delete m_fec_state;
-}
-
-void rtp_video_rxtx::change_tx_port(int tx_port)
-{
-        lock_guard<mutex> lock(m_network_devices_lock);
-
-        destroy_rtp_devices(m_network_devices);
-        m_send_port_number = tx_port;
-        m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
-                        m_send_port_number, m_participants, m_ipv6,
-                        m_requested_mcast_if);
-        if (!m_network_devices) {
-                throw string("Changing RX port failed!\n");
-        }
 }
 
 void rtp_video_rxtx::display_buf_increase_warning(int size)

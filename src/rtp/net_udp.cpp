@@ -1292,20 +1292,6 @@ void udp_flush_recv_buf(socket_udp *s)
         free(buf);
 }
 
-int udp_change_dest(socket_udp *s, const char *addr)
-{
-        int ret;
-        if ((ret = resolve_address(s, addr)) == 0) {
-                free(s->addr);
-                s->addr = strdup(addr);
-                return TRUE;
-        } else {
-                fprintf(stderr, "Can't resolve IP address for %s: %s\n", addr,
-                                gai_strerror(ret));
-                return FALSE;
-        }
-}
-
 void udp_async_start(socket_udp *s, int nr_packets)
 {
 #ifdef WIN32

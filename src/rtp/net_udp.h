@@ -93,8 +93,6 @@ void	    udp_fd_zero_r(struct udp_fd_r *);
 void        udp_fd_set_r(socket_udp *s, struct udp_fd_r *);
 int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
 
-int         udp_change_dest(socket_udp *s, const char *addr);
-
 int         udp_recv_data(socket_udp * s, char **buffer);
 bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
 bool        udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port);

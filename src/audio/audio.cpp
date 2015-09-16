@@ -732,38 +732,44 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
 {
         assert(s->audio_tx_mode == MODE_SENDER);
 
-        int ret;
         switch (msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
                         {
-                                ret = rtp_change_dest(s->audio_network_device,
-                                                msg->receiver);
+                                auto old_device = s->audio_network_device;
+                                auto old_receiver = s->audio_network_parameters.addr;
 
-                                ostringstream oss;
-                                if (ret == FALSE) {
-                                        oss << "Changing audio receiver to: " << msg->receiver << " failed!\n";
-                                }
-
-                                if (rtcp_change_dest(s->audio_network_device,
-                                                        msg->receiver) == FALSE){
-                                        oss << "Changing rtcp audio receiver to: " <<
-                                                msg->receiver << " failed!\n";
-                                }
-
-                                if (!oss.str().empty()) {
-                                        LOG(LOG_LEVEL_ERROR) << oss.str();
-                                        return new_response(RESPONSE_INT_SERV_ERR, oss.str().c_str());
+                                s->audio_network_parameters.addr = strdup(msg->receiver);
+                                s->audio_network_device =
+                                        initialize_audio_network(&s->audio_network_parameters);
+                                if (!s->audio_network_device) {
+                                        s->audio_network_device = old_device;
+                                        free(s->audio_network_parameters.addr);
+                                        s->audio_network_parameters.addr = old_receiver;
+                                                return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
+                                } else {
+                                        free(old_receiver);
+                                        rtp_done(old_device);
                                 }
 
                                 break;
                         }
                 case SENDER_MSG_CHANGE_PORT:
-                        rtp_done(s->audio_network_device);
-                        s->audio_network_parameters.send_port = msg->port;
-                        s->audio_network_device = initialize_audio_network(
-                                        &s->audio_network_parameters);
-                        if (!s->audio_network_device) {
-                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                        {
+                                auto old_device = s->audio_network_device;
+                                auto old_port = s->audio_network_parameters.send_port;
+
+                                s->audio_network_parameters.send_port = msg->port;
+                                s->audio_network_device =
+                                        initialize_audio_network(&s->audio_network_parameters);
+                                if (!s->audio_network_device) {
+                                        s->audio_network_device = old_device;
+                                        s->audio_network_parameters.send_port = old_port;
+                                                return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
+                                } else {
+                                        rtp_done(old_device);
+                                }
+
+                                break;
                         }
                         break;
                 case SENDER_MSG_PAUSE:
