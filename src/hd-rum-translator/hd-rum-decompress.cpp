@@ -207,6 +207,7 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         params["exporter"].ptr = NULL;
         params["compression"].ptr = (void *) "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
+        params["paused"].b = true;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
