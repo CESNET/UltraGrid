@@ -114,7 +114,7 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id(-1), m_paused(params.at("paused").b),
                 m_rxtx_mode(params.at("rxtx_mode").i), m_compression(nullptr),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
-                m_joined(true) {
+                m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
@@ -184,7 +184,13 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
 }
 
 void video_rxtx::send(shared_ptr<video_frame> frame) {
+        if (!frame && m_poisoned) {
+                return;
+        }
         compress_frame(m_compression, frame);
+        if (!frame) {
+                m_poisoned = true;
+        }
 }
 
 void *video_rxtx::sender_thread(void *args) {
@@ -222,9 +228,6 @@ void *video_rxtx::sender_loop() {
         }
 
 exit:
-        module_done(CAST_MODULE(m_compression));
-        m_compression = nullptr;
-
         return NULL;
 }
 

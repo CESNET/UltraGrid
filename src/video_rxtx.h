@@ -111,7 +111,7 @@ private:
         struct video_export *m_video_exporter;
 
         pthread_t m_thread_id;
-        bool m_joined;
+        bool m_poisoned, m_joined;
 };
 
 class video_rxtx_loader {
