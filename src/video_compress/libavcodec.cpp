@@ -306,15 +306,37 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
 
 static list<compress_preset> get_libavcodec_presets() {
         list<compress_preset> ret;
+        AVCodec *codec;
         avcodec_register_all();
-        if (avcodec_find_encoder(AV_CODEC_ID_H264)) {
-                ret.push_back({"codec=H.264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
-                ret.push_back({ "codec=H.264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
-                ret.push_back({"codec=H.264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
+
+        pthread_mutex_t *lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
+        pthread_mutex_lock(lavcd_global_lock);
+
+        if (avcodec_find_encoder_by_name("libx264")) {
+                ret.push_back({"encoder=libx264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
+                ret.push_back({"encoder=libx264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
+                ret.push_back({"encoder=libx264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
+        }
+        if ((codec = avcodec_find_encoder_by_name("nvenc_h264"))) {
+                AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
+                assert(codec_ctx);
+                codec_ctx->pix_fmt = AV_PIX_FMT_NV12;
+                codec_ctx->width = 1920;
+                codec_ctx->height = 1080;
+                if (avcodec_open2(codec_ctx, codec, NULL) == 0) {
+                        ret.push_back({"encoder=nvenc_h264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 0, 0.2}, {15, 1, 0}});
+                        ret.push_back({"encoder=nvenc_h264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 0, 0.2}, {20, 1, 0}});
+                        ret.push_back({"encoder=nvenc_h264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 0, 0.2}, {25, 1, 0}});
+                        avcodec_close(codec_ctx);
+                }
+                av_free(codec_ctx);
         }
 #if 0
         ret.push_back({ "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}});
 #endif
+
+        pthread_mutex_unlock(lavcd_global_lock);
+        rm_release_shared_lock(LAVCD_LOCK_NAME);
 
         return ret;
 }
