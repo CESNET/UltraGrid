@@ -206,7 +206,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         return TRUE;
 }
 
-bool dxt_is_supported()
+static bool dxt_is_supported()
 {
         struct gl_context gl_context;
         if (!init_gl_context(&gl_context, GL_CONTEXT_ANY)) {
@@ -331,12 +331,13 @@ struct compress_info_t rtdxt_info = {
         dxt_glsl_compress_init,
         dxt_glsl_compress,
         NULL,
-        dxt_is_supported,
-        {
-                { "DXT1", 35, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);},
-                        {75, 0.3, 25}, {15, 0.1, 10} },
-                { "DXT5", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);},
-                        {75, 0.3, 35}, {15, 0.1, 20} },
+        [] {
+                return dxt_is_supported() ? list<compress_preset>{
+                        { "DXT1", 35, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);},
+                                {75, 0.3, 25}, {15, 0.1, 10} },
+                        { "DXT5", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);},
+                                {75, 0.3, 35}, {15, 0.1, 20} },
+                } : list<compress_preset>{};
         }
 };
 

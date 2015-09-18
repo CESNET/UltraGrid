@@ -262,14 +262,12 @@ list<compress_preset> get_compress_capabilities()
         pthread_once(&compression_list_initialized, init_compressions);
 
         for (int i = 0; i < compress_modules_count; ++i) {
-                for (auto const & it : available_compress_modules[i]->compress_info->presets) {
+                auto presets = available_compress_modules[i]->compress_info->get_presets();
+                for (auto const & it : presets) {
                         auto new_elem = it;
                         new_elem.name = string(available_compress_modules[i]->compress_info->name)
                                 + ":" + it.name;
-                        if (available_compress_modules[i]->compress_info->is_supported_func &&
-                                        available_compress_modules[i]->compress_info->is_supported_func()) {
-                                ret.push_back(new_elem);
-                        }
+                        ret.push_back(new_elem);
                 }
         }
 

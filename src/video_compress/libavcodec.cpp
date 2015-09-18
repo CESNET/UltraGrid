@@ -304,13 +304,19 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         return 0;
 }
 
-bool libavcodec_is_supported() {
+static list<compress_preset> get_libavcodec_presets() {
+        list<compress_preset> ret;
         avcodec_register_all();
         if (avcodec_find_encoder(AV_CODEC_ID_H264)) {
-                return true;
-        } else {
-                return false;
+                ret.push_back({"codec=H.264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
+                ret.push_back({ "codec=H.264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
+                ret.push_back({"codec=H.264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
         }
+#if 0
+        ret.push_back({ "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}});
+#endif
+
+        return ret;
 }
 
 struct module * libavcodec_compress_init(struct module *parent, const struct video_compress_params *params)
@@ -1163,17 +1169,6 @@ struct compress_info_t libavcodec_info = {
         libavcodec_compress_init,
         NULL,
         libavcodec_compress_tile,
-        libavcodec_is_supported,
-        {
-                { "codec=H.264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);},
-                        {25, 1.5, 0}, {15, 1, 0} },
-                { "codec=H.264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);},
-                        {28, 1.5, 0}, {20, 1, 0} },
-                { "codec=H.264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);},
-                        {30, 1.5, 0}, {25, 1, 0} },
-#if 0
-                { "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}  },
-#endif
-        },
+        get_libavcodec_presets,
 };
 

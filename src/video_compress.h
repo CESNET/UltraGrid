@@ -134,9 +134,7 @@ struct compress_info_t {
         compress_init_t     init_func;           ///< compress driver initialization function
         compress_frame_t    compress_frame_func; ///< compress function for Frame API
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
-        compress_is_supported_t is_supported_func;
-
-        std::list<compress_preset> presets;    ///< list of available presets
+        std::list<compress_preset> (*get_presets)();    ///< list of available presets
 };
 
 std::list<compress_preset> get_compress_capabilities();

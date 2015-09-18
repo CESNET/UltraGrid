@@ -115,10 +115,11 @@ struct compress_info_t none_info = {
         none_compress_init,
         none_compress,
         NULL,
-        []{return true;}, // uncompressed video is always supported
-        {
-                { "", 100, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);},
-                        {0, 1, 0}, {0, 1, 0} },
-        },
+        [] {
+                return std::list<compress_preset>{
+                        { "", 100, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);},
+                                {0, 1, 0}, {0, 1, 0} },
+                };
+        }
 };
 

@@ -291,7 +291,6 @@ struct compress_info_t cuda_dxt_info = {
         cuda_dxt_compress_init,
         NULL,
         cuda_dxt_compress_tile,
-        NULL,
-        {}
+        [] { return list<compress_preset>{}; }
 };
 

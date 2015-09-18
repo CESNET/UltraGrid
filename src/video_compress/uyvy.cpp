@@ -351,7 +351,6 @@ struct compress_info_t uyvy_info = {
         uyvy_compress_init,
         uyvy_compress,
         NULL,
-        NULL,
-        {},
+        [] {return list<compress_preset>{}; }
 };
 

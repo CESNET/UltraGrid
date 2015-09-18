@@ -236,10 +236,6 @@ static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         return true;
 }
 
-bool jpeg_is_supported() {
-        return gpujpeg_init_device(cuda_devices[0], TRUE) == 0;
-}
-
 struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_jpeg *s;
@@ -398,14 +394,15 @@ struct compress_info_t jpeg_info = {
         jpeg_compress_init,
         jpeg_compress,
         NULL,
-        jpeg_is_supported,
-        {
-                { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
-                        {10, 0.6, 75}, {10, 0.6, 75} },
-                { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
-                        {12, 0.6, 90}, {15, 0.6, 100} },
-                { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
-                        {15, 0.6, 100}, {20, 0.6, 150} },
-        },
+        [] {
+                return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
+                        { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
+                                {10, 0.6, 75}, {10, 0.6, 75} },
+                        { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
+                                {12, 0.6, 90}, {15, 0.6, 100} },
+                        { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
+                                {15, 0.6, 100}, {20, 0.6, 150} },
+                } : list<compress_preset>{};
+        }
 };
 
