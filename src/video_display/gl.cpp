@@ -202,13 +202,17 @@ struct state_gl {
 
         void *syphon;
 
+        bool fixed_size, first_run;
+        int fixed_w, fixed_h;
+
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(false),
                 should_exit_main_loop(false), window_size_factor(1.0),
-                syphon(nullptr)
+                syphon(nullptr), fixed_size(false), first_run(true),
+                fixed_w(0), fixed_h(0)
         {
                 gettimeofday(&tv, NULL);
                 memset(&current_desc, 0, sizeof(current_desc));
@@ -252,7 +256,7 @@ extern "C" void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor:|size=X%%|syphon[=<name>]]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:fixed_size[=WxH]]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
@@ -260,7 +264,7 @@ static void gl_show_help(void) {
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
         printf("\t\tcursor\t\tshow visible cursor\n");
         printf("\t\tsize\t\tspecifies desired size of window compared "
-                        " to native resolution (in percents)\n");
+                        "to native resolution (in percents)\n");
         printf("\t\tuse Syphon (optionally with name)\n");
 
         printf("\n\nKeyboard shortcuts:\n");
@@ -305,7 +309,7 @@ static void gl_load_splashscreen(struct state_gl *s)
                 }
         }
 
-        display_gl_putf(s, frame, PUTF_BLOCKING);
+        s->frame_queue.push(frame);
 }
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
@@ -362,8 +366,18 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                                 strlen("size="))) {
                                 s->window_size_factor =
                                         atof(tok + strlen("size=")) / 100.0;
+                        } else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
+                                s->fixed_size = true;
+                                if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
+                                        char *size = tok + strlen("fixed_size=");
+                                        if (strchr(size, 'x')) {
+                                                s->fixed_w = atoi(size);
+                                                s->fixed_h = atoi(strchr(size, 'x') + 1);
+                                        }
+                                }
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
+                                return NULL;
                         }
                         ptr = NULL;
                 }
@@ -373,6 +387,18 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
         fprintf(stdout,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
+
+        if (s->fixed_size && s->fixed_w && s->fixed_h) {
+                struct video_desc desc;
+                desc.width = s->fixed_w;
+                desc.height = s->fixed_h;
+                desc.color_spec = RGBA;
+                desc.interlacing = PROGRESSIVE;
+                desc.fps = 1;
+                desc.tile_count = 1;
+
+                s->frame_queue.push(vf_alloc_desc(desc));
+        }
 
         gl_load_splashscreen(s);
 
@@ -517,7 +543,10 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
         glutShowWindow();
-        glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
+        if (!s->fixed_size || s->first_run) {
+                glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
+                s->first_run = false;
+        }
 
         glUseProgram(0);
 
