@@ -66,17 +66,17 @@ void print_capabilities(int mask, struct module *root, bool use_vidcap)
                         }
                 }
 
-                cout << "Compressions:" << endl;
+                cout << "[cap] Compressions:" << endl;
                 auto const & compress_capabilities = get_compress_capabilities();
                 for (auto const & it : compress_capabilities) {
-                        cout << "(" << it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) << it.compute_bitrate(&desc) << ";" <<
+                        cout << "[cap] (" << it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) << it.compute_bitrate(&desc) << ";" <<
                                 it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
                                 it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
                                 ")\n";
                 }
         }
         if (mask & CAPABILITY_CAPTURE) {
-                cout << "Capturers:" << endl;
+                cout << "[cap] Capturers:" << endl;
                 print_available_capturers();
         }
 }

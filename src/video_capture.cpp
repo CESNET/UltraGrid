@@ -117,7 +117,7 @@ void print_available_capturers()
 
                 struct vidcap_type *vt = vci->probe(true);
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("(%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
+                        printf("[cap] (%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
                 }
 
         }
@@ -127,7 +127,7 @@ void print_available_capturers()
         if (conf) {
                 auto const & from_config_file = get_configured_capture_aliases(conf);
                 for (auto const & it : from_config_file) {
-                        printf("(%s;%s)\n", it.first.c_str(), it.second.c_str());
+                        printf("[cap] (%s;%s)\n", it.first.c_str(), it.second.c_str());
                 }
         }
         config_file_close(conf);
