@@ -471,9 +471,10 @@ decklink_help()
         printf("\tIf set false the selected analog input gain levels are used.\n\n");
 
         printf("Examples:\n");
-        printf("\t%s -t decklink # captures autodetected video from first detected decklink\n", uv_argv[0]);
+        printf("\t%s -t decklink # captures autodetected video from first DeckLink in system\n", uv_argv[0]);
         printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
         printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
+        printf("\t%s -t decklink:mode=23ps:dev=0:codec=UYVY # captures 1080p24, 8-bit yuv from frist device\n", uv_argv[0]);
 
 	printf("\n");
 
@@ -481,48 +482,125 @@ decklink_help()
 }
 
 /* SETTINGS */
-
-static int
-settings_init(void *state, char *fmt)
+static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 {
-	struct vidcap_decklink_state *s = (struct vidcap_decklink_state *) state;
+        char *devices = strdup(devs);
+        char *ptr;
+        char *save_ptr_dev;
 
-        s->codec = UYVY; // default
+        s->devices_cnt = 0;
+        ptr = strtok_r(devices, ",", &save_ptr_dev);
+        do {
+                s->state[s->devices_cnt].index = atoi(ptr);
+                ++s->devices_cnt;
+        } while ((ptr = strtok_r(NULL, ",", &save_ptr_dev)));
+        free (devices);
+}
 
-        if(fmt) {
-		char *save_ptr_top = NULL;
-                if(strcmp(fmt, "help") == 0) {
-                        decklink_help();
-                        return -1;
+/* Parses option in format key=value */
+static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
+{
+        if(strcasecmp(opt, "3D") == 0) {
+                s->stereo = TRUE;
+        } else if(strcasecmp(opt, "timecode") == 0) {
+                s->use_timecode = TRUE;
+        } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
+                const char *connection = opt + strlen("connection=");
+                if(strcasecmp(connection, "SDI") == 0)
+                        s->connection = bmdVideoConnectionSDI;
+                else if(strcasecmp(connection, "HDMI") == 0)
+                        s->connection = bmdVideoConnectionHDMI;
+                else if(strcasecmp(connection, "OpticalSDI") == 0)
+                        s->connection = bmdVideoConnectionOpticalSDI;
+                else if(strcasecmp(connection, "Component") == 0)
+                        s->connection = bmdVideoConnectionComponent;
+                else if(strcasecmp(connection, "Composite") == 0)
+                        s->connection = bmdVideoConnectionComposite;
+                else if(strcasecmp(connection, "SVIdeo") == 0)
+                        s->connection = bmdVideoConnectionSVideo;
+                else {
+                        fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
+                        return false;
                 }
-
-                char *tmp;
-
-                // choose device
-                tmp = strtok_r(fmt, ":", &save_ptr_top);
-                if(!tmp) {
-                        s->devices_cnt = 1;
-                        s->state[s->devices_cnt].index = 0;
+        } else if(strncasecmp(opt, "audioConsumerLevels=",
+                                strlen("audioConsumerLevels=")) == 0) {
+                const char *levels = opt + strlen("audioConsumerLevels=");
+                if (strcasecmp(levels, "false") == 0) {
+                        s->audio_consumer_levels = 0;
                 } else {
-                        char *devices = strdup(tmp);
-                        char *ptr;
-                        char *saveptr;
-
-                        s->devices_cnt = 0;
-                        ptr = strtok_r(devices, ",", &saveptr);
-                        do {
-                                s->state[s->devices_cnt].index = atoi(ptr);
-                                ++s->devices_cnt;
-                        } while ((ptr = strtok_r(NULL, ",", &saveptr)));
-                        free (devices);
+                        s->audio_consumer_levels = 1;
                 }
+        } else if(strncasecmp(opt, "dev=",
+                                strlen("dev=")) == 0) {
+                const char *devices = opt + strlen("dev=");
+                parse_devices(s, devices);
+        } else if(strncasecmp(opt, "mode=",
+                                strlen("mode=")) == 0) {
+                s->mode = opt + strlen("mode=");
+        } else if(strncasecmp(opt, "codec=",
+                                strlen("codec=")) == 0) {
+                const char *codec = opt + strlen("codec=");
+                s->codec = get_codec_from_name(codec);
+                if(s->codec == VIDEO_CODEC_NONE) {
+                        fprintf(stderr, "Wrong config. Unknown color space %s\n", codec);
+                        return false;
+                }
+        } else {
+                fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
+                return false;
+        }
+
+        return true;
+
+}
+
+static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_ptr)
+{
+        char *tmp;
+
+        while((tmp = strtok_r(NULL, ":", save_ptr))) {
+                if (!parse_option(s, tmp)) {
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+static int settings_init(struct vidcap_decklink_state *s, char *fmt)
+{
+        // defaults
+        s->codec = UYVY;
+        s->devices_cnt = 1;
+        s->state[0].index = 0;
+
+        char *tmp;
+        char *save_ptr = NULL;
+
+        if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
+                printf("[DeckLink] Trying to autodetect format.\n");
+                s->autodetect_mode = TRUE;
+                printf("[DeckLink] Auto-choosen device 0.\n");
+
+                return 1;
+        }
+
+        if(strcmp(tmp, "help") == 0) {
+                decklink_help();
+                return -1;
+        }
+
+        // options are in format <device>:<mode>:<codec>[:other_opts]
+        if (isdigit(tmp[0])) {
+                // choose device
+                parse_devices(s, tmp);
 
                 // choose mode
-                tmp = strtok_r(NULL, ":", &save_ptr_top);
+                tmp = strtok_r(NULL, ":", &save_ptr);
                 if(tmp) {
                         s->mode = tmp;
 
-                        tmp = strtok_r(NULL, ":", &save_ptr_top);
+                        tmp = strtok_r(NULL, ":", &save_ptr);
                         if (tmp) {
                                 s->codec = get_codec_from_name(tmp);
                                 if(s->codec == VIDEO_CODEC_NONE) {
@@ -530,54 +608,23 @@ settings_init(void *state, char *fmt)
                                         return 0;
                                 }
                         }
-                        while((tmp = strtok_r(NULL, ":", &save_ptr_top))) {
-                                if(strcasecmp(tmp, "3D") == 0) {
-                                        s->stereo = TRUE;
-                                } else if(strcasecmp(tmp, "timecode") == 0) {
-                                        s->use_timecode = TRUE;
-                                } else if(strncasecmp(tmp, "connection=", strlen("connection=")) == 0) {
-                                        char *connection = tmp + strlen("connection=");
-                                        if(strcasecmp(connection, "SDI") == 0)
-                                                s->connection = bmdVideoConnectionSDI;
-                                        else if(strcasecmp(connection, "HDMI") == 0)
-                                                s->connection = bmdVideoConnectionHDMI;
-                                        else if(strcasecmp(connection, "OpticalSDI") == 0)
-                                                s->connection = bmdVideoConnectionOpticalSDI;
-                                        else if(strcasecmp(connection, "Component") == 0)
-                                                s->connection = bmdVideoConnectionComponent;
-                                        else if(strcasecmp(connection, "Composite") == 0)
-                                                s->connection = bmdVideoConnectionComposite;
-                                        else if(strcasecmp(connection, "SVIdeo") == 0)
-                                                s->connection = bmdVideoConnectionSVideo;
-                                        else {
-                                                fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
-                                                return 0;
-                                        }
-                                } else if(strncasecmp(tmp, "audioConsumerLevels=",
-                                                        strlen("audioConsumerLevels=")) == 0) {
-                                        char *levels = tmp + strlen("audioConsumerLevels=");
-                                        if (strcasecmp(levels, "false") == 0) {
-                                                s->audio_consumer_levels = 0;
-                                        } else {
-                                                s->audio_consumer_levels = 1;
-                                        }
-                                } else {
-                                        fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
-                                }
+                        if (!settings_init_key_val(s, &save_ptr)) {
+                                return 0;
                         }
                 } else {
                         s->autodetect_mode = TRUE;
                         printf("[DeckLink] Trying to autodetect format.\n");
                 }
-        } else {
-                printf("[DeckLink] Trying to autodetect format.\n");
-                s->autodetect_mode = TRUE;
-                s->devices_cnt = 1;
-                s->state[s->devices_cnt].index = 0;
-                printf("[DeckLink] Auto-choosen device 0.\n");
+        } else { // options are in format key=val
+                if (!parse_option(s, tmp)) {
+                        return 0;
+                }
+                if (!settings_init_key_val(s, &save_ptr)) {
+                        return 0;
+                }
         }
 
-	return 1;	
+        return 1;
 }
 
 /* External API ***************************************************************/
