@@ -546,6 +546,9 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         if (!s->fixed_size || s->first_run) {
                 glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
                 s->first_run = false;
+        } else {
+                // s->aspect might have changed so we may want to run this to reflect it
+                gl_resize(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
         }
 
         glUseProgram(0);
