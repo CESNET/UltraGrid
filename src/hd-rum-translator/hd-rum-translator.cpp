@@ -32,7 +32,30 @@ using namespace std;
 static pthread_t main_thread_id;
 struct item;
 
+#define REPLICA_MAGIC 0xd2ff3323
+
 struct replica {
+    replica(const char *addr, int tx_port, int bufsize, struct module *parent) {
+        magic = REPLICA_MAGIC;
+        host = addr;
+        sock = udp_init(addr, 0, tx_port, 255, false, false);
+        if (!sock) {
+            throw string("Cannot initialize output port!\n");
+        }
+        if (udp_set_send_buf(sock, bufsize) != TRUE)
+            fprintf(stderr, "Cannot set send buffer!\n");
+        module_init_default(&mod);
+        mod.cls = MODULE_CLASS_PORT;
+        mod.priv_data = this;
+        module_register(&mod, parent);
+    }
+
+    ~replica() {
+        assert(magic == REPLICA_MAGIC);
+        module_done(&mod);
+        udp_exit(sock);
+    }
+
     struct module mod;
     uint32_t magic;
     string host;
@@ -83,7 +106,6 @@ struct hd_rum_translator_state {
 /*
  * Prototypes
  */
-static void replica_done(struct replica *s) __attribute__((unused));
 static struct item *qinit(int qsize);
 static void *writer(void *arg);
 static void signal_handler(int signal);
@@ -109,34 +131,6 @@ static void signal_handler(int signal)
 }
 
 #define SIZE    10000
-
-#define REPLICA_MAGIC 0xd2ff3323
-
-static bool replica_init(struct replica *s, const char *addr, int tx_port, int bufsize, struct module *parent)
-{
-        s->magic = REPLICA_MAGIC;
-        s->host = addr;
-        s->sock = udp_init(addr, 0, tx_port, 255, false, false);
-        if (!s->sock) {
-            fprintf(stderr, "Cannot initialize output port!\n");
-            return false;
-        }
-        if (udp_set_send_buf(s->sock, bufsize) != TRUE)
-            fprintf(stderr, "Cannot set send buffer!\n");
-        module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_PORT;
-        s->mod.priv_data = s;
-        module_register(&s->mod, parent);
-        return true;
-}
-
-static void replica_done(struct replica *s)
-{
-        assert(s->magic == REPLICA_MAGIC);
-        module_done(&s->mod);
-
-        udp_exit(s->sock);
-}
 
 struct item {
     struct item *next;
@@ -209,7 +203,6 @@ static void *writer(void *arg)
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
                 int index = atoi(msg->text + strlen("delete-port "));
                 hd_rum_decompress_remove_port(s->decompress, index);
-                replica_done(s->replicas[index]);
                 delete s->replicas[index];
                 s->replicas.erase(s->replicas.begin() + index);
                 log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
@@ -226,15 +219,18 @@ static void *writer(void *arg)
                 }
                 int tx_port = atoi(item);
                 char *compress = strtok_r(NULL, " ", &save_ptr);
-                s->replicas.push_back(new replica());
-                struct replica *rep = s->replicas[s->replicas.size() - 1];
-                if (!replica_init(rep, host, tx_port, 100*1000, &s->mod)) {
-                    s->replicas.resize(s->replicas.size() - 1);
+                struct replica *rep;
+                try {
+                    rep = new replica(host, tx_port, 100*1000, &s->mod);
+                } catch (string const & s) {
+                    fputs(s.c_str(), stderr);
                     const char *err_msg = "cannot create output port (wrong address?)";
                     log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
                     free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, err_msg));
                     continue;
                 }
+                s->replicas.push_back(rep);
+
                 if (compress) {
                     rep->type = replica::type_t::RECOMPRESS;
                     char *fec = NULL;
@@ -242,7 +238,6 @@ static void *writer(void *arg)
                             host, compress,
                             0, tx_port, 1500, fec, RATE_UNLIMITED);
                     if (!rep->recompress) {
-                        replica_done(s->replicas[s->replicas.size() - 1]);
                         delete s->replicas[s->replicas.size() - 1];
                         s->replicas.erase(s->replicas.end() - 1);
 
@@ -563,9 +558,6 @@ int main(int argc, char **argv)
     printf("listening on *:%d\n", params.port);
 
     state.replicas.resize(params.host_count);
-    for (auto && rep : state.replicas) {
-        rep = new replica();
-    }
 
     if(control_init(params.control_port, params.control_connection_type, &state.control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
@@ -592,8 +584,11 @@ int main(int argc, char **argv)
             tx_port = params.hosts[i].port;
         }
 
-        if (!replica_init(state.replicas[i], params.hosts[i].addr, tx_port, bufsize, &state.mod)) {
-                return EXIT_FAILURE;
+        try {
+            state.replicas[i] = new replica(params.hosts[i].addr, tx_port, bufsize, &state.mod);
+        } catch (string const &s) {
+            fputs(s.c_str(), stderr);
+            return EXIT_FAILURE;
         }
 
         if(params.hosts[i].compression == NULL) {
@@ -691,7 +686,6 @@ int main(int argc, char **argv)
     }
 
     for (unsigned int i = 0; i < state.replicas.size(); i++) {
-        replica_done(state.replicas[i]);
         delete state.replicas[i];
     }
 
