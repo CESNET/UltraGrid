@@ -64,14 +64,18 @@ void *recompress_init(struct module *parent,
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = NULL;
 
-        auto rxtx = video_rxtx::create(ULTRAGRID_RTP, params);
-        rxtx->start();
+        try {
+                auto rxtx = video_rxtx::create(ULTRAGRID_RTP, params);
+                rxtx->start();
 
-        return new state_recompress(
-                decltype(state_recompress::video_rxtx)(dynamic_cast<ultragrid_rtp_video_rxtx *>(rxtx)),
-                host,
-                tx_port
-        );
+                return new state_recompress(
+                                decltype(state_recompress::video_rxtx)(dynamic_cast<ultragrid_rtp_video_rxtx *>(rxtx)),
+                                host,
+                                tx_port
+                                );
+        } catch (...) {
+                return nullptr;
+        }
 }
 
 void recompress_process_async(void *state, shared_ptr<video_frame> frame, int port_id)
