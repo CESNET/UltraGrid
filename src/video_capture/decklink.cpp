@@ -80,10 +80,9 @@
 #include <chrono>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
-
-#define MAX_DEVICES 4
 
 #ifndef WIN32
 #define STDMETHODCALLTYPE
@@ -108,7 +107,7 @@ struct device_state {
 };
 
 struct vidcap_decklink_state {
-        struct device_state     state[MAX_DEVICES];
+        vector <struct device_state>     state;
         int                     devices_cnt;
 	string			mode;
 	// void*			rtp_buffer;
@@ -491,8 +490,9 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
         s->devices_cnt = 0;
         ptr = strtok_r(devices, ",", &save_ptr_dev);
         do {
-                s->state[s->devices_cnt].index = atoi(ptr);
-                ++s->devices_cnt;
+                s->devices_cnt += 1;
+                s->state.resize(s->devices_cnt);
+                s->state[s->devices_cnt - 1].index = atoi(ptr);
         } while ((ptr = strtok_r(NULL, ",", &save_ptr_dev)));
         free (devices);
 }
@@ -572,6 +572,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
         // defaults
         s->codec = UYVY;
         s->devices_cnt = 1;
+        s->state.resize(s->devices_cnt);
         s->state[0].index = 0;
 
         char *tmp;
@@ -867,7 +868,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 s->grab_audio = FALSE;
         }
 
-	bool device_found[MAX_DEVICES];
+	vector<bool> device_found(s->devices_cnt);
         for(int i = 0; i < s->devices_cnt; ++i)
                 device_found[i] = false;
 
