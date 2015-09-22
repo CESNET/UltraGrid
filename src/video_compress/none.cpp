@@ -50,12 +50,11 @@
 #include "config_unix.h"
 #endif /* HAVE_CONFIG_H */
 
-#include "none.h"
-
 #include <stdlib.h>
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "module.h"
 #include "video_codec.h"
 #include "video_compress.h"
@@ -73,10 +72,8 @@ struct state_video_compress_none {
         uint32_t magic;
 };
 
-struct module * none_compress_init(struct module *parent, const struct video_compress_params *params)
+struct module * none_compress_init(struct module *parent, const char *)
 {
-        UNUSED(params);
-
         struct state_video_compress_none *s;
         
         s = (struct state_video_compress_none *) malloc(sizeof(struct state_video_compress_none));
@@ -108,9 +105,7 @@ static void none_compress_done(struct module *mod)
         free(s);
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t none_info = {
+const struct video_compress_info none_info = {
         "none",
         none_compress_init,
         none_compress,
@@ -122,4 +117,8 @@ struct compress_info_t none_info = {
                 };
         }
 };
+
+REGISTER_MODULE(none, &none_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

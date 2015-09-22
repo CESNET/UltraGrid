@@ -45,7 +45,7 @@
 #include "host.h"
 #include "video_compress.h"
 #include "module.h"
-#include "video_compress/jpeg.h"
+#include "lib_common.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
@@ -236,10 +236,9 @@ static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         return true;
 }
 
-struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
+struct module * jpeg_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_jpeg *s;
-        const char *opts = params->cfg;
 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
@@ -387,9 +386,7 @@ static void cleanup_state(struct state_video_compress_jpeg *s)
         s->encoder = NULL;
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t jpeg_info = {
+const struct video_compress_info jpeg_info = {
         "JPEG",
         jpeg_compress_init,
         jpeg_compress,
@@ -405,4 +402,8 @@ struct compress_info_t jpeg_info = {
                 } : list<compress_preset>{};
         }
 };
+
+REGISTER_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

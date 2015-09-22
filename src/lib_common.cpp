@@ -71,6 +71,7 @@ const map<enum library_class, library_class_info_t> library_class_info = {
         { LIBRARY_CLASS_VIDEO_DISPLAY, { "Video display device", "display" }},
         { LIBRARY_CLASS_AUDIO_COMPRESS, { "Audio compression", "acompress" }},
         { LIBRARY_CLASS_VIDEO_DECOMPRESS, { "Video decompression", "vdecompress" }},
+        { LIBRARY_CLASS_VIDEO_COMPRESS, { "Video compression", "vcompress" }},
 };
 
 static map<string, string> lib_errors;
@@ -165,7 +166,28 @@ struct lib_info {
         int abi_version;
 };
 
-static map<enum library_class, map<string, lib_info>> *libraries = nullptr;
+// http://stackoverflow.com/questions/1801892/making-mapfind-operation-case-insensitive
+/************************************************************************/
+/* Comparator for case-insensitive comparison in STL assos. containers  */
+/************************************************************************/
+struct ci_less : std::binary_function<std::string, std::string, bool>
+{
+        // case-independent (ci) compare_less binary function
+        struct nocase_compare : public std::binary_function<unsigned char,unsigned char,bool>
+        {
+                bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+                        return tolower (c1) < tolower (c2);
+                }
+        };
+        bool operator() (const std::string & s1, const std::string & s2) const {
+                return std::lexicographical_compare
+                        (s1.begin (), s1.end (),   // source range
+                         s2.begin (), s2.end (),   // dest range
+                         nocase_compare ());  // comparison
+        }
+};
+
+static map<enum library_class, map<string, lib_info, ci_less>> *libraries = nullptr;
 
 /**
  * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()

@@ -42,10 +42,10 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "module.h"
 #include "utils/video_frame_pool.h"
 #include "video_compress.h"
-#include "video_compress/uyvy.h"
 #include "compat/platform_semaphore.h"
 #include "video.h"
 #include <pthread.h>
@@ -136,9 +136,8 @@ struct state_video_compress_uyvy {
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
 static void uyvy_compress_done(struct module *mod);
 
-struct module * uyvy_compress_init(struct module *parent, const struct video_compress_params *params)
+struct module * uyvy_compress_init(struct module *parent, const char *)
 {
-        UNUSED(params);
         struct state_video_compress_uyvy *s;
 
         s = (struct state_video_compress_uyvy *) malloc(sizeof(struct state_video_compress_uyvy));
@@ -344,13 +343,15 @@ static void uyvy_compress_done(struct module *mod)
         free(s);
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t uyvy_info = {
+const struct video_compress_info uyvy_info = {
         "UYVY",
         uyvy_compress_init,
         uyvy_compress,
         NULL,
         [] {return list<compress_preset>{}; }
 };
+
+REGISTER_MODULE(uyvy, &uyvy_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

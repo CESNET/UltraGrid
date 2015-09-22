@@ -44,12 +44,12 @@
 #endif // HAVE_CONFIG_H
 
 #include "libavcodec_common.h"
-#include "video_compress/libavcodec.h"
 
 #include <assert.h>
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/misc.h"
@@ -341,10 +341,9 @@ static list<compress_preset> get_libavcodec_presets() {
         return ret;
 }
 
-struct module * libavcodec_compress_init(struct module *parent, const struct video_compress_params *params)
+struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_libav *s;
-        const char *opts = params->cfg;
 
         s = new state_video_compress_libav();
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
@@ -1184,13 +1183,15 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s)
 
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t libavcodec_info = {
+const struct video_compress_info libavcodec_info = {
         "libavcodec",
         libavcodec_compress_init,
         NULL,
         libavcodec_compress_tile,
         get_libavcodec_presets,
 };
+
+REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

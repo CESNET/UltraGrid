@@ -41,13 +41,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_compress/cuda_dxt.h"
-
 #include "cuda_dxt/cuda_dxt.h"
 #include "cuda_wrapper.h"
 #include "debug.h"
 
 #include "host.h"
+#include "lib_common.h"
 #include "module.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
@@ -88,11 +87,10 @@ struct state_video_compress_cuda_dxt {
 static void cuda_dxt_compress_done(struct module *mod);
 
 struct module *cuda_dxt_compress_init(struct module *parent,
-                const struct video_compress_params *params)
+                const char *fmt)
 {
         state_video_compress_cuda_dxt *s =
                 new state_video_compress_cuda_dxt();
-        const char *fmt = params->cfg;
         s->out_codec = DXT1;
 
         if (fmt && fmt[0] != '\0') {
@@ -284,13 +282,15 @@ static void cuda_dxt_compress_done(struct module *mod)
         delete s;
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t cuda_dxt_info = {
+const struct video_compress_info cuda_dxt_info = {
         "cuda_dxt",
         cuda_dxt_compress_init,
         NULL,
         cuda_dxt_compress_tile,
         [] { return list<compress_preset>{}; }
 };
+
+REGISTER_MODULE(cuda_dxt, &cuda_dxt_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

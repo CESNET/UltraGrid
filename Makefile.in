@@ -599,13 +599,13 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sage.so $^ @SAGE_LIB@ -o $@
 
 @RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_rtdxt.so @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
 @UYVY_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_uyvy.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_uyvy.so @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
 
 @LIBAVCODEC_COMPRESS_LIB_TARGET@: @LIBAVCODEC_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_libavcodec.so.@video_compress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_libavcodec.so $^ @LIBAVCODEC_LIBS@ -o $@
 
 @LIBAVCODEC_DECOMPRESS_LIB_TARGET@: @LIBAVCODEC_DECOMPRESS_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_libavcodec.so $^ @LIBAVCODEC_LIBS@ -o $@
@@ -614,10 +614,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acompress.so $^ @LIBAVCODEC_LIBS@ -o $@
 
 @JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_jpeg.so $^ @JPEG_LIB@ -o $@
 
 @CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@ @CUDA_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_cuda_dxt.so $^ @CUDA_DXT_LIB@ -o $@
 
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_rtdxt.so  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@

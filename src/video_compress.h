@@ -46,6 +46,8 @@
 
 #include "types.h"
 
+#define VIDEO_COMPRESS_ABI_VERSION 5
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,10 +60,6 @@ extern struct module compress_init_noerr;
 /** @name API for capture modules
  * @{ */
 
-struct video_compress_params {
-        const char *cfg;
-};
-
 /**
  * @brief Initializes video compression
  * 
@@ -70,9 +68,7 @@ struct video_compress_params {
  * @return           driver internal state
  */
 typedef struct module *(*compress_init_t)(struct module *parent,
-                const struct video_compress_params *params);
-
-typedef bool (*compress_is_supported_t)(void);
+                const char *cfg);
 /// @}
 
 void show_compress_help(void);
@@ -129,7 +125,7 @@ struct compress_preset {
         compress_prop dec_prop;
 };
 
-struct compress_info_t {
+struct video_compress_info {
         const char        * name;         ///< compress (unique) name
         compress_init_t     init_func;           ///< compress driver initialization function
         compress_frame_t    compress_frame_func; ///< compress function for Frame API

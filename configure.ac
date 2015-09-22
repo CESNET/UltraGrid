@@ -440,13 +440,10 @@ then
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-video_compress_abi_version=4
 video_rxtx_abi_version=1
 vo_pp_abi_version=3
-AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
-AC_SUBST(video_compress_abi_version)
 AC_SUBST(vo_pp_abi_version)
 
 # ------------------------------------------------------------------------------------------------
@@ -1908,7 +1905,7 @@ then
         RTDXT_COMPRESS_OBJ="dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
-        AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
+        AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_rtdxt.so")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_rtdxt.so")
         LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
@@ -1960,7 +1957,7 @@ if test $uyvy = yes
 then
         AC_DEFINE([HAVE_COMPRESS_UYVY], [1], [Build with dummy UYVY compression])
         UYVY_COMPRESS_OBJ="src/video_compress/uyvy.o"
-        AC_SUBST(UYVY_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_uyvy.so.$video_compress_abi_version")
+        AC_SUBST(UYVY_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_uyvy.so")
         LIB_TARGETS="$LIB_TARGETS $UYVY_COMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $UYVY_COMPRESS_OBJ"
         DEFINE_GL
@@ -2101,7 +2098,7 @@ then
         JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
-        AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
+        AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_jpeg.so")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_jpeg.so")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $JPEG_COMPRESS_OBJ $JPEG_DECOMPRESS_OBJ"
@@ -2154,7 +2151,7 @@ then
         CUDA_DXT_INC=$CUDA_INC
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
         AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
-        AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_cuda_dxt.so.$video_compress_abi_version")
+        AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_cuda_dxt.so")
         LIB_TARGETS="$LIB_TARGETS $CUDA_DXT_COMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS src/video_compress/cuda_dxt.o"
         ADD_CUDA_DXT_OBJ
@@ -2667,7 +2664,7 @@ if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = y
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
-        AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
+        AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_libavcodec.so")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_libavcodec.so")
 
         AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/module_acompress_libavcodec.so")

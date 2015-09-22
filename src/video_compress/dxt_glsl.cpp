@@ -51,11 +51,11 @@
 #include "dxt_compress/dxt_encoder.h"
 #include "dxt_compress/dxt_util.h"
 #include "host.h"
+#include "lib_common.h"
 #include "module.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_compress.h"
-#include "video_compress/dxt_glsl.h"
 
 #include <memory>
 
@@ -217,10 +217,9 @@ static bool dxt_is_supported()
         }
 }
 
-struct module *dxt_glsl_compress_init(struct module *parent, const struct video_compress_params *params)
+struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_rtdxt *s;
-        const char *opts = params->cfg;
 
         if(strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
@@ -324,9 +323,7 @@ static void dxt_glsl_compress_done(struct module *mod)
         delete s;
 }
 
-} // end of anonymous namespace
-
-struct compress_info_t rtdxt_info = {
+const struct video_compress_info rtdxt_info = {
         "RTDXT",
         dxt_glsl_compress_init,
         dxt_glsl_compress,
@@ -340,4 +337,8 @@ struct compress_info_t rtdxt_info = {
                 } : list<compress_preset>{};
         }
 };
+
+REGISTER_MODULE(rtdxt, &rtdxt_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+
+} // end of anonymous namespace
 

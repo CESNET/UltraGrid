@@ -58,44 +58,16 @@
 #include "utils/worker.h"
 #include "video.h"
 #include "video_compress.h"
-#include "video_compress/cuda_dxt.h"
-#include "video_compress/dxt_glsl.h"
-#include "video_compress/libavcodec.h"
-#include "video_compress/jpeg.h"
-#include "video_compress/none.h"
-#include "video_compress/uyvy.h"
 #include "lib_common.h"
 
 using namespace std;
 
 namespace {
-
-/* *_str are symbol names inside library */
-/**
- * @brief This struct describes individual compress module
- *
- * Initially, in this struct are either callbacks or functions names.
- * For actual initialization of the callbacks/names, @ref MK_STATIC and @ref MK_NAME
- * macros should be used. After initialization, callbacks are set.
- *
- * There are 2 APIs available - drivers are required to implement one of them. They
- * can implement either @ref compress_frame_func or @ref compress_tile_func function.
- * The other* shall then be NULL.
- */
-struct compress_t {
-        const char        * library_name; ///< If module is dynamically loadable, this is the name of library.
-
-        compress_info_t   * compress_info;
-        const char        * compress_info_symbol_name;
-
-        void *handle;                     ///< for modular build, dynamically loaded library handle
-};
-
 /**
  * @brief This structure represents real internal compress state
  */
 struct compress_state_real {
-        struct compress_t  *handle;                 ///< handle for the driver
+        const video_compress_info    *funcs;            ///< handle for the driver
         struct module     **state;                  ///< driver internal states
         unsigned int        state_count;            ///< count of compress states (equal to tiles' count)
         char                compress_options[1024]; ///< compress options (for reconfiguration)
@@ -122,7 +94,6 @@ typedef struct compress_state compress_state_proxy; ///< Used to emphasize that 
  */
 struct module compress_init_noerr;
 
-static void init_compressions(void);
 static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
                 shared_ptr<video_frame> frame, struct module *parent);
 static int compress_init_real(struct module *parent, const char *config_string,
@@ -130,142 +101,25 @@ static int compress_init_real(struct module *parent, const char *config_string,
 static void compress_done_real(struct compress_state_real *s);
 static void compress_done(struct module *mod);
 
-/**
- * @brief This table contains list of video compress devices compiled with this UltraGrid version.
- * @copydetails decoders
- */
-struct compress_t compress_modules[] = {
-#ifndef UV_IN_YURI
-#if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
-        {
-                "rtdxt",
-                MK_NAME_REF(rtdxt_info),
-                NULL,
-        },
-#endif
-#if defined HAVE_JPEG || defined  BUILD_LIBRARIES
-        {
-                "jpeg",
-                MK_NAME_REF(jpeg_info),
-                NULL,
-        },
-#endif
-#if defined HAVE_COMPRESS_UYVY || defined  BUILD_LIBRARIES
-        {
-                "uyvy",
-                MK_NAME_REF(uyvy_info),
-                NULL,
-        },
-#endif
-#if defined HAVE_LAVC || defined  BUILD_LIBRARIES
-        {
-                "libavcodec",
-                MK_NAME_REF(libavcodec_info),
-                NULL,
-        },
-#endif
-#if defined HAVE_CUDA_DXT || defined  BUILD_LIBRARIES
-        {
-                "cuda_dxt",
-                MK_NAME_REF(cuda_dxt_info),
-                NULL,
-        },
-#endif
-#endif
-        {
-                NULL,
-                MK_STATIC_REF(none_info),
-                NULL,
-        },
-};
-
-#define MAX_COMPRESS_MODULES (sizeof(compress_modules)/sizeof(struct compress_t))
-
-/// @brief List of available display devices.
-///
-/// initialized automatically
-static struct compress_t *available_compress_modules[MAX_COMPRESS_MODULES];
-/// @brief Count of @ref available_compress_modules.
-///
-/// initialized automatically
-static int compress_modules_count = 0;
-
-#ifdef BUILD_LIBRARIES
-#include <dlfcn.h>
-/** Opens compress library of given name. */
-static void *compress_open_library(const char *compress_name)
-{
-        char name[128];
-        snprintf(name, sizeof(name), "vcompress_%s.so.%d", compress_name, VIDEO_COMPRESS_ABI_VERSION);
-
-        return open_library(name);
-}
-
-/** For a given device, load individual functions from library handle (previously opened). */
-static int compress_fill_symbols(struct compress_t *compression)
-{
-        void *handle = compression->handle;
-
-        compression->compress_info = (compress_info_t *)
-                dlsym(handle, compression->compress_info_symbol_name);
-
-        if(!compression->compress_info) {
-                fprintf(stderr, "Library %s opening error: %s \n", compression->library_name, dlerror());
-                return FALSE;
-        }
-        return TRUE;
-}
-#endif
-
-/// @brief guard of @ref available_compress_modules initialization
-static pthread_once_t compression_list_initialized = PTHREAD_ONCE_INIT;
-
-/// @brief initializes @ref available_compress_modules initialization
-static void init_compressions(void)
-{
-        unsigned int i;
-        for(i = 0; i < sizeof(compress_modules)/sizeof(struct compress_t); ++i) {
-#ifdef BUILD_LIBRARIES
-                if(compress_modules[i].library_name) {
-                        int ret;
-                        compress_modules[i].handle = compress_open_library(
-                                        compress_modules[i].library_name);
-                        if(!compress_modules[i].handle) continue;
-                        ret = compress_fill_symbols(&compress_modules[i]);
-                        if(!ret) {
-                                fprintf(stderr, "Opening symbols from library %s failed.\n",
-                                                compress_modules[i].library_name);
-                                continue;
-                        }
-                }
-#endif
-                available_compress_modules[compress_modules_count] = &compress_modules[i];
-                compress_modules_count++;
-        }
-}
-
 /// @brief Displays list of available compressions.
 void show_compress_help()
 {
-        int i;
-        pthread_once(&compression_list_initialized, init_compressions);
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
-        for(i = 0; i < compress_modules_count; ++i) {
-                printf("\t%s\n", available_compress_modules[i]->compress_info->name);
-        }
+        list_modules(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 }
 
 list<compress_preset> get_compress_capabilities()
 {
         list<compress_preset> ret;
 
-        pthread_once(&compression_list_initialized, init_compressions);
+        auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 
-        for (int i = 0; i < compress_modules_count; ++i) {
-                auto presets = available_compress_modules[i]->compress_info->get_presets();
+        for (auto it : compressions) {
+                auto vci = static_cast<const struct video_compress_info *>(it.second);
+                auto presets = vci->get_presets();
                 for (auto const & it : presets) {
                         auto new_elem = it;
-                        new_elem.name = string(available_compress_modules[i]->compress_info->name)
+                        new_elem.name = string(vci->name)
                                 + ":" + it.name;
                         ret.push_back(new_elem);
                 }
@@ -372,8 +226,8 @@ static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state)
 {
         struct compress_state_real *s;
-        struct video_compress_params params;
-        const char *compress_options = NULL;
+        string compress_name;
+        string compress_options;
 
         if(!config_string)
                 return -1;
@@ -384,36 +238,31 @@ static int compress_init_real(struct module *parent, const char *config_string,
                 return 1;
         }
 
-        pthread_once(&compression_list_initialized, init_compressions);
-
-        memset(&params, 0, sizeof(params));
-
-        s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
-
-        s->state_count = 1;
-
-        for (int i = 0; i < compress_modules_count; ++i) {
-                if(strncasecmp(config_string, available_compress_modules[i]->compress_info->name,
-                                strlen(available_compress_modules[i]->compress_info->name)) == 0) {
-                        s->handle = available_compress_modules[i];
-                        if (config_string[strlen(available_compress_modules[i]->compress_info->name)] == ':')
-                                compress_options = config_string +
-                                        strlen(available_compress_modules[i]->compress_info->name) + 1;
-                        else
-                                compress_options = "";
-                }
+        char *tmp = strdup(config_string);
+        if (strchr(tmp, ':')) {
+                char *opts = strchr(tmp, ':') + 1;
+                *strchr(tmp, ':') = '\0';
+                compress_options = opts;
         }
-        if(!s->handle) {
+        compress_name = tmp;
+        free(tmp);
+
+        auto vci = static_cast<const struct video_compress_info *>(load_library(compress_name.c_str(), LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION));
+        if(!vci) {
                 fprintf(stderr, "Unknown compression: %s\n", config_string);
-                free(s);
                 return -1;
         }
-        strncpy(s->compress_options, compress_options, sizeof(s->compress_options) - 1);
-        s->compress_options[sizeof(s->compress_options) - 1] = '\0';
-        params.cfg = s->compress_options;
-        if(s->handle->compress_info->init_func) {
+
+        s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
+        s->state_count = 1;
+
+        s->funcs = vci;
+
+        strncpy(s->compress_options, compress_options.c_str(), sizeof(s->compress_options) - 1);
+
+        if(s->funcs->init_func) {
                 s->state = (struct module **) calloc(1, sizeof(struct module *));
-                s->state[0] = s->handle->compress_info->init_func(parent, &params);
+                s->state[0] = s->funcs->init_func(parent, s->compress_options);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
@@ -443,7 +292,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
 const char *get_compress_name(compress_state_proxy *proxy)
 {
         if(proxy)
-                return proxy->ptr->handle->compress_info->name;
+                return proxy->ptr->funcs->name;
         else
                 return NULL;
 }
@@ -474,9 +323,9 @@ void compress_frame(compress_state_proxy *proxy, shared_ptr<video_frame> frame)
         struct compress_state_real *s = proxy->ptr;
 
         shared_ptr<video_frame> sync_api_frame;
-        if (s->handle->compress_info->compress_frame_func) {
-                sync_api_frame = s->handle->compress_info->compress_frame_func(s->state[0], frame);
-        } else if(s->handle->compress_info->compress_tile_func) {
+        if (s->funcs->compress_frame_func) {
+                sync_api_frame = s->funcs->compress_frame_func(s->state[0], frame);
+        } else if(s->funcs->compress_tile_func) {
                 sync_api_frame = compress_frame_tiles(s, frame, &proxy->mod);
         } else {
                 sync_api_frame = {};
@@ -531,13 +380,10 @@ static void *compress_tile_callback(void *arg) {
 static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
                 shared_ptr<video_frame> frame, struct module *parent)
 {
-        struct video_compress_params params;
-        memset(&params, 0, sizeof(params));
-        params.cfg = s->compress_options;
         if(frame->tile_count != s->state_count) {
                 s->state = (struct module **) realloc(s->state, frame->tile_count * sizeof(struct module *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
-                        s->state[i] = s->handle->compress_info->init_func(parent, &params);
+                        s->state[i] = s->funcs->init_func(parent, s->compress_options);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
                                 return NULL;
@@ -557,7 +403,7 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
                 data->frame = separate_tiles[i];
-                data->callback = s->handle->compress_info->compress_tile_func;
+                data->callback = s->funcs->compress_tile_func;
 
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }
