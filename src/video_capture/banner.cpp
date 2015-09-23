@@ -75,6 +75,17 @@ struct banner_state {
         struct video_frame *frame;
 };
 
+static void usage()
+{
+        printf("Banner capture card scrolls predefined banner. Provided file should be "
+                        "uncompressed and in specified color space.\n");
+        printf("Banner height is given by file size divided by line length in bytes.\n\n");
+        printf("banner options:\n");
+        printf("\t-t banner:<width>:<height>:<fps>:<codec>:filename=<filename>[:i|:sf]\n");
+        printf("\t<filename> - use file named filename\n");
+        printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
+}
+
 static void *vidcap_banner_init(const struct vidcap_params *params)
 {
         struct banner_state *s;
@@ -83,13 +94,7 @@ static void *vidcap_banner_init(const struct vidcap_params *params)
         char *save_ptr = NULL;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                printf("Banner capture card srolls predefined banner. Banner should be "
-                       "uncompressed and in specified color space.\n");
-                printf("Banner height is given by file size divided by line length in bytes.\n\n");
-                printf("banner options:\n");
-                printf("\t-t banner:<width>:<height>:<fps>:<codec>:filename=<filename>[:i|:sf]\n");
-                printf("\t<filename> - use file named filename\n");
-                printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
+                usage();
                 return &vidcap_init_noerr;
         }
 
@@ -105,18 +110,21 @@ static void *vidcap_banner_init(const struct vidcap_params *params)
         tmp = strtok_r(fmt, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for banner '%s'\n", fmt);
+                usage();
                 goto error;
         }
         vf_get_tile(s->frame, 0)->width = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for banner '%s'\n", fmt);
+                usage();
                 goto error;
         }
         vf_get_tile(s->frame, 0)->height = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for banner '%s'\n", fmt);
+                usage();
                 goto error;
         }
 
@@ -125,6 +133,7 @@ static void *vidcap_banner_init(const struct vidcap_params *params)
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for banner '%s'\n", fmt);
+                usage();
                 goto error;
         }
 
@@ -180,6 +189,7 @@ static void *vidcap_banner_init(const struct vidcap_params *params)
                         s->frame->interlacing = SEGMENTED_FRAME;
                 } else {
                         fprintf(stderr, "[banner] Unknown option: %s\n", tmp);
+                        usage();
                         goto error;
                 }
                 tmp = strtok_r(NULL, ":", &save_ptr);
