@@ -59,12 +59,53 @@
 
 using namespace std;
 
+#ifdef HAVE_TERMIOS_H
+static bool signal_catched = false;
+
+static void catch_signal(int)
+{
+        signal_catched = true;
+}
+#endif
+
 void keyboard_control::start(struct module *root)
 {
         m_root = root;
 #ifdef HAVE_TERMIOS_H
-        assert(pipe(m_should_exit_pipe) == 0);
+        if (pipe(m_should_exit_pipe) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "[key control] Cannot create control pipe!\n");
+                return;
+        }
+
+        if (!isatty(STDIN_FILENO)) {
+                log_msg(LOG_LEVEL_WARNING, "[key control] Stdin is not a TTY - disabling keyboard control.\n");
+                return;
+        }
+
+        struct termios new_tio;
+        /* get the terminal settings for stdin */
+        tcgetattr(STDIN_FILENO,&m_old_tio);
+        /* we want to keep the old setting to restore them a the end */
+        new_tio=m_old_tio;
+        /* disable canonical mode (buffered i/o) and local echo */
+        new_tio.c_lflag &=(~ICANON & ~ECHO);
+        // Wrap calling of tcsetattr() by handling SIGTTOU. SIGTTOU can be raised if task is
+        // run in background and trying to call tcsetattr(). If so, we disable keyboard
+        // control.
+        struct sigaction sa, sa_old;
+        memset(&sa, 0, sizeof sa);
+        sa.sa_handler = catch_signal;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGTTOU, &sa, &sa_old);
+        /* set the new settings immediately */
+        tcsetattr(STDIN_FILENO,TCSANOW,&new_tio);
+        sigaction(SIGTTOU, &sa_old, NULL);
+        if (signal_catched) {
+                log_msg(LOG_LEVEL_WARNING, "[key control] Background task - disabling keyboard control.\n");
+                return;
+        }
 #endif
+
         m_keyboard_thread = thread(&keyboard_control::run, this);
         m_started = true;
 }
@@ -83,26 +124,24 @@ void keyboard_control::stop()
 #endif
         m_keyboard_thread.join();
         m_started = false;
+
+#ifdef HAVE_TERMIOS_H
+        struct sigaction sa, sa_old;
+        memset(&sa, 0, sizeof sa);
+        sa.sa_handler = SIG_IGN;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGTTOU, &sa, &sa_old);
+        /* set the new settings immediately */
+        /* restore the former settings */
+        tcsetattr(STDIN_FILENO,TCSANOW,&m_old_tio);
+        sigaction(SIGTTOU, &sa_old, NULL);
+
+        close(m_should_exit_pipe[0]);
+#endif
 }
 
 void keyboard_control::run()
 {
-#ifdef HAVE_TERMIOS_H
-        struct termios old_tio, new_tio;
-
-        /* get the terminal settings for stdin */
-        tcgetattr(STDIN_FILENO,&old_tio);
-
-        /* we want to keep the old setting to restore them a the end */
-        new_tio=old_tio;
-
-        /* disable canonical mode (buffered i/o) and local echo */
-        new_tio.c_lflag &=(~ICANON & ~ECHO);
-
-        /* set the new settings immediately */
-        tcsetattr(STDIN_FILENO,TCSANOW,&new_tio);
-#endif
-
         while(1) {
 #ifdef HAVE_TERMIOS_H
                 fd_set set;
@@ -159,13 +198,6 @@ void keyboard_control::run()
                         break;
                 }
         }
-
-#ifdef HAVE_TERMIOS_H
-        /* restore the former settings */
-        tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
-
-        close(m_should_exit_pipe[0]);
-#endif
 }
 
 

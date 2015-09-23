@@ -40,6 +40,10 @@
 
 #include <thread>
 
+#ifdef HAVE_TERMIOS_H
+#include "termios.h"
+#endif
+
 struct module;
 
 class keyboard_control {
@@ -53,6 +57,7 @@ private:
         std::thread m_keyboard_thread;
         struct module *m_root;
 #ifdef HAVE_TERMIOS_H
+        struct termios m_old_tio;
         int m_should_exit_pipe[2];
 #else
         bool m_should_exit;
