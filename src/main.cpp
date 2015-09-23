@@ -906,6 +906,10 @@ int main(int argc, char *argv[])
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
 
+        if (!isatty(0)) {
+                disable_key_control = true;
+        }
+
         if (strcmp("none", audio_recv) != 0) {
                 audio_rxtx_mode |= MODE_RECEIVER;
         }
