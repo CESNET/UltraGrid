@@ -150,7 +150,7 @@ static int display_pipe_get_property(void *state, int property, void *val, size_
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES:
-                        ((struct multi_sources_supp_info *) val)->val = true;
+                        ((struct multi_sources_supp_info *) val)->val = false;
                         ((struct multi_sources_supp_info *) val)->fork_display = display_pipe_fork;
                         ((struct multi_sources_supp_info *) val)->state = state;
                         *len = sizeof(struct multi_sources_supp_info);
