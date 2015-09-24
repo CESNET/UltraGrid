@@ -34,6 +34,10 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * Rewrite the code to have more clear state machine!
+ */
 
 #include "config.h"
 #include "config_unix.h"
@@ -58,6 +62,7 @@ static constexpr int TRANSITION_COUNT = 10;
 static constexpr int BUFFER_LEN = 5;
 static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
+static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 struct state_proxy_common {
         ~state_proxy_common() {
@@ -159,6 +164,7 @@ static void display_proxy_run(void *state)
 {
         shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
         bool prefill = false;
+        int skipped = 0;
 
         while (1) {
                 struct video_frame *frame;
@@ -194,9 +200,15 @@ static void display_proxy_run(void *state)
                 }
 
                 if (frame->ssrc != s->current_ssrc && frame->ssrc != s->old_ssrc) {
-                        s->old_ssrc = s->current_ssrc; // if != 0, we will be in transition state
-                        s->current_ssrc = frame->ssrc;
-                        prefill = true;
+                        if (skipped >= SKIP_FIRST_N_FRAMES_IN_STREAM) {
+                                s->old_ssrc = s->current_ssrc; // if != 0, we will be in transition state
+                                s->current_ssrc = frame->ssrc;
+                                prefill = true;
+                                skipped = 0;
+                        } else {
+                                skipped++;
+                                continue;
+                        }
                 }
 
                 s->frames[frame->ssrc].push_back(frame);
