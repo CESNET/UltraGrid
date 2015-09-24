@@ -92,8 +92,12 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                                         abort();
                                         m_network_devices = old_devices;
                                         m_requested_receiver = old_receiver;
+                                        log_msg(LOG_LEVEL_ERROR, "[control] Failed receiver to %s.\n",
+                                                        msg->receiver);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");
                                 } else {
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed receiver to %s.\n",
+                                                        msg->receiver);
                                         destroy_rtp_devices(old_devices);
                                 }
                         }
@@ -113,16 +117,22 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
                                         m_send_port_number = old_port;
+                                        log_msg(LOG_LEVEL_ERROR, "[control] Failed to Change TX port to %d.\n",
+                                                        msg->port);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing TX port failed!");
                                 } else {
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed TX port to %d.\n",
+                                                        msg->port);
                                         destroy_rtp_devices(old_devices);
                                 }
                         }
                         break;
                 case SENDER_MSG_PAUSE:
+                        log_msg(LOG_LEVEL_ERROR, "[control] Paused.\n");
                         m_paused = true;
                         break;
                 case SENDER_MSG_PLAY:
+                        log_msg(LOG_LEVEL_ERROR, "[control] Playing again.\n");
                         m_paused = false;
                         break;
                 case SENDER_MSG_CHANGE_FEC:
@@ -130,8 +140,10 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                                 delete m_fec_state;
                                 m_fec_state = fec::create_from_config(msg->fec_cfg);
                                 if (!m_fec_state) {
-                                        log_msg(LOG_LEVEL_ERROR, "Unable to initalize LDGM!\n");
+                                        log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                } else {
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
                                 }
                         }
                         break;
