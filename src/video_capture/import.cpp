@@ -282,6 +282,7 @@ vidcap_import_init(const struct vidcap_params *params)
 	struct vidcap_import_state *s = NULL;
         FILE *info = NULL; // metadata file
         char *tmp = strdup(vidcap_params_get_fmt(params));
+        bool disable_audio = false;
 
 try {
 	printf("vidcap_import_init\n");
@@ -299,7 +300,7 @@ try {
         char *suffix;
         if (!s->directory || strcmp(s->directory, "help") == 0) {
                 throw string("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>}\n"
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>|:disable_audio}\n"
                                 "\t\t<fps> - overrides FPS from sequence metadata\n");
         }
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
@@ -313,6 +314,8 @@ try {
                                         MAX_NUMBER_WORKERS);
                 } else if (strcmp(suffix, "o_direct") == 0) {
                         s->o_direct = true;
+                } else if (strcmp(suffix, "noaudio") == 0) {
+                        disable_audio = true;
                 } else if (strcmp(suffix, "exit_at_end") == 0) {
                         s->should_exit_at_end = true;
                 } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
@@ -332,7 +335,7 @@ try {
         assert(audio_filename != NULL);
         strcpy(audio_filename, s->directory);
         strcat(audio_filename, "/sound.wav");
-        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
+        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename)) {
                 s->audio_state.has_audio = true;
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
                         free(audio_filename);
