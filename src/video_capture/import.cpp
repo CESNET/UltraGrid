@@ -83,6 +83,7 @@
 
 using std::condition_variable;
 using std::chrono::duration;
+using std::min;
 using std::mutex;
 using std::ostringstream;
 using std::string;
@@ -1138,6 +1139,17 @@ static void reset_import(struct vidcap_import_state *s)
 
         s->finished = false;
 
+        // clear audio state
+        /// @todo
+        /// This stuff is very ugly, rewrite it
+        s->audio_state.played_samples = 0;
+        s->audio_state.samples_read = 0;
+        ring_buffer_flush(s->audio_state.data);
+        fseek(s->audio_state.file, 0L, SEEK_SET);
+        struct wav_metadata metadata;
+        read_wav_header(s->audio_state.file, &metadata); // skip metadata
+        s->frames = 0;
+
         if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
                 fprintf(stderr, "Unable to create thread.\n");
                 /// @todo what to do here
@@ -1214,6 +1226,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                 unsigned long long int requested_bytes = requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
                 if(requested_bytes) {
                         {
+                                requested_bytes = min<unsigned long long>(requested_bytes,s->audio_frame.max_size);
                                 unique_lock<mutex> lk(s->audio_state.lock);
                                 while(ring_get_current_size(s->audio_state.data) < (int) requested_bytes) {
                                         s->audio_state.boss_cv.wait(lk);;
@@ -1222,13 +1235,13 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                                 int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
 
                                 assert(ret == (int) requested_bytes);
-                                s->audio_frame.data_len = requested_bytes;
 
                                 lk.unlock();
                                 s->audio_state.worker_cv.notify_one();
                         }
                 }
 
+                s->audio_frame.data_len = requested_bytes;
                 s->audio_state.played_samples += requested_samples;
                 *audio = &s->audio_frame;
         } else {
