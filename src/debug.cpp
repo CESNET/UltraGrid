@@ -91,8 +91,7 @@ void log_msg(int level, const char *format, ...)
 #endif                          /* WIN32 */
 
         va_list ap;
-        const char *color = "";
-        const char *ending = "\033[0m";
+        const char *color = NULL;
 
         switch (level) {
         case LOG_LEVEL_FATAL:   color = "\033[1;31m"; break;
@@ -101,12 +100,20 @@ void log_msg(int level, const char *format, ...)
         case LOG_LEVEL_NOTICE:  color = "\033[0;32m"; break;
         }
 
-        char *format_new = (char *) alloca(strlen(format) + 4 + 7 + 1);
-        if (color_term) {
+        char *format_new = (char *) alloca(strlen(format) + 7 /* col start */ + 4 /* col end */ +
+                        (3 + 20) /* time */ + 1);
+        if ((color_term && color) || log_level >= LOG_LEVEL_VERBOSE) {
                 format_new[0] = '\0';
-                strcat(format_new, color);
+                if (color_term && color) {
+                        strcat(format_new, color);
+                }
+                if (log_level >= LOG_LEVEL_VERBOSE) {
+                        sprintf(format_new + strlen(format_new), "[%ld] ", time(NULL));
+                }
                 strcat(format_new, format);
-                strcat(format_new, ending);
+                if (color_term && color) {
+                        strcat(format_new, "\033[0m");
+                }
                 format = format_new;
         }
 

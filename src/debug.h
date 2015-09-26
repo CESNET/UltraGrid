@@ -52,7 +52,8 @@ void debug_dump(void*lp, int len);
 
 #define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
-#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
+///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
+#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 void log_msg(int log_level, const char *format, ...);
 
 #ifdef __cplusplus
@@ -66,7 +67,7 @@ class Logger
 {
 public:
         inline Logger(int l) : level(l) {}
-        inline virtual ~Logger() {
+        inline ~Logger() {
                 log_msg(level, os.str().c_str());
         }
         inline std::ostringstream& Get() {
