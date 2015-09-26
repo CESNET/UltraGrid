@@ -1177,6 +1177,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                      strlen(cname));
         free(cname);            /* cname is copied by rtp_set_sdes()... */
 
+        fprintf(stderr, "Created new RTP session with SSRC 0x%08x.\n",
+                  session->my_ssrc);
+
         return session;
 }
 
