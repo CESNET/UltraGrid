@@ -48,6 +48,7 @@ enum msg_sender_type {
         SENDER_MSG_PAUSE,
         SENDER_MSG_CHANGE_FEC,
         SENDER_MSG_QUERY_VIDEO_MODE,
+        SENDER_MSG_RESET_SSRC,
 };
 
 struct msg_sender {

@@ -156,6 +156,26 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                                 return new_response(RESPONSE_OK, oss.str().c_str());
                         }
                         break;
+                case SENDER_MSG_RESET_SSRC:
+                        {
+                                lock_guard<mutex> lock(m_network_devices_lock);
+                                uint32_t old_ssrc = rtp_my_ssrc(m_network_devices[0]);
+                                auto old_devices = m_network_devices;
+                                m_network_devices = initialize_network(m_requested_receiver.c_str(),
+                                                m_recv_port_number,
+                                                m_send_port_number, m_participants, m_ipv6,
+                                                m_requested_mcast_if);
+                                if (!m_network_devices) {
+                                        m_network_devices = old_devices;
+                                        log_msg(LOG_LEVEL_ERROR, "[control] Unable to change SSRC!\n");
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                } else {
+                                        destroy_rtp_devices(old_devices);
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08lx to "
+                                                        "0x%08lx.\n", old_ssrc, rtp_my_ssrc(m_network_devices[0]));
+                                }
+                        }
+                        break;
         }
 
         return new_response(RESPONSE_OK, NULL);

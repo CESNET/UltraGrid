@@ -327,7 +327,8 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         }
                 }
         } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
-                        prefix_matches(message, "pause") || prefix_matches(message, "sender-port ")) {
+                        prefix_matches(message, "pause") || prefix_matches(message, "sender-port ") ||
+                        prefix_matches(message, "reset-ssrc")) {
                 struct msg_sender *msg =
                         (struct msg_sender *)
                         new_message(sizeof(struct msg_sender));
@@ -341,6 +342,8 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         msg->type = SENDER_MSG_PLAY;
                 } else if(prefix_matches(message, "pause")) {
                         msg->type = SENDER_MSG_PAUSE;
+                } else if(prefix_matches(message, "reset-ssrc")) {
+                        msg->type = SENDER_MSG_RESET_SSRC;
                 } else {
                         abort();
                 }

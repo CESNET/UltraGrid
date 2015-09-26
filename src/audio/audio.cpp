@@ -780,6 +780,23 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         break;
                 case SENDER_MSG_QUERY_VIDEO_MODE:
                         return new_response(RESPONSE_BAD_REQUEST, NULL);
+                case SENDER_MSG_RESET_SSRC:
+                        {
+                                uint32_t old_ssrc = rtp_my_ssrc(s->audio_network_device);
+                                auto old_devices = s->audio_network_device;
+                                s->audio_network_device =
+                                        initialize_audio_network(&s->audio_network_parameters);
+                                if (!s->audio_network_device) {
+                                        s->audio_network_device = old_devices;
+                                        log_msg(LOG_LEVEL_ERROR, "[control] Audio: Unable to change SSRC!\n");
+                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                } else {
+                                        rtp_done(old_devices);
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08lx to "
+                                                        "0x%08lx.\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
+                                }
+                        }
+                        break;
                 case SENDER_MSG_CHANGE_FEC:
                         LOG(LOG_LEVEL_ERROR) << "Not implemented!\n";
                         return new_response(RESPONSE_NOT_IMPL, NULL);
