@@ -48,6 +48,7 @@
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
 
+#include <chrono>
 #include <iostream>
 #include <mutex>
 #include <memory>
@@ -57,6 +58,7 @@
 static constexpr int MAX_QUEUE_SIZE = 2;
 
 using namespace std;
+using namespace std::chrono;
 
 struct ug_input_state  : public frame_recv_delegate {
         mutex lock;
@@ -69,6 +71,9 @@ struct ug_input_state  : public frame_recv_delegate {
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
 
         virtual ~ug_input_state() {}
+
+        std::chrono::steady_clock::time_point t0;
+        int frames;
 };
 
 void ug_input_state::frame_arrived(struct video_frame *f)
@@ -129,6 +134,8 @@ static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
         s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params)));
         assert (s->video_rxtx);
 
+        s->t0 = steady_clock::now();
+
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
         s->display_thread = thread(display_run, s->display);
 
@@ -168,6 +175,18 @@ static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame 
                 auto frame = s->frame_queue.front();
                 s->frame_queue.pop();
                 frame->dispose = vf_free;
+
+                s->frames++;
+                auto curr_time = steady_clock::now();
+                double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
+                if (seconds >= 5.0) {
+                        float fps = s->frames / seconds;
+                        log_msg(LOG_LEVEL_INFO, "[ug_input] %d frames in %g seconds = %g FPS\n",
+                                        s->frames, seconds, fps);
+                        s->t0 = curr_time;
+                        s->frames = 0;
+                }
+
                 return frame;
         }
 }
