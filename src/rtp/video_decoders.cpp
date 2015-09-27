@@ -437,13 +437,13 @@ static void *fec_thread(void *args) {
                                 data->decompressed_frame->tiles[i].data = data->frame->tiles[i].data;
 
                                 if (data->frame->tiles[i].data_len != (unsigned int) sum_map(data->pckt_list[i])) {
-                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
+                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.%s\n", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->frame->tiles[i].data_len,
-                                                        (unsigned int) sum_map(data->pckt_list[i]));
+                                                        (unsigned int) sum_map(data->pckt_list[i]),
+                                                        decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame ? " dropped.\n" : "");
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
-                                                verbose_msg("dropped.\n");
                                                 goto cleanup;
                                         } else if (!corrupted_frame_counted) {
                                                 // count it here because decoder accepts corrupted frames
@@ -451,7 +451,6 @@ static void *fec_thread(void *args) {
                                                 data->corrupted = true;
                                                 decoder->corrupted++;
                                         }
-                                        verbose_msg("\n");
                                 }
                         }
                 }
@@ -823,14 +822,13 @@ static void cleanup(struct state_video_decoder *decoder)
         decoder->change_il_state.resize(0);
 }
 
-#define PRINT_STATISTICS log_msg(LOG_LEVEL_INFO, "Video decoder statistics: %lu total: %lu displayed / %lu "\
-                                "dropped / %lu corrupted / %lu missing frames.",\
+#define PRINT_STATISTICS log_msg(LOG_LEVEL_INFO, "Video dec stats: %lu total: %lu disp / %lu "\
+                                "drop / %lu corr / %lu missing.\n",\
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
-                                decoder->missing); \
-                         if (decoder->fec_ok + decoder->fec_nok > 0) log_msg(LOG_LEVEL_INFO, " FEC OK/NOK: %ld/%ld", \
-                         decoder->fec_ok, decoder->fec_nok); \
-                         log_msg(LOG_LEVEL_INFO, "\n");
+                                decoder->missing);\
+                                if (decoder->fec_ok + decoder->fec_nok > 0) log_msg(LOG_LEVEL_INFO, " FEC OK/NOK: %ld/%ld\n", \
+                                                 decoder->fec_ok, decoder->fec_nok); \
 
 /**
  * @brief Destroys decoder created with decoder_init()

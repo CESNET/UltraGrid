@@ -237,6 +237,7 @@ static void display_proxy_run(void *state)
                                         struct video_frame *real_display_frame = display_get_frame(s->real_display);
                                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
                                         vf_free(frame);
+                                        real_display_frame->ssrc = s->current_ssrc;
                                         display_put_frame(s->real_display, real_display_frame, PUTF_BLOCKING);
                                 }
                         } else {
@@ -278,6 +279,7 @@ static void display_proxy_run(void *state)
                                         }
                                         vf_free(old_frame);
                                         vf_free(new_frame);
+                                        real_display_frame->ssrc = s->current_ssrc;
                                         display_put_frame(s->real_display, real_display_frame, PUTF_BLOCKING);
                                 }
                         }
@@ -295,6 +297,7 @@ static void display_proxy_run(void *state)
                                         struct video_frame *real_display_frame = display_get_frame(s->real_display);
                                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
                                         vf_free(frame);
+                                        real_display_frame->ssrc = s->current_ssrc;
                                         display_put_frame(s->real_display, real_display_frame, PUTF_BLOCKING);
                                 }
                         }

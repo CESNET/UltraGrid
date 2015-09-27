@@ -657,7 +657,7 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                fprintf(stderr, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
+                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
                 t0 = t;
                 last_data = received_data;
             }
