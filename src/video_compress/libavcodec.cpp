@@ -317,6 +317,7 @@ static list<compress_preset> get_libavcodec_presets() {
                 ret.push_back({"encoder=libx264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
                 ret.push_back({"encoder=libx264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
         }
+#if 0
         if ((codec = avcodec_find_encoder_by_name("nvenc_h264"))) {
                 AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
                 assert(codec_ctx);
@@ -331,6 +332,7 @@ static list<compress_preset> get_libavcodec_presets() {
                 }
                 av_free(codec_ctx);
         }
+#endif
 #if 0
         ret.push_back({ "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}});
 #endif
