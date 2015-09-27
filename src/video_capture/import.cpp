@@ -1145,12 +1145,14 @@ static void reset_import(struct vidcap_import_state *s)
         // clear audio state
         /// @todo
         /// This stuff is very ugly, rewrite it
-        s->audio_state.played_samples = 0;
-        s->audio_state.samples_read = 0;
-        ring_buffer_flush(s->audio_state.data);
-        fseek(s->audio_state.file, 0L, SEEK_SET);
-        struct wav_metadata metadata;
-        read_wav_header(s->audio_state.file, &metadata); // skip metadata
+        if (s->audio_state.has_audio) {
+                s->audio_state.played_samples = 0;
+                s->audio_state.samples_read = 0;
+                ring_buffer_flush(s->audio_state.data);
+                fseek(s->audio_state.file, 0L, SEEK_SET);
+                struct wav_metadata metadata;
+                read_wav_header(s->audio_state.file, &metadata); // skip metadata
+        }
         s->frames = 0;
 
         if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
