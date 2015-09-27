@@ -159,7 +159,7 @@ static struct item *qinit(int qsize)
 }
 
 struct response *change_replica_type(struct hd_rum_translator_state *s,
-        struct module *mod, struct message *msg)
+        struct module *mod, struct message *msg, int index)
 {
     struct replica *r = (struct replica *) mod->priv_data;
 
@@ -167,10 +167,10 @@ struct response *change_replica_type(struct hd_rum_translator_state *s,
 
     if (strcasecmp(data->text, "sock") == 0) {
         r->type = replica::type_t::USE_SOCK;
-        log_msg(LOG_LEVEL_NOTICE, "Output port is now forwarding.\n");
+        log_msg(LOG_LEVEL_NOTICE, "Output port %d is now forwarding.\n", index);
     } else if (strcasecmp(data->text, "recompress") == 0) {
         r->type = replica::type_t::RECOMPRESS;
-        log_msg(LOG_LEVEL_NOTICE, "Output port is now transcoding.\n");
+        log_msg(LOG_LEVEL_NOTICE, "Output port %d is now transcoding.\n", index);
     } else {
         fprintf(stderr, "Unknown replica type \"%s\"\n", data->text);
         return new_response(RESPONSE_BAD_REQUEST, NULL);
@@ -192,7 +192,7 @@ static void *writer(void *arg)
         for (unsigned int i = 0; i < s->replicas.size(); i++) {
             struct message *msg;
             while ((msg = check_message(&s->replicas[i]->mod))) {
-                struct response *r = change_replica_type(s, &s->replicas[i]->mod, msg);
+                struct response *r = change_replica_type(s, &s->replicas[i]->mod, msg, i);
                 free_message(msg, r);
             }
         }
@@ -245,7 +245,7 @@ static void *writer(void *arg)
                     } else {
                         hd_rum_decompress_append_port(s->decompress, rep->recompress);
                         hd_rum_decompress_set_active(s->decompress, rep->recompress, true);
-                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port.\n");
+                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08lx.\n", host, tx_port, recompress_get_ssrc(rep->recompress));
                     }
                 } else {
                     rep->type = replica::type_t::USE_SOCK;
@@ -256,7 +256,7 @@ static void *writer(void *arg)
                             0, tx_port, 1500, fec, RATE_UNLIMITED);
                     hd_rum_decompress_append_port(s->decompress, rep->recompress);
                     hd_rum_decompress_set_active(s->decompress, rep->recompress, false);
-                    log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port.\n");
+                    log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
                 }
             } else {
                 r = new_response(RESPONSE_BAD_REQUEST, NULL);

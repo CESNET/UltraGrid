@@ -91,7 +91,7 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame, int po
                 log_msg(LOG_LEVEL_INFO, "[0x%08lx->%s:%d:0x%08lx] %d frames in %g seconds = %g FPS\n",
                                 frame->ssrc,
                                 s->host.c_str(), s->tx_port,
-                                rtp_my_ssrc(s->video_rxtx->m_network_devices[0]),
+                                s->video_rxtx->get_ssrc(),
                                 s->frames, seconds, fps);
                 s->t0 = now;
                 s->frames = 0;
@@ -106,6 +106,13 @@ void recompress_assign_ssrc(void *state, uint32_t ssrc)
         // UNIMPLEMENTED NOW
         UNUSED(state);
         UNUSED(ssrc);
+}
+
+uint32_t recompress_get_ssrc(void *state)
+{
+        auto s = static_cast<state_recompress *>(state);
+
+        return s->video_rxtx->get_ssrc();
 }
 
 void recompress_done(void *state)

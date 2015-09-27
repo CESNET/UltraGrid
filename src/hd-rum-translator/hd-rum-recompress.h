@@ -16,6 +16,7 @@ void *recompress_init(struct module *parent, const char *host, const char *compr
                 long packet_rate);
 void recompress_assign_ssrc(void *state, uint32_t ssrc);
 void recompress_done(void *state);
+uint32_t recompress_get_ssrc(void *state);
 
 #ifdef __cplusplus
 }
