@@ -128,13 +128,19 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                         }
                         break;
                 case SENDER_MSG_PAUSE:
-                        log_msg(LOG_LEVEL_ERROR, "[control] Paused.\n");
-                        m_paused = true;
-                        break;
+                        {
+                                lock_guard<mutex> lock(m_network_devices_lock);
+                                log_msg(LOG_LEVEL_ERROR, "[control] Paused.\n");
+                                m_paused = true;
+                                break;
+                        }
                 case SENDER_MSG_PLAY:
-                        log_msg(LOG_LEVEL_ERROR, "[control] Playing again.\n");
-                        m_paused = false;
-                        break;
+                        {
+                                lock_guard<mutex> lock(m_network_devices_lock);
+                                log_msg(LOG_LEVEL_ERROR, "[control] Playing again.\n");
+                                m_paused = false;
+                                break;
+                        }
                 case SENDER_MSG_CHANGE_FEC:
                         {
                                 delete m_fec_state;

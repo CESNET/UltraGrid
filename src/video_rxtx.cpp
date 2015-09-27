@@ -222,9 +222,7 @@ void *video_rxtx::sender_loop() {
 
                 video_export(m_video_exporter, tx_frame.get());
 
-                if (!m_paused) {
-                        send_frame(tx_frame);
-                }
+                send_frame(tx_frame);
         }
 
 exit:
