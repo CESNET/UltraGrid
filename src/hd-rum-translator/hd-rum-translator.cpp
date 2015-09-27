@@ -311,7 +311,8 @@ static void usage(const char *progname) {
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
                 "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
-                "\t\t--help\n");
+                "\t\t--help\n"
+                "\t\t--verbose\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
                 "\t\t-c <compression> - compression\n"
@@ -344,6 +345,7 @@ struct cmdline_parameters {
     int control_connection_type = 0;
     bool blend = false;
     const char *capture_filter = NULL;
+    bool verbose = false;
 };
 
 /**
@@ -372,6 +374,8 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
             return false;
+        } else if(strcmp(argv[start_index], "--verbose") == 0) {
+            parsed->verbose = true;
         } else {
             usage(argv[0]);
             return false;
@@ -516,6 +520,10 @@ int main(int argc, char **argv)
 
     if (ret == false) {
         return EXIT_SUCCESS;
+    }
+
+    if (params.verbose) {
+        log_level = LOG_LEVEL_VERBOSE;
     }
 
     if ((bufsize = atoi(params.bufsize)) <= 0) {

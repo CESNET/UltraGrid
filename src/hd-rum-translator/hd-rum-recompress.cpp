@@ -88,7 +88,7 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame, int po
         double seconds = chrono::duration_cast<chrono::microseconds>(now - s->t0).count() / 1000000.0;
         if(seconds > 5) {
                 double fps = s->frames / seconds;
-                fprintf(stdout, "[%.4x->%s:%d] %d frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[%.4x->%s:%d] %d frames in %g seconds = %g FPS\n",
                                 rtp_my_ssrc(s->video_rxtx->m_network_devices[0]),
                                 s->host.c_str(), s->tx_port,
                                 s->frames, seconds, fps);
