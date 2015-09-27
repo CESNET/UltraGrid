@@ -306,7 +306,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
 
 static list<compress_preset> get_libavcodec_presets() {
         list<compress_preset> ret;
-        AVCodec *codec;
         avcodec_register_all();
 
         pthread_mutex_t *lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
@@ -318,6 +317,7 @@ static list<compress_preset> get_libavcodec_presets() {
                 ret.push_back({"encoder=libx264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
         }
 #if 0
+        AVCodec *codec;
         if ((codec = avcodec_find_encoder_by_name("nvenc_h264"))) {
                 AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
                 assert(codec_ctx);
