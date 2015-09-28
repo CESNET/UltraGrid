@@ -1388,7 +1388,7 @@ RESIZE_LIBS=
 RESIZE_OBJ=
 resize=no
 
-define(resize_dep, opencv)
+define(resize_dep, opencv > 2.3.1) # TODO: supply correct version requirement
 
 AC_ARG_ENABLE(resize,
 [  --disable-resize        disable resize capture filter (default is auto)]
