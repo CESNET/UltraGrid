@@ -124,8 +124,6 @@ struct vidcap_decklink_state {
         unsigned int            grab_audio:1; /* wheather we process audio or not */
         unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
-        unsigned int            autodetect_mode:1;
-
         BMDVideoConnection      connection;
         int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
 
@@ -579,8 +577,6 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
         char *save_ptr = NULL;
 
         if (!fmt || (tmp = strtok_r(fmt, ":", &save_ptr)) == NULL) {
-                printf("[DeckLink] Trying to autodetect format.\n");
-                s->autodetect_mode = TRUE;
                 printf("[DeckLink] Auto-choosen device 0.\n");
 
                 return 1;
@@ -612,9 +608,6 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
                         if (!settings_init_key_val(s, &save_ptr)) {
                                 return 0;
                         }
-                } else {
-                        s->autodetect_mode = TRUE;
-                        printf("[DeckLink] Trying to autodetect format.\n");
                 }
         } else { // options are in format key=val
                 if (!parse_option(s, tmp)) {
@@ -816,7 +809,6 @@ vidcap_decklink_init(const struct vidcap_params *params)
 
         s->stereo = FALSE;
         s->use_timecode = FALSE;
-        s->autodetect_mode = FALSE;
         s->connection = (BMDVideoConnection) 0;
         s->flags = 0;
         s->audio_consumer_levels = -1;
@@ -1003,7 +995,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                                 goto error;
                                         }
 
-                                        if(s->autodetect_mode) {
+                                        if (s->mode.empty()) {
+                                                log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
 #ifdef WIN32
                                                 BOOL autodetection;
 #else
