@@ -184,8 +184,9 @@ static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
 
-static void print_codec_info(const AVCodecID id, char *buf, size_t buflen)
+static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 {
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         const AVCodec *codec;
         if ((codec = avcodec_find_encoder(id))) {
                 strncpy(buf, " (enc:", buflen - 1);
@@ -215,6 +216,11 @@ static void print_codec_info(const AVCodecID id, char *buf, size_t buflen)
         if (avcodec_find_encoder(id) || avcodec_find_decoder(id)) {
                 strncat(buf, ")", buflen - strlen(buf) - 1);
         }
+#else
+        UNUSED(id);
+        UNUSED(buf);
+        UNUSED(buflen);
+#endif
 }
 
 static void usage() {
