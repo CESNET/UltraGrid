@@ -178,6 +178,7 @@ void append_message_path(char *buf, int buflen, enum module_class modules[])
 
 struct module *get_root_module(struct module *node)
 {
+        assert(node);
         while(node->parent) {
                 node = node->parent;
         }

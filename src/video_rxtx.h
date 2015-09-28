@@ -97,6 +97,7 @@ protected:
         struct module m_sender_mod;
         struct module m_receiver_mod;
         int m_rxtx_mode;
+        struct module *m_parent;
 private:
         virtual void send_frame(std::shared_ptr<video_frame>) = 0;
         virtual void *(*get_receiver_thread())(void *arg) = 0;

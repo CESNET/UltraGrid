@@ -112,7 +112,9 @@ void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
 }
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id(-1), m_paused(params.at("paused").b),
-                m_rxtx_mode(params.at("rxtx_mode").i), m_compression(nullptr),
+                m_rxtx_mode(params.at("rxtx_mode").i),
+                m_parent(static_cast<struct module *>(params.at("parent").ptr)),
+                m_compression(nullptr),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
                 m_poisoned(false), m_joined(true) {
 
