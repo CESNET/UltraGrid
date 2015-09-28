@@ -121,7 +121,7 @@ static void display_sage_run(void *arg)
         s->magic = MAGIC_SAGE;
 
         while (!s->should_exit) {
-                //display_sage_handle_events();
+                display_sage_handle_events();
 
                 sem_wait(&s->semaphore);
                 if (s->should_exit)
