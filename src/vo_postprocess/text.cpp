@@ -184,6 +184,7 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
                 memcpy(tmp.get() + y * dstlinesize, in->tiles[0].data + y * srclinesize, dstlinesize);
         }
 
+        MagickRemoveImage(s->wand);
         auto status = MagickReadImageBlob(s->wand, tmp.get(), H * dstlinesize);
         assert (status == MagickTrue);
         //double *ret = MagickQueryFontMetrics(wand, dw, s->text.c_str());
