@@ -142,16 +142,19 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
         s->wand = NewMagickWand();
         status = MagickSetFormat(s->wand, colorspace);
         if(status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickSetFormat failed!\n");
                 return FALSE;
         }
 
         status = MagickSetSize(s->wand, W, H);
         if(status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickSetSize failed!\n");
                 return FALSE;
         }
 
         status = MagickSetDepth(s->wand, 8);
         if(status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickSetDepth failed!\n");
                 return FALSE;
         }
 
@@ -186,17 +189,29 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
 
         MagickRemoveImage(s->wand);
         auto status = MagickReadImageBlob(s->wand, tmp.get(), H * dstlinesize);
-        assert (status == MagickTrue);
+        if (status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickReadImageBlob failed!\n");
+                return false;
+        }
         //double *ret = MagickQueryFontMetrics(wand, dw, s->text.c_str());
         //fprintf(stderr, "%f %f %f %f %f\n", ret[0], ret[1], ret[2], ret[3], ret[4]);
         unsigned char *data;
         size_t data_len;
         status = MagickAnnotateImage(s->wand, s->dw, MARGIN_X, MARGIN_Y + TEXT_H, 0, s->text.c_str());
-        assert (status == MagickTrue);
+        if (status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickAnnotateImage failed!\n");
+                return false;
+        }
         status = MagickDrawImage(s->wand, s->dw);
-        assert (status == MagickTrue);
+        if (status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "MagickDrawImage failed!\n");
+                return false;
+        }
         data = MagickGetImageBlob(s->wand, &data_len);
-        assert(data);
+        if (!data) {
+                log_msg(LOG_LEVEL_WARNING, "MagickGetImageBlob failed!\n");
+                return false;
+        }
 
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
