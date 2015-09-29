@@ -49,6 +49,8 @@
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess/text.h"
 
+#include "tv.h"
+
 using namespace std;
 
 struct state_text {
@@ -74,7 +76,7 @@ bool text_get_property(void *state, int property, void *val, size_t *len)
 #define MARGIN_X 10
 #define MARGIN_Y 10
 
-#define W 300
+#define W 200
 #define H (TEXT_H + 2*MARGIN_Y)
 
 void * text_init(char *config) {
@@ -108,15 +110,19 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
         s->in = vf_alloc_desc_data(desc);
 
         const char *color;
+        const char *color_outline;
         const char *colorspace;
         if (desc.color_spec == RGBA) {
                 color = "#333333FF";
+                color_outline = "#FFFFFFFF";
                 colorspace = "rgba";
         } else if (desc.color_spec == RGB) {
                 color = "#333333FF";
+                color_outline = "#FFFFFFFF";
                 colorspace = "rgb";
         } else {
                 color = "#228080FF";
+                color_outline = "#EB8080FF";
                 colorspace = "UYVY";
         }
 
@@ -128,6 +134,8 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
                PixelWand *pw = NewPixelWand();
                PixelSetColor(pw, color);
                DrawSetFillColor(s->dw, pw);
+               PixelSetColor(pw, color_outline);
+               DrawSetStrokeColor(s->dw, pw);
                DestroyPixelWand(pw);
         }
 
@@ -197,6 +205,7 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
                 }
         }
 
+        free(data);
 
         return true;
 }
