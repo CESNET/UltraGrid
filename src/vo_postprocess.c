@@ -125,7 +125,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(df_done),
                 NULL
         },
-#if defined HAVE_TEXT || defined BUILD_LIBRARIES
+#if defined HAVE_SCALE || defined BUILD_LIBRARIES
         {"scale",
                 "scale",
                 MK_NAME(scale_init),
@@ -160,7 +160,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(interlaced_3d_done),
                 NULL
         },
-#if defined HAVE_SCALE || defined BUILD_LIBRARIES
+#if defined HAVE_TEXT || defined BUILD_LIBRARIES
         {"text",
                 "text",
                 MK_NAME(text_init),
