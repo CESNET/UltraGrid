@@ -79,6 +79,14 @@ bool text_get_property(void *state, int property, void *val, size_t *len)
 #define W 200
 #define H (TEXT_H + 2*MARGIN_Y)
 
+static pthread_once_t vo_postprocess_text_initialized = PTHREAD_ONCE_INIT;
+
+static void init_text() {
+        MagickWandGenesis();
+        atexit(MagickWandTerminus);
+}
+
+
 void * text_init(char *config) {
         struct state_text *s;
 
@@ -89,7 +97,7 @@ void * text_init(char *config) {
         s = new state_text();
         s->text = config;
 
-        MagickWandGenesis();
+        pthread_once(&vo_postprocess_text_initialized, init_text);
 
         return s;
 }
@@ -234,7 +242,6 @@ void text_done(void *state)
 
         DestroyMagickWand(s->wand);
         DestroyDrawingWand(s->dw);
-        MagickWandTerminus();
 
         delete s;
 }
