@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * Add more options - eg. text position and size.
+ * Add support for more pixel formats.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -46,7 +51,7 @@
 
 #include "debug.h"
 #include "video.h"
-#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
+#include "video_display.h"
 #include "vo_postprocess/text.h"
 
 #include "tv.h"
@@ -57,6 +62,7 @@ struct state_text {
         struct video_frame *in;
         unique_ptr<char []> data;
         string text;
+        int width, height; // width in pixels
 
         DrawingWand *dw;
         MagickWand *wand;
@@ -76,9 +82,6 @@ bool text_get_property(void *state, int property, void *val, size_t *len)
 #define MARGIN_X 10
 #define MARGIN_Y 10
 
-#define W 200
-#define H (TEXT_H + 2*MARGIN_Y)
-
 static pthread_once_t vo_postprocess_text_initialized = PTHREAD_ONCE_INIT;
 
 static void init_text() {
@@ -88,16 +91,19 @@ static void init_text() {
 
 
 void * text_init(char *config) {
+        pthread_once(&vo_postprocess_text_initialized, init_text);
+
         struct state_text *s;
 
         if(!config || strcmp(config, "help") == 0) {
-                printf("3d-interlaced takes no parameters.\n");
+                printf("text video postprocess takes as a parameter text to be drawed. Examples:\n");
+                printf("\t-p text:stream1\n");
+                printf("\t-p \"text:Video stream from location XY\"\n");
+                printf("\n");
                 return NULL;
         }
         s = new state_text();
         s->text = config;
-
-        pthread_once(&vo_postprocess_text_initialized, init_text);
 
         return s;
 }
@@ -117,6 +123,9 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->in = vf_alloc_desc_data(desc);
 
+        s->width = min<unsigned long>(MARGIN_X + s->text.length() * TEXT_H, desc.width);
+        s->height = min<unsigned long>(2*MARGIN_Y + TEXT_H, desc.height);
+
         const char *color;
         const char *color_outline;
         const char *colorspace;
@@ -128,16 +137,23 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
                 color = "#333333FF";
                 color_outline = "#FFFFFFFF";
                 colorspace = "rgb";
-        } else {
+        } else if (desc.color_spec == UYVY) {
                 color = "#228080FF";
                 color_outline = "#EB8080FF";
                 colorspace = "UYVY";
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "[text vo_pp.] Codec not supported! Please report to "
+                                PACKAGE_BUGREPORT ".\n");
+                return FALSE;
         }
 
         s->dw = NewDrawingWand();
         DrawSetFontSize(s->dw, TEXT_H);
         auto status = DrawSetFont(s->dw, "helvetica");
-        //assert (status != MagickTrue);
+        if(status != MagickTrue) {
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
+                return FALSE;
+        }
         {
                PixelWand *pw = NewPixelWand();
                PixelSetColor(pw, color);
@@ -150,19 +166,19 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
         s->wand = NewMagickWand();
         status = MagickSetFormat(s->wand, colorspace);
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickSetFormat failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetFormat failed!\n");
                 return FALSE;
         }
 
-        status = MagickSetSize(s->wand, W, H);
+        status = MagickSetSize(s->wand, s->width, s->height);
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickSetSize failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetSize failed!\n");
                 return FALSE;
         }
 
         status = MagickSetDepth(s->wand, 8);
         if(status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickSetDepth failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickSetDepth failed!\n");
                 return FALSE;
         }
 
@@ -177,28 +193,25 @@ struct video_frame * text_getf(void *state)
 }
 
 /**
- * Creates from 2 tiles (left and right eye) one in interlaced format.
- *
- * @param[in]  state     postprocessor state
- * @param[in]  in        input frame. Must contain exactly 2 tiles
- * @param[out] out       output frame to be written to. Should have only ony tile
- * @param[in]  req_pitch requested pitch in buffer
+ * @todo
+ * Rendering of the text is a bit slow. Since the text doesn't change at all, it should be
+ * prerendered and then only alpha blended.
  */
 bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_text *s = (struct state_text *) state;
 
-        int dstlinesize = vc_get_linesize(W, in->color_spec);
+        int dstlinesize = vc_get_linesize(s->width, in->color_spec);
         int srclinesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-        auto tmp = unique_ptr<char []>(new char[H * dstlinesize]);
-        for (int y = 0; y < H; y++) {
+        auto tmp = unique_ptr<char []>(new char[s->height * dstlinesize]);
+        for (int y = 0; y < s->height; y++) {
                 memcpy(tmp.get() + y * dstlinesize, in->tiles[0].data + y * srclinesize, dstlinesize);
         }
 
         MagickRemoveImage(s->wand);
-        auto status = MagickReadImageBlob(s->wand, tmp.get(), H * dstlinesize);
+        auto status = MagickReadImageBlob(s->wand, tmp.get(), s->height * dstlinesize);
         if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickReadImageBlob failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
                 return false;
         }
         //double *ret = MagickQueryFontMetrics(wand, dw, s->text.c_str());
@@ -207,24 +220,24 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
         size_t data_len;
         status = MagickAnnotateImage(s->wand, s->dw, MARGIN_X, MARGIN_Y + TEXT_H, 0, s->text.c_str());
         if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickAnnotateImage failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n");
                 return false;
         }
         status = MagickDrawImage(s->wand, s->dw);
         if (status != MagickTrue) {
-                log_msg(LOG_LEVEL_WARNING, "MagickDrawImage failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickDrawImage failed!\n");
                 return false;
         }
         data = MagickGetImageBlob(s->wand, &data_len);
         if (!data) {
-                log_msg(LOG_LEVEL_WARNING, "MagickGetImageBlob failed!\n");
+                log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickGetImageBlob failed!\n");
                 return false;
         }
 
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
-        if (data_len == H * dstlinesize) {
-                for (int y = 0; y < H; y++) {
+        if (data_len == s->height * dstlinesize) {
+                for (int y = 0; y < s->height; y++) {
                         memcpy(out->tiles[0].data + y * srclinesize, data + y * dstlinesize, dstlinesize);
                 }
         }

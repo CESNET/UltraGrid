@@ -1079,7 +1079,11 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         pp_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
                         pp_desc.tile_count = 1;
                 }
-                vo_postprocess_reconfigure(decoder->postprocess, pp_desc);
+                if (!vo_postprocess_reconfigure(decoder->postprocess, pp_desc)) {
+                        log_msg(LOG_LEVEL_ERROR, "[video dec.] Unable to reconfigure video "
+                                        "postprocess.\n");
+                        return false;
+                }
                 decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
                 vo_postprocess_get_out_desc(decoder->postprocess, &display_desc, &render_mode, &decoder->pp_output_frames_count);
         } else {
@@ -1287,7 +1291,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc)
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
-                LOG(LOG_LEVEL_NOTICE) << "New incoming video format detected: " << network_desc << endl;
+                LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
                 decoder->received_vid_desc = network_desc;
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
@@ -1299,7 +1303,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 if (ret) {
                         decoder->frame = display_get_frame(decoder->display);
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "Decoder reconfiguration failed!!!\n");
+                        log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                         decoder->frame = NULL;
                 }
 #endif
