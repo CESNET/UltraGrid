@@ -283,6 +283,9 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
+static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
+static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
+
 static void *vidcap_testcard_init(const struct vidcap_params *params)
 {
         struct testcard_state *s;
@@ -304,8 +307,6 @@ static void *vidcap_testcard_init(const struct vidcap_params *params)
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
                 printf("\tpattern - pattern to use\n");
-                codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
-                codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
                 show_codec_help("testcard", codecs_8b, codecs_10b);
                 return &vidcap_init_noerr;
         }
@@ -356,6 +357,22 @@ static void *vidcap_testcard_init(const struct vidcap_params *params)
         if (codec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
                 goto error;
+        }
+        {
+                const codec_t *sets[] = {codecs_8b, codecs_10b};
+                bool supported = false;
+                for (int i = 0; i < 2; ++i) {
+                        const codec_t *it = sets[i];
+                        while (*it != VIDEO_CODEC_NONE) {
+                                if (codec == *it++) {
+                                        supported = true;
+                                }
+                        }
+                }
+                if (!supported) {
+                        log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
+                        goto error;
+                }
         }
         h_align = get_halign(codec);
         bpp = get_bpp(codec);

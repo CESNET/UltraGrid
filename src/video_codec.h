@@ -67,7 +67,7 @@ typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_
 
 /** Prints list of suppored codecs for video module
  */
-void             show_codec_help(const char *module, codec_t *codecs8, codec_t *codecs10);
+void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10);
 double           get_bpp(codec_t codec) __attribute__((pure));
 uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
 int              get_halign(codec_t codec) __attribute__((pure));
