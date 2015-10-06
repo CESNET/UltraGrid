@@ -1698,7 +1698,11 @@ cleanup:
                 long int missing = buffer_number -
                         ((decoder->last_buffer_number + 1) & 0x3fffff);
                 missing = (missing + 0x3fffff) % 0x3fffff;
-                decoder->missing += missing;
+                if (missing < 0x3fffff / 2) {
+                        decoder->missing += missing;
+                } else { // frames may have been reordered, add arbitrary 1
+                        decoder->missing += 1;
+                }
         }
         decoder->last_buffer_number = buffer_number;
 
