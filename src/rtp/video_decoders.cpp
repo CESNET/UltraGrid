@@ -347,8 +347,8 @@ static void *fec_thread(void *args) {
                 data->decompressed_frame->ssrc = data->frame->ssrc;
 
                 if (data->frame->fec_params.type != FEC_NONE) {
-                        int pos;
-                        for (pos = 0; pos < get_video_mode_tiles_x(decoder->video_mode)
+                        bool buffer_swapped = false;
+                        for (int pos = 0; pos < get_video_mode_tiles_x(decoder->video_mode)
                                         * get_video_mode_tiles_y(decoder->video_mode); ++pos) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
@@ -394,7 +394,12 @@ static void *fec_thread(void *args) {
                                         data->decompressed_frame->tiles[pos].data_len = fec_out_len;
                                         data->decompressed_frame->tiles[pos].data = fec_out_buffer;
                                 } else { // linedecoder
-                                        wait_for_framebuffer_swap(decoder);
+                                        if (!buffer_swapped) {
+                                                buffer_swapped = true;
+                                                wait_for_framebuffer_swap(decoder);
+                                                unique_lock<mutex> lk(decoder->lock);
+                                                decoder->buffer_swapped = false;
+                                        }
 
                                         struct video_frame *out_frame;
                                         int divisor;
@@ -455,10 +460,6 @@ static void *fec_thread(void *args) {
                         }
                 }
 
-                {
-                        unique_lock<mutex> lk(decoder->lock);
-                        decoder->buffer_swapped = false;
-                }
                 decoder->decompress_queue.push(move(data));
 cleanup:
                 if(ret == FALSE) {
@@ -1539,6 +1540,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         if(!buffer_swapped) {
                                 wait_for_framebuffer_swap(decoder);
                                 buffer_swapped = true;
+                                unique_lock<mutex> lk(decoder->lock);
+                                decoder->buffer_swapped = false;
                         }
 
                         if(!decoder->postprocess) {
