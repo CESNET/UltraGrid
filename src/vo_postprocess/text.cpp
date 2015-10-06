@@ -236,9 +236,9 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
 
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
-        if (data_len == s->height * dstlinesize) {
+        if ((int) data_len == s->height * dstlinesize) {
                 for (int y = 0; y < s->height; y++) {
-                        memcpy(out->tiles[0].data + y * srclinesize, data + y * dstlinesize, dstlinesize);
+                        memcpy(out->tiles[0].data + y * req_pitch, data + y * dstlinesize, dstlinesize);
                 }
         }
 
