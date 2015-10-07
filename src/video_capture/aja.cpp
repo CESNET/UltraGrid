@@ -575,7 +575,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         return NULL;
 }
 
-static void *vidcap_aja_init(const struct vidcap_params *params)
+static int vidcap_aja_init(const struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));
@@ -599,9 +599,10 @@ static void *vidcap_aja_init(const struct vidcap_params *params)
                 ret->Run();
         } catch (...) {
                 delete ret;
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
-        return ret;
+        *state = ret;
+        return VIDCAP_INIT_OK;
 }
 
 static void vidcap_aja_done(void *state)

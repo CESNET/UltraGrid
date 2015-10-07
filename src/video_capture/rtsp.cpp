@@ -435,14 +435,14 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     return s->vrtsp_state->frame;
 }
 
-static void *
-vidcap_rtsp_init(const struct vidcap_params *params) {
+static int
+vidcap_rtsp_init(const struct vidcap_params *params, void **state) {
 
     struct rtsp_state *s;
 
     s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
     if (!s)
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 
     s->artsp_state = (struct audio_rtsp_state *) calloc(1,sizeof(struct audio_rtsp_state));
     s->vrtsp_state = (struct video_rtsp_state *) calloc(1,sizeof(struct video_rtsp_state));
@@ -494,7 +494,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
         && strcmp(vidcap_params_get_fmt(params), "help") == 0)
     {
         show_help();
-        return &vidcap_init_noerr;
+        return VIDCAP_INIT_NOERR;
     } else {
         char *tmp = NULL;
         fmt = strdup(vidcap_params_get_fmt(params));
@@ -588,7 +588,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     len = init_rtsp(s->uri, s->vrtsp_state->port, s, (char *) s->vrtsp_state->frame->h264_offset_buffer);
 
     if(len < 0){
-        return NULL;
+        return VIDCAP_INIT_FAIL;
     }else{
         s->vrtsp_state->frame->h264_offset_len = len;
     }
@@ -620,23 +620,23 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     if (s->vrtsp_state->device != NULL) {
         if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {
             debug_msg("[rtsp] RTP INIT - set option\n");
-            return NULL;
+            return VIDCAP_INIT_FAIL;
         }
         if (!rtp_set_sdes(s->vrtsp_state->device, rtp_my_ssrc(s->vrtsp_state->device),
             RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
             debug_msg("[rtsp] RTP INIT - set sdes\n");
-            return NULL;
+            return VIDCAP_INIT_FAIL;
         }
 
         int ret = rtp_set_recv_buf(s->vrtsp_state->device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
         if (!ret) {
             debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
-            return NULL;
+            return VIDCAP_INIT_FAIL;
         }
 
         if (!rtp_set_send_buf(s->vrtsp_state->device, 1024 * 56)) {
             debug_msg("[rtsp] RTP INIT - set send buf\n");
-            return NULL;
+            return VIDCAP_INIT_FAIL;
         }
         ret=pdb_add(s->vrtsp_state->participants, rtp_my_ssrc(s->vrtsp_state->device));
     }
@@ -653,7 +653,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     if (s->vrtsp_state->decompress) {
         s->vrtsp_state->frame->color_spec = H264;
         if (init_decompressor(s->vrtsp_state) == 0)
-            return NULL;
+            return VIDCAP_INIT_FAIL;
         s->vrtsp_state->frame->color_spec = UYVY;
     }
 
@@ -662,7 +662,8 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
 
     debug_msg("[rtsp] rtsp capture init done\n");
 
-    return s;
+    *state = s;
+    return VIDCAP_INIT_OK;
 }
 
 /**

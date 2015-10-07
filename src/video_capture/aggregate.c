@@ -92,8 +92,8 @@ vidcap_aggregate_probe(bool verbose)
 	return vt;
 }
 
-static void *
-vidcap_aggregate_init(const struct vidcap_params *params)
+static int
+vidcap_aggregate_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_aggregate_state *s;
 
@@ -103,7 +103,7 @@ vidcap_aggregate_init(const struct vidcap_params *params)
         s = (struct vidcap_aggregate_state *) calloc(1, sizeof(struct vidcap_aggregate_state));
 	if(s == NULL) {
 		printf("Unable to allocate aggregate capture state\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         s->audio_source_index = -1;
@@ -113,7 +113,7 @@ vidcap_aggregate_init(const struct vidcap_params *params)
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
                 show_help();
                 free(s);
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
 
@@ -144,7 +144,8 @@ vidcap_aggregate_init(const struct vidcap_params *params)
 
         s->frame = vf_alloc(s->devices_cnt);
         
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 error:
         if(s->devices) {
@@ -156,7 +157,7 @@ error:
                 }
         }
         free(s);
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void

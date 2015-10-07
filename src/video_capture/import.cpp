@@ -276,8 +276,8 @@ error_format:
         return false;
 }
 
-static void *
-vidcap_import_init(const struct vidcap_params *params)
+static int
+vidcap_import_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_import_state *s = NULL;
         FILE *info = NULL; // metadata file
@@ -480,7 +480,8 @@ try {
 
         gettimeofday(&s->prev_time, NULL);
 
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 } catch (string const & str) {
         fprintf(stderr, "%s", str.c_str());
         free(tmp);
@@ -488,7 +489,7 @@ try {
                 fclose(info);
         cleanup_common(s);
         delete s;
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 }
 

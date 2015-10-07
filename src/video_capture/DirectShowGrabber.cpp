@@ -674,14 +674,18 @@ HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
-static void * vidcap_dshow_init(const struct vidcap_params *params) {
+static int vidcap_dshow_init(const struct vidcap_params *params, void **state) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
+
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
 
 	s = (struct vidcap_dshow_state *) calloc(1, sizeof(struct vidcap_dshow_state));
 	if (s == NULL) {
 		fprintf(stderr, "[dshow] vidcap_dshow_init: memory allocation error\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
 	InitializeConditionVariable(&s->grabWaitCV);
@@ -690,7 +694,7 @@ static void * vidcap_dshow_init(const struct vidcap_params *params) {
 	if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 		show_help(s); 
 		cleanup(s);
-		return &vidcap_init_noerr;
+		return VIDCAP_INIT_NOERR;
 	}
 
 	if (!common_init(s)) {
@@ -1061,11 +1065,12 @@ static void * vidcap_dshow_init(const struct vidcap_params *params) {
 	s->frames = 0;
 	gettimeofday(&s->t0, NULL);
 
-	return s;
+	*state = s;
+	return VIDCAP_INIT_OK;
 
 error:
 	cleanup(s);
-	return NULL;
+	return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_dshow_done(void *state) {

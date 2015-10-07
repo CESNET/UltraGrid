@@ -230,7 +230,7 @@ static void show_help(void)
 
 /* External API ***********************************************************************************/
 
-static void *vidcap_dvs_init(const struct vidcap_params *params)
+static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap_dvs_state *s;
         int i;
@@ -243,7 +243,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
 
         if (s == NULL) {
                 debug_msg("Unable to allocate DVS state\n");
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
             
         s->frame = vf_alloc(1);
@@ -256,7 +256,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 			show_help();
                         free(s);
-                        return 0;
+                        return VIDCAP_INIT_NOERR;
                 }
 
                 char *fmt = strdup(vidcap_params_get_fmt(params));
@@ -272,7 +272,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                                 fprintf(stderr, "Wrong config %s\n", fmt);
                                 free(fmt);
                                 free(s);
-                                return 0;
+                                return VIDCAP_INIT_FAIL;
                         }
                         mode_index = atoi(tmp);
                         for(i=0; hdsp_mode_table[i].width != 0; i++) {
@@ -285,7 +285,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                                 fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
                                 free(fmt);
                                 free(s);
-                                return 0;
+                                return VIDCAP_INIT_FAIL;
                         }
 
                         tmp = strtok(NULL, ":");
@@ -293,7 +293,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                                 fprintf(stderr, "Wrong config %s\n", fmt);
                                 free(fmt);
                                 free(s);
-                                return 0;
+                                return VIDCAP_INIT_FAIL;
                         }
 
                         s->frame->color_spec = get_codec_from_name(tmp);
@@ -301,7 +301,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                 free(fmt);
                                 free(s);
-                                return 0;
+                                return VIDCAP_INIT_FAIL;
                         }
 
                         /* card name */
@@ -326,12 +326,16 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
                 printf("Error %s\n", sv_geterrortext(res));
                 free(s);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
         } else {
+                if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                        free(s);
+                        return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                }
                 s->grab_audio = FALSE;
         }
 
@@ -354,7 +358,7 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
                         default:
                                 fprintf(stderr, "[dvs] Unsupported video codec passed!");
                                 free(s);
-                                return NULL;
+                                return VIDCAP_INIT_FAIL;
                 }
 
                 s->hd_video_mode |= s->mode->mode;
@@ -509,20 +513,21 @@ static void *vidcap_dvs_init(const struct vidcap_params *params)
         if (pthread_create
             (&(s->thread_id), NULL, vidcap_dvs_grab_thread, s) != 0) {
                 perror("Unable to create grabbing thread");
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         printf("DVS capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
 
         debug_msg("DVS capture device enabled\n");
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 error_detect:
          sv_close(s->sv);
 error:
         free(s);
         printf("Error %s\n", sv_geterrortext(res));
         debug_msg("Unable to open grabber: %s\n", sv_geterrortext(res));
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_dvs_done(void *state)

@@ -748,8 +748,8 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         return result;
 }
 
-static void *
-vidcap_decklink_init(const struct vidcap_params *params)
+static int
+vidcap_decklink_init(const struct vidcap_params *params, void **state)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
@@ -774,7 +774,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 string err_msg = bmd_hresult_to_string(result);
 		fprintf(stderr, "Initialization of COM failed: "
 				"%s.\n", err_msg.c_str());
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 #endif
 
@@ -794,7 +794,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
                         fprintf(stderr, "No installed drivers detected\n");
                 }
                 fprintf(stderr, "\n");
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
 
@@ -802,7 +802,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
 	if (s == NULL) {
 		//printf("Unable to allocate DeckLink state\n",fps);
 		printf("Unable to allocate DeckLink state\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         gettimeofday(&s->t0, NULL);
@@ -819,11 +819,11 @@ vidcap_decklink_init(const struct vidcap_params *params)
         free(tmp_fmt);
 	if(ret == 0) {
                 delete s;
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 	if(ret == -1) {
                 delete s;
-		return &vidcap_init_noerr;
+		return VIDCAP_INIT_NOERR;
 	}
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
@@ -868,8 +868,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 if (s->devices_cnt > 1) {
                         fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
-                        free(s);
-                        return NULL;
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
                 }
                 s->frame = vf_alloc(2);
         } else {
@@ -886,8 +886,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
                 deckLinkIterator = create_decklink_iterator();
                 if (deckLinkIterator == NULL) {
                         vf_free(s->frame);
-                        free(s);
-                        return NULL;
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                 {
@@ -1146,7 +1146,8 @@ vidcap_decklink_init(const struct vidcap_params *params)
 
 	debug_msg("vidcap_decklink_init - END\n"); /* TOREMOVE */
 
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 error:
 	if(displayMode != NULL)
@@ -1164,7 +1165,7 @@ error:
                 cleanup_common(s);
         }
 
-	return NULL;
+	return VIDCAP_INIT_FAIL;
 }
 
 static void cleanup_common(struct vidcap_decklink_state *s) {

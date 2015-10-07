@@ -87,12 +87,16 @@ void ug_input_state::frame_arrived(struct video_frame *f)
         }
 }
 
-static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
+static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **state)
 {
+        if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         if (strcmp("help", vidcap_params_get_fmt(cap_params)) == 0) {
                 printf("Usage:\n");
                 printf("\t-t ug_input:<port>\n");
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
         ug_input_state *s = new ug_input_state();
 
@@ -139,7 +143,8 @@ static void *vidcap_ug_input_init(const struct vidcap_params *cap_params)
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
         s->display_thread = thread(display_run, s->display);
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 }
 
 static void vidcap_ug_input_done(void *state)

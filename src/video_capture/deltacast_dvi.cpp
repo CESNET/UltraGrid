@@ -443,8 +443,8 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         return true;
 }
 
-static void *
-vidcap_deltacast_dvi_init(const struct vidcap_params *params)
+static int
+vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_deltacast_dvi_state *s;
         ULONG Width = 0, Height = 0, RefreshRate = 0;
@@ -461,6 +461,10 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
 	printf("vidcap_deltacast_dvi_init\n");
 
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         char *init_fmt = NULL,
              *tmp = NULL;
         if (vidcap_params_get_fmt(params) != NULL)
@@ -468,7 +472,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 free(tmp);
                 usage();
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
@@ -662,7 +666,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         gettimeofday(&s->t0, NULL);
         s->frames = 0;
         
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 no_format:
         /* Close stream handle */
@@ -677,7 +682,7 @@ bad_channel:
 error:
         free(tmp);
         free(s);
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void

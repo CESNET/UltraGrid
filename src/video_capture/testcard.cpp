@@ -286,7 +286,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 
-static void *vidcap_testcard_init(const struct vidcap_params *params)
+static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
 {
         struct testcard_state *s;
         char *filename;
@@ -308,12 +308,12 @@ static void *vidcap_testcard_init(const struct vidcap_params *params)
                 printf("\tstill - send still image\n");
                 printf("\tpattern - pattern to use\n");
                 show_codec_help("testcard", codecs_8b, codecs_10b);
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = new testcard_state();
         if (!s)
-                return NULL;
+                return VIDCAP_INIT_FAIL;
 
         s->frame = vf_alloc(1);
 
@@ -571,7 +571,8 @@ static void *vidcap_testcard_init(const struct vidcap_params *params)
 
         free(fmt);
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 
 error:
         free(fmt);
@@ -580,7 +581,7 @@ error:
         if (in)
                 fclose(in);
         delete s;
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_testcard_done(void *state)

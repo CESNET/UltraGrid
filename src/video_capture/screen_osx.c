@@ -133,16 +133,20 @@ static struct vidcap_type * vidcap_screen_osx_probe(bool verbose)
         return vt;
 }
 
-static void * vidcap_screen_osx_init(const struct vidcap_params *params)
+static int vidcap_screen_osx_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap_screen_osx_state *s;
 
         printf("vidcap_screen_init\n");
 
+        if (vidcap_params_get_flags(params) & VIDCAP_PARAMS_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         s = (struct vidcap_screen_osx_state *) malloc(sizeof(struct vidcap_screen_osx_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         s->initialized = false;
@@ -162,13 +166,14 @@ static void * vidcap_screen_osx_init(const struct vidcap_params *params)
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
-                        return &vidcap_init_noerr;
+                        return VIDCAP_INIT_NOERR;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));
                 }
         }
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 }
 
 static void vidcap_screen_osx_done(void *state)

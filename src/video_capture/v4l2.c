@@ -276,7 +276,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
         return vt;
 }
 
-static void * vidcap_v4l2_init(const struct vidcap_params *params)
+static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
         const char *dev_name = DEFAULT_DEVICE;
@@ -289,16 +289,20 @@ static void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         printf("vidcap_v4l2_init\n");
 
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                show_help(); 
-               return &vidcap_init_noerr;
+               return VIDCAP_INIT_NOERR;
         }
 
 
         s = (struct vidcap_v4l2_state *) calloc(1, sizeof(struct vidcap_v4l2_state));
         if(s == NULL) {
                 printf("Unable to allocate v4l2 capture state\n");
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         s->fd = -1;
@@ -574,14 +578,15 @@ static void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         free(tmp);
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 
 error:
         free(tmp);
         if (s->fd != -1)
                 close(s->fd);
         free(s);
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_v4l2_done(void *state)

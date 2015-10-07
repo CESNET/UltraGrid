@@ -123,7 +123,7 @@ static int configure_audio(struct testcard_state2 *s)
         return 0;
 }
 
-static void *vidcap_testcard2_init(const struct vidcap_params *params)
+static int vidcap_testcard2_init(const struct vidcap_params *params, void **state)
 {
         struct testcard_state2 *s;
         const char *strip_fmt = NULL;
@@ -137,12 +137,12 @@ static void *vidcap_testcard2_init(const struct vidcap_params *params)
                 show_codec_help("testcard2", (codec_t[]){RGBA, RGB, UYVY, VIDEO_CODEC_NONE},
                                 (codec_t[]){R10k, v210, VIDEO_CODEC_NONE});
 
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = calloc(1, sizeof(struct testcard_state2));
         if (!s)
-                return NULL;
+                return VIDCAP_INIT_FAIL;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
@@ -154,26 +154,26 @@ static void *vidcap_testcard2_init(const struct vidcap_params *params)
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
         s->tile->width = atoi(tmp);
         if(s->tile->width % 2 != 0) {
                 fprintf(stderr, "Width must be multiple of 2.\n");
                 free(s);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
         s->tile->height = atoi(tmp);
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         s->frame->fps = atof(tmp);
@@ -182,7 +182,7 @@ static void *vidcap_testcard2_init(const struct vidcap_params *params)
         if (!tmp) {
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         int h_align = 0;
@@ -199,7 +199,7 @@ static void *vidcap_testcard2_init(const struct vidcap_params *params)
 
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         s->aligned_x = s->tile->width;
@@ -305,7 +305,8 @@ static void *vidcap_testcard2_init(const struct vidcap_params *params)
 
         free(fmt);
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 }
 
 static void vidcap_testcard2_done(void *state)

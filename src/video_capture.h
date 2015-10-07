@@ -84,7 +84,7 @@
 #ifndef _VIDEO_CAPTURE_H_
 #define _VIDEO_CAPTURE_H_
 
-#define VIDEO_CAPTURE_ABI_VERSION 4
+#define VIDEO_CAPTURE_ABI_VERSION 5
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +96,8 @@ extern "C" {
 #define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1) ///< HD-SDI embedded audio
 #define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)   ///< AES/EBU audio
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)   ///< (balanced) analog audio
+
+#define VIDCAP_FLAG_AUDIO_ANY (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)
 /** @} */
 
 struct audio_frame;
@@ -116,6 +118,11 @@ struct vidcap_type {
 
 struct vidcap_params;
 
+#define VIDCAP_INIT_OK 0
+#define VIDCAP_INIT_NOERR 1
+#define VIDCAP_INIT_FAIL -1
+#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED -2
+
 struct video_capture_info {
         struct vidcap_type    *(*probe) (bool verbose);
         /**
@@ -125,7 +132,7 @@ struct video_capture_info {
          * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
          * @retval other_ptr if initialization succeeded, contains pointer to state
          */
-        void                  *(*init) (const struct vidcap_params *param);
+        int (*init) (const struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
 };
@@ -162,8 +169,6 @@ int initialize_video_capture(struct module *parent,
                 struct vidcap **state);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
-
-extern int vidcap_init_noerr;
 
 #ifdef __cplusplus
 }

@@ -86,21 +86,25 @@ static void usage()
         printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
 }
 
-static void *vidcap_banner_init(const struct vidcap_params *params)
+static int vidcap_banner_init(const struct vidcap_params *params, void **state)
 {
         struct banner_state *s;
         char *filename;
         FILE *in = NULL;
         char *save_ptr = NULL;
 
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 usage();
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = new banner_state();
         if (!s)
-                return NULL;
+                return VIDCAP_INIT_FAIL;
 
         s->frame = vf_alloc(1);
 
@@ -205,7 +209,8 @@ static void *vidcap_banner_init(const struct vidcap_params *params)
 
         free(fmt);
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 
 error:
         free(fmt);
@@ -214,7 +219,7 @@ error:
         if (in)
                 fclose(in);
         delete s;
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_banner_done(void *state)

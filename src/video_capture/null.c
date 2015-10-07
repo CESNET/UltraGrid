@@ -58,11 +58,14 @@
 
 static int capture_state = 0;
 
-static void *vidcap_null_init(const struct vidcap_params *params)
+static int vidcap_null_init(const struct vidcap_params *params, void **state)
 {
-        UNUSED(params);
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
         capture_state = 0;
-        return &capture_state;
+        *state = &capture_state;
+        return VIDCAP_INIT_OK;
 }
 
 static void vidcap_null_done(void *state)

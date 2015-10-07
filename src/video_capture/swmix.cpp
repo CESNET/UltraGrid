@@ -1056,8 +1056,8 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         return true;
 }
 
-static void *
-vidcap_swmix_init(const struct vidcap_params *params)
+static int
+vidcap_swmix_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_swmix_state *s;
         struct video_desc desc;
@@ -1068,13 +1068,13 @@ vidcap_swmix_init(const struct vidcap_params *params)
         if(!vidcap_params_get_fmt(params) ||
                         strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = new vidcap_swmix_state();
 	if(s == NULL) {
 		printf("Unable to allocate swmix capture state\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         s->completed_audio_buffer = NULL;
@@ -1139,7 +1139,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
         if(!s->slaves_data) {
                 free(config_file);
                 delete s;
-                return NULL;
+                return VIDCAP_INIT_FAIL;
         }
 
         if (config_file) {
@@ -1191,7 +1191,8 @@ vidcap_swmix_init(const struct vidcap_params *params)
                 pthread_create(&(s->slaves[i].thread_id), NULL, slave_worker, (void *) &s->slaves[i]);
         }
 
-	return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 
 error:
         if (config_file) {
@@ -1201,7 +1202,7 @@ error:
                 free(s->slaves);
         }
         delete s;
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void

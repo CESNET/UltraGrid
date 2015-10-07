@@ -323,8 +323,8 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         return true;
 }
 
-static void *
-vidcap_deltacast_init(const struct vidcap_params *params)
+static int
+vidcap_deltacast_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_deltacast_state *s = nullptr;
         ULONG             Result,DllVersion,NbBoards,ChnType;
@@ -336,7 +336,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         if (init_fmt && strcmp(init_fmt, "help") == 0) {
                 free(init_fmt);
                 usage();
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
         s = (struct vidcap_deltacast_state *) calloc(1, sizeof(struct vidcap_deltacast_state));
@@ -345,7 +345,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 		printf("Unable to allocate DELTACAST state\n");
                 free(init_fmt);
                 free(s);
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         gettimeofday(&s->t0, NULL);
@@ -448,7 +448,8 @@ vidcap_deltacast_init(const struct vidcap_params *params)
                 goto error;
         }
 
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 error:
         free(init_fmt);
@@ -467,7 +468,7 @@ error:
         }
 
         free(s);
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void

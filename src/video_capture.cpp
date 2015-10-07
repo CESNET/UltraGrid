@@ -164,24 +164,30 @@ int initialize_video_capture(struct module *parent,
         module_register(&d->mod, parent);
 
         param->parent = &d->mod;
-        d->state = vci->init(param);
+        int ret = vci->init(param, &d->state);
 
-        if (d->state == NULL) {
+        switch (ret) {
+        case VIDCAP_INIT_OK:
+                break;
+        case VIDCAP_INIT_NOERR:
+                break;
+        case VIDCAP_INIT_FAIL:
                 log_msg(LOG_LEVEL_ERROR,
                                 "Unable to start video capture device %s\n",
                                 vidcap_params_get_driver(param));
+                break;
+        case VIDCAP_INIT_AUDIO_NOT_SUPPOTED:
+                log_msg(LOG_LEVEL_ERROR,
+                                "Video capture driver does not support selected embedded/analog/AESEBU audio.\n");
+                break;
+        }
+        if (ret != 0) {
                 module_done(&d->mod);
                 free(d);
-                return -1;
+                return ret;
         }
 
-        if (d->state == &vidcap_init_noerr) {
-                module_done(&d->mod);
-                free(d);
-                return 1;
-        }
-
-        int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
+        ret = capture_filter_init(&d->mod, param->requested_capture_filter,
                 &d->capture_filter);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter: %s.\n",

@@ -1027,7 +1027,7 @@ static struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 }
 
 /* Initialize the QuickTime grabbing system */
-static void *vidcap_quicktime_init(const struct vidcap_params *params)
+static int vidcap_quicktime_init(const struct vidcap_params *params, void **state)
 {
         struct qt_grabber_state *s;
 
@@ -1055,7 +1055,7 @@ static void *vidcap_quicktime_init(const struct vidcap_params *params)
 #else
                         fprintf(stderr, "QuickTime audio support is unmaintained and deprecated.\n"
                                         "Please use \"coreaudio\" audio driver instead.\n");
-                        return NULL;
+                        return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
 #endif
                 }
 
@@ -1066,9 +1066,9 @@ static void *vidcap_quicktime_init(const struct vidcap_params *params)
                 if (ret != 1) {
                         free(s);
                         if(ret == 2) {
-                                return &vidcap_init_noerr;
+                                return VIDCAP_INIT_NOERR;
                         } else {
-                                return NULL;
+                                return VIDCAP_INIT_FAIL;
                         }
                 }
 
@@ -1083,7 +1083,8 @@ static void *vidcap_quicktime_init(const struct vidcap_params *params)
                 pthread_create(&s->thread_id, NULL, vidcap_quicktime_thread, s);
         }
 
-        return s;
+        *state = s;
+        return VIDCAP_INIT_OK;
 }
 
 /* Finalize the grabbing system */

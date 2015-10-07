@@ -92,8 +92,8 @@ vidcap_switcher_probe(bool verbose)
 	return vt;
 }
 
-static void *
-vidcap_switcher_init(const struct vidcap_params *params)
+static int
+vidcap_switcher_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_switcher_state *s;
 
@@ -102,7 +102,7 @@ vidcap_switcher_init(const struct vidcap_params *params)
         s = (struct vidcap_switcher_state *) calloc(1, sizeof(struct vidcap_switcher_state));
 	if(s == NULL) {
 		printf("Unable to allocate switcher capture state\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         const char *cfg_c = vidcap_params_get_fmt(params);
@@ -116,7 +116,7 @@ vidcap_switcher_init(const struct vidcap_params *params)
                                 show_help();
                                 free(tmp);
                                 free(s);
-                                return &vidcap_init_noerr;
+                                return VIDCAP_INIT_NOERR;
                         } else if (strcmp(item, "excl_init") == 0) {
                                 s->excl_init = true;
                         } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
@@ -126,7 +126,7 @@ vidcap_switcher_init(const struct vidcap_params *params)
                                 show_help();
                                 free(tmp);
                                 free(s);
-                                return NULL;
+                                return VIDCAP_INIT_FAIL;
                         }
                         cfg = NULL;
                 }
@@ -169,7 +169,8 @@ vidcap_switcher_init(const struct vidcap_params *params)
         s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, vidcap_params_get_parent(params));
 
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 error:
         if(s->devices) {
@@ -181,7 +182,7 @@ error:
                 }
         }
         free(s);
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void

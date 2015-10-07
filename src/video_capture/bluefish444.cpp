@@ -771,8 +771,8 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
         }
 }
 
-static void *
-vidcap_bluefish444_init(const struct vidcap_params *params)
+static int
+vidcap_bluefish444_init(const struct vidcap_params *params, void **state)
 {
 	struct vidcap_bluefish444_state *s;
         ULONG InputChannels[4] = {
@@ -794,7 +794,7 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
 
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
 
 	printf("vidcap_bluefish444_init\n");
@@ -803,7 +803,7 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
 
 	if(s == NULL) {
 		printf("Unable to allocate bluefish444 capture state\n");
-		return NULL;
+		return VIDCAP_INIT_FAIL;
 	}
 
         s->MemoryFormat = MEM_FMT_2VUY;
@@ -956,14 +956,15 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
                 goto error;
         }
 
-	return s;
+        *state = s;
+	return VIDCAP_INIT_OK;
 
 error:
         for(int i = 0; i < s->attachedDevices; ++i) {
                 BailOut(s->pSDK[i]);
         }
         delete s;
-        return NULL;
+        return VIDCAP_INIT_FAIL;
 }
 
 static void vidcap_bluefish444_done(void *state)
