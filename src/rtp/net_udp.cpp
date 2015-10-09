@@ -950,10 +950,10 @@ static void *udp_reader(void *arg)
 
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-        while (1) {
-                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
-                uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+        uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+        uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 
+        while (1) {
                 pthread_testcancel();
                 int size = recvfrom(s->fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
@@ -964,7 +964,6 @@ static void *udp_reader(void *arg)
                         /// In MSW, this block is called as often as packet is sent if
                         /// we got WSAECONNRESET error (noone is listening). This can have
                         /// negative performance impact.
-                        free(packet);
                         socket_error("recvfrom");
                         pthread_testcancel();
                         continue;
@@ -979,6 +978,9 @@ static void *udp_reader(void *arg)
 
                 lk.unlock();
                 s->boss_cv.notify_one();
+
+                packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
         }
 
         return NULL;
