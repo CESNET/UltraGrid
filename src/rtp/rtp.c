@@ -1453,9 +1453,14 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                 buflen =
                         udp_recv(session->rtp_socket, (char *)buffer,
                                         RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+                if (buflen <= 0) {
+                        free(packet);
+                }
         }
 
-        rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+        if (buflen > 0) {
+                rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+        }
 
         return buflen;
 }

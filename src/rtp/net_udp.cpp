@@ -958,8 +958,17 @@ static void *udp_reader(void *arg)
                 int size = recvfrom(s->fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
-                pthread_testcancel();
 
+                if (size <= 0) {
+                        /// @todo
+                        /// In MSW, this block is called as often as packet is sent if
+                        /// we got WSAECONNRESET error (noone is listening). This can have
+                        /// negative performance impact.
+                        free(packet);
+                        socket_error("recvfrom");
+                        pthread_testcancel();
+                        continue;
+                }
 
                 unique_lock<mutex> lk(s->lock);
                 s->reader_cv.wait(lk, [s]{return s->queue_head->next != s->queue_tail;});
