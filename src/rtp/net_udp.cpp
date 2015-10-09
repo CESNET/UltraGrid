@@ -211,7 +211,8 @@ static void socket_error(const char *msg, ...)
         va_start(ap, msg);
         _vsnprintf(buffer, blen, msg, ap);
         va_end(ap);
-        printf("ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
+        if (e != WSAECONNRESET)
+                printf("ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
 #else
         va_start(ap, msg);
         vsnprintf(buffer, blen, msg, ap);
