@@ -994,7 +994,9 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 {
         int ret;
         if (!param->have_preset) {
-                av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_PRESET, 0);
+                if (av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_PRESET, 0) != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Cannot set preset.\n");
+                }
         }
         ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
         if (ret != 0) {
@@ -1168,7 +1170,10 @@ static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param
         codec_ctx->slices = 4;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
-        av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0);
+        if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set deadline.\n");
+
+        }
 }
 
 static void libavcodec_check_messages(struct state_video_compress_libav *s)

@@ -68,6 +68,18 @@ static void catch_signal(int)
 }
 #endif
 
+keyboard_control::keyboard_control() :
+        m_root(nullptr),
+#ifdef HAVE_TERMIOS_H
+        m_old_tio(),
+        m_should_exit_pipe{0, 0},
+#else
+        m_should_exit(false),
+#endif
+        m_started(false)
+{
+}
+
 void keyboard_control::start(struct module *root)
 {
         m_root = root;
@@ -116,7 +128,7 @@ void keyboard_control::stop()
                 return;
         }
 #ifdef HAVE_TERMIOS_H
-        char c;
+        char c = 0;
         assert(write(m_should_exit_pipe[1], &c, 1) == 1);
         close(m_should_exit_pipe[1]);
 #else
@@ -150,11 +162,11 @@ void keyboard_control::run()
                 FD_SET(m_should_exit_pipe[0], &set);
                 select(m_should_exit_pipe[0] + 1, &set, NULL, NULL, NULL);
                 if (FD_ISSET(0, &set)) {
-                        char c = getchar();
+                        int c = getchar();
 #else
                 usleep(200000);
                 while (kbhit()) {
-                        char c = getch();
+                        int c = getch();
 #endif
                         debug_msg("Key %c pressed\n", c);
                         switch (c) {

@@ -781,6 +781,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 char *saveptr1 = 0ul, *saveptr2 = 0ul;
 
                 ptr = strtok_r(tmp, ":", &saveptr1);                
+                assert(ptr);
                 char *devices = strdup(ptr);
                 s->devices_cnt = 0;
                 ptr = strtok_r(devices, ",", &saveptr2);

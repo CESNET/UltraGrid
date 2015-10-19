@@ -83,10 +83,12 @@ audio_frame2::audio_frame2(const struct audio_frame *old) :
                 channels(old ? old->ch_count : 0),
                 codec(old ? AC_PCM : AC_NONE), duration(0.0)
 {
-        for (int i = 0; i < old->ch_count; i++) {
-                resize(i, old->data_len / old->ch_count);
-                char *data = channels[i].data.get();
-                demux_channel(data, old->data, old->bps, old->data_len, old->ch_count, i);
+        if (old) {
+                for (int i = 0; i < old->ch_count; i++) {
+                        resize(i, old->data_len / old->ch_count);
+                        char *data = channels[i].data.get();
+                        demux_channel(data, old->data, old->bps, old->data_len, old->ch_count, i);
+                }
         }
 }
 

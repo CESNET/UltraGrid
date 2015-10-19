@@ -88,12 +88,14 @@ bool init_gl_context(struct gl_context *context, int which) {
                 char *item = strtok_r(tmp, ".", &save_ptr);
                 if (!item) {
                         fprintf(stderr, "Unable to determine OpenGL version!\n");
+                        free(tmp);
                         return false;
                 }
                 context->gl_major = atoi(item);
                 item = strtok_r(NULL, ".", &save_ptr);
                 if (!item) {
                         fprintf(stderr, "Unable to determine OpenGL version!\n");
+                        free(tmp);
                         return false;
                 }
                 context->gl_minor = atoi(item);

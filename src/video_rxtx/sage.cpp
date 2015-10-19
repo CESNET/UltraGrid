@@ -68,8 +68,9 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         if(ret != 0) {
                 throw string("Unable to initialize SAGE TX.");
         }
-        pthread_create(&m_thread_id, NULL, (void * (*)(void *)) display_run,
+        ret = pthread_create(&m_thread_id, NULL, (void * (*)(void *)) display_run,
                         &m_sage_tx_device);
+        assert(ret == 0);
         memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
 }
 

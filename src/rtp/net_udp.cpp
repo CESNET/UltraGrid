@@ -515,6 +515,7 @@ static char *udp_host_addr6(socket_udp * s)
         newsock = socket(AF_INET6, SOCK_DGRAM, 0);
         if (newsock == -1) {
                 perror("socket");
+                free(hname);
                 return NULL;
         }
         memset((char *)&addr6, 0, len);
@@ -1399,11 +1400,14 @@ bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
                         s_in6->sin6_addr = in6addr_any;
                         len = sizeof(struct sockaddr_in6);
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
-                        if (SETSOCKOPT
-                                        (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
-                                         sizeof(ipv6only)) != 0) {
-                                socket_error("setsockopt IPV6_V6ONLY");
-                                return false;
+                        if (fd != INVALID_SOCKET) {
+                                if (SETSOCKOPT
+                                                (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                                 sizeof(ipv6only)) != 0) {
+                                        socket_error("setsockopt IPV6_V6ONLY");
+                                        CLOSESOCKET(fd);
+                                        return false;
+                                }
                         }
                 } else {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) &s_st;

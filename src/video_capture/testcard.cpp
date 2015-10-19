@@ -473,7 +473,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 } else if (s->pattern == image_pattern::NOISE) {
                         uint8_t *sample = (uint8_t *) s->pixmap.data;
                         for (int i = 0; i < pixmap_len; ++i) {
-                                *sample++ = lrand48() % 0xff;
+                                *sample++ = random() % 0xff;
                         }
                 } else {
                         assert (s->pattern == image_pattern::BARS);

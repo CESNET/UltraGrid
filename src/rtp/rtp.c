@@ -1083,11 +1083,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->magic = 0xfeedface;
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
-	if (addr != NULL) {
-		session->addr = strdup(addr);
-	} else {
-		session->addr = NULL;
-	}
+        session->addr = strdup(addr);
         session->rx_port = rx_port;
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);

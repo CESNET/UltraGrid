@@ -48,6 +48,7 @@ struct module;
 
 class keyboard_control {
 public:
+        keyboard_control();
         void start(struct module *root);
         void stop();
         void run();

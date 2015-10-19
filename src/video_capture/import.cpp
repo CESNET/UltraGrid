@@ -797,6 +797,7 @@ static void * control_thread(void *args)
                 clients->next = NULL;
         } else {
                 perror("Video import: unable to create communication pipe");
+                close(fd);
                 return NULL;
         }
 

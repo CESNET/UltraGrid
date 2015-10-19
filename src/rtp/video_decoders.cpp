@@ -176,7 +176,9 @@ struct main_msg;
 // message definitions
 struct frame_msg {
         inline frame_msg(struct control_state *c, atomic<long long int> &rbt) : control(c), frame(nullptr), decompressed_frame(nullptr),
-                             received_bytes_total(rbt), displayed(false), corrupted(false)
+                             received_pkts_cum(0), expected_pkts_cum(0),
+                             received_bytes_total(rbt),
+                             displayed(false), corrupted(false)
         {}
         inline ~frame_msg() {
                 if (control && frame) {
@@ -1371,6 +1373,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         // We have no framebuffer assigned, exitting
         if(!decoder->display) {
+                vf_free(frame);
                 return FALSE;
         }
 

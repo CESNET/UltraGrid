@@ -87,11 +87,16 @@ struct wp_worker {
         wp_worker(worker_state_observer &observer) :
                 m_state_observer(observer)
         {
-                pthread_mutex_init(&m_lock, NULL);
-                pthread_cond_init(&m_task_ready_cv, NULL);
-                pthread_cond_init(&m_task_completed_cv, NULL);
+                int ret;
+                ret = pthread_mutex_init(&m_lock, NULL);
+                assert(ret == 0);
+                ret = pthread_cond_init(&m_task_ready_cv, NULL);
+                assert(ret == 0);
+                ret = pthread_cond_init(&m_task_completed_cv, NULL);
+                assert(ret == 0);
 
-                pthread_create(&m_thread_id, NULL, wp_worker::enter_loop, this);
+                ret = pthread_create(&m_thread_id, NULL, wp_worker::enter_loop, this);
+                assert(ret == 0);
         }
         ~wp_worker() {
                 wp_task_data *poisoned = new wp_task_data(NULL, NULL, this, false);

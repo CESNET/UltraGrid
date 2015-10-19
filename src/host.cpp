@@ -59,6 +59,7 @@ void print_capabilities(int mask, struct module *root, bool use_vidcap)
                                         const char *text = response_get_text(r);
                                         istringstream iss(text);
                                         iss >> desc;
+                                        free_response(r);
                                         break;
                                 }
                                 free_response(r);

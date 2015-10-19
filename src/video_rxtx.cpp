@@ -116,7 +116,7 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id(-1), m_pau
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
                 m_compression(nullptr),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
-                m_poisoned(false), m_joined(true) {
+                m_thread_id(), m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;

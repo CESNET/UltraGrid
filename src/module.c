@@ -274,6 +274,8 @@ struct module *get_matching_child(struct module *node, const char *const_path)
                 return receiver;
         }
 
+        free(tmp);
+
         return NULL;
 }
 

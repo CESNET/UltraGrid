@@ -185,11 +185,8 @@ static void display_aggregate_done(void *state)
         assert(s != NULL);
         assert(s->magic == MAGIC_AGGREGATE);
 
-        if (s != NULL) {
-                unsigned int i;
-                for (i = 0; i < s->devices_cnt; ++i) {
-                         display_done(s->devices[i]);
-                 }
+        for (unsigned int i = 0; i < s->devices_cnt; ++i) {
+                display_done(s->devices[i]);
         }
                                         
         vf_free(s->frame);

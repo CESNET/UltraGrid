@@ -77,6 +77,7 @@ static fd_t open_socket(int *port)
         }
         socklen_t len = sizeof(s_in);
         if (getsockname(sock, (struct sockaddr *) &s_in, &len) != 0) {
+                CLOSESOCKET(sock);
                 return INVALID_SOCKET;
         }
         *port = ntohs(s_in.sin_port);
@@ -98,6 +99,7 @@ static fd_t connect_to_socket(int local_port)
         ret = connect(fd, (struct sockaddr *) &s_in,
                                 sizeof(s_in));
         if (ret != 0) {
+                CLOSESOCKET(fd);
                 return INVALID_SOCKET;
         }
 
@@ -127,11 +129,13 @@ int platform_pipe_init(fd_t p[2])
 
         p[0] = accept(sock, NULL, NULL);
         if (p[0] == INVALID_SOCKET) {
+                CLOSESOCKET(sock);
                 return -1;
         }
         thr.join();
         p[1] = par.sock;
         if (p[1] == INVALID_SOCKET) {
+                CLOSESOCKET(sock);
                 return -1;
         }
         CLOSESOCKET(sock);

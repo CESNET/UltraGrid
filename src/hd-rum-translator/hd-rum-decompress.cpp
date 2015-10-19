@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -229,14 +230,20 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
 
         s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params));
         assert (s->video_rxtx);
-        s->video_rxtx->start();
 
-        s->worker_thread = thread(&state_transcoder_decompress::worker, s);
-        s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
-        s->display_thread = thread(display_run, s->display);
+        try {
+                s->video_rxtx->start();
 
-        if (capture_filter_init(parent, capture_filter, &s->capture_filter_state) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter!\n");
+                s->worker_thread = thread(&state_transcoder_decompress::worker, s);
+                s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
+                s->display_thread = thread(display_run, s->display);
+
+                if (capture_filter_init(parent, capture_filter, &s->capture_filter_state) != 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter!\n");
+                        return nullptr;
+                }
+        } catch (string const &s) {
+                cerr << s << endl;
                 return nullptr;
         }
 

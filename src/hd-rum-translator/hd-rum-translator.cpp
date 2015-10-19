@@ -48,6 +48,8 @@ struct replica {
         mod.cls = MODULE_CLASS_PORT;
         mod.priv_data = this;
         module_register(&mod, parent);
+        type = replica::type_t::NONE;
+        recompress = nullptr;
     }
 
     ~replica() {

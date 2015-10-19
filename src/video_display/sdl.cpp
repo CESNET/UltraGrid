@@ -120,12 +120,13 @@ struct state_sdl {
 
         state_sdl(struct module *parent) : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
                       deinterlace(false), fs(false), nodecorate(false), fixed_size(false),
+                      fixed_w(0), fixed_h(0),
                       screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false),
                       current_desc(), current_display_desc(),
 #ifdef HAVE_MACOSX
                       autorelease_pool(nullptr),
 #endif
-                      should_exit(false)
+                      should_exit(false), sdl_flags_win(0), sdl_flags_fs(0)
         {
                 gettimeofday(&tv, NULL);
                 module_init_default(&mod);

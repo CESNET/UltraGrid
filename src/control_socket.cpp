@@ -309,7 +309,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                                         new_msg[strlen(message) + 2] = '\0';
                                 }
 
-                                write_all(cur->fd, new_msg, strlen(new_msg));
+                                int ret = write_all(cur->fd, new_msg, strlen(new_msg));
+                                if (ret != (int) strlen(new_msg)) {
+                                        fprintf(stderr, "Cannot write stats!\n");
+                                }
                                 cur = cur->next;
                         }
                         free(new_msg);

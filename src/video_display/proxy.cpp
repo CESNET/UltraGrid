@@ -143,8 +143,9 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         assert (initialize_video_display(parent, requested_display, cfg, flags, &s->common->real_display) == 0);
         free(fmt_copy);
 
-        pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
+        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
                         s->common->real_display);
+        assert (ret == 0);
 
         s->common->parent = parent;
 
