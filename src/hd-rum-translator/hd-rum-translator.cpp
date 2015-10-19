@@ -109,6 +109,7 @@ struct hd_rum_translator_state {
  * Prototypes
  */
 static struct item *qinit(int qsize);
+static void qdestroy(struct item *queue);
 static void *writer(void *arg);
 static void signal_handler(int signal);
 void exit_uv(int status);
@@ -137,7 +138,7 @@ static void signal_handler(int signal)
 struct item {
     struct item *next;
     long size;
-    char buf[SIZE];
+    char *buf;
 };
 
 static struct item *qinit(int qsize)
@@ -153,11 +154,23 @@ static struct item *qinit(int qsize)
         exit(2);
     }
 
-    for (i = 0; i < qsize; i++)
+    for (i = 0; i < qsize; i++) {
+        queue[i].buf = (char *) malloc(SIZE);
         queue[i].next = queue + i + 1;
+    }
     queue[qsize - 1].next = queue;
 
     return queue;
+}
+
+static void qdestroy(struct item *queue)
+{
+    struct item *q = queue;
+    do {
+        free(q->buf);
+        q = q->next;
+    } while (q != queue);
+    free(queue);
 }
 
 struct response *change_replica_type(struct hd_rum_translator_state *s,
@@ -702,6 +715,8 @@ int main(int argc, char **argv)
     control_done(state.control_state);
 
     udp_exit(sock_in);
+
+    qdestroy(state.queue);
 
 #ifdef WIN32
     WSACleanup();
