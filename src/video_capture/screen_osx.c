@@ -139,7 +139,7 @@ static int vidcap_screen_osx_init(const struct vidcap_params *params, void **sta
 
         printf("vidcap_screen_init\n");
 
-        if (vidcap_params_get_flags(params) & VIDCAP_PARAMS_AUDIO_ANY) {
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 

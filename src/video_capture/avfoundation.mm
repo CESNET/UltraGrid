@@ -459,14 +459,14 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
         return vt;
 }
 
-static void *vidcap_avfoundation_init(const struct vidcap_params *params)
+static int vidcap_avfoundation_init(const struct vidcap_params *params, void **state)
 {
         if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
                 [vidcap_avfoundation_state usage: false];
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         } else if (strcasecmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
                 [vidcap_avfoundation_state usage: true];
-                return &vidcap_init_noerr;
+                return VIDCAP_INIT_NOERR;
         }
         NSMutableDictionary *init_params = [[NSMutableDictionary alloc] init];
         char *tmp = strdup(vidcap_params_get_fmt(params));
@@ -494,7 +494,12 @@ static void *vidcap_avfoundation_init(const struct vidcap_params *params)
         }
         [init_params release];
         free(tmp);
-        return ret;
+        if (ret) {
+                *state = ret;
+                return VIDCAP_INIT_OK;
+        } else {
+                return VIDCAP_INIT_FAIL;
+        }
 }
 
 static void vidcap_avfoundation_done(void *state)
