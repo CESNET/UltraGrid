@@ -115,9 +115,9 @@ static void usage(void)
         printf("\t\t3 - avoid EEDID loading\n");
 
         printf("\t<color_spec> may be one of following\n");
-        printf("\t\tUYVY");
-        printf("\t\tRGBA");
-        printf("\t\tBGR (default)");
+        printf("\t\tUYVY\n");
+        printf("\t\tRGBA\n");
+        printf("\t\tBGR (default)\n");
 
         printf("\t<preset> may be format description (DVI-A), E-EDID will be ignored\n");
         printf("\t\tvideo format is in the format <width>x<height>@<fps>\n");
