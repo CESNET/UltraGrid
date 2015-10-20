@@ -72,6 +72,7 @@ const map<enum library_class, library_class_info_t> library_class_info = {
         { LIBRARY_CLASS_AUDIO_COMPRESS, { "Audio compression", "acompress" }},
         { LIBRARY_CLASS_VIDEO_DECOMPRESS, { "Video decompression", "vdecompress" }},
         { LIBRARY_CLASS_VIDEO_COMPRESS, { "Video compression", "vcompress" }},
+        { LIBRARY_CLASS_VIDEO_POSTPROCESS, { "Video postprocess", "vo_pp" }},
 };
 
 static map<string, string> lib_errors;

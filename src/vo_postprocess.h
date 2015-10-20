@@ -58,6 +58,8 @@ extern "C" {
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
 
+#define VO_PP_ABI_VERSION 4
+
 struct vo_postprocess_state;
 
 typedef  void *(*vo_postprocess_init_t)(char *cfg);
@@ -118,6 +120,17 @@ typedef bool (*vo_postprocess_t)(void *state, struct video_frame *in, struct vid
  * Cleanup function
  */
 typedef  void (*vo_postprocess_done_t)(void *);
+
+
+struct vo_postprocess_info {
+        vo_postprocess_init_t init;
+        vo_postprocess_reconfigure_t reconfigure;
+        vo_postprocess_getf_t getf;
+        vo_postprocess_get_out_desc_t get_out_desc;
+        vo_postprocess_get_property_t get_property;
+        vo_postprocess_t vo_postprocess;
+        vo_postprocess_done_t done;
+};
 
 /**
  * Semantic and parameters of following functions is same as their typedef counterparts

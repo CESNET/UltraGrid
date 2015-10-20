@@ -441,10 +441,7 @@ then
 fi
 
 video_rxtx_abi_version=1
-vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
-AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
-AC_SUBST(vo_pp_abi_version)
 
 # ------------------------------------------------------------------------------------------------
 # environment variables
@@ -2521,7 +2518,7 @@ then
         scale=yes
         SCALE_LIB="$SCALE_LIB $OPENGL_LIB $X11_LIB"
         SCALE_OBJ="$SCALE_OBJ src/vo_postprocess/scale.o"
-        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
+        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/module_vo_pp_scale.so")
         LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCALE_OBJ"
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
@@ -2560,7 +2557,7 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
         TEXT_LIB="$TEXT_LIBS"
         TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
-        AC_SUBST(TEXT_LIB_TARGET, "lib/ultragrid/vo_pp_text.so.$vo_pp_abi_version")
+        AC_SUBST(TEXT_LIB_TARGET, "lib/ultragrid/module_vo_pp_text.so")
         LIB_TARGETS="$LIB_TARGETS $TEXT_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $TEXT_OBJ"
         AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])

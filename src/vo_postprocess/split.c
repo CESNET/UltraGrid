@@ -52,13 +52,13 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 
+#include "lib_common.h"
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */
 #include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/split.h"
 
 struct state_split {
         struct video_frame *in;
@@ -66,7 +66,7 @@ struct state_split {
 };
 
 
-bool split_get_property(void *state, int property, void *val, size_t *len)
+static bool split_get_property(void *state, int property, void *val, size_t *len)
 {
         bool ret;
 
@@ -95,7 +95,7 @@ static void usage()
         printf("\tsplit to XxY tiles\n");
 }
 
-void * split_init(char *config) {
+static void * split_init(char *config) {
         struct state_split *s;
         char *save_ptr = NULL;
         char *item;
@@ -123,7 +123,7 @@ void * split_init(char *config) {
         return s;
 }
 
-int split_postprocess_reconfigure(void *state, struct video_desc desc)
+static int split_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_split *s = (struct state_split *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -142,14 +142,14 @@ int split_postprocess_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * split_getf(void *state)
+static struct video_frame * split_getf(void *state)
 {
         struct state_split *s = (struct state_split *) state;
 
         return s->in;
 }
 
-bool split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_split *s = (struct state_split *) state;
         UNUSED(req_pitch);
@@ -159,7 +159,7 @@ bool split_postprocess(void *state, struct video_frame *in, struct video_frame *
         return true;
 }
 
-void split_done(void *state)
+static void split_done(void *state)
 {
         struct state_split *s = (struct state_split *) state;
         
@@ -168,7 +168,7 @@ void split_done(void *state)
         free(state);
 }
 
-void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_split *s = (struct state_split *) state;
 
@@ -182,4 +182,16 @@ void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_split_info = {
+        split_init,
+        split_postprocess_reconfigure,
+        split_getf,
+        split_get_out_desc,
+        split_get_property,
+        split_postprocess,
+        split_done,
+};
+
+REGISTER_MODULE(split, &vo_pp_split_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 

@@ -55,9 +55,10 @@
 #include <stdlib.h>
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "vo_postprocess/double-framerate.h"
+#include "vo_postprocess.h"
 
 struct state_df {
         struct video_frame *in;
@@ -70,7 +71,7 @@ static void usage()
         printf("-p double_framerate\n");
 }
 
-void * df_init(char *config) {
+static void * df_init(char *config) {
         struct state_df *s;
 
         if(config && strcmp(config, "help") == 0) {
@@ -89,7 +90,7 @@ void * df_init(char *config) {
         return s;
 }
 
-bool df_get_property(void *state, int property, void *val, size_t *len)
+static bool df_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -99,7 +100,7 @@ bool df_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
-int df_reconfigure(void *state, struct video_desc desc)
+static int df_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_df *s = (struct state_df *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -129,7 +130,7 @@ int df_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * df_getf(void *state)
+static struct video_frame * df_getf(void *state)
 {
         struct state_df *s = (struct state_df *) state;
 
@@ -139,7 +140,7 @@ struct video_frame * df_getf(void *state)
         return s->in;
 }
 
-bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_df *s = (struct state_df *) state;
         unsigned int y;
@@ -172,7 +173,7 @@ bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out
         return true;
 }
 
-void df_done(void *state)
+static void df_done(void *state)
 {
         struct state_df *s = (struct state_df *) state;
         
@@ -182,7 +183,7 @@ void df_done(void *state)
         free(state);
 }
 
-void df_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void df_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_df *s = (struct state_df *) state;
 
@@ -196,3 +197,16 @@ void df_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 2;
 }
+
+static const struct vo_postprocess_info vo_pp_df_info = {
+        df_init,
+        df_postprocess_reconfigure,
+        df_getf,
+        df_get_out_desc,
+        df_get_property,
+        df_postprocess,
+        df_done,
+};
+
+REGISTER_MODULE(double_framerate, &vo_pp_df_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+

@@ -50,9 +50,10 @@
 #include <wand/magick_wand.h>
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "vo_postprocess/text.h"
+#include "vo_postprocess.h"
 
 #include "tv.h"
 
@@ -68,7 +69,7 @@ struct state_text {
         MagickWand *wand;
 };
 
-bool text_get_property(void *state, int property, void *val, size_t *len)
+static bool text_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -90,7 +91,7 @@ static void init_text() {
 }
 
 
-void * text_init(char *config) {
+static void * text_init(char *config) {
         pthread_once(&vo_postprocess_text_initialized, init_text);
 
         struct state_text *s;
@@ -108,7 +109,7 @@ void * text_init(char *config) {
         return s;
 }
 
-int text_postprocess_reconfigure(void *state, struct video_desc desc)
+static int text_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -185,7 +186,7 @@ int text_postprocess_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * text_getf(void *state)
+static struct video_frame * text_getf(void *state)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -197,7 +198,7 @@ struct video_frame * text_getf(void *state)
  * Rendering of the text is a bit slow. Since the text doesn't change at all, it should be
  * prerendered and then only alpha blended.
  */
-bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool text_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -247,7 +248,7 @@ bool text_postprocess(void *state, struct video_frame *in, struct video_frame *o
         return true;
 }
 
-void text_done(void *state)
+static void text_done(void *state)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -259,7 +260,7 @@ void text_done(void *state)
         delete s;
 }
 
-void text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_text *s = (struct state_text *) state;
 
@@ -268,4 +269,16 @@ void text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_text_info = {
+        text_init,
+        text_postprocess_reconfigure,
+        text_getf,
+        text_get_out_desc,
+        text_get_property,
+        text_postprocess,
+        text_done,
+};
+
+REGISTER_MODULE(text, &vo_pp_text_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 

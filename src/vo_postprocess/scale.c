@@ -55,11 +55,11 @@
 #include <pthread.h>
 
 #include "debug.h"
+#include "lib_common.h"
 #include "gl_context.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
-#include "vo_postprocess/scale.h"
 
 struct state_scale {
         struct video_frame *in;
@@ -71,7 +71,7 @@ struct state_scale {
         GLuint fbo;
 };
 
-bool scale_get_property(void *state, int property, void *val, size_t *len)
+static bool scale_get_property(void *state, int property, void *val, size_t *len)
 {
         bool ret = false;
         codec_t supported[] = {UYVY, RGBA};
@@ -100,7 +100,7 @@ static void usage()
         printf("\t-p scale:width:height\n");
 }
 
-void * scale_init(char *config) {
+static void * scale_init(char *config) {
         struct state_scale *s;
         char *save_ptr = NULL;
         char *ptr;
@@ -152,7 +152,7 @@ void * scale_init(char *config) {
         return s;
 }
 
-int scale_reconfigure(void *state, struct video_desc desc)
+static int scale_reconfigure(void *state, struct video_desc desc)
 {
         struct state_scale *s = (struct state_scale *) state;
         struct tile *in_tile;
@@ -221,14 +221,14 @@ int scale_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * scale_getf(void *state)
+static struct video_frame * scale_getf(void *state)
 {
         struct state_scale *s = (struct state_scale *) state;
 
         return s->in;
 }
 
-bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_scale *s = (struct state_scale *) state;
         int i;
@@ -307,7 +307,7 @@ bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *
         return true;
 }
 
-void scale_done(void *state)
+static void scale_done(void *state)
 {
         struct state_scale *s = (struct state_scale *) state;
 
@@ -324,7 +324,7 @@ void scale_done(void *state)
         free(state);
 }
 
-void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_scale *s = (struct state_scale *) state;
 
@@ -338,4 +338,16 @@ void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_scale_info = {
+        scale_init,
+        scale_reconfigure,
+        scale_getf,
+        scale_get_out_desc,
+        scale_get_property,
+        scale_postprocess,
+        scale_done,
+};
+
+REGISTER_MODULE(scale, &vo_pp_scale_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 

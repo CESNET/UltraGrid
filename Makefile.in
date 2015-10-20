@@ -652,10 +652,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_decklink.so $^ @DECKLINK_LIB@ -o $@
 
 @SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $^ @SCALE_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vo_pp_scale.so $^ @SCALE_LIB@ -o $@
 
 @TEXT_LIB_TARGET@: @TEXT_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_text.so.@vo_pp_abi_version@ $^ @TEXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vo_pp_text.so $^ @TEXT_LIB@ -o $@
 
 @V4L2_LIB_TARGET@: @V4L2_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_v4l2.so $^ @V4L2_LIBS@ -o $@

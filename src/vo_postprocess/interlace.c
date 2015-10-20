@@ -54,9 +54,10 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "vo_postprocess/interlace.h"
+#include "vo_postprocess.h"
 
 enum last_frame {
         ODD = 0,
@@ -75,7 +76,7 @@ static void usage()
         printf("-p interlace\n");
 }
 
-void * interlace_init(char *config) {
+static void * interlace_init(char *config) {
         struct state_interlace *s;
 
         if(config && strcmp(config, "help") == 0) {
@@ -94,7 +95,7 @@ void * interlace_init(char *config) {
         return s;
 }
 
-bool interlace_get_property(void *state, int property, void *val, size_t *len)
+static bool interlace_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -104,7 +105,7 @@ bool interlace_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
-int interlace_reconfigure(void *state, struct video_desc desc)
+static int interlace_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
@@ -118,7 +119,7 @@ int interlace_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * interlace_getf(void *state)
+static struct video_frame * interlace_getf(void *state)
 {
         struct state_interlace *s = (struct state_interlace *) state;
         struct video_frame *ret;
@@ -134,7 +135,7 @@ struct video_frame * interlace_getf(void *state)
         return ret;
 }
 
-bool interlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool interlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
@@ -158,7 +159,7 @@ bool interlace_postprocess(void *state, struct video_frame *in, struct video_fra
         return true;
 }
 
-void interlace_done(void *state)
+static void interlace_done(void *state)
 {
         struct state_interlace *s = (struct state_interlace *) state;
         
@@ -168,7 +169,7 @@ void interlace_done(void *state)
         free(state);
 }
 
-void interlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void interlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
@@ -183,3 +184,16 @@ void interlace_get_out_desc(void *state, struct video_desc *out, int *in_display
         //*in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_interlace_info = {
+        interlace_init,
+        interlace_reconfigure,
+        interlace_getf,
+        interlace_get_out_desc,
+        interlace_get_property,
+        interlace_postprocess,
+        interlace_done,
+};
+
+REGISTER_MODULE(interlace, &vo_pp_interlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+

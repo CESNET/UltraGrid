@@ -44,9 +44,10 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "vo_postprocess/deinterlace.h"
+#include "vo_postprocess.h"
 
 struct state_deinterlace {
         struct video_frame *out;
@@ -58,7 +59,7 @@ static void usage()
         printf("\t-p deinterlace\n");
 }
 
-void * deinterlace_init(char *config) {
+static void * deinterlace_init(char *config) {
         if(config && strcmp(config, "help") == 0) {
                 usage();
                 return NULL;
@@ -69,12 +70,12 @@ void * deinterlace_init(char *config) {
         return s;
 }
 
-bool deinterlace_get_property(void *, int, void *, size_t *)
+static bool deinterlace_get_property(void *, int, void *, size_t *)
 {
         return false;
 }
 
-int deinterlace_reconfigure(void *state, struct video_desc desc)
+static int deinterlace_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
 
@@ -85,14 +86,14 @@ int deinterlace_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * deinterlace_getf(void *state)
+static struct video_frame * deinterlace_getf(void *state)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
 
         return s->out;
 }
 
-bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         UNUSED(state);
         assert (req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
@@ -107,7 +108,7 @@ bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_f
         return true;
 }
 
-void deinterlace_done(void *state)
+static void deinterlace_done(void *state)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
         
@@ -115,7 +116,7 @@ void deinterlace_done(void *state)
         delete s;
 }
 
-void deinterlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void deinterlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_deinterlace *s = (struct state_deinterlace *) state;
 
@@ -125,4 +126,16 @@ void deinterlace_get_out_desc(void *state, struct video_desc *out, int *in_displ
         //*in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_deinterlace_info = {
+        deinterlace_init,
+        deinterlace_reconfigure,
+        deinterlace_getf,
+        deinterlace_get_out_desc,
+        deinterlace_get_property,
+        deinterlace_postprocess,
+        deinterlace_done,
+};
+
+REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 

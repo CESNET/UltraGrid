@@ -55,15 +55,16 @@
 #include <stdlib.h>
 
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
-#include "vo_postprocess/3d-interlaced.h"
+#include "vo_postprocess.h"
 
 struct state_interlaced_3d {
         struct video_frame *in;
 };
 
-bool interlaced_3d_get_property(void *state, int property, void *val, size_t *len)
+static bool interlaced_3d_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -74,7 +75,7 @@ bool interlaced_3d_get_property(void *state, int property, void *val, size_t *le
 }
 
 
-void * interlaced_3d_init(char *config) {
+static void * interlaced_3d_init(char *config) {
         struct state_interlaced_3d *s;
         
         if(config && strcmp(config, "help") == 0) {
@@ -88,7 +89,7 @@ void * interlaced_3d_init(char *config) {
         return s;
 }
 
-int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
+static int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
         
@@ -111,7 +112,7 @@ int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-struct video_frame * interlaced_3d_getf(void *state)
+static struct video_frame * interlaced_3d_getf(void *state)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
 
@@ -126,7 +127,7 @@ struct video_frame * interlaced_3d_getf(void *state)
  * @param[out] out       output frame to be written to. Should have only ony tile
  * @param[in]  req_pitch requested pitch in buffer
  */
-bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+static bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         UNUSED (state);
         UNUSED (req_pitch);
@@ -164,7 +165,7 @@ bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video
         return true;
 }
 
-void interlaced_3d_done(void *state)
+static void interlaced_3d_done(void *state)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
         
@@ -174,7 +175,7 @@ void interlaced_3d_done(void *state)
         free(state);
 }
 
-void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
 
@@ -188,4 +189,16 @@ void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_dis
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
         *out_frames = 1;
 }
+
+static const struct vo_postprocess_info vo_pp_interlaced_3d_info = {
+        interlaced_3d_init,
+        interlaced_3d_postprocess_reconfigure,
+        interlaced_3d_getf,
+        interlaced_3d_get_out_desc,
+        interlaced_3d_get_property,
+        interlaced_3d_postprocess,
+        interlaced_3d_done,
+};
+
+REGISTER_MODULE(interlaced_3d, &vo_pp_interlaced_3d_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 
