@@ -145,6 +145,18 @@ int initialize_video_capture(struct module *parent,
                 struct vidcap_params *param,
                 struct vidcap **state)
 {
+        /// check appropriate cmdline parameters order (--capture-filter and -t)
+        struct vidcap_params *t, *t0;
+        t = t0 = param;
+        while ((t = vidcap_params_get_next(t0))) {
+                t0 = t;
+        }
+        if (t0->driver == NULL && t0->requested_capture_filter != NULL) {
+                log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
+                                "specified before capture (-t)\n");
+                return -1;
+        }
+
         const struct video_capture_info *vci = (const struct video_capture_info *)
                 load_library(vidcap_params_get_driver(param), LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
