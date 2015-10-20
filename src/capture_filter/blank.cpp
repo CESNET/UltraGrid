@@ -290,7 +290,6 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 }
 
 static const struct capture_filter_info capture_filter_blank = {
-        .name = "blank",
         .init = init,
         .done = done,
         .filter = filter,

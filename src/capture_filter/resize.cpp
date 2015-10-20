@@ -180,7 +180,6 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 }
 
 static struct capture_filter_info capture_filter_resize = {
-    "resize",
     init,
     done,
     filter,

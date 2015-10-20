@@ -59,7 +59,7 @@ static void usage()
         printf("\t-p deinterlace\n");
 }
 
-static void * deinterlace_init(char *config) {
+static void * deinterlace_init(const char *config) {
         if(config && strcmp(config, "help") == 0) {
                 usage();
                 return NULL;

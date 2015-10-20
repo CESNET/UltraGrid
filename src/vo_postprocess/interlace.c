@@ -76,7 +76,7 @@ static void usage()
         printf("-p interlace\n");
 }
 
-static void * interlace_init(char *config) {
+static void * interlace_init(const char *config) {
         struct state_interlace *s;
 
         if(config && strcmp(config, "help") == 0) {

@@ -71,7 +71,7 @@ static void usage()
         printf("-p double_framerate\n");
 }
 
-static void * df_init(char *config) {
+static void * df_init(const char *config) {
         struct state_df *s;
 
         if(config && strcmp(config, "help") == 0) {

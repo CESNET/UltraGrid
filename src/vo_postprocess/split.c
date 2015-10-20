@@ -95,7 +95,7 @@ static void usage()
         printf("\tsplit to XxY tiles\n");
 }
 
-static void * split_init(char *config) {
+static void * split_init(const char *config) {
         struct state_split *s;
         char *save_ptr = NULL;
         char *item;
@@ -106,17 +106,21 @@ static void * split_init(char *config) {
         }
         s = (struct state_split *) 
                         malloc(sizeof(struct state_split));
+
+        char *tmp = strdup(config);
         
-        item = strtok_r(config, ":", &save_ptr);
+        item = strtok_r(tmp, ":", &save_ptr);
         s->grid_width = atoi(item);
-        item = strtok_r(config, ":", &save_ptr);
+        item = strtok_r(NULL, ":", &save_ptr);
         if(!item) {
                 usage();
                 free(s);
+                free(tmp);
                 return NULL;
         }
 
         s->grid_height = atoi(item);
+        free(tmp);
 
         s->in = vf_alloc(1);
         

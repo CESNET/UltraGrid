@@ -120,7 +120,6 @@ static struct video_frame *filter(void *state, struct video_frame *in_frame)
 }
 
 static const struct capture_filter_info capture_filter_scale = {
-        .name = "scale",
         .init = init,
         .done = done,
         .filter = filter,

@@ -93,7 +93,7 @@ static void init_text() {
 }
 
 
-static void * text_init(char *config) {
+static void * text_init(const char *config) {
         pthread_once(&vo_postprocess_text_initialized, init_text);
 
         struct state_text *s;
@@ -113,9 +113,7 @@ static void * text_init(char *config) {
 
 static int cf_text_init(struct module * /* parent */, const char *cfg, void **state)
 {
-        char *tmp = strdup(cfg);
-        *state = text_init(tmp);
-        free(tmp);
+        *state = text_init(cfg);
         return 0;
 }
 
@@ -314,7 +312,6 @@ static const struct vo_postprocess_info vo_pp_text_info = {
 };
 
 static const struct capture_filter_info capture_filter_text_info = {
-        "text",
         cf_text_init,
         text_done,
         cf_text_filter

@@ -59,7 +59,7 @@
 extern char **uv_argv;
 
 struct vo_postprocess_state {
-        struct vo_postprocess_info *funcs;
+        const struct vo_postprocess_info *funcs;
         void *state;
 };
 
@@ -69,7 +69,7 @@ void show_vo_postprocess_help()
         list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 }
 
-struct vo_postprocess_state *vo_postprocess_init(char *config_string)
+struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
 {
         struct vo_postprocess_state *s;
         char *vo_postprocess_options = NULL;

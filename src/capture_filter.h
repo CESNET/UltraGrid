@@ -49,7 +49,7 @@
 #ifndef CAPTURE_FILTER_H_
 #define CAPTURE_FILTER_H_
 
-#define CAPTURE_FILTER_ABI_VERSION 1
+#define CAPTURE_FILTER_ABI_VERSION 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +58,6 @@ extern "C" {
 struct module;
 
 struct capture_filter_info {
-        const char *name;
         /// @brief Initializes capture filter
         /// @param      parent parent module
         /// @param      cfg    configuration string from cmdline

@@ -58,11 +58,11 @@ extern "C" {
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
 
-#define VO_PP_ABI_VERSION 4
+#define VO_PP_ABI_VERSION 5
 
 struct vo_postprocess_state;
 
-typedef  void *(*vo_postprocess_init_t)(char *cfg);
+typedef  void *(*vo_postprocess_init_t)(const char *cfg);
 
 /**
  * Reconfigures postprocessor for frame
@@ -135,7 +135,7 @@ struct vo_postprocess_info {
 /**
  * Semantic and parameters of following functions is same as their typedef counterparts
  */
-struct vo_postprocess_state *vo_postprocess_init(char *config_string);
+struct vo_postprocess_state *vo_postprocess_init(const char *config_string);
 
 int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);

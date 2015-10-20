@@ -75,7 +75,7 @@ static bool interlaced_3d_get_property(void *state, int property, void *val, siz
 }
 
 
-static void * interlaced_3d_init(char *config) {
+static void * interlaced_3d_init(const char *config) {
         struct state_interlaced_3d *s;
         
         if(config && strcmp(config, "help") == 0) {

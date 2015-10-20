@@ -100,7 +100,7 @@ static void usage()
         printf("\t-p scale:width:height\n");
 }
 
-static void * scale_init(char *config) {
+static void * scale_init(const char *config) {
         struct state_scale *s;
         char *save_ptr = NULL;
         char *ptr;
@@ -114,18 +114,21 @@ static void * scale_init(char *config) {
                 return NULL;
         }
 
+        const char *tmp = strdup(config);
+
         s = (struct state_scale *) 
                         malloc(sizeof(struct state_scale));
+        assert(s != NULL);
 
-
-        ptr = strtok_r(config, ":", &save_ptr);
+        ptr = strtok_r(tmp, ":", &save_ptr);
         assert(ptr != NULL);
         s->scaled_width = atoi(ptr);
         assert(ptr != NULL);
         ptr = strtok_r(NULL, ":", &save_ptr);
         s->scaled_height = atoi(ptr);
 
-        assert(s != NULL);
+        free(tmp);
+
         s->in = NULL;
 
         init_gl_context(&s->context, GL_CONTEXT_LEGACY);
