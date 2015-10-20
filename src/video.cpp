@@ -211,9 +211,14 @@ bool video_desc::operator==(video_desc const & other) const
 
 }
 
+bool video_desc::operator!=(video_desc const & other) const
+{
+        return !video_desc_eq(*this, other);
+
+}
+
 bool video_desc::operator!() const
 {
         return color_spec == VIDEO_CODEC_NONE;
-
 }
 

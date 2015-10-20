@@ -49,6 +49,7 @@
 #include <memory>
 #include <wand/magick_wand.h>
 
+#include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "video.h"
@@ -64,6 +65,7 @@ struct state_text {
         unique_ptr<char []> data;
         string text;
         int width, height; // width in pixels
+        struct video_desc saved_desc;
 
         DrawingWand *dw;
         MagickWand *wand;
@@ -107,6 +109,14 @@ static void * text_init(char *config) {
         s->text = config;
 
         return s;
+}
+
+static int cf_text_init(struct module * /* parent */, const char *cfg, void **state)
+{
+        char *tmp = strdup(cfg);
+        *state = text_init(tmp);
+        free(tmp);
+        return 0;
 }
 
 static int text_postprocess_reconfigure(void *state, struct video_desc desc)
@@ -248,6 +258,29 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         return true;
 }
 
+struct video_frame *cf_text_filter(void *state, struct video_frame *f)
+{
+        struct state_text *s = (struct state_text *) state;
+
+        if (s->saved_desc != video_desc_from_frame(f)) {
+                if (text_postprocess_reconfigure(state, video_desc_from_frame(f))) {
+                        s->saved_desc = video_desc_from_frame(f);
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "[text] Cannot reinitialize!\n");
+                        return NULL;
+                }
+        }
+
+        struct video_frame *out = vf_alloc_desc_data(s->saved_desc);
+        out->dispose = vf_free;
+        if (text_postprocess(state, f, out, vc_get_linesize(f->tiles[0].width, f->color_spec))) {
+                return out;
+        } else {
+                vf_free(out);
+                return NULL;
+        }
+}
+
 static void text_done(void *state)
 {
         struct state_text *s = (struct state_text *) state;
@@ -280,5 +313,14 @@ static const struct vo_postprocess_info vo_pp_text_info = {
         text_done,
 };
 
+static const struct capture_filter_info capture_filter_text_info = {
+        "text",
+        cf_text_init,
+        text_done,
+        cf_text_filter
+};
+
+
 REGISTER_MODULE(text, &vo_pp_text_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(text, &capture_filter_text_info, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

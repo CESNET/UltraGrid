@@ -113,6 +113,7 @@ struct video_desc {
         unsigned int         tile_count;
 #ifdef __cplusplus
         bool operator==(video_desc const &) const;
+        bool operator!=(video_desc const &) const;
         bool operator!() const;
 #endif
 };
