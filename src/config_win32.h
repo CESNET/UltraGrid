@@ -190,8 +190,6 @@ static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
 int uname(struct utsname *);
 int getopt(int, char * const *, const char *);
 //int strncasecmp(const char *, const char*, int len);
-int srandom(int);
-int random(void);
 double drand48();
 int gettimeofday(struct timeval *p, struct timezone *z);
 unsigned int gethostid(void);
