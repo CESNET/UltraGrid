@@ -95,6 +95,7 @@ OBJS	      = @OBJS@ \
 		@SPEEX_OBJ@ \
 		src/capture_filter.o \
 		src/capture_filter/every.o \
+		src/capture_filter/flip.o \
 		src/capture_filter/grayscale.o \
 		src/capture_filter/logo.o \
 		src/capture_filter/none.o \
