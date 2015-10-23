@@ -52,7 +52,7 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-int state_flip;
+static int state_flip;
 
 static int init(struct module *, const char *, void **state)
 {
