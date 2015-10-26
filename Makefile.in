@@ -98,6 +98,7 @@ OBJS	      = @OBJS@ \
 		src/capture_filter/flip.o \
 		src/capture_filter/grayscale.o \
 		src/capture_filter/logo.o \
+		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
 		src/capture_filter/scale.o \
 		src/compat/drand48.o \
