@@ -440,9 +440,6 @@ then
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-video_rxtx_abi_version=1
-AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
-
 # ------------------------------------------------------------------------------------------------
 # environment variables
 #
@@ -1362,7 +1359,7 @@ then
         CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
         RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
         RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
-        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
+        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/module_video_rxtx_h264.so")
         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
         rtsp_server=yes

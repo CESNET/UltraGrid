@@ -513,8 +513,6 @@ int main(int argc, char *argv[])
 
         open_all("module_*.so"); // load modules
 
-        video_rxtx_loader loader;
-
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
                 {"capture", required_argument, 0, 't'},

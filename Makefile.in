@@ -664,7 +664,7 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_v4l2.so $^ @V4L2_LIBS@ -o $@
 
 @RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_video_rxtx_h264.so $^ @RTSP_SERVER_LIBS@ -o $@
 
 @VCAPTURE_FILTER_RESIZE_LIB_TARGET@: @RESIZE_OBJ@
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcapfilter_resize.so $^ @RESIZE_LIBS@ -o $@

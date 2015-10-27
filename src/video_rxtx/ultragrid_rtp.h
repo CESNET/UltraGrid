@@ -87,7 +87,5 @@ private:
         struct control_state *m_control;
 };
 
-video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params);
-
 #endif // VIDEO_RXTX_ULTRAGRID_RTP_H_
 

@@ -61,9 +61,11 @@
 
 #include "debug.h"
 #include "host.h"
+#include "lib_common.h"
 #include "ihdtv/ihdtv.h"
 #include "video_display.h"
 #include "video_capture.h"
+#include "video_rxtx.h"
 #include "video_rxtx/ihdtv.h"
 #include "video.h"
 
@@ -174,8 +176,16 @@ ihdtv_video_rxtx::~ihdtv_video_rxtx()
 {
 }
 
-video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const &params)
+static video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const &params)
 {
         return new ihdtv_video_rxtx(params);
 }
+
+static const struct video_rxtx_info ihdtv_video_rxtx_info = {
+        "iHDTV",
+        IHDTV,
+        create_video_rxtx_ihdtv
+};
+
+REGISTER_MODULE(ihdtv, &ihdtv_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
 

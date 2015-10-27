@@ -76,7 +76,5 @@ private:
         pthread_t             m_thread_id;
 };
 
-video_rxtx *create_video_rxtx_sage(std::map<std::string, param_u> const &params);
-
 #endif // VIDEO_RXTX_SAGE_H_
 

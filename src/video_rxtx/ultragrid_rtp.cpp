@@ -50,7 +50,7 @@
 
 #include "control_socket.h"
 #include "host.h"
-#include "ihdtv.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
@@ -495,8 +495,16 @@ uint32_t ultragrid_rtp_video_rxtx::get_ssrc()
         return rtp_my_ssrc(m_network_devices[0]);
 }
 
-video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params)
+static video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params)
 {
         return new ultragrid_rtp_video_rxtx(params);
 }
+
+static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
+        "UltraGrid RTP",
+        ULTRAGRID_RTP,
+        create_video_rxtx_ultragrid_rtp
+};
+
+REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
 

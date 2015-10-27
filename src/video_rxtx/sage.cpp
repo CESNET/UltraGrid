@@ -46,8 +46,10 @@
 #include <sstream>
 
 #include "host.h"
+#include "lib_common.h"
 #include "video_display.h"
 #include "video_rxtx/sage.h"
+#include "video_rxtx.h"
 #include "video.h"
 
 using namespace std;
@@ -98,8 +100,16 @@ sage_video_rxtx::~sage_video_rxtx()
         display_done(m_sage_tx_device);
 }
 
-video_rxtx *create_video_rxtx_sage(std::map<std::string, param_u> const &params)
+static video_rxtx *create_video_rxtx_sage(std::map<std::string, param_u> const &params)
 {
         return new sage_video_rxtx(params);
 }
+
+static const struct video_rxtx_info sage_video_rxtx_info = {
+        "SAGE",
+        SAGE,
+        create_video_rxtx_sage
+};
+
+REGISTER_MODULE(sage, &sage_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
 

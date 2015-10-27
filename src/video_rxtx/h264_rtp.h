@@ -58,7 +58,5 @@ private:
         rtsp_serv_t *m_rtsp_server;
 };
 
-video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params);
-
 #endif // VIDEO_RXTX_H264_RTP_H_
 

@@ -76,10 +76,10 @@ enum library_class {
         LIBRARY_CLASS_VIDEO_DECOMPRESS,
         LIBRARY_CLASS_VIDEO_COMPRESS,
         LIBRARY_CLASS_VIDEO_POSTPROCESS,
+        LIBRARY_CLASS_VIDEO_RXTX,
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
-void *open_library(const char *name);
 void register_library(const char *name, const void *info, enum library_class, int abi_version);
 void list_modules(enum library_class, int abi_version);
 void list_all_modules();

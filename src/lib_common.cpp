@@ -73,6 +73,7 @@ const map<enum library_class, library_class_info_t> library_class_info = {
         { LIBRARY_CLASS_VIDEO_DECOMPRESS, { "Video decompression", "vdecompress" }},
         { LIBRARY_CLASS_VIDEO_COMPRESS, { "Video compression", "vcompress" }},
         { LIBRARY_CLASS_VIDEO_POSTPROCESS, { "Video postprocess", "vo_pp" }},
+        { LIBRARY_CLASS_VIDEO_RXTX, { "Video RXTX", "video_rxtx" }},
 };
 
 static map<string, string> lib_errors;
@@ -109,56 +110,6 @@ void open_all(const char *pattern) {
         globfree(&glob_buf);
 #else
         UNUSED(pattern);
-#endif
-}
-
-void *open_library(const char *name)
-{
-#ifdef BUILD_LIBRARIES
-        void *handle = NULL;
-        struct stat buf;
-        char kLibName[128];
-        char path[512];
-        char *dir;
-        char *tmp;
-
-        snprintf(kLibName, sizeof(kLibName), "ultragrid/%s", name);
-
-        if (uv_argv) {
-                /* firstly expect we are opening from a build */
-                tmp = strdup(uv_argv[0]);
-                /* binary not from $PATH */
-                if(strchr(tmp, '/') != NULL) {
-                        dir = dirname(tmp);
-                        snprintf(path, sizeof(path), "%s/../lib/%s", dir, kLibName);
-                        if(!handle && stat(path, &buf) == 0) {
-                                handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                                if(!handle)
-                                        verbose_msg("Library %s opening warning: %s \n",
-                                                        path, dlerror());
-                        }
-                }
-                free(tmp);
-        } else {
-                fprintf(stderr, "Warning: unable to locate executable path!");
-        }
-
-        /* next try $LIB_DIR/ultragrid */
-        snprintf(path, sizeof(path), TOSTRING(LIB_DIR) "/%s", kLibName);
-        if(!handle && stat(path, &buf) == 0) {
-                handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                if(!handle)
-                        verbose_msg("Library %s opening warning: %s \n", path, dlerror());
-        }
-
-        if(!handle) {
-                verbose_msg("Unable to load %s library.\n", kLibName);
-        }
-
-        return handle;
-#else
-        UNUSED(name);
-        return NULL;
 #endif
 }
 

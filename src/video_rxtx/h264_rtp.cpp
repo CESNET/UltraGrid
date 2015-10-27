@@ -46,9 +46,11 @@
 #endif // HAVE_CONFIG_H
 
 #include "host.h"
+#include "lib_common.h"
 #include "transmit.h"
 #include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
+#include "video_rxtx.h"
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
 
@@ -102,15 +104,16 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 #endif
 }
 
-video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)
+static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)
 {
         return new h264_rtp_video_rxtx(params);
 }
 
-static void register_module(void)  __attribute__((constructor));
+static const struct video_rxtx_info h264_video_rxtx_info = {
+        "H264 standard",
+        H264_STD,
+        create_video_rxtx_h264_std
+};
 
-static void register_module(void)
-{
-        register_video_rxtx(H264_STD, {"H264 standard", create_video_rxtx_h264_std});
-}
+REGISTER_MODULE(h264_std, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
 

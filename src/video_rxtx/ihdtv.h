@@ -85,7 +85,5 @@ private:
 #endif
 };
 
-video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const &params);
-
 #endif // IHDTV_H_
 

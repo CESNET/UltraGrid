@@ -45,6 +45,8 @@
 
 #include "module.h"
 
+#define VIDEO_RXTX_ABI_VERSION 2
+
 struct display;
 struct module;
 struct video_compress;
@@ -69,6 +71,7 @@ union param_u {
 
 struct video_rxtx_info {
         const char *name;
+        enum rxtx_protocol proto;
         class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
