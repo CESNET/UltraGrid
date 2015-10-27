@@ -83,7 +83,7 @@ struct pbuf_node {
 struct pbuf {
         struct pbuf_node *frst;
         struct pbuf_node *last;
-        long long int playout_delay_us;
+        long long int initial_delay_ms, playout_delay_us;
 
         // for statistics
         /// @todo figure out packet duplication
@@ -165,6 +165,7 @@ struct pbuf *pbuf_init(int delay_ms)
                 /* Playout delay... should really be adaptive, based on the */
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
+                playout_buf->initial_delay_ms = delay_ms;
                 playout_buf->playout_delay_us = 0.032 * 1000 * 1000 + delay_ms * 1000.0;
                 playout_buf->last_rtp_seq = -1;
         } else {
@@ -474,6 +475,6 @@ pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_p
 
 void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 {
-        playout_buf->playout_delay_us = playout_delay * 1000 * 1000;
+        playout_buf->playout_delay_us = playout_buf->initial_delay_ms + playout_delay * 1000 * 1000;
 }
 

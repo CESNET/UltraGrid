@@ -269,7 +269,7 @@ static void usage(void)
         printf("\t--encryption <passphrase>\tKey material for encryption\n");
         printf("\n");
         printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
-        printf("\t                         \t(in non-negative miliseconds)\n");
+        printf("\t                         \t(may be also negative to delayed video)\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -847,10 +847,6 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_AUDIO_DELAY:
                         audio_delay = atoi(optarg);
-                        if (audio_delay < 0) {
-                                fprintf(stderr, "Audio delay should be non-negative!\n");
-                                return EXIT_FAIL_USAGE;
-                        }
                         break;
                 case OPT_LIST_MODULES:
                         list_all_modules();
@@ -1010,7 +1006,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate, audio_delay, &start_time,
+                        audio_codec, isStd, packet_rate, max(audio_delay, 0), &start_time,
                         requested_mtu);
         if(!uv->audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
@@ -1121,6 +1117,7 @@ int main(int argc, char *argv[])
                 params["encryption"].ptr = (void *) requested_encryption;
                 params["packet_rate"].i = packet_rate;
                 params["start_time"].ptr = (void *) &start_time;
+                params["video_delay"].i = audio_delay < 0 ? abs(audio_delay) : 0;
 
                 // UltraGrid RTP
                 params["postprocess"].ptr = (void *) postprocess;
