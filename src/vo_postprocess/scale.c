@@ -114,7 +114,7 @@ static void * scale_init(const char *config) {
                 return NULL;
         }
 
-        const char *tmp = strdup(config);
+        char *tmp = strdup(config);
 
         s = (struct state_scale *) 
                         malloc(sizeof(struct state_scale));
