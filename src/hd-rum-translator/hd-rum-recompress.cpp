@@ -66,7 +66,7 @@ void *recompress_init(struct module *parent,
         params["display_device"].ptr = NULL;
 
         try {
-                auto rxtx = video_rxtx::create(ULTRAGRID_RTP, params);
+                auto rxtx = video_rxtx::create("ultragrid_rtp", params);
                 rxtx->start();
 
                 return new state_recompress(

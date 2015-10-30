@@ -229,7 +229,7 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 
-        s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params));
+        s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create("ultragrid_rtp", params));
         assert (s->video_rxtx);
 
         try {

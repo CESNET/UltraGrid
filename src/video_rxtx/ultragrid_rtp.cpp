@@ -502,7 +502,6 @@ static video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u
 
 static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
         "UltraGrid RTP",
-        ULTRAGRID_RTP,
         create_video_rxtx_ultragrid_rtp
 };
 

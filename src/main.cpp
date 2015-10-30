@@ -567,7 +567,7 @@ int main(int argc, char *argv[])
 
         init_root_module(&root_mod, uv);
         uv->root_module = &root_mod;
-        enum rxtx_protocol video_protocol = ULTRAGRID_RTP;
+        string video_protocol("ultragrid_rtp");
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -622,7 +622,7 @@ int main(int argc, char *argv[])
                         break;
                 case 'i':
 #ifdef HAVE_IHDTV
-                        video_protocol = IHDTV;
+                        video_protocol = "ihdtv";
                         printf("setting ihdtv protocol\n");
                         fprintf(stderr, "Warning: iHDTV support may be currently broken.\n"
                                         "Please contact %s if you need this.\n", PACKAGE_BUGREPORT);
@@ -632,11 +632,11 @@ int main(int argc, char *argv[])
 #endif
                         break;
                 case 'S':
-                        video_protocol = SAGE;
+                        video_protocol = "sage";
                         sage_opts = optarg;
                         break;
                 case 'H':
-                        video_protocol = H264_STD;
+                        video_protocol = "h264_std";
                         if (optarg == NULL) {
                         	rtsp_port = 0;
                         } else {
@@ -866,7 +866,7 @@ int main(int argc, char *argv[])
         argv += optind;
 
         // default values for different RXTX protocols
-        if (video_protocol == H264_STD) {
+        if (video_protocol == "h264_std") {
                 if (audio_codec == nullptr) {
                         audio_codec = "u-law:sample_rate=44100";
                 }
@@ -895,7 +895,7 @@ int main(int argc, char *argv[])
         printf("MTU              : %d B\n", requested_mtu);
         printf("Video compression: %s\n", requested_compression);
         printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
-        printf("Network protocol : %s\n", video_rxtx::get_name(video_protocol));
+        printf("Network protocol : %s\n", video_rxtx::get_long_name(video_protocol));
         printf("Audio FEC        : %s\n", requested_audio_fec);
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
@@ -994,7 +994,7 @@ int main(int argc, char *argv[])
                 audio_host = requested_receiver;
         }
 #ifdef HAVE_RTSP_SERVER
-        if((audio_send != NULL || audio_recv != NULL) && video_protocol == H264_STD){
+        if((audio_send != NULL || audio_recv != NULL) && video_protocol == "h264_std"){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             isStd = TRUE;
         }
@@ -1133,7 +1133,7 @@ int main(int argc, char *argv[])
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = audio_rx_port;
 
-                if (video_protocol == H264_STD) {
+                if (video_protocol == "h264_std") {
                         rtps_types_t avType;
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream

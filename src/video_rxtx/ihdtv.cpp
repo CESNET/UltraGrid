@@ -183,7 +183,6 @@ static video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const 
 
 static const struct video_rxtx_info ihdtv_video_rxtx_info = {
         "iHDTV",
-        IHDTV,
         create_video_rxtx_ihdtv
 };
 

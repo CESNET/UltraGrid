@@ -136,7 +136,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 
-        s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create(ULTRAGRID_RTP, params)));
+        s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create("ultragrid_rtp", params)));
         assert (s->video_rxtx);
 
         s->t0 = steady_clock::now();

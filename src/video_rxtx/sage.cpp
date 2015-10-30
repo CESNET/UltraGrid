@@ -107,7 +107,6 @@ static video_rxtx *create_video_rxtx_sage(std::map<std::string, param_u> const &
 
 static const struct video_rxtx_info sage_video_rxtx_info = {
         "SAGE",
-        SAGE,
         create_video_rxtx_sage
 };
 

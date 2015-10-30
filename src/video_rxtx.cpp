@@ -135,16 +135,13 @@ void video_rxtx::join() {
         m_joined = true;
 }
 
-const char *video_rxtx::get_name(enum rxtx_protocol proto) {
-        auto libs = get_libraries_for_class(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
-        for (auto const & i : libs) {
-                auto vri = static_cast<const video_rxtx_info *>(i.second);
-                if (vri->proto == proto) {
-                        return vri->name;
-                }
+const char *video_rxtx::get_long_name(string const & short_name) {
+        auto vri = static_cast<const video_rxtx_info *>(load_library(short_name.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
+        if (vri) {
+                return vri->long_name;
+        } else {
+                return nullptr;
         }
-
-        return nullptr;
 }
 
 void video_rxtx::send(shared_ptr<video_frame> frame) {
@@ -193,16 +190,13 @@ exit:
         return NULL;
 }
 
-video_rxtx *video_rxtx::create(enum rxtx_protocol proto, std::map<std::string, param_u> const &params)
+video_rxtx *video_rxtx::create(string const & proto, std::map<std::string, param_u> const &params)
 {
-        auto libs = get_libraries_for_class(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
-        for (auto const & i : libs) {
-                auto vri = static_cast<const video_rxtx_info *>(i.second);
-                if (vri->proto == proto) {
-                        return vri->create(params);
-                }
+        auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
+        if (vri) {
+                return vri->create(params);
+        } else {
+                return nullptr;
         }
-
-        return nullptr;
 }
 

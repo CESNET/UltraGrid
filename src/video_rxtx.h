@@ -53,13 +53,6 @@ struct video_compress;
 struct video_export;
 struct video_frame;
 
-enum rxtx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE,
-        H264_STD
-};
-
 class video_rxtx;
 
 union param_u {
@@ -70,19 +63,16 @@ union param_u {
 };
 
 struct video_rxtx_info {
-        const char *name;
-        enum rxtx_protocol proto;
+        const char *long_name;
         class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
-
-void register_video_rxtx(enum rxtx_protocol, struct video_rxtx_info);
 
 class video_rxtx {
 public:
         video_rxtx(std::map<std::string, param_u> const &);
         virtual ~video_rxtx();
         void send(std::shared_ptr<struct video_frame>);
-        static const char *get_name(enum rxtx_protocol);
+        static const char *get_long_name(std::string const & short_name);
         static void *receiver_thread(void *arg) {
                 video_rxtx *rxtx = static_cast<video_rxtx *>(arg);
                 return rxtx->get_receiver_thread()(arg);
@@ -92,7 +82,7 @@ public:
         }
         void start();
         virtual void join();
-        static video_rxtx *create(enum rxtx_protocol proto, std::map<std::string, param_u> const &);
+        static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         int m_port_id;
 protected:
         void check_sender_messages();
