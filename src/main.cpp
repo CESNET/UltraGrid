@@ -485,7 +485,7 @@ int main(int argc, char *argv[])
         const char *requested_encryption = NULL;
         struct video_export *video_exporter = NULL;
 
-        int bitrate = RATE_AUTO;
+        long long int bitrate = RATE_AUTO;
 
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
         int audio_delay = 0;
@@ -707,7 +707,7 @@ int main(int argc, char *argv[])
                         } else {
                                 bitrate = unit_evaluate(optarg);
                                 if(bitrate <= 0) {
-                                        usage();
+                                        log_msg(LOG_LEVEL_ERROR, "Bitrate must be positive!\n");
                                         return EXIT_FAIL_USAGE;
                                 }
                         }
