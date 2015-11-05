@@ -93,6 +93,8 @@ enum class image_pattern : int {
         NOISE
 };
 
+#define BLANK_PATTERN 0xff000000
+
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
         int count;
@@ -468,7 +470,10 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 s->pixmap.data = malloc(pixmap_len);
 
                 if (s->pattern == image_pattern::BLANK) {
-                        memset(s->pixmap.data, 0, pixmap_len);
+                        for (int i = 0; i < pixmap_len / 4; ++i) {
+                                ((uint32_t *) s->pixmap.data)[i] = BLANK_PATTERN;
+
+                        }
                 } else if (s->pattern == image_pattern::NOISE) {
                         uint8_t *sample = (uint8_t *) s->pixmap.data;
                         for (int i = 0; i < pixmap_len; ++i) {
