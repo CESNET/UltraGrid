@@ -48,7 +48,7 @@
 
 class h264_rtp_video_rxtx : public rtp_video_rxtx {
 public:
-        h264_rtp_video_rxtx(std::map<std::string, param_u> const &);
+        h264_rtp_video_rxtx(std::map<std::string, param_u> const &, int);
         virtual ~h264_rtp_video_rxtx();
 private:
         virtual void send_frame(std::shared_ptr<video_frame>);

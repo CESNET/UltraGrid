@@ -178,6 +178,9 @@ ihdtv_video_rxtx::~ihdtv_video_rxtx()
 
 static video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const &params)
 {
+        log_msg(LOG_LEVEL_WARNING, "Warning: iHDTV support may be currently broken.\n"
+                        "Please contact %s if you need this.\n", PACKAGE_BUGREPORT);
+
         return new ihdtv_video_rxtx(params);
 }
 

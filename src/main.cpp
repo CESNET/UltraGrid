@@ -83,10 +83,7 @@
 #include "video_display.h"
 #include "video_compress.h"
 #include "video_export.h"
-#include "video_rxtx/h264_rtp.h"
-#include "video_rxtx/ihdtv.h"
-#include "video_rxtx/sage.h"
-#include "video_rxtx/ultragrid_rtp.h"
+#include "video_rxtx.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
@@ -127,6 +124,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
+#define OPT_PROTOCOL (('P' << 8) | 'R')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -211,9 +209,10 @@ static void usage(void)
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
         printf("\n");
-        printf("\t--rtsp-server            \tRTSP server: dynamically serving H264 RTP standard transport (use '--rtps-server=help' to see usage)\n");
         printf("\n");
-        printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
+        printf("\t--protocol <proto>       \ttransmission protocol, see '--protocol help'\n");
+        printf("\t                         \tfor list. Use --protocol h264_std for RTSP server\n");
+        printf("\t                         \t(see --protocol h264_std:help for usage)\n");
         printf("\n");
 #ifdef HAVE_IPv6
         printf("\t-6                       \tUse IPv6\n");
@@ -442,7 +441,6 @@ int main(int argc, char *argv[])
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
-        int rtsp_port = 0;
         bool isStd = FALSE;
         int port_base = PORT_BASE;
         int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
@@ -452,7 +450,6 @@ int main(int argc, char *argv[])
         bool should_export = false;
         char *export_opts = NULL;
 
-        char *sage_opts = NULL;
         int control_port = -1;
         int connection_type = 0;
         struct control_state *control = NULL;
@@ -521,9 +518,6 @@ int main(int argc, char *argv[])
                 {"mode", required_argument, 0, 'M'},
                 {"version", no_argument, 0, 'v'},
                 {"compress", required_argument, 0, 'c'},
-                {"ihdtv", no_argument, 0, 'i'},
-                {"sage", optional_argument, 0, 'S'},
-                {"rtsp-server", optional_argument, 0, 'H'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
@@ -553,6 +547,7 @@ int main(int argc, char *argv[])
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
                 {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
+                {"protocol", required_argument, 0, OPT_PROTOCOL},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -567,13 +562,14 @@ int main(int argc, char *argv[])
 
         init_root_module(&root_mod, uv);
         uv->root_module = &root_mod;
-        string video_protocol("ultragrid_rtp");
+        const char *video_protocol = "ultragrid_rtp";
+        const char *video_protocol_opts = "";
 
         perf_init();
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:v6c:ihj:M:p:f:P:l:A:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:v6c:hj:M:p:f:P:l:A:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -620,36 +616,12 @@ int main(int argc, char *argv[])
                 case 'c':
                         requested_compression = optarg;
                         break;
-                case 'i':
-#ifdef HAVE_IHDTV
-                        video_protocol = "ihdtv";
-                        printf("setting ihdtv protocol\n");
-                        fprintf(stderr, "Warning: iHDTV support may be currently broken.\n"
-                                        "Please contact %s if you need this.\n", PACKAGE_BUGREPORT);
-#else
-                        fprintf(stderr, "iHDTV support isn't compiled in this %s build\n",
-                                        PACKAGE_NAME);
-#endif
-                        break;
-                case 'S':
-                        video_protocol = "sage";
-                        sage_opts = optarg;
-                        break;
-                case 'H':
-                        video_protocol = "h264_std";
-                        if (optarg == NULL) {
-                        	rtsp_port = 0;
-                        } else {
-                                if (!strcmp(optarg, "help")) {
-#ifdef HAVE_RTSP_SERVER
-                                        rtps_server_usage();
-#endif
-                                        return 0;
-                                }
-#ifdef HAVE_RTSP_SERVER
-                                rtsp_port = get_rtsp_server_port(optarg);
-#endif
-                                if (rtsp_port == -1) return 0;
+                case OPT_PROTOCOL:
+                        video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                video_protocol_opts = delim + 1;
                         }
                         break;
                 case 'r':
@@ -866,7 +838,7 @@ int main(int argc, char *argv[])
         argv += optind;
 
         // default values for different RXTX protocols
-        if (video_protocol == "h264_std") {
+        if (strcmp(video_protocol, "h264_std") == 0) {
                 if (audio_codec == nullptr) {
                         audio_codec = "u-law:sample_rate=44100";
                 }
@@ -994,7 +966,7 @@ int main(int argc, char *argv[])
                 audio_host = requested_receiver;
         }
 #ifdef HAVE_RTSP_SERVER
-        if((audio_send != NULL || audio_recv != NULL) && video_protocol == "h264_std"){
+        if((audio_send != NULL || audio_recv != NULL) && strcmp(video_protocol, "h264_std") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             isStd = TRUE;
         }
@@ -1122,18 +1094,17 @@ int main(int argc, char *argv[])
                 params["decoder_mode"].l = (long) decoder_mode;
                 params["display_device"].ptr = uv->display_device;
 
-                // SAGE
-                params["sage_opts"].ptr = sage_opts;
+                // SAGE + RTSP
+                params["opts"].ptr = (void *) video_protocol_opts;
 
                 // RTSP
-                params["rtsp_port"].i = rtsp_port;
                 params["audio_codec"].l = get_audio_codec(audio_codec);
                 params["audio_sample_rate"].i = get_audio_codec_sample_rate(audio_codec) ? get_audio_codec_sample_rate(audio_codec) : 48000;
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = audio_rx_port;
 
-                if (video_protocol == "h264_std") {
+                if (strcmp(video_protocol, "h264_std") == 0) {
                         rtps_types_t avType;
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream

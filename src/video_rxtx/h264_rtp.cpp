@@ -56,11 +56,12 @@
 
 using namespace std;
 
-h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params) :
+h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params,
+                int rtsp_port) :
         rtp_video_rxtx(params)
 {
 #ifdef HAVE_RTSP_SERVER
-        m_rtsp_server = init_rtsp_server(params.at("rtsp_port").i,
+        m_rtsp_server = init_rtsp_server(rtsp_port,
                         static_cast<struct module *>(params.at("parent").ptr),
                         static_cast<rtps_types_t>(params.at("avType").l),
                         static_cast<audio_codec_t>(params.at("audio_codec").l),
@@ -106,7 +107,22 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 
 static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)
 {
-        return new h264_rtp_video_rxtx(params);
+        int rtsp_port;
+        const char *rtsp_port_str = static_cast<const char *>(params.at("opts").ptr);
+        if (strlen(rtsp_port_str) == 0) {
+                rtsp_port = 0;
+        } else {
+                if (!strcmp(rtsp_port_str, "help")) {
+#ifdef HAVE_RTSP_SERVER
+                        rtps_server_usage();
+#endif
+                        return 0;
+                } else {
+                        rtsp_port = get_rtsp_server_port(rtsp_port_str);
+                        if (rtsp_port == -1) return 0;
+                }
+        }
+        return new h264_rtp_video_rxtx(params, rtsp_port);
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
