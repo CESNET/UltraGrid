@@ -106,7 +106,7 @@ static int display_null_get_property(void *state, int property, void *val, size_
         UNUSED(val);
         UNUSED(len);
         
-        return TRUE;
+        return FALSE;
 }
 
 static int display_null_reconfigure(void *state, struct video_desc desc)

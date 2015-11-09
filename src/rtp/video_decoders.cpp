@@ -234,7 +234,7 @@ struct state_video_decoder
         /// @{
         int               display_requested_pitch;
         int               display_requested_rgb_shift[3];
-        codec_t          *native_codecs; ///< list of native codecs
+        codec_t           native_codecs[20]; ///< list of native codecs
         size_t            native_count;  ///< count of @ref native_codecs
         enum interlacing_t *disp_supported_il; ///< display supported interlacing mode
         size_t            disp_supported_il_cnt; ///< count of @ref disp_supported_il
@@ -629,7 +629,6 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         s->parent = parent;
         s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
-        s->native_codecs = NULL;
         s->disp_supported_il = NULL;
         s->postprocess = NULL;
         s->change_il = NULL;
@@ -728,15 +727,12 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 
         decoder->display = display;
 
-        free(decoder->native_codecs);
-        decoder->native_count = 20 * sizeof(codec_t);
-        decoder->native_codecs = (codec_t *)
-                malloc(decoder->native_count * sizeof(codec_t));
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &decoder->native_count);
-        decoder->native_count /= sizeof(codec_t);
-        if(!ret) {
+        size_t len = sizeof decoder->native_codecs;
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &len);
+        decoder->native_count = len / sizeof(codec_t);
+        if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Failed to query codecs from video display.\n");
-                return false;
+                decoder->native_count = 0;
         }
 
         if(decoder->postprocess) {
@@ -855,7 +851,6 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
                 decoder->pp_frame = NULL;
         }
 
-        free(decoder->native_codecs);
         free(decoder->disp_supported_il);
 
         PRINT_STATISTICS
