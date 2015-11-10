@@ -88,6 +88,9 @@ void state_transcoder_decompress::frame_arrived(struct video_frame *f)
         if (f && f->dispose) {
                 deleter = f->dispose;
         }
+        if (!f) {
+                return;
+        }
 
         unique_lock<mutex> l(lock);
         if (received_frame.size() >= MAX_QUEUE_SIZE) {
