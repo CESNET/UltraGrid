@@ -342,14 +342,14 @@ static void show_help(struct vidcap_dshow_state *s) {
 		if (res != S_OK) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot bind capture filter to device.\n");
 			ErrorDescription(res);
-			goto error;
+			continue;
 		}
 
 		// add the capture filter to the filter graph
 		res = s->filterGraph->AddFilter(captureFilter, L"Capture filter");
 		if (res != S_OK) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot add capture filter to filter graph.\n");
-			goto error;
+			continue;
 		}
 
 		// connect stream config interface to the capture filter
@@ -357,7 +357,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 				IID_IAMStreamConfig, (void **) &s->streamConfig);
 		if (res != S_OK) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot find interface for reading capture capabilites.\n");
-			goto error;
+			continue;
 		}
 
 		int capCount, capSize;
@@ -365,12 +365,12 @@ static void show_help(struct vidcap_dshow_state *s) {
 		res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
 		if (res != S_OK) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read number of capture capabilites.\n");
-			goto error;
+			continue;
 		}
 		// check if the format of capture capabilities is the right one
 		if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Unknown format of capture capabilites.\n");
-			goto error;
+			continue;
 		}
 
 		// iterate over all capabilities
@@ -413,16 +413,13 @@ static void show_help(struct vidcap_dshow_state *s) {
 		res = s ->filterGraph->RemoveFilter(captureFilter);
 		if (res != S_OK) {
 			fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot remove capture filter from filter graph.\n");
-			goto error;
+			continue;
 		}
 		captureFilter->Release();
 		s->moniker->Release();
 
 		printf("\n\n");
 	}
-
-error:
-	return;
 }
 
 static struct vidcap_type * vidcap_dshow_probe(bool verbose)
