@@ -298,11 +298,11 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
                         playout_buf->expected_pkts > 0) {
                 // print stats
-                log_msg(LOG_LEVEL_INFO, "SSRC %08x: %d packets expected, %d was received "
-                                "(%.2f%%).\n",
+                log_msg(LOG_LEVEL_INFO, "SSRC %08x: %d/%d packets received "
+                                "(%.5f%%).\n",
                                 pkt->ssrc,
-                                playout_buf->expected_pkts,
                                 playout_buf->received_pkts,
+                                playout_buf->expected_pkts,
                                 (double) playout_buf->received_pkts /
                                 playout_buf->expected_pkts * 100.0);
                 playout_buf->received_pkts_cum += playout_buf->received_pkts;
