@@ -113,8 +113,13 @@ static void * text_init(const char *config) {
 
 static int cf_text_init(struct module * /* parent */, const char *cfg, void **state)
 {
-        *state = text_init(cfg);
-        return 0;
+        void *s = text_init(cfg);
+        if (!s) {
+                return 1;
+        } else {
+                *state = s;
+                return 0;
+        }
 }
 
 static int text_postprocess_reconfigure(void *state, struct video_desc desc)
