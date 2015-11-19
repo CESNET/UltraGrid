@@ -63,6 +63,7 @@
 #include "video_capture/testcard_common.h"
 #include "song1.h"
 #include "utils/vf_split.h"
+#include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 #include <chrono>
@@ -78,6 +79,8 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
 #define DEFAULT_FORMAT "1920:1080:25:UYVY:i"
+
+using namespace std;
 
 struct testcard_rect {
         int x, y, w, h;
@@ -495,7 +498,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                                 }
                                 for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
                                         r.w = rect_size;
-                                        r.h = rect_size;
+                                        r.h = min(rect_size, s->frame->tiles[0].height - r.y);
                                         r.x = i;
                                         r.y = j;
                                         printf("Fill rect at %d,%d\n", r.x, r.y);
