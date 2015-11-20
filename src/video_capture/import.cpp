@@ -1155,7 +1155,7 @@ static void reset_import(struct vidcap_import_state *s)
                 struct wav_metadata metadata;
                 read_wav_header(s->audio_state.file, &metadata); // skip metadata
         }
-        s->frames = 0;
+        s->frames_prev = s->frames = 0;
 
         if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
                 fprintf(stderr, "Unable to create thread.\n");
