@@ -153,6 +153,8 @@ struct video_frame {
         enum interlacing_t   interlacing;
         double               fps;
 
+        /// tiles contain actual video frame data. A frame usually contains exactly one
+        /// tile but in some cases it can contain more tiles (eg. 4 for tiled 4K).
         struct tile         *tiles;
         unsigned int         tile_count;
 
@@ -195,9 +197,12 @@ struct video_frame {
         void               (*data_deleter)(struct video_frame *);
         /// @}
 
-        //standard transport
-        uint8_t isStd;
-        //H264 Standard transport
+        /** @name H.264 standard transport
+         * @todo
+         * Try to get rid of those members, at least width, height, buffer, buffer_len should
+         * be replaced by generic member of tiles array.
+         * @{ */
+        uint8_t isStd; /// parameters in this group are used only if isStd == true
             // Config
         unsigned int h264_width;
         unsigned int h264_height;
@@ -211,6 +216,7 @@ struct video_frame {
         unsigned int h264_seqno;
             // Control
         h264_frame_type_t h264_frame_type;
+        /// @}
 
         struct fec_desc fec_params;
         uint32_t ssrc;
@@ -219,7 +225,7 @@ struct video_frame {
 /**
  * @brief Struct tile is an area of video_frame.
  * @note
- * Currently all tiles of a frame have to have same width ahd height.
+ * Currently all tiles of a frame should have the same width and height.
  */
 struct tile {
         unsigned int         width;
