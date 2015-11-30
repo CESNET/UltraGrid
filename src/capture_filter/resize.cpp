@@ -77,6 +77,7 @@ struct state_resize {
     int target_width, target_height;
     struct video_frame *frame;
     struct video_desc saved_desc;
+    bool force_interlaced;
 };
 
 static void usage() {
@@ -85,7 +86,9 @@ static void usage() {
     printf("\tresize:numerator/denominator\n");
     printf("\tor\n");
     printf("\tresize:<width>x<height>\n\n");
-    printf("Scaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
+    printf("Scaling examples:\n"
+                    "\tresize:1/2 - downscale input frame size by scale factor of 2\n"
+                    "\tresize:720x576i - scales input to PAL (overrides interlacing setting)\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -94,14 +97,25 @@ static int init(struct module *parent, const char *cfg, void **state)
 
     int n = 0, w = 0, h = 0;
     int denom = 1;
+    bool force_interlaced = false;
     if(cfg) {
         if(strcasecmp(cfg, "help") == 0) {
             usage();
             return 1;
         }
         if (strchr(cfg, 'x')) {
+            char *endptr;
             w = atoi(cfg);
-            h = atoi(strchr(cfg, 'x') + 1);
+            errno = 0;
+            h = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
+            if (errno != 0) {
+                    perror("strtol");
+                    usage();
+                    return -1;
+            }
+            if (*endptr == 'i') {
+                    force_interlaced = true;
+            }
         } else {
             n = atoi(cfg);
             if(strchr(cfg, '/')) {
@@ -123,6 +137,7 @@ static int init(struct module *parent, const char *cfg, void **state)
     s->num = n;
     s->denom = denom;
     s->scale_factor = (double)s->num/s->denom;
+    s->force_interlaced = force_interlaced;
 
     s->target_width = w;
     s->target_height = h;
@@ -156,6 +171,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }
         desc.color_spec = RGB;
     	s->frame = vf_alloc_desc_data(desc);
+        if (s->force_interlaced) {
+                s->frame->interlacing = INTERLACED_MERGED;
+        }
         s->saved_desc = video_desc_from_frame(in);
         printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[0].width, in->tiles[0].height, s->frame->tiles[0].width, s->frame->tiles[0].height);
     }
