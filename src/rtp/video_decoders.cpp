@@ -490,16 +490,21 @@ static void *decompress_thread(void *args) {
                         break;
                 }
 
+                struct video_frame *output;
+                if(decoder->postprocess) {
+                        output = decoder->pp_frame;
+                } else {
+                        output = decoder->frame;
+                }
+
+                for (unsigned int i = 0; i < output->tile_count; ++i) {
+                        output->tiles[i].data_len = msg->decompressed_frame->tiles[i].data_len;
+                }
+
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
                         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
                         int x, y;
-                        struct video_frame *output;
-                        if(decoder->postprocess) {
-                                output = decoder->pp_frame;
-                        } else {
-                                output = decoder->frame;
-                        }
                         for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
                                 for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
                                         int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
