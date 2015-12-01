@@ -88,6 +88,13 @@
 #define STDMETHODCALLTYPE
 #endif
 
+/**
+ * @todo
+ * The input conversion doesn't seem to work right now. After fixing, remove this
+ * macro (and related ifdefs).
+ */
+#define IN_CONV_BROKEN 1
+
 using namespace std;
 using namespace std::chrono;
 
@@ -126,6 +133,7 @@ struct vidcap_decklink_state {
         unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
         BMDVideoConnection      connection;
         int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
+        BMDVideoInputConversionMode conversion_mode;
 
         struct timeval          t0;
 };
@@ -372,9 +380,49 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>]][:audioConsumerLevels={true|false}]\\n");
-	printf("\t\t(You can omit device index, mode and color space provided that your cards supports format autodetection.)\n");
-	
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>][:audioConsumerLevels={true|false}]"
+#ifndef IN_CONV_BROKEN
+                        "[:conversion=<conv_mode>]"
+#endif
+                        "]\n");
+        printf("\t\tor\n");
+	printf("\t-t decklink{:mode=<mode>|:dev=<device_index>|:codec=<colorspace>...<key>=<val>}*\n");
+	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
+        printf("\n");
+
+        printf("Available Colorspaces:\n");
+        printf("\tUYVY\n");
+        printf("\tv210\n");
+        printf("\tRGBA\n");
+        printf("\tR10k\n");
+        printf("\n");
+
+        printf("3D\n");
+        printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
+        printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
+        printf("\tin video format listing above (\"supports 3D\").\n");
+
+	printf("\n");
+        printf("timecode\n");
+        printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
+	printf("\n");
+
+        printf("audioConsumerLevels\n");
+        printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
+        printf("\tIf set false the selected analog input gain levels are used.\n");
+	printf("\n");
+
+#ifndef IN_CONV_BROKEN
+        printf("conversion\n");
+        printf("\tnone - No video input conversion\n");
+        printf("\t10lb - HD1080 to SD video input down conversion\n");
+        printf("\t10am - Anamorphic from HD1080 to SD video input down conversion\n");
+        printf("\t72lb - Letter box from HD720 to SD video input down conversion\n");
+        printf("\t72ab - Letterbox video input up conversion\n");
+        printf("\tamup - Anamorphic video input up conversion\n");
+	printf("\n");
+#endif
+
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = create_decklink_iterator();
 	if (deckLinkIterator == NULL) {
@@ -396,7 +444,7 @@ decklink_help()
 			release_bmd_api_str(deviceNameString);
                         free((void *)deviceNameCString);
                 } else {
-			printf("\ndevice: %d.) (unable to get name)\n\n",numDevices);
+			printf("\ndevice: %d.) (unable to get name)\n\n", numDevices);
                 }
 		
 		// Increment the total number of DeckLink cards found
@@ -442,36 +490,17 @@ decklink_help()
 	// If no DeckLink cards were found in the system, inform the user
 	if (numDevices == 0)
 	{
-		printf("\nNo Blackmagic Design devices were found.\n");
-		return 0;
-	} else {
-                printf("\n\n");
-                printf("Available Colorspaces:\n");
-                printf("\tUYVY\n");
-                printf("\tv210\n");
-                printf("\tRGBA\n");
-                printf("\tR10k\n");
+		log_msg(LOG_LEVEL_ERROR, "No Blackmagic Design devices were found.\n");
         }
-	printf("\n");
 
-        printf("3D\n");
-        printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
-        printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
-        printf("\tin video format listing above (\"supports 3D\").\n");
-
-	printf("\n");
-        printf("timecode\n");
-        printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
-
-        printf("audioConsumerLevels\n");
-        printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
-        printf("\tIf set false the selected analog input gain levels are used.\n\n");
+        printf("\n");
 
         printf("Examples:\n");
         printf("\t%s -t decklink # captures autodetected video from first DeckLink in system\n", uv_argv[0]);
         printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
         printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
-        printf("\t%s -t decklink:mode=23ps:dev=0:codec=UYVY # captures 1080p24, 8-bit yuv from frist device\n", uv_argv[0]);
+        printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from frist device\n", uv_argv[0]);
+        printf("\t%s -t decklink:mode=Hp30:codec=v210:dev=2 # captures 1080p30, 10-bit yuv from 3rd BMD device\n", uv_argv[0]);
 
 	printf("\n");
 
@@ -528,6 +557,16 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 } else {
                         s->audio_consumer_levels = 1;
                 }
+        } else if(strncasecmp(opt, "conversion=",
+                                strlen("conversion=")) == 0) {
+                const char *conversion_mode = opt + strlen("conversion=");
+
+                union {
+                        uint32_t fourcc;
+                        char tmp[4];
+                };
+                memcpy(tmp, conversion_mode, max(strlen(conversion_mode), sizeof(tmp)));
+                s->conversion_mode = htonl(fourcc);
         } else if(strncasecmp(opt, "dev=",
                                 strlen("dev=")) == 0) {
                 const char *devices = opt + strlen("dev=");
@@ -812,6 +851,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         s->connection = (BMDVideoConnection) 0;
         s->flags = 0;
         s->audio_consumer_levels = -1;
+        s->conversion_mode = bmdNoVideoInputConversion;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
@@ -1098,6 +1138,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                                 if (result == S_OK) {
                                                         LOG(LOG_LEVEL_NOTICE) << "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
                                                 }
+                                        }
+
+
+                                        result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
+                                        if(result != S_OK) {
+                                                log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set conversion mode.\n");
+                                                goto error;
                                         }
 
                                         // set Callback which returns frames
