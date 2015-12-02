@@ -436,6 +436,23 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         append_message_path(path, sizeof(path), path_compress);
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
+        } else if (prefix_matches(message, "volume ") == 0) {
+                strncpy(path, "audio.receiver", sizeof path);
+                struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                char *dir = suffix(message, "volume ");
+                if (strcmp(dir, "up") == 0) {
+                        msg->type = RECEIVER_MSG_INCREASE_VOLUME;
+                } else if (strcmp(dir, "down") == 0) {
+                        msg->type = RECEIVER_MSG_DECREASE_VOLUME;
+                } else {
+                        free_message((struct message *) msg, NULL);
+                        msg = NULL;
+                        resp = new_response(RESPONSE_BAD_REQUEST, NULL);
+                }
+
+                if (msg) {
+                        resp = send_message(s->root_module, path, (struct message *) msg);
+                }
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
