@@ -436,7 +436,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         append_message_path(path, sizeof(path), path_compress);
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
-        } else if (prefix_matches(message, "volume ") == 0) {
+        } else if (prefix_matches(message, "volume ")) {
                 strncpy(path, "audio.receiver", sizeof path);
                 struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
                 char *dir = suffix(message, "volume ");
