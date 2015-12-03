@@ -105,6 +105,10 @@ struct codec_info_t {
         uint32_t fcc;                 ///< FourCC
         int h_align;                  ///< Number of pixels each line is aligned to
         double bpp;                   ///< Number of bytes per pixel
+                                      ///< @note
+                                      ///< Should be nonzero even for compressed codecs
+                                      ///< when display gets requestes compressed codec
+                                      ///< (otherwise division by zero occurs).
         int bits_per_channel;         ///< Number of bits per color channel
         int block_size;               ///< Bytes per pixel block (pixelformats only)
         unsigned rgb:1;               ///< Whether pixelformat is RGB
@@ -139,7 +143,7 @@ static const struct codec_info_t codec_info[] = {
         [DPX10] = {"DPX10", "DPX10",
                 to_fourcc('D','P','1','0'), 1, 4.0, 10, 4, TRUE, FALSE, FALSE, "dpx"},
         [JPEG] = {"JPEG",  "JPEG",
-                to_fourcc('J','P','E','G'), 0, 0.0, 8, 0, FALSE, TRUE, FALSE, "jpg"},
+                to_fourcc('J','P','E','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, "jpg"},
         [RAW] = {"raw", "Raw SDI video",
                 to_fourcc('r','a','w','s'), 0, 1.0, 0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
         [H264] = {"H.264", "H.264/AVC",
@@ -153,7 +157,7 @@ static const struct codec_info_t codec_info[] = {
         [BGR] = {"BGR", "Blue Green Red 24bit",
                 to_fourcc('B','G','R','2'), 1, 3.0, 8, 0, TRUE, FALSE, FALSE, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
-                to_fourcc('M','J','2','C'), 0, 0.0, 8, 0, FALSE, TRUE, FALSE, "j2k"},
+                to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, "j2k"},
 };
 
 /**
