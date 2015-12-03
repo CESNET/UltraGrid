@@ -481,8 +481,6 @@ static void *decompress_thread(void *args) {
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
 
-        struct tile *tile;
-
         while(1) {
                 unique_ptr<frame_msg> msg = decoder->decompress_queue.pop();
 
@@ -497,10 +495,6 @@ static void *decompress_thread(void *args) {
                         output = decoder->frame;
                 }
 
-                for (unsigned int i = 0; i < output->tile_count; ++i) {
-                        output->tiles[i].data_len = msg->decompressed_frame->tiles[i].data_len;
-                }
-
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
                         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
@@ -510,13 +504,11 @@ static void *decompress_thread(void *args) {
                                         int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
                                         char *out;
                                         if(decoder->merged_fb) {
-                                                tile = vf_get_tile(output, 0);
                                                 // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
-                                                out = tile->data + y * decoder->pitch * tile_height +
+                                                out = vf_get_tile(output, 0)->data + y * decoder->pitch * tile_height +
                                                         vc_get_linesize(tile_width, decoder->out_codec) * x;
                                         } else {
-                                                tile = vf_get_tile(output, x);
-                                                out = tile->data;
+                                                out = vf_get_tile(output, x)->data;
                                         }
                                         if(!msg->decompressed_frame->tiles[pos].data)
                                                 continue;
@@ -529,6 +521,10 @@ static void *decompress_thread(void *args) {
                                                 goto skip_frame;
                                         }
                                 }
+                        }
+                } else {
+                        for (unsigned int i = 0; i < output->tile_count; ++i) {
+                                output->tiles[i].data_len = msg->decompressed_frame->tiles[i].data_len;
                         }
                 }
 
