@@ -175,33 +175,34 @@ struct main_msg;
 
 // message definitions
 struct frame_msg {
-        inline frame_msg(struct control_state *c, atomic<long long int> &rbt) : control(c), frame(nullptr), decompressed_frame(nullptr),
+        inline frame_msg(struct control_state *c, atomic<long long int> &rbt) : control(c), recv_frame(nullptr),
+                                nofec_frame(nullptr),
                              received_pkts_cum(0), expected_pkts_cum(0),
                              received_bytes_total(rbt),
                              displayed(false), corrupted(false)
         {}
         inline ~frame_msg() {
-                if (control && frame) {
+                if (control && recv_frame) {
                         int received_bytes = sum_map(pckt_list[0]);
                         received_bytes_total += received_bytes;
                         ostringstream oss;
                         oss << "bufferId " << buffer_num[0] << " expectedPackets " <<
                                 expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
                                 // droppedPackets
-                                " expectedBytes " << frame->tiles[0].data_len <<
+                                " expectedBytes " << recv_frame->tiles[0].data_len <<
                                 " receivedBytes " << received_bytes <<
                                 " receivedBytesTotal " << received_bytes_total <<
                                 " isCorrupted " << (corrupted ? "1" : "0") << " " <<
                                 " isDisplayed " << (displayed ? "1" : "0");
                         control_report_stats(control, oss.str());
                 }
-                vf_free(frame);
-                vf_free(decompressed_frame);
+                vf_free(recv_frame);
+                vf_free(nofec_frame);
         }
         struct control_state *control;
         vector <uint32_t> buffer_num;
-        struct video_frame *frame;
-        struct video_frame *decompressed_frame;
+        struct video_frame *recv_frame; ///< received frame with FEC and/or compression
+        struct video_frame *nofec_frame; ///< frame without FEC
         unique_ptr<map<int, int>[]> pckt_list;
         long long int received_pkts_cum, expected_pkts_cum;
         atomic<long long int> &received_bytes_total;
@@ -319,7 +320,7 @@ static void *fec_thread(void *args) {
         while(1) {
                 unique_ptr<frame_msg> data = decoder->fec_queue.pop();
 
-                if (!data->frame) { // poisoned
+                if (!data->recv_frame) { // poisoned
                         decoder->decompress_queue.push(move(data));
                         break; // exit from loop
                 }
@@ -328,14 +329,14 @@ static void *fec_thread(void *args) {
                 struct tile *tile = NULL;
                 int ret = TRUE;
 
-                if (data->frame->fec_params.type != FEC_NONE) {
-                        if(!fec_state || desc.k != data->frame->fec_params.k ||
-                                        desc.m != data->frame->fec_params.m ||
-                                        desc.c != data->frame->fec_params.c ||
-                                        desc.seed != data->frame->fec_params.seed
+                if (data->recv_frame->fec_params.type != FEC_NONE) {
+                        if(!fec_state || desc.k != data->recv_frame->fec_params.k ||
+                                        desc.m != data->recv_frame->fec_params.m ||
+                                        desc.c != data->recv_frame->fec_params.c ||
+                                        desc.seed != data->recv_frame->fec_params.seed
                           ) {
                                 delete fec_state;
-                                desc = data->frame->fec_params;
+                                desc = data->recv_frame->fec_params;
                                 fec_state = fec::create_from_desc(desc);
                                 if(fec_state == NULL) {
                                         log_msg(LOG_LEVEL_FATAL, "[decoder] Unable to initialize FEC.\n");
@@ -345,24 +346,24 @@ static void *fec_thread(void *args) {
                         }
                 }
 
-                data->decompressed_frame = vf_alloc(data->frame->tile_count);
-                data->decompressed_frame->ssrc = data->frame->ssrc;
+                data->nofec_frame = vf_alloc(data->recv_frame->tile_count);
+                data->nofec_frame->ssrc = data->recv_frame->ssrc;
 
-                if (data->frame->fec_params.type != FEC_NONE) {
+                if (data->recv_frame->fec_params.type != FEC_NONE) {
                         bool buffer_swapped = false;
                         for (int pos = 0; pos < get_video_mode_tiles_x(decoder->video_mode)
                                         * get_video_mode_tiles_y(decoder->video_mode); ++pos) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
 
-                                fec_state->decode(data->frame->tiles[pos].data,
-                                                data->frame->tiles[pos].data_len,
+                                fec_state->decode(data->recv_frame->tiles[pos].data,
+                                                data->recv_frame->tiles[pos].data_len,
                                                 &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
 
-                                if (data->frame->tiles[pos].data_len != (unsigned int) sum_map(data->pckt_list[pos])) {
+                                if (data->recv_frame->tiles[pos].data_len != (unsigned int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
-                                                        data->frame->tiles[pos].data_len,
+                                                        data->recv_frame->tiles[pos].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
                                 }
 
@@ -393,8 +394,8 @@ static void *fec_thread(void *args) {
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                        data->decompressed_frame->tiles[pos].data_len = fec_out_len;
-                                        data->decompressed_frame->tiles[pos].data = fec_out_buffer;
+                                        data->nofec_frame->tiles[pos].data_len = fec_out_len;
+                                        data->nofec_frame->tiles[pos].data = fec_out_buffer;
                                 } else { // linedecoder
                                         if (!buffer_swapped) {
                                                 buffer_swapped = true;
@@ -440,13 +441,13 @@ static void *fec_thread(void *args) {
                 } else { /* PT_VIDEO */
                         bool corrupted_frame_counted = false;
                         for(int i = 0; i < (int) decoder->max_substreams; ++i) {
-                                data->decompressed_frame->tiles[i].data_len = data->frame->tiles[i].data_len;
-                                data->decompressed_frame->tiles[i].data = data->frame->tiles[i].data;
+                                data->nofec_frame->tiles[i].data_len = data->recv_frame->tiles[i].data_len;
+                                data->nofec_frame->tiles[i].data = data->recv_frame->tiles[i].data;
 
-                                if (data->frame->tiles[i].data_len != (unsigned int) sum_map(data->pckt_list[i])) {
+                                if (data->recv_frame->tiles[i].data_len != (unsigned int) sum_map(data->pckt_list[i])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.%s\n", i,
                                                         (unsigned int) data->buffer_num[i],
-                                                        data->frame->tiles[i].data_len,
+                                                        data->recv_frame->tiles[i].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[i]),
                                                         decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame ? " dropped.\n" : "");
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
@@ -484,7 +485,7 @@ static void *decompress_thread(void *args) {
         while(1) {
                 unique_ptr<frame_msg> msg = decoder->decompress_queue.pop();
 
-                if(!msg->frame) { // poisoned
+                if(!msg->recv_frame) { // poisoned
                         break;
                 }
 
@@ -499,12 +500,6 @@ static void *decompress_thread(void *args) {
                         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
                         int x, y;
-                        struct video_frame *output;
-                        if(decoder->postprocess) {
-                                output = decoder->pp_frame;
-                        } else {
-                                output = decoder->frame;
-                        }
                         for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
                                 for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
                                         int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
@@ -516,12 +511,12 @@ static void *decompress_thread(void *args) {
                                         } else {
                                                 out = vf_get_tile(output, x)->data;
                                         }
-                                        if(!msg->decompressed_frame->tiles[pos].data)
+                                        if(!msg->nofec_frame->tiles[pos].data)
                                                 continue;
                                         int ret = decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
-                                                        (unsigned char *) msg->decompressed_frame->tiles[pos].data,
-                                                        msg->decompressed_frame->tiles[pos].data_len,
+                                                        (unsigned char *) msg->nofec_frame->tiles[pos].data,
+                                                        msg->nofec_frame->tiles[pos].data_len,
                                                         msg->buffer_num[pos]);
                                         if (ret == FALSE) {
                                                 goto skip_frame;
@@ -575,7 +570,7 @@ static void *decompress_thread(void *args) {
                                 putf_flags = PUTF_NONBLOCK;
                         }
 
-                        decoder->frame->ssrc = msg->decompressed_frame->ssrc;
+                        decoder->frame->ssrc = msg->nofec_frame->ssrc;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -1668,10 +1663,10 @@ next_packet:
         {
                 unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->received_bytes_total));
                 fec_msg->buffer_num = std::move(buffer_num);
-                fec_msg->frame = frame;
+                fec_msg->recv_frame = frame;
                 frame = NULL;
-                fec_msg->frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
-                fec_msg->frame->ssrc = ssrc;
+                fec_msg->recv_frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
+                fec_msg->recv_frame->ssrc = ssrc;
                 fec_msg->pckt_list = std::move(pckt_list);
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
