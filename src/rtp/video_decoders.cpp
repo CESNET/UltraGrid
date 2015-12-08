@@ -523,6 +523,14 @@ static void *decompress_thread(void *args) {
                                         }
                                 }
                         }
+                } else {
+                        /// @todo
+                        /// We are filling here data_len member. This is currently for sage2
+                        /// only that needs to have JPEG length. Think over if it should be
+                        /// done this way (data_len is left untouched otherwise in decoder).
+                        for (unsigned int i = 0; i < output->tile_count; ++i) {
+                                output->tiles[i].data_len = msg->nofec_frame->tiles[i].data_len;
+                        }
                 }
 
                 if(decoder->postprocess) {
