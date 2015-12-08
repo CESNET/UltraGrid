@@ -86,14 +86,14 @@ struct pbuf_stats {
 };
 
 /* The playout buffer */
-struct display;
 struct pbuf;
 struct state_decoder;
 struct state_audio_decoder;
 
+/**
+ * This struct is used to pass data between decoder and receiver.
+ */
 struct vcodec_state {
-        struct display *display;
-        bool display_forked;
         struct state_video_decoder *decoder;
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly

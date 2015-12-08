@@ -42,6 +42,7 @@
 #include "video_rxtx/rtp.h"
 
 #include <condition_variable>
+#include <list>
 #include <map>
 #include <mutex>
 #include <string>
@@ -67,12 +68,16 @@ private:
 
         void receiver_process_messages();
         void remove_display_from_decoders();
-        struct vcodec_state *new_video_decoder();
+        struct vcodec_state *new_video_decoder(struct display *d);
         static void destroy_video_decoder(void *state);
 
         enum video_mode  m_decoder_mode;
         const char      *m_postprocess;
         struct display  *m_display_device;
+        std::list<struct display *> m_display_copies; ///< some displays can be "forked"
+                                                      ///< and used simultaneously from
+                                                      ///< multiple decoders, here are
+                                                      ///< saved forked states
         const char      *m_requested_encryption;
 
         /**

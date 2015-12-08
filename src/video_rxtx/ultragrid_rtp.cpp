@@ -100,6 +100,9 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
 {
+        for (auto d : m_display_copies) {
+                display_done(d);
+        }
 }
 
 void ultragrid_rtp_video_rxtx::join()
@@ -290,19 +293,16 @@ void ultragrid_rtp_video_rxtx::destroy_video_decoder(void *state) {
         }
 
         video_decoder_destroy(video_decoder_state->decoder);
-        if (video_decoder_state->display_forked) {
-                display_done(video_decoder_state->display);
-        }
 
         free(video_decoder_state);
 }
 
-struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder() {
+struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display *d) {
         struct vcodec_state *state = (struct vcodec_state *) calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
                 state->decoder = video_decoder_init(&m_receiver_mod, m_decoder_mode,
-                                m_postprocess, m_display_device,
+                                m_postprocess, d,
                                 m_requested_encryption);
 
                 if(!state->decoder) {
@@ -394,11 +394,17 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                         supp_for_mult_sources.val = false;
                                 }
 
+                                struct display *d;
                                 if (supp_for_mult_sources.val == false) {
                                         remove_display_from_decoders(); // must be called before creating new decoder state
+                                        d = m_display_device;
+                                } else {
+                                        d = supp_for_mult_sources.fork_display(supp_for_mult_sources.state);
+                                        assert(d != NULL);
+                                        m_display_copies.push_back(d);
                                 }
 
-                                cp->decoder_state = new_video_decoder();
+                                cp->decoder_state = new_video_decoder(d);
                                 cp->decoder_state_deleter = destroy_video_decoder;
 
                                 if (cp->decoder_state == NULL) {
@@ -406,13 +412,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                                         "participant %u.\n", cp->ssrc);
                                         exit_uv(1);
                                         break;
-                                }
-
-                                if (supp_for_mult_sources.val == false) {
-                                        ((struct vcodec_state*) cp->decoder_state)->display = m_display_device;
-                                } else {
-                                        ((struct vcodec_state*) cp->decoder_state)->display = supp_for_mult_sources.fork_display(supp_for_mult_sources.state);
-                                        ((struct vcodec_state*) cp->decoder_state)->display_forked = true;
                                 }
 #endif // SHARED_DECODER
                         }
