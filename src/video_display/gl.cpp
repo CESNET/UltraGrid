@@ -237,6 +237,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc);
 static void gl_draw(double ratio, double bottom_offset);
 static void gl_show_help(void);
 
+static void gl_change_aspect(struct state_gl *s, int width, int height);
 static void gl_resize(int width, int height);
 static void gl_render_uyvy(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
@@ -543,13 +544,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
         glutShowWindow();
-        if (!s->fixed_size || s->first_run) {
-                glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
-                s->first_run = false;
-        } else {
-                // s->aspect might have changed so we may want to run this to reflect it
-                gl_resize(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
-        }
 
         glUseProgram(0);
 
@@ -611,6 +605,16 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 (desc.width + 3) / 4 * 4, s->dxt_height, 0,
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
+        }
+
+        gl_check_error();
+
+        if (!s->fixed_size || s->first_run) {
+                glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
+                s->first_run = false;
+        } else {
+                // s->aspect might have changed so we may want to run this to reflect it
+                gl_change_aspect(s, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
         }
 
         gl_check_error();
@@ -927,28 +931,33 @@ static void display_gl_run(void *arg)
 #endif
 }
 
-
-static void gl_resize(int width, int height)
+static void gl_change_aspect(struct state_gl *s, int width, int height)
 {
-        glViewport( 0, 0, ( GLint )width, ( GLint )height );
-        glMatrixMode( GL_PROJECTION );
-        glLoadIdentity( );
-
         double screen_ratio;
         double x = 1.0,
                y = 1.0;
 
-        debug_msg("Resized to: %dx%d\n", width, height);
+        glMatrixMode( GL_PROJECTION );
+        glLoadIdentity( );
 
         screen_ratio = (double) width / height;
-        if(screen_ratio > gl->aspect) {
-                x = (double) height * gl->aspect / width;
+        if(screen_ratio > s->aspect) {
+                x = (double) height * s->aspect / width;
         } else {
-                y = (double) width / (height * gl->aspect);
+                y = (double) width / (height * s->aspect);
         }
         glScalef(x, y, 1);
 
-        glOrtho(-1,1,-1/gl->aspect,1/gl->aspect,10,-10);
+        glOrtho(-1,1,-1/s->aspect,1/s->aspect,10,-10);
+}
+
+static void gl_resize(int width, int height)
+{
+        debug_msg("Resized to: %dx%d\n", width, height);
+
+        glViewport( 0, 0, ( GLint )width, ( GLint )height );
+
+        gl_change_aspect(gl, width, height);
 
         glMatrixMode( GL_MODELVIEW );
 
