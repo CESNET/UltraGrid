@@ -50,6 +50,7 @@
  *
  */
 
+#include "blackmagic_common.h"
 #include "host.h"
 #include "debug.h"
 #include "config.h"
@@ -64,32 +65,12 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
-#ifdef WIN32
-#include "DeckLinkAPI_h.h"
-#else
-#include "DeckLinkAPI.h"
-#endif
-#include "DeckLinkAPIVersion.h"
-
-#ifdef WIN32
-#include <objbase.h>
-#endif
-
-#ifdef HAVE_MACOSX
-#define STRING CFStringRef
-#elif defined WIN32
-#define STRING BSTR
-#else
-#define STRING const char *
-#endif
-
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
 
 // defined int video_capture/decklink.cpp
 void print_output_modes(IDeckLink *);
-static int blackmagic_api_version_check(STRING *current_version);
 
 namespace {
 class PlaybackDelegate;
@@ -144,41 +125,6 @@ public:
 };
 } // end of unnamed namespace
 
-static int blackmagic_api_version_check(STRING *current_version)
-{
-        int ret = TRUE;
-        *current_version = NULL;
-        IDeckLinkAPIInformation *APIInformation = NULL;
-	HRESULT result;
-
-#ifdef WIN32
-	result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
-		IID_IDeckLinkAPIInformation, (void **) &APIInformation);
-        if(FAILED(result))
-#else
-        APIInformation = CreateDeckLinkAPIInformationInstance();
-        if(APIInformation == NULL)
-#endif
-	{
-                return FALSE;
-        }
-        int64_t value;
-        result = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
-        if(result != S_OK) {
-                APIInformation->Release();
-                return FALSE;
-        }
-
-        if(BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
-                APIInformation->GetString(BMDDeckLinkAPIVersion, current_version);
-                ret  = FALSE;
-        }
-
-
-        APIInformation->Release();
-        return ret;
-}
-
 static void audio_play_decklink_help(const char *driver_name)
 {
         IDeckLinkIterator*              deckLinkIterator;
@@ -189,44 +135,24 @@ static void audio_play_decklink_help(const char *driver_name)
         UNUSED(driver_name);
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-#ifdef WIN32
-	result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
-		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
-        if (FAILED(result))
-#else
-        deckLinkIterator = CreateDeckLinkIteratorInstance();
+        deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL)
-#endif
         {
-		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
-		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
-                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
                 return;
         }
         
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                STRING          deviceNameString = NULL;
-                const char *deviceNameCString;
+                BMD_STR          deviceNameString = NULL;
                 
                 // *** Print the model name of the DeckLink card
-                result = deckLink->GetModelName((STRING *) &deviceNameString);
-#ifdef HAVE_MACOSX
-                deviceNameCString = (char *) malloc(128);
-                CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                deviceNameCString = (char *) malloc(128);
-		wcstombs((char *) deviceNameCString, deviceNameString, 128);
-#else
-                deviceNameCString = deviceNameString;
-#endif
+                result = deckLink->GetModelName(&deviceNameString);
                 if (result == S_OK)
                 {
+                        const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                         printf("\tdecklink:%d :      Blackmagic %s\n",numDevices, deviceNameCString);
-#ifdef HAVE_MACOSX
-                        CFRelease(deviceNameString);
-#endif
+                        release_bmd_api_str(deviceNameString);
                         free((void *)deviceNameCString);
                 }
                 
@@ -266,45 +192,9 @@ static void *audio_play_decklink_init(const char *cfg)
         log_msg(LOG_LEVEL_WARNING, "Decklink audio playback is most likely broken! Consider using "
                         "\"-t decklink -r analog\" instead.\n");
 
-#ifdef WIN32
-	// Initialize COM on this thread
-	result = CoInitialize(NULL);
-	if(FAILED(result)) {
-		fprintf(stderr, "Initialization of COM failed - result = "
-				"08x.\n", result);
-		return NULL;
-	}
-#endif
-
-        STRING current_version;
-        if(!blackmagic_api_version_check(&current_version)) {
-		fprintf(stderr, "\nThe DeckLink drivers may not be installed or are outdated.\n");
-		fprintf(stderr, "This UltraGrid version was compiled against DeckLink drivers %s. You should have at least this version.\n\n",
-                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                fprintf(stderr, "Vendor download page is http://http://www.blackmagic-design.com/support/ \n");
-                if(current_version) {
-                        const char *currentVersionCString;
-#ifdef HAVE_MACOSX
-                        currentVersionCString = (char *) malloc(128);
-                        CFStringGetCString(current_version, (char *) currentVersionCString, 128, kCFStringEncodingMacRoman);
-#elif defined WIN32
-                        currentVersionCString = (char *) malloc(128);
-			wcstombs((char *) currentVersionCString, current_version, 128);
-#else
-                        currentVersionCString = current_version;
-#endif
-                        fprintf(stderr, "Currently installed version is: %s\n", currentVersionCString);
-#ifdef HAVE_MACOSX
-                        CFRelease(current_version);
-#endif
-                        free((void *)currentVersionCString);
-                } else {
-                        fprintf(stderr, "No installed drivers detected\n");
-                }
-                fprintf(stderr, "\n");
+        if (!blackmagic_api_version_check()) {
                 return NULL;
         }
-
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
@@ -348,18 +238,8 @@ static void *audio_play_decklink_init(const char *cfg)
         }
 
         // Initialize the DeckLink API
-#ifdef WIN32
-	result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
-		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
-        if (FAILED(result))
-#else
-        deckLinkIterator = CreateDeckLinkIteratorInstance();
-        if (!deckLinkIterator)
-#endif
-        {
-		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
-		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
-                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
+        deckLinkIterator = create_decklink_iterator(true);
+        if (!deckLinkIterator) {
                 goto error;
         }
 

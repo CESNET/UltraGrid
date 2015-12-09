@@ -60,21 +60,7 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
-#ifdef WIN32
-#include <objbase.h>
-#endif
-
-#ifdef HAVE_DECKLINK		/* From config.h */
-
 #include "blackmagic_common.h"
-
-#ifdef WIN32
-#include "DeckLinkAPI_h.h" /* From DeckLink SDK */
-#else
-#include "DeckLinkAPI.h" /* From DeckLink SDK */
-#endif
-
-#include "DeckLinkAPIVersion.h" /* From DeckLink SDK */
 
 #include <condition_variable>
 #include <chrono>
@@ -230,7 +216,6 @@ public:
 /* DeckLink SDK objects */
 
 static void print_input_modes (IDeckLink* deckLink);
-static int blackmagic_api_version_check(BMD_STR *current_version);
 
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioPacket)
@@ -331,43 +316,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 void VideoDelegate::set_device_state(struct vidcap_decklink_state *state, int index){
 	s = state;
         i = index;
-}
-
-static int blackmagic_api_version_check(BMD_STR *current_version)
-{
-        int ret = TRUE;
-        *current_version = NULL;
-
-        IDeckLinkAPIInformation *APIInformation = NULL;
-
-#ifdef WIN32
-	HRESULT result;
-	result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
-		IID_IDeckLinkAPIInformation, (void **) &APIInformation);
-	if(FAILED(result))
-#else
-	APIInformation = CreateDeckLinkAPIInformationInstance();
-        if(APIInformation == NULL)
-#endif
-	{
-                return FALSE;
-        }
-        int64_t value;
-        HRESULT res;
-        res = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
-        if(res != S_OK) {
-                APIInformation->Release();
-                return FALSE;
-        }
-
-        if(BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
-                APIInformation->GetString(BMDDeckLinkAPIVersion, current_version);
-                ret  = FALSE;
-        }
-
-
-        APIInformation->Release();
-        return ret;
 }
 
 /* HELP */
@@ -806,36 +754,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
-#ifdef WIN32
-	// Initialize COM on this thread
-	result = CoInitialize(NULL);
-	if(FAILED(result)) {
-                string err_msg = bmd_hresult_to_string(result);
-		fprintf(stderr, "Initialization of COM failed: "
-				"%s.\n", err_msg.c_str());
-		return VIDCAP_INIT_FAIL;
-	}
-#endif
-
-
-        BMD_STR current_version;
-        if(!blackmagic_api_version_check(&current_version)) {
-		fprintf(stderr, "\nThe DeckLink drivers may not be installed or are outdated.\n");
-		fprintf(stderr, "This UltraGrid version was compiled against DeckLink drivers %s. You should have at least this version.\n\n",
-                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
-                fprintf(stderr, "Vendor download page is http://http://www.blackmagic-design.com/support/ \n");
-                if(current_version) {
-                        const char *currentVersionCString = get_cstr_from_bmd_api_str(current_version);
-                        fprintf(stderr, "Currently installed version is: %s\n", currentVersionCString);
-                        release_bmd_api_str(current_version);
-                        free((void *)currentVersionCString);
-                } else {
-                        fprintf(stderr, "No installed drivers detected\n");
-                }
-                fprintf(stderr, "\n");
+        if (!blackmagic_api_version_check()) {
                 return VIDCAP_INIT_FAIL;
         }
-
 
 	s = new vidcap_decklink_state();
 	if (s == NULL) {
@@ -1554,4 +1475,3 @@ static const struct video_capture_info vidcap_decklink_info = {
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-#endif /* HAVE_DECKLINK */
