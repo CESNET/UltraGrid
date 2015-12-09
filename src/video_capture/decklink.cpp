@@ -514,7 +514,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                         char tmp[4];
                 };
                 memcpy(tmp, conversion_mode, max(strlen(conversion_mode), sizeof(tmp)));
-                s->conversion_mode = htonl(fourcc);
+                s->conversion_mode = (BMDVideoInputConversionMode) htonl(fourcc);
         } else if(strncasecmp(opt, "dev=",
                                 strlen("dev=")) == 0) {
                 const char *devices = opt + strlen("dev=");

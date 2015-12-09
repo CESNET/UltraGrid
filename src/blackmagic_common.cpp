@@ -112,7 +112,7 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose)
                                 "%08x.\n", result);
                 return NULL;
         }
-        HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+        result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
         if (FAILED(result)) {
                 deckLinkIterator = nullptr;
@@ -146,9 +146,7 @@ bool blackmagic_api_version_check()
                                 "%08x.\n", result);
                 return NULL;
         }
-#endif // WIN32
 
-#ifdef WIN32
         result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
                 IID_IDeckLinkAPIInformation, (void **) &APIInformation);
         if(FAILED(result)) {
