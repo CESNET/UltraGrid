@@ -57,6 +57,12 @@ struct state_null {
         uint32_t magic;
 };
 
+static void display_null_probe(struct display_card **available_cards, int *count)
+{
+        *available_cards = NULL;
+        *count = 0;
+}
+
 static void *display_null_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
@@ -136,6 +142,7 @@ static int display_null_reconfigure_audio(void *state, int quant_samples, int ch
 }
 
 static const struct video_display_info display_null_info = {
+        display_null_probe,
         display_null_init,
         display_null_run,
         display_null_done,

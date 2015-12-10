@@ -1,41 +1,28 @@
+/**
+ * @file   video_display/bluefish444.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_display/bluefish444.cpp
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Colin Perkins    <csp@isi.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
- * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -46,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -837,6 +822,21 @@ static void show_help(void)
         }
 }
 
+static void display_bluefish444_probe(struct display_card **available_cards, int *count)
+{
+        int iDevices;
+        CBLUEVELVET_H pSDK = bfcFactory();
+        bfcEnumerate(pSDK, iDevices);
+        bfcDestroy(pSDK);
+
+        *available_cards = (struct display_card *) calloc(iDevices, sizeof(struct display_card));
+        *count = iDevices;
+        for (int i = 0; i < iDevices; i++) {
+                sprintf((*available_cards)[i].id, "bluefish444:device=%d", iDevices);
+                sprintf((*available_cards)[i].name, "Bluefish444 card #%d", iDevices);
+        }
+}
+
 static void *display_bluefish444_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
@@ -1020,6 +1020,7 @@ static void display_bluefish444_put_audio_frame(void *state, struct audio_frame 
 }
 
 static const struct video_display_info display_bluefish444_info = {
+        display_bluefish444_probe,
         display_bluefish444_init,
         display_bluefish444_run,
         display_bluefish444_done,

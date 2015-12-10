@@ -1,41 +1,28 @@
+/**
+ * @file   src/video_display/deltacast.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_display/deltacast.cpp
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Colin Perkins    <csp@isi.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
- * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2012-2015 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -46,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #include "host.h"
@@ -336,6 +321,50 @@ error:
         return FALSE;
 }
 
+static void display_deltacast_probe(struct display_card **available_cards, int *count)
+{
+        *count = 0;
+        *available_cards = nullptr;
+
+        ULONG             Result,DllVersion,NbBoards;
+        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+        if (Result != VHDERR_NOERROR) {
+                return;
+        }
+        if (NbBoards == 0) {
+                return;
+        }
+
+        /* Query DELTA boards information */
+        for (ULONG i = 0; i < NbBoards; i++)
+        {
+                ULONG BoardType;
+                HANDLE            BoardHandle = NULL;
+                ULONG Result = VHD_OpenBoardHandle(i,&BoardHandle,NULL,0);
+                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+
+                *count += 1;
+                *available_cards = (struct display_card *)
+                        realloc(*available_cards, *count * sizeof(struct display_card));
+                memset(*available_cards + *count - 1, 0, sizeof(struct display_card));
+                sprintf((*available_cards)[*count - 1].id, "deltacast:board=%d", *count - 1);
+                (*available_cards)[*count - 1].repeatable = false;
+
+                if (Result == VHDERR_NOERROR)
+                {
+                        std::string board{"Unknown DELTACAST type"};
+                        auto it = board_type_map.find(BoardType);
+                        if (it != board_type_map.end()) {
+                                board = it->second;
+                        }
+                        snprintf((*available_cards)[*count - 1].name,
+                                        sizeof (*available_cards)[*count - 1].name - 1,
+                                        "DELTACAST %s", board.c_str());
+                        VHD_CloseBoardHandle(BoardHandle);
+                }
+        }
+
+}
 
 static void *display_deltacast_init(struct module *parent, const char *fmt, unsigned int flags)
 {
@@ -587,6 +616,7 @@ static void display_deltacast_put_audio_frame(void *state, struct audio_frame *f
 }
 
 static const struct video_display_info display_deltacast_info = {
+        display_deltacast_probe,
         display_deltacast_init,
         display_deltacast_run,
         display_deltacast_done,

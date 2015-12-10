@@ -597,6 +597,12 @@ static void show_help(int full)
         print_modes(full);
 }
 
+static void display_quicktime_probe(struct display_card **available_cards, int *count)
+{
+        *available_cards = NULL;
+        *count = 0;
+}
+
 static void *display_quicktime_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
@@ -1298,6 +1304,7 @@ error:
 }
 
 static const struct video_display_info display_quicktime_info = {
+        display_quicktime_probe,
         display_quicktime_init,
         display_quicktime_run,
         display_quicktime_done,

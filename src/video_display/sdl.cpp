@@ -792,6 +792,13 @@ static void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) 
 }
 
 static const struct video_display_info display_sdl_info = {
+        [](struct display_card **available_cards, int *count) {
+                *count = 1;
+                *available_cards = (struct display_card *) calloc(1, sizeof(struct display_card));
+                strcpy((*available_cards)[0].id, "SDL");
+                strcpy((*available_cards)[0].name, "SDL SW display");
+                (*available_cards)[0].repeatable = true;
+        },
         display_sdl_init,
         display_sdl_run,
         display_sdl_done,

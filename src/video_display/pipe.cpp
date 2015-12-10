@@ -192,6 +192,10 @@ static int display_pipe_reconfigure_audio(void *state, int quant_samples, int ch
 }
 
 static const struct video_display_info display_pipe_info = {
+        [](struct display_card **available_cards, int *count) {
+                *available_cards = nullptr;
+                *count = 0;
+        },
         display_pipe_init,
         display_pipe_run,
         display_pipe_done,

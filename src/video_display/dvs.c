@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Colin Perkins    <csp@isi.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2015 CESNET z.s.p.o.
  * Copyright (c) 2001-2003 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -645,6 +645,12 @@ static int display_dvs_reconfigure(void *state,
         return TRUE;
 }
 
+static void display_dvs_probe(struct display_card **available_cards, int *count)
+{
+        *available_cards = NULL;
+        *count = 0;
+}
+
 
 static void *display_dvs_init(struct module *parent, const char *cfg, unsigned int flags)
 {
@@ -960,6 +966,7 @@ unlock:
 }
 
 static const struct video_display_info display_dvs_info = {
+        display_dvs_probe,
         display_dvs_init,
         display_dvs_run,
         display_dvs_done,

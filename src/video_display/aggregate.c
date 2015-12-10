@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,12 @@ static void display_aggregate_run(void *state)
         for (i = 0; i < s->devices_cnt; i++) {
                 pthread_join(s->threads[i], NULL);
         }
+}
+
+static void display_aggregate_probe(struct display_card **available_cards, int *count)
+{
+        *available_cards = NULL;
+        *count = 0;
 }
 
 static void *display_aggregate_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -377,6 +383,7 @@ static int display_aggregate_reconfigure_audio(void *state, int quant_samples, i
 }
 
 static const struct video_display_info display_aggregate_info = {
+        display_aggregate_probe,
         display_aggregate_init,
         display_aggregate_run,
         display_aggregate_done,

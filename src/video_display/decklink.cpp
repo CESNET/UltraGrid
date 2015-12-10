@@ -618,6 +618,50 @@ error:
         return FALSE;
 }
 
+static void display_decklink_probe(struct display_card **available_cards, int *count)
+{
+        IDeckLinkIterator*              deckLinkIterator;
+        IDeckLink*                      deckLink;
+
+        *count = 0;
+        *available_cards = nullptr;
+
+        deckLinkIterator = create_decklink_iterator(false);
+        if (deckLinkIterator == NULL) {
+                return;
+        }
+
+        // Enumerate all cards in this system
+        while (deckLinkIterator->Next(&deckLink) == S_OK)
+        {
+                BMD_STR          deviceNameString = NULL;
+
+                // *** Print the model name of the DeckLink card
+                HRESULT result = deckLink->GetModelName(&deviceNameString);
+
+                *count += 1;
+                *available_cards = (struct display_card *)
+                        realloc(*available_cards, *count * sizeof(struct display_card));
+                memset(*available_cards + *count - 1, 0, sizeof(struct display_card));
+                sprintf((*available_cards)[*count - 1].id, "decklink:dev=%d", *count - 1);
+                (*available_cards)[*count - 1].repeatable = false;
+
+                if (result == S_OK)
+                {
+                        const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                        strncpy((*available_cards)[*count - 1].name, deviceNameCString,
+                                        sizeof (*available_cards)[*count - 1].name - 1);
+                        release_bmd_api_str(deviceNameString);
+                        free((void *) deviceNameCString);
+                }
+
+                // Release the IDeckLink instance when we've finished with it to prevent leaks
+                deckLink->Release();
+        }
+
+        deckLinkIterator->Release();
+}
+
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
@@ -1306,6 +1350,7 @@ bail:
 }
 
 static const struct video_display_info display_decklink_info = {
+        display_decklink_probe,
         display_decklink_init,
         display_decklink_run,
         display_decklink_done,

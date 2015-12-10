@@ -548,6 +548,13 @@ static int display_sage_reconfigure_audio(void *state, int quant_samples, int ch
 }
 
 static const struct video_display_info display_sage_info = {
+        [](struct display_card **available_cards, int *count) {
+                *count = 1;
+                *available_cards = (struct display_card *) calloc(1, sizeof(struct display_card));
+                strcpy((*available_cards)[0].id, "SAGE");
+                strcpy((*available_cards)[0].name, "SAGE display wall");
+                (*available_cards)[0].repeatable = true;
+        },
         display_sage_init,
         display_sage_run,
         display_sage_done,

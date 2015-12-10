@@ -1167,7 +1167,7 @@ int main(int argc, char *argv[])
                 // This has to be run after start of capture thread since it may request
                 // captured video format information.
                 if (print_capabilities_req) {
-                        print_capabilities(CAPABILITY_CAPTURE | CAPABILITY_COMPRESS, &root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
+                        print_capabilities(&root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }

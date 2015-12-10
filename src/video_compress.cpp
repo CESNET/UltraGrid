@@ -108,26 +108,6 @@ void show_compress_help()
         list_modules(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 }
 
-list<compress_preset> get_compress_capabilities()
-{
-        list<compress_preset> ret;
-
-        auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
-
-        for (auto it : compressions) {
-                auto vci = static_cast<const struct video_compress_info *>(it.second);
-                auto presets = vci->get_presets();
-                for (auto const & it : presets) {
-                        auto new_elem = it;
-                        new_elem.name = string(vci->name)
-                                + ":" + it.name;
-                        ret.push_back(new_elem);
-                }
-        }
-
-        return ret;
-}
-
 /**
  * @brief Processes message.
  *

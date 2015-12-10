@@ -105,9 +105,17 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 7
+#define VIDEO_DISPLAY_ABI_VERSION 8
+
+struct display_card {
+        char id[1024];
+        char name[1024];
+        bool repeatable; ///< whether can be card used multiple times (eg. GL) or it
+                         ///< can output simoultaneously only one output (DeckLink)
+};
 
 struct video_display_info {
+        void                    (*probe)(struct display_card **available_cards, int *count);
         void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
         void                    (*run) (void *state);
         void                    (*done) (void *state);

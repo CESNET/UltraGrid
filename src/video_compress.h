@@ -133,7 +133,6 @@ struct video_compress_info {
         std::list<compress_preset> (*get_presets)();    ///< list of available presets
 };
 
-std::list<compress_preset> get_compress_capabilities();
 std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 
 #endif
