@@ -154,7 +154,7 @@ static void show_help(void);
 static void show_help(void)
 {
         printf("deltacast (output) options:\n");
-        printf("\t-d deltacast[:board=<index>]\n");
+        printf("\t-d deltacast[:device=<index>]\n");
 
         print_available_delta_boards();
 
@@ -347,7 +347,7 @@ static void display_deltacast_probe(struct display_card **available_cards, int *
                 *available_cards = (struct display_card *)
                         realloc(*available_cards, *count * sizeof(struct display_card));
                 memset(*available_cards + *count - 1, 0, sizeof(struct display_card));
-                sprintf((*available_cards)[*count - 1].id, "deltacast:board=%d", *count - 1);
+                sprintf((*available_cards)[*count - 1].id, "deltacast:device=%d", *count - 1);
                 (*available_cards)[*count - 1].repeatable = false;
 
                 if (Result == VHDERR_NOERROR)
@@ -412,8 +412,8 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
                         show_help();
                         goto error;
                 }
-                if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
-                        BrdId = atoi(tok + strlen("board="));
+                if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
+                        BrdId = atoi(tok + strlen("device="));
                 } else {
                         fprintf(stderr, "Unknown option: %s\n\n", tok);
                         free(tmp);

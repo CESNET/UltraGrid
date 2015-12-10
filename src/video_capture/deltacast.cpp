@@ -96,7 +96,7 @@ static void usage(void);
 
 static void usage(void)
 {
-        printf("\t-t deltacast[:board=<index>][:mode=<mode>][:codec=<codec>]\n");
+        printf("\t-t deltacast[:device=<index>][:mode=<mode>][:codec=<codec>]\n");
 
         print_available_delta_boards();
 
@@ -136,7 +136,7 @@ vidcap_deltacast_probe(bool verbose)
                                 vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
                                 vt->card_count = NbBoards;
                                 for (ULONG i = 0; i < NbBoards; ++i) {
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", i);
                                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %d", i);
                                 }
                         }
@@ -366,7 +366,10 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
                 char *tmp = init_fmt;
 
                 while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                        if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
+                                BrdId = atoi(tok + strlen("device="));
+                        } else if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                                // compat, should be device= instead
                                 BrdId = atoi(tok + strlen("board="));
                         } else if (strncasecmp(tok, "mode=", strlen("mode=")) == 0) {
                                 s->VideoStandard = atoi(tok + strlen("mode="));

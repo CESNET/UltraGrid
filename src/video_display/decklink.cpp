@@ -241,7 +241,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_number(s)>[:timecode][:single-link|:dual-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
+        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
         printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -643,7 +643,7 @@ static void display_decklink_probe(struct display_card **available_cards, int *c
                 *available_cards = (struct display_card *)
                         realloc(*available_cards, *count * sizeof(struct display_card));
                 memset(*available_cards + *count - 1, 0, sizeof(struct display_card));
-                sprintf((*available_cards)[*count - 1].id, "decklink:dev=%d", *count - 1);
+                sprintf((*available_cards)[*count - 1].id, "decklink:device=%d", *count - 1);
                 (*available_cards)[*count - 1].repeatable = false;
 
                 if (result == S_OK)
@@ -660,6 +660,22 @@ static void display_decklink_probe(struct display_card **available_cards, int *c
         }
 
         deckLinkIterator->Release();
+}
+
+static void parse_devices(const char *devices_str, int *cardIdx, int *devices_cnt) {
+        if (strlen(devices_str) == 0) {
+                log_msg(LOG_LEVEL_WARNING, "[Decklink disp.] Empty device string!\n");
+                return;
+        }
+        char *save_ptr;
+        char *tmp = strdup(devices_str);
+        *devices_cnt = 0;
+        char *item;
+        while ((item = strtok_r(NULL, ",", &save_ptr))) {
+                cardIdx[*devices_cnt] = atoi(item);
+                ++*devices_cnt;
+        }
+        free(tmp);
 }
 
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -685,10 +701,10 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->stereo = FALSE;
         s->emit_timecode = false;
         s->link = LINK_UNSPECIFIED;
+        cardIdx[0] = 0;
+        s->devices_cnt = 1;
 
         if(fmt == NULL || strlen(fmt) == 0) {
-                cardIdx[0] = 0;
-                s->devices_cnt = 1;
                 fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
 
         } else if (strcmp(fmt, "help") == 0) {
@@ -698,21 +714,29 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         } else  {
                 char *tmp = strdup(fmt);
                 char *ptr;
-                char *saveptr1 = 0ul, *saveptr2 = 0ul;
+                char *save_ptr = 0ul;
 
-                ptr = strtok_r(tmp, ":", &saveptr1);                
+                ptr = strtok_r(tmp, ":", &save_ptr);
                 assert(ptr);
-                char *devices = strdup(ptr);
-                s->devices_cnt = 0;
-                ptr = strtok_r(devices, ",", &saveptr2);
-                do {
-                        cardIdx[s->devices_cnt] = atoi(ptr);
-                        ++s->devices_cnt;
-                } while ((ptr = strtok_r(NULL, ",", &saveptr2)));
-                free(devices);
+                int i = 0;
+                bool first_option_is_device = true;
+                while (ptr[i] != '\0') {
+                        if (isdigit(ptr[i++]))
+                                continue;
+                        else
+                                first_option_is_device = false;
+                }
+                if (first_option_is_device) {
+                        log_msg(LOG_LEVEL_WARNING, "[Decklink disp.] Unnamed device index "
+                                        "deprecated. Use \"device=%s\" instead.\n", ptr);
+                        parse_devices(ptr, cardIdx, &s->devices_cnt);
+                        ptr = strtok_r(tmp, ":", &save_ptr);
+                }
                 
-                while((ptr = strtok_r(NULL, ":", &saveptr1)))  {
-                        if(strcasecmp(ptr, "3D") == 0) {
+                while (ptr)  {
+                        if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
+                                parse_devices(ptr + strlen("device="), cardIdx, &s->devices_cnt);
+                        } else if (strcasecmp(ptr, "3D") == 0) {
                                 s->stereo = true;
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
@@ -744,8 +768,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                         audio_consumer_levels = 1;
                                 }
                         } else {
-                                fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
+                                log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning: unknown options in config string.\n");
                         }
+                        ptr = strtok_r(NULL, ":", &save_ptr);
                 }
                 free (tmp);
         }

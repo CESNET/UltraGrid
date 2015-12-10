@@ -334,7 +334,7 @@ decklink_help()
 #endif
                         "]\n");
         printf("\t\tor\n");
-	printf("\t-t decklink{:mode=<mode>|:dev=<device_index>|:codec=<colorspace>...<key>=<val>}*\n");
+	printf("\t-t decklink{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*\n");
 	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
         printf("\n");
 
@@ -448,7 +448,7 @@ decklink_help()
         printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
         printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
         printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from frist device\n", uv_argv[0]);
-        printf("\t%s -t decklink:mode=Hp30:codec=v210:dev=2 # captures 1080p30, 10-bit yuv from 3rd BMD device\n", uv_argv[0]);
+        printf("\t%s -t decklink:mode=Hp30:codec=v210:device=2 # captures 1080p30, 10-bit yuv from 3rd BMD device\n", uv_argv[0]);
 
 	printf("\n");
 
@@ -515,9 +515,9 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 };
                 memcpy(tmp, conversion_mode, max(strlen(conversion_mode), sizeof(tmp)));
                 s->conversion_mode = (BMDVideoInputConversionMode) htonl(fourcc);
-        } else if(strncasecmp(opt, "dev=",
-                                strlen("dev=")) == 0) {
-                const char *devices = opt + strlen("dev=");
+        } else if(strncasecmp(opt, "device=",
+                                strlen("device=")) == 0) {
+                const char *devices = opt + strlen("device=");
                 parse_devices(s, devices);
         } else if(strncasecmp(opt, "mode=",
                                 strlen("mode=")) == 0) {

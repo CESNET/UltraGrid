@@ -100,7 +100,7 @@ static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused))
 
 static void usage(void)
 {
-        printf("-t deltacast-dvi[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
+        printf("-t deltacast-dvi[:device=<index>][:channel=<channel>][:codec=<color_spec>]"
                         "[:edid=<edid>|preset=<format>]\n");
         
         printf("\t<index> - index of DVI card\n");
@@ -224,7 +224,7 @@ vidcap_deltacast_dvi_probe(bool verbose)
                                         }
                                         VHD_CloseBoardHandle(BoardHandle);
 
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "board=%d", i);
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", i);
                                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%d",
                                                         board.c_str(), i);
                                 }
@@ -491,7 +491,10 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                 char *tok;
                 
                 while((tok = strtok_r(init_fmt, ":", &save_ptr)) != NULL) {
-                        if(strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                        if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
+                                BrdId = atoi(tok + strlen("device="));
+                        } else if(strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                                // compat, should be device= instead
                                 BrdId = atoi(tok + strlen("board="));
                         } else if(strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
                                 char *codec_str = tok + strlen("codec=");
