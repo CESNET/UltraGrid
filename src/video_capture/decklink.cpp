@@ -318,6 +318,15 @@ void VideoDelegate::set_device_state(struct vidcap_decklink_state *state, int in
         i = index;
 }
 
+static map<BMDVideoConnection, string> connection_string_map =  {
+        { bmdVideoConnectionSDI, "SDI" },
+        { bmdVideoConnectionHDMI, "HDMI"},
+        { bmdVideoConnectionOpticalSDI, "OpticalSDI"},
+        { bmdVideoConnectionComponent, "Component"},
+        { bmdVideoConnectionComposite, "Composite"},
+        { bmdVideoConnectionSVideo, "SVideo"}
+};
+
 /* HELP */
 static int
 decklink_help()
@@ -414,18 +423,10 @@ decklink_help()
                         } else {
                                 printf("\n");
                                 printf("Connection can be one of following (not required):\n");
-                                if (connections & bmdVideoConnectionSDI)
-                                        printf("\tSDI\n");
-                                if (connections & bmdVideoConnectionHDMI)
-                                        printf("\tHDMI\n");
-                                if (connections & bmdVideoConnectionOpticalSDI)
-                                        printf("\tOpticalSDI\n");
-                                if (connections & bmdVideoConnectionComponent)
-                                        printf("\tComponent\n");
-                                if (connections & bmdVideoConnectionComposite)
-                                        printf("\tComposite\n");
-                                if (connections & bmdVideoConnectionSVideo)
-                                        printf("\tSVideo\n");
+                                for (auto it : connection_string_map) {
+                                        if (connections & it.first)
+                                                printf("\t%s\n", it.second.c_str());
+                                }
                         }
                 }
 				
@@ -481,19 +482,14 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->use_timecode = TRUE;
         } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
                 const char *connection = opt + strlen("connection=");
-                if(strcasecmp(connection, "SDI") == 0)
-                        s->connection = bmdVideoConnectionSDI;
-                else if(strcasecmp(connection, "HDMI") == 0)
-                        s->connection = bmdVideoConnectionHDMI;
-                else if(strcasecmp(connection, "OpticalSDI") == 0)
-                        s->connection = bmdVideoConnectionOpticalSDI;
-                else if(strcasecmp(connection, "Component") == 0)
-                        s->connection = bmdVideoConnectionComponent;
-                else if(strcasecmp(connection, "Composite") == 0)
-                        s->connection = bmdVideoConnectionComposite;
-                else if(strcasecmp(connection, "SVIdeo") == 0)
-                        s->connection = bmdVideoConnectionSVideo;
-                else {
+                bool found = false;
+                for (auto it : connection_string_map) {
+                        if (strcasecmp(connection, it.second.c_str()) == 0) {
+                                s->connection = it.first;
+                                found = true;
+                        }
+                }
+                if (!found) {
                         fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
                         return false;
                 }
@@ -632,25 +628,41 @@ vidcap_decklink_probe(bool verbose)
                                 // Enumerate all cards in this system
                                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                                 {
-                                        vt->card_count = numDevices + 1;
-                                        vt->cards = (struct vidcap_card *)
-                                                realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
-                                        memset(&vt->cards[numDevices], 0, sizeof(struct vidcap_card));
-                                        snprintf(vt->cards[numDevices].id, sizeof vt->cards[numDevices].id,
-                                                        "%d", numDevices);
-                                        BMD_STR                 deviceNameString = NULL;
-                                        const char *		deviceNameCString = NULL;
+                                        IDeckLinkAttributes *deckLinkAttributes;
 
-                                        // *** Print the model name of the DeckLink card
-                                        result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
-                                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                                        if (result == S_OK)
-                                        {
-                                                snprintf(vt->cards[numDevices].name, sizeof vt->cards[numDevices].name,
-                                                                "%s", deviceNameCString);
-                                                release_bmd_api_str(deviceNameString);
-                                                free((void *)deviceNameCString);
+                                        result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                                        if (result != S_OK) {
+                                                continue;
                                         }
+                                        int64_t connections;
+                                        if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
+                                                fprintf(stderr, "[DeckLink] Could not get connections.\n");
+                                        } else {
+                                                for (auto it : connection_string_map) {
+                                                        if (connections & it.first) {
+                                                                vt->card_count += 1;
+                                                                vt->cards = (struct vidcap_card *)
+                                                                        realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
+                                                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                                                                "device=%d:connection=%s", numDevices, it.second.c_str());
+                                                                BMD_STR deviceNameString = NULL;
+                                                                const char *deviceNameCString = NULL;
+
+                                                                // *** Print the model name of the DeckLink card
+                                                                result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
+                                                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                                                if (result == S_OK)
+                                                                {
+                                                                        snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                                                                        "%s #%d (%s)", deviceNameCString, numDevices, it.second.c_str());
+                                                                        release_bmd_api_str(deviceNameString);
+                                                                        free((void *)deviceNameCString);
+                                                                }
+                                                        }
+                                                }
+                                        }
+
 
                                         // Increment the total number of DeckLink cards found
                                         numDevices++;
