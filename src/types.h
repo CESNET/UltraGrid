@@ -118,11 +118,11 @@ struct video_desc {
 #endif
 };
 
-typedef enum h264_frame_type {
-    INTRA,
+typedef enum frame_type {
+    INTRA = 0,
     BFRAME,
     OTHER
-} h264_frame_type_t;
+} frame_type_t;
 
 enum fec_type {
         FEC_NONE = 0,
@@ -197,26 +197,7 @@ struct video_frame {
         void               (*data_deleter)(struct video_frame *);
         /// @}
 
-        /** @name H.264 standard transport
-         * @todo
-         * Try to get rid of those members, at least width, height, buffer, buffer_len should
-         * be replaced by generic member of tiles array.
-         * @{ */
-        uint8_t isStd; /// parameters in this group are used only if isStd == true
-            // Config
-        unsigned int h264_width;
-        unsigned int h264_height;
-            // Data
-        unsigned char *h264_buffer;
-        unsigned int h264_buffer_len;
-        unsigned int h264_offset_len;
-        unsigned char *h264_offset_buffer;
-            // Stats
-        unsigned int h264_media_time;
-        unsigned int h264_seqno;
-            // Control
-        h264_frame_type_t h264_frame_type;
-        /// @}
+        frame_type_t         frame_type;
 
         struct fec_desc fec_params;
         uint32_t ssrc;

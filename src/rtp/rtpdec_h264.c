@@ -72,18 +72,19 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
     unsigned char *dst = NULL;
     int src_len;
 
-    struct video_frame *frame = (struct video_frame *)decode_data;
-    frame->h264_frame_type = BFRAME;
+    struct decode_data_h264 *data = (struct decode_data_h264 *) decode_data;
+    struct video_frame *frame = data->frame;
+    frame->frame_type = BFRAME;
 
     for (pass = 0; pass < 2; pass++) {
 
         if (pass > 0) {
             cdata = orig;
-            if(frame->h264_frame_type == INTRA){
-                total_length+=frame->h264_offset_len;
+            if(frame->frame_type == INTRA){
+                total_length+=data->offset_len;
             }
-            frame->h264_buffer_len = total_length;
-            dst = frame->h264_buffer + total_length;
+            frame->tiles[0].data_len = total_length;
+            dst = frame->tiles[0].data + total_length;
         }
 
         while (cdata != NULL) {
@@ -103,10 +104,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
             }
 
             if (type >= 1 && type <= 23) {
-                if(frame->h264_frame_type != INTRA && (type == 5 || type == 6)) {
-                    frame->h264_frame_type = INTRA;
-                } else if (frame->h264_frame_type == BFRAME && nri != 0){
-                    frame->h264_frame_type = OTHER;
+                if(frame->frame_type != INTRA && (type == 5 || type == 6)) {
+                    frame->frame_type = INTRA;
+                } else if (frame->frame_type == BFRAME && nri != 0){
+                    frame->frame_type = OTHER;
                 }
 
                 type = 1;
@@ -184,10 +185,10 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                         uint8_t nal_type = fu_header & 0x1f;
                         uint8_t reconstructed_nal;
 
-                        if(frame->h264_frame_type != INTRA && (nal_type == 5 || nal_type == 6)){
-                            frame->h264_frame_type = INTRA;
-                        } else if (frame->h264_frame_type == BFRAME && nri != 0){
-                            frame->h264_frame_type = OTHER;
+                        if(frame->frame_type != INTRA && (nal_type == 5 || nal_type == 6)){
+                            frame->frame_type = INTRA;
+                        } else if (frame->frame_type == BFRAME && nri != 0){
+                            frame->frame_type = OTHER;
                         }
 
                         // Reconstruct this packet's true nal; only the data follows.
@@ -258,9 +259,7 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
         height -= (sps->frame_crop_top_offset*2 + sps->frame_crop_bottom_offset*2);
     }
 
-    if((width != rx_data->h264_width) || (height != rx_data->h264_height)) {
-        rx_data->h264_width = width;
-        rx_data->h264_height = height;
+    if((width != rx_data->tiles[0].width) || (height != rx_data->tiles[0].height)) {
         vf_get_tile(rx_data, 0)->width = width;
         vf_get_tile(rx_data, 0)->height = height;
 //        free(rx_data->tiles[0].data);

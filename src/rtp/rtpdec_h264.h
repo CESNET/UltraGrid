@@ -48,6 +48,13 @@
 extern "C" {
 #endif
 
+struct video_frame;
+
+struct decode_data_h264 {
+        struct video_frame *frame;
+        int offset_len;
+};
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 
