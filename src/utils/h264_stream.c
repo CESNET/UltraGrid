@@ -315,11 +315,11 @@ void read_hrd_parameters(sps_t* sps, bs_t* b)
 //7.3.2.11 RBSP trailing bits syntax
 void read_rbsp_trailing_bits(bs_t* b)
 {
-    int rbsp_stop_one_bit = bs_read_u1( b ); // equal to 1
+    /* int rbsp_stop_one_bit = */ bs_read_u1( b ); // equal to 1
 
     while( !bs_byte_aligned(b) )
     {
-        int rbsp_alignment_zero_bit = bs_read_u1( b ); // equal to 0
+        /* int rbsp_alignment_zero_bit = */ bs_read_u1( b ); // equal to 0
     }
 }
 

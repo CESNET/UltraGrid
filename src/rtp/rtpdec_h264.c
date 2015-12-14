@@ -84,7 +84,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                 total_length+=data->offset_len;
             }
             frame->tiles[0].data_len = total_length;
-            dst = frame->tiles[0].data + total_length;
+            dst = (unsigned char *) frame->tiles[0].data + total_length;
         }
 
         while (cdata != NULL) {

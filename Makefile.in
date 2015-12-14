@@ -252,6 +252,9 @@ src/video_display/quicktime.o: src/video_display/quicktime.c $(ALL_INCLUDES)
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 
+src/vo_postprocess/text.o: src/vo_postprocess/text.cpp
+	$(CXX) $(CXXFLAGS) -Wno-unknown-attributes -c $(INC) -c $< -o $@
+
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 

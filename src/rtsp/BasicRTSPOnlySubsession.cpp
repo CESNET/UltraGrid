@@ -102,7 +102,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		uint8_t rtpPayloadType = 96;
 		AddressString ipAddressStr(fServerAddressForSDP);
 		char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
-		char const* auxSDPLine = "";
+		//char const* auxSDPLine = "";
 
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
@@ -145,7 +145,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		}
 
 		char* rtpmapLine = strdup("a=rtpmap:97 PCMU/48000/2\n"); //only to alloc max possible size
-		char const* auxSDPLine = "";
+		//char const* auxSDPLine = "";
 
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
@@ -177,13 +177,13 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 	}
 }
 
-void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
+void BasicRTSPOnlySubsession::getStreamParameters(unsigned /* clientSessionId */,
 		netAddressBits clientAddress, Port const& clientRTPPort,
-		Port const& clientRTCPPort, int tcpSocketNum,
-		unsigned char rtpChannelId, unsigned char rtcpChannelId,
+		Port const& clientRTCPPort, int /* tcpSocketNum */,
+		unsigned char /* rtpChannelId */, unsigned char /* rtcpChannelId */,
 		netAddressBits& destinationAddress, uint8_t& /*destinationTTL*/,
-		Boolean& isMulticast, Port& serverRTPPort, Port& serverRTCPPort,
-		void*& streamToken) {
+		Boolean& /* isMulticast */, Port& serverRTPPort, Port& serverRTCPPort,
+		void*& /* streamToken */) {
 	if (Vdestination == NULL && (avType == video || avType == av)) {
 		Port rtp(rtp_port);
 		serverRTPPort = rtp;
@@ -220,12 +220,12 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
 	}
 }
 
-void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
-		void* streamToken, TaskFunc* rtcpRRHandler,
-		void* rtcpRRHandlerClientData, unsigned short& rtpSeqNum,
-		unsigned& rtpTimestamp,
-		ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
-		void* serverRequestAlternativeByteHandlerClientData) {
+void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
+		void* /* streamToken */, TaskFunc* /* rtcpRRHandler */,
+		void* /* rtcpRRHandlerClientData */, unsigned short& /* rtpSeqNum */,
+		unsigned& /* rtpTimestamp */,
+		ServerRequestAlternativeByteHandler* /* serverRequestAlternativeByteHandler */,
+		void* /* serverRequestAlternativeByteHandlerClientData */) {
 	struct response *resp = NULL;
 
 	if (Vdestination != NULL) {
@@ -287,8 +287,8 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
 	}
 }
 
-void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
-		void*& streamToken) {
+void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
+		void*& /* streamToken */) {
 	if (Vdestination != NULL) {
 		if (avType == video || avType == av) {
 			char pathV[1024];

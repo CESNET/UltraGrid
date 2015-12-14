@@ -87,7 +87,7 @@
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
         fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
         printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-        return NULL; \
+        return -1; \
     }
 
 #define my_curl_easy_perform(A) \
@@ -161,7 +161,7 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 struct video_rtsp_state {
     uint32_t *in_codec;
 
-    char *codec;
+    const char *codec;
 
     struct timeval t0, t;
     int frames;
@@ -179,7 +179,7 @@ struct video_rtsp_state {
 
     int port;
     float fps;
-    char *control;
+    const char *control;
 
     struct rtp *device;
     struct pdb *participants;
@@ -210,7 +210,7 @@ struct audio_rtsp_state {
     struct audio_frame audio;
     int play_audio_frame;
 
-    char *codec;
+    const char *codec;
 
     struct timeval last_audio_time;
     unsigned int grab_audio:1;
@@ -218,7 +218,7 @@ struct audio_rtsp_state {
     int port;
     float fps;
 
-    char *control;
+    const char *control;
 
     struct rtp *device;
     struct pdb *participants;
@@ -245,7 +245,7 @@ struct rtsp_state {
     CURL *curl;
     char *uri;
     rtps_types_t avType;
-    char *addr;
+    const char *addr;
     char *sdp;
 
     volatile bool should_exit;
@@ -293,6 +293,7 @@ keep_alive_thread(void *arg){
     while (!s->should_exit) {
         rtsp_keepalive_video(s);
     }
+    return NULL;
 }
 
 int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *) {
@@ -731,7 +732,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
             }
 
             setup_codecs_and_controls_from_sdp(sdp_filename, s);
-            if (s->vrtsp_state->codec == "H264"){
+            if (strcmp(s->vrtsp_state->codec, "H264") == 0){
                 s->vrtsp_state->frame->color_spec = H264;
                 sprintf(uri, "%s/%s", url, s->vrtsp_state->control);
                 debug_msg("\n V URI = %s\n",uri);
@@ -740,7 +741,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
                 }
                 sprintf(uri, "%s", url);
             }
-            if (s->artsp_state->codec == "PCMU"){
+            if (strcmp(s->artsp_state->codec, "PCMU") == 0){
                 sprintf(uri, "%s/%s", url, s->artsp_state->control);
                 debug_msg("\n A URI = %s\n",uri);
                 if(rtsp_setup(curl, uri, Atransport)==0){
@@ -748,7 +749,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
                 }
                 sprintf(uri, "%s", url);
             }
-            if (s->artsp_state->codec == "" && s->vrtsp_state->codec == ""){
+            if (strlen(s->artsp_state->codec) == 0 && strlen(s->vrtsp_state->codec) == 0){
                 return -1;
             }
             else{
@@ -1019,7 +1020,7 @@ rtsp_setup(CURL *curl, const char *uri, const char *transport) {
  * send RTSP PLAY request
  */
 static int
-rtsp_play(CURL *curl, const char *uri, const char *range) {
+rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] PLAY %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
@@ -1119,8 +1120,6 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
     uint8_t nalInfo;
     uint8_t type;
     uint8_t nri;
-    int k;
-    int sizeSPS  = 0;
     int max_len = 1500, len_nals = 0;
     char *s = (char *) malloc(max_len);
     char *sprop;

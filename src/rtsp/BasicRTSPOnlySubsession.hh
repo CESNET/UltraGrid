@@ -129,8 +129,8 @@ private:
 
     void setSDPLines();
 
-    Boolean fReuseFirstSource;
-    void* fLastStreamToken;
+    Boolean fReuseFirstSource __attribute__((unused));
+    void* fLastStreamToken __attribute__((unused));
     char fCNAME[100];
     struct module *fmod;
     rtps_types_t avType;
