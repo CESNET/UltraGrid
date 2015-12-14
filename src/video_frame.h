@@ -64,9 +64,13 @@ extern "C" {
 #define PARAM_TILE_COUNT                (1<<6u)
 /**@}*/
 
+/**
+ * Calls video_frame::dispose if defined.
+ *
+ * @see video_frame::dispose
+ */
 #define VIDEO_FRAME_DISPOSE(frame) if (frame && frame->dispose) \
         frame->dispose(frame)
-void video_frame_dispose(struct video_frame *);
 
 /**
  * @brief Allocates blank video frame
@@ -95,10 +99,12 @@ struct video_frame * vf_alloc_desc(struct video_desc desc);
  *         NULL if insufficient memory
  */
 struct video_frame * vf_alloc_desc_data(struct video_desc desc);
+
 /**
- * @brief Frees video frame.
+ * @brief Frees video_frame structure
  *
- * Calls video_frame::data_deleter
+ * Calls video_frame::data_deleter if defined (suplied by user
+ * or fiiled by vf_alloc_desc_data()).
  */
 void vf_free(struct video_frame *buf);
 /**
@@ -108,7 +114,8 @@ void vf_free(struct video_frame *buf);
 void vf_data_deleter(struct video_frame *buf);
 
 /**
- * @brief Returns n-th tile from video frame
+ * @brief Returns pointer to n-th tile from video frame
+ * Equivalent to &video_frame::tiles[pos]
  */
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
 /**

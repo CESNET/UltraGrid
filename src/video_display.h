@@ -54,10 +54,38 @@
 /**
  * @defgroup display Video Display
  *
- * API for video display
+ * API for video display . Normal operation is something like:
+ * Thread #1 (main thread)
+ * @code{.c}
+ * d = ininitalize_video_display(...);
+ * display_run(d);
+ * display_done(d);
  *
+ * Thread #2
+ * display_get_property(d, codecs);
+ * while(!done) {
+ *     // wait for video
+ *     // pick one codec that is supported by display
+ *     display_reconfigure(video_width, video_height, fps, interlacing, selected_codec);
+ *     while(!done && !video_changed) {
+ *         f = display_getf();
+ *         fill_frame_with_decoded_data(f);
+ *         display_putf(f);
+ *     }
+ * }
+ * display_putf(NULL);
+ * @endcode
+ *
+ * If display needs parallel processing, it can use run() function which will
+ * be started in main thread. It must return control when receiving NULL frame
+ * (poisoned pill).
+ *
+ * @note
+ * Codec supported by display can be also a compressed one in which case
+ * video_frame::tile::data_len will be filled with appropriate value.
  * @{
  */
+
 #ifndef _VIDEO_DISPLAY_H
 #define _VIDEO_DISPLAY_H
 

@@ -152,6 +152,7 @@ struct video_frame {
         codec_t              color_spec;
         enum interlacing_t   interlacing;
         double               fps;
+        frame_type_t         frame_type;
 
         /// tiles contain actual video frame data. A frame usually contains exactly one
         /// tile but in some cases it can contain more tiles (eg. 4 for tiled 4K).
@@ -168,36 +169,32 @@ struct video_frame {
         unsigned int         frame_fragment_id:14;
         /// @}
 
-        /// @{
+        /** @note
+         * Can be changed only by frame originator.
+         * @deprecated
+         * This is currently used only by video_capture and capture_filter modules
+         * and should not be used elsewhere!
+         * @{
+         */
         /**
          * This function (if defined) is called when frame is no longer needed
          * by processing queue.
          * @note
          * Currently, this is only used in sending workflow, not the receiving one!
          * Can be called from arbitrary thread.
-         * @note
-         * Can be changed only by frame originator.
-         * @deprecated
-         * Should not be longer used. Suggested replacement is with shared pointers with custom deleter.
          */
         void               (*dispose)(struct video_frame *);
         /**
          * Additional data needed to dispose the frame
-         *
-         * @note
-         * Can be changed only by frame originator.
-         * @deprecated
-         * Should not be longer used. Suggested replacement is with shared pointers with custom deleter.
         */
         void                *dispose_udata;
+        /// @}
+
         /**
          * This function (if defined) is called by vf_free() to destruct video data
          * (@ref tile::data members).
          */
         void               (*data_deleter)(struct video_frame *);
-        /// @}
-
-        frame_type_t         frame_type;
 
         struct fec_desc fec_params;
         uint32_t ssrc;
