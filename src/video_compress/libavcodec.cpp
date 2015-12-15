@@ -320,8 +320,10 @@ static list<compress_preset> get_libavcodec_presets() {
         if (avcodec_find_encoder_by_name("libx264")) {
                 ret.push_back({"encoder=libx264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
                 ret.push_back({"encoder=libx264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
-                ret.push_back({"encoder=libx264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
+                ret.push_back({"encoder=libx264:bpp=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
         }
+        // NVENC and MJPEG are disabled in order not to be chosen by CoUniverse.
+        // Enable if needed (also possible to add H.265 etc).
 #if 0
         AVCodec *codec;
         if ((codec = avcodec_find_encoder_by_name("nvenc_h264"))) {
