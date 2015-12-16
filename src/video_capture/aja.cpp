@@ -41,6 +41,8 @@
 #include "config_win32.h"
 #endif
 
+#define NTV2_DEPRECATE 1
+
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
@@ -76,16 +78,16 @@ class vidcap_state_aja {
         public:
                 vidcap_state_aja(unordered_map<string, string> const & parameters);
                 void Init();
-                ~vidcap_state_aja();
+                virtual ~vidcap_state_aja();
                 struct video_frame *grab(struct audio_frame **audio);
                 AJAStatus Run();
                 void Quit();
         private:
-                int                    mDeviceIndex;
+                unsigned int           mDeviceIndex;
                 CNTV2Card              mDevice;
-                NTV2BoardID            mDeviceID;                     ///     My device identifier
+                NTV2DeviceID           mDeviceID;                     ///     My device identifier
                 NTV2EveryFrameTaskMode mSavedTaskMode;                /// Used to restore prior every-frame task mode
-                const NTV2Channel      mInputChannel;                 ///     My input channel
+                NTV2Channel            mInputChannel;                 ///     My input channel
                 NTV2VideoFormat        mVideoFormat;                  ///     My video format
                 NTV2FrameBufferFormat  mPixelFormat;                  ///     My pixel format
                 bool                   mVancEnabled;                  ///     VANC enabled?
@@ -107,12 +109,14 @@ class vidcap_state_aja {
                 int                    mFrames;
                 struct audio_frame     mAudio;
                 int                    mMaxAudioChannels;
+                NTV2TCSource           mTimeCodeSource;                ///< @brief     Time code source
+                bool                   mCheckFor4K;
 
                 AJAStatus SetupVideo();
                 AJAStatus SetupAudio();
                 void SetupHostBuffers();
-                void RouteInputSignal();
                 void SetupInputAutoCirculate();
+                NTV2VideoFormat GetVideoFormatFromInputSource();
 
 
                 /**
@@ -123,16 +127,24 @@ class vidcap_state_aja {
                 static void     ProducerThreadStatic (AJAThread * pThread, void * pContext);
 };
 
-;
 vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters) :
         mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
         mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
         mAudioSystem(NTV2_AUDIOSYSTEM_1), mGlobalQuit(false),
         mProducerThread(0), mFrameCaptured(false), mOutputFrame(0), mProgressive(false),
-        mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0)
+        mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
+        mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
 {
-        if (parameters.find("progressive") != parameters.end()) {
-                mProgressive = true;
+        for (auto it : parameters) {
+                if (it.first == "progressive") {
+                        mProgressive = true;
+                } else if (it.first == "4K" || it.first == "4k") {
+                        mCheckFor4K = true;
+                } else if (it.first == "device") {
+                        mDeviceIndex = stol(it.second, nullptr, 10);
+                } else {
+                        throw string("Unknown option: ") + it.second;
+                }
         }
         Init();
 }
@@ -146,39 +158,39 @@ void vidcap_state_aja::Init()
 
         //      Any AJA devices out there?
         if (deviceScanner.GetNumDevices () == 0)
-                throw 1;
+                throw string("No devices found!");
+
+        if (mDeviceIndex >= deviceScanner.GetNumDevices ()) {
+                throw string("Device index exceeds number of available devices!");
+        }
 
         //      Using a reference to the discovered device list,
         //      and the index number of the device of interest (mDeviceIndex),
         //      get information about that particular device...
         NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [mDeviceIndex]);
-        if (!mDevice.Open (info.boardNumber, false, info.boardType))
-                throw 1;
+        if (!mDevice.Open (mDeviceIndex))
+                throw string("Unable to open device.");
 
         if (!mDevice.AcquireStreamForApplication (app, static_cast <uint32_t> (AJAProcess::GetPid ())))
-                throw 1;
+                throw string("Cannot aquire stream.");
 
         mDevice.GetEveryFrameServices (&mSavedTaskMode);        //      Save the current state before we change it
         mDevice.SetEveryFrameServices (NTV2_OEM_TASKS);
 
         //      Keep the device ID handy as it will be used frequently...
-        mDeviceID = mDevice.GetBoardID ();
-
-        //      Sometimes other applications disable some or all of the frame buffers, so turn on ours no w...
-        mDevice.EnableChannel (mInputChannel);
+        mDeviceID = mDevice.GetDeviceID ();
 
         //      Set up the video and audio...
         status = SetupVideo ();
         if (AJA_FAILURE (status))
-                throw status;
+                throw string("Cannot setup video. Err = ") + to_string(status);
 
         status = SetupAudio ();
         if (AJA_FAILURE (status))
-                throw status;
+                throw string("Cannot setup audio. Err = ") + to_string(status);
 
         //      Set up the circular buffers, the device signal routing, and both playout and capture Auto Circulate...
         SetupHostBuffers ();
-        RouteInputSignal ();
         SetupInputAutoCirculate ();
 
         //      This is for the timecode that we will burn onto the image...
@@ -214,15 +226,6 @@ vidcap_state_aja::~vidcap_state_aja() {
         free(mAudio.data);
 }
 
-static const NTV2ReferenceSource        inputSrcToRefSrc [] = { NTV2_REFERENCE_INPUT1,
-        NTV2_REFERENCE_ANALOG_INPUT, NTV2_REFERENCE_INPUT2, NTV2_REFERENCE_HDMI_INPUT,
-        NTV2_NUM_REFERENCE_INPUTS, NTV2_NUM_REFERENCE_INPUTS, NTV2_REFERENCE_INPUT3,
-        NTV2_REFERENCE_INPUT4, NTV2_NUM_REFERENCE_INPUTS, NTV2_NUM_REFERENCE_INPUTS,
-        NTV2_NUM_REFERENCE_INPUTS, NTV2_NUM_REFERENCE_INPUTS, NTV2_NUM_REFERENCE_INPUTS,
-        NTV2_NUM_REFERENCE_INPUTS, NTV2_REFERENCE_INPUT5, NTV2_REFERENCE_INPUT6, NTV2_REFERENCE_INPUT7,
-        NTV2_REFERENCE_INPUT8, NTV2_NUM_REFERENCE_INPUTS
-};
-
 static const unordered_map<NTV2Standard, interlacing_t, hash<int>> interlacing_map = {
         { NTV2_STANDARD_525, INTERLACED_MERGED },
         { NTV2_STANDARD_625, INTERLACED_MERGED },
@@ -242,6 +245,128 @@ static const unordered_map<NTV2FrameBufferFormat, codec_t, hash<int>> codec_map 
         { NTV2_FBF_24BIT_BGR, BGR },
 };
 
+static const NTV2InputCrosspointID gCSCVideoInput [] = {
+        NTV2_XptCSC1VidInput, NTV2_XptCSC2VidInput, NTV2_XptCSC3VidInput,
+        NTV2_XptCSC4VidInput, NTV2_XptCSC5VidInput, NTV2_XptCSC6VidInput,
+        NTV2_XptCSC7VidInput, NTV2_XptCSC8VidInput };
+
+static const NTV2OutputCrosspointID gSDIInputOutputs[] = {
+        NTV2_XptSDIIn1, NTV2_XptSDIIn2, NTV2_XptSDIIn3, NTV2_XptSDIIn4,
+        NTV2_XptSDIIn5, NTV2_XptSDIIn6, NTV2_XptSDIIn7, NTV2_XptSDIIn8 };
+
+static const NTV2InputCrosspointID gFrameBufferInput[] = {
+        NTV2_XptFrameBuffer1Input, NTV2_XptFrameBuffer2Input,
+        NTV2_XptFrameBuffer3Input, NTV2_XptFrameBuffer4Input,
+        NTV2_XptFrameBuffer5Input, NTV2_XptFrameBuffer6Input,
+        NTV2_XptFrameBuffer7Input, NTV2_XptFrameBuffer8Input };
+
+static const NTV2OutputCrosspointID gCSCVidRGBOutput[]  __attribute__((unused)) = {
+        NTV2_XptCSC1VidRGB, NTV2_XptCSC2VidRGB, NTV2_XptCSC3VidRGB,
+        NTV2_XptCSC4VidRGB, NTV2_XptCSC5VidRGB, NTV2_XptCSC6VidRGB,
+        NTV2_XptCSC7VidRGB, NTV2_XptCSC8VidRGB };
+
+static const NTV2OutputCrosspointID gCSCVidYUVOutput[] = {
+        NTV2_XptCSC1VidYUV, NTV2_XptCSC2VidYUV, NTV2_XptCSC3VidYUV,
+        NTV2_XptCSC4VidYUV, NTV2_XptCSC5VidYUV, NTV2_XptCSC6VidYUV,
+        NTV2_XptCSC7VidYUV, NTV2_XptCSC8VidYUV };
+
+static const NTV2OutputCrosspointID gHDMIInYUVOutputs[] = {
+        NTV2_XptHDMIIn, NTV2_XptHDMIInQ2, NTV2_XptHDMIInQ3, NTV2_XptHDMIInQ4 };
+
+static const NTV2OutputCrosspointID gHDMIInRGBOutputs[] = {
+        NTV2_XptHDMIInRGB, NTV2_XptHDMIInQ2RGB, NTV2_XptHDMIInQ3RGB, NTV2_XptHDMIInQ4RGB };
+
+static bool get4KInputFormat (NTV2VideoFormat & videoFormat)
+{
+        bool    status  (false);
+        struct  VideoFormatPair
+        {
+                NTV2VideoFormat vIn;
+                NTV2VideoFormat vOut;
+        } VideoFormatPairs [] = {       //                      vIn                                     vOut
+                {NTV2_FORMAT_1080psf_2398,              NTV2_FORMAT_4x1920x1080psf_2398},
+                {NTV2_FORMAT_1080psf_2400,              NTV2_FORMAT_4x1920x1080psf_2400},
+                {NTV2_FORMAT_1080p_2398,                NTV2_FORMAT_4x1920x1080p_2398},
+                {NTV2_FORMAT_1080p_2400,                NTV2_FORMAT_4x1920x1080p_2400},
+                {NTV2_FORMAT_1080p_2500,                NTV2_FORMAT_4x1920x1080p_2500},
+                {NTV2_FORMAT_1080p_2997,                NTV2_FORMAT_4x1920x1080p_2997},
+                {NTV2_FORMAT_1080p_3000,                NTV2_FORMAT_4x1920x1080p_3000},
+                {NTV2_FORMAT_1080p_5000,                NTV2_FORMAT_4x1920x1080p_5000},
+                {NTV2_FORMAT_1080p_5994,                NTV2_FORMAT_4x1920x1080p_5994},
+                {NTV2_FORMAT_1080p_6000,                NTV2_FORMAT_4x1920x1080p_6000},
+                {NTV2_FORMAT_1080p_2K_2398,             NTV2_FORMAT_4x2048x1080p_2398},
+                {NTV2_FORMAT_1080p_2K_2400,             NTV2_FORMAT_4x2048x1080p_2400},
+                {NTV2_FORMAT_1080p_2K_2500,             NTV2_FORMAT_4x2048x1080p_2500},
+                {NTV2_FORMAT_1080p_2K_2997,             NTV2_FORMAT_4x2048x1080p_2997},
+                {NTV2_FORMAT_1080p_2K_3000,             NTV2_FORMAT_4x2048x1080p_3000},
+                {NTV2_FORMAT_1080p_2K_5000,             NTV2_FORMAT_4x2048x1080p_5000},
+                {NTV2_FORMAT_1080p_2K_5994,             NTV2_FORMAT_4x2048x1080p_5994},
+                {NTV2_FORMAT_1080p_2K_6000,             NTV2_FORMAT_4x2048x1080p_6000},
+
+                {NTV2_FORMAT_1080p_5000_A,              NTV2_FORMAT_4x1920x1080p_5000},
+                {NTV2_FORMAT_1080p_5994_A,              NTV2_FORMAT_4x1920x1080p_5994},
+                {NTV2_FORMAT_1080p_6000_A,              NTV2_FORMAT_4x1920x1080p_6000},
+
+                {NTV2_FORMAT_1080p_2K_5000_A,           NTV2_FORMAT_4x2048x1080p_5000},
+                {NTV2_FORMAT_1080p_2K_5994_A,           NTV2_FORMAT_4x2048x1080p_5994},
+                {NTV2_FORMAT_1080p_2K_6000_A,           NTV2_FORMAT_4x2048x1080p_6000}
+
+        };
+
+        for (size_t formatNdx = 0; formatNdx < sizeof (VideoFormatPairs) / sizeof (VideoFormatPair); formatNdx++) {
+                if (VideoFormatPairs [formatNdx].vIn == videoFormat) {
+                        videoFormat = VideoFormatPairs [formatNdx].vOut;
+                        status = true;
+                }
+        }
+
+        return status;
+}       //      get4KInputFormat
+
+NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
+{
+        NTV2VideoFormat videoFormat     (NTV2_FORMAT_UNKNOWN);
+
+        switch (mInputSource)
+        {
+                case NTV2_INPUTSOURCE_SDI1:
+                case NTV2_INPUTSOURCE_SDI5:
+                {
+                        const ULWord    ndx     (::GetIndexForNTV2InputSource (mInputSource));
+                        if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
+                                mDevice.SetMultiFormatMode (true);
+                        videoFormat = mDevice.GetInputVideoFormat(::GetNTV2InputSourceForIndex (ndx + 0));
+                        NTV2Standard    videoStandard   (::GetNTV2StandardFromVideoFormat (videoFormat));
+                        if (mCheckFor4K && (videoStandard == NTV2_STANDARD_1080p))
+                        {
+                                if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
+                                        mDevice.SetMultiFormatMode (false);
+                                NTV2VideoFormat videoFormatNext (mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 1)));
+                                if (videoFormatNext == videoFormat)
+                                {
+                                        videoFormatNext = mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 2));
+                                        if (videoFormatNext == videoFormat)
+                                        {
+                                                videoFormatNext = mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 3));
+                                                if (videoFormatNext == videoFormat)
+                                                        get4KInputFormat (videoFormat);
+                                        }
+                                }
+                        }
+                        break;
+                }
+
+                case NTV2_NUM_INPUTSOURCES:
+                        break;                  //      indicates no source is currently selected
+
+                default:
+                        videoFormat = mDevice.GetInputVideoFormat (mInputSource);
+                        break;
+        }
+
+        return videoFormat;
+}       //      GetVideoFormatFromInputSource
+
 AJAStatus vidcap_state_aja::SetupVideo()
 {
         //      Set the video format to match the incomming video format.
@@ -249,18 +374,33 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (!::NTV2BoardCanDoInputSource (mDeviceID, mInputSource))
                 return AJA_STATUS_BAD_PARAM;    //      Nope
 
+        mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
+        if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
+                mTimeCodeSource = ::NTV2ChannelToTimecodeSource (mInputChannel);
+        else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
+                mTimeCodeSource = NTV2_TCSOURCE_LTC1;
+        else
+                mTimeCodeSource = NTV2_TCSOURCE_DEFAULT;
+
+        //      Bi-directional SDI connectors need to be set to capture...
+        if (NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
+        {
+                mDevice.SetSDITransmitEnable (mInputChannel, false);       //      Disable transmit mode...
+                for (unsigned ndx (0);  ndx < 10;  ndx++)
+                        mDevice.WaitForInputVerticalInterrupt (mInputChannel);     //      ...and give the device some time to lock to a signal
+        }
+
         //      Determine the input video signal format...
-        mVideoFormat = mDevice.GetInputVideoFormat (mInputSource, mProgressive);
+        mVideoFormat =  GetVideoFormatFromInputSource();
         //mVideoFormat = NTV2_FORMAT_4x1920x1080p_2500;
         //mVideoFormat = NTV2_FORMAT_1080p_5000_A;
         if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
         {
-                cerr << "## ERROR:  No input signal or unknown format" << endl;
+                LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format" << endl;
                 return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
         }
 
         //      Set the device video format to whatever we detected at the input...
-        mDevice.SetReferenceSource (inputSrcToRefSrc [mInputSource]);
         mDevice.SetVideoFormat (mVideoFormat, false, false, mInputChannel);
 
         //      Set the frame buffer pixel format for all the channels on the device
@@ -268,7 +408,46 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (!::NTV2BoardCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
                 mPixelFormat = NTV2_FBF_8BIT_YCBCR;
 
-        mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
+        mDevice.SetReference (NTV2_REFERENCE_FREERUN);
+
+        CNTV2SignalRouter       router;
+
+        if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
+                for (unsigned offset (0);  offset < 4;  offset++) {
+                        router.AddConnection (gFrameBufferInput [mInputChannel + offset], gSDIInputOutputs [mInputChannel + offset]);
+                        mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat);
+                        mDevice.EnableChannel (NTV2Channel (mInputChannel + offset));
+                        if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
+                                break;
+                }
+        } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG) {
+                router.AddConnection (gFrameBufferInput [NTV2_CHANNEL1], NTV2_XptAnalogIn);
+                mDevice.SetFrameBufferFormat (NTV2_CHANNEL1, mPixelFormat);
+                mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
+        } else if (mInputSource == NTV2_INPUTSOURCE_HDMI) {
+                NTV2LHIHDMIColorSpace   hdmiColor       (NTV2_LHIHDMIColorSpaceRGB);
+                mDevice.GetHDMIInputColor (hdmiColor);
+                mDevice.SetReference (NTV2_REFERENCE_HDMI_INPUT);
+                mDevice.SetHDMIV2Mode (NTV2_HDMI_V2_4K_CAPTURE);              //      Allow 4K HDMI capture
+                for (unsigned chan (0);  chan < 4;  chan++) {
+                        mDevice.EnableChannel (NTV2Channel (chan));
+                        mDevice.SetMode (NTV2Channel (chan), NTV2_MODE_CAPTURE);
+                        mDevice.SetFrameBufferFormat (NTV2Channel (chan), mPixelFormat);
+                        if (hdmiColor == NTV2_LHIHDMIColorSpaceYCbCr) {
+                                router.AddConnection (gFrameBufferInput [chan], gHDMIInYUVOutputs [chan]);
+                        } else {
+                                router.AddConnection (gCSCVideoInput [chan], gHDMIInRGBOutputs [chan]);
+                                router.AddConnection (gFrameBufferInput [chan], gCSCVidYUVOutput [chan]);
+                        }
+                        if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
+                                break;
+                }       //      loop once for single channel, or 4 times for 4K/UHD
+        }
+        else {
+                LOG(LOG_LEVEL_WARNING) << "## DEBUG:  NTV2FrameGrabber::SetupInput:  Bad mInputSource switch value " << ::NTV2InputSourceToChannelSpec (mInputSource);
+        }
+
+        mDevice.ApplySignalRoute (router);
 
         //      Enable and subscribe to the interrupts for the channel to be used...
         mDevice.EnableInputInterrupt (mInputChannel);
@@ -296,12 +475,12 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mDevice.SetAudioSystemInputSource (mAudioSystem, mInputSource);
 
         mMaxAudioChannels = ::NTV2BoardGetMaxAudioChannels (mDeviceID);
-        mDevice.SetNumberAudioChannels (mMaxAudioChannels, mInputChannel);
-        mDevice.SetAudioRate (NTV2_AUDIO_48K, mInputChannel);
+        mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource));
+        mDevice.SetAudioRate (NTV2_AUDIO_48K, NTV2InputSourceToAudioSystem(mInputSource));
 
         //      How big should the on-device audio buffer be?   1MB? 2MB? 4MB? 8MB?
         //      For this demo, 4MB will work best across all platforms (Windows, Mac & Linux)...
-        mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, mInputChannel);
+        mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, NTV2InputSourceToAudioSystem(mInputSource));
 
         if (mMaxAudioChannels < (int) audio_capture_channels)
         {
@@ -342,59 +521,6 @@ void vidcap_state_aja::SetupHostBuffers (void)
         }       //      for each AVDataBuffer
 
 }       //      SetupHostBuffers
-
-void vidcap_state_aja::RouteInputSignal (void)
-{
-        //      For this simple example, tie the user-selected input to frame buffer 1.
-        //      Is this user-selected input supported on the device?
-        if(!::NTV2BoardCanDoInputSource (mDeviceID, mInputSource))
-                mInputSource = NTV2_INPUTSOURCE_SDI1;
-
-        ULWord  inputIdentifier (NTV2_XptSDIIn1);
-        switch (mInputSource)
-        {
-                case NTV2_INPUTSOURCE_SDI2: inputIdentifier = NTV2_XptSDIIn2; break;
-                case NTV2_INPUTSOURCE_SDI3: inputIdentifier = NTV2_XptSDIIn3; break;
-                case NTV2_INPUTSOURCE_SDI4: inputIdentifier = NTV2_XptSDIIn4; break;
-                case NTV2_INPUTSOURCE_HDMI: inputIdentifier = NTV2_XptHDMIIn; break;
-                case NTV2_INPUTSOURCE_ANALOG: inputIdentifier = NTV2_XptAnalogIn; break;
-                default: break;
-        }
-
-        //      Use a "Routing" object, which handles the details of writing
-        //      the appropriate values into the appropriate device registers...
-        CNTV2SignalRouter       router;
-        if (IsRGBFormat (mPixelFormat))
-        {
-                //      If the frame buffer is configured for RGB pixel format, incoming YUV must be converted.
-                //      This routes the video signal from the input through a color space converter before
-                //      connecting to the RGB frame buffer...
-                router.addWithValue (::GetCSC1VidInputSelectEntry (), inputIdentifier);
-                router.addWithValue (::GetFrameBuffer1InputSelectEntry(), NTV2_XptCSC1VidRGB);
-        }
-        else
-        {
-                //      This routes the YCbCr signal directly from the input to the frame buffer...
-                router.addWithValue (::GetFrameBuffer1InputSelectEntry(), inputIdentifier);
-        }
-        //      Disable SDI output from the SDI input being used,
-        //      but only if the device supports bi-directional SDI,
-        //      and only if the input being used is an SDI input...
-        if (::NTV2BoardHasBiDirectionalSDI (mDeviceID)
-                        && mInputSource != NTV2_INPUTSOURCE_HDMI && mInputSource != NTV2_INPUTSOURCE_ANALOG)
-                switch (mInputSource)
-                {
-                        case NTV2_INPUTSOURCE_SDI1:     mDevice.SetSDITransmitEnable (NTV2_CHANNEL1, false);    break;
-                        case NTV2_INPUTSOURCE_SDI2:     mDevice.SetSDITransmitEnable (NTV2_CHANNEL2, false);    break;
-                        case NTV2_INPUTSOURCE_SDI3:     mDevice.SetSDITransmitEnable (NTV2_CHANNEL3, false);    break;
-                        case NTV2_INPUTSOURCE_SDI4:     mDevice.SetSDITransmitEnable (NTV2_CHANNEL4, false);    break;
-                        default:                                                                                                                                                        break;
-                }
-
-        //      Replace the device's current signal routing with this new one...
-        mDevice.ApplySignalRoute (router, true);
-
-}       //      RouteInputSignal
 
 static NTV2Crosspoint   channelToInputCrosspoint []     = {     NTV2CROSSPOINT_INPUT1,  NTV2CROSSPOINT_INPUT2,  NTV2CROSSPOINT_INPUT3,  NTV2CROSSPOINT_INPUT4,
         NTV2CROSSPOINT_INPUT5,  NTV2CROSSPOINT_INPUT6,  NTV2CROSSPOINT_INPUT7,  NTV2CROSSPOINT_INPUT8,  NTV2_NUM_CROSSPOINTS};
@@ -575,10 +701,37 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         return NULL;
 }
 
+static void show_help() {
+        printf("Usage:\n");
+        printf("\t-t aja[:device=<idx>][:progressive][:4K]\n");
+        printf("\n");
+
+        printf("progressive\n");
+        printf("\tVideo input is progressive.\n");
+        printf("\n");
+
+        printf("4K\n");
+        printf("\tVideo input is 4K.\n");
+        printf("\n");
+
+        printf("Available devices:\n");
+        CNTV2DeviceScanner      deviceScanner;
+        for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
+                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
+                cout << "\t" << i << ") " << info.deviceIdentifier << ". " << info;
+        }
+        cout << "\n";
+}
+
 static int vidcap_aja_init(const struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));
+        if (strcmp(tmp, "help") == 0) {
+                show_help();
+                free(tmp);
+                return VIDCAP_INIT_NOERR;
+        }
         char *item, *save_ptr, *cfg = tmp;
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
                 char *key_cstr = item;
@@ -597,6 +750,10 @@ static int vidcap_aja_init(const struct vidcap_params *params, void **state)
         try {
                 ret = new vidcap_state_aja(parameters_map);
                 ret->Run();
+        } catch (string const & s) {
+                LOG(LOG_LEVEL_ERROR) << "[AJA cap.] " << s << "\n";
+                delete ret;
+                return VIDCAP_INIT_FAIL;
         } catch (...) {
                 delete ret;
                 return VIDCAP_INIT_FAIL;
