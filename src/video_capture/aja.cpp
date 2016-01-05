@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET z.s.p.o.
+ * Copyright (c) 2015-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@ class vidcap_state_aja {
                 void SetupHostBuffers();
                 void SetupInputAutoCirculate();
                 NTV2VideoFormat GetVideoFormatFromInputSource();
-
+                void EnableInput(NTV2InputSource source);
 
                 /**
                   @brief  Starts my frame consumer thread.
@@ -142,6 +142,20 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         mCheckFor4K = true;
                 } else if (it.first == "device") {
                         mDeviceIndex = stol(it.second, nullptr, 10);
+                } else if (it.first == "source") {
+                        NTV2InputSource source{};
+                        while (source != NTV2_INPUTSOURCE_INVALID) {
+                                if (NTV2InputSourceToString(source, true) == it.second) {
+                                        mInputSource = source;
+                                        break;
+                                }
+                                // should be this, but GetNTV2InputSourceForIndex knows only SDIs
+                                //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
+                                source = (NTV2InputSource) ((int) source + 1);
+                        }
+                        if (source == NTV2_INPUTSOURCE_INVALID) {
+                                throw string("Unknown source " + it.second + "!");
+                        }
                 } else {
                         throw string("Unknown option: ") + it.second;
                 }
@@ -332,26 +346,37 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                 case NTV2_INPUTSOURCE_SDI1:
                 case NTV2_INPUTSOURCE_SDI5:
                 {
+                        NTV2InputSource source;
                         const ULWord    ndx     (::GetIndexForNTV2InputSource (mInputSource));
                         if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
                                 mDevice.SetMultiFormatMode (true);
-                        videoFormat = mDevice.GetInputVideoFormat(::GetNTV2InputSourceForIndex (ndx + 0));
+                        source = ::GetNTV2InputSourceForIndex (ndx + 0);
+                        EnableInput(source);
+                        videoFormat = mDevice.GetInputVideoFormat(source);
                         NTV2Standard    videoStandard   (::GetNTV2StandardFromVideoFormat (videoFormat));
                         if (mCheckFor4K && (videoStandard == NTV2_STANDARD_1080p))
                         {
                                 if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
                                         mDevice.SetMultiFormatMode (false);
-                                NTV2VideoFormat videoFormatNext (mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 1)));
-                                if (videoFormatNext == videoFormat)
-                                {
-                                        videoFormatNext = mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 2));
-                                        if (videoFormatNext == videoFormat)
-                                        {
-                                                videoFormatNext = mDevice.GetInputVideoFormat (::GetNTV2InputSourceForIndex (ndx + 3));
-                                                if (videoFormatNext == videoFormat)
-                                                        get4KInputFormat (videoFormat);
+                                int i;
+                                bool allSDISameInput = true;
+                                NTV2VideoFormat videoFormatNext;
+                                for (i = 1; i < 4; i++) {
+                                        source = ::GetNTV2InputSourceForIndex (ndx + i);
+                                        EnableInput(source);
+                                        videoFormatNext = mDevice.GetInputVideoFormat (source);
+                                        if (videoFormatNext != videoFormat) {
+                                                allSDISameInput = false;
+                                                break;
                                         }
                                 }
+                                if (allSDISameInput)
+                                        get4KInputFormat (videoFormat);
+                                else
+                                        LOG(LOG_LEVEL_WARNING) << "Input " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx + i), true) << " has input format " << NTV2VideoFormatToString(videoFormatNext) << " which differs from " << NTV2VideoFormatToString(videoFormat) << " on " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx), true) << "!\n";
+                        }
+                        if (mCheckFor4K && (videoStandard != NTV2_STANDARD_1080p)) {
+                                log_msg(LOG_LEVEL_WARNING, "Video format on first SDI is not 1080p!\n");
                         }
                         break;
                 }
@@ -367,6 +392,19 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
         return videoFormat;
 }       //      GetVideoFormatFromInputSource
 
+void vidcap_state_aja::EnableInput(NTV2InputSource source)
+{
+        //      Bi-directional SDI connectors need to be set to capture...
+        if (NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (source))
+        {
+                NTV2Channel channel = ::NTV2InputSourceToChannel(source);
+                mDevice.SetSDITransmitEnable (channel, false);       //      Disable transmit mode...
+                for (unsigned ndx (0);  ndx < 10;  ndx++)
+                        mDevice.WaitForInputVerticalInterrupt (channel);     //      ...and give the device some time to lock to a signal
+        }
+
+}
+
 AJAStatus vidcap_state_aja::SetupVideo()
 {
         //      Set the video format to match the incomming video format.
@@ -381,14 +419,6 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mTimeCodeSource = NTV2_TCSOURCE_LTC1;
         else
                 mTimeCodeSource = NTV2_TCSOURCE_DEFAULT;
-
-        //      Bi-directional SDI connectors need to be set to capture...
-        if (NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
-        {
-                mDevice.SetSDITransmitEnable (mInputChannel, false);       //      Disable transmit mode...
-                for (unsigned ndx (0);  ndx < 10;  ndx++)
-                        mDevice.WaitForInputVerticalInterrupt (mInputChannel);     //      ...and give the device some time to lock to a signal
-        }
 
         //      Determine the input video signal format...
         mVideoFormat =  GetVideoFormatFromInputSource();
@@ -619,7 +649,7 @@ void vidcap_state_aja::CaptureFrames (void)
         while (!mGlobalQuit)
         {
                 AUTOCIRCULATE_STATUS_STRUCT     acStatus;
-                mDevice.GetAutoCirculate (NTV2CROSSPOINT_INPUT1, &acStatus);
+                mDevice.GetAutoCirculate (mInputTransferStruct.channelSpec, &acStatus);
 
                 if (acStatus.state == NTV2_AUTOCIRCULATE_RUNNING && acStatus.bufferLevel > 1)
                 {
@@ -676,6 +706,8 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
                         mFrameCaptured = true;
                         mFrames += 1;
 
+                        LOG(LOG_LEVEL_VERBOSE) << "[AJA] Received frame with timestamp " << playData->fRP188Data << '\n';
+
                         for (unsigned int i = 0; i < audio_capture_channels; i++) {
                                 remux_channel(mAudio.data, (char *) playData->fAudioBuffer, mAudio.bps,
                                                 playData->fAudioBufferSize, mMaxAudioChannels,
@@ -703,7 +735,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 
 static void show_help() {
         printf("Usage:\n");
-        printf("\t-t aja[:device=<idx>][:progressive][:4K]\n");
+        printf("\t-t aja[:device=<idx>][:progressive][:4K][:source=<src>]\n");
         printf("\n");
 
         printf("progressive\n");
@@ -712,6 +744,10 @@ static void show_help() {
 
         printf("4K\n");
         printf("\tVideo input is 4K.\n");
+        printf("\n");
+
+        printf("source\n");
+        printf("\tSource can be one of SDIX (replace X with index, starting with 1), HDMI, or Analog.\n");
         printf("\n");
 
         printf("Available devices:\n");
