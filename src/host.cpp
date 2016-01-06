@@ -9,6 +9,7 @@
 
 #include "host.h"
 
+#include "audio/audio_capture.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "video_capture.h"
@@ -101,6 +102,20 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ";" <<
                                 devices[i].repeatable << ")\n";
+                }
+                free(devices);
+        }
+
+        cout << "[cap] Audio capturers:" << endl;
+        auto const & audio_capabilities =
+                get_libraries_for_class(LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+        for (auto const & it : audio_capabilities) {
+                auto aci = static_cast<const struct audio_capture_info *>(it.second);
+                int count;
+                struct device_info *devices;
+                aci->probe(&devices, &count);
+                for (int i = 0; i < count; ++i) {
+                        cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ")\n";
                 }
                 free(devices);
         }

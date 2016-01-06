@@ -239,6 +239,11 @@ enum tx_media_type {
         TX_MEDIA_VIDEO
 };
 
+struct device_info {
+        char id[1024];
+        char name[1024];
+};
+
 struct vidcap_params;
 
 #ifdef __cplusplus

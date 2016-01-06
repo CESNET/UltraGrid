@@ -74,6 +74,30 @@ struct state_sdi_capture {
 
 static void audio_cap_sdi_help(const char *driver_name);
 
+static void audio_cap_sdi_probe_common(struct device_info **available_devices, int *count, 
+                const char *id, const char *name)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, id);
+        strcpy((*available_devices)[0].name, name);
+        *count = 1;
+}
+
+static void audio_cap_sdi_probe_embedded(struct device_info **available_devices, int *count)
+{
+        audio_cap_sdi_probe_common(available_devices, count, "embedded", "Embedded SDI/HDMI audio");
+}
+
+static void audio_cap_sdi_probe_aesebu(struct device_info **available_devices, int *count)
+{
+        audio_cap_sdi_probe_common(available_devices, count, "AESEBU", "Digital AES/EBU audio");
+}
+
+static void audio_cap_sdi_probe_analog(struct device_info **available_devices, int *count)
+{
+        audio_cap_sdi_probe_common(available_devices, count, "analog", "Analog audio through capture card");
+}
+
 static void * audio_cap_sdi_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
@@ -172,16 +196,32 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         s->audio_frame_ready_cv.notify_one();
 }
 
-
-static const struct audio_capture_info acap_sdi_info = {
+static const struct audio_capture_info acap_sdi_info_embedded = {
+        audio_cap_sdi_probe_embedded,
         audio_cap_sdi_help,
         audio_cap_sdi_init,
         audio_cap_sdi_read,
         audio_cap_sdi_done
 };
 
-REGISTER_MODULE(embedded, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-REGISTER_MODULE(AESEBU, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-REGISTER_MODULE(analog, &acap_sdi_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+static const struct audio_capture_info acap_sdi_info_aesebu = {
+        audio_cap_sdi_probe_aesebu,
+        audio_cap_sdi_help,
+        audio_cap_sdi_init,
+        audio_cap_sdi_read,
+        audio_cap_sdi_done
+};
+
+static const struct audio_capture_info acap_sdi_info_analog = {
+        audio_cap_sdi_probe_analog,
+        audio_cap_sdi_help,
+        audio_cap_sdi_init,
+        audio_cap_sdi_read,
+        audio_cap_sdi_done
+};
+
+REGISTER_MODULE(embedded, &acap_sdi_info_embedded, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(AESEBU, &acap_sdi_info_aesebu, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(analog, &acap_sdi_info_analog, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
 /* vim: set expandtab: sw=8 */

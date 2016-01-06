@@ -87,6 +87,14 @@ struct state_audio_capture_testcard {
         unsigned int total_samples;
 };
 
+static void audio_cap_testcard_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "testcard");
+        strcpy((*available_devices)[0].name, "Testing EBU signal");
+        *count = 1;
+}
+
 static void audio_cap_testcard_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -281,6 +289,7 @@ static void audio_cap_testcard_done(void *state)
 }
 
 static const struct audio_capture_info acap_testcard_info = {
+        audio_cap_testcard_probe,
         audio_cap_testcard_help,
         audio_cap_testcard_init,
         audio_cap_testcard_read,

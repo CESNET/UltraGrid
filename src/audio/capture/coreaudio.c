@@ -185,6 +185,17 @@ static OSStatus InputProc(void *inRefCon,
         return err;
 }
 
+static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "ca");
+        strcpy((*available_devices)[0].name, "Default OS X audio input");
+        *count = 1;
+}
+
+
+}
+
 static void audio_cap_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -494,6 +505,7 @@ static void audio_cap_ca_done(void *state)
 }
 
 static const struct audio_capture_info acap_coreaudio_info = {
+        audio_cap_ca_probe,
         audio_cap_ca_help,
         audio_cap_ca_init,
         audio_cap_ca_read,

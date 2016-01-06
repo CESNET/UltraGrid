@@ -107,6 +107,14 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         return 0;
 }
 
+static void audio_cap_jack_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "jack");
+        strcpy((*available_devices)[0].name, "JACK audio input");
+        *count = 1;
+}
+
 static void audio_cap_jack_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -277,6 +285,7 @@ static void audio_cap_jack_done(void *state)
 }
 
 static const struct audio_capture_info acap_jack_info = {
+        audio_cap_jack_probe,
         audio_cap_jack_help,
         audio_cap_jack_init,
         audio_cap_jack_read,

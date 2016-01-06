@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,6 +81,14 @@ struct state_alsa_capture {
 
         bool non_interleaved;
 };
+
+static void audio_cap_alsa_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "alsa");
+        strcpy((*available_devices)[0].name, "Default Linux audio input");
+        *count = 1;
+}
 
 static void audio_cap_alsa_help(const char *driver_name)
 {
@@ -389,6 +397,7 @@ static void audio_cap_alsa_done(void *state)
 }
 
 static const struct audio_capture_info acap_alsa_info = {
+        audio_cap_alsa_probe,
         audio_cap_alsa_help,
         audio_cap_alsa_init,
         audio_cap_alsa_read,

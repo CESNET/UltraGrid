@@ -44,13 +44,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "../types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define AUDIO_CAPTURE_ABI_VERSION 1
+#define AUDIO_CAPTURE_ABI_VERSION 2
 
 struct audio_capture_info {
+        void (*probe)(struct device_info **available_devices, int *count);
         void (*help)(const char *driver_name);
         void *(*init)(const char *cfg);
         struct audio_frame *(*read)(void *state);

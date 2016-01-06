@@ -64,6 +64,12 @@ struct state_audio_capture_none {
         uint32_t magic;
 };
 
+static void audio_cap_none_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = NULL;
+        *count = 0;
+}
+
 static void audio_cap_none_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -95,6 +101,7 @@ static void audio_cap_none_done(void *state)
 }
 
 static const struct audio_capture_info acap_none_info = {
+        audio_cap_none_probe,
         audio_cap_none_help,
         audio_cap_none_init,
         audio_cap_none_read,
