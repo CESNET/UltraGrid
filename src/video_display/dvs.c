@@ -645,7 +645,7 @@ static int display_dvs_reconfigure(void *state,
         return TRUE;
 }
 
-static void display_dvs_probe(struct display_card **available_cards, int *count)
+static void display_dvs_probe(struct device_info **available_cards, int *count)
 {
         *available_cards = NULL;
         *count = 0;

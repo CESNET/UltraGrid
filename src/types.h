@@ -242,6 +242,9 @@ enum tx_media_type {
 struct device_info {
         char id[1024];
         char name[1024];
+        bool repeatable; ///< Whether can be card used multiple times (eg. GL) or it
+                         ///< can output simoultaneously only one output (DeckLink).
+                         ///< Used for video display only.
 };
 
 struct vidcap_params;

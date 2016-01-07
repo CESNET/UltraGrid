@@ -98,7 +98,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
         for (auto const & it : display_capabilities) {
                 auto vdi = static_cast<const struct video_display_info *>(it.second);
                 int count;
-                struct display_card *devices;
+                struct device_info *devices;
                 vdi->probe(&devices, &count);
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ";" <<

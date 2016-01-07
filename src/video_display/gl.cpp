@@ -1222,9 +1222,9 @@ static int display_gl_reconfigure_audio(void *state, int quant_samples, int chan
 }
 
 static const struct video_display_info display_gl_info = {
-        [](struct display_card **available_cards, int *count) {
+        [](struct device_info **available_cards, int *count) {
                 *count = 1;
-                *available_cards = (struct display_card *) calloc(1, sizeof(struct display_card));
+                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
                 strcpy((*available_cards)[0].id, "gl");
                 strcpy((*available_cards)[0].name, "OpenGL SW display");
                 (*available_cards)[0].repeatable = true;

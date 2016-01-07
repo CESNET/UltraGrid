@@ -57,7 +57,7 @@ struct state_null {
         uint32_t magic;
 };
 
-static void display_null_probe(struct display_card **available_cards, int *count)
+static void display_null_probe(struct device_info **available_cards, int *count)
 {
         *available_cards = NULL;
         *count = 0;

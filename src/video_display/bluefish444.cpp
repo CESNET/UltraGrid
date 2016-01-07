@@ -822,14 +822,14 @@ static void show_help(void)
         }
 }
 
-static void display_bluefish444_probe(struct display_card **available_cards, int *count)
+static void display_bluefish444_probe(struct device_info **available_cards, int *count)
 {
         int iDevices;
         CBLUEVELVET_H pSDK = bfcFactory();
         bfcEnumerate(pSDK, iDevices);
         bfcDestroy(pSDK);
 
-        *available_cards = (struct display_card *) calloc(iDevices, sizeof(struct display_card));
+        *available_cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
         *count = iDevices;
         for (int i = 0; i < iDevices; i++) {
                 sprintf((*available_cards)[i].id, "bluefish444:device=%d", iDevices);

@@ -641,9 +641,9 @@ vidcap_decklink_probe(bool verbose)
                                                 for (auto it : connection_string_map) {
                                                         if (connections & it.first) {
                                                                 vt->card_count += 1;
-                                                                vt->cards = (struct vidcap_card *)
-                                                                        realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
-                                                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                                                vt->cards = (struct device_info *)
+                                                                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                                                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
                                                                 snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
                                                                                 "device=%d:connection=%s", numDevices, it.second.c_str());
                                                                 BMD_STR deviceNameString = NULL;

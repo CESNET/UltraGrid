@@ -372,7 +372,7 @@ vidcap_bluefish444_probe(bool verbose)
                         bfcDestroy(pSDK);
 
                         vt->card_count = iDevices;
-                        vt->cards = (struct vidcap_card *) calloc(iDevices, sizeof(struct vidcap_card));
+                        vt->cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
                         for (int i = 0; i < iDevices; ++i) {
                                 snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%d", i + 1);
                                 snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Bluefish444 card #%d", i);

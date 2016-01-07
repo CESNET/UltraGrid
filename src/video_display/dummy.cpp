@@ -129,7 +129,7 @@ static int display_dummy_reconfigure_audio(void *, int, int, int)
 }
 
 static const struct video_display_info display_dummy_info = {
-        [](struct display_card **available_cards, int *count) {
+        [](struct device_info **available_cards, int *count) {
                 *available_cards = nullptr;
                 *count = 0;
         },

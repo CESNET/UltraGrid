@@ -207,7 +207,7 @@ vidcap_deltacast_dvi_probe(bool verbose)
                         ULONG Result,DllVersion,NbBoards;
                         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
                         if (Result == VHDERR_NOERROR) {
-                                vt->cards = (struct vidcap_card *) calloc(NbBoards, sizeof(struct vidcap_card));
+                                vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
                                 vt->card_count = NbBoards;
                                 for (ULONG i = 0; i < NbBoards; ++i) {
                                         string board{"Unknown board type"};

@@ -259,8 +259,8 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                 if(fd == -1) continue;
 
                                 vt->card_count += 1;
-                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct vidcap_card));
-                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct vidcap_card));
+                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
                                 strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
                                 struct v4l2_capability capab;
                                 memset(&capab, 0, sizeof capab);

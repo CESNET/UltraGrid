@@ -249,7 +249,7 @@ static struct vidcap_type * vidcap_screen_x11_probe(bool verbose)
 
                 if (verbose) {
                         vt->card_count = 1;
-                        vt->cards = calloc(vt->card_count, sizeof(struct vidcap_card));
+                        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
                         // vt->cards[0].id can be "" since screen cap. doesn't require parameters
                         snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
                 }

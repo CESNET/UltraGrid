@@ -84,6 +84,8 @@
 #ifndef _VIDEO_CAPTURE_H_
 #define _VIDEO_CAPTURE_H_
 
+#include "types.h"
+
 #define VIDEO_CAPTURE_ABI_VERSION 5
 
 #ifdef __cplusplus
@@ -102,18 +104,13 @@ extern "C" {
 
 struct audio_frame;
 
-struct vidcap_card {
-        char id[1024]; ///< identifier to be passed
-        char name[1024]; ///< card name
-};
-
 /** Defines video capture device */
 struct vidcap_type {
         const char              *name;        ///< short name (one word)
         const char              *description; ///< description of the video device
 
         int                      card_count;
-        struct vidcap_card      *cards;
+        struct device_info      *cards;
 };
 
 struct vidcap_params;

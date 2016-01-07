@@ -321,7 +321,7 @@ error:
         return FALSE;
 }
 
-static void display_deltacast_probe(struct display_card **available_cards, int *count)
+static void display_deltacast_probe(struct device_info **available_cards, int *count)
 {
         *count = 0;
         *available_cards = nullptr;
@@ -344,9 +344,9 @@ static void display_deltacast_probe(struct display_card **available_cards, int *
                 VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
 
                 *count += 1;
-                *available_cards = (struct display_card *)
-                        realloc(*available_cards, *count * sizeof(struct display_card));
-                memset(*available_cards + *count - 1, 0, sizeof(struct display_card));
+                *available_cards = (struct device_info *)
+                        realloc(*available_cards, *count * sizeof(struct device_info));
+                memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
                 sprintf((*available_cards)[*count - 1].id, "deltacast:device=%d", *count - 1);
                 (*available_cards)[*count - 1].repeatable = false;
 

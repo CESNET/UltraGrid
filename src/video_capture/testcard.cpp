@@ -722,7 +722,7 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose)
 
                 if (verbose) {
                         vt->card_count = 1;
-                        vt->cards = (struct vidcap_card *) calloc(vt->card_count, sizeof(struct vidcap_card));
+                        vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
                         snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "1920:1080:25:UYVY:i");
                         snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing 1080@50i signal");
                 }
