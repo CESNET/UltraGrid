@@ -193,9 +193,6 @@ static void audio_cap_ca_probe(struct device_info **available_devices, int *coun
         *count = 1;
 }
 
-
-}
-
 static void audio_cap_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
