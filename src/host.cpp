@@ -55,10 +55,10 @@ void print_capabilities(struct module *root, bool use_vidcap)
         // try to figure out actual input video format
         struct video_desc desc{};
         if (use_vidcap && root) {
-                for (int attempt = 0; attempt < 2; ++attempt) {
+                for (int attempt = 0; attempt < 20; ++attempt) {
                         struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
                         m->type = SENDER_MSG_QUERY_VIDEO_MODE;
-                        struct response *r = send_message_sync(root, "sender", (struct message *) m, 1000);
+                        struct response *r = send_message_sync(root, "sender", (struct message *) m, 100);
                         if (response_get_status(r) == RESPONSE_OK) {
                                 const char *text = response_get_text(r);
                                 istringstream iss(text);
