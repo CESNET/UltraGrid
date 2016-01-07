@@ -67,7 +67,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 break;
                         }
                         free_response(r);
-                        sleep(1);
+                        usleep(100*1000);
                 }
         }
 
