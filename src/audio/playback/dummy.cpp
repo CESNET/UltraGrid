@@ -47,6 +47,12 @@
 
 static int state;
 
+static void audio_play_dummy_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = NULL;
+        *count = 0;
+}
+
 static void audio_play_dummy_help(const char *)
 {
         printf("\tdummy: dummy audio playback\n");
@@ -76,6 +82,7 @@ static int audio_play_dummy_reconfigure(void *, struct audio_desc)
 }
 
 static const struct audio_playback_info aplay_dummy_info = {
+        audio_play_dummy_probe,
         audio_play_dummy_help,
         audio_play_dummy_init,
         audio_play_dummy_put_frame,

@@ -142,6 +142,14 @@ static void print_device_info(PaDeviceIndex device)
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
+static void audio_play_portaudio_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "portaudio");
+        strcpy((*available_devices)[0].name, "Portaudio audio output");
+        *count = 1;
+}
+
 static void audio_play_portaudio_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -433,6 +441,7 @@ static void audio_play_portaudio_put_frame(void *state, struct audio_frame *buff
 }
 
 static const struct audio_playback_info aplay_portaudio_info = {
+        audio_play_portaudio_probe,
         audio_play_portaudio_help,
         audio_play_portaudio_init,
         audio_play_portaudio_put_frame,

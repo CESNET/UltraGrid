@@ -334,6 +334,14 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         return TRUE;
 }
 
+static void audio_play_alsa_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "alsa");
+        strcpy((*available_devices)[0].name, "Default Linux audio output");
+        *count = 1;
+}
+
 static void audio_play_alsa_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -581,6 +589,7 @@ static void audio_play_alsa_done(void *state)
 }
 
 static const struct audio_playback_info aplay_alsa_info = {
+        audio_play_alsa_probe,
         audio_play_alsa_help,
         audio_play_alsa_init,
         audio_play_alsa_put_frame,

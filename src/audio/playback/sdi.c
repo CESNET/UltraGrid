@@ -70,6 +70,29 @@ struct state_sdi_playback {
         int (*get_property_callback)(void *, int, void *, size_t *);
 };
 
+static void audio_play_sdi_probe_common(struct device_info **available_devices, int *count, 
+                const char *id, const char *name)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, id);
+        strcpy((*available_devices)[0].name, name);
+        *count = 1;
+}
+
+static void audio_play_sdi_probe_embedded(struct device_info **available_devices, int *count)
+{
+        audio_play_sdi_probe_common(available_devices, count, "embedded", "Embedded SDI/HDMI audio");
+}
+
+static void audio_play_sdi_probe_aesebu(struct device_info **available_devices, int *count)
+{
+        audio_play_sdi_probe_common(available_devices, count, "AESEBU", "Digital AES/EBU audio");
+}
+
+static void audio_play_sdi_probe_analog(struct device_info **available_devices, int *count)
+{
+        audio_play_sdi_probe_common(available_devices, count, "analog", "Analog audio through capture card");
+}
 
 static void audio_play_sdi_help(const char *driver_name)
 {
@@ -146,7 +169,8 @@ static void audio_play_sdi_done(void *s)
         UNUSED(s);
 }
 
-static const struct audio_playback_info aplay_sdi_info = {
+static const struct audio_playback_info aplay_sdi_info_embedded = {
+        audio_play_sdi_probe_embedded,
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
@@ -155,9 +179,30 @@ static const struct audio_playback_info aplay_sdi_info = {
         audio_play_sdi_done
 };
 
-REGISTER_MODULE(embedded, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-REGISTER_MODULE(AESEBU, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-REGISTER_MODULE(analog, &aplay_sdi_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+static const struct audio_playback_info aplay_sdi_info_aesebu = {
+        audio_play_sdi_probe_aesebu,
+        audio_play_sdi_help,
+        audio_play_sdi_init,
+        audio_play_sdi_put_frame,
+        audio_play_sdi_query_format,
+        audio_play_sdi_reconfigure,
+        audio_play_sdi_done
+};
+
+static const struct audio_playback_info aplay_sdi_info_analog = {
+        audio_play_sdi_probe_analog,
+        audio_play_sdi_help,
+        audio_play_sdi_init,
+        audio_play_sdi_put_frame,
+        audio_play_sdi_query_format,
+        audio_play_sdi_reconfigure,
+        audio_play_sdi_done
+};
+
+
+REGISTER_MODULE(embedded, &aplay_sdi_info_embedded, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+REGISTER_MODULE(AESEBU, &aplay_sdi_info_aesebu, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+REGISTER_MODULE(analog, &aplay_sdi_info_analog, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
 
 /* vim: set expandtab: sw=8 */

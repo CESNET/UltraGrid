@@ -123,7 +123,14 @@ public:
         virtual HRESULT STDMETHODCALLTYPE          ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
-} // end of unnamed namespace
+
+static void audio_play_decklink_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "decklink");
+        strcpy((*available_devices)[0].name, "Output through DeckLink device");
+        *count = 1;
+}
 
 static void audio_play_decklink_help(const char *driver_name)
 {
@@ -439,6 +446,7 @@ static void audio_play_decklink_done(void *state)
 }
 
 static const struct audio_playback_info aplay_decklink_info = {
+        audio_play_decklink_probe,
         audio_play_decklink_help,
         audio_play_decklink_init,
         audio_play_decklink_put_frame,
@@ -448,4 +456,6 @@ static const struct audio_playback_info aplay_decklink_info = {
 };
 
 REGISTER_MODULE(decklink, &aplay_decklink_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+
+} // end of unnamed namespace
 

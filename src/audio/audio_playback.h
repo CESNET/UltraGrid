@@ -46,15 +46,17 @@
  *
  */
 
+#include "../types.h"
 #include "audio/audio.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 2
+#define AUDIO_PLAYBACK_ABI_VERSION 3
 
 struct audio_playback_info {
+        void (*probe)(struct device_info **available_devices, int *count);
         void (*help)(const char *driver_name);
         void *(*init)(const char *cfg);
         void (*write)(void *state, struct audio_frame *frame);

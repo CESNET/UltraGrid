@@ -201,6 +201,14 @@ error:
         return FALSE;
 }
 
+static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+{
+        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "ca");
+        strcpy((*available_devices)[0].name, "Default OS X audio output");
+        *count = 1;
+}
+
 static void audio_play_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
@@ -348,6 +356,7 @@ static void audio_play_ca_done(void *state)
 }
 
 static const struct audio_playback_info aplay_coreaudio_info = {
+        audio_play_ca_probe,
         audio_play_ca_help,
         audio_play_ca_init,
         audio_play_ca_put_frame,
