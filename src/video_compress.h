@@ -46,7 +46,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 5
+#define VIDEO_COMPRESS_ABI_VERSION 6
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,9 +89,6 @@ const char *get_compress_name(struct compress_state *);
  * 
  * @param state        driver internal state
  * @param frame        uncompressed frame
- * @param buffer_index 0 or 1 - driver should have 2 output buffers, filling the selected one.
- *                     Returned video frame should stay valid until requesting compress with the
- *                     same index.
  * @return             compressed frame, may be NULL if compression failed
  */
 typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, std::shared_ptr<video_frame> frame);
@@ -100,14 +97,29 @@ typedef  std::shared_ptr<video_frame> (*compress_frame_t)(struct module *state, 
  * @brief Compresses tile of a video frame
  * 
  * @param[in]     state         driver internal state
- * @param[in]     in_frame      uncompressed frame
- * @param[in]     tile_index    index of tile to be compressed
- * @param         buffer_index  0 or 1 - driver should have 2 output buffers, filling the selected one.
- *                Returned video frame should stay valid until requesting compress with the
- *                same index.
+ * @param[in]     in_frame      uncompressed frame containing exactly one tile
  * @return                      compressed frame with one tile, may be NULL if compression failed
  */
 typedef  std::shared_ptr<video_frame> (*compress_tile_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+
+/**
+ * @brief Passes frame to compress module for async processing.
+ *
+ * compress_frame_async_pop_t() should be called thereafter to fetch compressed frame.
+ *
+ * @param[in]     state         driver internal state
+ * @param[in]     in_frame      uncompressed frame or empty shared_ptr to pass a poisoned pile
+ */
+typedef void (*compress_frame_async_push_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+
+/**
+ * @brief Fetches compressed frame passed with compress_frame_async_push()
+ *
+ * @param[in]     state         driver internal state
+ * @return                      compressed frame, empty shared_ptr corresponding with poisoned
+ *                              pill can be also returned
+ */
+typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(struct module *state);
 
 void compress_frame(struct compress_state *, std::shared_ptr<video_frame>);
 
@@ -125,11 +137,22 @@ struct compress_preset {
         compress_prop dec_prop;
 };
 
+/**
+ * There are 3 possible APIs for video compress modules. Each module may choose
+ * which one to implement, however, only one should be implemented (there is no
+ * "smart" heuristics to pick one if more APIs are implemented). Available options
+ * are:
+ * 1. Frame API - compress entire frame (all tiles)
+ * 2. Tile API - compress one tile
+ * 3. Async API - compress a frame asynchronously
+ */
 struct video_compress_info {
         const char        * name;         ///< compress (unique) name
         compress_init_t     init_func;           ///< compress driver initialization function
         compress_frame_t    compress_frame_func; ///< compress function for Frame API
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
+        compress_frame_async_push_t compress_frame_async_push_func; ///< Async API
+        compress_frame_async_pop_t compress_frame_async_pop_func; ///< Async API
         std::list<compress_preset> (*get_presets)();    ///< list of available presets
 };
 

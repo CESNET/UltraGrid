@@ -348,6 +348,8 @@ const struct video_compress_info uyvy_info = {
         uyvy_compress_init,
         uyvy_compress,
         NULL,
+        NULL,
+        NULL,
         [] {return list<compress_preset>{}; }
 };
 

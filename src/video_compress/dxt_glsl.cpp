@@ -328,6 +328,8 @@ const struct video_compress_info rtdxt_info = {
         dxt_glsl_compress_init,
         dxt_glsl_compress,
         NULL,
+        NULL,
+        NULL,
         [] {
                 return dxt_is_supported() ? list<compress_preset>{
                         { "DXT1", 35, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);},

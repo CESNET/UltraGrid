@@ -287,6 +287,8 @@ const struct video_compress_info cuda_dxt_info = {
         cuda_dxt_compress_init,
         NULL,
         cuda_dxt_compress_tile,
+        NULL,
+        NULL,
         [] { return list<compress_preset>{}; }
 };
 
