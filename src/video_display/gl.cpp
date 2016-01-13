@@ -825,10 +825,6 @@ static bool display_gl_init_opengl(struct state_gl *s)
         GLenum err;
 #endif // HAVE_LINUX
 
-#ifdef HAVE_LINUX
-        x11_enter_thread();
-#endif
-
         glutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 

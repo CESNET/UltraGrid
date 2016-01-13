@@ -494,8 +494,9 @@ int main(int argc, char *argv[])
         bool disable_key_control = false;
         bool start_paused = false;
 
-        uv_argc = argc;
-        uv_argv = argv;
+        if (!common_preinit(argc, argv)) {
+                return EXIT_FAILURE;
+        }
 
 #ifdef USE_MTRACE
         mtrace();
@@ -507,8 +508,6 @@ int main(int argc, char *argv[])
                 usage();
                 return EXIT_FAIL_USAGE;
         }
-
-        open_all("module_*.so"); // load modules
 
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -854,7 +853,6 @@ int main(int argc, char *argv[])
                 }
         }
 
-
         printf("%s", PACKAGE_STRING);
 #ifdef GIT_VERSION
         printf(" (rev %s)", GIT_VERSION);
@@ -940,20 +938,6 @@ int main(int argc, char *argv[])
         if (argc > 0) {
                 requested_receiver = argv[0];
         }
-
-#ifdef WIN32
-        WSADATA wsaData;
-        int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
-        if(err != 0) {
-                fprintf(stderr, "WSAStartup failed with error %d.", err);
-                return EXIT_FAILURE;
-        }
-        if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-                fprintf(stderr, "Counld not found usable version of Winsock.\n");
-                WSACleanup();
-                return EXIT_FAILURE;
-        }
-#endif
 
         if (control_port != -1) {
                 if (control_init(control_port, connection_type, &control, &root_mod) != 0) {

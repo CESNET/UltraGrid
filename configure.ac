@@ -498,6 +498,7 @@ case "$host_os" in
                 X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
                 CFLAGS="$CFLAGS"
+                AC_DEFINE([HAVE_X], [1], [Build with X11 support])
         fi
         ;;
 esac

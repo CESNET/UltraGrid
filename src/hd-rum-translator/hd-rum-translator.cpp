@@ -488,30 +488,14 @@ int main(int argc, char **argv)
     int i;
     struct cmdline_parameters params;
 
-#ifdef WIN32
-    WSADATA wsaData;
-
-    err = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if(err != 0) {
-        fprintf(stderr, "WSAStartup failed with error %d.", err);
-        return EXIT_FAILURE;
-    }
-    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-        fprintf(stderr, "Counld not found usable version of Winsock.\n");
-        WSACleanup();
+    if (!common_preinit(argc, argv)) {
         return EXIT_FAILURE;
     }
 
-#endif
     if (argc == 1) {
         usage(argv[0]);
         return false;
     }
-
-    uv_argc = argc;
-    uv_argv = argv;
-
-    open_all("module_*.so"); // load modules
 
     main_thread_id = pthread_self();
 

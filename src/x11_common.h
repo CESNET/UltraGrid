@@ -49,7 +49,6 @@
 extern "C" {
 #endif
 
-void x11_enter_thread(void);
 /**
  * @arg disp (Display *)
  */

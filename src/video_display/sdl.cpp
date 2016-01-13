@@ -489,10 +489,6 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         int ret;
 	const SDL_VideoInfo *video_info;
 
-#ifdef HAVE_LINUX
-        x11_enter_thread();
-#endif
-
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
                         show_help();

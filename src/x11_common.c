@@ -94,15 +94,6 @@ struct x11_state *get_state() {
         return state;
 }
 
-void x11_enter_thread(void)
-{
-        struct x11_state *s = get_state();
-        pthread_mutex_lock(&s->lock);
-        pthread_once(&s->XInitThreadsHasRun, (void ((*)(void)))XInitThreads);
-        s->threads_init = TRUE;
-        pthread_mutex_unlock(&s->lock);
-}
-
 void x11_set_display(void *disp)
 {
         struct x11_state *s = get_state();

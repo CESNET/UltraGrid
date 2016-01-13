@@ -33,7 +33,6 @@
 bool init_gl_context(struct gl_context *context, int which) {
         context->context = NULL;
 #ifdef HAVE_LINUX
-        x11_enter_thread();
         if(which == GL_CONTEXT_ANY) {
                 debug_msg("Trying OpenGL 3.1 first.\n");
                 context->context = glx_init(MK_OPENGL_VERSION(3,1));

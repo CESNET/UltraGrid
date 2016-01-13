@@ -22,6 +22,10 @@
 #include <set>
 #include <sstream>
 
+#ifdef HAVE_X
+#include <X11/Xlib.h>
+#endif
+
 using namespace std;
 
 unsigned int cuda_device = 0;
@@ -48,6 +52,35 @@ bool color_term = (getenv("TERM") && set<string>{"linux", "screen", "xterm", "xt
 bool ldgm_device_gpu = false;
 
 const char *window_title = NULL;
+
+bool common_preinit(int argc, char *argv[])
+{
+        uv_argc = argc;
+        uv_argv = argv;
+
+#ifdef HAVE_X
+        XInitThreads();
+#endif
+
+#ifdef WIN32
+        WSADATA wsaData;
+        int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if(err != 0) {
+                fprintf(stderr, "WSAStartup failed with error %d.", err);
+                return false;
+        }
+        if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                WSACleanup();
+                return false;
+        }
+#endif
+
+        open_all("module_*.so"); // load modules
+
+        return true;
+}
+
 #include <sstream>
 
 void print_capabilities(struct module *root, bool use_vidcap)
