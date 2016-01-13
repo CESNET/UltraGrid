@@ -198,6 +198,8 @@ struct video_frame {
 
         struct fec_desc fec_params;
         uint32_t ssrc;
+
+        uint32_t seq; ///< sequential number
 };
 
 /**
