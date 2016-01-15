@@ -26,6 +26,10 @@
 #include <X11/Xlib.h>
 #endif
 
+#ifdef USE_MTRACE
+#include <mcheck.h>
+#endif
+
 using namespace std;
 
 unsigned int cuda_device = 0;
@@ -53,6 +57,17 @@ bool ldgm_device_gpu = false;
 
 const char *window_title = NULL;
 
+static void common_cleanup()
+{
+#ifdef USE_MTRACE
+        muntrace();
+#endif
+
+#ifdef WIN32
+        WSACleanup();
+#endif
+}
+
 bool common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -77,6 +92,12 @@ bool common_preinit(int argc, char *argv[])
 #endif
 
         open_all("module_*.so"); // load modules
+
+#ifdef USE_MTRACE
+        mtrace();
+#endif
+
+        atexit(common_cleanup);
 
         return true;
 }

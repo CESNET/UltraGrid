@@ -702,10 +702,6 @@ int main(int argc, char **argv)
 
     qdestroy(state.queue);
 
-#ifdef WIN32
-    WSACleanup();
-#endif
-
     printf("Exit\n");
 
     return 0;

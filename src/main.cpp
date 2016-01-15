@@ -93,10 +93,6 @@
 #include <memory>
 #include <string>
 
-#ifdef USE_MTRACE
-#include <mcheck.h>
-#endif
-
 #define PORT_BASE               5004
 
 #define DEFAULT_AUDIO_FEC       "none"
@@ -497,10 +493,6 @@ int main(int argc, char *argv[])
         if (!common_preinit(argc, argv)) {
                 return EXIT_FAILURE;
         }
-
-#ifdef USE_MTRACE
-        mtrace();
-#endif
 
         vidcap_params_set_device(vidcap_params_head, "none");
 
@@ -1210,14 +1202,6 @@ cleanup:
 
         module_done(&root_mod);
         free(uv);
-
-#ifdef USE_MTRACE
-        muntrace();
-#endif
-
-#ifdef WIN32
-        WSACleanup();
-#endif
 
         printf("Exit\n");
 
