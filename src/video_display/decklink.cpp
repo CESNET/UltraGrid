@@ -41,7 +41,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#define MODULE_NAME "[Decklink display] "
+#define MOD_NAME "[Decklink display] "
 
 #include "blackmagic_common.h"
 #include "host.h"
@@ -282,7 +282,7 @@ static void show_help(void)
         // If no DeckLink cards were found in the system, inform the user
         if (numDevices == 0)
         {
-                printf("\nNo Blackmagic Design devices were found.\n");
+                log_msg(LOG_LEVEL_WARNING, "\nNo Blackmagic Design devices were found.\n");
                 return;
         } 
 
@@ -460,7 +460,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = (s->frames - s->frames_last) / seconds;
-                log_msg(LOG_LEVEL_INFO, "[Decklink display] %lu frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
                 s->tv = tv;
                 s->frames_last = s->frames;
@@ -478,7 +478,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
         if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator)))
         {
-                fprintf(stderr, "Fatal: cannot create display mode iterator [decklink].\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fatal: cannot create display mode iterator.\n");
                 return (BMDDisplayMode) -1;
         }
 
@@ -508,7 +508,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED ? interlaced : !interlaced)
                                   )
                                 {
-                                        printf("DeckLink - selected mode: %s\n", modeNameCString);
+                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s\n", modeNameCString);
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         break;
                                 }
@@ -546,7 +546,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         s->pixelFormat = bmdFormat8BitBGRA;
                         break;
                 default:
-                        fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
         }
 
         for(int i = 0; i < s->devices_cnt; ++i) {
@@ -563,7 +563,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                                &supported, NULL);
                 if(supported == bmdDisplayModeNotSupported)
                 {
-                        fprintf(stderr, "[decklink] Requested parameters combination not supported - %dx%d@%f.\n", desc.width, desc.height, (double)desc.fps);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters combination not supported - %dx%d@%f.\n", desc.width, desc.height, (double)desc.fps);
                         goto error;
                 }
                 
@@ -573,7 +573,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 #endif /* ! defined DECKLINK_LOW_LATENCY */
         } else {
                 if((int) desc.tile_count > s->devices_cnt) {
-                        fprintf(stderr, "[decklink] Expected at most %d streams. Got %d.\n", s->devices_cnt,
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
                                         desc.tile_count);
                         goto error;
                 }
@@ -594,7 +594,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                                &supported, NULL);
 	                if(supported == bmdDisplayModeNotSupported)
 	                {
-                                fprintf(stderr, "[decklink] Requested parameters "
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
                                                 "combination not supported - %d * %dx%d@%f, timecode %s.\n",
                                                 desc.tile_count, desc.width, desc.height, desc.fps,
                                                 (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
@@ -662,10 +662,10 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         deckLinkIterator->Release();
 }
 
-static void parse_devices(const char *devices_str, int *cardIdx, int *devices_cnt) {
+static bool parse_devices(const char *devices_str, int *cardIdx, int *devices_cnt) {
         if (strlen(devices_str) == 0) {
-                log_msg(LOG_LEVEL_WARNING, "[Decklink disp.] Empty device string!\n");
-                return;
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
+                return false;
         }
         char *save_ptr;
         char *tmp = strdup(devices_str);
@@ -676,6 +676,8 @@ static void parse_devices(const char *devices_str, int *cardIdx, int *devices_cn
                 ++*devices_cnt;
         }
         free(tmp);
+
+        return true;
 }
 
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -727,15 +729,22 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 first_option_is_device = false;
                 }
                 if (first_option_is_device) {
-                        log_msg(LOG_LEVEL_WARNING, "[Decklink disp.] Unnamed device index "
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
                                         "deprecated. Use \"device=%s\" instead.\n", ptr);
-                        parse_devices(ptr, cardIdx, &s->devices_cnt);
+                        if (!parse_devices(ptr, cardIdx, &s->devices_cnt)) {
+                                delete s;
+                                return NULL;
+                        }
                         ptr = strtok_r(tmp, ":", &save_ptr);
                 }
                 
                 while (ptr)  {
                         if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
-                                parse_devices(ptr + strlen("device="), cardIdx, &s->devices_cnt);
+                               if (!parse_devices(ptr + strlen("device="), cardIdx, &s->devices_cnt)) {
+                                       delete s;
+                                       return NULL;
+                               }
+
                         } else if (strcasecmp(ptr, "3D") == 0) {
                                 s->stereo = true;
                         } else if(strcasecmp(ptr, "timecode") == 0) {
@@ -759,7 +768,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 } else if(strcasecmp(packing, "RightOnly") == 0) {
                                         HDMI3DPacking = bmdVideo3DPackingLeftOnly;
                                 } else {
-                                        fprintf(stderr, "[DeckLink] Warning: HDMI 3D packing %s.\n", packing);
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown HDMI 3D packing %s.\n", packing);
+                                        delete s;
+                                        return NULL;
                                 }
                         } else if(strncasecmp(ptr, "audioConsumerLevels=", strlen("audioConsumerLevels=")) == 0) {
                                 if (strcasecmp(ptr + strlen("audioConsumerLevels="), "false") == 0) {
@@ -768,7 +779,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                         audio_consumer_levels = 1;
                                 }
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning: unknown options in config string.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
+                                delete s;
+                                return NULL;
                         }
                         ptr = strtok_r(NULL, ":", &save_ptr);
                 }
@@ -810,7 +823,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         for(int i = 0; i < s->devices_cnt; ++i) {
                 if(s->state[i].deckLink == NULL) {
-                        fprintf(stderr, "No DeckLink PCI card #%d found\n", cardIdx[i]);
+                        log_msg(LOG_LEVEL_ERROR, "No DeckLink PCI card #%d found\n", cardIdx[i]);
                         goto error;
                 }
         }
@@ -828,7 +841,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 audioConnection = bmdAudioOutputSwitchAnalog;
                                 break;
                         default:
-                                fprintf(stderr, "[Decklink display] [Fatal] Unsupporetd audio connection.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupporetd audio connection.\n");
                                 abort();
                 }
         } else {
@@ -844,7 +857,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
-                        printf("Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
                         goto error;
                 }
 
@@ -853,14 +866,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 s->state[i].deckLinkConfiguration = deckLinkConfiguration;
                 if (result != S_OK)
                 {
-                        printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
+                        log_msg(LOG_LEVEL_ERROR, "Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
                         goto error;
                 }
 
 #ifdef DECKLINK_LOW_LATENCY
                 HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, true);
                 if(res != S_OK) {
-                        fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set to low-latency mode.\n");
                 }
 #endif /* DECKLINK_LOW_LATENCY */
 
@@ -868,7 +881,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigHDMI3DPackingFormat,
                                         HDMI3DPacking);
                         if(res != S_OK) {
-                                fprintf(stderr, "[DeckLink display] Unable set 3D packing.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set 3D packing.\n");
                         }
                 }
 
@@ -876,7 +889,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
                                         s->link == LINK_SINGLE ? true : false);
                         if(res != S_OK) {
-                                fprintf(stderr, "[DeckLink display] Unable set output SDI standard.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output SDI standard.\n");
                         }
                 }
 
@@ -885,7 +898,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 } else {
                         /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
                          */
-                        printf("[Decklink playback] Audio output set to: ");
+                        printf(MOD_NAME "Audio output set to: ");
                         switch(audioConnection) {
                                 case 0:
                                         printf("embedded");
@@ -905,11 +918,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
                                                 audioConnection);
                                 if(result == S_OK) { // has switchable channels
-                                        printf("[Decklink playback] Card with switchable audio channels detected. Switched to correct format.\n");
+                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Card with switchable audio channels detected. Switched to correct format.\n");
                                 } else if(result == E_NOTIMPL) {
                                         // normal case - without switchable channels
                                 } else {
-                                        fprintf(stderr, "[Decklink playback] Unable to switch audio output for channels 3 or above although \n"
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to switch audio output for channels 3 or above although \n"
                                                         "card shall support it. Check if it is ok. Continuing anyway.\n");
                                 }
                         }
@@ -918,7 +931,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
                                                 audio_consumer_levels == 1 ? true : false);
                                 if(result != S_OK) {
-                                        fprintf(stderr, "[DeckLink display] Unable set output audio consumer levels.\n");
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable set output audio consumer levels.\n");
                                 }
                         }
                 }
@@ -960,18 +973,18 @@ static void display_decklink_done(void *state)
                 if(s->initialized) {
                         result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
                         if (result != S_OK) {
-                                fprintf(stderr, MODULE_NAME "Cannot stop playback: %08x\n", (int) result);
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot stop playback: %08x\n", (int) result);
                         }
 
                         if(s->play_audio && i == 0) {
                                 result = s->state[i].deckLinkOutput->DisableAudioOutput();
                                 if (result != S_OK) {
-                                        fprintf(stderr, MODULE_NAME "Could disable audio output: %08x\n", (int) result);
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could disable audio output: %08x\n", (int) result);
                                 }
                         }
                         result = s->state[i].deckLinkOutput->DisableVideoOutput();
                         if (result != S_OK) {
-                                fprintf(stderr, MODULE_NAME "Could disable video output: %08x\n", (int) result);
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could disable video output: %08x\n", (int) result);
                         }
                 }
 
@@ -1077,7 +1090,7 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
 	s->state[0].deckLinkOutput->ScheduleAudioSamples (frame->data, sampleFrameCount, 0,
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
-                fprintf(stderr, "[decklink] audio buffer underflow!\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "audio buffer underflow!\n");
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -1087,7 +1100,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
 
         if (channels != 2 && channels != 8 &&
                         channels != 16) {
-                fprintf(stderr, "[decklink] requested channel count isn't supported: "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "requested channel count isn't supported: "
                         "%d\n", channels);
                 s->play_audio = FALSE;
                 return FALSE;
@@ -1095,7 +1108,7 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         
         if((quant_samples != 16 && quant_samples != 32) ||
                         sample_rate != 48000) {
-                fprintf(stderr, "[decklink] audio format isn't supported: "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "audio format isn't supported: "
                         "samples: %d, sample rate: %d\n",
                         quant_samples, sample_rate);
                 s->play_audio = FALSE;
