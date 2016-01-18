@@ -13,6 +13,7 @@
 #include "audio/audio_playback.h"
 #include "lib_common.h"
 #include "messaging.h"
+#include "perf.h"
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"
@@ -96,6 +97,9 @@ bool common_preinit(int argc, char *argv[])
 #ifdef USE_MTRACE
         mtrace();
 #endif
+
+        perf_init();
+        perf_record(UVP_INIT, 0);
 
         atexit(common_cleanup);
 

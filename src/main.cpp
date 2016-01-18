@@ -73,7 +73,6 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "perf.h"
 #include "rtsp/rtsp_utils.h"
 #include "ug_runtime_error.h"
 #include "utils/misc.h"
@@ -127,12 +126,21 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 using namespace std;
 
 struct state_uv {
+        state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
+                module_init_default(&root_module);
+                root_module.cls = MODULE_CLASS_ROOT;
+                root_module.priv_data = this;
+        }
+        ~state_uv() {
+                module_done(&root_module);
+        }
+
         struct vidcap *capture_device;
         struct display *display_device;
 
         struct state_audio *audio;
 
-        struct module *root_module;
+        struct module root_module;
 
         video_rxtx *state_video_rxtx;
 };
@@ -141,11 +149,6 @@ static int exit_status = EXIT_SUCCESS;
 static volatile bool should_exit_sender = false;
 
 static struct state_uv *uv_state;
-
-//
-// prototypes
-//
-static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
 {
@@ -371,15 +374,6 @@ static bool enable_export(const char *dir)
         }
 }
 
-static void init_root_module(struct module *mod, struct state_uv *uv)
-{
-        module_init_default(mod);
-        mod->cls = MODULE_CLASS_ROOT;
-        mod->parent = NULL;
-        mod->deleter = NULL;
-        mod->priv_data = uv;
-}
-
 bool parse_audio_capture_format(const char *optarg)
 {
         if (strcmp(optarg, "help") == 0) {
@@ -455,8 +449,7 @@ int main(int argc, char *argv[])
         const char *requested_compression = nullptr;
 
         bool ipv6 = false;
-        struct module root_mod;
-        struct state_uv *uv;
+        struct state_uv uv{};
         int ch;
 
         const char *audio_codec = nullptr;
@@ -543,21 +536,10 @@ int main(int argc, char *argv[])
         };
         int option_index = 0;
 
-        //      uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
-        uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
-        uv_state = uv;
+        uv_state = &uv;
 
-        uv->audio = NULL;
-        uv->capture_device = NULL;
-        uv->display_device = NULL;
-
-        init_root_module(&root_mod, uv);
-        uv->root_module = &root_mod;
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
-
-        perf_init();
-        perf_record(UVP_INIT, 0);
 
         while ((ch =
                 getopt_long(argc, argv, "d:t:m:r:s:v6c:hj:M:p:f:P:l:A:", getopt_options,
@@ -701,7 +683,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_JPEG
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression;
-                                int ret = compress_init(&root_mod, "JPEG:list_devices", &compression);
+                                int ret = compress_init(&uv.root_module, "JPEG:list_devices", &compression);
                                 if(ret >= 0) {
                                         if(ret == 0) {
                                                 module_done(CAST_MODULE(compression));
@@ -932,7 +914,7 @@ int main(int argc, char *argv[])
         }
 
         if (control_port != -1) {
-                if (control_init(control_port, connection_type, &control, &root_mod) != 0) {
+                if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
                         fprintf(stderr, "Error: Unable to initialize remote control!\n");
                         return EXIT_FAIL_CONTROL_SOCK;
                 }
@@ -947,24 +929,24 @@ int main(int argc, char *argv[])
             isStd = TRUE;
         }
 #endif
-        uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
+        uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
                         audio_codec, isStd, packet_rate, max(audio_delay, 0), &start_time,
                         requested_mtu);
-        if(!uv->audio) {
+        if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
         }
 
-        display_flags |= audio_get_display_flags(uv->audio);
+        display_flags |= audio_get_display_flags(uv.audio);
 
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
         ret =
-             initialize_video_display(&root_mod, requested_display, display_cfg, display_flags, &uv->display_device);
+             initialize_video_display(&uv.root_module, requested_display, display_cfg, display_flags, &uv.display_device);
         if (ret < 0) {
                 printf("Unable to open display device: %s\n",
                        requested_display);
@@ -995,7 +977,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        ret = initialize_video_capture(&root_mod, vidcap_params_head, &uv->capture_device);
+        ret = initialize_video_capture(&uv.root_module, vidcap_params_head, &uv.capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
                                 vidcap_params_get_driver(vidcap_params_head));
@@ -1028,14 +1010,14 @@ int main(int argc, char *argv[])
 
         control_start(control);
         if (!disable_key_control) {
-                kc.start(&root_mod);
+                kc.start(&uv.root_module);
         }
 
         try {
                 map<string, param_u> params;
 
                 // common
-                params["parent"].ptr = &root_mod;
+                params["parent"].ptr = &uv.root_module;
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
                 params["rxtx_mode"].i = video_rxtx_mode;
@@ -1047,9 +1029,9 @@ int main(int argc, char *argv[])
                 params["capture_device"].ptr = NULL;
                 params["display_device"].ptr = NULL;
                 if (video_rxtx_mode & MODE_SENDER)
-                        params["capture_device"].ptr = uv->capture_device;
+                        params["capture_device"].ptr = uv.capture_device;
                 if (video_rxtx_mode & MODE_RECEIVER)
-                        params["display_device"].ptr = uv->display_device;
+                        params["display_device"].ptr = uv.display_device;
 
                 //RTP
                 params["mtu"].i = requested_mtu;
@@ -1068,7 +1050,7 @@ int main(int argc, char *argv[])
                 // UltraGrid RTP
                 params["postprocess"].ptr = (void *) postprocess;
                 params["decoder_mode"].l = (long) decoder_mode;
-                params["display_device"].ptr = uv->display_device;
+                params["display_device"].ptr = uv.display_device;
 
                 // SAGE + RTSP
                 params["opts"].ptr = (void *) video_protocol_opts;
@@ -1093,15 +1075,15 @@ int main(int argc, char *argv[])
                         params["avType"].l = (long) avType;
                 }
 
-                uv->state_video_rxtx = video_rxtx::create(video_protocol, params);
-                if (!uv->state_video_rxtx) {
+                uv.state_video_rxtx = video_rxtx::create(video_protocol, params);
+                if (!uv.state_video_rxtx) {
                         throw string("Requested RX/TX cannot be created (missing library?)");
                 }
 
-                uv->state_video_rxtx->start();
+                uv.state_video_rxtx->start();
 
                 if (video_rxtx_mode & MODE_RECEIVER) {
-                        if (!uv->state_video_rxtx->supports_receiving()) {
+                        if (!uv.state_video_rxtx->supports_receiving()) {
                                 fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
@@ -1109,7 +1091,7 @@ int main(int argc, char *argv[])
                         // init module here so as it is capable of receiving messages
                         if (pthread_create
                                         (&receiver_thread_id, NULL, video_rxtx::receiver_thread,
-                                         (void *) uv->state_video_rxtx) != 0) {
+                                         (void *) uv.state_video_rxtx) != 0) {
                                 perror("Unable to create display thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
@@ -1121,7 +1103,7 @@ int main(int argc, char *argv[])
                 if (video_rxtx_mode & MODE_SENDER) {
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
-                                         (void *) &root_mod) != 0) {
+                                         (void *) &uv.root_module) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
@@ -1130,26 +1112,26 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if(audio_get_display_flags(uv->audio)) {
-                        audio_register_display_callbacks(uv->audio,
-                                       uv->display_device,
+                if(audio_get_display_flags(uv.audio)) {
+                        audio_register_display_callbacks(uv.audio,
+                                       uv.display_device,
                                        (void (*)(void *, struct audio_frame *)) display_put_audio_frame,
                                        (int (*)(void *, int, int, int)) display_reconfigure_audio,
                                        (int (*)(void *, int, void *, size_t *)) display_get_property);
                 }
 
-                audio_start(uv->audio);
+                audio_start(uv.audio);
 
                 // This has to be run after start of capture thread since it may request
                 // captured video format information.
                 if (print_capabilities_req) {
-                        print_capabilities(&root_mod, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
+                        print_capabilities(&uv.root_module, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }
 
                 if (strcmp("none", requested_display) != 0)
-                        display_run(uv->display_device);
+                        display_run(uv.display_device);
 
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
@@ -1174,18 +1156,18 @@ cleanup:
                 pthread_join(capture_thread_id, NULL);
 
         /* also wait for audio threads */
-        audio_join(uv->audio);
-        if (uv->state_video_rxtx)
-                uv->state_video_rxtx->join();
+        audio_join(uv.audio);
+        if (uv.state_video_rxtx)
+                uv.state_video_rxtx->join();
 
-        if(uv->audio)
-                audio_done(uv->audio);
-        delete uv->state_video_rxtx;
+        if(uv.audio)
+                audio_done(uv.audio);
+        delete uv.state_video_rxtx;
 
-        if (uv->capture_device)
-                vidcap_done(uv->capture_device);
-        if (uv->display_device)
-                display_done(uv->display_device);
+        if (uv.capture_device)
+                vidcap_done(uv.capture_device);
+        if (uv.display_device)
+                display_done(uv.display_device);
 
         video_export_destroy(video_exporter);
 
@@ -1199,9 +1181,6 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-
-        module_done(&root_mod);
-        free(uv);
 
         printf("Exit\n");
 
