@@ -67,7 +67,6 @@ void *recompress_init(struct module *parent,
 
         try {
                 auto rxtx = video_rxtx::create("ultragrid_rtp", params);
-                rxtx->start();
 
                 return new state_recompress(
                                 decltype(state_recompress::video_rxtx)(dynamic_cast<ultragrid_rtp_video_rxtx *>(rxtx)),

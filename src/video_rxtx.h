@@ -69,7 +69,6 @@ struct video_rxtx_info {
 
 class video_rxtx {
 public:
-        video_rxtx(std::map<std::string, param_u> const &);
         virtual ~video_rxtx();
         void send(std::shared_ptr<struct video_frame>);
         static const char *get_long_name(std::string const & short_name);
@@ -80,11 +79,11 @@ public:
         bool supports_receiving() {
                 return get_receiver_thread() != NULL;
         }
-        void start();
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         int m_port_id;
 protected:
+        video_rxtx(std::map<std::string, param_u> const &);
         void check_sender_messages();
         bool m_paused;
         struct module m_sender_mod;
@@ -92,6 +91,7 @@ protected:
         int m_rxtx_mode;
         struct module *m_parent;
 private:
+        void start();
         virtual void send_frame(std::shared_ptr<video_frame>) = 0;
         virtual void *(*get_receiver_thread())(void *arg) = 0;
         static void *sender_thread(void *args);

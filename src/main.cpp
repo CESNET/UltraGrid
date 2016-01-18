@@ -1080,8 +1080,6 @@ int main(int argc, char *argv[])
                         throw string("Requested RX/TX cannot be created (missing library?)");
                 }
 
-                uv.state_video_rxtx->start();
-
                 if (video_rxtx_mode & MODE_RECEIVER) {
                         if (!uv.state_video_rxtx->supports_receiving()) {
                                 fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");

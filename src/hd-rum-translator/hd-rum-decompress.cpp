@@ -236,8 +236,6 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         assert (s->video_rxtx);
 
         try {
-                s->video_rxtx->start();
-
                 s->worker_thread = thread(&state_transcoder_decompress::worker, s);
                 s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
                 s->display_thread = thread(display_run, s->display);
