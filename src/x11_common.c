@@ -63,8 +63,6 @@
 #define resource_symbol "X11-state"
 
 struct x11_state {
-        pthread_once_t XInitThreadsHasRun;
-        volatile int threads_init;
         Display *display;
         pthread_mutex_t lock;
         int display_opened_here; /* indicates wheather we opened the display
@@ -81,8 +79,6 @@ struct x11_state *get_state() {
         rm_lock();
         state = (struct x11_state *) rm_get_shm(resource_symbol, sizeof(struct x11_state));
         if(!state->initialized) {
-                state->XInitThreadsHasRun = PTHREAD_ONCE_INIT;
-                state->threads_init = FALSE;
                 state->display = NULL;
                 pthread_mutex_init(&state->lock, NULL);
                 state->display_opened_here = TRUE;
@@ -104,9 +100,6 @@ void x11_set_display(void *disp)
         if(s->display != NULL) {
                 fprintf(stderr, __FILE__ ": Fatal error: Display already set.\n");
                 abort();
-        }
-        if(s->threads_init == FALSE) {
-                fprintf(stderr, __FILE__ ": WARNING: Doesn't entered threads. Please report a bug.\n");
         }
         s->display = d;
         s->display_opened_here = FALSE;
