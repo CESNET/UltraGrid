@@ -424,7 +424,6 @@ static void show_help(struct vidcap_dshow_state *s) {
 
 static struct vidcap_type * vidcap_dshow_probe(bool verbose)
 {
-        UNUSED(verbose);
 	struct vidcap_type*		vt;
 
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
@@ -432,7 +431,46 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose)
 		vt->name        = "dshow";
 		vt->description = "DirectShow Capture";
 
-                /// @todo add card enmumeration
+                if (verbose) {
+                        struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) calloc(1, sizeof(struct vidcap_dshow_state));
+                        if (!common_init(s)) return vt;
+                        HRESULT res;
+                        int n = 0;
+                        // Enumerate all capture devices
+                        while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
+                                n++;
+                                vt->card_count = n;
+                                vt->cards = (struct device_info *) realloc(vt->cards, n * sizeof(struct device_info));
+                                memset(&vt->cards[n - 1], 0, sizeof(struct device_info));
+                                // Attach structure for reading basic device properties
+                                IPropertyBag *properties;
+                                res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
+                                if (res != S_OK) {
+                                        fprintf(stderr, "[dshow] vidcap_dshow_help: Failed to read device properties.\n");
+                                        // Ignore the device
+                                        continue;
+                                }
+
+                                // Read name of the device
+                                VARIANT var;
+                                VariantInit(&var);
+                                res = properties->Read(L"FriendlyName", &var, NULL);
+                                if (res != S_OK) {
+                                        fprintf(stderr, "[dshow] vidcap_dshow_help: Failed to read device properties.\n");
+                                        VariantClear(&var);
+                                        // Ignore the device
+                                        continue;
+                                }
+
+                                snprintf(vt->cards[n-1].id, sizeof vt->cards[n-1].id - 1, "dshow:%d", n);
+                                wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].id - 1);
+
+                                // clean up structures
+                                VariantClear(&var);
+                                properties->Release();
+                        }
+                        cleanup(s);
+                }
 	}
 	return vt;
 }
