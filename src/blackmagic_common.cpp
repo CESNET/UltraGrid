@@ -131,6 +131,13 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose)
         return deckLinkIterator;
 }
 
+void decklink_uninitialize()
+{
+#ifdef WIN32
+        CoUninitialize();
+#endif
+}
+
 bool blackmagic_api_version_check()
 {
         bool ret = TRUE;

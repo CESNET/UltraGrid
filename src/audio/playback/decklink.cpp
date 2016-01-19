@@ -175,6 +175,7 @@ static void audio_play_decklink_help(const char *driver_name)
         }
         
         deckLinkIterator->Release();
+        decklink_uninitialize();
 
         // If no DeckLink cards were found in the system, inform the user
         if (numDevices == 0)
@@ -447,6 +448,7 @@ static void audio_play_decklink_done(void *state)
         s->deckLink->Release();
         s->deckLinkOutput->Release();
         free(s);
+        decklink_uninitialize();
 }
 
 static const struct audio_playback_info aplay_decklink_info = {

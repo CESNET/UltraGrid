@@ -59,6 +59,7 @@ const char *get_cstr_from_bmd_api_str(BMD_STR string);
 void release_bmd_api_str(BMD_STR string);
 
 IDeckLinkIterator *create_decklink_iterator(bool verbose = true);
+void decklink_uninitialize();
 bool blackmagic_api_version_check();
 
 #endif // defined BLACKMAGIC_COMMON_H

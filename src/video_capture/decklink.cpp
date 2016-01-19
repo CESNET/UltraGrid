@@ -453,6 +453,8 @@ decklink_help()
 
 	printf("\n");
 
+        decklink_uninitialize();
+
 	return 1;
 }
 
@@ -673,6 +675,7 @@ vidcap_decklink_probe(bool verbose)
 
                                 deckLinkIterator->Release();
                         }
+                decklink_uninitialize();
                 }
         }
 	return vt;
@@ -1171,6 +1174,8 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
 
         vf_free(s->frame);
         delete s;
+
+        decklink_uninitialize();
 }
 
 static void

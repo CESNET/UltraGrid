@@ -279,6 +279,8 @@ static void show_help(void)
         
         deckLinkIterator->Release();
 
+        decklink_uninitialize();
+
         // If no DeckLink cards were found in the system, inform the user
         if (numDevices == 0)
         {
@@ -660,6 +662,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         }
 
         deckLinkIterator->Release();
+        decklink_uninitialize();
 }
 
 static bool parse_devices(const char *devices_str, int *cardIdx, int *devices_cnt) {
@@ -1012,6 +1015,8 @@ static void display_decklink_done(void *state)
         }
 
         delete s;
+
+        decklink_uninitialize();
 }
 
 static int display_decklink_get_property(void *state, int property, void *val, size_t *len)
