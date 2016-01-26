@@ -992,6 +992,11 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
+static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+{
+        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+}
+
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
@@ -1013,6 +1018,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
 }
+
 
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
@@ -1074,6 +1080,10 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                         strcmp(codec_ctx->codec->name, "nvenc") == 0) {
                 configure_nvenc(codec_ctx, param);
                 intra_refresh_refs = 0; /// @todo consider using 16 and notifying encoder about missing reference frames with NvEncInvalidateRefFrames (0 is default)
+        } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
+                        strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
+                configure_qsv(codec_ctx, param);
+                param->no_periodic_intra = true; // disable intra - not accesible through libavcodec for now
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
