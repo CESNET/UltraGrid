@@ -89,7 +89,6 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                                                 m_send_port_number, m_participants, m_ipv6,
                                                 m_requested_mcast_if);
                                 if (!m_network_devices) {
-                                        abort();
                                         m_network_devices = old_devices;
                                         m_requested_receiver = old_receiver;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed receiver to %s.\n",
