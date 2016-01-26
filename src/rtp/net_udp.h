@@ -98,6 +98,8 @@ bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
 bool        udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port);
 bool        udp_is_ipv6(socket_udp *s);
 
+void        socket_error(const char *msg, ...);
+
 /*************************************************************************************************/
 #if defined(__cplusplus)
 }

@@ -63,6 +63,7 @@
 #include "debug.h"
 #include "messaging.h"
 #include "module.h"
+#include "rtp/net_udp.h" // socket_error
 #include "tv.h"
 
 #define DEFAULT_CONTROL_PORT 5054
@@ -564,7 +565,7 @@ static void * control_thread(void *args)
                 clients = add_client(clients, s->socket_fd);
         }
         struct sockaddr_storage client_addr;
-        socklen_t len;
+        socklen_t len = sizeof client_addr;
 
         errno = 0;
 
@@ -605,10 +606,16 @@ static void * control_thread(void *args)
                         timeout_ptr = &timeout;
                 }
 
-                if(select(max_fd, &fds, NULL, NULL, timeout_ptr) >= 1) {
+                int rc;
+
+                if ((rc = select(max_fd, &fds, NULL, NULL, timeout_ptr)) >= 1) {
                         if(s->connection_type == SERVER && FD_ISSET(s->socket_fd, &fds)) {
                                 int fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
-                                clients = add_client(clients, fd);
+                                if (fd == INVALID_SOCKET) {
+                                        socket_error("[control socket] accept");
+                                } else {
+                                        clients = add_client(clients, fd);
+                                }
                         }
 
                         struct client *cur = clients;
@@ -640,6 +647,8 @@ static void * control_thread(void *args)
                                 }
                                 cur = cur->next;
                         }
+                } else if (rc < 0) {
+                        socket_error("[control socket] select");
                 }
 
                 cur = clients;

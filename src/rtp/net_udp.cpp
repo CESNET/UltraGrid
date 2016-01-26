@@ -178,7 +178,7 @@ static void udp_clean_async_state(socket_udp *s);
 /* Support functions...                                                      */
 /*****************************************************************************/
 
-static void socket_error(const char *msg, ...)
+void socket_error(const char *msg, ...)
 {
         char buffer[255];
         uint32_t blen = sizeof(buffer) / sizeof(buffer[0]);
