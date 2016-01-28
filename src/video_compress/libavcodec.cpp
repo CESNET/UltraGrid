@@ -1,9 +1,9 @@
 /**
- * @file   video_compress/libavcodec.h
+ * @file   video_compress/libavcodec.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1022,7 +1022,6 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
-        int intra_refresh_refs = 0;
         if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
                 if (!param->have_preset) {
                         // ultrafast + --aq-mode 2
@@ -1074,7 +1073,6 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                 codec_ctx->max_qdiff = 69;
                 //codec_ctx->rc_qsquish = 0;
                 //codec_ctx->scenechange_threshold = 100;
-                intra_refresh_refs = 1;
         } else if (strcmp(codec_ctx->codec->name, "libx265") == 0) {
 		string params(
 				//"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
@@ -1132,22 +1130,22 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
 		codec_ctx->max_qdiff = 69;
 		//codec_ctx->rc_qsquish = 0;
 		//codec_ctx->scenechange_threshold = 100;
-                intra_refresh_refs = 1;
         } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
                         strcmp(codec_ctx->codec->name, "nvenc") == 0 ||
                         strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
                 configure_nvenc(codec_ctx, param);
-                intra_refresh_refs = 0; /// @todo consider using 16 and notifying encoder about missing reference frames with NvEncInvalidateRefFrames (0 is default)
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv(codec_ctx, param);
-                param->no_periodic_intra = true; // disable intra - not accesible through libavcodec for now
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
 
-        if (!param->no_periodic_intra) {
-                codec_ctx->refs = intra_refresh_refs;
+        /// turn of periodic intra refresh for libx264/libx265 if requested
+        if (!param->no_periodic_intra &&
+                        (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
+                         strcmp(codec_ctx->codec->name, "libx264") == 0)) {
+                codec_ctx->refs = 1;
                 ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
