@@ -89,8 +89,7 @@ typedef struct {
 } codec_params_t;
 
 static void setparam_default(AVCodecContext *, struct setparam_param *);
-static void setparam_h264(AVCodecContext *, struct setparam_param *);
-static void setparam_h265(AVCodecContext *, struct setparam_param *);
+static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
@@ -100,13 +99,13 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 "libx264",
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
-                setparam_h264
+                setparam_h264_h265
         }},
         { H265, {
                 AV_CODEC_ID_HEVC,
                 "libx265", //nullptr,
                 0.07 * 2 * 2,
-                setparam_h265
+                setparam_h264_h265
         }},
         { MJPG, {
                 AV_CODEC_ID_MJPEG,
@@ -245,7 +244,7 @@ static void usage() {
                 }
 
         }
-        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (H.264/H.265)\n");
+        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (libx264/libx265)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
@@ -1020,7 +1019,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 }
 
 
-static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
         int intra_refresh_refs = 0;
@@ -1076,32 +1075,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 //codec_ctx->rc_qsquish = 0;
                 //codec_ctx->scenechange_threshold = 100;
                 intra_refresh_refs = 1;
-        } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
-                        strcmp(codec_ctx->codec->name, "nvenc") == 0) {
-                configure_nvenc(codec_ctx, param);
-                intra_refresh_refs = 0; /// @todo consider using 16 and notifying encoder about missing reference frames with NvEncInvalidateRefFrames (0 is default)
-        } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
-                        strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
-                configure_qsv(codec_ctx, param);
-                param->no_periodic_intra = true; // disable intra - not accesible through libavcodec for now
-        } else {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
-        }
-
-        if (!param->no_periodic_intra) { // for NVENC, this is not currently available upstream
-                codec_ctx->refs = intra_refresh_refs;
-                ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
-                }
-        }
-}
-
-static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
-{
-        int ret;
-        int intra_refresh_refs = 0;
-        if (strcmp(codec_ctx->codec->name, "libx265") == 0) {
+        } else if (strcmp(codec_ctx->codec->name, "libx265") == 0) {
 		string params(
 				//"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
 				"b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
@@ -1159,14 +1133,20 @@ static void setparam_h265(AVCodecContext *codec_ctx, struct setparam_param *para
 		//codec_ctx->rc_qsquish = 0;
 		//codec_ctx->scenechange_threshold = 100;
                 intra_refresh_refs = 1;
-        } else if (strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
-                intra_refresh_refs = 0;
-		configure_nvenc(codec_ctx, param);
-	} else {
+        } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
+                        strcmp(codec_ctx->codec->name, "nvenc") == 0 ||
+                        strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
+                configure_nvenc(codec_ctx, param);
+                intra_refresh_refs = 0; /// @todo consider using 16 and notifying encoder about missing reference frames with NvEncInvalidateRefFrames (0 is default)
+        } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
+                        strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
+                configure_qsv(codec_ctx, param);
+                param->no_periodic_intra = true; // disable intra - not accesible through libavcodec for now
+        } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
 
-        if (!param->no_periodic_intra) { // for NVENC, this is not currently available upstream
+        if (!param->no_periodic_intra) {
                 codec_ctx->refs = intra_refresh_refs;
                 ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {
