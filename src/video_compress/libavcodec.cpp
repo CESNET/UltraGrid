@@ -58,6 +58,7 @@
 #include "video.h"
 #include "video_compress.h"
 
+#include <map>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -65,7 +66,7 @@
 using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
-static constexpr const char *DEFAULT_X264_PRESET = "superfast";
+static constexpr const char *DEFAULT_X264_X265_PRESET = "superfast";
 static constexpr const char *DEFAULT_NVENC_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
@@ -162,13 +163,14 @@ struct state_video_compress_libav {
         AVPixelFormat       selected_pixfmt;
 
         codec_t             out_codec;
-        char               *preset;
 
         struct video_desc compressed_desc;
 
         struct setparam_param params;
         string              backend;
         int                 requested_gop;
+
+        map<string, string> lavc_opts; ///< user-supplied options from command-line
 };
 
 void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -225,8 +227,8 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
-                        "[:subsampling=<subsampling>][:preset=<preset>][:gop=<gop>]"
-                        "[:disable_intra_refresh][:threads=<thr_mode>][]\n");
+                        "[:subsampling=<subsampling>][:gop=<gop>]"
+                        "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n");
         printf("\t\t<encoder> specifies encoder (eg. nvenc or libx264 for H.264)\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
         for (auto && param : codec_params) {
@@ -248,9 +250,9 @@ static void usage() {
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
-        printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium for H.264\n");
         printf("\t\t<thr_mode> can be one of \"no\", \"frame\" or \"slice\"\n");
         printf("\t\t<gop> specifies GOP size\n");
+        printf("\t\t<lavc_opt> arbitrary option to be passed directly to libavcodec (eg. preset=veryfast)\n");
         printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
 }
 
@@ -283,9 +285,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                         log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                         return -1;
                                 }
-                        } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
-                                char *preset = item + strlen("preset=");
-                                s->preset = strdup(preset);
                         } else if (strcasecmp("disable_intra_refresh", item) == 0) {
                                 s->params.no_periodic_intra = true;
                         } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
@@ -297,6 +296,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
                                 char *gop = item + strlen("gop=");
                                 s->requested_gop = atoi(gop);
+                        } else if (strchr(item, '=')) {
+                                string key, val;
+                                key = string(item, strchr(item, '='));
+                                val = string(strchr(item, '=') + 1);
+                                s->lavc_opts[key] = val;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -367,7 +371,6 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         s->in_frame = NULL;
         s->requested_codec_id = VIDEO_CODEC_NONE;
         s->requested_subsampling = 0;
-        s->preset = NULL;
         s->params.thread_mode = DEFAULT_THREAD_MODE;
 
         s->requested_bitrate = -1;
@@ -622,19 +625,20 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
 
-        if(s->preset) {
-                if(av_opt_set(s->codec_ctx->priv_data, "preset", s->preset, 0) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set preset.\n");
-                        return false;
-                }
-        }
-
-        s->params.have_preset = s->preset != 0;
+        s->params.have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
         s->params.cpu_count = s->cpu_count;
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
+
+        // set user supplied parameters
+        for (auto item : s->lavc_opts) {
+                if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
+                        return false;
+                }
+        }
 
         pthread_mutex_lock(s->lavcd_global_lock);
         /* open it */
@@ -956,7 +960,6 @@ static void libavcodec_compress_done(struct module *mod)
         cleanup(s);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
-        free(s->preset);
         for(int i = 0; i < s->cpu_count; i++) {
                 av_free(s->in_frame_part[i]);
         }
@@ -1045,9 +1048,9 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                         }
                         if (ret != 0) {
                                 // older version of both
-                                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_PRESET, 0);
+                                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_X265_PRESET, 0);
                                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Old FFMPEG/LibAV detected - consider "
-                                                "upgrading. Using preset %s.\n", DEFAULT_X264_PRESET);
+                                                "upgrading. Using preset %s.\n", DEFAULT_X264_X265_PRESET);
                         }
                         if (ret != 0) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
