@@ -664,11 +664,11 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                 if(audio_reconfigure(s, curr_desc.bps * 8,
                                     curr_desc.ch_count,
                                     curr_desc.sample_rate) != TRUE) {
-                                    fprintf(stderr, "Audio reconfiguration failed!");
+                                    log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
                                     failed = true;
                                 }
                                 else {
-                                    fprintf(stderr, "Audio reconfiguration succeeded.");
+                                    log_msg(LOG_LEVEL_INFO, "Audio reconfiguration succeeded.");
                                     device_desc = curr_desc;
                                     rtp_flush_recv_buf(s->audio_network_device);
                                 }
@@ -705,11 +705,11 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                                 if(audio_reconfigure(s, curr_desc.bps * 8,
                                                         curr_desc.ch_count,
                                                         curr_desc.sample_rate) != TRUE) {
-                                        fprintf(stderr, "Audio reconfiguration failed!");
+                                        log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
                                         failed = true;
                                 }
                                 else {
-                                        fprintf(stderr, "Audio reconfiguration succeeded.");
+                                        log_msg(LOG_LEVEL_INFO, "Audio reconfiguration succeeded.");
                                         device_desc = curr_desc;
                                         rtp_flush_recv_buf(s->audio_network_device);
                                 }

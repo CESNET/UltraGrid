@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,7 @@
 
 #define BUFFER_MIN 41
 #define BUFFER_MAX 200
-#define MOD_NAME "[ALSA cap.] "
+#define MOD_NAME "[ALSA play.] "
 
 struct state_alsa_playback {
         snd_pcm_t *handle;
@@ -220,7 +220,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         /* Fill it in with default values. */
         rc = snd_pcm_hw_params_any(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr, "cannot obtain default hw parameters: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot obtain default hw parameters: %s\n",
                         snd_strerror(rc));
                 return FALSE;
         }
@@ -231,12 +231,12 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_access(s->handle, params,
                         SND_PCM_ACCESS_RW_INTERLEAVED);
         if (rc < 0) {
-                fprintf(stderr, "cannot set interleaved hw access: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set interleaved hw access: %s\n",
                         snd_strerror(rc));
                 rc = snd_pcm_hw_params_set_access(s->handle, params,
                                 SND_PCM_ACCESS_RW_NONINTERLEAVED);
                 if (rc < 0) {
-                        fprintf(stderr, "cannot set non-interleaved hw access: %s\n",
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set non-interleaved hw access: %s\n",
                                         snd_strerror(rc));
                         return FALSE;
                 }
@@ -246,7 +246,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         }
 
         if (desc.bps > 4 || desc.bps < 1) {
-                log_msg(LOG_LEVEL_ERROR, "[ALSA playback] Unsupported BPS for audio (%d).\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported BPS for audio (%d).\n",
                                 desc.bps * 8);
                 return FALSE;
 
@@ -257,7 +257,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                         format);
         if (rc < 0) {
-                fprintf(stderr, "cannot set format: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set format: %s\n",
                         snd_strerror(rc));
                 return FALSE;
         }
@@ -265,7 +265,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         /* Two channels (stereo) */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, desc.ch_count);
         if (rc < 0) {
-                fprintf(stderr, "cannot set requested channel count: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set requested channel count: %s\n",
                                 snd_strerror(rc));
                 return FALSE;
         }
@@ -275,7 +275,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_rate_resample(s->handle,
                         params, val);
         if(rc < 0) {
-                fprintf(stderr, "[ALSA play.] Warning: Unable to set resampling: %s\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set resampling: %s\n",
                         snd_strerror(rc));
         }
 
@@ -286,7 +286,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                         &val, &dir);
         if (rc < 0) {
-                fprintf(stderr, "cannot set requested sample rate: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot set requested sample rate: %s\n",
                         snd_strerror(rc));
                 return FALSE;
         }
@@ -300,7 +300,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_period_time_min(s->handle,
                         params, &frames, &dir);
         if (rc < 0) {
-                fprintf(stderr, "[ALSA play.] Warning: cannot set period time: %s\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
         }
 
@@ -309,7 +309,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_buffer_time_min(s->handle, params,
                         &val, &dir); 
         if (rc < 0) {
-                fprintf(stderr, "Warining - unable to set minimal buffer size: %s\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set minimal buffer size: %s\n",
                         snd_strerror(rc));
         }
 
@@ -318,15 +318,14 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         rc = snd_pcm_hw_params_set_buffer_time_max(s->handle, params,
                         &val, &dir); 
         if (rc < 0) {
-                fprintf(stderr, "Warining - unable to set maximal buffer size: %s\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set maximal buffer size: %s\n",
                         snd_strerror(rc));
         }
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr,
-                        "unable to set hw parameters: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set hw parameters: %s\n",
                         snd_strerror(rc));
                 return FALSE;
         }
@@ -494,14 +493,14 @@ static void * audio_play_alsa_init(const char *cfg)
         }
 
         if (rc < 0) {
-                    fprintf(stderr, "unable to open pcm device: %s\n",
+                    log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to open pcm device: %s\n",
                                     snd_strerror(rc));
                     goto error;
         }
 
         rc = snd_pcm_nonblock(s->handle, 1);
         if(rc < 0) {
-                fprintf(stderr, "ALSA Warning: Unable to set nonblock mode.\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set nonblock mode.\n");
         }
         
         return s;
@@ -546,7 +545,7 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         rc = write_samples(s->handle, frame, frames, s->non_interleaved);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */
-                fprintf(stderr, "underrun occurred\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "underrun occurred\n");
                 snd_pcm_prepare(s->handle);
                 /* fill the stream with some sasmples */
                 for (double sec = 0.0; sec < BUFFER_MAX / 1000.0; sec += (double) frames / frame->sample_rate) {
@@ -556,16 +555,16 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                         }
                         int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved);
                         if(rc < 0) {
-                                fprintf(stderr, "error from writei: %s\n",
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from writei: %s\n",
                                                 snd_strerror(rc));
                                 break;
                         }
                 }
         } else if (rc < 0) {
-                fprintf(stderr, "error from writei: %s\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from writei: %s\n",
                         snd_strerror(rc));
         }  else if (rc != (int)frames) {
-                fprintf(stderr, "short write, written %d frames (overrun)\n", rc);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "short write, written %d frames (overrun)\n", rc);
         }
 }
 
@@ -576,7 +575,7 @@ static void audio_play_alsa_done(void *state)
         struct timeval t;
 
         gettimeofday(&t, NULL);
-        printf("[ALSA play.] Played %lld samples in %f seconds (%f samples per second).\n",
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Played %lld samples in %f seconds (%f samples per second).\n",
                         s->played_samples, tv_diff(t, s->start_time),
                         s->played_samples / tv_diff(t, s->start_time));
 
