@@ -210,8 +210,8 @@ static void usage(void)
         printf("\n");
         printf("\n");
         printf("\t--protocol <proto>       \ttransmission protocol, see '--protocol help'\n");
-        printf("\t                         \tfor list. Use --protocol h264_std for RTSP server\n");
-        printf("\t                         \t(see --protocol h264_std:help for usage)\n");
+        printf("\t                         \tfor list. Use --protocol rtsp for RTSP server\n");
+        printf("\t                         \t(see --protocol rtsp:help for usage)\n");
         printf("\n");
 #ifdef HAVE_IPv6
         printf("\t-6                       \tUse IPv6\n");
@@ -532,6 +532,7 @@ int main(int argc, char *argv[])
                 {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
                 {"protocol", required_argument, 0, OPT_PROTOCOL},
+                {"rtsp-server", optional_argument, 0, 'H'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -588,6 +589,13 @@ int main(int argc, char *argv[])
                         return EXIT_SUCCESS;
                 case 'c':
                         requested_compression = optarg;
+                        break;
+                case 'H':
+                        log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
+                                        "is deprecated and will be removed in future.\n"
+                                        "Please use \"--protocol rtsp[:args]\"instead.\n");
+                        video_protocol = "rtsp";
+                        video_protocol_opts = optarg ? optarg : "";
                         break;
                 case OPT_PROTOCOL:
                         video_protocol = optarg;
@@ -811,7 +819,7 @@ int main(int argc, char *argv[])
         argv += optind;
 
         // default values for different RXTX protocols
-        if (strcmp(video_protocol, "h264_std") == 0) {
+        if (strcmp(video_protocol, "rtsp") == 0) {
                 if (audio_codec == nullptr) {
                         audio_codec = "u-law:sample_rate=44100";
                 }
@@ -924,7 +932,7 @@ int main(int argc, char *argv[])
                 audio_host = requested_receiver;
         }
 #ifdef HAVE_RTSP_SERVER
-        if((audio_send != NULL || audio_recv != NULL) && strcmp(video_protocol, "h264_std") == 0){
+        if((audio_send != NULL || audio_recv != NULL) && strcmp(video_protocol, "rtsp") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             isStd = TRUE;
         }
@@ -1062,7 +1070,7 @@ int main(int argc, char *argv[])
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = audio_rx_port;
 
-                if (strcmp(video_protocol, "h264_std") == 0) {
+                if (strcmp(video_protocol, "rtsp") == 0) {
                         rtps_types_t avType;
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream

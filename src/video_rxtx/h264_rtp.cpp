@@ -130,5 +130,5 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         create_video_rxtx_h264_std
 };
 
-REGISTER_MODULE(h264_std, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
 
