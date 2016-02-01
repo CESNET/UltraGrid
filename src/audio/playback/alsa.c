@@ -502,6 +502,13 @@ static void * audio_play_alsa_init(const char *cfg)
         if(rc < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set nonblock mode.\n");
         }
+
+        /* CC3000e playback needs to be initialized prior to capture
+         * (to arbitrary value) in order to work. This hack ensures
+         * that. */
+        if (strstr(snd_pcm_name(s->handle), "CARD=Speakerph")) {
+                audio_play_alsa_reconfigure(s, (struct audio_desc){4, 48000, 1, AC_PCM});
+        }
         
         return s;
 
