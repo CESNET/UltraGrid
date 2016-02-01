@@ -76,7 +76,31 @@ void                            audio_playback_init_devices(void);
 int                             audio_playback_init(const char *device, const char *cfg,
                 struct state_audio_playback **);
 struct state_audio_playback    *audio_playback_init_null_device(void);
+
+/**
+ * Queries a format that corresponses the proposed audio format
+ * (from network) most closely. It can be the same format or
+ * a different one (depending on device capabilities). Returned
+ * format will thereafter be used with audio_playback_reconfigure().
+ *
+ * @param[in] s    audio state
+ * @param[in] prop proposed (received from network) audio format
+ * @return         format that device supports
+ */
 struct audio_desc               audio_playback_query_supported_format(struct state_audio_playback *s, struct audio_desc prop);
+
+/**
+ * Reconfigures audio playback to specified values. Those values
+ * must have been exactly the ones obtained from
+ * audio_playback_query_supported_format().
+ *
+ * @param[in] state         audio state
+ * @param[in] quant_samples number of quantization bits
+ * @param[in] channels      number of channels to be played back
+ * @param[in] sample_rate   sample rate
+ * @retval TRUE             if reconfiguration succeeded
+ * @retval FALSE            if reconfiguration failed
+ */
 int                             audio_playback_reconfigure(struct state_audio_playback *state,
                 int quant_samples, int channels,
                 int sample_rate);

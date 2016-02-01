@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.c
+ * FILE:    audio/audio.cpp
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2016 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -661,7 +661,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                             curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
                             if(!audio_desc_eq(device_desc, curr_desc)) {
-                                if(audio_reconfigure(s, curr_desc.bps * 8,
+                                if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
                                     curr_desc.ch_count,
                                     curr_desc.sample_rate) != TRUE) {
                                     log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
@@ -702,7 +702,7 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                         curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
                         if(!audio_desc_eq(device_desc, curr_desc)) {
-                                if(audio_reconfigure(s, curr_desc.bps * 8,
+                                if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
                                                         curr_desc.ch_count,
                                                         curr_desc.sample_rate) != TRUE) {
                                         log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
@@ -987,13 +987,6 @@ void audio_register_display_callbacks(struct state_audio *s, void *udata, void (
 unsigned int audio_get_display_flags(struct state_audio *s)
 {
         return audio_playback_get_display_flags(s->audio_playback_device);
-}
-
-int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
-                int sample_rate)
-{
-        return audio_playback_reconfigure(s->audio_playback_device, quant_samples,
-                        channels, sample_rate);
 }
 
 struct audio_desc audio_desc_from_frame(struct audio_frame *frame)

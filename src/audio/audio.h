@@ -83,8 +83,6 @@ void sdi_put_frame(void *state, struct audio_frame *frame);
 void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *));
 
 struct audio_frame * audio_get_frame(struct state_audio *s);
-int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
-                int sample_rate);
 
 unsigned int audio_get_display_flags(struct state_audio *s);
 
