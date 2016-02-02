@@ -309,7 +309,7 @@ state_video_compress_jpeg::state_video_compress_jpeg(struct module *parent, cons
                 char *fmt = strdup(opts);
                 if (!parse_fmt(fmt)) {
                         free(fmt);
-                        throw;
+                        throw 1;
                 }
                 free(fmt);
         }
