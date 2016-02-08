@@ -251,8 +251,11 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 {
         fprintf(stderr, "\n***\n"
                         "Unable to set buffer size to %d B.\n"
+#if defined WIN32
+                        "See https://www.sitola.cz/igrid/index.php/Extending_Network_Buffers_%%28Windows%%29 for details.\n"
+#else
                         "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
+                        "https://www.sitola.cz/igrid/index.php/OS_Setup_UltraGrid)\n"
 #ifdef HAVE_MACOSX
                         "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
                         "\tsysctl -w net.inet.udp.recvspace=%d\n"
@@ -265,6 +268,7 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 #ifdef HAVE_MACOSX
                         size * 4,
 #endif /* HAVE_MACOSX */
+#endif /* ! defined WIN32 */
                         size);
 
 }
