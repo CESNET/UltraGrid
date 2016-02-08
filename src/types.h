@@ -199,7 +199,8 @@ struct video_frame {
         struct fec_desc fec_params;
         uint32_t ssrc;
 
-        uint32_t seq; ///< sequential number
+        uint32_t seq; ///< sequential number, used internally by JPEG encoder
+        uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
 };
 
 /**

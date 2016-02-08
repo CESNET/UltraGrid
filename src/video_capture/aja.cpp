@@ -689,6 +689,18 @@ void vidcap_state_aja::CaptureFrames (void)
 
 }       //      CaptureFrames
 
+static uint32_t video_frame_rp188_from_aja_rp188(const RP188_STRUCT & aja_rp188)
+{
+	return  (aja_rp188.High & 0x0f000000) <<  4 |
+		(aja_rp188.High & 0x000f0000) <<  8 |
+		(aja_rp188.High & 0x00000f00) << 12 |
+		(aja_rp188.High & 0x0000000f) << 16 |
+	        (aja_rp188.Low  & 0x0f000000) >> 12 |
+		(aja_rp188.Low  & 0x000f0000) >>  8 |
+		(aja_rp188.Low  & 0x00000f00) >>  4 |
+		(aja_rp188.Low  & 0x0000000f) >>  0;
+}
+
 #define NTV2_AUDIOSIZE_48K (48 * 1024)
 
 struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
@@ -705,6 +717,8 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
                         mOutputFrame->tiles[0].data = (char *) playData->fVideoBuffer;
                         mFrameCaptured = true;
                         mFrames += 1;
+
+                        mOutputFrame->timecode = video_frame_rp188_from_aja_rp188(playData->fRP188Data);
 
                         LOG(LOG_LEVEL_VERBOSE) << "[AJA] Received frame with timestamp " << playData->fRP188Data << '\n';
 
