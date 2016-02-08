@@ -44,6 +44,19 @@ extern "C" {
 
 double unit_evaluate(const char *str);
 
+/**
+ * @brief Creates FourCC word
+ *
+ * The main idea of FourCC is that it can be anytime read by human (by hexa editor, gdb, tcpdump).
+ * Therefore, this is stored as a big endian even on little-endian architectures - first byte
+ * of FourCC is in the memory on the lowest address.
+ */
+#ifdef WORDS_BIGENDIAN
+#define to_fourcc(a,b,c,d)     (((uint32_t)(d)) | ((uint32_t)(c)<<8) | ((uint32_t)(b)<<16) | ((uint32_t)(a)<<24))
+#else
+#define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8) | ((uint32_t)(c)<<16) | ((uint32_t)(d)<<24))
+#endif
+
 #ifdef __cplusplus
 }
 #endif

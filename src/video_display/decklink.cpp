@@ -43,15 +43,15 @@
 
 #define MOD_NAME "[Decklink display] "
 
-#include "blackmagic_common.h"
-#include "host.h"
-#include "debug.h"
-#include "video.h"
-#include "tv.h"
-#include "video_display.h"
-#include "debug.h"
-#include "lib_common.h"
 #include "audio/audio.h"
+#include "blackmagic_common.h"
+#include "debug.h"
+#include "host.h"
+#include "lib_common.h"
+#include "tv.h"
+#include "utils/misc.h"
+#include "video.h"
+#include "video_display.h"
 
 #include <mutex>
 #include <queue>
@@ -60,12 +60,6 @@
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
-
-enum link {
-        LINK_UNSPECIFIED,
-        LINK_SINGLE,
-        LINK_DUAL
-};
 
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
@@ -226,7 +220,7 @@ struct state_decklink {
 
         BMDPixelFormat      pixelFormat;
 
-        enum link           link;
+        uint32_t            link;
 
         buffer_pool_t       buffer_pool;
  };
@@ -241,7 +235,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
+        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
         printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -705,7 +699,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
-        s->link = LINK_UNSPECIFIED;
+        s->link = 0;
         cardIdx[0] = 0;
         s->devices_cnt = 1;
 
@@ -753,9 +747,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
                         } else if(strcasecmp(ptr, "single-link") == 0) {
-                                s->link = LINK_SINGLE;
+                                s->link = to_fourcc('l', 'c', 's', 'l');
                         } else if(strcasecmp(ptr, "dual-link") == 0) {
-                                s->link = LINK_DUAL;
+                                s->link = to_fourcc('l', 'c', 'd', 'l');
+                        } else if(strcasecmp(ptr, "quad-link") == 0) {
+                                s->link = to_fourcc('l', 'c', 'q', 'l');
                         } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                                 char *packing = ptr + strlen("HDMI3DPacking=");
                                 if(strcasecmp(packing, "SideBySideHalf") == 0) {
@@ -888,9 +884,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                if(s->link != LINK_UNSPECIFIED) {
+                if(s->link != 0) {
+#if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (5 << 16))
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - dual-/quad-link setting might be incorrect.\n");
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
-                                        s->link == LINK_SINGLE ? true : false);
+                                        s->link == to_fourcc('l', 'c', 's', 'l') ? true : false);
+#else
+                        HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link);
+#endif
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output SDI standard.\n");
                         }
