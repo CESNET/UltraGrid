@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -191,7 +191,8 @@ struct state_gl {
 
         int             vsync;
         bool            paused;
-        bool            show_cursor;
+        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor;
+        chrono::steady_clock::time_point                      cursor_shown_from; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_srv_name;
 
         bool should_exit_main_loop; // used only for GLUT (not freeglut)
@@ -209,7 +210,7 @@ struct state_gl {
                 fbo_id(0), texture_display(0), texture_uyvy(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
-                vsync(1), paused(false), show_cursor(false),
+                vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
                 should_exit_main_loop(false), window_size_factor(1.0),
                 syphon(nullptr), fixed_size(false), first_run(true),
                 fixed_w(0), fixed_h(0)
@@ -243,6 +244,7 @@ static void gl_render_uyvy(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
 static void glut_idle_callback(void);
 static void glut_key_callback(unsigned char key, int x, int y);
+static void glut_mouse_callback(int x, int y);
 static void glut_close_callback(void);
 static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor);
 static void display_gl_set_sync_on_vblank(int value);
@@ -350,7 +352,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                         s->vsync = atoi(tok + strlen("vsync="));
                                 }
                         } else if (!strcasecmp(tok, "cursor")) {
-                                s->show_cursor = true;
+                                s->show_cursor = state_gl::SC_TRUE;
                         } else if (!strncmp(tok, "syphon", strlen("syphon"))) {
 #ifdef HAVE_SYPHON
                                 if (!strncmp(tok, "syphon=", strlen("syphon="))) {
@@ -710,9 +712,20 @@ static void glut_idle_callback(void)
                 free_message(msg, r);
         }
 
+
+        if (gl->show_cursor == state_gl::SC_AUTOHIDE) {
+                if (gl->cursor_shown_from != chrono::steady_clock::time_point()) {
+                        auto now = chrono::steady_clock::now();
+                        if (chrono::duration_cast<chrono::seconds>(now - gl->cursor_shown_from).count() > 2) {
+                                glutSetCursor(GLUT_CURSOR_NONE);
+                                gl->cursor_shown_from = chrono::steady_clock::time_point();
+                        }
+                }
+        }
+
         unique_lock<mutex> lk(s->lock);
         double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
-        s->new_frame_ready_cv.wait_for(lk, std::chrono::duration<double>(timeout), [s] {
+        s->new_frame_ready_cv.wait_for(lk, chrono::duration<double>(timeout), [s] {
                         return s->frame_queue.size() > 0;});
         if (s->frame_queue.size() == 0) {
                 return;
@@ -768,11 +781,8 @@ static void glut_idle_callback(void)
         }
 }
 
-static void glut_key_callback(unsigned char key, int x, int y)
+static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
 {
-        UNUSED(x);
-        UNUSED(y);
-
         switch(key) {
                 case 'f':
                         gl->fs = !gl->fs;
@@ -801,8 +811,8 @@ static void glut_key_callback(unsigned char key, int x, int y)
                         screenshot(gl->current_frame);
                         break;
                 case 'm':
-                        gl->show_cursor = !gl->show_cursor;
-                        glutSetCursor(gl->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
+                        gl->show_cursor = (state_gl::show_cursor_t) (((int) gl->show_cursor + 1) % 3);
+                        glutSetCursor(gl->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
                 case '+':
                         gl->window_size_factor *= 2;
@@ -814,6 +824,16 @@ static void glut_key_callback(unsigned char key, int x, int y)
                         glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
                                         gl->window_size_factor);
                         break;
+        }
+}
+
+static void glut_mouse_callback(int /* x */, int /* y */)
+{
+        if (gl->show_cursor == state_gl::SC_AUTOHIDE) {
+                if (gl->cursor_shown_from == chrono::steady_clock::time_point()) {
+                        glutSetCursor(GLUT_CURSOR_INHERIT);
+                }
+                gl->cursor_shown_from = chrono::steady_clock::now();
         }
 }
 
@@ -839,10 +859,12 @@ static bool display_gl_init_opengl(struct state_gl *s)
 #endif
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
-        glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
+        glutSetCursor(s->show_cursor == state_gl::SC_TRUE ?  GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
+        glutMotionFunc(glut_mouse_callback);
+        glutPassiveMotionFunc(glut_mouse_callback);
 #ifdef HAVE_MACOSX
         glutWMCloseFunc(glut_close_callback);
 #elif FREEGLUT
@@ -1173,7 +1195,7 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
 
         assert(s->magic == MAGIC_GL);
 
-        std::unique_lock<std::mutex> lk(s->lock);
+        unique_lock<mutex> lk(s->lock);
 
         if(!frame) {
                 s->should_exit_main_loop = true; // used only for GLUT (not freeglut)
