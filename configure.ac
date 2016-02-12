@@ -2088,8 +2088,8 @@ if test "$jpeg_req" != no -a \
 then
         jpeg=yes
 
-        JPEG_INC="$JPEG_INC -Igpujpeg"
-        JPEG_LIB="$JPEG_LIB -lgpujpeg"
+        JPEG_INC="$JPEG_INC $LIBGPUJPEG_CFLAGS"
+        JPEG_LIB="$JPEG_LIB $LIBGPUJPEG_LIBS"
         JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
@@ -2179,7 +2179,7 @@ if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
-        JPEG_TO_DXT_LIB=" $CUDA_LIB -lgpujpeg"
+        JPEG_TO_DXT_LIB=" $CUDA_LIB $JPEG_LIB"
         JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
         AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_jpeg_to_dxt.so")
         LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
