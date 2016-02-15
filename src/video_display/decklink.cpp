@@ -666,11 +666,13 @@ static bool parse_devices(const char *devices_str, int *cardIdx, int *devices_cn
         }
         char *save_ptr;
         char *tmp = strdup(devices_str);
+        char *ptr = tmp;
         *devices_cnt = 0;
         char *item;
-        while ((item = strtok_r(NULL, ",", &save_ptr))) {
+        while ((item = strtok_r(ptr, ",", &save_ptr))) {
                 cardIdx[*devices_cnt] = atoi(item);
                 ++*devices_cnt;
+                ptr = NULL;
         }
         free(tmp);
 
@@ -732,7 +734,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 delete s;
                                 return NULL;
                         }
-                        ptr = strtok_r(tmp, ":", &save_ptr);
+                        ptr = strtok_r(NULL, ":", &save_ptr);
                 }
                 
                 while (ptr)  {
