@@ -150,6 +150,7 @@ static const char *module_class_name_pairs[] = {
         [MODULE_CLASS_CAPTURE] = "capture",
         [MODULE_CLASS_FILTER] = "filter",
         [MODULE_CLASS_DISPLAY] = "display",
+        [MODULE_CLASS_DECODER] = "decoder",
 };
 
 const char *module_class_name(enum module_class cls)

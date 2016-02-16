@@ -221,7 +221,7 @@ struct main_msg_reconfigure {
  */
 struct state_video_decoder
 {
-        struct module *parent;
+        struct module mod;
         struct control_state *control;
 
         thread decompress_thread_id,
@@ -265,6 +265,7 @@ struct state_video_decoder
         int               display_pitch;
 
         /// @{
+        string requested_postprocess;
         struct vo_postprocess_state *postprocess;
         struct video_frame *pp_frame;
         int pp_output_frames_count;
@@ -632,11 +633,12 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 
         s = new state_video_decoder();
 
-        s->parent = parent;
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DECODER;
+        module_register(&s->mod, parent);
         s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         s->disp_supported_il = NULL;
-        s->postprocess = NULL;
         s->change_il = NULL;
 
         s->displayed = s->dropped = s->corrupted = 0ul;
@@ -662,21 +664,13 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 
         decoder_set_video_mode(s, video_mode);
 
-        if(postprocess) {
-                char *tmp_pp_config = strdup(postprocess);
-                s->postprocess = vo_postprocess_init(tmp_pp_config);
-                free(tmp_pp_config);
+        if (postprocess) {
                 if(strcmp(postprocess, "help") == 0) {
                         delete s;
                         exit_uv(0);
                         return NULL;
                 }
-                if(!s->postprocess) {
-                        log_msg(LOG_LEVEL_FATAL, "Initializing postprocessor \"%s\" failed.\n", postprocess);
-                        delete s;
-                        exit_uv(129);
-                        return NULL;
-                }
+                s->requested_postprocess = postprocess;
         }
 
         if(!video_decoder_register_display(s, display)) {
@@ -825,6 +819,12 @@ static void cleanup(struct state_video_decoder *decoder)
                 free(item);
         }
         decoder->change_il_state.resize(0);
+
+        if (decoder->postprocess) {
+                vo_postprocess_done(decoder->postprocess);
+                decoder->postprocess = NULL;
+        }
+
 }
 
 #define PRINT_STATISTICS log_msg(LOG_LEVEL_INFO, "Video dec stats: %lu total: %lu disp / %lu "\
@@ -852,14 +852,11 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
 
         cleanup(decoder);
 
-        if(decoder->pp_frame) {
-                vo_postprocess_done(decoder->postprocess);
-                decoder->pp_frame = NULL;
-        }
-
         free(decoder->disp_supported_il);
 
         PRINT_STATISTICS
+
+        module_done(&decoder->mod);
 
         delete decoder;
 }
@@ -1036,7 +1033,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         video_decoder_remove_display(decoder);
         video_decoder_register_display(decoder, tmp_display);
 
-        assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
 
         cleanup(decoder);
@@ -1075,7 +1071,13 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 }
         }
 
-        if(decoder->postprocess) {
+        if (!decoder->requested_postprocess.empty()) {
+                decoder->postprocess = vo_postprocess_init(decoder->requested_postprocess.c_str());
+                if (!decoder->postprocess) {
+                        log_msg(LOG_LEVEL_FATAL, "Initializing postprocessor \"%s\" failed.\n", decoder->requested_postprocess.c_str());
+                        return false;
+                }
+
                 struct video_desc pp_desc = desc;
                 pp_desc.color_spec = out_codec;
                 if(!pp_does_change_tiling_mode) {
@@ -1257,8 +1259,10 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         msg->type = RECEIVER_MSG_VIDEO_PROP_CHANGED;
         msg->new_desc = decoder->received_vid_desc;
         struct response *resp =
-                send_message_to_receiver(decoder->parent, (struct message *) msg);
+                send_message_to_receiver(decoder->mod.parent, (struct message *) msg);
         free_response(resp);
+
+        decoder->frame = display_get_frame(decoder->display);
 
         return true;
 }
@@ -1304,9 +1308,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                                 [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 #else
                 int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
-                if (ret) {
-                        decoder->frame = display_get_frame(decoder->display);
-                } else {
+                if (!ret) {
                         log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                         decoder->frame = NULL;
                 }
@@ -1334,6 +1336,33 @@ static int check_for_mode_change(struct state_video_decoder *decoder,
 
 #define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
 #define max(a, b)       (((a) > (b))? (a): (b))
+
+static struct response *process_message(struct state_video_decoder *decoder, struct msg_universal *msg)
+{
+        log_msg(LOG_LEVEL_NOTICE, "Received command: %s\n", msg->text);
+
+        if (strncmp(msg->text, "postprocess ", strlen("postprocess ")) == 0) {
+                const char *command = msg->text + strlen("postprocess ");
+                string old_postprocess = decoder->requested_postprocess;
+                if (strcmp(command, "flush") == 0) {
+                        decoder->requested_postprocess = {};
+                } else {
+                        decoder->requested_postprocess = command;
+                }
+                bool ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
+                if (ret) {
+                        return new_response(RESPONSE_OK, NULL);
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "Postprocess change failed! "
+                                        "Trying to revert to an old one.\n");
+                        decoder->requested_postprocess = old_postprocess;
+                        reconfigure_decoder(decoder, decoder->received_vid_desc);
+                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                }
+        } else {
+                return new_response(RESPONSE_BAD_REQUEST, "unknown command");
+        }
+}
 
 /**
  * @brief Decodes a participant buffer representing one video frame.
@@ -1408,6 +1437,13 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         decoder->fec_queue.push(move(msg_reconf->last_frame));
                 }
                 delete msg_reconf;
+        }
+
+        struct message *msg;
+        while ((msg = check_message(&decoder->mod))) {
+                struct response *r = process_message(decoder, (struct msg_universal *) msg);
+                free_message(msg, r);
+                return FALSE;
         }
 
         while (cdata != NULL) {
