@@ -2065,7 +2065,7 @@ CPPFLAGS=$SAVED_CPPFLAGS
 
 if test $system = Windows
 then
-        JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
+        JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release -lgpujpeg"
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $JPEG_LIB"
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
