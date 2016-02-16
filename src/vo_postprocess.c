@@ -141,7 +141,10 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
 
 void vo_postprocess_done(struct vo_postprocess_state *s)
 {
-        if(s) s->funcs->done(s->state);
+        if (s) {
+                s->funcs->done(s->state);
+                free(s);
+        }
 }
 
 void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode, int *out_frames_count)
