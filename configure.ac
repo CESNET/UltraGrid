@@ -2097,6 +2097,14 @@ then
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_jpeg.so")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $JPEG_COMPRESS_OBJ $JPEG_DECOMPRESS_OBJ"
+
+        # check if GPUJPEG is new enough
+        SAVED_LIBS=$LIBS
+        SAVED_CFLAGS=$CFLAGS
+        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_input_copy_image], [], AC_MSG_ERROR([[Please update your GPUJPEG (git submodule update --init; cd gpujpeg; ./autogen.sh && make install)]]))
+        LIBS=$SAVED_LIBS
+        CFLAGS=$SAVED_CFLAGS
+
         CUDA_MESSAGE
 fi
 
