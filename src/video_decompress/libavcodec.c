@@ -453,7 +453,7 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                 unsigned int src_len, int frame_seq)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
-        int len, got_frame;
+        int len, got_frame = 0;
         int res = FALSE;
 
         s->pkt.size = src_len;
@@ -463,23 +463,18 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
 
                 /*
-                 * Hack: libavcodec does not correctly support JPEG with more than one reset
-                 * segment. It returns error although it is actually able to decompress frame
-                 * correctly. So we assume that the decompression went good even with the 
-                 * reported error.
+                 * Hack: Some libavcodec versions (typically found in Libav)
+                 * do not correctly support JPEG with more than one reset
+                 * segment (GPUJPEG) or more than one slices (compressed with
+                 * libavcodec). It returns error although it is actually able
+                 * to decompress the frame correctly. So we assume that the
+                 * decompression went good even with the reported error.
                  */
                 if (len < 0) {
                         if (s->in_codec == JPEG) {
-                                // this hack doesn;t seem to work in recent Libav versions
-#if 0
-                                return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
-                                                s->out_codec, s->width, s->height, s->pitch);
-#else
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
-#endif
                         } else if (s->in_codec == MJPG) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
-                                return FALSE;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
                                 return FALSE;
