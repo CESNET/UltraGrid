@@ -49,8 +49,8 @@ using namespace std;
 using namespace std::chrono;
 
 struct dummy_display_state {
-        dummy_display_state() : desc(), t0(steady_clock::now()), frames(0) {}
-        struct video_desc desc;
+        dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {}
+        struct video_frame *f;
         steady_clock::time_point t0;
         int frames;
 };
@@ -66,15 +66,18 @@ static void display_dummy_run(void *)
 
 static void display_dummy_done(void *state)
 {
-        delete (dummy_display_state *) state;
+        auto s = (dummy_display_state *) state;
+
+        vf_free(s->f);
+        delete s;
 }
 
 static struct video_frame *display_dummy_getf(void *state)
 {
-        return vf_alloc_desc_data(((dummy_display_state *) state)->desc);
+        return ((dummy_display_state *) state)->f;
 }
 
-static int display_dummy_putf(void *state, struct video_frame *frame, int)
+static int display_dummy_putf(void *state, struct video_frame * /* frame */, int)
 {
         auto s = (dummy_display_state *) state;
         auto curr_time = steady_clock::now();
@@ -88,7 +91,6 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int)
                 s->frames = 0;
         }
 
-        vf_free(frame);
         return 0;
 }
 
@@ -114,7 +116,9 @@ static int display_dummy_get_property(void *, int property, void *val, size_t *l
 
 static int display_dummy_reconfigure(void *state, struct video_desc desc)
 {
-        ((dummy_display_state *) state)->desc = desc;
+        dummy_display_state *s = (dummy_display_state *) state;
+        vf_free(s->f);
+        s->f = vf_alloc_desc_data(desc);
 
         return TRUE;
 }
