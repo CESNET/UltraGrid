@@ -369,8 +369,9 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *
                 shared_ptr<video_frame> frame, struct module *parent)
 {
         if(frame->tile_count != s->state.size()) {
+                size_t old_size = s->state.size();
                 s->state.resize(frame->tile_count);
-                for(unsigned int i = s->state.size(); i < frame->tile_count; ++i) {
+                for (unsigned int i = old_size; i < s->state.size(); ++i) {
                         s->state[i] = s->funcs->init_func(parent, s->compress_options.c_str());
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
