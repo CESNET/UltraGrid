@@ -156,6 +156,18 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         if (source == NTV2_INPUTSOURCE_INVALID) {
                                 throw string("Unknown source " + it.second + "!");
                         }
+                } else if (it.first == "format") {
+                        NTV2VideoFormat format{};
+                        while (format != NTV2_MAX_NUM_VIDEO_FORMATS) {
+                                if (NTV2VideoFormatToString(format) == it.second) {
+                                        mVideoFormat = format;
+                                        break;
+                                }
+                                format = (NTV2VideoFormat) ((int) format + 1);
+                        }
+                        if (format == NTV2_MAX_NUM_VIDEO_FORMATS) {
+                                throw string("Unknown format " + it.second + "!");
+                        }
                 } else {
                         throw string("Unknown option: ") + it.second;
                 }
@@ -421,7 +433,8 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mTimeCodeSource = NTV2_TCSOURCE_DEFAULT;
 
         //      Determine the input video signal format...
-        mVideoFormat =  GetVideoFormatFromInputSource();
+        if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
+                mVideoFormat =  GetVideoFormatFromInputSource();
         //mVideoFormat = NTV2_FORMAT_4x1920x1080p_2500;
         //mVideoFormat = NTV2_FORMAT_1080p_5000_A;
         if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
@@ -749,7 +762,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 
 static void show_help() {
         printf("Usage:\n");
-        printf("\t-t aja[:device=<idx>][:progressive][:4K][:source=<src>]\n");
+        printf("\t-t aja[:device=<idx>][:progressive][:4K][:source=<src>][:format=<fmt>]\n");
         printf("\n");
 
         printf("progressive\n");
@@ -764,11 +777,20 @@ static void show_help() {
         printf("\tSource can be one of SDIX (replace X with index, starting with 1), HDMI, or Analog.\n");
         printf("\n");
 
+
         printf("Available devices:\n");
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
                 cout << "\t" << i << ") " << info.deviceIdentifier << ". " << info;
+                NTV2VideoFormatSet fmt_set;
+                if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
+                        cout << "\tAvailable formats:";
+                        for (auto fmt : fmt_set) {
+                                cout << " \"" << NTV2VideoFormatToString(fmt) << "\"";
+                        }
+                        cout << "\n";
+                }
         }
         cout << "\n";
 }
