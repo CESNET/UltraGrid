@@ -636,6 +636,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DECODER;
         module_register(&s->mod, parent);
+        dump_tree(get_root_module(parent), 0);
         s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         s->disp_supported_il = NULL;

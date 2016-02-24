@@ -90,7 +90,8 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         }
 
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
-        m_postprocess = (const char *) params.at("postprocess").ptr;
+        auto postprocess_c = (const char *) params.at("postprocess").ptr;
+        m_postprocess = postprocess_c ? postprocess_c : string();
         m_display_device = (struct display *) params.at("display_device").ptr;
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
@@ -257,6 +258,30 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 }
                         }
                         break;
+                case RECEIVER_MSG_POSTPROCESS:
+                        if (strcmp("flush", msg->postprocess_cfg) == 0) {
+                                m_postprocess = {};
+                        } else {
+                                m_postprocess = msg->postprocess_cfg;
+                        }
+                        {
+                                pdb_iter_t it;
+                                struct pdb_e *cp = pdb_iter_init(m_participants, &it);
+                                while (cp != NULL) {
+                                        if (cp->decoder_state) {
+                                                video_decoder_remove_display(
+                                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
+                                                video_decoder_destroy(
+                                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
+                                                cp->decoder_state = NULL;
+                                        }
+                                        cp = pdb_iter_next(&it);
+                                }
+                                pdb_iter_done(&it);
+
+                        }
+
+                        break;
                 case RECEIVER_MSG_INCREASE_VOLUME:
                 case RECEIVER_MSG_DECREASE_VOLUME:
                 case RECEIVER_MSG_MUTE:
@@ -302,7 +327,7 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 
         if(state) {
                 state->decoder = video_decoder_init(&m_receiver_mod, m_decoder_mode,
-                                m_postprocess, d,
+                                m_postprocess.c_str(), d,
                                 m_requested_encryption);
 
                 if(!state->decoder) {

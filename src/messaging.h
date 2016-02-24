@@ -67,6 +67,7 @@ enum msg_receiver_type {
         RECEIVER_MSG_INCREASE_VOLUME,
         RECEIVER_MSG_DECREASE_VOLUME,
         RECEIVER_MSG_MUTE,
+        RECEIVER_MSG_POSTPROCESS,
 };
 struct msg_receiver {
         struct message m;
@@ -74,6 +75,7 @@ struct msg_receiver {
         union {
                 uint16_t new_rx_port;
                 struct video_desc new_desc;
+                char postprocess_cfg[1024];
         };
 };
 

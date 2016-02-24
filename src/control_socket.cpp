@@ -462,6 +462,12 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
                 msg->type = RECEIVER_MSG_MUTE;
                 resp = send_message(s->root_module, path, (struct message *) msg);
+        } else if (prefix_matches(message, "postprocess ")) {
+                strncpy(path, "receiver", sizeof path);
+                struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                msg->type = RECEIVER_MSG_POSTPROCESS;
+                strncpy(msg->postprocess_cfg, suffix(message, "postprocess "), sizeof msg->postprocess_cfg);
+                resp = send_message(s->root_module, path, (struct message *) msg);
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
