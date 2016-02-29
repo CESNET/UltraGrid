@@ -200,9 +200,11 @@ after_send:
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
         int dropped_frames = 0;
-        auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        auto nano_actual = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        long long int nano_expected = 1000l * 1000 * 1000 / tx_frame->fps;
         int send_bytes = tx_frame->tiles[0].data_len;
         m_send_bytes_total += send_bytes;
+        time_t now = time(NULL);
 
         ostringstream oss;
         if (m_port_id != -1) {
@@ -210,9 +212,12 @@ after_send:
         }
         oss << "bufferId " << buffer_id <<
                 " droppedFrames " << dropped_frames <<
-                " nanoperframeactual " << nanoseconds <<
+                " nanoPerFrameActual " << nano_actual <<
+                " nanoPerFrameExpected " << nano_expected <<
                 " sendBytes " << send_bytes <<
-                " sendBytesTotal " << m_send_bytes_total;
+                " sendBytesTotal " << m_send_bytes_total <<
+                " timestamp " << now * 1000ll;
+        ///@todo Add more accurate statistics in milliseconds
         control_report_stats(m_control, oss.str());
 }
 
