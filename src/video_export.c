@@ -122,11 +122,14 @@ static void *video_export_thread(void *arg)
                 }
 
                 FILE *out = fopen(current->filename, "wb");
-                assert (out != NULL);
-                if (fwrite(current->data, current->data_len, 1, out) != 1) {
-                        perror("fwrite");
+                if (out == NULL) {
+                        perror("fopen");
+                } else {
+                        if (fwrite(current->data, current->data_len, 1, out) != 1) {
+                                perror("fwrite");
+                        }
+                        fclose(out);
                 }
-                fclose(out);
                 free(current->data);
                 free(current->filename);
                 free(current);
@@ -135,18 +138,18 @@ static void *video_export_thread(void *arg)
         // never get here
 }
 
-struct video_export * video_export_init(char *path)
+struct video_export * video_export_init(const char *path)
 {
         struct video_export *s;
 
-        s = (struct video_export *) malloc(sizeof(struct video_export));
+        s = (struct video_export *) calloc(1, sizeof(struct video_export));
         assert(s != NULL);
 
         platform_sem_init(&s->semaphore, 0, 0);
         pthread_mutex_init(&s->lock, NULL);
         s->total = s->queue_len = 0;
         assert(path != NULL);
-        s->path = path;
+        s->path = strdup(path);
         s->head = s->tail = NULL;
 
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
@@ -210,6 +213,7 @@ void video_export_destroy(struct video_export *s)
                         output_summary(s);
                 }
 
+                free(s->path);
                 free(s);
         }
 }

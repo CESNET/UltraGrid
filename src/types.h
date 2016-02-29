@@ -76,6 +76,7 @@ typedef enum {
         VP8,      ///< VP8 frame
         BGR,      ///< 8-bit BGR
         J2K,      ///< JPEG 2000
+        VIDEO_CODEC_COUNT ///< count of known video codecs (including VIDEO_CODEC_NONE)
 } codec_t;
 
 /**

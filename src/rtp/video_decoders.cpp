@@ -235,7 +235,7 @@ struct state_video_decoder
         /// @{
         int               display_requested_pitch;
         int               display_requested_rgb_shift[3];
-        codec_t           native_codecs[20]; ///< list of native codecs
+        codec_t           native_codecs[VIDEO_CODEC_COUNT]; ///< list of native codecs
         size_t            native_count;  ///< count of @ref native_codecs
         enum interlacing_t *disp_supported_il; ///< display supported interlacing mode
         size_t            disp_supported_il_cnt; ///< count of @ref disp_supported_il

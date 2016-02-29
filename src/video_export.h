@@ -58,7 +58,7 @@ extern "C" {
 struct video_export;
 struct video_frame;
 
-struct video_export * video_export_init(char *path);
+struct video_export * video_export_init(const char *path);
 void video_export_destroy(struct video_export *state);
 void video_export(struct video_export *state, struct video_frame *frame);
 
