@@ -175,11 +175,11 @@ struct main_msg;
 
 // message definitions
 struct frame_msg {
-        inline frame_msg(struct control_state *c, atomic<long long int> &rbt) : control(c), recv_frame(nullptr),
+        inline frame_msg(struct control_state *c, atomic<long long int> &rbt, unsigned long int disp, unsigned long int corr) : control(c), recv_frame(nullptr),
                                 nofec_frame(nullptr),
                              received_pkts_cum(0), expected_pkts_cum(0),
                              received_bytes_total(rbt),
-                             displayed(false), corrupted(false)
+                             displayed(disp), corrupted(corr)
         {}
         inline ~frame_msg() {
                 if (control && recv_frame) {
@@ -192,8 +192,8 @@ struct frame_msg {
                                 " expectedBytes " << recv_frame->tiles[0].data_len <<
                                 " receivedBytes " << received_bytes <<
                                 " receivedBytesTotal " << received_bytes_total <<
-                                " isCorrupted " << (corrupted ? "1" : "0") << " " <<
-                                " isDisplayed " << (displayed ? "1" : "0");
+                                " isCorrupted " << corrupted <<
+                                " isDisplayed " << displayed;
                         control_report_stats(control, oss.str());
                 }
                 vf_free(recv_frame);
@@ -206,7 +206,7 @@ struct frame_msg {
         unique_ptr<map<int, int>[]> pckt_list;
         long long int received_pkts_cum, expected_pkts_cum;
         atomic<long long int> &received_bytes_total;
-        bool displayed, corrupted;
+        unsigned long int displayed, corrupted;
 };
 
 struct main_msg_reconfigure {
@@ -457,7 +457,6 @@ static void *fec_thread(void *args) {
                                         } else if (!corrupted_frame_counted) {
                                                 // count it here because decoder accepts corrupted frames
                                                 corrupted_frame_counted = true;
-                                                data->corrupted = true;
                                                 decoder->corrupted++;
                                         }
                                 }
@@ -467,8 +466,6 @@ static void *fec_thread(void *args) {
                 decoder->decompress_queue.push(move(data));
 cleanup:
                 if(ret == FALSE) {
-                        if (data)
-                                data->corrupted = true;
                         decoder->corrupted++;
                         decoder->dropped++;
                 }
@@ -583,7 +580,6 @@ static void *decompress_thread(void *args) {
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
-                                msg->displayed = true;
                                 decoder->displayed++;
                         } else {
                                 decoder->dropped++;
@@ -784,7 +780,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->received_bytes_total));
+                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->received_bytes_total, decoder->displayed, decoder->corrupted));
                 decoder->fec_queue.push(move(msg));
 
                 decoder->fec_thread_id.join();
@@ -1705,7 +1701,7 @@ next_packet:
 
         // format message
         {
-                unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->received_bytes_total));
+                unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->received_bytes_total, decoder->displayed, decoder->corrupted));
                 fec_msg->buffer_num = std::move(buffer_num);
                 fec_msg->recv_frame = frame;
                 frame = NULL;
