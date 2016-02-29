@@ -169,7 +169,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                                 throw string("Unknown format " + it.second + "!");
                         }
                 } else {
-                        throw string("Unknown option: ") + it.second;
+                        throw string("Unknown option: ") + it.first;
                 }
         }
         Init();
