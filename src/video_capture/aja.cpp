@@ -571,7 +571,7 @@ static NTV2Crosspoint   channelToInputCrosspoint []     = {     NTV2CROSSPOINT_I
 
 void vidcap_state_aja::SetupInputAutoCirculate (void)
 {
-        mDevice.StopAutoCirculate (NTV2CROSSPOINT_INPUT1);
+        mDevice.StopAutoCirculate (channelToInputCrosspoint [mInputChannel]);
 
         ::memset (&mInputTransferStruct,                0,      sizeof (mInputTransferStruct));
         ::memset (&mInputTransferStatusStruct,  0,      sizeof (mInputTransferStatusStruct));
