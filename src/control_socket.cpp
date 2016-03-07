@@ -411,11 +411,11 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
 
                 if(!resp) {
                         if(msg->media_type == TX_MEDIA_VIDEO) {
-                                enum module_class path_tx[] = { MODULE_CLASS_TX, MODULE_CLASS_NONE };
+                                enum module_class path_tx[] = { MODULE_CLASS_SENDER, MODULE_CLASS_TX, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
                                                 path_tx);
                         } else {
-                                enum module_class path_audio_tx[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_TX, MODULE_CLASS_NONE };
+                                enum module_class path_audio_tx[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_TX, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
                                                 path_audio_tx);
                         }
