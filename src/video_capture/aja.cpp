@@ -95,7 +95,6 @@ class vidcap_state_aja {
                 NTV2InputSource        mInputSource;                  ///     The input source I'm using
                 NTV2AudioSystem        mAudioSystem;                  ///     The audio system I'm using
                 AJACircularBuffer <AVDataBuffer *> mAVCircularBuffer; ///     My ring buffer object
-                bool                   mGlobalQuit;                   ///     Set "true" to gracefully stop
                 uint32_t               mVideoBufferSize;              ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize;              ///     My audio buffer size, in bytes
                 AVDataBuffer           mAVHostBuffer [CIRCULAR_BUFFER_SIZE]; ///     My host buffers
@@ -130,7 +129,7 @@ class vidcap_state_aja {
 vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters) :
         mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
         mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
-        mAudioSystem(NTV2_AUDIOSYSTEM_1), mGlobalQuit(false),
+        mAudioSystem(NTV2_AUDIOSYSTEM_1),
         mProducerThread(0), mFrameCaptured(false), mOutputFrame(0), mProgressive(false),
         mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
         mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
@@ -545,7 +544,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 void vidcap_state_aja::SetupHostBuffers (void)
 {
         //      Let my circular buffer know when it's time to quit...
-        mAVCircularBuffer.SetAbortFlag (&mGlobalQuit);
+        mAVCircularBuffer.SetAbortFlag ((bool *) &should_exit);
 
         mVancEnabled = false;
         mWideVanc = false;
@@ -620,7 +619,7 @@ void vidcap_state_aja::Quit()
                 mAVCircularBuffer.EndConsumeNextBuffer ();
         }
         //      Set the global 'quit' flag, and wait for the threads to go inactive...
-        mGlobalQuit = true;
+        //mGlobalQuit = true;
 
         if (mProducerThread)
                 while (mProducerThread->Active ())
@@ -659,7 +658,7 @@ void vidcap_state_aja::CaptureFrames (void)
         //      Start AutoCirculate running...
         mDevice.StartAutoCirculate (mInputTransferStruct.channelSpec);
 
-        while (!mGlobalQuit)
+        while (!should_exit)
         {
                 AUTOCIRCULATE_STATUS_STRUCT     acStatus;
                 mDevice.GetAutoCirculate (mInputTransferStruct.channelSpec, &acStatus);
@@ -721,7 +720,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         if (mFrameCaptured) {
                 mAVCircularBuffer.EndConsumeNextBuffer ();
         }
-        if (!mGlobalQuit)
+        if (!should_exit)
         {
                 //      Wait for the next frame to become ready to "consume"...
                 AVDataBuffer *  playData        (mAVCircularBuffer.StartConsumeNextBuffer ());
