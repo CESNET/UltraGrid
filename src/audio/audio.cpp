@@ -85,8 +85,6 @@
 
 using namespace std;
 
-static volatile bool should_exit_audio = false;
-
 struct audio_device_t {
         int index;
         void *state;
@@ -461,11 +459,6 @@ void audio_join(struct state_audio *s) {
         }
 }
         
-void audio_finish()
-{
-        should_exit_audio = true;
-}
-
 void audio_done(struct state_audio *s)
 {
         if(s) {
@@ -571,7 +564,7 @@ static void *audio_receiver_thread(void *arg)
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");
-        while (!should_exit_audio) {
+        while (!should_exit) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_receiver_module))) {
                         struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg, pbuf_data.decoder);
@@ -882,7 +875,7 @@ static void *audio_sender_thread(void *arg)
         audio_frame2_resampler resampler_state;
 
         printf("Audio sending started.\n");
-        while (!should_exit_audio) {
+        while (!should_exit) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_sender_module))) {
                         struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);

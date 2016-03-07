@@ -369,7 +369,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
-        while (!should_exit_receiver) {
+        while (!should_exit) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);

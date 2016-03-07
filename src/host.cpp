@@ -49,7 +49,7 @@ int uv_argc;
 char **uv_argv;
 
 char *export_dir = NULL;
-volatile bool should_exit_receiver = false;
+volatile bool should_exit = false;
 
 volatile int log_level = LOG_LEVEL_INFO;
 bool color_term = (getenv("TERM") && set<string>{"linux", "screen", "xterm", "xterm-256color"}.count(getenv("TERM")) > 0) && isatty(1) && isatty(2);

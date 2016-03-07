@@ -114,8 +114,6 @@ static void *writer(void *arg);
 static void signal_handler(int signal);
 void exit_uv(int status);
 
-static volatile int should_exit = false;
-
 /*
  * this is currently only placeholder to substitute UG default
  */

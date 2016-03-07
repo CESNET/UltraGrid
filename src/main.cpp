@@ -146,7 +146,6 @@ struct state_uv {
 };
 
 static int exit_status = EXIT_SUCCESS;
-static volatile bool should_exit_sender = false;
 
 static struct state_uv *uv_state;
 
@@ -175,10 +174,7 @@ static void crash_signal_handler(int sig)
 
 void exit_uv(int status) {
         exit_status = status;
-
-        should_exit_sender = true;
-        should_exit_receiver = true;
-        audio_finish();
+        should_exit = true;
 }
 
 static void usage(void)
@@ -292,7 +288,7 @@ static void *capture_thread(void *arg)
 
         wait_obj = wait_obj_init();
 
-        while (!should_exit_sender) {
+        while (!should_exit) {
                 /* Capture and transmit video... */
                 struct audio_frame *audio;
                 struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);

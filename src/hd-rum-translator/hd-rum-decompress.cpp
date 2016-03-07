@@ -255,7 +255,7 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
 void hd_rum_decompress_done(void *state) {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
-        should_exit_receiver = true;
+        should_exit = true;
         s->receiver_thread.join();
 
         {
