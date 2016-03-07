@@ -74,7 +74,7 @@
 
 using namespace std;
 
-struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
+struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 {
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
@@ -142,13 +142,17 @@ struct response *rtp_video_rxtx::process_message(struct msg_sender *msg)
                         }
                 case SENDER_MSG_CHANGE_FEC:
                         {
+                                lock_guard<mutex> lock(m_network_devices_lock);
                                 delete m_fec_state;
-                                m_fec_state = fec::create_from_config(msg->fec_cfg);
-                                if (!m_fec_state) {
-                                        log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
-                                        return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                                } else {
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
+                                m_fec_state = NULL;
+                                if (strcmp(msg->fec_cfg, "flush") != 0) {
+                                        m_fec_state = fec::create_from_config(msg->fec_cfg);
+                                        if (!m_fec_state) {
+                                                log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
+                                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                        } else {
+                                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
+                                        }
                                 }
                         }
                         break;

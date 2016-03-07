@@ -267,7 +267,13 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 fec_cfg = delim + 1;
         }
 
-        if(strcasecmp(fec, "none") == 0) {
+        struct msg_sender *msg = (struct msg_sender *)
+                new_message(sizeof(struct msg_sender));
+        msg->type = SENDER_MSG_CHANGE_FEC;
+
+        snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "flush");
+
+        if (strcasecmp(fec, "none") == 0) {
                 tx->fec_scheme = FEC_NONE;
         } else if(strcasecmp(fec, "mult") == 0) {
                 tx->fec_scheme = FEC_MULT;
@@ -280,14 +286,8 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         ret = false;
                 } else {
                         if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
-                                struct msg_sender *msg = (struct msg_sender *)
-                                        new_message(sizeof(struct msg_sender));
                                 snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
                                                 fec_cfg ? fec_cfg : "");
-                                msg->type = SENDER_MSG_CHANGE_FEC;
-                                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
-                                                (struct message *) msg);
-                                free_response(resp);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
@@ -298,18 +298,19 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         fprintf(stderr, "LDGM is not currently supported for audio!\n");
                         ret = false;
                 } else {
-                        struct msg_sender *msg = (struct msg_sender *)
-                                new_message(sizeof(struct msg_sender));
                         snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
                                         fec_cfg ? fec_cfg : "");
-                        msg->type = SENDER_MSG_CHANGE_FEC;
-                        struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
-                        free_response(resp);
                         tx->fec_scheme = FEC_RS;
                 }
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
                 ret = false;
+        }
+
+        if (ret) {
+                struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
+                                (struct message *) msg);
+                free_response(resp);
         }
 
         free(fec);

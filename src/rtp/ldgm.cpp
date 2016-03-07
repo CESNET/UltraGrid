@@ -238,10 +238,6 @@ ldgm::ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
         init(k, m, c, seed);
 }
 
-void ldgm::freeBuffer(char *buffer) {
-        m_coding_session->free_out_buf(buffer);
-}
-
 void ldgm::decode(const char *frame, int size, char **out, int *out_size, const map<int, int> &packets) {
         char *decoded;
         decoded = m_coding_session->decode_frame((char *) frame, size, out_size, packets);
@@ -392,10 +388,14 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
 
 shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
 {
+        // We need to have copy of coding session shared pointer in order to exit
+        // gracefully even when destructed LDGM state first with some frame still
+        // existing.
+        std::shared_ptr<LDGM_session> coding_session = this->m_coding_session;
         shared_ptr<video_frame> out(vf_alloc_desc(video_desc_from_frame(tx_frame.get())),
-                        [this](struct video_frame *frame) {
+                        [coding_session](struct video_frame *frame) {
                                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                                        freeBuffer(frame->tiles[i].data);
+                                        coding_session->free_out_buf(frame->tiles[i].data);
                                 }
                                 vf_free(frame);
                         });

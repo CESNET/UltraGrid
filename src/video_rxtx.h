@@ -96,7 +96,7 @@ private:
         virtual void *(*get_receiver_thread())(void *arg) = 0;
         static void *sender_thread(void *args);
         void *sender_loop();
-        virtual struct response *process_message(struct msg_sender *) {
+        virtual struct response *process_sender_message(struct msg_sender *) {
                 return NULL;
         }
 
