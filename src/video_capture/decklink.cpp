@@ -915,11 +915,17 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 
                                 mnum = 0;
                                 bool mode_found = false;
+#define MODE_SPEC_FOURCC -1
+                                int mode_idx = MODE_SPEC_FOURCC;
+
+                                if (s->mode.length() <= 2) {
+                                        mode_idx = atoi(s->mode.c_str());
+                                }
 
                                 while (displayModeIterator->Next(&displayMode) == S_OK)
                                 {
-					if (s->mode.length() <= 2) {
-						if (atoi(s->mode.c_str()) != mnum) {
+					if (mode_idx != MODE_SPEC_FOURCC) {
+						if (mode_idx != mnum) {
 							mnum++;
 							// Release the IDeckLinkDisplayMode object to prevent a leak
 							displayMode->Release();
@@ -934,7 +940,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 							uint32_t fourcc;
 							char tmp[4];
 						};
-						memcpy(tmp, s->mode.c_str(), s->mode.length());
+						memcpy(tmp, s->mode.c_str(), min(s->mode.length(), sizeof tmp));
 						if (s->mode.length() == 3) tmp[3] = ' ';
 						fourcc = htonl(fourcc);
 						if (displayMode->GetDisplayMode() == fourcc) {
@@ -944,11 +950,14 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 					}
                                 }
 
-                                if(mode_found) {
-                                        printf("The desired display mode is supported: %s\n", s->mode.c_str());
+                                if (mode_found) {
+                                        log_msg(LOG_LEVEL_INFO, "The desired display mode is supported: %s\n", s->mode.c_str());
                                 } else {
-                                        fprintf(stderr, "Desired mode index %s is out of bounds.\n",
-                                                        s->mode.c_str());
+                                        if (mode_idx == MODE_SPEC_FOURCC) {
+                                                log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
+                                        } else {
+                                                log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
+                                        }
                                         goto error;
                                 }
 
