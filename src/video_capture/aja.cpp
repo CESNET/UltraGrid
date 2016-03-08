@@ -292,53 +292,6 @@ static const NTV2OutputCrosspointID gHDMIInYUVOutputs[] = {
 static const NTV2OutputCrosspointID gHDMIInRGBOutputs[] = {
         NTV2_XptHDMIInRGB, NTV2_XptHDMIInQ2RGB, NTV2_XptHDMIInQ3RGB, NTV2_XptHDMIInQ4RGB };
 
-static bool get4KInputFormat (NTV2VideoFormat & videoFormat)
-{
-        bool    status  (false);
-        struct  VideoFormatPair
-        {
-                NTV2VideoFormat vIn;
-                NTV2VideoFormat vOut;
-        } VideoFormatPairs [] = {       //                      vIn                                     vOut
-                {NTV2_FORMAT_1080psf_2398,              NTV2_FORMAT_4x1920x1080psf_2398},
-                {NTV2_FORMAT_1080psf_2400,              NTV2_FORMAT_4x1920x1080psf_2400},
-                {NTV2_FORMAT_1080p_2398,                NTV2_FORMAT_4x1920x1080p_2398},
-                {NTV2_FORMAT_1080p_2400,                NTV2_FORMAT_4x1920x1080p_2400},
-                {NTV2_FORMAT_1080p_2500,                NTV2_FORMAT_4x1920x1080p_2500},
-                {NTV2_FORMAT_1080p_2997,                NTV2_FORMAT_4x1920x1080p_2997},
-                {NTV2_FORMAT_1080p_3000,                NTV2_FORMAT_4x1920x1080p_3000},
-                {NTV2_FORMAT_1080p_5000,                NTV2_FORMAT_4x1920x1080p_5000},
-                {NTV2_FORMAT_1080p_5994,                NTV2_FORMAT_4x1920x1080p_5994},
-                {NTV2_FORMAT_1080p_6000,                NTV2_FORMAT_4x1920x1080p_6000},
-                {NTV2_FORMAT_1080p_2K_2398,             NTV2_FORMAT_4x2048x1080p_2398},
-                {NTV2_FORMAT_1080p_2K_2400,             NTV2_FORMAT_4x2048x1080p_2400},
-                {NTV2_FORMAT_1080p_2K_2500,             NTV2_FORMAT_4x2048x1080p_2500},
-                {NTV2_FORMAT_1080p_2K_2997,             NTV2_FORMAT_4x2048x1080p_2997},
-                {NTV2_FORMAT_1080p_2K_3000,             NTV2_FORMAT_4x2048x1080p_3000},
-                {NTV2_FORMAT_1080p_2K_5000,             NTV2_FORMAT_4x2048x1080p_5000},
-                {NTV2_FORMAT_1080p_2K_5994,             NTV2_FORMAT_4x2048x1080p_5994},
-                {NTV2_FORMAT_1080p_2K_6000,             NTV2_FORMAT_4x2048x1080p_6000},
-
-                {NTV2_FORMAT_1080p_5000_A,              NTV2_FORMAT_4x1920x1080p_5000},
-                {NTV2_FORMAT_1080p_5994_A,              NTV2_FORMAT_4x1920x1080p_5994},
-                {NTV2_FORMAT_1080p_6000_A,              NTV2_FORMAT_4x1920x1080p_6000},
-
-                {NTV2_FORMAT_1080p_2K_5000_A,           NTV2_FORMAT_4x2048x1080p_5000},
-                {NTV2_FORMAT_1080p_2K_5994_A,           NTV2_FORMAT_4x2048x1080p_5994},
-                {NTV2_FORMAT_1080p_2K_6000_A,           NTV2_FORMAT_4x2048x1080p_6000}
-
-        };
-
-        for (size_t formatNdx = 0; formatNdx < sizeof (VideoFormatPairs) / sizeof (VideoFormatPair); formatNdx++) {
-                if (VideoFormatPairs [formatNdx].vIn == videoFormat) {
-                        videoFormat = VideoFormatPairs [formatNdx].vOut;
-                        status = true;
-                }
-        }
-
-        return status;
-}       //      get4KInputFormat
-
 NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
 {
         NTV2VideoFormat videoFormat     (NTV2_FORMAT_UNKNOWN);
@@ -354,7 +307,7 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                                 mDevice.SetMultiFormatMode (true);
                         source = ::GetNTV2InputSourceForIndex (ndx + 0);
                         EnableInput(source);
-                        videoFormat = mDevice.GetInputVideoFormat(source);
+                        videoFormat = mDevice.GetInputVideoFormat(source, mProgressive);
                         NTV2Standard    videoStandard   (::GetNTV2StandardFromVideoFormat (videoFormat));
                         if (mCheckFor4K && (videoStandard == NTV2_STANDARD_1080p))
                         {
@@ -366,14 +319,14 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                                 for (i = 1; i < 4; i++) {
                                         source = ::GetNTV2InputSourceForIndex (ndx + i);
                                         EnableInput(source);
-                                        videoFormatNext = mDevice.GetInputVideoFormat (source);
+                                        videoFormatNext = mDevice.GetInputVideoFormat (source, mProgressive);
                                         if (videoFormatNext != videoFormat) {
                                                 allSDISameInput = false;
                                                 break;
                                         }
                                 }
                                 if (allSDISameInput)
-                                        get4KInputFormat (videoFormat);
+                                        videoFormat = GetQuadSizedVideoFormat(videoFormat);
                                 else
                                         LOG(LOG_LEVEL_WARNING) << "Input " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx + i), true) << " has input format " << NTV2VideoFormatToString(videoFormatNext) << " which differs from " << NTV2VideoFormatToString(videoFormat) << " on " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx), true) << "!\n";
                         }
@@ -387,7 +340,7 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                         break;                  //      indicates no source is currently selected
 
                 default:
-                        videoFormat = mDevice.GetInputVideoFormat (mInputSource);
+                        videoFormat = mDevice.GetInputVideoFormat (mInputSource, mProgressive);
                         break;
         }
 
