@@ -251,15 +251,6 @@ vidcap_state_aja::~vidcap_state_aja() {
         free(mAudio.data);
 }
 
-static const unordered_map<NTV2Standard, interlacing_t, hash<int>> interlacing_map = {
-        { NTV2_STANDARD_525, INTERLACED_MERGED },
-        { NTV2_STANDARD_625, INTERLACED_MERGED },
-        { NTV2_STANDARD_1080, INTERLACED_MERGED }, // or SEGMENTED_FRAME
-        { NTV2_STANDARD_720, PROGRESSIVE },
-        { NTV2_STANDARD_1080p, PROGRESSIVE },
-        { NTV2_STANDARD_2K, SEGMENTED_FRAME},
-};
-
 static const unordered_map<NTV2FrameBufferFormat, codec_t, hash<int>> codec_map = {
         { NTV2_FBF_10BIT_YCBCR, v210 },
         { NTV2_FBF_8BIT_YCBCR, UYVY },
@@ -495,15 +486,26 @@ AJAStatus vidcap_state_aja::SetupVideo()
         mDevice.EnableInputInterrupt (mInputChannel);
         mDevice.SubscribeInputVerticalEvent (mInputChannel);
 
-        NTV2Standard std = GetNTV2StandardFromVideoFormat(mVideoFormat);
         if (codec_map.find(mPixelFormat) == codec_map.end()) {
                 cerr << "Cannot find valid mapping from AJA pixel format to UltraGrid" << endl;
                 return AJA_STATUS_NOINPUT;
         }
+
+        interlacing_t interlacing;
+        if (NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat)) {
+                if (NTV2_IS_PSF_VIDEO_FORMAT(mVideoFormat)) {
+                        interlacing = SEGMENTED_FRAME;
+                } else {
+                        interlacing = PROGRESSIVE;
+                }
+        } else {
+                interlacing = INTERLACED_MERGED;
+        }
+
         video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
                 codec_map.at(mPixelFormat),
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
-                interlacing_map.find(std) == interlacing_map.end() ? PROGRESSIVE : interlacing_map.at(std),
+                interlacing,
                 1};
         cout << "[AJA] Detected input video mode: " << desc << endl;
         mOutputFrame = vf_alloc_desc(desc);
