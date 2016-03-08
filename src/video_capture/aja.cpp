@@ -586,21 +586,15 @@ void vidcap_state_aja::SetupInputAutoCirculate (void)
         mInputTransferStruct.frameBufferFormat          = mPixelFormat;
         mInputTransferStruct.bDisableExtraAudioInfo     = true;
 
-        //      Tell capture AutoCirculate to use frame buffers 0-9 on the device...
-        const uint32_t  startFrame      (0);
-        const uint32_t  endFrame        (9);
-
-        mDevice.InitAutoCirculate (mInputTransferStruct.channelSpec, startFrame, endFrame,
-                        1,                                              //      Number of channels
-                        NTV2_AUDIOSYSTEM_1,             //      Which audio system?
-                        true,                                   //      With audio?
-                        true,                                   //      With RP188?
-                        false,                                  //      Allow frame buffer format changes?
-                        false,                                  //      With color correction?
-                        false,                                  //      With vidProc?
-                        false,                                  //      With custom ANC data?
-                        false,                                  //      With LTC?
-                        false);                                 //      With audio2?
+        bool ret;
+        ret = mDevice.AutoCirculateInitForInput(mInputChannel,
+                        10,                                    // Number of system frame
+                        mAudioSystem,                          // Audio system
+                        AUTOCIRCULATE_WITH_RP188,              // Options
+                        1);                                    // Number of channels
+        if (!ret) {
+                throw string("Unable to initialize auto circulate!");
+        }
 }       //      SetupInputAutoCirculate
 
 AJAStatus vidcap_state_aja::Run()
