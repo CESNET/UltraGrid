@@ -50,6 +50,7 @@
 #include <thread>
 #include <vector>
 
+#include "compat/platform_time.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/synchronized_queue.h"
@@ -293,6 +294,8 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
         if (!proxy)
                 abort();
 
+        uint64_t t0 = time_since_epoch_in_ms();
+
         struct msg_change_compress_data *msg = NULL;
         while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
                 compress_process_message(proxy, msg);
@@ -302,6 +305,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
+                frame->compress_start = t0;
                 s->funcs->compress_frame_async_push_func(s->state[0], frame);
         } else {
                 if (!frame) { // pass poisoned pill
@@ -323,6 +327,9 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 if (!sync_api_frame) {
                         return;
                 }
+
+                sync_api_frame->compress_start = t0;
+                sync_api_frame->compress_end = time_since_epoch_in_ms();
 
                 proxy->queue.push(sync_api_frame);
         }

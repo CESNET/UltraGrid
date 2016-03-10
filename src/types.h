@@ -43,6 +43,8 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -197,12 +199,17 @@ struct video_frame {
          */
         void               (*data_deleter)(struct video_frame *);
 
+        // metadata follow
         struct fec_desc fec_params;
         uint32_t ssrc;
 
         uint32_t seq; ///< sequential number, used internally by JPEG encoder
         uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
+        uint64_t compress_start; ///< in ms from epoch
+        uint64_t compress_end; ///< in ms from epoch
 };
+
+#define VF_METADATA_SIZE (sizeof(struct video_frame) - offsetof(struct video_frame, fec_params))
 
 /**
  * @brief Struct tile is an area of video_frame.

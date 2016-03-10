@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "video_compress.h"
@@ -147,14 +148,16 @@ public:
 void encoder_state::compress(shared_ptr<video_frame> frame)
 {
         if (frame) {
-                uint32_t seq = frame->seq;
+                char vf_metadata[VF_METADATA_SIZE];
+                vf_store_metadata(frame.get(), vf_metadata); // seq and compress_start
                 auto out = compress_step(move(frame));
                 if (out) {
-                        out->seq = seq;
+                        vf_restore_metadata(out.get(), vf_metadata);
+                        out->compress_end = time_since_epoch_in_ms();
                 } else {
                         log_msg(LOG_LEVEL_WARNING, "[JPEG] Failed to encode frame!\n");
                         out = shared_ptr<video_frame>(vf_alloc(1), vf_free);
-                        out->seq = seq;
+                        vf_restore_metadata(out.get(), vf_metadata);
                 }
                 m_parent_state->m_out_queue.push(out);
         } else { // pass poison pill

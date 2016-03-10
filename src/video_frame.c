@@ -400,3 +400,13 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         return true;
 }
 
+void vf_store_metadata(struct video_frame *f, void *s)
+{
+        memcpy(s, (char *) f + offsetof(struct video_frame, fec_params), VF_METADATA_SIZE);
+}
+
+void vf_restore_metadata(struct video_frame *f, void *s)
+{
+        memcpy((char *) f + offsetof(struct video_frame, fec_params), s, VF_METADATA_SIZE);
+}
+
