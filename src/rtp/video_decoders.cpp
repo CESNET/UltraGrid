@@ -75,6 +75,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "crypto/openssl_decrypt.h"
 #include "debug.h"
@@ -193,7 +194,8 @@ struct frame_msg {
                                 " receivedBytes " << received_bytes <<
                                 " receivedBytesTotal " << received_bytes_total <<
                                 " isCorrupted " << corrupted <<
-                                " isDisplayed " << displayed;
+                                " isDisplayed " << displayed <<
+                                " timestamp " << time_since_epoch_in_ms();
                         control_report_stats(control, oss.str());
                 }
                 vf_free(recv_frame);

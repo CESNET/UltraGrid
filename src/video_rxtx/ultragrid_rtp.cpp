@@ -48,6 +48,7 @@
 #include <string>
 #include <stdexcept>
 
+#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "host.h"
 #include "lib_common.h"
@@ -204,7 +205,7 @@ after_send:
         long long int nano_expected = 1000l * 1000 * 1000 / tx_frame->fps;
         int send_bytes = tx_frame->tiles[0].data_len;
         m_send_bytes_total += send_bytes;
-        time_t now = time(NULL);
+        auto now = time_since_epoch_in_ms();
 
         ostringstream oss;
         if (m_port_id != -1) {
@@ -216,7 +217,7 @@ after_send:
                 " nanoPerFrameExpected " << nano_expected <<
                 " sendBytes " << send_bytes <<
                 " sendBytesTotal " << m_send_bytes_total <<
-                " timestamp " << now * 1000ll;
+                " timestamp " << now;
         ///@todo Add more accurate statistics in milliseconds
         control_report_stats(m_control, oss.str());
 }
