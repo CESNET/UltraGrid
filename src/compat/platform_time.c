@@ -73,3 +73,24 @@ int clock_gettime(int unused, struct timespec *ts) {
 }
 #endif
 
+uint64_t time_since_epoch_in_ms()
+{
+#ifdef WIN32
+        SYSTEMTIME t;
+        FILETIME f;
+        ULARGE_INTEGER i;
+        GetSystemTime(&t);
+        SystemTimeToFileTime(&t, &f);
+        i.LowPart = f.dwLowDateTime;
+        i.HighPart = f.dwHighDateTime;
+
+        return (i.QuadPart - 1164444736000000000ll) / 10000;
+#else
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+
+        return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#endif
+
+}
+

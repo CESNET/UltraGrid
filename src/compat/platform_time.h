@@ -49,9 +49,17 @@
 #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
 #define CLOCK_REALTIME 1
 /* do not worry about different prototype - just workaroud */
+#ifdef __cplusplus
+extern "C"
+#endif
 int clock_gettime(int unused, struct timespec *tp);
 
 #else
 #include <time.h>
 #endif
+
+#ifdef __cplusplus
+extern "C"
+#endif
+uint64_t time_since_epoch_in_ms(void);
 
