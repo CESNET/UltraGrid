@@ -305,7 +305,9 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
-                frame->compress_start = t0;
+                if (frame) {
+                        frame->compress_start = t0;
+                }
                 s->funcs->compress_frame_async_push_func(s->state[0], frame);
         } else {
                 if (!frame) { // pass poisoned pill
