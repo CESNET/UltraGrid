@@ -475,6 +475,9 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
                         } else if (s->in_codec == MJPG) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
+#if LIBAVCODEC_VERSION_MAJOR <= 54 // Libav with libavcodec 54 will crash otherwise
+                                return FALSE;
+#endif
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
                                 return FALSE;
