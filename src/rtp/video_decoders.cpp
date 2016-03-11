@@ -1744,7 +1744,7 @@ cleanup:
         }
         decoder->last_buffer_number = buffer_number;
 
-        if(decoder->displayed % 600 == 599) {
+        if ((decoder->displayed + decoder->dropped + decoder->missing) % 600 == 599) {
                 PRINT_STATISTICS
         }
 
