@@ -219,7 +219,6 @@ after_send:
                 " sendBytesTotal " << m_send_bytes_total <<
                 " timestamp " << now <<
                 " compressMillis " << tx_frame->compress_end - tx_frame->compress_start;
-        ///@todo Add more accurate statistics in milliseconds
         control_report_stats(m_control, oss.str());
 }
 

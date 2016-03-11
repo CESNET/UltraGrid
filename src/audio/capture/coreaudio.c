@@ -226,7 +226,7 @@ error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
 }
 
-static void * audio_cap_ca_init(char *cfg)
+static void * audio_cap_ca_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available Core Audio capture devices:\n");

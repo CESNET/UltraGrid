@@ -503,6 +503,8 @@ case "$host_os" in
         ;;
 esac
 
+LIBS="$LIBS $X_LIBS"
+
 AC_SUBST(X_CFLAGS)
 AC_SUBST(X_LIBS)
 AC_SUBST(X_EXTRA_LIBS)
