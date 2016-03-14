@@ -2851,6 +2851,9 @@ then
         LIB_TARGETS="$LIB_TARGETS $LDGM_GPU_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $LDGM_GPU_OBJS"
         LDGM_GPU_LIBS=$CUDA_LIB
+        if test $WORD_LEN = 32; then
+                NVCCFLAGS="$NVCCFLAGS -Xcompiler -msse2"
+        fi
         DEFINE_CUDA
         ldgm_gpu=yes
 else
