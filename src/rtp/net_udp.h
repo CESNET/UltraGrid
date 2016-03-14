@@ -100,6 +100,10 @@ bool        udp_is_ipv6(socket_udp *s);
 
 void        socket_error(const char *msg, ...);
 
+#ifdef WIN32
+int         udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE, LPWSAOVERLAPPED);
+#endif
+
 /*************************************************************************************************/
 #if defined(__cplusplus)
 }

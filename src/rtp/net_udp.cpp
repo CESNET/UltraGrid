@@ -1305,6 +1305,11 @@ void udp_flush_recv_buf(socket_udp *s)
         free(buf);
 }
 
+/**
+ * By calling this function under MSW, caller indicates that following packets
+ * can be send in asynchronous manner. Caller should then call udp_async_wait()
+ * to ensure that all packets were actually sent.
+ */
 void udp_async_start(socket_udp *s, int nr_packets)
 {
 #ifdef WIN32
@@ -1432,4 +1437,30 @@ bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
         }
         return true;
 }
+
+#ifdef WIN32
+/**
+ * This function sends buffer asynchronously with provided Winsock parameters.
+ *
+ * This is different approach from udp_async_start() and udp_async_wait() because
+ * this function lets caller provide parameters and passes them directly.
+ */
+int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o)
+{
+        assert(s != NULL);
+
+        DWORD bytesSent;
+        WSABUF vector;
+        vector.buf = buffer;
+        vector.len = buflen;
+        int ret = WSASendTo(s->fd, &vector, 1, &bytesSent, 0,
+                        (struct sockaddr *) &s->sock,
+                        s->sock_len, o, l);
+        if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
+                return 0;
+        else {
+                return ret;
+        }
+}
+#endif
 

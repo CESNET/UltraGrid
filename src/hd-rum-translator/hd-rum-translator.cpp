@@ -131,7 +131,19 @@ static void signal_handler(int signal)
     return;
 }
 
-#define SIZE    10000
+#define MAX_PKT_SIZE 10000
+
+#ifdef WIN32
+struct wsa_aux_storage {
+    WSAOVERLAPPED *overlapped;
+    int ref;
+};
+#define ALIGNMENT std::alignment_of<wsa_aux_storage>::value
+#define OFFSET ((MAX_PKT_SIZE + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT)
+#define SIZE (OFFSET + sizeof(wsa_aux_storage))
+#else
+#define SIZE MAX_PKT_SIZE
+#endif
 
 struct item {
     struct item *next;
@@ -194,6 +206,18 @@ struct response *change_replica_type(struct hd_rum_translator_state *s,
 
     return new_response(RESPONSE_OK, NULL);
 }
+
+#ifdef WIN32
+static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
+        DWORD /* dwNumberOfBytesTransfered */,
+        LPOVERLAPPED lpOverlapped, long unsigned int) {
+    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->Pointer + OFFSET);
+    if (--aux->ref == 0) {
+        free(aux->overlapped);
+        free(lpOverlapped->Pointer);
+    }
+}
+#endif
 
 static void *writer(void *arg)
 {
@@ -283,6 +307,43 @@ static void *writer(void *arg)
             if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
             }
+
+            // pass it for transcoding if needed
+            if (hd_rum_decompress_get_num_active_ports(s->decompress) > 0) {
+                ssize_t ret = hd_rum_decompress_write(s->decompress, s->qhead->buf, s->qhead->size);
+                if (ret < 0) {
+                    perror("hd_rum_decompress_write");
+                }
+            }
+
+            // distribute it to output ports that don't need transcoding
+#ifdef WIN32
+            // send it asynchronously in MSW (performance optimalization)
+            SleepEx(0, TRUE); // allow system to call our completion routines in APC
+            int ref = 0;
+            for (unsigned int i = 0; i < s->replicas.size(); i++) {
+                if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
+                    ref++;
+                }
+            }
+            struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) s->qhead->buf + OFFSET);
+            memset(aux, 0, sizeof *aux);
+            aux->overlapped = (WSAOVERLAPPED *) calloc(ref, sizeof(WSAOVERLAPPED));
+            aux->ref = ref;
+            int overlapped_idx = 0;
+            for (unsigned int i = 0; i < s->replicas.size(); i++) {
+                if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
+                    aux->overlapped[overlapped_idx].Pointer = s->qhead->buf;
+                    ssize_t ret = udp_send_wsa_async(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, wsa_deleter, &aux->overlapped[overlapped_idx]);
+                    if (ret < 0) {
+                        perror("Hd-rum-translator send");
+                    }
+                    overlapped_idx += 1;
+                }
+            }
+            // reallocate the buffer since the last one will be freeed automaticaly
+            s->qhead->buf = (char *) malloc(SIZE);
+#else
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
                     ssize_t ret = udp_send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size);
@@ -291,14 +352,7 @@ static void *writer(void *arg)
                     }
                 }
             }
-
-            if (hd_rum_decompress_get_num_active_ports(s->decompress) > 0) {
-                ssize_t ret = hd_rum_decompress_write(s->decompress, s->qhead->buf, s->qhead->size);
-                if (ret < 0) {
-                    perror("hd_rum_decompress_write");
-                }
-            }
-
+#endif
             s->qhead = s->qhead->next;
 
             pthread_mutex_lock(&s->qfull_mtx);
