@@ -104,7 +104,7 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         }
         av_free(s->codec_ctx);
         av_free(s->frame);
-        av_free_packet(&s->pkt);
+        av_packet_unref(&s->pkt);
 }
 
 static bool configure_with(struct state_libavcodec_decompress *s,

@@ -531,7 +531,7 @@ static void libavcodec_done(void *state)
         rm_release_shared_lock(LAVCD_LOCK_NAME);
         free((void *) s->output_channel.data);
         free((void *) s->tmp.data);
-        av_free_packet(&s->pkt);
+        av_packet_unref(&s->pkt);
         av_freep(&s->samples);
         av_frame_free(&s->av_frame);
 

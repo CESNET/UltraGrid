@@ -829,7 +829,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         auto dispose = [](struct video_frame *frame) {
 #if LIBAVCODEC_VERSION_MAJOR >= 54
                 AVPacket *pkt = (AVPacket *) frame->dispose_udata;
-                av_free_packet(pkt);
+                av_packet_unref(pkt);
                 free(pkt);
 #else
                 free(frame->tiles[0].data);
