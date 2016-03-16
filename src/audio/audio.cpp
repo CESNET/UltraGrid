@@ -791,7 +791,9 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         }
                         break;
                 case SENDER_MSG_CHANGE_FEC:
-                        LOG(LOG_LEVEL_ERROR) << "Not implemented!\n";
+                        if (strcmp(msg->fec_cfg, "flush") != 0) {
+                                LOG(LOG_LEVEL_ERROR) << "Not implemented!\n";
+                        }
                         return new_response(RESPONSE_NOT_IMPL, NULL);
         }
         return new_response(RESPONSE_OK, NULL);
