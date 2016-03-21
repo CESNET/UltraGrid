@@ -379,7 +379,8 @@ static void usage(const char *progname) {
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
                 "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
                 "\t\t--help\n"
-                "\t\t--verbose\n");
+                "\t\t--verbose\n"
+                "\t\t-v\n");
         printf("\tand hostX_options may be:\n"
                 "\t\t-P <port> - TX port to be used\n"
                 "\t\t-c <compression> - compression\n"
@@ -440,6 +441,9 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
+            return false;
+        } else if(strcmp(argv[start_index], "-v") == 0) {
+            print_version();
             return false;
         } else if(strcmp(argv[start_index], "--verbose") == 0) {
             parsed->verbose = true;

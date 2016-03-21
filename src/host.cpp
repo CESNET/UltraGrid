@@ -194,3 +194,14 @@ void print_capabilities(struct module *root, bool use_vidcap)
         }
 }
 
+void print_version()
+{
+        printf("%s", PACKAGE_STRING);
+#ifdef GIT_VERSION
+        printf(" (rev %s)", GIT_VERSION);
+#endif
+        printf("\n");
+        printf("\n" PACKAGE_NAME " was compiled with following features:\n");
+        printf(AUTOCONF_RESULT);
+}
+
