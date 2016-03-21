@@ -723,11 +723,10 @@ echo_play(s->echo_state, &pbuf_data.buffer);
 
 static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
 {
-        assert(s->audio_tx_mode == MODE_SENDER);
-
         switch (msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
                         {
+                                assert(s->audio_tx_mode == MODE_SENDER);
                                 auto old_device = s->audio_network_device;
                                 auto old_receiver = s->audio_network_parameters.addr;
 
@@ -748,6 +747,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         }
                 case SENDER_MSG_CHANGE_PORT:
                         {
+                                assert(s->audio_tx_mode == MODE_SENDER);
                                 auto old_device = s->audio_network_device;
                                 auto old_port = s->audio_network_parameters.send_port;
 
@@ -775,6 +775,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                         return new_response(RESPONSE_BAD_REQUEST, NULL);
                 case SENDER_MSG_RESET_SSRC:
                         {
+                                assert(s->audio_tx_mode == MODE_SENDER);
                                 uint32_t old_ssrc = rtp_my_ssrc(s->audio_network_device);
                                 auto old_devices = s->audio_network_device;
                                 s->audio_network_device =
