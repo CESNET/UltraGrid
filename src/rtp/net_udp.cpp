@@ -1464,3 +1464,32 @@ int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_
 }
 #endif
 
+int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout)
+{
+        struct udp_fd_r fd;
+        int len = 0;
+
+        if (s->multithreaded) {
+                if (udp_not_empty(s, timeout)) {
+                        char *data = NULL;
+                        len = udp_recv_data(s, (char **) &data);
+                        if (len > 0) {
+                                memcpy(buffer, data, len);
+                        }
+                        free(data);
+                }
+        } else {
+                udp_fd_zero_r(&fd);
+                udp_fd_set_r(s, &fd);
+                if (udp_select_r(timeout, &fd) > 0) {
+                        if (udp_fd_isset_r(s, &fd)) {
+                                len = udp_recv(s, buffer, buflen);
+                                if (len < 0) {
+                                        len = 0;
+                                }
+                        }
+                }
+        }
+        return len;
+}
+

@@ -58,6 +58,7 @@ void        udp_exit(socket_udp *s);
 
 int         udp_peek(socket_udp *s, char *buffer, int buflen);
 int         udp_recv(socket_udp *s, char *buffer, int buflen);
+int         udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout);
 int         udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_addr, socklen_t *addrlen);
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 int         udp_sendto(socket_udp *s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen);

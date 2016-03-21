@@ -29,7 +29,6 @@
 
 using namespace std;
 
-static pthread_t main_thread_id;
 struct item;
 
 #define REPLICA_MAGIC 0xd2ff3323
@@ -120,8 +119,6 @@ void exit_uv(int status);
 void exit_uv(int status) {
     UNUSED(status);
     should_exit = true;
-    if(!pthread_equal(pthread_self(), main_thread_id))
-            pthread_kill(main_thread_id, SIGTERM);
 }
 
 static void signal_handler(int signal)
@@ -553,8 +550,6 @@ int main(int argc, char **argv)
         return false;
     }
 
-    main_thread_id = pthread_self();
-
 #ifndef WIN32
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -694,8 +689,9 @@ int main(int argc, char **argv)
 
     /* main loop */
     while (!should_exit) {
+        struct timeval timeout = { 1, 0 };
         while (state.qtail->next != state.qhead
-               && (state.qtail->size = udp_recv(sock_in, state.qtail->buf, SIZE)) > 0
+               && (state.qtail->size = udp_recv_timeout(sock_in, state.qtail->buf, SIZE, &timeout)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
 
@@ -716,10 +712,11 @@ int main(int argc, char **argv)
                 t0 = t;
                 last_data = received_data;
             }
+            timeout = { 1, 0 };
         }
 
         if (state.qtail->size <= 0)
-            break;
+            continue;
 
         pthread_mutex_lock(&state.qfull_mtx);
         if (state.qfull)
