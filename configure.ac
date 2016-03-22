@@ -2077,7 +2077,6 @@ then
                 "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
         then
                 found_gpujpeg=yes
-                DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
         else
                 found_gpujpeg=no
         fi
