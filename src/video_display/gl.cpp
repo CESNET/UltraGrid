@@ -380,6 +380,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 }
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
+                                delete s;
                                 return NULL;
                         }
                         ptr = NULL;
