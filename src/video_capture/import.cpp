@@ -178,7 +178,7 @@ struct vidcap_import_state {
         bool o_direct;
         int video_reading_threads_count;
         bool should_exit_at_end;
-        int force_fps;
+        double force_fps;
 };
 
 #ifdef WIN32
@@ -319,7 +319,7 @@ try {
                 } else if (strcmp(suffix, "exit_at_end") == 0) {
                         s->should_exit_at_end = true;
                 } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
-                        s->force_fps = atoi(suffix + strlen("fps="));
+                        s->force_fps = atof(suffix + strlen("fps="));
                 } else {
                         throw string("[Playback] Unrecognized"
                                         " option ") + suffix + ".\n";
@@ -427,7 +427,7 @@ try {
         }
 
         // override metadata fps setting
-        if (s->force_fps > 0) {
+        if (s->force_fps > 0.0) {
                 desc.fps = s->force_fps;
         }
 
