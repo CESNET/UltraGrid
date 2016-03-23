@@ -1048,6 +1048,8 @@ struct rtp *rtp_init(const char *addr,
  * @callback: See section on #rtp_callback.
  * @userdata: Opaque data associated with the session.  See
  * rtp_get_userdata().
+ * @use_ipv6 whether or not use IP version 6
+ * @multithreaded if set to true uses separate thread to receive data (performance optimization)
  *
  * Creates and initializes an RTP session.
  *
@@ -2227,7 +2229,7 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
  * 
  * Reentrant variant of rtp_recv()
  *
- * Currently, this function is the only one of rtp_recv family egliable for multithreaded
+ * Currently, this function is the only one of rtp_recv family eligible for multithreaded
  * receiving.
  *
  * @param session     the session pointer (returned by rtp_init())

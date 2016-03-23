@@ -945,6 +945,13 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 }
 #endif // WIN32
 
+/**
+ * When receiving data in separate thread, this function fetches data
+ * from socket and puts it in queue.
+ *
+ * @todo
+ * Remove ugly thread cancellation stuff.
+ */
 static void *udp_reader(void *arg)
 {
         socket_udp *s = (socket_udp *) arg;
@@ -1024,16 +1031,21 @@ int udp_peek(socket_udp * s, char *buffer, int buflen)
         return udp_do_recv(s, buffer, buflen, MSG_PEEK, 0, 0);
 }
 
+/**
+ * @brief
+ * Checks whether there are data ready to read in socket
+ *
+ * @note
+ * Designed only for multithreaded socket!
+ */
 bool udp_not_empty(socket_udp * s, struct timeval *timeout)
 {
-        std::chrono::microseconds tmout_us;
-
-        if (timeout) {
-                tmout_us = std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
-        }
+        assert(s->multithreaded);
 
         unique_lock<mutex> lk(s->lock);
         if (timeout) {
+                std::chrono::microseconds tmout_us =
+                        std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
                 s->boss_cv.wait_for(lk, tmout_us, [s]{return s->queue_head != s->queue_tail;});
         } else {
                 s->boss_cv.wait(lk, [s]{return s->queue_head != s->queue_tail;});
@@ -1065,8 +1077,16 @@ int udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_a
         return udp_do_recv(s, buffer, buflen, 0, src_addr, addrlen);
 }
 
+/**
+ * Receives data from multithreaded socket.
+ *
+ * @param[in] s       UDP socket state
+ * @param[out] buffer data received from socket. Must be freeed by caller!
+ * @returns           length of the received datagram
+ */
 int udp_recv_data(socket_udp * s, char **buffer)
 {
+        assert(s->multithreaded);
         int ret;
         unique_lock<mutex> lk(s->lock);
 
@@ -1464,6 +1484,10 @@ int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_
 }
 #endif
 
+/**
+ * Tries to receive data from socket and if empty, waits at most specified
+ * amount of time.
+ */
 int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout)
 {
         struct udp_fd_r fd;
