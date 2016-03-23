@@ -58,6 +58,8 @@ bool ldgm_device_gpu = false;
 
 const char *window_title = NULL;
 
+std::unordered_map<std::string, std::string> commandline_params;
+
 static void common_cleanup()
 {
 #ifdef USE_MTRACE

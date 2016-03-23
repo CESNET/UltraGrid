@@ -120,6 +120,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
+#define OPT_PARAM (('O' << 8) | 'P')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -410,6 +411,22 @@ bool parse_audio_capture_format(const char *optarg)
         return true;
 }
 
+static void parse_params(char *optarg)
+{
+        char *item, *save_ptr;
+        while ((item = strtok_r(optarg, ":", &save_ptr))) {
+                char *key_cstr = item;
+                if (strchr(item, '=')) {
+                        char *val_cstr = strchr(item, '=') + 1;
+                        *strchr(item, '=') = '\0';
+                        commandline_params[key_cstr] = val_cstr;
+                } else {
+                        commandline_params[key_cstr] = string();
+                }
+                optarg = NULL;
+        }
+}
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
@@ -529,6 +546,7 @@ int main(int argc, char *argv[])
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
                 {"protocol", required_argument, 0, OPT_PROTOCOL},
                 {"rtsp-server", optional_argument, 0, 'H'},
+                {"param", required_argument, 0, OPT_PARAM},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -797,6 +815,9 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_START_PAUSED:
                         start_paused = true;
+                        break;
+                case OPT_PARAM:
+                        parse_params(optarg);
                         break;
                 case '?':
                 default:

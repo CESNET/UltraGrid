@@ -136,4 +136,10 @@ void print_version(void);
 }
 #endif
 
+#ifdef __cplusplus
+#include <unordered_map>
+#include <string>
+extern std::unordered_map<std::string, std::string> commandline_params;
+#endif
+
 #endif

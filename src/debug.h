@@ -42,13 +42,13 @@
 
 #define UNUSED(x)	(x=x)
 
+#include "host.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void debug_dump(void*lp, int len);
-
-#include "host.h"
 
 #define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)

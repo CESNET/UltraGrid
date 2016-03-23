@@ -78,6 +78,12 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
         int best_priority = prio_max + 1;
 
         for (const auto & d : decomps) {
+                // if user has explicitly requested decoder, skip all others
+                if (commandline_params.find("decoder") != commandline_params.end()) {
+                        if (d.first != commandline_params.at("decoder")) {
+                                continue;
+                        }
+                }
                 // first pass - find the one with best priority (least)
                 const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->available_decoders;
                 while (f->from != VIDEO_CODEC_NONE) {

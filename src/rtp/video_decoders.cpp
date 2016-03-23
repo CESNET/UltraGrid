@@ -570,10 +570,16 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = 0;
+                        int putf_flags = PUTF_BLOCKING;
 
-                        if(is_codec_interframe(decoder->received_vid_desc.color_spec)) {
+                        if (is_codec_interframe(decoder->received_vid_desc.color_spec)) {
                                 putf_flags = PUTF_NONBLOCK;
+                        }
+
+                        if (commandline_params.find("drop-policy") != commandline_params.end()) {
+                                if (commandline_params.at("drop-policy") == "nonblock") {
+                                        putf_flags = PUTF_NONBLOCK;
+                                }
                         }
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
