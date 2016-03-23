@@ -74,6 +74,7 @@
 #include <semaphore.h>
 
 #include <string>
+#include <unordered_map>
 
 using namespace std;
 
@@ -116,6 +117,7 @@ static void usage(void)
 
         printf("\t<color_spec> may be one of following\n");
         printf("\t\tUYVY\n");
+        printf("\t\tv210\n");
         printf("\t\tRGBA\n");
         printf("\t\tBGR (default)\n");
 
@@ -443,6 +445,13 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         return true;
 }
 
+static const unordered_map<codec_t, ULONG, hash<int>> ug_delta_codec_mapping = {
+        { BGR, VHD_BUFPACK_VIDEO_RGB_24 },
+        { RGBA, VHD_BUFPACK_VIDEO_RGBA_32 },
+        { UYVY, VHD_BUFPACK_VIDEO_YUV422_8 },
+        { v210, VHD_BUFPACK_VIDEO_YUV422_10 },
+};
+
 static int
 vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
 {
@@ -602,19 +611,11 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         }
 
         /* Configure color space reception (RGBA for no color-space conversion) */
-        switch(s->codec) {
-                case BGR:
-                        Packing = VHD_BUFPACK_VIDEO_RGB_24;
-                        break;
-                case RGBA:
-                        Packing = VHD_BUFPACK_VIDEO_RGBA_32;
-                        break;
-                case UYVY:
-                        Packing = VHD_BUFPACK_VIDEO_YUV422_8;
-                        break;
-                default:
-                        fprintf(stderr, "Unknown pixel formate entered.\n");
-                        goto no_format;
+        if (ug_delta_codec_mapping.find(s->codec) != ug_delta_codec_mapping.end()) {
+                Packing = ug_delta_codec_mapping.at(s->codec);
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Unknown pixel formate entered.\n");
+                goto no_format;
         }
 
         Result = VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFER_PACKING,
