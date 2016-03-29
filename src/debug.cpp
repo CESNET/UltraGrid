@@ -44,6 +44,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "compat/platform_time.h"
 #include "debug.h"
 
 #include "host.h"
@@ -101,14 +102,16 @@ void log_msg(int level, const char *format, ...)
         }
 
         char *format_new = (char *) alloca(strlen(format) + 7 /* col start */ + 4 /* col end */ +
-                        (3 + 20) /* time */ + 1);
+                        (3 + 20 /* 64b int dec */ + 1 /* dot */ + 3 /* ms */) /* time */ + 1);
         if ((color_term && color) || log_level >= LOG_LEVEL_VERBOSE) {
                 format_new[0] = '\0';
                 if (color_term && color) {
                         strcat(format_new, color);
                 }
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        sprintf(format_new + strlen(format_new), "[%ld] ", time(NULL));
+                        uint64_t time_ms = time_since_epoch_in_ms();
+                        sprintf(format_new + strlen(format_new), "[%ld.%03ld] ", time_ms / 1000,
+                                        time_ms % 1000);
                 }
                 strcat(format_new, format);
                 if (color_term && color) {
