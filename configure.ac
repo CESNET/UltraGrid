@@ -449,6 +449,7 @@ AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
+AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -885,7 +886,14 @@ AC_ARG_ENABLE(aja,
               [aja_req=$enableval],
               [aja_req=auto]
               )
-AJA_PATH=$NTV2_ROOT
+
+if test -n "$NTV2_ROOT"; then
+        AJA_PATH=$NTV2_ROOT/..
+fi
+
+if test -n "$AJA_DIRECTORY"; then
+        AJA_PATH=$AJA_DIRECTORY
+fi
 
 AC_ARG_WITH(aja,
             [  --with-aja=DIR         specify location of NTV2],
@@ -894,15 +902,15 @@ AC_ARG_WITH(aja,
 
 if test -n "$AJA_PATH"
 then
-        AC_CHECK_FILES(${AJA_PATH}/../lib/libaja.a ${AJA_PATH}/../lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+        AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
         fi
 
         if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
         then
                 aja=yes
                 AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
-                AJA_INC="$AJA_INC -I${AJA_PATH}/classes -I${AJA_PATH}/../ajaapi -I${AJA_PATH}/includes -I${AJA_PATH}/democlasses"
-                AJA_LIB="${AJA_PATH}/../lib/libaja.a ${AJA_PATH}/../lib/libajastuff.a"
+                AJA_INC="$AJA_INC -I${AJA_PATH}/ntv2projects/classes -I${AJA_PATH}/ajaapi -I${AJA_PATH}/ntv2projects/includes -I${AJA_PATH}/ntv2projects/democlasses"
+                AJA_LIB="${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a"
                 AJA_CAP_OBJ="src/video_capture/aja.o"
                 AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 

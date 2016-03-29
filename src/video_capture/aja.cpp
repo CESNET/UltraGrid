@@ -52,7 +52,7 @@
 #include "video_capture.h"
 
 #include "ajatypes.h"
-#include "ntv2boardscan.h"
+#include "ntv2devicescanner.h"
 #include "ntv2democommon.h"
 #include "ntv2capture.h"
 #include "ajastuff/common/videotypes.h"
@@ -62,7 +62,7 @@
 #include "ajastuff/system/thread.h"
 
 #include "ntv2utils.h"
-#include "ntv2boardfeatures.h"
+#include "ntv2devicefeatures.h"
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 
@@ -369,7 +369,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
 
         mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
+#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
                 mTimeCodeSource = ::NTV2ChannelToTimecodeSource (mInputChannel);
+#else
+                mTimeCodeSource = ::NTV2InputSourceToTimecodeIndex(mInputSource);
+#endif
         else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
                 mTimeCodeSource = NTV2_TCSOURCE_LTC1;
         else
@@ -469,7 +473,17 @@ AJAStatus vidcap_state_aja::SetupVideo()
 AJAStatus vidcap_state_aja::SetupAudio (void)
 {
         //      Have the audio system capture audio from the designated device input...
+#if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
         mDevice.SetAudioSystemInputSource (mAudioSystem, mInputSource);
+#else
+        NTV2AudioSource audioSource     (NTV2_AUDIO_EMBEDDED);
+        if (NTV2_INPUT_SOURCE_IS_HDMI (mInputSource))
+                audioSource = NTV2_AUDIO_HDMI;
+        else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
+                audioSource = NTV2_AUDIO_ANALOG;
+
+        mDevice.SetAudioSystemInputSource (mAudioSystem, audioSource, ::NTV2ChannelToEmbeddedAudioInput(mInputChannel));
+#endif
 
         mMaxAudioChannels = ::NTV2BoardGetMaxAudioChannels (mDeviceID);
         mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource));
