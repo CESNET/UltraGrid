@@ -67,6 +67,7 @@ using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr const char *DEFAULT_X264_X265_PRESET = "superfast";
+static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr const char *DEFAULT_NVENC_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
@@ -100,12 +101,13 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 "libx264",
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
+                     // note - not used for libx264, which uses CRF by default
                 setparam_h264_h265
         }},
         { H265, {
                 AV_CODEC_ID_HEVC,
                 "libx265", //nullptr,
-                0.07 * 2 * 2,
+                0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 setparam_h264_h265
         }},
         { MJPG, {
@@ -157,6 +159,8 @@ struct state_video_compress_libav {
         codec_t             requested_codec_id;
         int64_t             requested_bitrate;
         double              requested_bpp;
+        double              requested_crf;
+        int                 requested_cqp;
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling;
         // actual value used
@@ -226,7 +230,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        printf("\t-c libavcodec[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>]"
+        printf("\t-c libavcodec[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
                         "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n");
         printf("\t\t<encoder> specifies encoder (eg. nvenc or libx264 for H.264)\n");
@@ -249,6 +253,7 @@ static void usage() {
         printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (libx264/libx265)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
+        printf("\t\t<crf> specifies CRF factor (only for libx264/libx265)\n");
         printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<thr_mode> can be one of \"no\", \"frame\" or \"slice\"\n");
         printf("\t\t<gop> specifies GOP size\n");
@@ -276,6 +281,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                                 char *bpp_str = item + strlen("bpp=");
                                 s->requested_bpp = unit_evaluate(bpp_str);
+                        } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
+                                char *crf_str = item + strlen("crf=");
+                                s->requested_crf = atof(crf_str);
+                        } else if(strncasecmp("cqp=", item, strlen("cqp=")) == 0) {
+                                char *cqp_str = item + strlen("cqp=");
+                                s->requested_cqp = atoi(cqp_str);
                         } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                                 char *subsample_str = item + strlen("subsampling=");
                                 s->requested_subsampling = atoi(subsample_str);
@@ -372,8 +383,9 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         s->requested_codec_id = VIDEO_CODEC_NONE;
         s->requested_subsampling = 0;
         s->params.thread_mode = DEFAULT_THREAD_MODE;
-
-        s->requested_bitrate = -1;
+        // both following options take 0 as a valid argument, so we use -1 as an implicit value
+        s->requested_crf = -1;
+        s->requested_cqp = -1;
 
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
 
@@ -416,6 +428,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         AVPixelFormat pix_fmt;
         AVCodec *codec = nullptr;
         double avg_bpp; // average bit per pixel
+        int bitrate;
 
 #ifndef HAVE_GPL
         if (s->requested_codec_id == H264 || s->requested_codec_id == H264) {
@@ -569,21 +582,33 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->codec_ctx->strict_std_compliance = -2;
 
-        if (s->requested_bpp != 0.0) {
-                avg_bpp = s->requested_bpp;
-        } else {
-                avg_bpp = codec_params[ug_codec].avg_bpp;
+        avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
+                codec_params[ug_codec].avg_bpp;
+        bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
+                desc.width * desc.height * avg_bpp * desc.fps;
+
+        bool is_x264_x265 = strcmp(s->codec_ctx->codec->name, "libx264") == 0 ||
+                                strcmp(s->codec_ctx->codec->name, "libx265") == 0;
+        // set bitrate
+        if ((s->requested_bitrate > 0 || s->requested_bpp > 0.0)
+                        || !is_x264_x265) {
+                s->codec_ctx->bit_rate = bitrate;
+                s->codec_ctx->bit_rate_tolerance = bitrate / 4;
+                log_msg(LOG_LEVEL_INFO, "[lavc] Setting bitrate to %d bps.\n", bitrate);
         }
 
-        /* put parameters */
-        if(s->requested_bitrate > 0) {
-                s->codec_ctx->bit_rate = s->requested_bitrate;
-        } else {
-                s->codec_ctx->bit_rate = desc.width * desc.height *
-                        avg_bpp * desc.fps;
+        if (is_x264_x265) {
+                // set CRF unless explicitly specified CQP or ABR (bitrate)
+                if (s->requested_crf >= 0.0 || (s->requested_bitrate == 0 && s->requested_bpp == 0.0 && s->requested_cqp == -1)) {
+                        double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
+                        av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0);
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
+                }
+                if (s->requested_cqp >= 0) {
+                        av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0);
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
+                }
         }
-
-        s->codec_ctx->bit_rate_tolerance = s->codec_ctx->bit_rate / 4;
 
         /* resolution must be a multiple of two */
         s->codec_ctx->width = desc.width;
@@ -1070,7 +1095,7 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                 codec_ctx->rc_max_rate = codec_ctx->bit_rate;
                 //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
                 //codec_ctx->rc_buffer_aggressivity = 1.0;
-                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
+                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
                 codec_ctx->qcompress = 0.0f;
                 //codec_ctx->qblur = 0.0f;
                 //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
