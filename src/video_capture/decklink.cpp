@@ -433,6 +433,8 @@ decklink_help()
 	
 	deckLinkIterator->Release();
 
+        decklink_uninitialize();
+
 	// If no DeckLink cards were found in the system, inform the user
 	if (numDevices == 0)
 	{
@@ -450,7 +452,9 @@ decklink_help()
 
 	printf("\n");
 
-        decklink_uninitialize();
+        print_decklink_version();
+
+        printf("\n");
 
 	return 1;
 }
@@ -856,7 +860,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 dnum = 0;
                 deckLink = NULL;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                deckLinkIterator = create_decklink_iterator();
+                deckLinkIterator = create_decklink_iterator(true, i == 0 ? true : false);
                 if (deckLinkIterator == NULL) {
                         vf_free(s->frame);
                         delete s;

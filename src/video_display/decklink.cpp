@@ -301,6 +301,8 @@ static void show_help(void)
 
         printf("audioConsumerLevels if set to true sets audio analog level to maximum attenuation on audio output.\n");
         printf("\n");
+        print_decklink_version();
+        printf("\n");
 }
 
 
