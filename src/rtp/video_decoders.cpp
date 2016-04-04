@@ -570,15 +570,21 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = PUTF_BLOCKING;
+                        int putf_flags = PUTF_NONBLOCK;
 
                         if (is_codec_interframe(decoder->received_vid_desc.color_spec)) {
                                 putf_flags = PUTF_NONBLOCK;
                         }
 
-                        if (commandline_params.find("drop-policy") != commandline_params.end()) {
-                                if (commandline_params.at("drop-policy") == "nonblock") {
+                        auto drop_policy = commandline_params.find("drop-policy");
+                        if (drop_policy != commandline_params.end()) {
+                                if (drop_policy->second == "nonblock") {
                                         putf_flags = PUTF_NONBLOCK;
+                                } else if (drop_policy->second == "blocking") {
+                                        putf_flags = PUTF_BLOCKING;
+                                } else {
+                                        LOG(LOG_LEVEL_WARNING) << "Wrong drop policy "
+                                                << drop_policy->second << "!\n";
                                 }
                         }
 
