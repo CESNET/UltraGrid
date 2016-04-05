@@ -49,7 +49,7 @@
 #include "vo_postprocess.h"
 
 struct state_border {
-        struct video_desc saved_desc;
+        struct video_desc saved_desc = {};
         uint8_t color[4] = { 0xff, 0xff, 0x00, 0xff }; ///< border color in RGBA
         unsigned int width = 10;                       ///< border width in pixels (must be even)
 };
@@ -135,8 +135,7 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
 
         struct state_border *s = (struct state_border *) state;
 
-        memcpy(out->tiles[0].data + s->width * req_pitch, in->tiles[0].data, in->tiles[0].data_len -
-                        2 * s->width * req_pitch);
+        memcpy(out->tiles[0].data + s->width * req_pitch, in->tiles[0].data + s->width * req_pitch, in->tiles[0].data_len - 2 * s->width * req_pitch);
 
         if (in->color_spec == UYVY) {
                 uint32_t rgba[2]{};
