@@ -981,6 +981,9 @@ static void *video_reader_callback(void *arg)
                 struct stat sb;
 
                 int flags = O_RDONLY;
+#ifdef WIN32
+                flags |= O_BINARY;
+#endif
                 if (data->o_direct) {
 #ifdef HAVE_LINUX
                         flags |= O_DIRECT;
