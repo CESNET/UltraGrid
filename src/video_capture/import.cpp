@@ -304,7 +304,13 @@ try {
                                 "\t\t<fps> - overrides FPS from sequence metadata\n");
         }
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
-                if (strcmp(suffix, "loop") == 0) {
+                if (suffix[0] == '\\') { // MSW path
+                        assert(strlen(s->directory) == 1); // c:\something -> should be 'c'
+                        char *tmp = (char *) malloc(2 + strlen(suffix) + 1);
+                        sprintf(tmp, "%c:%s", s->directory[0], suffix);
+                        free(s->directory);
+                        s->directory = tmp;
+                } else if (strcmp(suffix, "loop") == 0) {
                         s->loop = true;
                 } else if (strncmp(suffix, "mt_reading=",
                                         strlen("mt_reading=")) == 0) {
