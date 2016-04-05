@@ -78,7 +78,7 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
-#define DEFAULT_FORMAT "1920:1080:25:UYVY:i"
+#define DEFAULT_FORMAT "1920:1080:50i:UYVY"
 
 using namespace std;
 
@@ -320,6 +320,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 return VIDCAP_INIT_FAIL;
 
         s->frame = vf_alloc(1);
+        s->frame->interlacing = PROGRESSIVE;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
@@ -349,7 +350,20 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 goto error;
         }
 
-        s->frame->fps = atof(tmp);
+        char *endptr;
+        s->frame->fps = strtod(tmp, &endptr);
+        if (endptr[0] != '\0') { // optional interlacing suffix
+                s->frame->interlacing = get_interlacing_from_suffix(endptr);
+                if (s->frame->interlacing != PROGRESSIVE &&
+                                s->frame->interlacing != SEGMENTED_FRAME &&
+                                s->frame->interlacing != INTERLACED_MERGED) { // tff or bff
+                        log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
+                        goto error;
+                }
+                if (s->frame->interlacing == INTERLACED_MERGED) {
+                        s->frame->fps /= 2;
+                }
+        }
 
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
@@ -397,7 +411,6 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
         rect_size = (vf_get_tile(s->frame, 0)->width + rect_size - 1) / rect_size;
 
         s->frame_linesize = aligned_x * bpp;
-        s->frame->interlacing = PROGRESSIVE;
         s->size = aligned_x * vf_get_tile(s->frame, 0)->height * bpp;
 
         filename = NULL;
@@ -441,8 +454,10 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
                         s->frame->interlacing = INTERLACED_MERGED;
+                        log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'i' option. Use format testcard:1920:1080:50i:UYVY instead!\n");
                 } else if (strcmp(tmp, "sf") == 0) {
                         s->frame->interlacing = SEGMENTED_FRAME;
+                        log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'sf' option. Use format testcard:1920:1080:25sf:UYVY instead!\n");
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = TRUE;
                 } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
