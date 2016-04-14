@@ -233,38 +233,37 @@ void il_lower_to_merged(char *dst, char *src, int linesize, int height, void **s
         };
         struct il_lower_to_merged_state *last_field = (struct il_lower_to_merged_state *) *stored_state;
 
-        int y;
         char *tmp = malloc(linesize * height);
         char *line1, *line2;
 
         // upper field
         line1 = tmp;
-        int field_len = linesize * (height / 2);
+        int upper_field_len = linesize * ((height + 1) / 2);
         // first check if we have field from last frame
         if (last_field == NULL) {
                 last_field = (struct il_lower_to_merged_state *)
-                        malloc(sizeof(struct il_lower_to_merged_state) + field_len);
-                last_field->field_len = field_len;
+                        malloc(sizeof(struct il_lower_to_merged_state) + upper_field_len);
+                last_field->field_len = upper_field_len;
                 *stored_state = last_field;
                 // if no, use current one
-                line2 = src + linesize * ((height + 1) / 2);
+                line2 = src + linesize * (height / 2);
         } else {
                 // otherwise use field from last "frame"
                 line2 = last_field->field;
         }
-        for(y = 0; y < height / 2; y ++) {
+        for (int y = 0; y < (height + 1) / 2; y++) {
                 memcpy(line1, line2, linesize);
                 line1 += linesize * 2;
                 line2 += linesize;
         }
         // store
-        assert ((int) last_field->field_len == field_len);
-        memcpy(last_field->field, src + linesize * ((height + 1) / 2), field_len);
+        assert ((int) last_field->field_len == upper_field_len);
+        memcpy(last_field->field, src + linesize * (height / 2), upper_field_len);
 
         // lower field
         line1 = tmp + linesize;
         line2 = src;
-        for(y = 0; y < (height + 1) / 2; y ++) {
+        for (int y = 0; y < height / 2; y++) {
                 memcpy(line1, line2, linesize);
                 line1 += linesize * 2;
                 line2 += linesize;
