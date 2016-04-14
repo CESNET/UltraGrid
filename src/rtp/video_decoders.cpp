@@ -176,26 +176,29 @@ struct main_msg;
 
 // message definitions
 struct frame_msg {
-        inline frame_msg(struct control_state *c, atomic<long long int> &rbt, unsigned long int disp, unsigned long int corr) : control(c), recv_frame(nullptr),
+        inline frame_msg(struct control_state *c, atomic<long long int> &rbt, atomic<long long int> &ebt, unsigned long int disp, unsigned long int corr) : control(c), recv_frame(nullptr),
                                 nofec_frame(nullptr),
                              received_pkts_cum(0), expected_pkts_cum(0),
                              received_bytes_total(rbt),
+                             expected_bytes_total(ebt),
                              displayed(disp), corrupted(corr)
         {}
         inline ~frame_msg() {
                 if (control && recv_frame) {
                         int received_bytes = sum_map(pckt_list[0]);
                         received_bytes_total += received_bytes;
+                        expected_bytes_total += recv_frame->tiles[0].data_len;
                         ostringstream oss;
                         oss << "bufferId " << buffer_num[0] << " expectedPackets " <<
                                 expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
                                 // droppedPackets
-                                " expectedBytes " << recv_frame->tiles[0].data_len <<
-                                " receivedBytes " << received_bytes <<
-                                " receivedBytesTotal " << received_bytes_total <<
+                                " expectedBytes " << expected_bytes_total <<
+                                " receivedBytes " << received_bytes_total <<
                                 " isCorrupted " << corrupted <<
                                 " isDisplayed " << displayed <<
-                                " timestamp " << time_since_epoch_in_ms();
+                                " timestamp " << time_since_epoch_in_ms() <<
+                                " nanoPerFrameDecompress " << nanoPerFrameDecompress <<
+                                " nanoPerFrameExpected " << nanoPerFrameExpected;
                         control_report_stats(control, oss.str());
                 }
                 vf_free(recv_frame);
@@ -208,7 +211,10 @@ struct frame_msg {
         unique_ptr<map<int, int>[]> pckt_list;
         long long int received_pkts_cum, expected_pkts_cum;
         atomic<long long int> &received_bytes_total;
+        atomic<long long int> &expected_bytes_total;
         unsigned long int displayed, corrupted;
+        long int nanoPerFrameDecompress = 0;
+        long int nanoPerFrameExpected = 0;
 };
 
 struct main_msg_reconfigure {
@@ -295,6 +301,7 @@ struct state_video_decoder
         bool             reconfiguration_in_progress;
 
         atomic<long long int>    received_bytes_total;
+        atomic<long long int>    expected_bytes_total;
 };
 
 /**
@@ -496,6 +503,8 @@ static void *decompress_thread(void *args) {
                         output = decoder->frame;
                 }
 
+                auto t0 = std::chrono::high_resolution_clock::now();
+
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
                         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
@@ -530,6 +539,10 @@ static void *decompress_thread(void *args) {
                                 }
                         }
                 }
+
+                msg->nanoPerFrameDecompress =
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
+                msg->nanoPerFrameExpected = 1000000000 / msg->nofec_frame->fps;
 
                 if(decoder->postprocess) {
                         bool pp_ret;
@@ -792,7 +805,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->received_bytes_total, decoder->displayed, decoder->corrupted));
+                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->received_bytes_total, decoder->expected_bytes_total, decoder->displayed, decoder->corrupted));
                 decoder->fec_queue.push(move(msg));
 
                 decoder->fec_thread_id.join();
@@ -1719,7 +1732,7 @@ next_packet:
 
         // format message
         {
-                unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->received_bytes_total, decoder->displayed, decoder->corrupted));
+                unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->received_bytes_total, decoder->expected_bytes_total, decoder->displayed, decoder->corrupted));
                 fec_msg->buffer_num = std::move(buffer_num);
                 fec_msg->recv_frame = frame;
                 frame = NULL;
