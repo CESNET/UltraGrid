@@ -172,6 +172,8 @@ struct video_frame {
         unsigned int         frame_fragment_id:14;
         /// @}
 
+        unsigned int         decoder_overrides_data_len:1;
+
         /** @note
          * Can be changed only by frame originator.
          * @deprecated
