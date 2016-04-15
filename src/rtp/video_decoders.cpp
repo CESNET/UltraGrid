@@ -823,13 +823,18 @@ static void cleanup(struct state_video_decoder *decoder)
 
 }
 
-#define PRINT_STATISTICS log_msg(LOG_LEVEL_INFO, "Video dec stats: %lu total: %lu disp / %lu "\
-                                "drop / %lu corr / %lu missing.\n",\
+#define PRINT_STATISTICS {\
+        char buff[256];\
+        int bytes = sprintf(buff, "Video dec stats: %lu total: %lu disp / %lu "\
+                                "drop / %lu corr / %lu missing.",\
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
                                 decoder->missing);\
-                                if (decoder->fec_ok + decoder->fec_nok > 0) log_msg(LOG_LEVEL_INFO, " FEC OK/NOK: %ld/%ld\n", \
-                                                 decoder->fec_ok, decoder->fec_nok); \
+        if (decoder->fec_ok + decoder->fec_nok > 0) sprintf(buff + bytes, " FEC OK/NOK: %ld/%ld\n", \
+                        decoder->fec_ok, decoder->fec_nok);\
+        else sprintf(buff + bytes, "\n");\
+        log_msg(LOG_LEVEL_INFO, buff);\
+}
 
 /**
  * @brief Destroys decoder created with decoder_init()
