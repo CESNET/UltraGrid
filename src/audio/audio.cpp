@@ -805,7 +805,7 @@ static void *asend_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %.2f dBFS RMS, %.2f dBFS peak.\n",
                                 i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
         }
 
