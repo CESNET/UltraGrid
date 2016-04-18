@@ -200,12 +200,12 @@ after_send:
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        int dropped_frames = 0;
+        int dropped_frames = 0; /// @todo
         auto nano_actual = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
         long long int nano_expected = 1000l * 1000 * 1000 / tx_frame->fps;
         int send_bytes = tx_frame->tiles[0].data_len;
-        m_send_bytes_total += send_bytes;
         auto now = time_since_epoch_in_ms();
+        auto compress_millis = tx_frame->compress_end - tx_frame->compress_start;
 
         ostringstream oss;
         if (m_port_id != -1) {
@@ -213,12 +213,11 @@ after_send:
         }
         oss << "bufferId " << buffer_id <<
                 " droppedFrames " << dropped_frames <<
-                " nanoPerFrameActual " << nano_actual <<
-                " nanoPerFrameExpected " << nano_expected <<
-                " sendBytes " << send_bytes <<
-                " sendBytesTotal " << m_send_bytes_total <<
+                " nanoPerFrameActual " << (m_nano_per_frame_actual_cumul += nano_actual) <<
+                " nanoPerFrameExpected " << (m_nano_per_frame_expected_cumul += nano_expected) <<
+                " sendBytesTotal " << (m_send_bytes_total += send_bytes) <<
                 " timestamp " << now <<
-                " compressMillis " << tx_frame->compress_end - tx_frame->compress_start;
+                " compressMillis " << (m_compress_millis_cumul += compress_millis);
         control_report_stats(m_control, oss.str());
 }
 

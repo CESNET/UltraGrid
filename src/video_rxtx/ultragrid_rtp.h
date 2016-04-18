@@ -90,6 +90,10 @@ private:
 
         long long int m_send_bytes_total;
         struct control_state *m_control;
+
+        long long int m_nano_per_frame_actual_cumul = 0;
+        long long int m_nano_per_frame_expected_cumul = 0;
+        long long int m_compress_millis_cumul = 0;
 };
 
 #endif // VIDEO_RXTX_ULTRAGRID_RTP_H_
