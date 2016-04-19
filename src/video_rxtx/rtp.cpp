@@ -143,14 +143,28 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                 case SENDER_MSG_CHANGE_FEC:
                         {
                                 lock_guard<mutex> lock(m_network_devices_lock);
-                                delete m_fec_state;
+                                auto old_fec_state = m_fec_state;
                                 m_fec_state = NULL;
-                                if (strcmp(msg->fec_cfg, "flush") != 0) {
-                                        m_fec_state = fec::create_from_config(msg->fec_cfg);
+                                if (strcmp(msg->fec_cfg, "flush") == 0) {
+                                        delete old_fec_state;
+                                } else {
+                                        int ret = -1;
+                                        try {
+                                                m_fec_state = fec::create_from_config(msg->fec_cfg);
+                                        } catch (int i) {
+                                                ret = i;
+                                        } catch (...) {
+                                        }
                                         if (!m_fec_state) {
-                                                log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
+                                                if (ret != 0) {
+                                                        log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
+                                                        m_fec_state = old_fec_state;
+                                                } else { // -f LDGM:help or so
+                                                        exit_uv(0);
+                                                }
                                                 return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                         } else {
+                                                delete old_fec_state;
                                                 log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
                                         }
                                 }

@@ -90,13 +90,14 @@ rs::rs(const char *c_cfg)
                 m_k = DEFAULT_K;
                 m_n = DEFAULT_N;
         }
-        assert (m_k <= MAX_K);
-        assert (m_n <= MAX_N);
-        assert (m_k <= m_n);
+        free(cfg);
+        if (m_k > MAX_K || m_n > MAX_N || m_k > m_n) {
+                usage();
+                throw 1;
+        }
 
         state = fec_new(m_k, m_n);
         assert(state != NULL);
-        free(cfg);
 }
 
 rs::~rs()
