@@ -115,6 +115,7 @@ static void done(void *state)
 {
         struct state_every *s = state;
 
+        s->frame->data_deleter = NULL;
         vf_free(s->frame);
         free(state);
 }
