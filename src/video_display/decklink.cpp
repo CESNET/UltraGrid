@@ -77,8 +77,16 @@ public:
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
         virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
 
-        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult)
+        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 	{
+                if (result == bmdOutputFrameDisplayedLate){
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Late frame\n");
+                } else if (result == bmdOutputFrameDropped){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Dropped frame\n");
+                } else if (result == bmdOutputFrameFlushed){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Flushed frame\n");
+                }
+
 		completedFrame->Release();
 		return S_OK;
 	}
@@ -425,6 +433,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         uint32_t i;
 #endif
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "putf - %u frames buffered.\n", (unsigned int) i);
         //if (i > 2) 
         if (0) 
                 fprintf(stderr, "Frame dropped!\n");
