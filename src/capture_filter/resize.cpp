@@ -83,7 +83,7 @@ struct state_resize {
 static void usage() {
     printf("\nScaling by scale factor:\n\n");
     printf("resize usage:\n");
-    printf("\tresize:numerator/denominator\n");
+    printf("\tresize:numerator[/denominator]\n");
     printf("\tor\n");
     printf("\tresize:<width>x<height>\n\n");
     printf("Scaling examples:\n"
@@ -91,36 +91,39 @@ static void usage() {
                     "\tresize:720x576i - scales input to PAL (overrides interlacing setting)\n");
 }
 
-static int init(struct module *parent, const char *cfg, void **state)
+static int init(struct module * /* parent */, const char *cfg, void **state)
 {
-    UNUSED(parent);
-
     int n = 0, w = 0, h = 0;
     int denom = 1;
     bool force_interlaced = false;
     if(cfg) {
+        char *endptr;
         if(strcasecmp(cfg, "help") == 0) {
             usage();
             return 1;
         }
         if (strchr(cfg, 'x')) {
-            char *endptr;
-            w = atoi(cfg);
+            w = strtol(cfg, &endptr, 10);
             errno = 0;
             h = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
             if (errno != 0) {
-                    perror("strtol");
-                    usage();
-                    return -1;
+                perror("strtol");
+                usage();
+                return -1;
             }
             if (*endptr == 'i') {
                     force_interlaced = true;
             }
         } else {
-            n = atoi(cfg);
+            n = strtol(cfg, &endptr, 10);
             if(strchr(cfg, '/')) {
-                denom = atoi(strchr(cfg, '/') + 1);
+                denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
             }
+        }
+
+        if (*endptr != '\0') {
+            usage();
+            return -1;
         }
     } else {
         usage();
