@@ -99,6 +99,7 @@ struct pdb_e        *pdb_get(struct pdb *db, uint32_t ssrc);
  * pointer to it in "item". Returns zero if the entry was present.
  */
 int                  pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item);
+void                 pdb_destroy_item(struct pdb_e *item);
 
 typedef void *pdb_iter_t;
 /*

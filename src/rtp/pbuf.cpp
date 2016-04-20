@@ -174,6 +174,35 @@ struct pbuf *pbuf_init(int delay_ms)
         return playout_buf;
 }
 
+void pbuf_destroy(struct pbuf *playout_buf) {
+        if (playout_buf) {
+                struct pbuf_node *curr, *temp;
+
+                pbuf_validate(playout_buf);
+
+                curr = playout_buf->frst;
+                while (curr != NULL) {
+                        temp = curr->nxt;
+                        if (curr == playout_buf->frst) {
+                                playout_buf->frst = curr->nxt;
+                        }
+                        if (curr == playout_buf->last) {
+                                playout_buf->last = curr->prv;
+                        }
+                        if (curr->nxt != NULL) {
+                                curr->nxt->prv = curr->prv;
+                        }
+                        if (curr->prv != NULL) {
+                                curr->prv->nxt = curr->nxt;
+                        }
+                        free_cdata(curr->cdata);
+                        delete curr;
+                        curr = temp;
+                }
+                free(playout_buf);
+        }
+}
+
 static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 {
         /* Add "pkt" to the frame represented by "node". The "node" has    */

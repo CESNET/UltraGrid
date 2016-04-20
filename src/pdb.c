@@ -259,9 +259,15 @@ void pdb_destroy(struct pdb **db_p)
 
         pdb_validate(db);
         if (db->root != NULL) {
-                printf
-                    ("WARNING: participant database not empty - cannot destroy\n");
-                // TODO: participants should be removed using pdb_remove() 
+                pdb_iter_t it;
+                struct pdb_e *cp = pdb_iter_init(db, &it);
+                while (cp != NULL) {
+                        struct pdb_e *item = NULL;
+                        pdb_remove(db, cp->ssrc, &item);
+                        cp = pdb_iter_next(&it);
+                        pdb_destroy_item(item);
+                }
+                pdb_iter_done(&it);
         }
 
         free(db);
@@ -359,6 +365,25 @@ int pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
         x = pdb_delete_node(db, x);
         free(x);
         return 0;
+}
+
+void pdb_destroy_item(struct pdb_e *item)
+{
+        if (item) {
+		free(item->sdes_cname);
+		free(item->sdes_name);
+		free(item->sdes_email);
+		free(item->sdes_phone);
+		free(item->sdes_loc);
+		free(item->sdes_tool);
+		free(item->sdes_note);
+                if (item->decoder_state_deleter && item->decoder_state) {
+                        item->decoder_state_deleter(item->decoder_state);
+                }
+                pbuf_destroy(item->playout_buffer);
+                tfrc_done(item->tfrc_state);
+                free(item);
+        }
 }
 
 /* 

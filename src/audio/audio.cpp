@@ -470,15 +470,6 @@ void audio_done(struct state_audio *s)
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {
-                        pdb_iter_t it;
-                        struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
-                        while (cp != NULL) {
-                                struct pdb_e *item = NULL;
-                                pdb_remove(s->audio_participants, cp->ssrc, &item);
-                                cp = pdb_iter_next(&it);
-                                free(item);
-                        }
-                        pdb_iter_done(&it);
                         pdb_destroy(&s->audio_participants);
                 }
                 audio_export_destroy(s->exporter);

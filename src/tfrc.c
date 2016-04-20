@@ -429,6 +429,7 @@ void tfrc_done(struct tfrc *state)
         printf("\nTotal:      %8d", state->total_pckts);
         printf("\nooo:        %8d -- %7.5f\n\n", state->ooo,
                (state->ooo * 100) / (double)state->total_pckts);
+        free(state);
 }
 
 void

@@ -250,15 +250,6 @@ rtp_video_rxtx::~rtp_video_rxtx()
         m_network_devices_lock.unlock();
 
         if (m_participants != NULL) {
-                pdb_iter_t it;
-                struct pdb_e *cp = pdb_iter_init(m_participants, &it);
-                while (cp != NULL) {
-                        struct pdb_e *item = NULL;
-                        pdb_remove(m_participants, cp->ssrc, &item);
-                        cp = pdb_iter_next(&it);
-                        free(item);
-                }
-                pdb_iter_done(&it);
                 pdb_destroy(&m_participants);
         }
 

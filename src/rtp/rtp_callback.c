@@ -242,9 +242,7 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
                 {
                         struct pdb_e *pdb_item = NULL;
                         if(pdb_remove(participants, e->ssrc, &pdb_item) == 0) {
-                                if (pdb_item->decoder_state_deleter) {
-                                        pdb_item->decoder_state_deleter(pdb_item->decoder_state);
-                                }
+                                pdb_destroy_item(pdb_item);
                         }
                 }
                 break;
