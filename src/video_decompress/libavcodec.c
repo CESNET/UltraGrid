@@ -46,6 +46,7 @@
 #include "host.h"
 #include "libavcodec_common.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/resource_manager.h"
 #include "video.h"
 #include "video_decompress.h"
@@ -460,7 +461,10 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
         s->pkt.data = src;
         
         while (s->pkt.size > 0) {
+                struct timeval t0, t1;
+                gettimeofday(&t0, NULL);
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
+                gettimeofday(&t1, NULL);
 
                 /*
                  * Hack: Some libavcodec versions (typically found in Libav)
@@ -485,7 +489,7 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                 }
 
                 if(got_frame) {
-                        log_msg(LOG_LEVEL_DEBUG, "%c", av_get_picture_type_char(s->frame->pict_type));
+                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", tv_diff(t1, t0), av_get_picture_type_char(s->frame->pict_type));
                         /* pass frame only if this is I-frame or we have complete
                          * GOP (assuming we are not using B-frames */
                         if(
