@@ -1065,6 +1065,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         struct rtp *session;
         int i, j;
         char *cname;
+        char *hname;
 
         if (ttl < 0) {
                 fprintf(stderr, "ttl must be greater than zero\n");
@@ -1120,7 +1121,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 return NULL;
         }
 
-        init_rng(udp_host_addr(session->rtp_socket));
+        hname = udp_host_addr(session->rtp_socket);
+        init_rng(hname);
+        free(hname);
 
         session->my_ssrc = (uint32_t) lrand48();
         session->callback = callback;
