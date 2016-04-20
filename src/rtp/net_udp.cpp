@@ -150,6 +150,8 @@ struct _socket_udp {
         mutex lock;
         condition_variable boss_cv;
         condition_variable reader_cv;
+
+        void *to_be_freed; /// Data that should be freed with free() (may have remained from killed thread)
 #ifdef WIN32
         WSAOVERLAPPED *overlapped;
         WSAEVENT *overlapped_events;
@@ -872,6 +874,7 @@ void udp_exit(socket_udp * s)
 
         CLOSESOCKET(s->fd);
         free(s->addr);
+        free(s->to_be_freed);
         delete s;
 }
 
@@ -960,6 +963,7 @@ static void *udp_reader(void *arg)
 
         uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
         uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+        s->to_be_freed = packet;
 
         while (1) {
                 pthread_testcancel();
@@ -983,12 +987,14 @@ static void *udp_reader(void *arg)
                 s->queue_head->size = size;
                 s->queue_head->buf = packet;
                 s->queue_head = s->queue_head->next;
+                s->to_be_freed = nullptr;
 
                 lk.unlock();
                 s->boss_cv.notify_one();
 
                 packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+                s->to_be_freed = packet;
         }
 
         return NULL;
@@ -1081,7 +1087,7 @@ int udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_a
  * Receives data from multithreaded socket.
  *
  * @param[in] s       UDP socket state
- * @param[out] buffer data received from socket. Must be freeed by caller!
+ * @param[out] buffer data received from socket. Must be freed by caller!
  * @returns           length of the received datagram
  */
 int udp_recv_data(socket_udp * s, char **buffer)
