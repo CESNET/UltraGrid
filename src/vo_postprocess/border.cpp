@@ -52,6 +52,7 @@ struct state_border {
         struct video_desc saved_desc = {};
         uint8_t color[4] = { 0xff, 0xff, 0x00, 0xff }; ///< border color in RGBA
         unsigned int width = 10;                       ///< border width in pixels (must be even)
+        struct video_frame *in = nullptr;
 };
 
 static bool border_get_property(void * /* state */, int /* property */, void * /* val */, size_t * /* len */)
@@ -118,14 +119,15 @@ static int border_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_border *s = (struct state_border *) state;
         s->saved_desc = desc;
+        vf_free(s->in);
+        s->in = vf_alloc_desc_data(s->saved_desc);
         return TRUE;
 }
 
 static struct video_frame * border_getf(void *state)
 {
         struct state_border *s = (struct state_border *) state;
-
-        return vf_alloc_desc_data(s->saved_desc);
+        return s->in;
 }
 
 static bool border_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
@@ -183,13 +185,14 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
                 return false;
         }
 
-        vf_free(in);
         return true;
 }
 
 static void border_done(void *state)
 {
         struct state_border *s = (struct state_border *) state;
+
+        vf_free(s->in);
 
         delete s;
 }

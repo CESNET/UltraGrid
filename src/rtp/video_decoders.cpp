@@ -822,6 +822,7 @@ static void cleanup(struct state_video_decoder *decoder)
         }
         decoder->change_il_state.resize(0);
 
+        ///@todo Free pp_frame
         if (decoder->postprocess) {
                 vo_postprocess_done(decoder->postprocess);
                 decoder->postprocess = NULL;
