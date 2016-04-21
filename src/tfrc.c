@@ -420,15 +420,17 @@ void tfrc_done(struct tfrc *state)
 
         validate_tfrc_state(state);
 
-        for (i = 0; i < 10; i++) {
-                printf("\n%2d %8d", i, state->gap[i]);
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                for (i = 0; i < 10; i++) {
+                        printf("\n%2d %8d", i, state->gap[i]);
+                }
+                printf("\n");
+                printf("\nLost:       %8d", state->loss_count);
+                printf("\nIntervals:  %8d", state->interval_count);
+                printf("\nTotal:      %8d", state->total_pckts);
+                printf("\nooo:        %8d -- %7.5f\n\n", state->ooo,
+                                (state->ooo * 100) / (double)state->total_pckts);
         }
-        printf("\n");
-        printf("\nLost:       %8d", state->loss_count);
-        printf("\nIntervals:  %8d", state->interval_count);
-        printf("\nTotal:      %8d", state->total_pckts);
-        printf("\nooo:        %8d -- %7.5f\n\n", state->ooo,
-               (state->ooo * 100) / (double)state->total_pckts);
         free(state);
 }
 
