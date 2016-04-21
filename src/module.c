@@ -129,9 +129,17 @@ void module_done(struct module *module_data)
 
         if(simple_linked_list_size(tmp.msg_queue) > 0) {
                 fprintf(stderr, "Warning: Message queue not empty!\n");
+                struct message *m;
+                while ((m = check_message(&tmp))) {
+                        free_message(m, NULL);
+                }
         }
         simple_linked_list_destroy(tmp.msg_queue);
 
+        while (simple_linked_list_size(tmp.msg_queue_childs) > 0) {
+                struct message *m = simple_linked_list_pop(tmp.msg_queue_childs);
+                free_message(m, NULL);
+        }
         simple_linked_list_destroy(tmp.msg_queue_childs);
 
         pthread_mutex_destroy(&tmp.lock);

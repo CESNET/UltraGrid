@@ -348,6 +348,10 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
  */
 void vidcap_params_set_device(struct vidcap_params *params, const char *config)
 {
+        free(params->name);
+        free(params->driver);
+        free(params->fmt);
+
         params->name = strdup(config);
 
         if (!vidcap_dispatch_alias(params)) {
