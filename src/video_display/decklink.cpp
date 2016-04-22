@@ -243,7 +243,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}]\n");
+        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}]\n");
         printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -701,6 +701,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
+        BMDVideoOutputConversionMode conversion_mode = bmdNoVideoOutputConversion;
+        bool use1080p_not_psf = true;
 
         if (!blackmagic_api_version_check()) {
                 return NULL;
@@ -788,6 +790,25 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 } else {
                                         audio_consumer_levels = 1;
                                 }
+			} else if(strncasecmp(ptr, "conversion=",
+						strlen("conversion=")) == 0) {
+				const char *conversion_mode_str = ptr + strlen("conversion=");
+
+				union {
+					uint32_t fourcc;
+					char tmp[4];
+				};
+				memcpy(tmp, conversion_mode_str, max(strlen(conversion_mode_str), sizeof(tmp)));
+				conversion_mode = (BMDVideoOutputConversionMode) htonl(fourcc);
+
+			} else if(strncasecmp(ptr, "Use1080pNotPsF=",
+						strlen("Use1080pNotPsF=")) == 0) {
+				const char *levels = ptr + strlen("Use1080pNotPsF=");
+				if (strcasecmp(levels, "false") == 0) {
+					use1080p_not_psf = false;
+				} else {
+					use1080p_not_psf = true;
+				}
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                                 delete s;
@@ -879,6 +900,17 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         log_msg(LOG_LEVEL_ERROR, "Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
                         goto error;
                 }
+
+		result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
+		if (result != S_OK) {
+			log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
+			goto error;
+		}
+
+		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigUse1080pNotPsF, use1080p_not_psf);
+		if (result != S_OK) {
+			log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set 1080p P/PsF mode.\n");
+		}
 
 #ifdef DECKLINK_LOW_LATENCY
                 HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, true);
