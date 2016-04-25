@@ -1,9 +1,15 @@
 /**
  * @file   video_display/decklink.cpp
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,6 +59,8 @@
 #include "video.h"
 #include "video_display.h"
 
+#include <chrono>
+#include <iomanip>
 #include <mutex>
 #include <queue>
 #include <vector>
@@ -80,11 +88,11 @@ public:
         virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 	{
                 if (result == bmdOutputFrameDisplayedLate){
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Late frame\n");
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame\n";
                 } else if (result == bmdOutputFrameDropped){
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Dropped frame\n");
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame\n";
                 } else if (result == bmdOutputFrameFlushed){
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Flushed frame\n");
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame\n";
                 }
 
 		completedFrame->Release();
@@ -231,6 +239,8 @@ struct state_decklink {
         uint32_t            link;
 
         buffer_pool_t       buffer_pool;
+
+        bool                low_latency;
  };
 
 static void show_help(void);
@@ -243,7 +253,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}]\n");
+        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
         printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -434,8 +444,11 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 #else
         uint32_t i;
 #endif
+
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
-        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "putf - %u frames buffered.\n", (unsigned int) i);
+
+        auto t0 = chrono::high_resolution_clock::now();
+
         //if (i > 2) 
         if (0) 
                 fprintf(stderr, "Frame dropped!\n");
@@ -447,13 +460,13 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                                 deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
                         }
 
-#ifdef DECKLINK_LOW_LATENCY
-                        s->state[j].deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
-                        deckLinkFrame->Release();
-#else
-                        s->state[j].deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
-                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-#endif /* DECKLINK_LOW_LATENCY */
+                        if (s->low_latency) {
+                                s->state[j].deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
+                                deckLinkFrame->Release();
+                        } else {
+                                s->state[j].deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
+                                                s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                        }
                 }
                 s->frames++;
                 if(s->emit_timecode) {
@@ -462,6 +475,8 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         }
 
         frame->dispose(frame);
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
 
         gettimeofday(&tv, NULL);
         double seconds = tv_diff(tv, s->tv);
@@ -575,9 +590,9 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 }
                 
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
-#ifndef DECKLINK_LOW_LATENCY
-                s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
-#endif /* ! defined DECKLINK_LOW_LATENCY */
+                if (!s->low_latency) {
+                        s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+                }
         } else {
                 if((int) desc.tile_count > s->devices_cnt) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
@@ -611,11 +626,11 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
 	        }
 	
-	        for(int i = 0; i < s->devices_cnt; ++i) {
-#ifndef DECKLINK_LOW_LATENCY
-	                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
-#endif /* ! defined DECKLINK_LOW_LATENCY */
-	        }
+                if (!s->low_latency) {
+                        for(int i = 0; i < s->devices_cnt; ++i) {
+                                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+                        }
+                }
 	}
 
         s->initialized = true;
@@ -725,7 +740,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 show_help();
                 delete s;
                 return &display_init_noerr;
-        } else  {
+        } else {
                 char *tmp = strdup(fmt);
                 char *ptr;
                 char *save_ptr = 0ul;
@@ -811,6 +826,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 				} else {
 					use1080p_not_psf = true;
 				}
+                        } else if (strcasecmp(ptr, "low-latency") == 0) {
+                                s->low_latency = true;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                                 delete s;
@@ -823,6 +840,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 	assert(!s->stereo || s->devices_cnt == 1);
 
         gettimeofday(&s->tv, NULL);
+
+        if (!s->low_latency) {
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Consider using low-latency mode "
+                        "since it will become default in future.\n";
+        }
 
         // Initialize the DeckLink API
         deckLinkIterator = create_decklink_iterator(true);
@@ -914,12 +936,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 			log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set 1080p P/PsF mode.\n");
 		}
 
-#ifdef DECKLINK_LOW_LATENCY
-                HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, true);
+                HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency);
                 if(res != S_OK) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set to low-latency mode.\n");
+                        goto error;
                 }
-#endif /* DECKLINK_LOW_LATENCY */
 
                 if(HDMI3DPacking != 0) {
                         HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigHDMI3DPackingFormat,
@@ -987,9 +1008,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
                 s->state[i].delegate = new PlaybackDelegate();
                 // Provide this class as a delegate to the audio and video output interfaces
-#ifndef DECKLINK_LOW_LATENCY
-                s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
-#endif /* ! defined DECKLINK_LOW_LATENCY */
+                if (!s->low_latency) {
+                        s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                }
                 //s->state[i].deckLinkOutput->DisableAudioOutput();
         }
 
@@ -1020,9 +1041,11 @@ static void display_decklink_done(void *state)
         for (int i = 0; i < s->devices_cnt; ++i)
         {
                 if(s->initialized) {
-                        result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
-                        if (result != S_OK) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot stop playback: %08x\n", (int) result);
+                        if (!s->low_latency) {
+                                result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+                                if (result != S_OK) {
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot stop playback: %08x\n", (int) result);
+                                }
                         }
 
                         if(s->play_audio && i == 0) {
@@ -1138,10 +1161,22 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         unsigned int sampleFramesWritten;
 #endif
 
-	s->state[0].deckLinkOutput->ScheduleAudioSamples (frame->data, sampleFrameCount, 0,
-                0, &sampleFramesWritten);
-        if(sampleFramesWritten != sampleFrameCount)
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "audio buffer underflow!\n");
+        auto t0 = chrono::high_resolution_clock::now();
+
+        if (s->low_latency) {
+                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
+                                &sampleFramesWritten);
+                if (FAILED(res)) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
+                }
+        } else {
+                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
+                                0, &sampleFramesWritten);
+                if(sampleFramesWritten != sampleFrameCount)
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "audio buffer underflow!\n");
+        }
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -1180,7 +1215,9 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         sample_type,
                         channels,
                         bmdAudioOutputStreamContinuous);
-        s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
+        if (!s->low_latency) {
+                s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
+        }
         
         return TRUE;
 }
