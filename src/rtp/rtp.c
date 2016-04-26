@@ -1072,12 +1072,10 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 return NULL;
         }
         if (rx_port % 2) {
-                fprintf(stderr, "rx_port must be even\n");
-                return NULL;
+                log_msg(LOG_LEVEL_WARNING, "RTP: rx_port should be even.\n");
         }
         if (tx_port % 2) {
-                fprintf(stderr, "tx_port must be even\n");
-                return NULL;
+                log_msg(LOG_LEVEL_WARNING, "RTP: tx_port should be even.\n");
         }
 
         session = (struct rtp *)malloc(sizeof(struct rtp));
