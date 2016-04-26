@@ -292,7 +292,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if (strcasecmp(message, "exit") == 0) {
-                exit_uv(1);
+                exit_uv(0);
                 resp = new_response(RESPONSE_OK, NULL);
         } else if (prefix_matches(message, "stats ")) {
                 if (is_internal_port(client_fd)) {
