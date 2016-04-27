@@ -519,10 +519,14 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
 
                                 dominance = deckLinkDisplayMode->GetFieldDominance();
                                 if (dominance == bmdLowerFieldFirst ||
-                                                dominance == bmdUpperFieldFirst)
+                                                dominance == bmdUpperFieldFirst) {
+					if (dominance == bmdLowerFieldFirst) {
+						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Lower field first format detected, fields can be switched! If so, please report a bug to " PACKAGE_BUGREPORT "\n");
+					}
                                         interlaced = true;
-                                else // progressive, psf, unknown
+                                } else { // progressive, psf, unknown
                                         interlaced = false;
+                                }
 
                                 deckLinkDisplayMode->GetFrameRate(frameRateDuration,
                                                 frameRateScale);
@@ -1093,6 +1097,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
         struct state_decklink *s = (struct state_decklink *)state;
         codec_t codecs[] = {v210, UYVY, RGBA};
         int rgb_shift[] = {16, 8, 0};
+        interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -1120,6 +1125,14 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
                         else
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                        break;
+                case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
+                        if(sizeof(supported_il_modes) <= *len) {
+                                memcpy(val, supported_il_modes, sizeof(supported_il_modes));
+                        } else {
+                                return FALSE;
+                        }
+                        *len = sizeof(supported_il_modes);
                         break;
                 case DISPLAY_PROPERTY_AUDIO_FORMAT:
                         {
