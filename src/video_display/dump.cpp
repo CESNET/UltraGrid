@@ -53,7 +53,7 @@ using namespace std;
 using namespace std::chrono;
 
 struct dump_display_state {
-        dump_display_state() : f(nullptr), t0(steady_clock::now()), frames(0)
+        dump_display_state()
         {
                 string dirname;
                 time_t now = time(NULL);
@@ -68,11 +68,11 @@ struct dump_display_state {
                 vf_free(f);
                 video_export_destroy(e);
         }
-        struct video_frame *f;
-        steady_clock::time_point t0;
-        int frames;
+        struct video_frame *f = nullptr;
+        steady_clock::time_point t0 = steady_clock::now();
+        int frames = 0;
         struct video_export *e;
-        size_t max_tile_data_len;
+        size_t max_tile_data_len = 0;
 };
 
 static void *display_dump_init(struct module *, const char *, unsigned int)

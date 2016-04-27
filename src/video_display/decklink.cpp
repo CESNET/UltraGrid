@@ -834,6 +834,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->low_latency = true;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
+                                free(tmp);
                                 delete s;
                                 return NULL;
                         }

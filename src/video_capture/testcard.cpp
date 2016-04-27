@@ -512,10 +512,10 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                                         testcard_fillRect(&s->pixmap, &r, 0xff000000);
                                 }
                                 for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
-                                        r.w = rect_size;
-                                        r.h = min(rect_size, s->frame->tiles[0].height - r.y);
                                         r.x = i;
                                         r.y = j;
+                                        r.w = rect_size;
+                                        r.h = min(rect_size, s->frame->tiles[0].height - r.y);
                                         printf("Fill rect at %d,%d\n", r.x, r.y);
                                         if (j != rect_size * 2) {
                                                 testcard_fillRect(&s->pixmap, &r,

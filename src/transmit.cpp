@@ -311,6 +311,8 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 struct response *resp = send_message_to_receiver(get_parent_module(&tx->mod),
                                 (struct message *) msg);
                 free_response(resp);
+        } else {
+                free_message((struct message *) msg, NULL);
         }
 
         free(fec);

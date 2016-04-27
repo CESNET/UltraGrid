@@ -101,6 +101,7 @@ static void * border_init(const char *config) {
                                         s->width = (s->width + 1) / 2 * 2;
                                 } else {
                                         log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
+                                        free(tmp);
                                         delete s;
                                         return NULL;
                                 }

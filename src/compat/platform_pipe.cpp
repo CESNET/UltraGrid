@@ -124,6 +124,9 @@ int platform_pipe_init(fd_t p[2])
 {
         struct params par;
         fd_t sock = open_socket(&par.port);
+        if (sock == INVALID_SOCKET) {
+                return -1;
+        }
 
         thread thr(worker, &par);
 

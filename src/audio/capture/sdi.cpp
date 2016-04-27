@@ -77,9 +77,9 @@ static void audio_cap_sdi_help(const char *driver_name);
 static void audio_cap_sdi_probe_common(struct device_info **available_devices, int *count, 
                 const char *id, const char *name)
 {
-        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, id);
-        strcpy((*available_devices)[0].name, name);
+        *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strncpy((*available_devices)[0].id, id, sizeof (*available_devices)[0].id - 1);
+        strncpy((*available_devices)[0].name, name, sizeof (*available_devices)[0].name - 1);
         *count = 1;
 }
 

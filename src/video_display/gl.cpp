@@ -362,6 +362,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 }
 #else
                                 log_msg(LOG_LEVEL_ERROR, "[GL] Syphon support not compiled in.\n");
+                                free(tmp);
                                 delete s;
                                 return NULL;
 #endif
