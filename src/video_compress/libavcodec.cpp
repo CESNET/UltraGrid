@@ -1017,6 +1017,10 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set GPU.\n");
         }
+        ret = av_opt_set(codec_ctx->priv_data, "delay", "0", 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set delay.\n");
+        }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
 }
