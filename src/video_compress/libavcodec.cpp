@@ -1088,7 +1088,6 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
 				"me=dia:max-merge=1:subme=0:no-strong-intra-smoothing=1:"
 				"rc-lookahead=2:ref=1:scenecut=0:" 
 				"no-cutree=1:no-weightp=1:"
-				"rd=0:" // RDO mode decision
 				"ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
 				"frame-threads=3:pme=1:" // trade some latency for better parallelism
 				"keyint=180:min-keyint=120:" // I frames
