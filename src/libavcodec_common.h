@@ -28,6 +28,10 @@ extern "C" {
 #define av_packet_unref av_free_packet
 #endif
 
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 34, 1)
+#define AV_CODEC_FLAG_INTERLACED_DCT CODEC_FLAG_INTERLACED_DCT
+#endif
+
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(55, 35, 100)
 #define AV_CODEC_ID_HEVC AV_CODEC_ID_NONE
 #endif

@@ -1047,6 +1047,11 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         codec_ctx->max_qdiff = 69;
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
+
+        // this options increases variance in frame sizes quite a lot
+        //if (param->interlaced) {
+        //        codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
+        //}
 }
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
