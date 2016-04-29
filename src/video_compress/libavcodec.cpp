@@ -1019,6 +1019,36 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
+static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        int ret;
+        if (!param->have_preset) {
+                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_X265_PRESET, 0);
+                if (ret != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
+                }
+        }
+        ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency,fastdecode", 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency/fastdecode.\n");
+        }
+
+        // try to keep frame sizes as even as possible
+        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+        //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+        //codec_ctx->rc_buffer_aggressivity = 1.0;
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
+        codec_ctx->qcompress = 0.0f;
+        //codec_ctx->qblur = 0.0f;
+        //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+        //codec_ctx->rc_max_available_vbv_use = 1.0f;
+        codec_ctx->qmin = 0;
+        codec_ctx->qmax = 69;
+        codec_ctx->max_qdiff = 69;
+        //codec_ctx->rc_qsquish = 0;
+        //codec_ctx->scenechange_threshold = 100;
+}
+
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
@@ -1053,114 +1083,9 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 
 static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        int ret;
-        if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
-                if (!param->have_preset) {
-                        // ultrafast + --aq-mode 2
-                        // AQ=0 causes posterization. Enabling it requires some 20% additional
-                        // percent of CPU.
-                        string params("no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
-                                        "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:aq_mode=2");
-
-                        // this options increases variance in frame sizes quite a lot
-                        //if (param->interlaced) {
-                        //        params += ":tff=1";
-                        //}
-
-                        int ret;
-                        // newer LibAV
-                        ret = av_opt_set(codec_ctx->priv_data, "x264-params", params.c_str(), 0);
-                        if (ret != 0) {
-                                // newer FFMPEG
-                                ret = av_opt_set(codec_ctx->priv_data, "x264opts", params.c_str(), 0);
-                        }
-                        if (ret != 0) {
-                                // older version of both
-                                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_X265_PRESET, 0);
-                                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Old FFMPEG/LibAV detected - consider "
-                                                "upgrading. Using preset %s.\n", DEFAULT_X264_X265_PRESET);
-                        }
-                        if (ret != 0) {
-                                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
-                        }
-                }
-                //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
-                ret = av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune.\n");
-                }
-
-                // try to keep frame sizes as even as possible
-                codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-                //codec_ctx->rc_buffer_aggressivity = 1.0;
-                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
-                codec_ctx->qcompress = 0.0f;
-                //codec_ctx->qblur = 0.0f;
-                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-                //codec_ctx->rc_max_available_vbv_use = 1.0f;
-                codec_ctx->qmin = 0;
-                codec_ctx->qmax = 69;
-                codec_ctx->max_qdiff = 69;
-                //codec_ctx->rc_qsquish = 0;
-                //codec_ctx->scenechange_threshold = 100;
-        } else if (strcmp(codec_ctx->codec->name, "libx265") == 0) {
-		string params(
-				//"level-idc=5.1:" // this would set level to 5.1, can be wrong or inefficent for some video formats!
-				"b-adapt=0:bframes=0:no-b-pyramid=1:" // turns off B frames (bad for zero latency)
-				"no-deblock=1:no-sao=1:no-weightb=1:no-weightp=1:no-b-intra=1:" 
-				"me=dia:max-merge=1:subme=0:no-strong-intra-smoothing=1:"
-				"rc-lookahead=2:ref=1:scenecut=0:" 
-				"no-cutree=1:no-weightp=1:"
-				"ctu=32:min-cu-size=16:max-tu-size=16:" // partitioning options, heavy effect on parallelism
-				"frame-threads=3:pme=1:" // trade some latency for better parallelism
-				"keyint=180:min-keyint=120:" // I frames
-				"aq_mode=0");
-
-		if(strlen(params.c_str()) > 0) {
-			// newer LibAV
-			ret = av_opt_set(codec_ctx->priv_data, "x265-params", params.c_str(), 0);
-			if(ret != 0) {
-				// newer FFMPEG
-				ret = av_opt_set(codec_ctx->priv_data, "x265opts", params.c_str(), 0);
-			}
-			if(ret != 0) {
-				// older version of both
-				// or superfast?? requires + some 70 % CPU but does not cause posterization
-				ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
-				log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Old FFMPEG/LibAV detected. "
-						"Try supplying 'preset=superfast' argument to "
-						"avoid posterization!\n");
-			}
-			if(ret != 0) {
-				log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
-			}
-		}
-
-		ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
-                if (ret != 0) {
-				log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency.\n");
-                }
-		ret = av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
-                if (ret != 0) {
-				log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune fastdecode.\n");
-                }
-
-		// try to keep frame sizes as even as possible
-		codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-		//codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
-		//codec_ctx->rc_buffer_aggressivity = 1.0;
-		codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8;
-		codec_ctx->qcompress = 0.0f;
-		//codec_ctx->qblur = 0.0f;
-		//codec_ctx->rc_min_vbv_overflow_use = 1.0f;
-		//codec_ctx->rc_max_available_vbv_use = 1.0f;
-		codec_ctx->qmin = 0;
-		codec_ctx->qmax = 69;
-		codec_ctx->max_qdiff = 69;
-		//codec_ctx->rc_qsquish = 0;
-		//codec_ctx->scenechange_threshold = 100;
+        if (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
+                        strcmp(codec_ctx->codec->name, "libx265") == 0) {
+                configure_x264_x265(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
                         strcmp(codec_ctx->codec->name, "nvenc") == 0 ||
                         strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
@@ -1177,7 +1102,7 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                         (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
                          strcmp(codec_ctx->codec->name, "libx264") == 0)) {
                 codec_ctx->refs = 1;
-                ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+                int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
                 }
