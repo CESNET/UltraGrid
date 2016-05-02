@@ -1324,6 +1324,9 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
                 LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
+                control_report_event(decoder->control, string("received video changed - ") +
+                                (string) network_desc);
+
                 decoder->received_vid_desc = network_desc;
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD

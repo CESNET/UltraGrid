@@ -46,6 +46,7 @@
 #include <stddef.h>
 
 #ifdef __cplusplus
+#include <string>
 extern "C" {
 #endif
 
@@ -118,6 +119,7 @@ struct video_desc {
         bool operator==(video_desc const &) const;
         bool operator!=(video_desc const &) const;
         bool operator!() const;
+        operator std::string() const;
 #endif
 };
 

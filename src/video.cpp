@@ -222,3 +222,10 @@ bool video_desc::operator!() const
         return color_spec == VIDEO_CODEC_NONE;
 }
 
+video_desc::operator string() const
+{
+        ostringstream oss;
+        oss << *this;
+        return oss.str();
+}
+
