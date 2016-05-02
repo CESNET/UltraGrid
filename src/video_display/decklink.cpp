@@ -65,6 +65,8 @@
 #include <queue>
 #include <vector>
 
+#include "DeckLinkAPIVersion.h"
+
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
@@ -941,8 +943,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 			log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set 1080p P/PsF mode.\n");
 		}
 
-                HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency);
-                if(res != S_OK) {
+                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency);
+                if (result != S_OK) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set to low-latency mode.\n");
                         goto error;
                 }
