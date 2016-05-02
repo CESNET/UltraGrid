@@ -68,10 +68,28 @@ static void catch_signal(int)
 }
 #endif
 
+#ifdef HAVE_TERMIOS_H
+static struct termios old_tio;
+#endif
+
+static void restore_old_tio(void)
+{
+#ifdef HAVE_TERMIOS_H
+        struct sigaction sa, sa_old;
+        memset(&sa, 0, sizeof sa);
+        sa.sa_handler = SIG_IGN;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGTTOU, &sa, &sa_old);
+        /* set the new settings immediately */
+        /* restore the former settings */
+        tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
+        sigaction(SIGTTOU, &sa_old, NULL);
+#endif
+}
+
 keyboard_control::keyboard_control() :
         m_root(nullptr),
 #ifdef HAVE_TERMIOS_H
-        m_old_tio(),
         m_should_exit_pipe{0, 0},
 #else
         m_should_exit(false),
@@ -96,9 +114,9 @@ void keyboard_control::start(struct module *root)
 
         struct termios new_tio;
         /* get the terminal settings for stdin */
-        tcgetattr(STDIN_FILENO,&m_old_tio);
+        tcgetattr(STDIN_FILENO,&old_tio);
         /* we want to keep the old setting to restore them a the end */
-        new_tio=m_old_tio;
+        new_tio=old_tio;
         /* disable canonical mode (buffered i/o) and local echo */
         new_tio.c_lflag &=(~ICANON & ~ECHO);
         // Wrap calling of tcsetattr() by handling SIGTTOU. SIGTTOU can be raised if task is
@@ -116,6 +134,7 @@ void keyboard_control::start(struct module *root)
                 log_msg(LOG_LEVEL_WARNING, "[key control] Background task - disabling keyboard control.\n");
                 return;
         }
+        atexit(restore_old_tio);
 #endif
 
         m_keyboard_thread = thread(&keyboard_control::run, this);
@@ -138,16 +157,6 @@ void keyboard_control::stop()
         m_started = false;
 
 #ifdef HAVE_TERMIOS_H
-        struct sigaction sa, sa_old;
-        memset(&sa, 0, sizeof sa);
-        sa.sa_handler = SIG_IGN;
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGTTOU, &sa, &sa_old);
-        /* set the new settings immediately */
-        /* restore the former settings */
-        tcsetattr(STDIN_FILENO,TCSANOW,&m_old_tio);
-        sigaction(SIGTTOU, &sa_old, NULL);
-
         close(m_should_exit_pipe[0]);
 #endif
 }
