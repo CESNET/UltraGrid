@@ -1348,10 +1348,10 @@ livemedia=no
 livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
-[  --disable-rtsp-server   disable RTSP server support (default is auto)]
+[  --enable-rtsp-server    enables RTSP server support (default is disable)]
 [                          Requires: live555],
     [rtsp_server_req=$enableval],
-    [rtsp_server_req=auto]
+    [rtsp_server_req=no]
     )
 
 AC_ARG_WITH(live555,
