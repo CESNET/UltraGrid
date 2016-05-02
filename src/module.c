@@ -138,7 +138,7 @@ void module_done(struct module *module_data)
 
         while (simple_linked_list_size(tmp.msg_queue_childs) > 0) {
                 struct message *m = simple_linked_list_pop(tmp.msg_queue_childs);
-                free_message(m, NULL);
+                free_message_for_child(m, NULL);
         }
         simple_linked_list_destroy(tmp.msg_queue_childs);
 

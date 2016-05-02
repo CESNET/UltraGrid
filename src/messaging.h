@@ -122,6 +122,8 @@ const char *response_status_to_text(int status);
 
 struct message *check_message(struct module *);
 
+void free_message_for_child(void *m, struct response *r);
+
 #ifdef __cplusplus
 }
 #endif

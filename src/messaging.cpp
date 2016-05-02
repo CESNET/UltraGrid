@@ -50,6 +50,13 @@ struct pair_msg_path {
 };
 }
 
+void free_message_for_child(void *m, struct response *r) {
+        struct pair_msg_path *mp = (struct pair_msg_path *) m;
+        free_message(mp->msg, r);
+        free(mp);
+
+}
+
 static struct response *send_message_common(struct module *root, const char *const_path, struct message *msg, bool sync, int timeout_ms = 0)
 {
         /**
@@ -84,9 +91,8 @@ static struct response *send_message_common(struct module *root, const char *con
                         //dump_tree(root, 0);
                         if (simple_linked_list_size(old_receiver->msg_queue_childs) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
                                 printf("Dropping some old messages for %s (queue full).\n", const_path);
-                                struct pair_msg_path *mp = (struct pair_msg_path *) simple_linked_list_pop(old_receiver->msg_queue_childs);
-                                free_message(mp->msg, new_response(RESPONSE_NOT_FOUND, "Receiver not found"));
-                                free(mp);
+                                free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_childs),
+                                                        new_response(RESPONSE_NOT_FOUND, "Receiver not found"));
                         }
                         
                         struct pair_msg_path *saved_message = (struct pair_msg_path *)
