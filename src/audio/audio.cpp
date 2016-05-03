@@ -496,6 +496,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
+                rtp_set_option(r, RTP_OPT_PROMISC, TRUE);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
                 rtp_set_recv_buf(r, 256*1024);
@@ -645,18 +646,23 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                             curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
                             if(!audio_desc_eq(device_desc, curr_desc)) {
+                                int log_l;
+                                string msg;
                                 if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
                                     curr_desc.ch_count,
                                     curr_desc.sample_rate) != TRUE) {
-                                    log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
+                                    log_l = LOG_LEVEL_ERROR;
+                                    msg = "Audio reconfiguration failed";
                                     failed = true;
                                 }
                                 else {
-                                    log_msg(LOG_LEVEL_INFO, "Audio reconfiguration succeeded.");
+                                    log_l = LOG_LEVEL_INFO;
+                                    msg = "Audio reconfiguration succeeded";
+
                                     device_desc = curr_desc;
                                     rtp_flush_recv_buf(s->audio_network_device);
                                 }
-                                std::cerr << " (" << curr_desc << ")\n";
+                                LOG(log_l) << msg << " (" << curr_desc << ")" << (log_l < LOG_LEVEL_WARNING ? "!" : ".") << "\n";
                             }
 
                             if(!failed)
@@ -686,18 +692,22 @@ echo_play(s->echo_state, &pbuf_data.buffer);
                         curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
                         if(!audio_desc_eq(device_desc, curr_desc)) {
+                                int log_l;
+                                string msg;
                                 if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
                                                         curr_desc.ch_count,
                                                         curr_desc.sample_rate) != TRUE) {
-                                        log_msg(LOG_LEVEL_ERROR, "Audio reconfiguration failed!");
+                                        log_l = LOG_LEVEL_ERROR;
+                                        msg = "Audio reconfiguration failed";
                                         failed = true;
                                 }
                                 else {
-                                        log_msg(LOG_LEVEL_INFO, "Audio reconfiguration succeeded.");
+                                        log_l = LOG_LEVEL_INFO;
+                                        msg = "Audio reconfiguration succeeded";
                                         device_desc = curr_desc;
                                         rtp_flush_recv_buf(s->audio_network_device);
                                 }
-                                std::cerr << " (" << curr_desc << ")\n";
+                                LOG(log_l) << msg << " (" << curr_desc << ")" << (log_l < LOG_LEVEL_WARNING ? "!" : ".") << "\n";
                                 rtp_flush_recv_buf(s->audio_network_device);
                         }
 

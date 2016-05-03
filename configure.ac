@@ -2356,7 +2356,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 speex=yes
 SPEEX_PATH=speex-1.2rc1
 SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
-SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
+SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o src/audio/jitter.o"
 SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
 SPEEX_LIB=
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])

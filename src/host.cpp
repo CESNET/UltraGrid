@@ -207,3 +207,13 @@ void print_version()
         printf(AUTOCONF_RESULT);
 }
 
+const char *get_commandline_param(const char *key)
+{
+	auto it = commandline_params.find(key);
+	if (it != commandline_params.end()) {
+                return it->second.c_str();
+	} else {
+		return NULL;
+        }
+}
+

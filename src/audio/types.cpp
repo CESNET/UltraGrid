@@ -56,6 +56,14 @@ bool audio_desc::operator!() const
         return codec == AC_NONE;
 }
 
+audio_desc::operator string() const
+{
+        ostringstream oss;
+        oss << *this;
+        return oss.str();
+}
+
+
 audio_frame2_resampler::audio_frame2_resampler() : resampler(nullptr), resample_from(0),
         resample_ch_count(0), resample_to(0)
 {

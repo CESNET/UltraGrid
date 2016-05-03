@@ -121,11 +121,12 @@ OBJS	      = @OBJS@ \
 		src/utils/list.o \
 		src/lib_common.o \
 		src/ug_runtime_error.o \
-		src/utils/synchronized_queue.o \
+		src/utils/audio_buffer.o \
 		src/utils/misc.o \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
+		src/utils/synchronized_queue.o \
 		src/utils/vf_split.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
@@ -244,6 +245,9 @@ src/audio/smallft.o:
 
 src/audio/mdf.o:
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
+
+src/audio/jitter.o:
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/jitter.c  -fPIC -DPIC -o $@
 
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@

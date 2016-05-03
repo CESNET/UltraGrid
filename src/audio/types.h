@@ -53,6 +53,10 @@ typedef enum {
         AC_FLAC,
 } audio_codec_t;
 
+#ifdef __cplusplus
+#include <string>
+#endif
+
 struct audio_desc {
         int bps;                /* bytes per sample */
         int sample_rate;
@@ -60,6 +64,7 @@ struct audio_desc {
         audio_codec_t codec;
 #ifdef __cplusplus
         bool operator!() const;
+        operator std::string() const;
 #endif
 };
 

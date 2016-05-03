@@ -132,6 +132,8 @@ void print_capabilities(struct module *root, bool use_vidcap);
 
 void print_version(void);
 
+const char *get_commandline_param(const char *key);
+
 #ifdef __cplusplus
 }
 #endif
