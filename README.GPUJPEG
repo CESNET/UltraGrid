@@ -1,0 +1,13 @@
+To add GPUJPEG support, you need GPUJPEG library compiled and installed
+in your system. GPUJPEG is distributed as a submodule of UltraGrid, so
+you can make following steps in UltraGrid top directory in order to build
+GPUJPEG and UltraGrid with GPUJPEG support:
+
+$ git submodule --update init
+$ cd gpujpeg
+$ ./autogen.sh
+$ make
+$ sudo make install
+
+Then, configure Ultragrid as usual with autogen.sh or configure script.
+It should detect GPUJPEG automatically.
