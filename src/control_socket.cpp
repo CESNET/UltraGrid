@@ -685,6 +685,10 @@ static void * control_thread(void *args)
         struct client *cur = clients;
         while(cur) {
                 struct client *tmp = cur;
+                if (!is_internal_port(cur->fd)) {
+                        const char *msg = "event exit\r\n";
+                        write_all(cur->fd, msg, strlen(msg));
+                }
                 CLOSESOCKET(cur->fd);
                 cur = cur->next;
                 free(tmp);
