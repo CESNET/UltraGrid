@@ -96,7 +96,7 @@ struct device_state {
 	IDeckLinkInput*		deckLinkInput;
 	VideoDelegate*		delegate;
 	IDeckLinkConfiguration*		deckLinkConfiguration;
-        int                     index;
+        string                  device_id; // either numeric value or device name
 };
 
 struct vidcap_decklink_state {
@@ -390,7 +390,7 @@ decklink_help()
 		const char *		deviceNameCString = NULL;
 		
 		// *** Print the model name of the DeckLink card
-		result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
+		result = deckLink->GetDisplayName((BMD_STR *) &deviceNameString);
                 deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
 		if (result == S_OK)
 		{
@@ -447,8 +447,8 @@ decklink_help()
         printf("\t%s -t decklink # captures autodetected video from first DeckLink in system\n", uv_argv[0]);
         printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
         printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
-        printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from frist device\n", uv_argv[0]);
-        printf("\t%s -t decklink:mode=Hp30:codec=v210:device=2 # captures 1080p30, 10-bit yuv from 3rd BMD device\n", uv_argv[0]);
+        printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from first device\n", uv_argv[0]);
+        printf("\t%s -t \"decklink:mode=Hp30:codec=v210:device=DeckLink 4K Extreme\" # captures 1080p30, 10-bit yuv from DeckLink 4K Extreme\n", uv_argv[0]);
 
 	printf("\n");
 
@@ -471,7 +471,7 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
         do {
                 s->devices_cnt += 1;
                 s->state.resize(s->devices_cnt);
-                s->state[s->devices_cnt - 1].index = atoi(ptr);
+                s->state[s->devices_cnt - 1].device_id = ptr;
         } while ((ptr = strtok_r(NULL, ",", &save_ptr_dev)));
         free (devices);
 }
@@ -557,7 +557,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
         s->codec = UYVY;
         s->devices_cnt = 1;
         s->state.resize(s->devices_cnt);
-        s->state[0].index = 0;
+        s->state[0].device_id = "0";
 
         char *tmp;
         char *save_ptr = NULL;
@@ -575,6 +575,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 
         // options are in format <device>:<mode>:<codec>[:other_opts]
         if (isdigit(tmp[0])) {
+                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Deprecated syntax used, please use options in format \"key=value\"\n";
                 // choose device
                 parse_devices(s, tmp);
 
@@ -868,7 +869,29 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                 {
-                        if (s->state[i].index != dnum) {
+                        bool found = false;
+
+                        BMD_STR deviceNameString = NULL;
+                        const char* deviceNameCString = NULL;
+
+                        result = deckLink->GetDisplayName(&deviceNameString);
+                        if (result == S_OK)
+                        {
+                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+
+                                if (strcmp(deviceNameCString, s->state[i].device_id.c_str()) == 0) {
+                                        found = true;
+                                }
+
+                                release_bmd_api_str(deviceNameString);
+                                free((void *) deviceNameCString);
+                        }
+
+                        if (isdigit(s->state[i].device_id.c_str()[0]) && atoi(s->state[i].device_id.c_str()) == dnum) {
+                                found = true;
+                        }
+
+                        if (!found) {
                                 dnum++;
 
                                 // Release the IDeckLink instance when we've finished with it to prevent leaks
@@ -882,11 +905,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 
                         s->state[i].deckLink = deckLink;
 
-                        BMD_STR deviceNameString = NULL;
-                        const char* deviceNameCString = NULL;
-
                         // Print the model name of the DeckLink card
-                        result = deckLink->GetModelName(&deviceNameString);
+                        result = deckLink->GetDisplayName(&deviceNameString);
                         if (result == S_OK)
                         {	
                                 deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
@@ -1129,7 +1149,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         {
                 if (device_found[i] == false)
                 {
-                        printf("Device %d wasn't found.\n", s->state[i].index);
+                        LOG(LOG_LEVEL_ERROR) << "Device " << s->state[i].device_id << " was not found.\n";
                         goto error;
                 }
         }
@@ -1466,7 +1486,7 @@ static void print_input_modes (IDeckLink* deckLink)
 			modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                         uint32_t mode = ntohl(displayMode->GetDisplayMode());
-                        printf("%d (%.4s)) %-20s \t %d x %d \t %2.2f FPS%s\n", displayModeNumber, (char *) &mode, displayModeCString,
+                        printf("%2d (%.4s)) %-20s \t %d x %d \t %2.2f FPS%s\n", displayModeNumber, (char *) &mode, displayModeCString,
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);

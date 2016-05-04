@@ -63,6 +63,7 @@
 #include <iomanip>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <vector>
 
 #include "DeckLinkAPIVersion.h"
@@ -255,8 +256,8 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device_number(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
-        printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
+        printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
@@ -270,7 +271,7 @@ static void show_help(void)
                 BMD_STR          deviceNameString = NULL;
                 
                 // *** Print the model name of the DeckLink card
-                result = deckLink->GetModelName(&deviceNameString);
+                result = deckLink->GetDisplayName(&deviceNameString);
                 if (result == S_OK)
                 {
                         const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
@@ -665,7 +666,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 BMD_STR          deviceNameString = NULL;
 
                 // *** Print the model name of the DeckLink card
-                HRESULT result = deckLink->GetModelName(&deviceNameString);
+                HRESULT result = deckLink->GetDisplayName(&deviceNameString);
 
                 *count += 1;
                 *available_cards = (struct device_info *)
@@ -691,7 +692,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize();
 }
 
-static bool parse_devices(const char *devices_str, int *cardIdx, int *devices_cnt) {
+static bool parse_devices(const char *devices_str, string *cardId, int *devices_cnt) {
         if (strlen(devices_str) == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
                 return false;
@@ -702,7 +703,7 @@ static bool parse_devices(const char *devices_str, int *cardIdx, int *devices_cn
         *devices_cnt = 0;
         char *item;
         while ((item = strtok_r(ptr, ",", &save_ptr))) {
-                cardIdx[*devices_cnt] = atoi(item);
+                cardId[*devices_cnt] = item;
                 ++*devices_cnt;
                 ptr = NULL;
         }
@@ -717,7 +718,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
-        int                                             cardIdx[MAX_DEVICES];
+        string                                          cardId[MAX_DEVICES];
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
@@ -736,7 +737,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->stereo = FALSE;
         s->emit_timecode = false;
         s->link = 0;
-        cardIdx[0] = 0;
+        cardId[0] = "0";
         s->devices_cnt = 1;
 
         if(fmt == NULL || strlen(fmt) == 0) {
@@ -764,7 +765,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 if (first_option_is_device) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
                                         "deprecated. Use \"device=%s\" instead.\n", ptr);
-                        if (!parse_devices(ptr, cardIdx, &s->devices_cnt)) {
+                        if (!parse_devices(ptr, cardId, &s->devices_cnt)) {
                                 delete s;
                                 return NULL;
                         }
@@ -773,7 +774,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 
                 while (ptr)  {
                         if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
-                               if (!parse_devices(ptr + strlen("device="), cardIdx, &s->devices_cnt)) {
+                               if (!parse_devices(ptr + strlen("device="), cardId, &s->devices_cnt)) {
                                        delete s;
                                        return NULL;
                                }
@@ -874,9 +875,29 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         {
                 bool found = false;
                 for(int i = 0; i < s->devices_cnt; ++i) {
-                        if (dnum == cardIdx[i]){
-                                s->state[i].deckLink = deckLink;
+                        BMD_STR deviceNameString = NULL;
+                        const char* deviceNameCString = NULL;
+
+                        result = deckLink->GetDisplayName(&deviceNameString);
+                        if (result == S_OK)
+                        {
+                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+
+                                if (strcmp(deviceNameCString, cardId[i].c_str()) == 0) {
+                                        found = true;
+                                }
+
+                                release_bmd_api_str(deviceNameString);
+                                free((void *) deviceNameCString);
+                        }
+
+
+                        if (isdigit(cardId[i].c_str()[0]) && dnum == atoi(cardId[i].c_str())){
                                 found = true;
+                        }
+
+                        if (found) {
+                                s->state[i].deckLink = deckLink;
                         }
                 }
                 if(!found && deckLink != NULL)
@@ -885,7 +906,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         for(int i = 0; i < s->devices_cnt; ++i) {
                 if(s->state[i].deckLink == NULL) {
-                        log_msg(LOG_LEVEL_ERROR, "No DeckLink PCI card #%d found\n", cardIdx[i]);
+                        LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId[i] <<" found\n";
                         goto error;
                 }
         }
