@@ -123,9 +123,30 @@ void exit_uv(int status) {
 
 static void signal_handler(int signal)
 {
-    debug_msg("Caught signal %d\n", signal);
+    if (log_level >= LOG_LEVEL_DEBUG) {
+	char msg[] = "Caught signal ";
+	char buf[128];
+	char *ptr = buf;
+	for (size_t i = 0; i < sizeof msg - 1; ++i) {
+	    *ptr++ = msg[i];
+	}
+	if (signal / 10) {
+	    *ptr++ = '0' + signal/10;
+	}
+	*ptr++ = '0' + signal%10;
+	*ptr++ = '\n';
+	size_t bytes = ptr - buf;
+	ptr = buf;
+	do {
+	    ssize_t written = write(STDERR_FILENO, ptr, bytes);
+	    if (written < 0) {
+		break;
+	    }
+	    bytes -= written;
+	    ptr += written;
+	} while (bytes > 0);
+    }
     exit_uv(0);
-    return;
 }
 
 #define MAX_PKT_SIZE 10000

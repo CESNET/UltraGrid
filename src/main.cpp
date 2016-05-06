@@ -152,21 +152,81 @@ static struct state_uv *uv_state;
 
 static void signal_handler(int signal)
 {
-        debug_msg("Caught signal %d\n", signal);
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                char msg[] = "Caught signal ";
+                char buf[128];
+                char *ptr = buf;
+                for (size_t i = 0; i < sizeof msg - 1; ++i) {
+                        *ptr++ = msg[i];
+                }
+                if (signal / 10) {
+                        *ptr++ = '0' + signal/10;
+                }
+                *ptr++ = '0' + signal%10;
+                *ptr++ = '\n';
+                size_t bytes = ptr - buf;
+                ptr = buf;
+                do {
+                        ssize_t written = write(STDERR_FILENO, ptr, bytes);
+                        if (written < 0) {
+                                break;
+                        }
+                        bytes -= written;
+                        ptr += written;
+                } while (bytes > 0);
+        }
         exit_uv(0);
-        return;
 }
 
 static void crash_signal_handler(int sig)
 {
-        fprintf(stderr, "\n%s has crashed", PACKAGE_NAME);
+        char buf[1024];
+        char *ptr = buf;
+        *ptr++ = '\n';
+        const char message1[] = " has crashed";
+        for (size_t i = 0; i < sizeof PACKAGE_NAME - 1; ++i) {
+                *ptr++ = PACKAGE_NAME[i];
+        }
+        for (size_t i = 0; i < sizeof message1 - 1; ++i) {
+                *ptr++ = message1[i];
+        }
 #ifndef WIN32
-        fprintf(stderr, " (%s)", strsignal(sig));
+        *ptr++ = ' '; *ptr++ = '(';
+        for (size_t i = 0; i < sizeof sys_siglist[sig] - 1; ++i) {
+                if (sys_siglist[sig][i] == '\0') {
+                        break;
+                }
+                *ptr++ = sys_siglist[sig][i];
+        }
+        *ptr++ = ')';
 #endif
-        fprintf(stderr, ".\n\nPlease send a bug report to address %s.\n"
-                        , PACKAGE_BUGREPORT);
-        fprintf(stderr, "You may find some tips how to report bugs in file REPORTING-BUGS "
-                        "distributed with %s.\n", PACKAGE_NAME);
+        const char message2[] = ".\n\nPlease send a bug report to address ";
+        for (size_t i = 0; i < sizeof message2 - 1; ++i) {
+                *ptr++ = message2[i];
+        }
+        for (size_t i = 0; i < sizeof PACKAGE_BUGREPORT - 1; ++i) {
+                *ptr++ = PACKAGE_BUGREPORT[i];
+        }
+        *ptr++ = '.'; *ptr++ = '\n';
+        const char message3[] = "You may find some tips how to report bugs in file REPORTING-BUGS distributed with ";
+        for (size_t i = 0; i < sizeof message3 - 1; ++i) {
+                *ptr++ = message3[i];
+        }
+        for (size_t i = 0; i < sizeof PACKAGE_NAME - 1; ++i) {
+                *ptr++ = PACKAGE_NAME[i];
+        }
+        *ptr++ = '.'; *ptr++ = '\n';
+
+        size_t bytes = ptr - buf;
+        ptr = buf;
+        do {
+                ssize_t written = write(STDERR_FILENO, ptr, bytes);
+                if (written < 0) {
+                        break;
+                }
+                bytes -= written;
+                ptr += written;
+        } while (bytes > 0);
 
         signal(SIGABRT, SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
