@@ -66,6 +66,7 @@
 #include <assert.h>
 
 #include "video_display.h"
+#include "video_display/quicktime.h"
 
 #include "audio/audio.h"
 
@@ -253,10 +254,10 @@ struct state_quicktime {
 };
 
 /* Prototyping */
-char *four_char_decode(int format);
+static char *four_char_decode(int format);
 static int find_mode(ComponentInstance *ci, int width, int height, 
                 const char * codec_name, double fps);
-void display_quicktime_audio_init(struct state_quicktime *s);
+static void display_quicktime_audio_init(struct state_quicktime *s);
 
 static void
 nprintf(char *str)
@@ -269,7 +270,7 @@ nprintf(char *str)
 }
 
 
-char *four_char_decode(int format)
+static char *four_char_decode(int format)
 {
         static char fbuf0[32];
         static char fbuf1[32];
@@ -931,8 +932,11 @@ static int display_quicktime_get_property(void *state, int property, void *val, 
                                         *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         break;
                 case DISPLAY_PROPERTY_AUDIO_FORMAT:
-                        assert(*len == sizeof(struct audio_desc));
-                        desc->codec = AC_PCM;
+			{
+				assert(*len == sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+				desc->codec = AC_PCM;
+			}
                         break;
                 default:
                         return FALSE;
