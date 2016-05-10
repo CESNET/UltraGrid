@@ -1,3 +1,13 @@
+next
+====
+* added AJA capture
+* support for new libavcodec encoders, including Quick Sync and NVENC
+* added support for H.265
+* added Reed-Solomon forward error correction (suitable for H.264)
+* much better integration with CoUniverse
+* Syphon support
+* added text and border postprocessors, grayscale, mirror, and flip capture filters
+
 1.3
 ====
 * further Windows compatibility (including GPUJPEG)
