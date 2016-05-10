@@ -970,6 +970,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
+                if (s->low_latency) {
+                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigFieldFlickerRemoval, false);
+                        if (result != S_OK) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set field flicker removal.\n");
+                                goto error;
+                        }
+                }
+
                 if(HDMI3DPacking != 0) {
                         HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigHDMI3DPackingFormat,
                                         HDMI3DPacking);
