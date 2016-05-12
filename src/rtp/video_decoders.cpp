@@ -183,7 +183,7 @@ struct reported_statistics_cumul {
         long long int     reported_frames = 0;
         void print() {
                 char buff[256];
-                int bytes = sprintf(buff, "Video dec stats: %lu total / %lu disp / %lu "
+                int bytes = sprintf(buff, "Video dec stats (cumulative): %lu total / %lu disp / %lu "
                                 "drop / %lu corr / %lu missing.",
                                 displayed + dropped + missing,
                                 displayed, dropped, corrupted,
