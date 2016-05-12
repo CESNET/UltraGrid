@@ -4,6 +4,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "debug.h"
+#include "host.h"
+
 #ifndef LIBAVCODEC_COMMON_H_
 #define LIBAVCODEC_COMMON_H_
 
@@ -28,7 +31,7 @@ extern "C" {
 #define av_packet_unref av_free_packet
 #endif
 
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 34, 1)
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 55, 1)
 #define AV_CODEC_FLAG_INTERLACED_DCT CODEC_FLAG_INTERLACED_DCT
 #endif
 
@@ -81,6 +84,7 @@ static bool is422(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static bool is420(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmts,
                 const enum AVPixelFormat *codec_pix_fmts) __attribute__((unused));
+static void print_decoder_error(const char *mod_name, int rc) __attribute__((unused));
 
 /**
  * Finds best pixel format
@@ -160,6 +164,22 @@ static const std::unordered_map<codec_t, enum AVPixelFormat, std::hash<int>> ug_
 };
 
 #endif // __cplusplus
+
+static void print_decoder_error(const char *mod_name, int rc) {
+	switch (rc) {
+		case 0:
+			break;
+		case EAGAIN:
+			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
+			break;
+		case EINVAL:
+			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
+			break;
+		default:
+			log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d).\n", mod_name, rc);
+			break;
+	}
+}
 
 #endif // LIBAVCODEC_COMMON_H_
 

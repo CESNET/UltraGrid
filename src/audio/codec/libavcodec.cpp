@@ -77,6 +77,8 @@ extern "C" {
 #define AV_CODEC_ID_MP3 CODEC_ID_MP3
 #endif
 
+#define MOD_NAME "[lavd] "
+
 using namespace std;
 
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
@@ -453,8 +455,25 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
                 av_frame_unref(s->av_frame);
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 int len = avcodec_decode_audio4(s->codec_ctx, s->av_frame, &got_frame,
                                 &s->pkt);
+#else
+                got_frame = 0;
+                int ret = avcodec_send_packet(s->codec_ctx, &s->pkt);
+
+                if (ret == 0) {
+                        ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+                        if (ret == 0) {
+                                got_frame = 1;
+                        }
+                }
+                if (ret != 0) {
+                        print_decoder_error(MOD_NAME, ret);
+                }
+                int len = s->pkt.size;
+#endif
+
                 if (len < 0) {
                         fprintf(stderr, "Error while decoding\n");
                         return NULL;
@@ -524,8 +543,29 @@ static void libavcodec_done(void *state)
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
         assert(s->magic == MAGIC);
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+	if (s->codec_ctx) {
+		int ret;
+		ret = avcodec_send_packet(s->codec_ctx, NULL);
+		if (ret != 0) {
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+					ret);
+		}
+		do {
+			ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+			if (ret != 0 && ret != AVERROR_EOF) {
+				log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+						ret);
+				break;
+			}
+
+		} while (ret != AVERROR_EOF);
+	}
+#endif
+
         pthread_mutex_lock(s->libav_global_lock);
         avcodec_close(s->codec_ctx);
+        avcodec_free_context(&s->codec_ctx);
         pthread_mutex_unlock(s->libav_global_lock);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);

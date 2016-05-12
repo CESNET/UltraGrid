@@ -60,6 +60,8 @@ using std::min;
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
 
+#define MOD_NAME "[lavd] "
+
 struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;
         AVCodecContext  *codec_ctx;
@@ -98,9 +100,29 @@ static bool broken_h264_mt_decoding = false;
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+        if (s->codec_ctx) {
+                int ret;
+                ret = avcodec_send_packet(s->codec_ctx, NULL);
+                if (ret != 0) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+                                        ret);
+                }
+                do {
+                        ret = avcodec_receive_frame(s->codec_ctx, s->frame);
+                        if (ret != 0 && ret != AVERROR_EOF) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+                                                ret);
+                                break;
+                        }
+
+                } while (ret != AVERROR_EOF);
+        }
+#endif
         if(s->codec_ctx) {
                 pthread_mutex_lock(s->global_lavcd_lock);
                 avcodec_close(s->codec_ctx);
+                avcodec_free_context(&s->codec_ctx);
                 pthread_mutex_unlock(s->global_lavcd_lock);
         }
         av_free(s->codec_ctx);
@@ -449,7 +471,6 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
         av_log_default_callback(ptr, level, fmt, vl);
 }
 
-
 static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
@@ -463,7 +484,22 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
         while (s->pkt.size > 0) {
                 struct timeval t0, t1;
                 gettimeofday(&t0, NULL);
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
+#else
+                got_frame = 0;
+                int ret = avcodec_send_packet(s->codec_ctx, &s->pkt);
+                if (ret == 0) {
+                        ret = avcodec_receive_frame(s->codec_ctx, s->frame);
+                        if (ret == 0) {
+                                got_frame = 1;
+                        }
+                }
+                if (ret != 0) {
+                        print_decoder_error(MOD_NAME, ret);
+                }
+                len = s->pkt.size;
+#endif
                 gettimeofday(&t1, NULL);
 
                 /*

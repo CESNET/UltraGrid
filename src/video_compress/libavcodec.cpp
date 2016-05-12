@@ -965,6 +965,7 @@ static void cleanup(struct state_video_compress_libav *s)
         if(s->codec_ctx) {
                 pthread_mutex_lock(s->lavcd_global_lock);
                 avcodec_close(s->codec_ctx);
+                avcodec_free_context(&s->codec_ctx);
                 pthread_mutex_unlock(s->lavcd_global_lock);
         }
         if(s->in_frame) {
