@@ -474,8 +474,8 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 int len = s->pkt.size;
 #endif
 
-                if (len < 0) {
-                        fprintf(stderr, "Error while decoding\n");
+                if (len <= 0) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Error while decoding audio\n");
                         return NULL;
                 }
                 if (got_frame) {
