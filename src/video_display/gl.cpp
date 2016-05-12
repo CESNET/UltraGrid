@@ -202,6 +202,7 @@ struct state_gl {
         struct module   mod;
 
         void *syphon;
+        bool hide_window;
 
         bool fixed_size, first_run;
         int fixed_w, fixed_h;
@@ -212,7 +213,7 @@ struct state_gl {
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
                 should_exit_main_loop(false), window_size_factor(1.0),
-                syphon(nullptr), fixed_size(false), first_run(true),
+                syphon(nullptr), hide_window(false), fixed_size(false), first_run(true),
                 fixed_w(0), fixed_h(0)
         {
                 gettimeofday(&tv, NULL);
@@ -262,13 +263,14 @@ static void gl_show_help(void) {
         printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:fixed_size[=WxH]]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
-        printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
-        printf("\t\nvsync=<x>\t\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
+        printf("\t\tnovsync\t\tdo not turn sync on VBlank\n");
+        printf("\t\tvsync=<x>\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
         printf("\t\tcursor\t\tshow visible cursor\n");
         printf("\t\tsize\t\tspecifies desired size of window compared "
                         "to native resolution (in percents)\n");
-        printf("\t\tuse Syphon (optionally with name)\n");
+        printf("\t\tsyphon\t\tuse Syphon (optionally with name)\n");
+        printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
 
         printf("\n\nKeyboard shortcuts:\n");
         printf("\t\t'f'\t\ttoggle fullscreen\n");
@@ -366,6 +368,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 delete s;
                                 return NULL;
 #endif
+                        } else if (!strcasecmp(tok, "hide-window")) {
+                                s->hide_window = true;
                         } else if(!strncmp(tok, "size=",
                                                 strlen("size="))) {
                                 s->window_size_factor =
@@ -380,7 +384,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                         }
                                 }
                         } else {
-                                fprintf(stderr, "[GL] Unknown option: %s\n", tok);
+                                log_msg(LOG_LEVEL_ERROR, "[GL] Unknown option: %s\n", tok);
                                 delete s;
                                 return NULL;
                         }
@@ -547,7 +551,8 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
-        glutShowWindow();
+        if (!s->hide_window)
+                glutShowWindow();
 
         glUseProgram(0);
 
@@ -861,6 +866,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
 #endif
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
+        if (s->hide_window)
+                glutHideWindow();
         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ?  GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
