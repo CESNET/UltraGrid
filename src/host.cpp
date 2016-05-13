@@ -58,6 +58,9 @@ bool ldgm_device_gpu = false;
 
 const char *window_title = NULL;
 
+volatile int audio_offset;
+volatile int video_offset;
+
 std::unordered_map<std::string, std::string> commandline_params;
 
 static void common_cleanup()

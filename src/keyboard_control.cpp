@@ -199,6 +199,17 @@ void keyboard_control::run()
 
                                 break;
                                 }
+                        case '+':
+                        case '-':
+                                {
+                                        int audio_delay = audio_offset > 0 ? audio_offset :
+                                                -video_offset;
+                                        audio_delay += c == '+' ? 10 : -10;
+                                        log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
+                                        audio_offset = max(audio_delay, 0);
+                                        video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
+                                }
+                                break;
                         case 'h':
                                 usage();
                                 break;
@@ -227,11 +238,15 @@ void keyboard_control::usage()
         cout << "\nAvailable keybindings:\n" <<
                 "\t  * 0  - increase volume\n" <<
                 "\t  / 9  - decrease volume\n" <<
+                "\t   +   - increase audio delay by 10 ms\n" <<
+                "\t   -   - decrease audio delay by 10 ms\n" <<
                 "\t   m   - mute/unmute\n" <<
                 "\t   v   - increase verbosity level\n" <<
                 "\t   h   - show help\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
-        cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n\n";
+        cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
+        int audio_delay = audio_offset > 0 ? audio_offset : -video_offset;
+        cout << "Audio delay: " << audio_delay << " ms\n\n";
 }
 

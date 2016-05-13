@@ -547,7 +547,6 @@ int main(int argc, char *argv[])
         long long int bitrate = RATE_AUTO;
 
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
-        int audio_delay = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
         keyboard_control kc{};
@@ -865,7 +864,8 @@ int main(int argc, char *argv[])
                         print_capabilities_req = true;
                         break;
                 case OPT_AUDIO_DELAY:
-                        audio_delay = atoi(optarg);
+                        audio_offset = max(atoi(optarg), 0);
+                        video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
                         break;
                 case OPT_LIST_MODULES:
                         list_all_modules();
@@ -1013,7 +1013,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate, max(audio_delay, 0), &start_time,
+                        audio_codec, isStd, packet_rate, &audio_offset, &start_time,
                         requested_mtu);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
@@ -1124,7 +1124,7 @@ int main(int argc, char *argv[])
                 params["encryption"].ptr = (void *) requested_encryption;
                 params["packet_rate"].i = packet_rate;
                 params["start_time"].ptr = (void *) &start_time;
-                params["video_delay"].i = audio_delay < 0 ? abs(audio_delay) : 0;
+                params["video_delay"].ptr = (void *) &video_offset;
 
                 // UltraGrid RTP
                 params["postprocess"].ptr = (void *) postprocess;

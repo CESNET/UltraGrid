@@ -83,7 +83,8 @@ struct pbuf_node {
 struct pbuf {
         struct pbuf_node *frst;
         struct pbuf_node *last;
-        long long int initial_delay_ms, playout_delay_us;
+        long long int playout_delay_us;
+        volatile int *offset_ms;
 
         // for statistics
         /// @todo figure out packet duplication
@@ -154,7 +155,7 @@ static void pbuf_validate(struct pbuf *playout_buf)
 #endif
 }
 
-struct pbuf *pbuf_init(int delay_ms)
+struct pbuf *pbuf_init(volatile int *delay_ms)
 {
         struct pbuf *playout_buf = NULL;
 
@@ -165,8 +166,8 @@ struct pbuf *pbuf_init(int delay_ms)
                 /* Playout delay... should really be adaptive, based on the */
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
-                playout_buf->initial_delay_ms = delay_ms;
-                playout_buf->playout_delay_us = 0.032 * 1000 * 1000 + delay_ms * 1000.0;
+                playout_buf->offset_ms = delay_ms;
+                playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
                 playout_buf->last_rtp_seq = -1;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
@@ -344,7 +345,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
                 /* playout buffer is empty - add new frame */
-                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay_us);
+                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay_us + 1000 * (playout_buf->offset_ms ? *playout_buf->offset_ms : 0));
                 playout_buf->last = playout_buf->frst;
                 return;
         }
@@ -356,7 +357,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         } else {
                 if (playout_buf->last->rtp_timestamp < pkt->ts) {
                         /* Packet belongs to a new frame... */
-                        tmp = create_new_pnode(pkt, playout_buf->playout_delay_us);
+                        tmp = create_new_pnode(pkt, playout_buf->playout_delay_us + 1000 * (playout_buf->offset_ms ? *playout_buf->offset_ms : 0));
                         playout_buf->last->nxt = tmp;
                         playout_buf->last->completed = true;
                         tmp->prv = playout_buf->last;
@@ -504,6 +505,6 @@ pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_p
 
 void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 {
-        playout_buf->playout_delay_us = playout_buf->initial_delay_ms + playout_delay * 1000 * 1000;
+        playout_buf->playout_delay_us = playout_delay * 1000 * 1000;
 }
 

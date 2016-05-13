@@ -115,7 +115,7 @@ typedef int decode_frame_t(struct coded_data *cdata, void *decode_data, struct p
 /* 
  * External C interface: 
  */
-struct pbuf	*pbuf_init(int delay_ms);
+struct pbuf	*pbuf_init(volatile int *delay_ms);
 void             pbuf_destroy(struct pbuf *);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 

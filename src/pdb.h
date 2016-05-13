@@ -90,7 +90,7 @@ struct pdb;	/* The participant database */
  * @param delay_ms delay to be added to playback. Main reason is to give user a possibility to
  *                 sync audio and video.
  */
-struct pdb          *pdb_init(int delay_ms);
+struct pdb          *pdb_init(volatile int *delay_ms);
 void                 pdb_destroy(struct pdb **db);
 int                  pdb_add(struct pdb *db, uint32_t ssrc);
 struct pdb_e        *pdb_get(struct pdb *db, uint32_t ssrc);

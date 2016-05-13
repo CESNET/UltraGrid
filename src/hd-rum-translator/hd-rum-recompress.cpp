@@ -58,7 +58,7 @@ void *recompress_init(struct module *parent,
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = packet_rate;
         params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].i = 0;
+        params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;

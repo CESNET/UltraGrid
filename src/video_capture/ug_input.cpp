@@ -129,7 +129,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         params["packet_rate"].i = 0;
         auto start_time = std::chrono::steady_clock::now();
         params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].i = 0;
+        params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;

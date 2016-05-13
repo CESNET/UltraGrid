@@ -117,6 +117,11 @@ extern const char *window_title;
 extern char *export_dir;
 extern char *sage_network_device;
 
+// Both of following varables are non-negative. It indicates amount of milliseconds that
+// audio or video should be delayed. This shall be used for AV sync control.
+extern volatile int audio_offset;
+extern volatile int video_offset;
+
 #define RATE_UNLIMITED 0
 #define RATE_AUTO -1
 #define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)

@@ -207,7 +207,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr), m_video_desc{}
 {
-        m_participants = pdb_init(params.at("video_delay").i);
+        m_participants = pdb_init((volatile int *) params.at("video_delay").ptr);
         m_requested_receiver = (const char *) params.at("receiver").ptr;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;

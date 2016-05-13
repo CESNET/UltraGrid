@@ -85,7 +85,7 @@ struct pdb {
         pdb_node_t *root;
         uint32_t magic;
         int count;
-        int delay_ms;
+        volatile int *delay_ms;
 };
 
 /*****************************************************************************/
@@ -241,7 +241,7 @@ static pdb_node_t *pdb_delete_node(struct pdb *tree, pdb_node_t * z)
 
 /*****************************************************************************/
 
-struct pdb *pdb_init(int delay_ms)
+struct pdb *pdb_init(volatile int *delay_ms)
 {
         struct pdb *db = malloc(sizeof(struct pdb));
         if (db != NULL) {
@@ -274,7 +274,7 @@ void pdb_destroy(struct pdb **db_p)
         *db_p = NULL;
 }
 
-static struct pdb_e *pdb_create_item(uint32_t ssrc, int delay_ms)
+static struct pdb_e *pdb_create_item(uint32_t ssrc, volatile int *delay_ms)
 {
         struct pdb_e *p = malloc(sizeof(struct pdb_e));
         if (p != NULL) {

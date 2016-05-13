@@ -225,7 +225,7 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         params["encryption"].ptr = (void *) NULL;
         params["packet_rate"].i = 0;
         params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].i = 0;
+        params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
         params["postprocess"].ptr = (void *) NULL;
