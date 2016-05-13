@@ -57,7 +57,7 @@ void free_message_for_child(void *m, struct response *r) {
 
 }
 
-static struct response *send_message_common(struct module *root, const char *const_path, struct message *msg, bool sync, int timeout_ms = 0)
+static struct response *send_message_common(struct module *root, const char *const_path, struct message *msg, bool sync, int timeout_ms, int flags)
 {
         /**
          * @invariant
@@ -87,33 +87,42 @@ static struct response *send_message_common(struct module *root, const char *con
                 receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
-                        printf("Receiver %s does not exist.\n", const_path);
-                        //dump_tree(root, 0);
-                        if (simple_linked_list_size(old_receiver->msg_queue_childs) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
-                                printf("Dropping some old messages for %s (queue full).\n", const_path);
-                                free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_childs),
+                        if (!(flags & SEND_MESSAGE_FLAG_NO_STORE)) {
+                                if (!(flags & SEND_MESSAGE_FLAG_QUIET))
+                                        printf("Receiver %s does not exist.\n", const_path);
+                                //dump_tree(root, 0);
+                                if (simple_linked_list_size(old_receiver->msg_queue_childs) > MAX_MESSAGES_FOR_NOT_EXISTING_RECV) {
+                                        if (!(flags & SEND_MESSAGE_FLAG_QUIET))
+                                                printf("Dropping some old messages for %s (queue full).\n", const_path);
+                                        free_message_for_child(simple_linked_list_pop(old_receiver->msg_queue_childs),
                                                         new_response(RESPONSE_NOT_FOUND, "Receiver not found"));
-                        }
-                        
-                        struct pair_msg_path *saved_message = (struct pair_msg_path *)
-                                malloc(sizeof(struct pair_msg_path) + strlen(const_path + (item - tmp)) + 1);
-                        saved_message->msg = msg;
-                        strcpy(saved_message->path, const_path + (item - tmp));
-
-                        simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
-                        pthread_mutex_unlock(&old_receiver->lock);
-
-                        free(tmp);
-                        if (!sync) {
-                                return new_response(RESPONSE_ACCEPTED, "(receiver not yet exists)");
-                        } else {
-                                unique_lock<mutex> lk(responder->lock);
-                                responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
-                                if (responder->received_response) {
-                                        return responder->received_response;
-                                } else {
-                                        return new_response(RESPONSE_ACCEPTED, NULL);
                                 }
+
+                                struct pair_msg_path *saved_message = (struct pair_msg_path *)
+                                        malloc(sizeof(struct pair_msg_path) + strlen(const_path + (item - tmp)) + 1);
+                                saved_message->msg = msg;
+                                strcpy(saved_message->path, const_path + (item - tmp));
+
+                                simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
+                                pthread_mutex_unlock(&old_receiver->lock);
+
+                                free(tmp);
+                                if (!sync) {
+                                        return new_response(RESPONSE_ACCEPTED, "(receiver not yet exists)");
+                                } else {
+                                        unique_lock<mutex> lk(responder->lock);
+                                        responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
+                                        if (responder->received_response) {
+                                                return responder->received_response;
+                                        } else {
+                                                return new_response(RESPONSE_ACCEPTED, NULL);
+                                        }
+                                }
+                        } else {
+                                pthread_mutex_unlock(&old_receiver->lock);
+                                free_message(msg, NULL);
+                                free(tmp);
+                                return new_response(RESPONSE_NOT_FOUND, NULL);
                         }
                 }
                 pthread_mutex_lock(&receiver->lock);
@@ -149,13 +158,12 @@ static struct response *send_message_common(struct module *root, const char *con
 
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
-        return send_message_common(root, const_path, msg, false);
-
+        return send_message_common(root, const_path, msg, false, 0, 0);
 }
 
-struct response *send_message_sync(struct module *root, const char *const_path, struct message *msg, int timeout_ms)
+struct response *send_message_sync(struct module *root, const char *const_path, struct message *msg, int timeout_ms, int flags)
 {
-        return send_message_common(root, const_path, msg, true, timeout_ms);
+        return send_message_common(root, const_path, msg, true, timeout_ms, flags);
 }
 
 void module_check_undelivered_messages(struct module *node)

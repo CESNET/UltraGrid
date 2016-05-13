@@ -688,6 +688,12 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
     return true;
 }
 
+double audio_decoder_get_volume(void *state)
+{
+    auto s = (struct state_audio_decoder *) state;
+    return s->scale->scale * 100.0;
+}
+
 void audio_decoder_increase_volume(void *state)
 {
     auto s = (struct state_audio_decoder *) state;

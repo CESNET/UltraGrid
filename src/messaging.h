@@ -64,6 +64,7 @@ struct msg_sender {
 enum msg_receiver_type {
         RECEIVER_MSG_CHANGE_RX_PORT,
         RECEIVER_MSG_VIDEO_PROP_CHANGED,
+        RECEIVER_MSG_GET_VOLUME,
         RECEIVER_MSG_INCREASE_VOLUME,
         RECEIVER_MSG_DECREASE_VOLUME,
         RECEIVER_MSG_MUTE,
@@ -114,7 +115,9 @@ const char *response_get_text(struct response *r);
 
 void module_check_undelivered_messages(struct module *);
 struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
-struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms) __attribute__ ((warn_unused_result));
+#define SEND_MESSAGE_FLAG_QUIET (1<<0)
+#define SEND_MESSAGE_FLAG_NO_STORE (1<<1)
+struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms, int flags) __attribute__ ((warn_unused_result));
 struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
 struct message *new_message(size_t length) __attribute__ ((warn_unused_result));
 void free_message(struct message *m, struct response *r);

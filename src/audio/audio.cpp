@@ -519,6 +519,14 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                         return new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
                 }
                 break;
+        case RECEIVER_MSG_GET_VOLUME:
+                {
+                        double ret = audio_decoder_get_volume(decoder);
+                        char volume_str[128] = "";
+                        snprintf(volume_str, sizeof volume_str, "%f", ret);
+                        return new_response(RESPONSE_OK, volume_str);
+                        break;
+                }
         case RECEIVER_MSG_INCREASE_VOLUME:
                 audio_decoder_increase_volume(decoder);
                 break;

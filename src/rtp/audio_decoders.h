@@ -50,6 +50,7 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
                 const char *encryption, query_supported_format_t q, void *q_state);
 void audio_decoder_destroy(void *state);
+double audio_decoder_get_volume(void *state);
 void audio_decoder_increase_volume(void *state);
 void audio_decoder_decrease_volume(void *state);
 void audio_decoder_mute(void *state);

@@ -48,6 +48,7 @@
 #include "keyboard_control.h"
 #include "messaging.h"
 
+#include <iomanip>
 #include <iostream>
 
 #ifdef HAVE_TERMIOS_H
@@ -247,6 +248,20 @@ void keyboard_control::usage()
                 "\n";
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         int audio_delay = audio_offset > 0 ? audio_offset : -video_offset;
-        cout << "Audio delay: " << audio_delay << " ms\n\n";
+        cout << "Audio delay: " << audio_delay << " ms\n";
+
+        {
+                char path[] = "audio.receiver";
+                auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                m->type = RECEIVER_MSG_GET_VOLUME;
+                auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(resp) == 200) {
+                        double vol = atof(response_get_text(resp));
+                        double db = 20.0 * log10(vol / 100.0);
+                        cout << "Audio volume: " << fixed << setprecision(2) << vol << " % (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                }
+                free_response(resp);
+        }
+        cout << "\n";
 }
 
