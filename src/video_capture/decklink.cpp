@@ -448,7 +448,7 @@ decklink_help()
         printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
         printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
         printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from first device\n", uv_argv[0]);
-        printf("\t%s -t \"decklink:mode=Hp30:codec=v210:device=DeckLink 4K Extreme\" # captures 1080p30, 10-bit yuv from DeckLink 4K Extreme\n", uv_argv[0]);
+        printf("\t%s -t \"decklink:mode=Hp30:codec=v210:device=DeckLink HD Extreme 3D+\" # captures 1080p30, 10-bit yuv from DeckLink HD Extreme 3D+\n", uv_argv[0]);
 
 	printf("\n");
 
