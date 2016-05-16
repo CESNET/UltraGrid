@@ -77,6 +77,25 @@ static void display_decklink_done(void *state);
 
 #define MAX_DEVICES 4
 
+// performs command, if failed, displays error and jumps to error label
+#define EXIT_IF_FAILED(cmd, name) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                        goto error;\
+                }\
+        } while (0)
+
+// similar as above, but only displays warning
+#define CALL_AND_CHECK(cmd, name) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                }\
+        } while (0)
+
 using namespace std;
 
 namespace {
@@ -232,10 +251,11 @@ struct state_decklink {
         unsigned long int   frames;
         unsigned long int   frames_last;
         bool                stereo;
-        bool                initialized;
+        bool                initialized_audio;
+        bool                initialized_video;
         bool                emit_timecode;
         int                 devices_cnt;
-        unsigned int        play_audio:1;
+        bool                play_audio; ///< the BMD device will be used also for output audio
 
         BMDPixelFormat      pixelFormat;
 
@@ -333,7 +353,7 @@ display_decklink_getf(void *state)
                 vf_free(frame);
         };
 
-        if (s->initialized) {
+        if (s->initialized_video) {
                 for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
                         const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
                         IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
@@ -552,6 +572,13 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         return displayMode;
 }
 
+/**
+ * @todo
+ * In non-low-latency mode, StopScheduledPlayback should be called. However, since this
+ * function is called from different thread than audio-related stuff and these things
+ * are not synchronized in any way, it looks like to be more appropriate not to call it,
+ * as it doesn't break things up. In low latency mode, this is not an issue.
+ */
 static int
 display_decklink_reconfigure(void *state, struct video_desc desc)
 {
@@ -559,6 +586,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
+        HRESULT                           result;
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -578,72 +606,89 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
         }
 
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                s->state[0].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+        if (s->initialized_video) {
+                for (int i = 0; i < s->devices_cnt; ++i) {
+                        CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableVideoOutput(),
+                                        "DisableVideoOutput");
+                }
+                s->initialized_video = false;
         }
 
-	if(s->stereo) {
-		displayMode = get_mode(s->state[0].deckLinkOutput, desc, &s->frameRateDuration,
-                                                &s->frameRateScale);
-                if(displayMode == (BMDDisplayMode) -1)
+        if (s->stereo) {
+                if ((int) desc.tile_count != 2) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
+                                        "2 streams expected, %d received.\n", desc.tile_count);
                         goto error;
-		
-		s->state[0].deckLinkOutput->DoesSupportVideoMode(displayMode, s->pixelFormat, bmdVideoOutputDualStream3D,
-	                                &supported, NULL);
-                if(supported == bmdDisplayModeNotSupported)
-                {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters combination not supported - %dx%d@%f.\n", desc.width, desc.height, (double)desc.fps);
-                        goto error;
-                }
-                
-                s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
-                if (!s->low_latency) {
-                        s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
                 }
         } else {
-                if((int) desc.tile_count > s->devices_cnt) {
+                if ((int) desc.tile_count > s->devices_cnt) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
                                         desc.tile_count);
                         goto error;
+                } else if ((int) desc.tile_count < s->devices_cnt) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
+                }
+        }
+
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
+
+                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
+                                &s->frameRateScale);
+                if (displayMode == (BMDDisplayMode) -1) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not found suitable video mode.\n");
+                        goto error;
                 }
 
-	        for(int i = 0; i < s->devices_cnt; ++i) {
-                        BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
-	                
-	                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
-                                                &s->frameRateScale);
-                        if(displayMode == (BMDDisplayMode) -1)
-                                goto error;
-
-                        if(s->emit_timecode) {
-                                outputFlags = bmdVideoOutputRP188;
-                        }
-	
-	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, s->pixelFormat, outputFlags,
-	                                &supported, NULL);
-	                if(supported == bmdDisplayModeNotSupported)
-	                {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
-                                                "combination not supported - %d * %dx%d@%f, timecode %s.\n",
-                                                desc.tile_count, desc.width, desc.height, desc.fps,
-                                                (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
-	                        goto error;
-	                }
-
-	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
-	        }
-	
-                if (!s->low_latency) {
-                        for(int i = 0; i < s->devices_cnt; ++i) {
-                                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
-                        }
+                if (s->emit_timecode) {
+                        outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputRP188);
                 }
-	}
 
-        s->initialized = true;
+                if (s->stereo) {
+                        outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputDualStream3D);
+                }
+
+                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode,
+                                        s->pixelFormat, outputFlags, &supported, NULL),
+                                "DoesSupportVideoMode");
+                if (supported == bmdDisplayModeNotSupported) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
+                                        "combination not supported - %d * %dx%d@%f, timecode %s.\n",
+                                        desc.tile_count, desc.width, desc.height, desc.fps,
+                                        (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
+                        goto error;
+                }
+
+                result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
+                if (FAILED(result)) {
+                        if (result == E_ACCESSDENIED) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or output "
+                                                "stream currently active (another application using it?).\n");
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "EnableVideoOutput: " << bmd_hresult_to_string(result) << "\n";\
+                        }
+                        goto error;
+                }
+        }
+
+        if (!s->low_latency) {
+                for(int i = 0; i < s->devices_cnt; ++i) {
+                        EXIT_IF_FAILED(s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration), "StartScheduledPlayback (video)");
+                }
+        }
+
+        s->initialized_video = true;
         return TRUE;
 
 error:
+        // in case we are partially initialized, deinitialize
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                if (!s->low_latency) {
+                        s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+                }
+                s->state[i].deckLinkOutput->DisableVideoOutput();
+        }
+        s->initialized_video = false;
         return FALSE;
 }
 
@@ -845,7 +890,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
                 free (tmp);
         }
-	assert(!s->stereo || s->devices_cnt == 1);
+
+	if (s->stereo && s->devices_cnt > 1) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported configuration - in stereo "
+                        "mode, exactly one device index must be given.\n";
+                delete s;
+                return NULL;
+        }
 
         gettimeofday(&s->tv, NULL);
 
@@ -912,7 +963,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         if(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
-                s->play_audio = TRUE;
+                s->play_audio = true;
                 switch(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
                         case DISPLAY_FLAG_AUDIO_EMBEDDED:
                                 audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
@@ -928,7 +979,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 abort();
                 }
         } else {
-                s->play_audio = FALSE;
+                s->play_audio = false;
         }
         
         if(s->emit_timecode) {
@@ -999,9 +1050,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                if(s->play_audio == FALSE || i != 0) { //TODO: figure out output from multiple streams
-                                s->state[i].deckLinkOutput->DisableAudioOutput();
-                } else {
+                if (s->play_audio && i == 0) {
                         /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
                          */
                         printf(MOD_NAME "Audio output set to: ");
@@ -1015,12 +1064,15 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 case bmdAudioOutputSwitchAnalog:
                                         printf("analog");
                                         break;
+                                default:
+                                        printf("default");
+                                        break;
                         }
                         printf(".\n");
                          /*
                           * .... one exception is a card that has switchable cables between AES/EBU and analog. (But this applies only for channels 3 and above.)
                          */
-                        if (audioConnection != 0) { // not embedded 
+                        if (audioConnection != 0) { // we will set switchable AESEBU or analog
                                 result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
                                                 audioConnection);
                                 if(result == S_OK) { // has switchable channels
@@ -1051,7 +1103,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         s->frames = 0;
-        s->initialized = false;
+        s->initialized_audio = s->initialized_video = false;
 
         return (void *)s;
 error:
@@ -1068,7 +1120,6 @@ static void display_decklink_done(void *state)
 {
         debug_msg("display_decklink_done\n"); /* TOREMOVE */
         struct state_decklink *s = (struct state_decklink *)state;
-        HRESULT result;
 
         assert (s != NULL);
 
@@ -1076,23 +1127,17 @@ static void display_decklink_done(void *state)
 
         for (int i = 0; i < s->devices_cnt; ++i)
         {
-                if(s->initialized) {
+                if (s->initialized_video) {
                         if (!s->low_latency) {
-                                result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
-                                if (result != S_OK) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot stop playback: %08x\n", (int) result);
-                                }
+                                CALL_AND_CHECK(s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0), "StopScheduledPlayback");
                         }
 
-                        if(s->play_audio && i == 0) {
-                                result = s->state[i].deckLinkOutput->DisableAudioOutput();
-                                if (result != S_OK) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could disable audio output: %08x\n", (int) result);
-                                }
-                        }
-                        result = s->state[i].deckLinkOutput->DisableVideoOutput();
-                        if (result != S_OK) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could disable video output: %08x\n", (int) result);
+                        CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
+                }
+
+                if (s->initialized_audio) {
+                        if (i == 0) {
+                                CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableAudioOutput(), "DisableAudiioOutput");
                         }
                 }
 
@@ -1197,8 +1242,7 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         unsigned int sampleFrameCount = frame->data_len / (frame->bps *
                         frame->ch_count);
 
-        if(!s->play_audio)
-                return;
+        assert(s->play_audio);
 
 #ifdef WIN32
         unsigned long int sampleFramesWritten;
@@ -1229,11 +1273,18 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
+        assert(s->play_audio);
+
+        if (s->initialized_audio) {
+                CALL_AND_CHECK(s->state[0].deckLinkOutput->DisableAudioOutput(),
+                                "DisableAudioOutput");
+                s->initialized_audio = false;
+        }
+
         if (channels != 2 && channels != 8 &&
                         channels != 16) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "requested channel count isn't supported: "
                         "%d\n", channels);
-                s->play_audio = FALSE;
                 return FALSE;
         }
         
@@ -1242,7 +1293,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "audio format isn't supported: "
                         "samples: %d, sample rate: %d\n",
                         quant_samples, sample_rate);
-                s->play_audio = FALSE;
                 return FALSE;
         }
         switch(quant_samples) {
@@ -1256,15 +1306,25 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                         return FALSE;
         }
                         
-        s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+        EXIT_IF_FAILED(s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
                         sample_type,
                         channels,
-                        bmdAudioOutputStreamContinuous);
+                        bmdAudioOutputStreamContinuous),
+                "EnableAudioOutput");
+
         if (!s->low_latency) {
-                s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
+                // This will most certainly fail because it is started with in video
+                // reconfigure. However, this doesn't seem to bother, anyway.
+                CALL_AND_CHECK(s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration), "StartScheduledPlayback (audio)");
         }
+
+        s->initialized_audio = true;
         
         return TRUE;
+
+error:
+        s->initialized_audio = false;
+        return FALSE;
 }
 
 #ifndef WIN32
