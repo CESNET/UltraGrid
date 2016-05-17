@@ -97,6 +97,11 @@ static int init(struct module *parent, const char *cfg, void **state)
                 if(strchr(cfg, '/')) {
                         denom = atoi(strchr(cfg, '/') + 1);
                 }
+                if (denom > n) {
+                        log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
+                               "(or equal, which, however, has a little use) then denominator.\n");
+                        return -1;
+                }
         } else {
                 usage();
                 return -1;
@@ -106,6 +111,8 @@ static int init(struct module *parent, const char *cfg, void **state)
         s->num = n;
         s->denom = denom;
         s->frame = vf_alloc(MAX_TILES);
+
+        s->current = -1;
 
         *state = s;
         return 0;
@@ -120,6 +127,10 @@ static void done(void *state)
         free(state);
 }
 
+static void dispose_frame(struct video_frame *f) {
+        VIDEO_FRAME_DISPOSE((struct video_frame *) f->dispose_udata);
+}
+
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_every *s = state;
@@ -131,11 +142,14 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
         s->frame->fps /= (double) s->num / s->denom;
 
-        if(s->current < s->denom) {
-                s->current++;
+        s->current = (s->current + 1) % s->num;
+
+        s->frame->dispose = dispose_frame;
+        s->frame->dispose_udata = in;
+
+        if (s->current < s->denom) {
                 return s->frame;
         } else {
-                s->current = (s->current + 1) % s->num;
                 VIDEO_FRAME_DISPOSE(in);
                 return NULL;
         }
