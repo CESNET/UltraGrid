@@ -108,7 +108,10 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 auto old_devices = m_network_devices;
                                 auto old_port = m_send_port_number;
 
-                                m_send_port_number = msg->port;
+                                m_send_port_number = msg->tx_port;
+                                if (msg->rx_port) {
+                                        m_recv_port_number = msg->rx_port;
+                                }
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
                                                 m_send_port_number, m_participants, m_ipv6,
                                                 m_requested_mcast_if);
@@ -117,11 +120,11 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                         m_network_devices = old_devices;
                                         m_send_port_number = old_port;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to Change TX port to %d.\n",
-                                                        msg->port);
+                                                        msg->tx_port);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing TX port failed!");
                                 } else {
                                         log_msg(LOG_LEVEL_NOTICE, "[control] Changed TX port to %d.\n",
-                                                        msg->port);
+                                                        msg->tx_port);
                                         destroy_rtp_devices(old_devices);
                                 }
                         }

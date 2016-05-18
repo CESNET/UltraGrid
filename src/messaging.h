@@ -55,7 +55,10 @@ struct msg_sender {
         struct message m;
         enum msg_sender_type type;
         union {
-                int port;
+                struct {
+                        int rx_port;
+                        int tx_port;
+                };
                 char receiver[128];
                 char fec_cfg[1024];
         };

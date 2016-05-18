@@ -1,14 +1,10 @@
+/**
+ * @file   control_socket.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    control_socket.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2013-2016 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,12 +17,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -333,18 +324,53 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                                 resp = new_response(RESPONSE_BAD_REQUEST, NULL);
                         }
                 }
+        } else if (prefix_matches(message, "sender-port ")) {
+                struct msg_sender *msg = (struct msg_sender *)
+                        new_message(sizeof(struct msg_sender));
+                struct msg_sender *msg_audio = (struct msg_sender *)
+                        new_message(sizeof(struct msg_sender));
+                char *port_str = suffix(message, "sender-port ");
+
+                msg->type = SENDER_MSG_CHANGE_PORT;
+                msg_audio->type = SENDER_MSG_CHANGE_PORT;
+
+                msg->tx_port = atoi(port_str);
+                if (strchr(port_str, ':')) {
+                        char *save_ptr, *item;
+                        item = strtok_r(port_str, ":", &save_ptr);
+                        msg->rx_port = atoi(item);
+
+                        item = strtok_r(NULL, ":", &save_ptr);
+                        if (item && strchr(item, ':')) {
+                                msg_audio->tx_port = atoi(item);
+                                item = strtok_r(NULL, ":", &save_ptr);
+                                msg_audio->rx_port = atoi(item);
+                        }
+                }
+
+                if (msg_audio->tx_port == 0) {
+                        msg_audio->tx_port = msg->tx_port + 2;
+                }
+
+                enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+                enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+                memcpy(path_audio, path, sizeof(path_audio));
+                append_message_path(path, sizeof(path), path_sender);
+                append_message_path(path_audio, sizeof(path_audio), path_sender_audio);
+
+                resp =
+                        send_message(s->root_module, path, (struct message *) msg);
+                struct response *resp_audio =
+                        send_message(s->root_module, path_audio, (struct message *) msg_audio);
+                free_response(resp_audio);
         } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
-                        prefix_matches(message, "pause") || prefix_matches(message, "sender-port ") ||
-                        prefix_matches(message, "reset-ssrc")) {
+                        prefix_matches(message, "pause") || prefix_matches(message, "reset-ssrc")) {
                 struct msg_sender *msg =
                         (struct msg_sender *)
                         new_message(sizeof(struct msg_sender));
                 if(prefix_matches(message, "receiver ")) {
                         strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
                         msg->type = SENDER_MSG_CHANGE_RECEIVER;
-                } else if(prefix_matches(message, "sender-port ")) {
-                        msg->port = atoi(suffix(message, "sender-port "));
-                        msg->type = SENDER_MSG_CHANGE_PORT;
                 } else if(prefix_matches(message, "play")) {
                         msg->type = SENDER_MSG_PLAY;
                 } else if(prefix_matches(message, "pause")) {
@@ -357,9 +383,6 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
 
                 struct msg_sender *msg_audio = (struct msg_sender *) malloc(sizeof(struct msg_sender));
                 memcpy(msg_audio, msg, sizeof(struct msg_sender));
-                if (msg_audio->type == SENDER_MSG_CHANGE_PORT) {
-                        msg_audio->port = atoi(suffix(message, "sender-port ")) + 2;
-                }
 
                 enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
                 enum module_class path_sender_audio[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
@@ -380,9 +403,16 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         (struct msg_receiver *)
                         new_message(sizeof(struct msg_receiver));
                 msg->type = RECEIVER_MSG_CHANGE_RX_PORT;
-                msg->new_rx_port = atoi(suffix(message, "receiver-port "));
-                memcpy(msg_audio, msg, sizeof(struct msg_receiver));
-                msg_audio->new_rx_port = atoi(suffix(message, "receiver-port ")) + 2;
+                msg_audio->type = RECEIVER_MSG_CHANGE_RX_PORT;
+
+                char *port_str = suffix(message, "receiver-port ");
+
+                msg->new_rx_port = atoi(port_str);
+                if (strchr(port_str, ':')) {
+                        msg_audio->new_rx_port = atoi(strchr(port_str, ':') + 1);
+                } else {
+                        msg_audio->new_rx_port = msg_audio->new_rx_port + 2;
+                }
 
                 enum module_class path_receiver[] = { MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };
                 enum module_class path_audio_receiver[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };

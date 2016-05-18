@@ -760,7 +760,10 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 auto old_device = s->audio_network_device;
                                 auto old_port = s->audio_network_parameters.send_port;
 
-                                s->audio_network_parameters.send_port = msg->port;
+                                s->audio_network_parameters.send_port = msg->tx_port;
+                                if (msg->rx_port) {
+                                        s->audio_network_parameters.recv_port = msg->rx_port;
+                                }
                                 s->audio_network_device =
                                         initialize_audio_network(&s->audio_network_parameters);
                                 if (!s->audio_network_device) {
