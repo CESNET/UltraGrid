@@ -67,6 +67,8 @@ struct video_rxtx_info {
         class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
+#define STREAM_PAUSED_PLAY 1
+
 class video_rxtx {
 public:
         virtual ~video_rxtx();
@@ -84,8 +86,9 @@ public:
         int m_port_id;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
-        void check_sender_messages();
+        int check_sender_messages();
         bool m_paused;
+        bool m_report_paused_play;
         struct module m_sender_mod;
         struct module m_receiver_mod;
         int m_rxtx_mode;
@@ -96,7 +99,8 @@ private:
         virtual void *(*get_receiver_thread())(void *arg) = 0;
         static void *sender_thread(void *args);
         void *sender_loop();
-        virtual struct response *process_sender_message(struct msg_sender *) {
+        virtual struct response *process_sender_message(struct msg_sender *, int *status) {
+                *status = 0;
                 return NULL;
         }
 

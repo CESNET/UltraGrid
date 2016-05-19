@@ -211,6 +211,7 @@ struct video_frame {
         uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
         uint64_t compress_start; ///< in ms from epoch
         uint64_t compress_end; ///< in ms from epoch
+        unsigned int paused_play:1;
 };
 
 #define VF_METADATA_SIZE (sizeof(struct video_frame) - offsetof(struct video_frame, fec_params))

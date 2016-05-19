@@ -206,16 +206,21 @@ after_send:
         auto now = time_since_epoch_in_ms();
         auto compress_millis = tx_frame->compress_end - tx_frame->compress_start;
 
+        // report events and stats
+        auto new_desc = video_desc_from_frame(tx_frame.get());
+        if (new_desc != m_video_desc) {
+                control_report_event(m_control, (m_port_id != -1 ? (string("-") + to_string(m_port_id) + " ") : string("")) +
+                                string("captured video changed - ") +
+                                (string) new_desc);
+                m_video_desc = new_desc;
+        }
+        if (tx_frame->paused_play) {
+                control_report_event(m_control, (m_port_id != -1 ? (string("-") + to_string(m_port_id) + " ") : string("")) +
+                                string("play"));
+        }
         ostringstream oss;
         if (m_port_id != -1) {
                 oss << "-" << m_port_id << " ";
-        }
-        auto new_desc = video_desc_from_frame(tx_frame.get());
-        if (new_desc != m_video_desc) {
-                control_report_event(m_control, string("-") + to_string(m_port_id) +
-                                string(" captured video changed - ") +
-                                (string) new_desc);
-                m_video_desc = new_desc;
         }
         oss << "bufferId " << buffer_id <<
                 " droppedFrames " << dropped_frames <<

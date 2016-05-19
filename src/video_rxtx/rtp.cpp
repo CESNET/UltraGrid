@@ -74,8 +74,9 @@
 
 using namespace std;
 
-struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
+struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, int *status)
 {
+        *status = 0;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
                         {
@@ -141,6 +142,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg)
                                 lock_guard<mutex> lock(m_network_devices_lock);
                                 log_msg(LOG_LEVEL_ERROR, "[control] Playing again.\n");
                                 m_paused = false;
+                                *status = STREAM_PAUSED_PLAY;
                                 break;
                         }
                 case SENDER_MSG_CHANGE_FEC:

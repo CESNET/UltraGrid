@@ -82,7 +82,7 @@ protected:
         const std::chrono::steady_clock::time_point m_start_time;
         video_desc       m_video_desc;
 private:
-        struct response *process_sender_message(struct msg_sender *);
+        struct response *process_sender_message(struct msg_sender *i, int *status);
 };
 
 #endif // VIDEO_RXTX_RTP_H_
