@@ -155,13 +155,6 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 
         int buffer_id = tx_get_buffer_id(m_tx);
 
-        auto new_desc = video_desc_from_frame(tx_frame.get());
-        if (new_desc != m_video_desc) {
-                control_report_event(m_control, string("captured video changed - ") +
-                                (string) new_desc);
-                m_video_desc = new_desc;
-        }
-
         if (m_paused) {
                 goto after_send;
         }
@@ -216,6 +209,13 @@ after_send:
         ostringstream oss;
         if (m_port_id != -1) {
                 oss << "-" << m_port_id << " ";
+        }
+        auto new_desc = video_desc_from_frame(tx_frame.get());
+        if (new_desc != m_video_desc) {
+                control_report_event(m_control, string("-") + to_string(m_port_id) +
+                                string(" captured video changed - ") +
+                                (string) new_desc);
+                m_video_desc = new_desc;
         }
         oss << "bufferId " << buffer_id <<
                 " droppedFrames " << dropped_frames <<
