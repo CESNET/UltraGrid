@@ -739,6 +739,40 @@ static void restrict_returned_codecs(codec_t *display_codecs,
 }
 
 /**
+ * @brief starts decompress and ldmg threads
+ *
+ * Called from video_decoder_register_display(). It is also called after
+ * video_decoder_stop_threads() in reconfiguration.
+ *
+ * @invariant
+ * decoder->display != NULL
+ */
+static void video_decoder_start_threads(struct state_video_decoder *decoder)
+{
+        assert(decoder->display); // we want to run threads only if decoder is active
+
+        decoder->decompress_thread_id = thread(decompress_thread, decoder);
+        decoder->fec_thread_id = thread(fec_thread, decoder);
+}
+
+/**
+ * @brief This function stops running threads.
+ *
+ * @invariant
+ * decoder->display != NULL
+ */
+static void video_decoder_stop_threads(struct state_video_decoder *decoder)
+{
+        assert(decoder->display);
+
+        unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->stats));
+        decoder->fec_queue.push(move(msg));
+
+        decoder->fec_thread_id.join();
+        decoder->decompress_thread_id.join();
+}
+
+/**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
  * No display should be managed by this decoder when this function is called.
@@ -783,7 +817,6 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 }
         }
 
-
         free(decoder->disp_supported_il);
         decoder->disp_supported_il_cnt = 20 * sizeof(enum interlacing_t);
         decoder->disp_supported_il = (enum interlacing_t*) calloc(decoder->disp_supported_il_cnt,
@@ -797,9 +830,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 decoder->disp_supported_il_cnt = sizeof(tmp) / sizeof(enum interlacing_t);
         }
 
-        // Start decompress and ldmg threads
-        decoder->decompress_thread_id = thread(decompress_thread, decoder);
-        decoder->fec_thread_id = thread(fec_thread, decoder);
+        video_decoder_start_threads(decoder);
 
         return true;
 }
@@ -807,26 +838,21 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 /**
  * @brief This removes display from current decoder.
  *
- * From now on no video frames will be decoded with current decoder.
+ * From now on, no video frames will be decoded with current decoder.
  * @see decoder_register_display - the counterpart of this functon
  *
  * @param decoder decoder from which will the decoder be removed
  */
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
-        if(decoder->display) {
-                unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->stats));
-                decoder->fec_queue.push(move(msg));
-
-                decoder->fec_thread_id.join();
-                decoder->decompress_thread_id.join();
-
-                if (decoder->frame)
-                        display_put_frame(decoder->display, decoder->frame,
-                                        PUTF_DISCARD);
-
+        if (decoder->display) {
+                video_decoder_stop_threads(decoder);
+                control_report_event(decoder->control, string("stream ended"));
+                if (decoder->frame) {
+                        display_put_frame(decoder->display, decoder->frame, PUTF_DISCARD);
+                        decoder->frame = NULL;
+                }
                 decoder->display = NULL;
-                decoder->frame = NULL;
                 memset(&decoder->display_desc, 0, sizeof(decoder->display_desc));
         }
 }
@@ -856,7 +882,6 @@ static void cleanup(struct state_video_decoder *decoder)
                 vo_postprocess_done(decoder->postprocess);
                 decoder->postprocess = NULL;
         }
-
 }
 
 /**
@@ -1042,6 +1067,9 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
  * @param decoder       the video decoder state
  * @param desc          new video description to be reconfigured to
  * @return              boolean value if reconfiguration was successful
+ *
+ * @invariant
+ * decoder->display != NULL
  */
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 struct video_desc desc)
@@ -1053,9 +1081,11 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         int render_mode;
 
         // this code forces flushing the pipelined data
-        struct display *tmp_display = decoder->display;
-        video_decoder_remove_display(decoder);
-        video_decoder_register_display(decoder, tmp_display);
+        video_decoder_stop_threads(decoder);
+        if (decoder->frame)
+                display_put_frame(decoder->display, decoder->frame, PUTF_DISCARD);
+        decoder->frame = NULL;
+        video_decoder_start_threads(decoder);
 
         assert(decoder->native_codecs != NULL);
 
