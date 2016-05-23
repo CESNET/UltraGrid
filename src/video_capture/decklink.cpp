@@ -265,7 +265,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                                                 );
                                 s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
                         } else {
-                                s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * 2;
+                                s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
                                 memcpy(s->audio.data, audioFrame, s->audio.data_len);
                         }
                 } else {
