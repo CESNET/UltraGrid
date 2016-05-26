@@ -1148,6 +1148,12 @@ static void display_gl_done(void *state)
                 glDeleteProgram(s->PHandle_dxt);
         if (s->PHandle_dxt5)
                 glDeleteProgram(s->PHandle_dxt5);
+        if (s->texture_display)
+                glDeleteTextures(1, &s->texture_display);
+        if (s->texture_display)
+                glDeleteTextures(1, &s->texture_uyvy);
+        if (s->fbo_id)
+                glDeleteFramebuffersEXT(1, &s->fbo_id);
 
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
