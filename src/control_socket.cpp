@@ -72,6 +72,11 @@ typedef void *sso_val_type;
 #define CLOSESOCKET close
 #endif
 
+// MSW does not have the macro defined
+#ifndef IN_LOOPBACKNET
+#define IN_LOOPBACKNET 127
+#endif
+
 using namespace std;
 
 struct client {
@@ -581,6 +586,36 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
         return ret;
 }
 
+static bool is_addr_loopback(struct sockaddr_storage *ss)
+{
+        switch (ss->ss_family) {
+        case AF_UNIX:
+                return true;
+        case AF_INET:
+        {
+                struct sockaddr_in *sin = (struct sockaddr_in *) ss;
+                uint32_t addr = ntohl(sin->sin_addr.s_addr);
+                if ((addr >> 24) == IN_LOOPBACKNET) {
+                        return true;
+                }
+        }
+        case AF_INET6:
+        {
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) ss;
+                if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
+                        uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
+                        if ((v4_addr >> 24) == IN_LOOPBACKNET) {
+                                return true;
+                        }
+                } else {
+                        return IN6_IS_ADDR_LOOPBACK(&sin->sin6_addr);
+                }
+        }
+        default:
+                return false;
+        }
+}
+
 static struct client *add_client(struct client *clients, int fd) {
         struct client *new_client = (struct client *)
                 malloc(sizeof(struct client));
@@ -653,7 +688,22 @@ static void * control_thread(void *args)
                                 if (fd == INVALID_SOCKET) {
                                         socket_error("[control socket] accept");
                                 } else {
-                                        clients = add_client(clients, fd);
+					/**
+					 * @addtogroup cmdline_params
+					 * @{
+					 * * control-accept-global
+					 *   Open control socket to public network.
+					 * @}
+					 */
+                                        if (get_commandline_param("control-accept-global") ||
+                                                        is_addr_loopback(&client_addr)) {
+                                                clients = add_client(clients, fd);
+                                        } else {
+                                                log_msg(LOG_LEVEL_WARNING, "[control socket] Refusing remote connection. Use \"--param control-accept-global\" to allow UG control from a remote host.\n");
+                                                const char *msg = "unauthorized\r\n";
+                                                write_all(fd, msg, strlen(msg));
+                                                CLOSESOCKET(fd);
+                                        }
                                 }
                         }
 
