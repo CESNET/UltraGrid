@@ -47,6 +47,7 @@
 #include "host.h"
 #include "keyboard_control.h"
 #include "messaging.h"
+#include "video.h"
 
 #include <iomanip>
 #include <iostream>
@@ -248,7 +249,7 @@ void keyboard_control::usage()
                 "\n";
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         int audio_delay = audio_offset > 0 ? audio_offset : -video_offset;
-        cout << "Audio delay: " << audio_delay << " ms\n";
+        cout << "Audio playback delay: " << audio_delay << " ms\n";
 
         {
                 char path[] = "audio.receiver";
@@ -258,10 +259,25 @@ void keyboard_control::usage()
                 if (response_get_status(resp) == 200) {
                         double vol = atof(response_get_text(resp));
                         double db = 20.0 * log10(vol / 100.0);
-                        cout << "Audio volume: " << fixed << setprecision(2) << vol << " % (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout << "Received audio volume: " << fixed << setprecision(2) << vol << " % (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                 }
                 free_response(resp);
         }
+
+	{
+		struct video_desc desc{};
+                        struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+                        m->type = SENDER_MSG_QUERY_VIDEO_MODE;
+                        struct response *r = send_message_sync(m_root, "sender", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                        if (response_get_status(r) == RESPONSE_OK) {
+                                const char *text = response_get_text(r);
+                                istringstream iss(text);
+                                iss >> desc;
+                                cout << "Captured video format: " <<  desc << "\n";
+                        }
+                        free_response(r);
+	}
+
         cout << "\n";
 }
 
