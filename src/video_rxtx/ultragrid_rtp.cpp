@@ -211,17 +211,17 @@ after_send:
                 // report events and stats
                 auto new_desc = video_desc_from_frame(tx_frame.get());
                 if (new_desc != m_video_desc) {
-                        control_report_event(m_control, m_port_id + " " +
+                        control_report_event(m_control, "SEND " + m_port_id + " " +
                                         string("captured video changed - ") +
                                         (string) new_desc);
                         m_video_desc = new_desc;
                 }
                 if (tx_frame->paused_play) {
-                        control_report_event(m_control, m_port_id + " " +
+                        control_report_event(m_control, "SEND " + m_port_id + " " +
                                         string("play"));
                 }
                 ostringstream oss;
-                oss << m_port_id << " bufferId " << buffer_id <<
+                oss << "SEND " << m_port_id << " bufferId " << buffer_id <<
                         " droppedFrames " << dropped_frames <<
                         " nanoPerFrameActual " << (m_nano_per_frame_actual_cumul += nano_actual) <<
                         " nanoPerFrameExpected " << (m_nano_per_frame_expected_cumul += nano_expected) <<

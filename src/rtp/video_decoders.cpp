@@ -215,7 +215,7 @@ struct frame_msg {
                         }
                         int received_bytes = sum_map(pckt_list[0]);
                         ostringstream oss;
-                        oss << "bufferId " << buffer_num[0] << " expectedPackets " <<
+                        oss << "RECV " << "bufferId " << buffer_num[0] << " expectedPackets " <<
                                 expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
                                 // droppedPackets
                                 " expectedBytes " << (stats.expected_bytes_total += recv_frame->tiles[0].data_len) <<
@@ -847,7 +847,7 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if (decoder->display) {
                 video_decoder_stop_threads(decoder);
-                control_report_event(decoder->control, string("stream ended"));
+                control_report_event(decoder->control, string("RECV stream ended"));
                 if (decoder->frame) {
                         display_put_frame(decoder->display, decoder->frame, PUTF_DISCARD);
                         decoder->frame = NULL;
@@ -1354,7 +1354,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
 {
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
                 LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
-                control_report_event(decoder->control, string("received video changed - ") +
+                control_report_event(decoder->control, string("RECV received video changed - ") +
                                 (string) network_desc);
 
                 decoder->received_vid_desc = network_desc;
