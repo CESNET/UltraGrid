@@ -83,7 +83,7 @@ public:
         }
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
-        int m_port_id;
+        std::string m_port_id;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
         int check_sender_messages();

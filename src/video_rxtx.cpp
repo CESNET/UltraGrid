@@ -69,7 +69,7 @@
 
 using namespace std;
 
-video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id(-1), m_paused(params.at("paused").b),
+video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"), m_paused(params.at("paused").b),
                 m_report_paused_play(false), m_rxtx_mode(params.at("rxtx_mode").i),
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
                 m_compression(nullptr),

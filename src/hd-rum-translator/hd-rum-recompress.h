@@ -24,5 +24,6 @@ uint32_t recompress_get_ssrc(void *state);
 
 #ifdef __cplusplus
 #include <memory>
-void recompress_process_async(void *state, std::shared_ptr<video_frame> frame, int port_id);
+#include <string>
+void recompress_process_async(void *state, std::shared_ptr<video_frame> frame);
 #endif

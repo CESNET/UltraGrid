@@ -67,6 +67,11 @@ void *recompress_init(struct module *parent,
 
         try {
                 auto rxtx = video_rxtx::create("ultragrid_rtp", params);
+                if (strchr(host, ':') != NULL) {
+                        rxtx->m_port_id = string("[") + host + "]:" + to_string(tx_port);
+                } else {
+                        rxtx->m_port_id = string(host) + ":" + to_string(tx_port);
+                }
 
                 return new state_recompress(
                                 decltype(state_recompress::video_rxtx)(dynamic_cast<ultragrid_rtp_video_rxtx *>(rxtx)),
@@ -78,7 +83,7 @@ void *recompress_init(struct module *parent,
         }
 }
 
-void recompress_process_async(void *state, shared_ptr<video_frame> frame, int port_id)
+void recompress_process_async(void *state, shared_ptr<video_frame> frame)
 {
         auto s = static_cast<state_recompress *>(state);
 
@@ -97,7 +102,6 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame, int po
                 s->frames = 0;
         }
 
-        s->video_rxtx->m_port_id = port_id;
         s->video_rxtx->send(frame);
 }
 
