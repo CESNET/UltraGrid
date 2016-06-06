@@ -11,6 +11,7 @@
 
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
+#include "debug.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "perf.h"
@@ -24,6 +25,7 @@
 #include <sstream>
 
 #ifdef HAVE_X
+#include <dlfcn.h>
 #include <X11/Xlib.h>
 #endif
 
@@ -80,7 +82,21 @@ bool common_preinit(int argc, char *argv[])
         uv_argv = argv;
 
 #ifdef HAVE_X
-        XInitThreads();
+        void *handle = dlopen("libX11.so", RTLD_NOW);
+        bool x11_threads_initialized = false;
+
+        if (handle) {
+                Status (*XInitThreadsProc)();
+                XInitThreadsProc = (Status (*)()) dlsym(handle, "XInitThreads");
+                if (XInitThreadsProc) {
+                        XInitThreadsProc();
+                        x11_threads_initialized = true;
+                }
+                dlclose(handle);
+        }
+        if (!x11_threads_initialized) {
+                log_msg(LOG_LEVEL_WARNING, "Unable to XInitThreads: %s\n", dlerror());
+        }
 #endif
 
 #ifdef WIN32
