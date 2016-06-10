@@ -509,16 +509,27 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
 {
         switch (msg->type) {
         case RECEIVER_MSG_CHANGE_RX_PORT:
-                assert(s->audio_tx_mode == MODE_RECEIVER); // receiver only
-                rtp_done(s->audio_network_device);
-                s->audio_network_parameters.recv_port = msg->new_rx_port;
-                s->audio_network_device = initialize_audio_network(
-                                &s->audio_network_parameters);
-                if (!s->audio_network_device) {
-                        log_msg(LOG_LEVEL_ERROR, "Changing RX port failed!");
-                        return new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");
+                {
+                        assert(s->audio_tx_mode == MODE_RECEIVER); // receiver only
+                        struct rtp *old_audio_network_device = s->audio_network_device;
+                        int old_rx_port = s->audio_network_parameters.recv_port;
+                        s->audio_network_parameters.recv_port = msg->new_rx_port;
+                        s->audio_network_device = initialize_audio_network(
+                                        &s->audio_network_parameters);
+                        if (!s->audio_network_device) {
+                                s->audio_network_parameters.recv_port = old_rx_port;
+                                s->audio_network_device = old_audio_network_device;
+                                string err = string("Changing audio RX port to ") +
+                                                to_string(msg->new_rx_port) + "  failed!";
+                                LOG(LOG_LEVEL_ERROR) << err << "\n";
+                                return new_response(RESPONSE_INT_SERV_ERR, err.c_str());
+                        } else {
+                                rtp_done(old_audio_network_device);
+                                LOG(LOG_LEVEL_INFO) << "Successfully changed audio "
+                                                "RX port to " << msg->new_rx_port << ".\n";
+                        }
+                        break;
                 }
-                break;
         case RECEIVER_MSG_GET_VOLUME:
                 {
                         double ret = audio_decoder_get_volume(decoder);

@@ -339,18 +339,29 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 msg->type = SENDER_MSG_CHANGE_PORT;
                 msg_audio->type = SENDER_MSG_CHANGE_PORT;
 
-                msg->tx_port = atoi(port_str);
                 if (strchr(port_str, ':')) {
                         char *save_ptr, *item;
                         item = strtok_r(port_str, ":", &save_ptr);
                         msg->rx_port = atoi(item);
+                        item = strtok_r(NULL, ":", &save_ptr);
+                        msg->tx_port = atoi(item);
 
                         item = strtok_r(NULL, ":", &save_ptr);
-                        if (item && strchr(item, ':')) {
-                                msg_audio->tx_port = atoi(item);
-                                item = strtok_r(NULL, ":", &save_ptr);
-                                msg_audio->rx_port = atoi(item);
+                        if (item) {
+                                char *item2 = strtok_r(NULL, ":", &save_ptr);
+                                if (item2) { // change only if both RX and TX given
+                                        msg_audio->rx_port = atoi(item);
+                                        msg_audio->tx_port = atoi(item2);
+                                } else {
+                                        log_msg(LOG_LEVEL_ERROR, "Not changing audio port!\n");
+                                }
                         }
+                } else {
+                        msg->tx_port = atoi(port_str);
+                }
+
+                if (msg_audio->rx_port == 0) {
+                        msg_audio->rx_port = msg->rx_port ? msg->rx_port + 2 : 0;
                 }
 
                 if (msg_audio->tx_port == 0) {
@@ -416,7 +427,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 if (strchr(port_str, ':')) {
                         msg_audio->new_rx_port = atoi(strchr(port_str, ':') + 1);
                 } else {
-                        msg_audio->new_rx_port = msg_audio->new_rx_port + 2;
+                        msg_audio->new_rx_port = msg->new_rx_port + 2;
                 }
 
                 enum module_class path_receiver[] = { MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };
