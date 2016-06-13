@@ -950,7 +950,7 @@ int main(int argc, char *argv[])
 
         if (video_tx_port == -1) {
                 if ((video_rxtx_mode & MODE_SENDER) == 0) {
-                        video_tx_port = 0;
+                        video_tx_port = 0; // does not matter, we are receiver
                 } else {
                         video_tx_port = port_base;
                 }
@@ -962,7 +962,7 @@ int main(int argc, char *argv[])
                         // our receiver, because RTCP ports are changed as well)
                         audio_rx_port = 0;
                 } else {
-                        audio_rx_port = port_base + 2;
+                        audio_rx_port = video_rx_port ? video_rx_port + 2 : port_base + 2;
                 }
         }
 
@@ -970,7 +970,7 @@ int main(int argc, char *argv[])
                 if ((audio_rxtx_mode & MODE_SENDER) == 0) {
                         audio_tx_port = 0;
                 } else {
-                        audio_tx_port = port_base + 2;
+                        audio_tx_port = video_tx_port ? video_tx_port + 2 : port_base + 2;
                 }
         }
 
