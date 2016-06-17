@@ -59,7 +59,8 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
     assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
 
     int res = 0;
-    Mat out, yuv, rgb;
+    Mat out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
+    Mat yuv, rgb;
 
     if (indata == NULL || outdata == NULL) {
         return 1;
@@ -73,11 +74,7 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
         yuv.data = (uchar*)indata;
         cvtColor(yuv, rgb, in_color == UYVY ? CV_YUV2RGB_UYVY : CV_YUV2RGB_YUYV);
     }
-    out.data = (uchar *) outdata;
     resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
-
-    //*data_len = out.step * out.rows * sizeof(char);
-    //memcpy(outdata,out.data,*data_len);
 
     return res;
 }
