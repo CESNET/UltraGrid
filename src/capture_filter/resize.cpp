@@ -70,14 +70,29 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
+struct resize_param {
+    enum resize_mode {
+        NONE,
+        USE_FRACTION,
+        USE_DIMENSIONS,
+    } mode;
+    union {
+        struct {
+            int num;
+            int denom;
+        };
+        struct {
+            int target_width;
+            int target_height;
+        };
+    };
+    bool force_interlaced, force_progressive;
+};
+
 struct state_resize {
-    int num;
-    int denom;
-    double scale_factor;
-    int target_width, target_height;
+    struct resize_param param;
     struct video_frame *frame;
     struct video_desc saved_desc;
-    bool force_interlaced;
 };
 
 static void usage() {
@@ -88,14 +103,14 @@ static void usage() {
     printf("\tresize:<width>x<height>\n\n");
     printf("Scaling examples:\n"
                     "\tresize:1/2 - downscale input frame size by scale factor of 2\n"
+                    "\tresize:1280x720 - scales input to 1280x720\n"
                     "\tresize:720x576i - scales input to PAL (overrides interlacing setting)\n");
 }
 
 static int init(struct module * /* parent */, const char *cfg, void **state)
 {
-    int n = 0, w = 0, h = 0;
-    int denom = 1;
-    bool force_interlaced = false;
+    struct resize_param param{};
+
     if(cfg) {
         char *endptr;
         if(strcasecmp(cfg, "help") == 0) {
@@ -103,47 +118,68 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
             return 1;
         }
         if (strchr(cfg, 'x')) {
-            w = strtol(cfg, &endptr, 10);
+            param.mode = resize_param::resize_mode::USE_DIMENSIONS;
+            param.target_width = strtol(cfg, &endptr, 10);
             errno = 0;
-            h = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
+            param.target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
             if (errno != 0) {
                 perror("strtol");
                 usage();
                 return -1;
             }
-            if (*endptr == 'i') {
-                    force_interlaced = true;
-            }
         } else {
-            n = strtol(cfg, &endptr, 10);
+            param.mode = resize_param::resize_mode::USE_FRACTION;
+            param.num = strtol(cfg, &endptr, 10);
             if(strchr(cfg, '/')) {
-                denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
+                param.denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
+            } else {
+                param.denom = 1;
             }
         }
 
+        if (*endptr == 'i' || *endptr == 'p') {
+                if (*endptr == 'i') {
+                        param.force_interlaced = true;
+                } else {
+                        param.force_progressive = true;
+                }
+                endptr += 1;
+        }
+
         if (*endptr != '\0') {
+            log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] Unrecognized part of config string: %s\n", endptr);
             usage();
             return -1;
         }
     } else {
+        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
         usage();
         return -1;
     }
 
-    if((n <= 0 || denom <= 0) && ((w <= 0) || (h <= 0))){
-        printf("\n[RESIZE ERROR] resize factors must be greater than zero!\n");
+    // check validity of options
+    switch (param.mode) {
+    case resize_param::resize_mode::USE_FRACTION:
+        if (param.num <= 0 || param.denom <= 0) {
+            log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] resize factors must be greater than zero!\n");
+            usage();
+            return -1;
+        }
+        break;
+    case resize_param::resize_mode::USE_DIMENSIONS:
+        if (param.target_width <= 0 || param.target_height <= 0) {
+            log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] Targed widht and height must be greater than zero!\n");
+            usage();
+            return -1;
+        }
+        break;
+    default:
         usage();
         return -1;
     }
 
     struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
-    s->num = n;
-    s->denom = denom;
-    s->scale_factor = (double)s->num/s->denom;
-    s->force_interlaced = force_interlaced;
-
-    s->target_width = w;
-    s->target_height = h;
+    s->param = param;
 
     *state = s;
     return 0;
@@ -165,31 +201,33 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
     	struct video_desc desc = video_desc_from_frame(in);
-        if (s->target_width != 0) {
-            desc.width = s->target_width;
-            desc.height = s->target_height;
+        if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
+            desc.width = s->param.target_width;
+            desc.height = s->param.target_height;
         } else {
-            desc.width = in->tiles[0].width * s->num / s->denom;
-            desc.height = in->tiles[0].height * s->num / s->denom;
+            desc.width = in->tiles[0].width * s->param.num / s->param.denom;
+            desc.height = in->tiles[0].height * s->param.num / s->param.denom;
         }
         desc.color_spec = RGB;
     	s->frame = vf_alloc_desc_data(desc);
-        if (s->force_interlaced) {
+        if (s->param.force_interlaced) {
                 s->frame->interlacing = INTERLACED_MERGED;
+        } else if (s->param.force_progressive) {
+                s->frame->interlacing = PROGRESSIVE;
         }
         s->saved_desc = video_desc_from_frame(in);
         printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[0].width, in->tiles[0].height, s->frame->tiles[0].width, s->frame->tiles[0].height);
     }
 
     for(i=0; i<s->frame->tile_count;i++){
-        if (s->target_width != 0) {
-            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->target_width, s->target_height);
+        if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
+            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->param.target_width, s->param.target_height);
         } else {
-            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->scale_factor);
+            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
         }
 
         if(res!=0){
-            error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
+            error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->param.num, s->param.denom, i);
             error_msg("\t\t No scale factor applied at all. No frame returns...\n");
             return NULL;
         }
