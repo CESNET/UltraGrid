@@ -65,7 +65,7 @@
 
 #define PBUF_MAGIC	0xcafebabe
 
-#define STATS_INTERVAL 10
+#define STATS_INTERVAL 100
 
 struct pbuf_node {
         struct pbuf_node *nxt;
@@ -317,6 +317,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 } else {
                         playout_buf->received_pkts += playout_buf->pkt_count[0];
                         playout_buf->expected_pkts += STATS_INTERVAL;
+                        playout_buf->received_pkts_cum += playout_buf->received_pkts;
+                        playout_buf->expected_pkts_cum += playout_buf->expected_pkts;
                         playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
                                         STATS_INTERVAL) % (1<<16);
                         playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
@@ -335,8 +337,6 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                                 playout_buf->expected_pkts,
                                 (double) playout_buf->received_pkts /
                                 playout_buf->expected_pkts * 100.0);
-                playout_buf->received_pkts_cum += playout_buf->received_pkts;
-                playout_buf->expected_pkts_cum += playout_buf->expected_pkts;
                 playout_buf->received_pkts_last = playout_buf->received_pkts;
                 playout_buf->expected_pkts_last = playout_buf->expected_pkts;
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
