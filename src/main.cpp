@@ -474,7 +474,7 @@ bool parse_audio_capture_format(const char *optarg)
 static void parse_params(char *optarg)
 {
         char *item, *save_ptr;
-        while ((item = strtok_r(optarg, ":", &save_ptr))) {
+        while ((item = strtok_r(optarg, ",:", &save_ptr))) {
                 char *key_cstr = item;
                 if (strchr(item, '=')) {
                         char *val_cstr = strchr(item, '=') + 1;
@@ -556,6 +556,7 @@ int main(int argc, char *argv[])
         bool start_paused = false;
 
         if (!common_preinit(argc, argv)) {
+                log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 return EXIT_FAILURE;
         }
 
@@ -888,6 +889,10 @@ int main(int argc, char *argv[])
 
         argc -= optind;
         argv += optind;
+
+        if (!set_output_buffering()) {
+                log_msg(LOG_LEVEL_WARNING, "Cannot set console output buffering!\n");
+        }
 
         // default values for different RXTX protocols
         if (strcmp(video_protocol, "rtsp") == 0) {

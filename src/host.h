@@ -139,6 +139,8 @@ void print_version(void);
 
 const char *get_commandline_param(const char *key);
 
+bool set_output_buffering();
+
 #ifdef __cplusplus
 }
 #endif
