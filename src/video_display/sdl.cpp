@@ -592,6 +592,7 @@ static void display_sdl_done(void *state)
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
 
+        SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
         SDL_Quit();
 #ifdef HAVE_MACOSX
         autorelease_pool_destroy(s->autorelease_pool);

@@ -109,8 +109,8 @@ void log_msg(int level, const char *format, ...)
                         strcat(format_new, color);
                 }
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        uint64_t time_ms = time_since_epoch_in_ms();
-                        sprintf(format_new + strlen(format_new), "[%ld.%03ld] ", time_ms / 1000,
+                        unsigned long long time_ms = time_since_epoch_in_ms();
+                        sprintf(format_new + strlen(format_new), "[%llu.%03llu] ", time_ms / 1000,
                                         time_ms % 1000);
                 }
                 strcat(format_new, format);

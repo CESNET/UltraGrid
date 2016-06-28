@@ -66,9 +66,11 @@ struct video_frame * vf_alloc(int count)
         assert(count > 0);
         
         buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
+        assert(buf != NULL);
         
         buf->tiles = (struct tile *) 
                         calloc(1, sizeof(struct tile) * count);
+        assert(buf->tiles != NULL);
         buf->tile_count = count;
 
         return buf;
@@ -108,6 +110,7 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
                                         desc.color_spec) *
                                 desc.height;
                         buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len);
+                        assert(buf->tiles[i].data != NULL);
                 }
         }
 
