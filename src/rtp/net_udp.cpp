@@ -872,7 +872,12 @@ void udp_exit(socket_udp * s)
 
         udp_clean_async_state(s);
 
-        CLOSESOCKET(s->fd);
+        // close socket if haven't been already closed (either not on Winows or not multithreaded)
+#ifdef WIN32
+        if (!s->multithreaded)
+#endif
+                CLOSESOCKET(s->fd);
+
         free(s->addr);
         free(s->to_be_freed);
         delete s;
