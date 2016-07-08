@@ -66,16 +66,13 @@
 using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
-static constexpr const char *DEFAULT_X264_X265_PRESET = "superfast";
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
-static constexpr const char *DEFAULT_NVENC_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 
 namespace {
 
 struct setparam_param {
-        bool have_preset;
         double fps;
         bool interlaced;
         bool no_periodic_intra;
@@ -83,10 +80,13 @@ struct setparam_param {
         string thread_mode;
 };
 
+static constexpr const char *DEFAULT_NVENC_PRESET = "llhq";
+
 typedef struct {
         enum AVCodecID av_codec;
         const char *prefered_encoder; ///< can be nullptr
         double avg_bpp;
+        map<string, string> default_preset; // key: encoder, value: preset
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
 
@@ -97,35 +97,41 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
-        {H264, { AV_CODEC_ID_H264,
+        { H264, codec_params_t{
+                AV_CODEC_ID_H264,
                 "libx264",
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
+                {{"libx264", "veryfast"}, {"nvenc", DEFAULT_NVENC_PRESET}, {"nvenc_h264", DEFAULT_NVENC_PRESET}},
                 setparam_h264_h265
         }},
-        { H265, {
+        { H265, codec_params_t{
                 AV_CODEC_ID_HEVC,
                 "libx265", //nullptr,
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
+                {{"libx265", "ultrafast"}, {"nvenc_hevc", DEFAULT_NVENC_PRESET}},
                 setparam_h264_h265
         }},
-        { MJPG, {
+        { MJPG, codec_params_t{
                 AV_CODEC_ID_MJPEG,
                 nullptr,
                 1.2,
+                map<string, string>(),
                 setparam_default
         }},
-        { J2K, {
+        { J2K, codec_params_t{
                 AV_CODEC_ID_JPEG2000,
                 nullptr,
                 1.0,
+                map<string, string>(),
                 setparam_default
         }},
-        { VP8, {
+        { VP8, codec_params_t{
                 AV_CODEC_ID_VP8,
                 nullptr,
                 0.4,
+                map<string, string>(),
                 setparam_vp8
         }},
 };
@@ -650,12 +656,23 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
 
-        s->params.have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
+        bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
+
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
         s->params.cpu_count = s->cpu_count;
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
+
+        if (!have_preset) {
+                auto & default_preset_map = codec_params[ug_codec].default_preset;
+                auto it = default_preset_map.find(s->codec_ctx->codec->name);
+                if (it != default_preset_map.end()) {
+                        if (av_opt_set(s->codec_ctx->priv_data, "preset", it->second.c_str(), 0) != 0) {
+                                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
+                        }
+                }
+        }
 
         // set user supplied parameters
         for (auto item : s->lavc_opts) {
@@ -1022,12 +1039,6 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
-        if (!param->have_preset) {
-                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_X265_PRESET, 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
-                }
-        }
         ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency,fastdecode", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency/fastdecode.\n");
@@ -1062,11 +1073,6 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
-        if (!param->have_preset) {
-                if (av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_PRESET, 0) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Cannot set preset.\n");
-                }
-        }
         ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CBR.\n");
