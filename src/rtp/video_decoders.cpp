@@ -97,7 +97,9 @@
 #include "vo_postprocess.h"
 
 #include <condition_variable>
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
 #include <future>
+#endif
 #include <iostream>
 #include <map>
 #include <memory>
@@ -261,38 +263,47 @@ struct main_msg_reconfigure {
  */
 struct state_video_decoder
 {
+        state_video_decoder(struct module *parent) {
+                module_init_default(&mod);
+                mod.cls = MODULE_CLASS_DECODER;
+                module_register(&mod, parent);
+                control = (struct control_state *) get_module(get_root_module(parent), "control");
+        }
+        ~state_video_decoder() {
+                module_done(&mod);
+        }
         struct module mod;
         struct control_state *control;
 
         thread decompress_thread_id,
                   fec_thread_id;
-        struct video_desc received_vid_desc; ///< description of the network video
-        struct video_desc display_desc;      ///< description of the mode that display is currently configured to
+        struct video_desc received_vid_desc = {}; ///< description of the network video
+        struct video_desc display_desc = {};      ///< description of the mode that display is currently configured to
 
-        struct video_frame *frame; ///< @todo rewrite this more reasonably
+        struct video_frame *frame = NULL; ///< @todo rewrite this more reasonably
 
-        struct display   *display; ///< assigned display device
+        struct display   *display = NULL; ///< assigned display device
         /// @{
         int               display_requested_pitch;
         int               display_requested_rgb_shift[3];
         codec_t           native_codecs[VIDEO_CODEC_COUNT]; ///< list of native codecs
         size_t            native_count;  ///< count of @ref native_codecs
-        enum interlacing_t *disp_supported_il; ///< display supported interlacing mode
+        enum interlacing_t *disp_supported_il = NULL; ///< display supported interlacing mode
         size_t            disp_supported_il_cnt; ///< count of @ref disp_supported_il
         /// @}
 
         unsigned int      max_substreams; ///< maximal number of expected substreams
-        change_il_t       change_il;      ///< function to change interlacing, if needed. Otherwise NULL.
+        change_il_t       change_il = NULL;      ///< function to change interlacing, if needed. Otherwise NULL.
         vector<void *>    change_il_state;
 
         mutex lock;
 
         enum decoder_type_t decoder_type;  ///< how will the video data be decoded
-        struct line_decoder *line_decoder; ///< if the video is uncompressed and only pixelformat change
+        struct line_decoder *line_decoder = NULL; ///< if the video is uncompressed and only pixelformat change
                                            ///< is neeeded, use this structure
-        struct state_decompress **decompress_state; ///< state of the decompress (for every substream)
+        struct state_decompress **decompress_state = NULL; ///< state of the decompress (for every substream)
         unsigned int accepts_corrupted_frame:1;     ///< whether we should pass corrupted frame to decompress
-        bool buffer_swapped; /**< variable indicating that display buffer
+        bool buffer_swapped = true; /**< variable indicating that display buffer
                               * has been processed and we can write to a new one */
         condition_variable buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
@@ -306,8 +317,8 @@ struct state_video_decoder
 
         /// @{
         string requested_postprocess;
-        struct vo_postprocess_state *postprocess;
-        struct video_frame *pp_frame;
+        struct vo_postprocess_state *postprocess = NULL;
+        struct video_frame *pp_frame = NULL;
         int pp_output_frames_count;
         /// @}
 
@@ -316,16 +327,18 @@ struct state_video_decoder
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
 
-        long int last_buffer_number; ///< last received buffer ID
+        long int last_buffer_number = -1; ///< last received buffer ID
         timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
 
         synchronized_queue<main_msg_reconfigure *> msg_queue;
 
-        const struct openssl_decrypt_info *dec_funcs; ///< decrypt state
-        struct openssl_decrypt      *decrypt; ///< decrypt state
+        const struct openssl_decrypt_info *dec_funcs = NULL; ///< decrypt state
+        struct openssl_decrypt      *decrypt = NULL; ///< decrypt state
 
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
         std::future<bool> reconfiguration_future;
-        bool             reconfiguration_in_progress;
+        bool             reconfiguration_in_progress = false;
+#endif
 
         struct reported_statistics_cumul stats; ///< stats to be reported through control socket
 };
@@ -664,18 +677,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 {
         struct state_video_decoder *s;
 
-        s = new state_video_decoder();
-
-        module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_DECODER;
-        module_register(&s->mod, parent);
-        s->control = (struct control_state *) get_module(get_root_module(parent), "control");
-
-        s->disp_supported_il = NULL;
-        s->change_il = NULL;
-
-        s->buffer_swapped = true;
-        s->last_buffer_number = -1;
+        s = new state_video_decoder(parent);
 
         if (encryption) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
@@ -697,8 +699,9 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
 
         if (postprocess) {
                 if(strcmp(postprocess, "help") == 0) {
+                        s->postprocess = vo_postprocess_init("help");
+                        vo_postprocess_done(s->postprocess);
                         delete s;
-                        exit_uv(0);
                         return NULL;
                 }
                 s->requested_postprocess = postprocess;
@@ -904,8 +907,6 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         free(decoder->disp_supported_il);
 
         decoder->stats.print();
-
-        module_done(&decoder->mod);
 
         delete decoder;
 }
@@ -1464,6 +1465,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 return FALSE;
         }
 
+#ifdef RECONFIGURE_IN_FUTURE_THREAD
         // check if we are not in the middle of reconfiguration
         if (decoder->reconfiguration_in_progress) {
                 std::future_status status =
@@ -1482,6 +1484,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         return FALSE;
                 }
         }
+#endif
 
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {

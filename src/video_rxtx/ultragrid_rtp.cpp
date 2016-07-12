@@ -83,7 +83,7 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         rtp_video_rxtx(params), m_send_bytes_total(0)
 {
         if ((params.at("postprocess").ptr != NULL &&
-                                strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
+                                strcmp((const char *) params.at("postprocess").ptr, "help") == 0)) {
                 struct state_video_decoder *dec = video_decoder_init(m_parent, VIDEO_NORMAL,
                                 (const char *) params.at("postprocess").ptr, NULL, NULL);
                 video_decoder_destroy(dec);
