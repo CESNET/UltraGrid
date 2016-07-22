@@ -1030,7 +1030,7 @@ int main(int argc, char *argv[])
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
         ret =
-             initialize_video_display(&uv.root_module, requested_display, display_cfg, display_flags, &uv.display_device);
+             initialize_video_display(&uv.root_module, requested_display, display_cfg, display_flags, postprocess, &uv.display_device);
         if (ret < 0) {
                 printf("Unable to open display device: %s\n",
                        requested_display);
@@ -1132,7 +1132,7 @@ int main(int argc, char *argv[])
                 params["video_delay"].ptr = (void *) &video_offset;
 
                 // UltraGrid RTP
-                params["postprocess"].ptr = (void *) postprocess;
+                params["postprocess"].ptr = (void *) NULL;
                 params["decoder_mode"].l = (long) decoder_mode;
                 params["display_device"].ptr = uv.display_device;
 

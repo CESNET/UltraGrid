@@ -152,7 +152,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
                 }
 
                 int ret = initialize_video_display(parent, device,
-                                               device_cfg, dev_flags, &s->devices[i]);
+                                               device_cfg, dev_flags, NULL, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n", i, device, device_cfg);
                         free(config);
@@ -252,7 +252,7 @@ static int display_aggregate_reconfigure(void *state, struct video_desc desc)
 
 	desc.tile_count = 1;
         for(i = 0; i < s->devices_cnt; ++i) {
-                ret = display_reconfigure(s->devices[i], desc);
+                ret = display_reconfigure(s->devices[i], desc, VIDEO_NORMAL);
                 if(!ret)
                         break;
         }

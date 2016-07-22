@@ -52,6 +52,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/**
+ * @todo
+ * On-fly postprocess reconfiguration is not ok in general case. The pitch or
+ * supported codecs might have changed due to the reconfiguration, which is,
+ * however, not reflected by decoder which queried the data before.
+ */
 
 #include "config.h"
 #include "config_unix.h"
@@ -60,7 +66,9 @@
 #include "lib_common.h"
 #include "module.h"
 #include "perf.h"
+#include "video.h"
 #include "video_display.h"
+#include "vo_postprocess.h"
 
 #define DISPLAY_MAGIC 0x01ba7ef1
 
@@ -70,6 +78,11 @@ struct display {
         uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
+
+        struct vo_postprocess_state *postprocess;
+        int pp_output_frames_count, display_pitch;
+        struct video_desc saved_desc;
+        enum video_mode saved_mode;
 };
 
 /**This variable represents a pseudostate and may be returned when initialization
@@ -97,8 +110,13 @@ void list_video_display_devices()
  * @retval    1  if successfully shown help (no state returned)
  */
 int initialize_video_display(struct module *parent, const char *requested_display,
-                const char *fmt, unsigned int flags, struct display **out)
+                const char *fmt, unsigned int flags, const char *postprocess, struct display **out)
 {
+        if (postprocess && strcmp(postprocess, "help") == 0) {
+                show_vo_postprocess_help();
+                return 1;
+        }
+
         const struct video_display_info *vdi = (const struct video_display_info *)
                         load_library(requested_display, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
@@ -124,6 +142,15 @@ int initialize_video_display(struct module *parent, const char *requested_displa
                         free(d);
                         return 1;
                 }
+
+                if (postprocess) {
+                        d->postprocess = vo_postprocess_init(postprocess);
+                        if (!d->postprocess) {
+                                display_done(d);
+                                return 1;
+                        }
+                }
+
                 *out = d;
                 return 0;
         }
@@ -142,6 +169,7 @@ void display_done(struct display *d)
         assert(d->magic == DISPLAY_MAGIC);
         d->funcs->done(d->state);
         module_done(&d->mod);
+        vo_postprocess_done(d->postprocess);
         free(d);
 }
 
@@ -163,6 +191,37 @@ void display_run(struct display *d)
         d->funcs->run(d->state);
 }
 
+static struct response *process_message(struct display *d, struct msg_universal *msg)
+{
+        if (strncasecmp(msg->text, "postprocess ", strlen("postprocess ")) == 0) {
+                log_msg(LOG_LEVEL_WARNING, "On fly changing postprocessing is currently "
+                                "only an experimental feature! Use with caution!\n");
+                const char *text = msg->text + strlen("postprocess ");
+
+                struct vo_postprocess_state *postprocess_old = d->postprocess;
+
+                if (strcmp(text, "flush") != 0) {
+                        d->postprocess = vo_postprocess_init(text);
+                        if (!d->postprocess) {
+                                d->postprocess = postprocess_old;
+                                log_msg(LOG_LEVEL_ERROR, "Unable to create postprocess '%s'.\n", text);
+                                return new_response(RESPONSE_BAD_REQUEST, NULL);
+                        }
+                } else {
+                        d->postprocess = NULL;
+                }
+
+                vo_postprocess_done(postprocess_old);
+
+                display_reconfigure(d, d->saved_desc, d->saved_mode);
+
+                return new_response(RESPONSE_OK, NULL);
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Unknown command '%s'.\n", msg->text);
+                return new_response(RESPONSE_BAD_REQUEST, NULL);
+        }
+}
+
 /**
  * @brief Returns video framebuffer which will be written to.
  *
@@ -174,9 +233,19 @@ void display_run(struct display *d)
  */
 struct video_frame *display_get_frame(struct display *d)
 {
+        struct message *msg;
+        while((msg = check_message(&d->mod))) {
+                struct response *r = process_message(d, (struct msg_universal *) msg);
+                free_message(msg, r);
+        }
+
         perf_record(UVP_GETFRAME, d);
         assert(d->magic == DISPLAY_MAGIC);
-        return d->funcs->getf(d->state);
+        if (d->postprocess) {
+                return vo_postprocess_getf(d->postprocess);
+        } else {
+                return d->funcs->getf(d->state);
+        }
 }
 
 /**
@@ -186,13 +255,39 @@ struct video_frame *display_get_frame(struct display *d)
  * @param d        display to be putted frame to
  * @param frame    frame that has been obtained from display_get_frame() and has not yet been put.
  *                 Should not be NULL unless we want to quit display mainloop.
- * @param nonblock specifies blocking behavior (@ref display_put_frame_flags)
+ * @param flags specifies blocking behavior (@ref display_put_frame_flags)
+ * @retval      0  if displayed succesfully
+ * @retval      1  if not displayed
  */
-int display_put_frame(struct display *d, struct video_frame *frame, int nonblock)
+int display_put_frame(struct display *d, struct video_frame *frame, int flags)
 {
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
-        return d->funcs->putf(d->state, frame, nonblock);
+
+        if (!frame) {
+                return d->funcs->putf(d->state, frame, flags);
+        }
+
+        if (d->postprocess) {
+                int display_ret = 0;
+		for (int i = 0; i < d->pp_output_frames_count; ++i) {
+			struct video_frame *display_frame = d->funcs->getf(d->state);
+			int ret = vo_postprocess(d->postprocess,
+					frame,
+					display_frame,
+					d->display_pitch);
+                        frame = NULL;
+			if (!ret) {
+				d->funcs->putf(d->state, display_frame, PUTF_DISCARD);
+				return 1;
+			}
+
+			display_ret = d->funcs->putf(d->state, display_frame, flags);
+		}
+                return display_ret;
+        } else {
+                return d->funcs->putf(d->state, frame, flags);
+        }
 }
 
 /**
@@ -207,10 +302,77 @@ int display_put_frame(struct display *d, struct video_frame *frame, int nonblock
  * @retval TRUE  if reconfiguration succeeded
  * @retval FALSE if reconfiguration failed
  */
-int display_reconfigure(struct display *d, struct video_desc desc)
+int display_reconfigure(struct display *d, struct video_desc desc, enum video_mode video_mode)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        return d->funcs->reconfigure_video(d->state, desc);
+
+        d->saved_desc = desc;
+        d->saved_mode = video_mode;
+
+        if (d->postprocess) {
+                bool pp_does_change_tiling_mode = false;
+                size_t len = sizeof(pp_does_change_tiling_mode);
+                if (vo_postprocess_get_property(d->postprocess, VO_PP_DOES_CHANGE_TILING_MODE,
+                                        &pp_does_change_tiling_mode, &len)) {
+                        if(len == 0) {
+                                // just for sake of completness since it shouldn't be a case
+                                log_msg(LOG_LEVEL_WARNING, "Warning: unable to get pp tiling mode!\n");
+                        }
+                }
+		struct video_desc pp_desc = desc;
+
+                if (!pp_does_change_tiling_mode) {
+                        pp_desc.width *= get_video_mode_tiles_x(video_mode);
+                        pp_desc.height *= get_video_mode_tiles_y(video_mode);
+                        pp_desc.tile_count = 1;
+                }
+                if (!vo_postprocess_reconfigure(d->postprocess, pp_desc)) {
+                        log_msg(LOG_LEVEL_ERROR, "[video dec.] Unable to reconfigure video "
+                                        "postprocess.\n");
+                        return false;
+                }
+		struct video_desc display_desc;
+                int render_mode; // WTF ?
+		vo_postprocess_get_out_desc(d->postprocess, &display_desc, &render_mode, &d->pp_output_frames_count);
+		int rc = d->funcs->reconfigure_video(d->state, display_desc);
+                len = sizeof d->display_pitch;
+                d->display_pitch = PITCH_DEFAULT;
+                d->funcs->get_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
+					&d->display_pitch, &len);
+                if (d->display_pitch == PITCH_DEFAULT) {
+			d->display_pitch = vc_get_linesize(display_desc.width, display_desc.color_spec);
+		}
+
+                return rc;
+        } else {
+		return d->funcs->reconfigure_video(d->state, desc);
+	}
+}
+
+static void restrict_returned_codecs(codec_t *display_codecs,
+                size_t *display_codecs_count, codec_t *pp_codecs,
+                int pp_codecs_count)
+{
+        int i;
+
+        for (i = 0; i < (int) *display_codecs_count; ++i) {
+                int j;
+
+                int found = FALSE;
+
+                for (j = 0; j < pp_codecs_count; ++j) {
+                        if(display_codecs[i] == pp_codecs[j]) {
+                                found = TRUE;
+                        }
+                }
+
+                if(!found) {
+                        memmove(&display_codecs[i], (const void *) &display_codecs[i + 1],
+                                        sizeof(codec_t) * (*display_codecs_count - i - 1));
+                        --*display_codecs_count;
+                        --i;
+                }
+        }
 }
 
 /**
@@ -226,7 +388,50 @@ int display_reconfigure(struct display *d, struct video_desc desc)
 int display_get_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        return d->funcs->get_property(d->state, property, val, len);
+        if (d->postprocess) {
+                switch (property) {
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = PITCH_DEFAULT;
+                        *len = sizeof(int);
+                        return TRUE;
+		case DISPLAY_PROPERTY_CODECS:
+			{
+                                codec_t display_codecs[20], pp_codecs[20];
+                                size_t display_codecs_count, pp_codecs_count;
+                                size_t nlen;
+                                bool ret;
+                                nlen = sizeof display_codecs;
+                                ret = d->funcs->get_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
+                                if (!ret) return FALSE;
+                                display_codecs_count = nlen / sizeof(codec_t);
+                                nlen = sizeof pp_codecs;
+                                ret = vo_postprocess_get_property(d->postprocess, VO_PP_PROPERTY_CODECS, pp_codecs, &nlen);
+                                if (ret) {
+					if (nlen == 0) { // problem detected
+						log_msg(LOG_LEVEL_ERROR, "[Decoder] Unable to get supported codecs.\n");
+						return FALSE;
+
+					}
+                                        pp_codecs_count = nlen / sizeof(codec_t);
+                                        restrict_returned_codecs(display_codecs, &display_codecs_count,
+                                                        pp_codecs, pp_codecs_count);
+                                }
+                                nlen = display_codecs_count * sizeof(codec_t);
+                                if (nlen <= *len) {
+                                        *len = nlen;
+                                        memcpy(val, display_codecs, nlen);
+                                        return TRUE;
+                                } else {
+                                        return FALSE;
+                                }
+                        }
+			break;
+                default:
+                        return d->funcs->get_property(d->state, property, val, len);
+                }
+        } else {
+                return d->funcs->get_property(d->state, property, val, len);
+        }
 }
 
 /**

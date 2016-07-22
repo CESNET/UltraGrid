@@ -102,7 +102,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "pipe:%p", s);
-        assert (initialize_video_display(vidcap_params_get_parent(cap_params), "proxy", cfg, 0, &s->display) == 0);
+        assert (initialize_video_display(vidcap_params_get_parent(cap_params), "proxy", cfg, 0, NULL, &s->display) == 0);
 
         map<string, param_u> params;
 

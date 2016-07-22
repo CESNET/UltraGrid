@@ -59,7 +59,7 @@ static struct display *display_pipe_fork(void *state)
 
         snprintf(fmt, sizeof fmt, "%p", s->delegate);
         int rc = initialize_video_display(s->parent,
-                "pipe", fmt, 0, &out);
+                "pipe", fmt, 0, NULL, &out);
         if (rc == 0) return out; else return NULL;
 }
 

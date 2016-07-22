@@ -1170,7 +1170,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         {
                 int ret;
                 /* reconfigure VO and give it opportunity to pass us pitch */
-                ret = display_reconfigure(decoder->display, display_desc);
+                ret = display_reconfigure(decoder->display, display_desc, decoder->video_mode);
                 if(!ret) {
                         log_msg(LOG_LEVEL_ERROR, "[decoder] Unable to reconfigure display.\n");
                         return false;
@@ -1214,6 +1214,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         } else {
                 decoder->pitch = vc_get_linesize(linewidth, out_codec);
         }
+
 
         if(decoder->display_requested_pitch == PITCH_DEFAULT) {
                 decoder->display_pitch = vc_get_linesize(display_desc.width, out_codec);

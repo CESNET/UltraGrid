@@ -108,7 +108,7 @@ static struct display *display_proxy_fork(void *state)
         snprintf(fmt, sizeof fmt, "%p", state);
 
         int rc = initialize_video_display(s->parent,
-                        "proxy", fmt, 0, &out);
+                        "proxy", fmt, 0, NULL, &out);
         if (rc == 0) return out; else return NULL;
 
         return out;
@@ -140,7 +140,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
                 }
         }
         s->common = shared_ptr<state_proxy_common>(new state_proxy_common());
-        assert (initialize_video_display(parent, requested_display, cfg, flags, &s->common->real_display) == 0);
+        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
         free(fmt_copy);
 
         int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
@@ -157,7 +157,7 @@ static void check_reconf(struct state_proxy_common *s, struct video_desc desc)
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
                 fprintf(stderr, "RECONFIGURED\n");
-                display_reconfigure(s->real_display, s->display_desc);
+                display_reconfigure(s->real_display, s->display_desc, VIDEO_NORMAL);
         }
 }
 

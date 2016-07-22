@@ -66,7 +66,7 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         oss << "fs=" << static_cast<const char *>(params.at("receiver").ptr);
         oss << ":tx"; // indicates that we are in tx mode
         int ret = initialize_video_display(&m_sender_mod, "sage",
-                        oss.str().c_str(), 0, &m_sage_tx_device);
+                        oss.str().c_str(), 0, NULL, &m_sage_tx_device);
         if(ret != 0) {
                 throw string("Unable to initialize SAGE TX.");
         }
@@ -81,7 +81,7 @@ void sage_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
         if(!video_desc_eq(m_saved_video_desc,
                                 video_desc_from_frame(tx_frame.get()))) {
                 display_reconfigure(m_sage_tx_device,
-                                video_desc_from_frame(tx_frame.get()));
+                                video_desc_from_frame(tx_frame.get()), VIDEO_NORMAL);
                 m_saved_video_desc = video_desc_from_frame(tx_frame.get());
         }
         struct video_frame *frame =

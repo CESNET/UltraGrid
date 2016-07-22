@@ -161,20 +161,20 @@ extern int display_init_noerr;
 void                     list_video_display_devices(void);
 int                      initialize_video_display(struct module *parent,
                 const char *requested_display, const char *fmt, unsigned int flags,
-                struct display **out);
+                const char *postprocess, struct display **out);
 void                     display_run(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);
 
-/** @brief putf blocking behavior control */
+/** @brief putf flags */
 enum display_put_frame_flags {
         PUTF_BLOCKING = 0, ///< Block until frame can be displayed.
         PUTF_NONBLOCK = 1, ///< Do not block.
         PUTF_DISCARD  = 2,
 };
 
-int 		         display_put_frame(struct display *d, struct video_frame *frame, int nonblock);
-int                      display_reconfigure(struct display *d, struct video_desc desc);
+int 		         display_put_frame(struct display *d, struct video_frame *frame, int flags);
+int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
 int                      display_get_property(struct display *d, int property, void *val, size_t *len);
 /**
  * @defgroup display_audio Audio
