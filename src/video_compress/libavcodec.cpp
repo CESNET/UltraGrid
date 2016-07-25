@@ -967,14 +967,13 @@ static void cleanup(struct state_video_compress_libav *s)
                 avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
                 pthread_mutex_unlock(s->lavcd_global_lock);
+                s->codec_ctx = NULL;
         }
         if(s->in_frame) {
                 av_freep(s->in_frame->data);
                 av_free(s->in_frame);
                 s->in_frame = NULL;
         }
-        av_free(s->codec_ctx);
-        s->codec_ctx = NULL;
         free(s->decoded);
         s->decoded = NULL;
 }
