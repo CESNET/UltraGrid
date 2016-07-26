@@ -132,7 +132,6 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
-        params["postprocess"].ptr = (void *) NULL;
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 

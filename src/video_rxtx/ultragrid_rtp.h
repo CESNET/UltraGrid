@@ -72,7 +72,6 @@ private:
         static void destroy_video_decoder(void *state);
 
         enum video_mode  m_decoder_mode;
-        std::string      m_postprocess;
         struct display  *m_display_device;
         std::list<struct display *> m_display_copies; ///< some displays can be "forked"
                                                       ///< and used simultaneously from

@@ -228,7 +228,6 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
-        params["postprocess"].ptr = (void *) NULL;
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 

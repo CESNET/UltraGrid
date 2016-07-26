@@ -61,7 +61,6 @@ void *recompress_init(struct module *parent,
         params["video_delay"].ptr = 0;
 
         // UltraGrid RTP
-        params["postprocess"].ptr = (void *) NULL;
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = NULL;
 
