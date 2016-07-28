@@ -479,6 +479,8 @@ void audio_done(struct state_audio *s)
                 free(s->audio_network_parameters.addr);
                 free(s->audio_network_parameters.mcast_if);
 
+                audio_codec_done(s->audio_coder);
+
                 delete s;
         }
 }

@@ -850,10 +850,6 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
         int ret;
-#if LIBAVCODEC_VERSION_MAJOR >= 54
-        int got_output;
-        AVPacket *pkt;
-#endif
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
 
@@ -869,7 +865,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         }
 
         auto dispose = [](struct video_frame *frame) {
-#if LIBAVCODEC_VERSION_MAJOR >= 54
+#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 AVPacket *pkt = (AVPacket *) frame->dispose_udata;
                 av_packet_unref(pkt);
                 free(pkt);
@@ -879,7 +875,9 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 vf_free(frame);
         };
         out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
-#if LIBAVCODEC_VERSION_MAJOR >= 54
+#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
+        int got_output;
+        AVPacket *pkt;
         pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
         pkt->data = NULL;
@@ -889,7 +887,6 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         out->tiles[0].data = (char *) malloc(s->compressed_desc.width *
                         s->compressed_desc.height * 4);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
-
 
         s->in_frame->pts = frame_seq++;
 
@@ -938,8 +935,30 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 }
         }
 
-#if LIBAVCODEC_VERSION_MAJOR >= 54
         /* encode the image */
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+        out->tiles[0].data_len = 0;
+        ret = avcodec_send_frame(s->codec_ctx, s->in_frame);
+        if (ret == 0) {
+                AVPacket pkt;
+                av_init_packet(&pkt);
+                ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                while (ret == 0) {
+                        assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                        memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
+                                        pkt.data, pkt.size);
+                        out->tiles[0].data_len += pkt.size;
+                        av_packet_unref(&pkt);
+                        ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                }
+                if (ret != AVERROR(EAGAIN) && ret != 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
+                }
+        } else {
+		print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
+                return {};
+        }
+#elif LIBAVCODEC_VERSION_MAJOR >= 54
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
                         s->in_frame, &got_output);
         if (ret < 0) {
@@ -955,7 +974,6 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 return {};
         }
 #else
-        /* encode the image */
         ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) out->tiles[0].data,
                         out->tiles[0].width * out->tiles[0].height * 4,
                         s->in_frame);
@@ -980,6 +998,25 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
 static void cleanup(struct state_video_compress_libav *s)
 {
         if(s->codec_ctx) {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+		int ret;
+		ret = avcodec_send_frame(s->codec_ctx, NULL);
+		if (ret != 0) {
+			log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
+					ret);
+		}
+		do {
+			AVPacket pkt;
+			av_init_packet(&pkt);
+			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+			av_packet_unref(&pkt);
+			if (ret != 0 && ret != AVERROR_EOF) {
+				log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
+						ret);
+				break;
+			}
+		} while (ret != AVERROR_EOF);
+#endif
                 pthread_mutex_lock(s->lavcd_global_lock);
                 avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);

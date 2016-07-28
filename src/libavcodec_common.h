@@ -89,6 +89,7 @@ static bool is420(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmts,
                 const enum AVPixelFormat *codec_pix_fmts) __attribute__((unused));
 static void print_decoder_error(const char *mod_name, int rc) __attribute__((unused));
+static void print_libav_error(int verbosity, const char *msg, int rc)  __attribute__((unused));
 
 /**
  * Finds best pixel format
@@ -184,6 +185,14 @@ static void print_decoder_error(const char *mod_name, int rc) {
 			break;
 	}
 }
+
+static void print_libav_error(int verbosity, const char *msg, int rc) {
+        char errbuf[1024];
+        av_strerror(rc, errbuf, sizeof(errbuf));
+
+        log_msg(verbosity, "%s: %s\n", msg, errbuf);
+}
+
 
 #endif // LIBAVCODEC_COMMON_H_
 
