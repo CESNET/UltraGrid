@@ -19,6 +19,7 @@
 #include "video_compress.h"
 #include "video_display.h"
 #include "video.h"
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <set>
@@ -166,7 +167,9 @@ void print_capabilities(struct module *root, bool use_vidcap)
         // try to figure out actual input video format
         struct video_desc desc{};
         if (use_vidcap && root) {
-                for (int attempt = 0; attempt < 20; ++attempt) {
+                // try 30x in 100 ms intervals
+                for (int attempt = 0; attempt < 30; ++attempt) {
+                        auto t0 = std::chrono::steady_clock::now();
                         struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
                         m->type = SENDER_MSG_QUERY_VIDEO_MODE;
                         struct response *r = send_message_sync(root, "sender", (struct message *) m, 100, 0);
@@ -178,7 +181,10 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 break;
                         }
                         free_response(r);
-                        usleep(100*1000);
+                        auto query_lasted = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
+                        // wait some time (100 ms - time of the last query) in order to
+                        // the signal to "settle"
+                        usleep(max<int>(100,query_lasted.count())*1000);
                 }
         }
 
