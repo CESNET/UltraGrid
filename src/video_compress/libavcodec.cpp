@@ -593,7 +593,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         if ((s->requested_bitrate > 0 || s->requested_bpp > 0.0)
                         || !is_x264_x265) {
                 s->codec_ctx->bit_rate = bitrate;
-                s->codec_ctx->bit_rate_tolerance = bitrate / 4;
+                s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 log_msg(LOG_LEVEL_INFO, "[lavc] Setting bitrate to %d bps.\n", bitrate);
         }
 

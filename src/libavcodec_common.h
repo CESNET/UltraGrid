@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 52, 0)
-#define avcodec_free_context av_free
+#define avcodec_free_context av_freep
 #endif
 
 #if LIBAVCODEC_VERSION_MAJOR < 55
