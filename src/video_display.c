@@ -70,7 +70,6 @@ struct display {
         uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
-        bool started;
 };
 
 /**This variable represents a pseudostate and may be returned when initialization
@@ -161,7 +160,6 @@ void display_done(struct display *d)
 void display_run(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        d->started = true;
         d->funcs->run(d->state);
 }
 
@@ -189,16 +187,11 @@ struct video_frame *display_get_frame(struct display *d)
  * @param frame    frame that has been obtained from display_get_frame() and has not yet been put.
  *                 Should not be NULL unless we want to quit display mainloop.
  * @param nonblock specifies blocking behavior (@ref display_put_frame_flags)
- * @retval      0  if displayed succesfully
- * @retval      1  if not displayed
  */
 int display_put_frame(struct display *d, struct video_frame *frame, int nonblock)
 {
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
-        if (!d->started) {
-                return 1;
-        }
         return d->funcs->putf(d->state, frame, nonblock);
 }
 
