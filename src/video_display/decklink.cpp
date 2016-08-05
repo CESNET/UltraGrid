@@ -524,7 +524,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator)))
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fatal: cannot create display mode iterator.\n");
-                return (BMDDisplayMode) -1;
+                return bmdModeUnknown;
         }
 
         while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
@@ -635,7 +635,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 
                 displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                 &s->frameRateScale);
-                if (displayMode == (BMDDisplayMode) -1) {
+                if (displayMode == bmdModeUnknown) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not found suitable video mode.\n");
                         goto error;
                 }
