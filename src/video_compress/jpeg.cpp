@@ -264,7 +264,7 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         if(!m_encoder) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] Failed to create GPUJPEG encoder.\n");
-                exit_uv(128);
+                exit_uv(EXIT_FAILURE);
                 return false;
         }
 
@@ -392,7 +392,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
 
                 if(ret != 0) {
                         log_msg(LOG_LEVEL_ERROR, "[JPEG] initializing CUDA device %d failed.\n", m_device_id);
-                        exit_uv(127);
+                        exit_uv(EXIT_FAILURE);
                         return {};
                 }
         }
@@ -404,7 +404,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 cleanup_state();
                 int ret = configure_with(desc);
                 if(!ret) {
-                        exit_uv(127);
+                        exit_uv(EXIT_FAILURE);
                         return NULL;
                 }
         }

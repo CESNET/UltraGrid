@@ -111,7 +111,7 @@ static void initialize(struct vidcap_screen_osx_state *s) {
         goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
 error:
         fprintf(stderr, "[Screen cap.] Initialization failed!\n");
-        exit_uv(128);
+        exit_uv(EXIT_FAILURE);
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose)

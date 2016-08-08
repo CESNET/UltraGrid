@@ -690,7 +690,7 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
                 default:
                         fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
-                        exit_uv(128);
+                        exit_uv(EXIT_FAILURE);
                         return;
 
         }
