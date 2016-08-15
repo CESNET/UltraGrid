@@ -109,6 +109,22 @@ bool set_output_buffering() {
         return true;
 }
 
+#ifdef HAVE_X
+/**
+ * Custom X11 error handler to catch errors and handle them more reasonably
+ * than the default handler which exits the program immediately, which, however
+ * is not correct in multithreaded program.
+ */
+static int x11_error_handler(Display *d, XErrorEvent *e) {
+        char msg[1024] = "";
+        XGetErrorText(d, e->error_code, msg, sizeof msg - 1);
+        log_msg(LOG_LEVEL_ERROR, "X11 error - %s, serial: %d, error: %d, request: %d, minor: %d\n",
+                        msg, e->serial, e->error_code, e->request_code, e->minor_code);
+
+        return 0;
+}
+#endif
+
 bool common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -116,19 +132,31 @@ bool common_preinit(int argc, char *argv[])
 
 #ifdef HAVE_X
         void *handle = dlopen("libX11.so", RTLD_NOW);
-        bool x11_threads_initialized = false;
 
         if (handle) {
                 Status (*XInitThreadsProc)();
                 XInitThreadsProc = (Status (*)()) dlsym(handle, "XInitThreads");
                 if (XInitThreadsProc) {
-                        XInitThreadsProc();
-                        x11_threads_initialized = true;
+                        Status s = XInitThreadsProc();
+                        if (s != True) {
+                                log_msg(LOG_LEVEL_WARNING, "XInitThreads failed.\n");
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XInitThreads: %s\n", dlerror());
                 }
+
+                typedef int (*XSetErrorHandler_t(int (*handler)(Display *, XErrorEvent *)))();
+                XSetErrorHandler_t *XSetErrorHandlerProc;
+                XSetErrorHandlerProc = (XSetErrorHandler_t *) dlsym(handle, "XSetErrorHandler");
+                if (XSetErrorHandlerProc) {
+                        XSetErrorHandlerProc(x11_error_handler);
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XSetErrorHandler: %s\n", dlerror());
+                }
+
                 dlclose(handle);
-        }
-        if (!x11_threads_initialized) {
-                log_msg(LOG_LEVEL_WARNING, "Unable to XInitThreads: %s\n", dlerror());
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "Unable open X11 library: %s\n", dlerror());
         }
 #endif
 
