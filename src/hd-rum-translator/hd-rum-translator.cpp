@@ -11,6 +11,7 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "crypto/random.h"
 #include "host.h"
@@ -37,6 +38,7 @@ struct replica {
     replica(const char *addr, int tx_port, int bufsize, struct module *parent) {
         magic = REPLICA_MAGIC;
         host = addr;
+        m_tx_port = tx_port;
         sock = udp_init(addr, 0, tx_port, 255, false, false);
         if (!sock) {
             throw string("Cannot initialize output port!\n");
@@ -60,6 +62,7 @@ struct replica {
     struct module mod;
     uint32_t magic;
     string host;
+    int m_tx_port;
 
     enum type_t {
         NONE,
@@ -550,6 +553,19 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     return true;
 }
 
+static string format_port_list(struct hd_rum_translator_state *s)
+{
+    ostringstream oss;
+    for (auto it : s->replicas) {
+        if (!oss.str().empty()) {
+            oss << ",";
+        }
+        oss << it->host << ":" << it->m_tx_port;
+    }
+
+    return oss.str();
+}
+
 int main(int argc, char **argv)
 {
     struct hd_rum_translator_state state;
@@ -703,6 +719,7 @@ int main(int argc, char **argv)
     }
 
     uint64_t received_data = 0;
+    uint64_t received_pkts = 0;
     struct timeval t0;
     gettimeofday(&t0, NULL);
 
@@ -715,6 +732,7 @@ int main(int argc, char **argv)
                && (state.qtail->size = udp_recv_timeout(sock_in, state.qtail->buf, SIZE, &timeout)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
+            received_pkts += 1;
 
             state.qtail = state.qtail->next;
 
@@ -729,6 +747,12 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
+                string port_list = format_port_list(&state);
+                string statline = "FWD receivedBytes " + to_string(received_data) + " receivedPackets " + to_string(received_pkts) + " timestamp " + to_string(time_since_epoch_in_ms());
+                if (!port_list.empty()) {
+                    statline += " portList " + format_port_list(&state);
+                }
+                control_report_stats(state.control_state, statline);
                 log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
                 t0 = t;
                 last_data = received_data;
