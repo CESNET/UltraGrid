@@ -1075,10 +1075,15 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        int ret;
-        ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency,fastdecode", 0);
+        const char *tune;
+        if (codec_ctx->codec->id == AV_CODEC_ID_H264) {
+                tune = "zerolatency,fastdecode";
+        } else { // x265 supports only single tune parameter
+                tune = "zerolatency";
+        }
+        int ret = av_opt_set(codec_ctx->priv_data, "tune", tune, 0);
         if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency/fastdecode.\n");
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune %s.\n", tune);
         }
 
         // try to keep frame sizes as even as possible
