@@ -406,7 +406,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 desc.fps = 1;
                 desc.tile_count = 1;
 
-                s->frame_queue.push(vf_alloc_desc(desc));
+                s->frame_queue.push(vf_alloc_desc_data(desc));
         }
 
         gl_load_splashscreen(s);
