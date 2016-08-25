@@ -24,6 +24,7 @@
 #include "utils/misc.h"
 #include "tv.h"
 
+#include <cinttypes>
 #include <map>
 #include <string>
 #include <vector>
@@ -35,7 +36,7 @@ struct item;
 #define REPLICA_MAGIC 0xd2ff3323
 
 struct replica {
-    replica(const char *addr, int tx_port, int bufsize, struct module *parent) {
+    replica(const char *addr, uint16_t tx_port, int bufsize, struct module *parent) {
         magic = REPLICA_MAGIC;
         host = addr;
         m_tx_port = tx_port;
@@ -47,6 +48,9 @@ struct replica {
             fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
+        mod.name = (char *) malloc(strlen(addr) + 2 /* [ ] for IPv6 addr */ + 5 /* port */ + 1 /* '\0' */);
+        bool is_ipv6 = strchr(addr, ':') != NULL;
+        sprintf(mod.name, "%s%s%s:%" PRIu16, is_ipv6 ? "[" : "", addr, is_ipv6 ? "]" : "", tx_port);
         mod.priv_data = this;
         module_register(&mod, parent);
         type = replica::type_t::NONE;
@@ -259,23 +263,55 @@ static void *writer(void *arg)
         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
             struct response *r = NULL;
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
-                int index = atoi(msg->text + strlen("delete-port "));
-                hd_rum_decompress_remove_port(s->decompress, index);
-                delete s->replicas[index];
-                s->replicas.erase(s->replicas.begin() + index);
-                log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
+                char *port_spec = msg->text + strlen("delete-port ");
+                int index = -1;
+                if (isdigit(port_spec[0])) {
+                    int i = atoi(port_spec);
+                    if (i >= 0 && i < (int) s->replicas.size()) {
+                        index = i;
+                    } else {
+                        log_msg(LOG_LEVEL_WARNING, "Invalid port index: %d. Not removing.\n", i);
+                    }
+                } else {
+                    int i = 0;
+                    for (auto r : s->replicas) {
+                        if (strcmp(r->mod.name, port_spec) == 0) {
+                            index = i;
+                            break;
+                        }
+                        i++;
+                    }
+                    if (index == -1) {
+                        log_msg(LOG_LEVEL_WARNING, "Unknown port name: %s. Not removing.\n", port_spec);
+                    }
+                }
+                if (index >= 0) {
+                    hd_rum_decompress_remove_port(s->decompress, index);
+                    delete s->replicas[index];
+                    s->replicas.erase(s->replicas.begin() + index);
+                    log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
+                }
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
-                char *host, *save_ptr, *item;
+                char *host_port, *save_ptr;
+                char *host;
+                int tx_port;
                 strtok_r(msg->text, " ", &save_ptr);
-                host = strtok_r(NULL, " ", &save_ptr);
-                item = strtok_r(NULL, " ", &save_ptr);
-                if (!host || !item ) {
+                host_port = strtok_r(NULL, " ", &save_ptr);
+                if (!host_port || strchr(host_port, ':') == NULL) {
                     const char *err_msg = "wrong format";
                     log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
                     free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
                     continue;
+                } else {
+                    tx_port = atoi(strrchr(host_port, ':') + 1);
+                    host = host_port;
+                    *strrchr(host_port, ':') = '\0';
+                    // handle square brackets around an IPv6 address
+                    if (host[0] == '[' && host[strlen(host) - 1] == ']') {
+                        host += 1;
+                        host[strlen(host) - 1] = '\0';
+                    }
                 }
-                int tx_port = atoi(item);
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 struct replica *rep;
                 try {

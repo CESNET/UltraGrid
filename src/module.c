@@ -143,6 +143,8 @@ void module_done(struct module *module_data)
         simple_linked_list_destroy(tmp.msg_queue_childs);
 
         pthread_mutex_destroy(&tmp.lock);
+
+        free(tmp.name);
 }
 
 static const char *module_class_name_pairs[] = {
@@ -201,15 +203,24 @@ struct module *get_parent_module(struct module *node)
         return node->parent;
 }
 
-
-static struct module *find_child(struct module *node, const char *node_name, int index)
+/**
+ * id_num and id_name distinguish in case that the node has more child nodes with
+ * the same node_name (the same class). If id_name == NULL, id_num is used.
+ */
+static struct module *find_child(struct module *node, const char *node_name, int id_num,
+                const char *id_name)
 {
         for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
                 struct module *child = (struct module *) simple_linked_list_it_next(&it);
                 const char *child_name = module_class_name(child->cls);
                 assert(child_name != NULL);
                 if(strcasecmp(child_name, node_name) == 0) {
-                        if(index-- == 0) {
+                        if (id_name != NULL) {
+                                if (child->name && strcmp(child->name, id_name) == 0) {
+                                        simple_linked_list_it_destroy(it);
+                                        return child;
+                                }
+                        } else if (id_num-- == 0) {
                                 simple_linked_list_it_destroy(it);
                                 return child;
                         }
@@ -218,11 +229,22 @@ static struct module *find_child(struct module *node, const char *node_name, int
         return NULL;
 }
 
-static void get_receiver_index(char *node_str, int *index) {
-        *index = 0;
-        if(strchr(node_str, '[')) {
-                *index = atoi(strchr(node_str, '[') + 1);
+/**
+ * Parses path element, which might be either in form a single-word item (eg "display")
+ * or an array, either indexed by a number, in which case non-zero index will be returned
+ * or a module name (module::name member) which would be returned in name return value.
+ * Both indexing options are mutually exclusive.
+ */
+static void get_receiver_index(char *node_str, int *index, char **name) {
+        if (strchr(node_str, '[') && (strchr(node_str, ']') > strchr(node_str, '['))) {
+                char *item = strchr(node_str, '[') + 1;
                 *strchr(node_str, '[') = '\0';
+                *strchr(item, ']') = '\0';
+                if (isdigit(item[0])) {
+                        *index = atoi(item);
+                } else {
+                        *name = item;
+                }
         }
 }
 
@@ -272,9 +294,10 @@ struct module *get_matching_child(struct module *node, const char *const_path)
 
         tmp = path = strdup(const_path);
         if ((item = strtok_r(path, ".", &save_ptr))) {
-                int index;
-                get_receiver_index(item, &index);
-                receiver = find_child(receiver, item, index);
+                int id_num = 0;
+                char *id_name = NULL;
+                get_receiver_index(item, &id_num, &id_name);
+                receiver = find_child(receiver, item, id_num, id_name);
                 if (!receiver) {
                         free(tmp);
                         return NULL;

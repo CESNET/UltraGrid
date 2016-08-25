@@ -278,11 +278,24 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
 
         if(prefix_matches(message, "port ")) {
                 message = suffix(message, "port ");
-                snprintf(path, 1024, "%s[%d]", module_class_name(MODULE_CLASS_PORT), atoi(message));
-                while(isdigit(*message))
-                        message++;
-                while(isspace(*message))
-                        message++;
+                if (isdigit(message[0])) { // index is a number
+                        snprintf(path, 1024, "%s[%d]", module_class_name(MODULE_CLASS_PORT), atoi(message));
+                        while(isdigit(*message))
+                                message++;
+                        while(isspace(*message))
+                                message++;
+                } else { // index is a name
+                        char *port_id_name = message;
+                        while (!isspace(message[0]) && message[0] != '\0')
+                                message++;
+                        if (message[0] != '\0') {
+                                message[0] = '\0';
+                                message++;
+                        }
+                        snprintf(path, 1024, "%s[%s]", module_class_name(MODULE_CLASS_PORT), port_id_name);
+                        while (isspace(message[0]) && message[0] != '\0')
+                                message++;
+                }
         }
 
         if(strcasecmp(message, "quit") == 0) {

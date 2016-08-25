@@ -18,11 +18,15 @@ int simple_linked_list_size(struct simple_linked_list *);
  * for(void *it = simple_linked_list_it_init(list); it != NULL; ) {
  *          o-type *inst = simple_linked_list_it_next(&it);
  *          process(inst);
+ *          if (something_why_to_leave_the_loop) {
+ *                  simple_linked_list_it_destroy(it);
+ *                  break;
+ *          }
  * }
  */
 void *simple_linked_list_it_init(struct simple_linked_list *);
 void *simple_linked_list_it_next(void **it);
-void simple_linked_list_it_destroy(void *it);
+void simple_linked_list_it_destroy(void *it); ///< Should be used when it != NULL, eg. when leaving the loop before the end
 
 /**
  * @retval TRUE if removed
