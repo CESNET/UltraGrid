@@ -346,12 +346,15 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
+        auto last_not_timeout = std::chrono::steady_clock::time_point::min();
+
         while (!should_exit) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
+                auto curr_time_st = std::chrono::steady_clock::now();
                 auto curr_time_hr = std::chrono::high_resolution_clock::now();
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - curr_time_st).count() * 90000;
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
@@ -366,7 +369,12 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
-                timeout.tv_usec = 1000;
+                // use longer timeout when we are not receivng any data
+                if (std::chrono::duration_cast<std::chrono::duration<double>>(last_not_timeout - curr_time_st).count() > 1.0) {
+                        timeout.tv_usec = 100000;
+                } else {
+                        timeout.tv_usec = 1000;
+                }
                 ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
@@ -374,6 +382,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         // processing is needed here in case we are not receiving any data
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
+                } else {
+                        last_not_timeout = curr_time_st;
                 }
 
                 /* Decode and render for each participant in the conference... */
