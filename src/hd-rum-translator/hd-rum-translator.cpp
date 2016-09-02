@@ -464,7 +464,7 @@ struct host_opts {
 struct cmdline_parameters {
     const char *bufsize;
     unsigned short port;
-    struct host_opts *hosts;
+    vector<struct host_opts> hosts;
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
@@ -543,7 +543,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         }
     }
 
-    parsed->hosts = (struct host_opts *) calloc(parsed->host_count, sizeof(struct host_opts));
+    parsed->hosts.resize(parsed->host_count);
     // default values
     for(int i = 0; i < parsed->host_count; ++i) {
         parsed->hosts[i].bitrate = RATE_UNLIMITED;
