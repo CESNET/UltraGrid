@@ -292,25 +292,34 @@ static void *writer(void *arg)
                     log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
                 }
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
-                char *host_port, *save_ptr;
+                // format of parameters is either:
+                // <host>:<port> [<compression>]
+                // or (for compat with older CoUniverse version)
+                // <host> <port> [<compression>]
+                char *host_port, *port_str = NULL, *save_ptr;
                 char *host;
                 int tx_port;
                 strtok_r(msg->text, " ", &save_ptr);
                 host_port = strtok_r(NULL, " ", &save_ptr);
-                if (!host_port || strchr(host_port, ':') == NULL) {
-                    const char *err_msg = "wrong format";
-                    log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
-                    free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
-                    continue;
-                } else {
-                    tx_port = atoi(strrchr(host_port, ':') + 1);
-                    host = host_port;
-                    *strrchr(host_port, ':') = '\0';
+                if (host_port && (strchr(host_port, ':') != NULL || (port_str = strtok_r(NULL, " ", &save_ptr)) != NULL)) {
+                    if (port_str) {
+                        host = host_port;
+                        tx_port = atoi(port_str);
+                    } else {
+                        tx_port = atoi(strrchr(host_port, ':') + 1);
+                        host = host_port;
+                        *strrchr(host_port, ':') = '\0';
+                    }
                     // handle square brackets around an IPv6 address
                     if (host[0] == '[' && host[strlen(host) - 1] == ']') {
                         host += 1;
                         host[strlen(host) - 1] = '\0';
                     }
+                } else {
+                    const char *err_msg = "wrong format";
+                    log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
+                    free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
+                    continue;
                 }
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 struct replica *rep;
