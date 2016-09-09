@@ -1002,6 +1002,21 @@ void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len
 }
 
 /**
+ * @brief Converts UYVY to grayscale.
+ * @todo is this correct??
+ */
+void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int dst_len) {
+        while(dst_len > 0) {
+                src++; // U
+                *dst++ = *src++; // Y
+                src++; // V
+                *dst++ = *src++; // Y
+
+                dst_len -= 2;
+        }
+}
+
+/**
  * @brief Converts RGB to RGBA
  * @copydetails vc_copyliner10k
  */

@@ -105,6 +105,7 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len,
                 int rshift, int gshift, int bshift);
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
