@@ -50,6 +50,7 @@ CFLAGS="$CFLAGS -I$srcdir"
 CPPFLAGS="$CPPFLAGS -I$srcdir"
 CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++11"
 LIB_MODULES=
+AC_SUBST(INC)
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 AC_SUBST(POST_COMPILE_MSG)
@@ -176,12 +177,21 @@ then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         NVCCFLAGS="$NVCCFLAGS -Xcompiler -fPIC"
-        CU_SUFFIX="cu.o"
+        CU_OBJ_SUFFIX="cu.o"
 else
         NVCCFLAGS="-m32"
-        CU_SUFFIX="cu.lib"
+        CU_OBJ_SUFFIX="cu.lib"
 fi
 AC_SUBST(NVCCFLAGS)
+
+if test "$system" = MacOSX; then
+        GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
+else if test "$system" = Linux; then
+        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o src/x11_common.o"
+else
+        GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
+fi
+fi
 
 AC_ARG_VAR([ARCH], [Architecture to build for.])
 if test $target_cpu = x86_64;
@@ -218,6 +228,25 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
 ])
 
+# Adds the module to UltraGrid build system.
+# @param $1 name of the module
+# @param $2 object files
+# @param $3 libraries
+AC_DEFUN([ADD_MODULE], [
+          TARGET="lib/ultragrid/module_"$1".so"
+          LIB_OBJS=$LIB_OBJS" "$2
+          LIB_MODULES=$LIB_MODULES" "$3
+	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
+	  AM_COND_IF([IS_TARGET],
+		                [
+				 MODULES="$MODULES $TARGET"
+				 TARGETS="$TARGETS
+$TARGET: "$2"
+	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,module."$1.so" "$2" -o lib/ultragrid/module_"$1".so "$3"
+"
+				 ])
+          ])
+
 # -------------------------------------------------------------------------------------------------
 # Licensing
 # -------------------------------------------------------------------------------------------------
@@ -241,21 +270,6 @@ AC_SUBST(COPYRIGHT)
 # -------------------------------------------------------------------------------------------------
 # Additional macros
 # -------------------------------------------------------------------------------------------------
-
-AC_DEFUN([DEFINE_GL], [
-          AC_DEFINE([HAVE_LIBGL], 1, [We use GL libraries])
-
-          if test "$system" = MacOSX; then
-                  GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
-          else if test "$system" = Linux; then
-                  GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
-          else
-                  GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
-          fi
-          fi
-          AC_SUBST(GL_COMMON_OBJ)
-          ])
-
 AC_DEFUN([CUDA_MESSAGE], [
           if test -z "$cuda_msg_defined"; then
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
@@ -271,11 +285,18 @@ to your .bashrc file (in home directory). To take effect immediatelly, you will 
 AC_DEFUN([DEFINE_CUDA], [
           if test -z "$cuda_var_defined"; then
                   AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
-                  CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_SUFFIX
                   if test $system = Windows; then
+                          # It is twice by intent - as an object to force dependency
+                          # (== build the object), as a lib to be at the end of the
+                          # link list (it is a library) in MSW. TODO: make it prettier
+                          # somehow. The same applies also for other CUDA objs/libs.
+                          CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
+                          CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
                           DLL_LIBS="$DLL_LIBS src/cuda_wrapper.cu.dll"
+                  else
+                          CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
+                          CUDA_COMMON_LIB=
                   fi
-                  AC_SUBST(CUDA_COMMON_OBJ)
                   cuda_var_defined=yes
           fi
         ])
@@ -305,7 +326,6 @@ if test $ac_cv_func_drand48 = no
 then
 	AC_DEFINE([NEED_DRAND48], 1, [We need custom implementation of drand48.])
 fi
-
 
 # -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
@@ -606,27 +626,15 @@ then
 	then
 		DVS_LIB="$DVS_LIB -framework IOKit"
 	fi
-        AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_dvs.so")
-        AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/module_display_dvs.so")
-        LIB_TARGETS="$LIB_TARGETS $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $DVS_CAP_OBJ $DVS_DISP_OBJ"
+        ADD_MODULE("vidcap_dvs", "$DVS_CAP_OBJ", "$DVS_LIB")
+        ADD_MODULE("display_dvs", "$DVS_DISP_OBJ", "$DVS_LIB")
+	INC="$INC $DVS_INC"
         dvs=yes
-else
-        DVS_INC=
-        DVS_LIB=
-        DVS_OBJ=
 fi
 
 if test $dvs_req = yes -a $dvs = no; then
         AC_MSG_ERROR([DVS not found.])
 fi
-
-LIB_MODULES="$LIB_MODULES $DVS_LIB"
-
-AC_SUBST(DVS_INC)
-AC_SUBST(DVS_LIB)
-AC_SUBST(DVS_CAP_OBJ)
-AC_SUBST(DVS_DISP_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Blackmagic stuff
@@ -713,32 +721,20 @@ then
         OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-    AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_decklink.so")
-    AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/module_display_decklink.so")
-    AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_decklink.so")
-    LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
-    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
+    ADD_MODULE("vidcap_decklink", "$DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
+    ADD_MODULE("display_decklink", "$DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
+    ADD_MODULE("aplay_decklink", "$DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
     decklink=yes
+    INC="$INC $DECKLINK_INC"
 else
     DECKLINK_PATH=
-    DECKLINK_INC=
-    DECKLINK_CAP_OBJ=
-    DECKLINK_DISP_OBJ=
-    DECKLINK_LIB=
 fi
 
 if test $decklink_req = yes -a $decklink = no; then
         AC_MSG_ERROR([DeckLink not found.])
 fi
 
-LIB_MODULES="$LIB_MODULES $DECKLINK_LIB"
-
 AC_SUBST(DECKLINK_PATH)
-AC_SUBST(DECKLINK_INC)
-AC_SUBST(DECKLINK_LIB)
-AC_SUBST(DECKLINK_CAP_OBJ)
-AC_SUBST(DECKLINK_DISP_OBJ)
-AC_SUBST(DECKLINK_SOUND_PLAY_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
@@ -841,26 +837,18 @@ if test $system = Windows -o $system = Linux;then
         fi
 fi
 
-
-
 if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
-        AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_bluefish444.so")
-        AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/module_display_bluefish444.so")
-        LIB_TARGETS="$LIB_TARGETS $BLUEFISH444_CAP_LIB_TARGET $BLUEFISH444_DISP_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $BLUEFISH444_CAP_OBJ $BLUEFISH444_DISP_OBJ"
+        ADD_MODULE("vidcap_bluefish444", "$BLUEFISH444_CAP_OBJ", "$BLUEFISH444_LIB")
+        ADD_MODULE("display_bluefish444", "$BLUEFISH444_DISP_OBJ", "$BLUEFISH444_LIB")
         if test x$blue_audio = xyes; then
                 AC_DEFINE([HAVE_BLUE_AUDIO], [1], [Build with Bluefish444 audio support])
         fi
+	INC="$INC $BLUEFISH444_INC"
         bluefish444=yes
-else
-        BLUEFISH444_INC=
-        BLUEFISH444_LIB=
-        BLUEFISH444_CAP_OBJ=
-        BLUEFISH444_DISP_OBJ=
 fi
 AC_LANG_POP(C++)
 
@@ -871,14 +859,6 @@ CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 if test $bluefish444_req = yes -a $bluefish444 = no; then
         AC_MSG_ERROR([Bluefish444 not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $BLUEFISH444_LIB"
-
-AC_SUBST(BLUEFISH444_PATH)
-AC_SUBST(BLUEFISH444_INC)
-AC_SUBST(BLUEFISH444_LIB)
-AC_SUBST(BLUEFISH444_CAP_OBJ)
-AC_SUBST(BLUEFISH444_DISP_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # AJA stuff
@@ -924,21 +904,14 @@ then
                 AJA_CAP_OBJ="src/video_capture/aja.o"
                 AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
-                AC_SUBST(AJA_LIB_TARGET, "lib/ultragrid/module_vidcap_aja.so")
-                LIB_TARGETS="$LIB_TARGETS $AJA_LIB_TARGET"
-                LIB_OBJS="$LIB_OBJS $AJA_CAP_OBJ"
+                ADD_MODULE("vidcap_aja", "$AJA_CAP_OBJ", "$AJA_LIB")
+		INC="$INC $AJA_INC"
+		CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
         fi
 
         if test $aja_req = yes -a $aja = no; then
                 AC_MSG_ERROR([AJA not found]);
         fi
-
-LIB_MODULES="$LIB_MODULES $AJA_LIB"
-
-AC_SUBST(AJA_INC)
-AC_SUBST(AJA_LIB)
-AC_SUBST(AJA_CAP_OBJ)
-AC_SUBST(AJA_CXXFLAGS)
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -1069,30 +1042,15 @@ then
 	DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
 	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
 	AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-	AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_deltacast.so")
-	AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/module_display_deltacast.so")
-	LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
-	LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
+	ADD_MODULE("vidcap_deltacast", "$DELTACAST_CAP_OBJ", "$DELTACAST_LIB")
+        ADD_MODULE("display_deltacast", "$DELTACAST_DISP_OBJ", "$DELTACAST_LIB")
+	INC="$INC $DELTACAST_INC"
 	deltacast=yes
-else
-	DELTACAST_PATH=
-	DELTACAST_LIB=
-	DELTACAST_INC=
-	DELTACAST_CAP_OBJ=
-	DELTACAST_DISP_OBJ=
 fi
 
 if test $deltacast_req = yes -a $deltacast = no; then
         AC_MSG_ERROR([Deltacast not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $DELTACAST_LIB"
-
-AC_SUBST(DELTACAST_PATH)
-AC_SUBST(DELTACAST_INC)
-AC_SUBST(DELTACAST_LIB)
-AC_SUBST(DELTACAST_CAP_OBJ)
-AC_SUBST(DELTACAST_DISP_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
@@ -1123,8 +1081,8 @@ case $host_os in
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
-                        #LIB_TARGETS not needed here since we are not building modules on Mac
-                        LIB_OBJS="$LIB_OBJS $QUICKTIME_OBJ"
+                        ADD_MODULE("", "$QUICKTIME_OBJ", "$QUICKTIME_LIB")
+			INC="$INC $QUICKTIME_INC"
                         quicktime=yes
 		fi
     ;;
@@ -1134,12 +1092,6 @@ if test $quicktime_req = yes -a $quicktime = no; then
         AC_MSG_ERROR([QuickTime not found]);
 fi
 
-LIB_MODULES="$LIB_MODULES $QUICKTIME_LIB"
-
-AC_SUBST(QUICKTIME_INC)
-AC_SUBST(QUICKTIME_LIB)
-AC_SUBST(QUICKTIME_OBJ)
-
 # -------------------------------------------------------------------------------------------------
 # AV Foundation capture
 # -------------------------------------------------------------------------------------------------
@@ -1147,20 +1099,12 @@ avfoundation=no
 
 if test $system = MacOSX
 then
-	AVFOUNDATION_INC=""
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
-	#LIB_TARGETS not needed here since we are not building modules on Mac
-	LIB_OBJS="$LIB_OBJS $AVFOUNDATION_OBJ"
+	ADD_MODULE("", "$AVFOUNDATION_OBJ", "$AVFOUNDATION_LIB")
 	avfoundation=yes
 fi
-
-LIB_MODULES="$LIB_MODULES $AVFOUNDATION_LIB"
-
-AC_SUBST(AVFOUNDATION_INC)
-AC_SUBST(AVFOUNDATION_LIB)
-AC_SUBST(AVFOUNDATION_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
@@ -1286,19 +1230,12 @@ esac
 
 if test $sdl = yes
 then
-        AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/module_display_sdl.so")
-        LIB_TARGETS="$LIB_TARGETS $SDL_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $SDL_OBJ"
+        ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
 fi
 
 if test $sdl_req = yes -a $sdl = no; then
         AC_MSG_ERROR([SDL not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $SDL_LIBS"
-
-AC_SUBST(SDL_OBJ)
-AC_SUBST(SDL_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
@@ -1328,23 +1265,14 @@ then
         CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
         RTSP_INC=
         RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/module_vidcap_rtsp.so")
-        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
+        ADD_MODULE("vidcap_rtsp", "$RTSP_OBJ", "$RTSP_LIBS")
+	INC="$INC $RTSP_INC"
         rtsp=yes
 fi
 
 if test $rtsp_req = yes -a $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
 fi
-
-LIB_MODULES="$LIB_MODULES $RTSP_LIBS"
-
-AC_SUBST(RTSP_INC)
-AC_SUBST(RTSP_LIBS)
-AC_SUBST(RTSP_OBJ)
-
-
 
 # -------------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------
@@ -1380,9 +1308,7 @@ then
         CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
         RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
         RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
-        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/module_video_rxtx_h264.so")
-        LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
+        ADD_MODULE("video_rxtx_h264", "$RTSP_SERVER_OBJ", "$RTSP_SERVER_LIBS")
         rtsp_server=yes
         livemedia=yes
 fi
@@ -1390,11 +1316,6 @@ fi
 if test $rtsp_server_req = yes -a $rtsp_server = no; then
         AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
 fi
-
-LIB_MODULES="$LIB_MODULES $RTSP_SERVER_LIBS"
-
-AC_SUBST(RTSP_SERVER_LIBS)
-AC_SUBST(RTSP_SERVER_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Resize stuff
@@ -1419,20 +1340,13 @@ then
         CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-        AC_SUBST(VCAPTURE_FILTER_RESIZE_LIB_TARGET, "lib/ultragrid/module_vcapfilter_resize.so")
-
-        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_RESIZE_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $RESIZE_OBJ"
-        LIB_MODULES="$LIB_MODULES $RESIZE_LIBS"
+        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$RESIZE_LIBS")
         resize=yes
 fi
 
 if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
-
-AC_SUBST(RESIZE_LIBS)
-AC_SUBST(RESIZE_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Blank stuff
@@ -1457,24 +1371,13 @@ then
         CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
         BLANK_OBJ="src/capture_filter/blank.o"
-        AC_SUBST(VCAPTURE_FILTER_BLANK_LIB_TARGET, "lib/ultragrid/module_vcapfilter_blank.so")
-
-        LIB_TARGETS="$LIB_TARGETS $VCAPTURE_FILTER_BLANK_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $BLANK_OBJ"
-        LIB_MODULES="$LIB_MODULES $BLANK_LIBS"
+        ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
         blank=yes
 fi
 
 if test $blank_req = yes -a $blank = no; then
         AC_MSG_ERROR([Blank dep not found (libswscale)]);
 fi
-
-AC_SUBST(BLANK_LIBS)
-AC_SUBST(BLANK_OBJ)
-
-
-# -------------------------------------------------------------------------------------------------
-
 
 # -------------------------------------------------------------------------------------------------
 # Testcard stuff
@@ -1490,10 +1393,7 @@ TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
-AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/module_vidcap_testcard.so")
-LIB_TARGETS="$LIB_TARGETS $TESTCARD_LIB_TARGET"
 TESTCARD_COMMON="src/video_capture/testcard_common.o"
-LIB_OBJS="$LIB_OBJS $TESTCARD_OBJ $TESTCARD_COMMON"
 
 if test $testcard_extras_req != no
 then
@@ -1502,13 +1402,13 @@ then
         LIBS=$SAVED_LIBS
         if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD2_LIB="-lSDL_mixer"
+                TESTCARD_LIB="-lSDL_mixer"
         fi
 
         TESTCARD2_OBJ=
         if test $sdl = yes
         then
-                TESTCARD2_OBJ="src/video_capture/testcard2.o"
+                TESTCARD2_OBJ="$TESTCARD_COMMON src/video_capture/testcard2.o"
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
                 SAVED_LIBS=$LIBS
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
@@ -1519,37 +1419,25 @@ then
                         AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
                 AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
-                AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/module_vidcap_testcard2.so")
-                LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
-                LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
+                ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
         fi
         testcard_extras=yes
 else
         testcard_extras=no
 fi
 
+TESTCARD_OBJ="$TESTCARD_COMMON src/video_capture/testcard.o"
+ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
+
 if test $testcard_extras_req = yes -a $testcard_extras = no; then
         AC_MSG_ERROR([Testcard2 not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $TESTCARD_LIB"
-LIB_MODULES="$LIB_MODULES $TESTCARD2_LIB"
-
-AC_SUBST(TESTCARD_COMMON)
-
-AC_SUBST(TESTCARD_OBJ)
-AC_SUBST(TESTCARD_LIB)
-
-AC_SUBST(TESTCARD2_OBJ)
-AC_SUBST(TESTCARD2_LIB)
-
-
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
 # -------------------------------------------------------------------------------------------------
 GL_INC=
-GL_OBJ=
+GL_OBJ=$GL_COMMON_OBJ
 GL_LIB=
 gl=no
 
@@ -1714,20 +1602,13 @@ esac
 
 if test $gl = yes
 then
-        AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/module_display_gl.so")
-        LIB_TARGETS="$LIB_TARGETS $GL_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $GL_OBJ"
+	INC="$INC $GL_INC"
+        ADD_MODULE("display_gl", "$GL_OBJ", "$GL_LIB")
 fi
 
 if test $gl_req = yes -a $gl = no; then
         AC_MSG_ERROR([OpenGL not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $GL_LIB"
-
-AC_SUBST(GL_INC)
-AC_SUBST(GL_LIB)
-AC_SUBST(GL_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # These tests are shared for OpenGL processing
@@ -1766,6 +1647,7 @@ then
         OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
 fi
 
+
 # -------------------------------------------------------------------------------------------------
 # SW Mix Stuff
 # -------------------------------------------------------------------------------------------------
@@ -1785,23 +1667,14 @@ if test $swmix_req != no -a $OPENGL = yes
 then
         swmix=yes
         SWMIX_LIB="$OPENGL_LIB $X11_LIB"
-        SWMIX_OBJ="$SWMIX_OBJ src/video_capture/swmix.o"
-        AC_SUBST(SWMIX_LIB_TARGET, "lib/ultragrid/module_vidcap_swmix.so")
-        LIB_TARGETS="$LIB_TARGETS $SWMIX_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $SWMIX_OBJ"
+        SWMIX_OBJ="$SWMIX_OBJ $GL_COMMON_OBJ src/video_capture/swmix.o"
+        ADD_MODULE("vidcap_swmix", "$SWMIX_OBJ", "$SWMIX_LIB")
         AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
-        DEFINE_GL
 fi
 
 if test $swmix_req = yes -a $swmix = no; then
         AC_MSG_ERROR([SW mix was not found (OpenGL libraries missing)]);
 fi
-
-LIB_MODULES="$LIB_MODULES $SWMIX_LIB"
-
-AC_SUBST(SWMIX_INC)
-AC_SUBST(SWMIX_LIB)
-AC_SUBST(SWMIX_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Screen capture stuff
@@ -1871,26 +1744,18 @@ esac
 if test $screen_cap = yes
 then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
-        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/module_vidcap_screen.so")
         if test $system = MacOSX; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
         else if test $system = Linux; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_x11.o"
         fi
         fi
-        LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
+        ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
 fi
 
 if test $screen_cap_req = yes -a $screen_cap = no; then
         AC_MSG_ERROR([Screen capture not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
-
-AC_SUBST(SCREEN_CAP_INC)
-AC_SUBST(SCREEN_CAP_LIB)
-AC_SUBST(SCREEN_CAP_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
@@ -1915,30 +1780,22 @@ then
         rtdxt=yes
         RTDXT_LIB="$OPENGL_LIB $X_LIBS"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_util.o"
+        RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ $GL_COMMON_OBJ dxt_compress/dxt_util.o"
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
-        RTDXT_COMPRESS_OBJ="dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
-        RTDXT_DECOMPRESS_OBJ="dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
+        RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
+        RTDXT_DECOMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
-        AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_rtdxt.so")
-        AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_rtdxt.so")
-        LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
+        ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMMON_OBJ",
+                  "$RTDXT_LIB")
+        ADD_MODULE("vdecompress_rtdxt", "$RTDXT_COMMON_OBJ",
+                  "$RTDXT_LIB")
         LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
-        DEFINE_GL
 fi
 
 if test $rtdxt_req = yes -a $rtdxt = no; then
         AC_MSG_ERROR([RTDXT not found]);
 fi
 
-LIB_MODULES="$LIB_MODULES $RTDXT_LIB"
-
-AC_SUBST(RTDXT_COMMON_OBJ)
-AC_SUBST(RTDXT_COMMON_HEADERS)
-AC_SUBST(RTDXT_COMPRESS_OBJ)
-AC_SUBST(RTDXT_DECOMPRESS_OBJ)
-AC_SUBST(RTDXT_LIB)
 AC_SUBST(DXT_GLSL_CFLAGS)
 
 # -------------------------------------------------------------------------------------------------
@@ -1971,22 +1828,13 @@ fi
 if test $uyvy = yes
 then
         AC_DEFINE([HAVE_COMPRESS_UYVY], [1], [Build with dummy UYVY compression])
-        UYVY_COMPRESS_OBJ="src/video_compress/uyvy.o"
-        AC_SUBST(UYVY_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_uyvy.so")
-        LIB_TARGETS="$LIB_TARGETS $UYVY_COMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $UYVY_COMPRESS_OBJ"
-        DEFINE_GL
+        UYVY_COMPRESS_OBJ="$GL_COMMON_OBJ src/video_compress/uyvy.o"
+        ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$UYVY_LIB")
 fi
 
 if test $uyvy_req = yes -a $uyvy = no; then
         AC_MSG_ERROR([UYVY not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $UYVY_LIB"
-
-AC_SUBST(UYVY_COMPRESS_OBJ)
-AC_SUBST(UYVY_LIB)
-
 
 # -------------------------------------------------------------------------------------------------
 # CUDA staff
@@ -2112,10 +1960,8 @@ then
         JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
-        AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_jpeg.so")
-        AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_jpeg.so")
-        LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $JPEG_COMPRESS_OBJ $JPEG_DECOMPRESS_OBJ"
+        ADD_MODULE("vcompress_jpeg", "$JPEG_COMPRESS_OBJ", "$JPEG_LIB")
+        ADD_MODULE("vdecompress_jpeg", "$JPEG_DECOMPRESS_OBJ", "$JPEG_LIB")
 
         # check if GPUJPEG is new enough
         SAVED_LIBS=$LIBS
@@ -2126,19 +1972,13 @@ then
         LIBS=$SAVED_LIBS
         CFLAGS=$SAVED_CFLAGS
 
+	INC="$INC $JPEG_INC"
         CUDA_MESSAGE
 fi
 
 if test $jpeg_req = yes -a $jpeg = no; then
         AC_MSG_ERROR([JPEG not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $JPEG_LIB"
-
-AC_SUBST(JPEG_COMPRESS_OBJ)
-AC_SUBST(JPEG_DECOMPRESS_OBJ)
-AC_SUBST(JPEG_INC)
-AC_SUBST(JPEG_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # CUDA DXT
@@ -2149,11 +1989,15 @@ CUDA_DXT_LIB=
 
 cuda_dxt=no
 
-AC_DEFUN([ADD_CUDA_DXT_OBJ], [
+AC_DEFUN([DEFINE_CUDA_DXT], [
           if test -z "$included_shared_cuda_dxt_cu"; then
-                  LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.$CU_SUFFIX"
                   if test $system = Windows; then
+                          CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
+                          CUDA_DXT_COMMON_LIB="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
                           DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.cu.dll"
+                  else
+                          CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
+                          CUDA_DXT_COMMON_LIB=
                   fi
                   included_shared_cuda_dxt_cu=yes
           fi
@@ -2171,27 +2015,19 @@ if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
 then
         cuda_dxt=yes
 
-        CUDA_DXT_LIB=" $CUDA_LIB"
-        CUDA_DXT_INC=$CUDA_INC
-        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
-        AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
-        AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_cuda_dxt.so")
-        LIB_TARGETS="$LIB_TARGETS $CUDA_DXT_COMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS src/video_compress/cuda_dxt.o"
-        ADD_CUDA_DXT_OBJ
         DEFINE_CUDA
+        DEFINE_CUDA_DXT
+        CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
+        CUDA_DXT_INC=$CUDA_INC
+        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
+        AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
+        ADD_MODULE("vcompress_cuda_dxt", $CUDA_DXT_OBJ, "$CUDA_DXT_LIB")
         CUDA_MESSAGE
 fi
 
 if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
         AC_MSG_ERROR([CUDA DXT not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $CUDA_DXT_LIB"
-
-AC_SUBST(CUDA_DXT_OBJ)
-AC_SUBST(CUDA_DXT_INC)
-AC_SUBST(CUDA_DXT_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # JPEG to DXT plugin
@@ -2206,29 +2042,22 @@ AC_ARG_ENABLE(jpeg_to_dxt,
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
 then
+        DEFINE_CUDA
+        DEFINE_CUDA_DXT
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
-        JPEG_TO_DXT_LIB=" $CUDA_LIB $JPEG_LIB"
-        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
-        AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_jpeg_to_dxt.so")
-        LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o"
+        JPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $JPEG_LIB"
+        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
+        ADD_MODULE("vdecompress_jpeg_to_dxt", $JPEG_TO_DXT_OBJ, "$JPEG_TO_DXT_LIB")
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
-        ADD_CUDA_DXT_OBJ
-        DEFINE_CUDA
         CUDA_MESSAGE
 fi
+
 
 if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
 then
         AC_MSG_ERROR([JPEG to DXT transcoder not found])
 fi
-
-AC_SUBST(JPEG_TO_DXT_OBJ)
-AC_SUBST(JPEG_TO_DXT_INC)
-AC_SUBST(JPEG_TO_DXT_LIB)
-
-LIB_MODULES="$LIB_MODULES $JPEG_TO_DXT_LIB"
 
 # -------------------------------------------------------------------------------------------------
 # SAGE stuff
@@ -2283,34 +2112,19 @@ then
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
     SAGE_OBJ="src/video_display/sage.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-    AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/module_display_sage.so")
     CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
-    LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
-    LIB_OBJS="$LIB_OBJS $SAGE_OBJ"
+    ADD_MODULE("display_sage", "$SAGE_OBJ", "$SAGE_LIB")
+    INC="$INC $SAGE_INC"
     sage=yes
-else
-    SAGE_INC=
-    SAGE_LIB=
-    SAGE_OBJ=
 fi
 
 if test $sage_req = yes -a $sage = no; then
         AC_MSG_ERROR([SAGE not found]);
 fi
 
-LIB_MODULES="$LIB_MODULES $SAGE_LIB"
-
-AC_SUBST(SAGE_INC)
-AC_SUBST(SAGE_LIB)
-AC_SUBST(SAGE_OBJ)
-
 # -------------------------------------------------------------------------------------------------
 # AUDIO stuff
 
-PORTAUDIO_INC=
-PORTAUDIO_LIB=
-PORTAUDIO_CAP_OBJ=
-PORTAUDIO_PLAY_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio,
@@ -2338,27 +2152,13 @@ then
             PORTAUDIO_CAP_OBJ="src/audio/capture/portaudio.o"
             PORTAUDIO_PLAY_OBJ="src/audio/playback/portaudio.o"
             AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
-            AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/module_acap_portaudio.so")
-            AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_portaudio.so")
-            LIB_TARGETS="$LIB_TARGETS $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET"
-            LIB_OBJS="$LIB_OBJS $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
-else
-            PORTAUDIO_INC=
-            PORTAUDIO_LIB=
-            PORTAUDIO_CAP_OBJ=
-            PORTAUDIO_PLAY_OBJ=
+            ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
+            ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
 fi
 
 if test $portaudio_req = yes -a $portaudio = no; then
         AC_MSG_ERROR([PortAudio not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $PORTAUDIO_LIB"
-
-AC_SUBST(PORTAUDIO_INC)
-AC_SUBST(PORTAUDIO_LIB)
-AC_SUBST(PORTAUDIO_CAP_OBJ)
-AC_SUBST(PORTAUDIO_PLAY_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # SPEEX
@@ -2417,10 +2217,8 @@ then
     JACK_LIB="-ljack"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
-    AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/module_acap_jack.so")
-    AC_SUBST(JACK_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_jack.so")
-    LIB_TARGETS="$LIB_TARGETS $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET"
-    LIB_OBJS="$LIB_OBJS $JACK_CAP_OBJ $JACK_PLAY_OBJ"
+    ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "$JACK_LIB")
+    ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "$JACK_LIB")
 fi
 
 if test $jack = yes -a $speex = no
@@ -2433,13 +2231,6 @@ fi
 if test $jack_req = yes -a $jack = no; then
         AC_MSG_ERROR([JACK not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $JACK_LIB"
-
-AC_SUBST(JACK_CAP_OBJ)
-AC_SUBST(JACK_PLAY_OBJ)
-AC_SUBST(JACK_LIB)
-AC_SUBST(JACK_INC)
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -2461,29 +2252,18 @@ then
         ALSA_CAP_OBJ="src/audio/capture/alsa.o"
         ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
         ALSA_LIB="-lasound"
-        AC_SUBST(ALSA_CAP_LIB_TARGET, "lib/ultragrid/module_acap_alsa.so")
-        AC_SUBST(ALSA_PLAY_LIB_TARGET, "lib/ultragrid/module_aplay_alsa.so")
-        LIB_TARGETS="$LIB_TARGETS $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $ALSA_CAP_OBJ $ALSA_PLAY_OBJ"
+        ADD_MODULE("acap_alsa", "$ALSA_CAP_OBJ", "$ALSA_LIB")
+        ADD_MODULE("aplay_alsa", "$ALSA_PLAY_OBJ", "$ALSA_LIB")
 else
         alsa=no
-        ALSA_OBJ=
-        ALSA_LIB=
 fi
 
 if test $alsa_req = yes -a $alsa = no; then
         AC_MSG_ERROR([ALSA not found]);
 fi
 
-LIB_MODULES="$LIB_MODULES $ALSA_LIB"
-
-AC_SUBST(ALSA_CAP_OBJ)
-AC_SUBST(ALSA_PLAY_OBJ)
-AC_SUBST(ALSA_LIB)
-
 # -------------------------------------------------------------------------------------------------
 # CoreAudio Stuff
-COREAUDIO_INC=
 COREAUDIO_LIB=
 COREAUDIO_OBJ=
 coreaudio=no
@@ -2500,7 +2280,6 @@ case $host_os in
 
 		if test $coreaudio_req != no -a $FOUND_AUDIOUNIT_H = yes
 		then
-			COREAUDIO_INC=
 			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
@@ -2520,7 +2299,6 @@ if test $coreaudio_req = yes -a $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
 fi
 
-AC_SUBST(COREAUDIO_INC)
 AC_SUBST(COREAUDIO_LIB)
 AC_SUBST(COREAUDIO_OBJ)
 
@@ -2544,23 +2322,14 @@ if test $scale_req != no -a $OPENGL = yes
 then
         scale=yes
         SCALE_LIB="$SCALE_LIB $OPENGL_LIB $X11_LIB"
-        SCALE_OBJ="$SCALE_OBJ src/vo_postprocess/scale.o"
-        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/module_vo_pp_scale.so")
-        LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $SCALE_OBJ"
+        SCALE_OBJ="$SCALE_OBJ $GL_COMMON_OBJ src/vo_postprocess/scale.o"
+        ADD_MODULE("vo_pp_scale", "$SCALE_OBJ", "$SCALE_LIB")
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
-        DEFINE_GL
 fi
 
 if test $scale_req = yes -a $scale = no; then
         AC_MSG_ERROR([Scale not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $SCALE_LIB"
-
-AC_SUBST(SCALE_INC)
-AC_SUBST(SCALE_LIB)
-AC_SUBST(SCALE_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Text Stuff
@@ -2584,21 +2353,13 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
         TEXT_LIB="$TEXT_LIBS"
         TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
-        AC_SUBST(TEXT_LIB_TARGET, "lib/ultragrid/module_vo_pp_text.so")
-        LIB_TARGETS="$LIB_TARGETS $TEXT_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $TEXT_OBJ"
+        ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
         AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
 fi
 
 if test $text_req = yes -a $text = no; then
         AC_MSG_ERROR([text not found]);
 fi
-
-LIB_MODULES="$LIB_MODULES $TEXT_LIB"
-
-AC_SUBST(TEXT_INC)
-AC_SUBST(TEXT_LIB)
-AC_SUBST(TEXT_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # QT GUI
@@ -2646,24 +2407,14 @@ if test $v4l2_req != no -a $found_v4l2 = yes
 then
         V4L2_OBJ="src/video_capture/v4l2.o"
         AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
-        AC_SUBST(V4L2_LIB_TARGET, "lib/ultragrid/module_vidcap_v4l2.so")
-        LIB_TARGETS="$LIB_TARGETS $V4L2_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $V4L2_OBJ"
+        ADD_MODULE("vidcap_v4l2", "$V4L2_OBJ", "$V4L2_LIBS")
         CFLAGS="$CFLAGS $V4L2_CFLAGS"
         v4l2=yes
-else
-        V4L2_LIBS=
-        V4L2_OBJ=
 fi
 
 if test $v4l2_req = yes -a $v4l2 = no; then
         AC_MSG_ERROR([V4L2 not found]);
 fi
-
-AC_SUBST(V4L2_LIBS) # set by pkg-config
-AC_SUBST(V4L2_OBJ)
-
-LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -----------------------------------------------------------------------------
 # DirectShow
@@ -2678,8 +2429,8 @@ AC_ARG_ENABLE(dshow,
 
 if test $system = Windows -a $dshow_req != no; then
         AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
-        LIB_MODULES="$LIB_MODULES -lstrmiids -luuid -loleaut32 " #-lstrmbase -ldxguid -ldmoguids
-        LIB_OBJS="$LIB_OBJS src/video_capture/DirectShowGrabber.o"
+        ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
+                   "-lstrmiids -luuid -loleaut32") #-lstrmbase -ldxguid -ldmoguids
         dshow=yes
 fi
 
@@ -2726,36 +2477,22 @@ if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = y
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
-        AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/module_vcompress_libavcodec.so")
-        AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/module_vdecompress_libavcodec.so")
-
-        AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/module_acompress_libavcodec.so")
         AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
         LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
 
-        LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET $LIBAVCODEC_AUDIO_CODEC_LIB_TARGET"
         LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
         LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
-        LIB_OBJS="$LIB_OBJS $LIBAVCODEC_COMPRESS_OBJ $LIBAVCODEC_DECOMPRESS_OBJ $LIBAVCODEC_AUDIO_CODEC_OBJ"
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # append libavutil
-        LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
-else
-        LIBAVCODEC_LIBS=
-        LIBAVCODEC_OBJ=
+        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS")
+        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
+        ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
 fi
 
 if test $libavcodec_req = yes -a $libavcodec = no; then
         AC_MSG_ERROR([Libavcodec not found]);
 fi
-
-AC_SUBST(LIBAVCODEC_LIBS) # set by pkg-config
-AC_SUBST(LIBAVCODEC_COMPRESS_OBJ)
-AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
-AC_SUBST(LIBAVCODEC_AUDIO_CODEC_OBJ)
-
-LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
 
 # -------------------------------------------------------------------------------------------------
 # iHDTV
@@ -2825,25 +2562,17 @@ PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
 
 if test $crypto_req != no -a $crypto = yes; then
         OPENSSL_OBJ="src/crypto/openssl_encrypt.o src/crypto/openssl_decrypt.o"
-        AC_SUBST(OPENSSL_LIB_TARGET, "lib/ultragrid/module_openssl.so")
-        LIB_TARGETS="$LIB_TARGETS $OPENSSL_LIB_TARGET"
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
         CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
-        LIB_OBJS="$LIB_OBJS $OPENSSL_OBJ"
+        ADD_MODULE("openssl", "$OPENSSL_OBJ", "$CRYPTO_LIBS")
 else
         crypto=no
 fi
 
-LIB_MODULES="$LIB_MODULES $CRYPTO_LIBS"
-
 if test $crypto_req = yes -a $crypto = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
-
-AC_SUBST(OPENSSL_OBJ)
-AC_SUBST(CRYPTO_LIBS)
-AC_SUBST(OPENSSL_LIB_TAGET)
 
 # -------------------------------------------------------------------------------------------------
 # GPU accelerated LDGM
@@ -2858,34 +2587,30 @@ AC_ARG_ENABLE(ldgm-gpu,
 
 if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
+        DEFINE_CUDA
         CUDA_MESSAGE
         AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
-        LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o ldgm/src/gpu.$CU_SUFFIX src/rtp/ldgm_gpu.o"
+        LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
+        LDGM_GPU_LIBS="$CUDA_COMMON_LIB $CUDA_LIB"
         if test $system = Windows; then
                 DLL_LIBS="$DLL_LIBS ldgm/src/gpu.cu.dll"
+                LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
+                LDGM_GPU_LIBS="$LDGM_GPU_LIBS ldgm/src/gpu.$CU_OBJ_SUFFIX"
+        else
+                LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
         fi
-        AC_SUBST(LDGM_GPU_LIB_TARGET, "lib/ultragrid/module_ldgm_gpu.so")
-        LIB_TARGETS="$LIB_TARGETS $LDGM_GPU_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $LDGM_GPU_OBJS"
-        LDGM_GPU_LIBS=$CUDA_LIB
+        ADD_MODULE("ldgm_gpu", "$LDGM_GPU_OBJS", "$LDGM_GPU_LIBS")
         if test $WORD_LEN = 32 -a $system = Linux; then
                 NVCCFLAGS="$NVCCFLAGS -Xcompiler -msse2"
         fi
-        DEFINE_CUDA
         ldgm_gpu=yes
 else
         ldgm_gpu=no
 fi
 
-LIB_MODULES="$LIB_MODULES $LDGM_GPU_LIBS"
-
 if test $ldgm_gpu_req = yes -a $ldgm_gpu = no; then
         AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
 fi
-
-AC_SUBST(LDGM_GPU_OBJS)
-AC_SUBST(LDGM_GPU_LIBS)
-AC_SUBST(LDGM_GPU_LIB_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 # Syphon
@@ -2914,17 +2639,22 @@ fi
 if test "$build_libraries" != yes
 then
         LIBS="$LIB_MODULES $LIBS"
-        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
+        OBJS="$OBJS $LIB_OBJS $X_OBJ"
         HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
-        LIB_TARGETS=
         LIB_GENERATED_HEADERS=
+        MODULES=
+	TARGETS=
 fi
 
-AC_SUBST(LIB_OBJS)
-AC_SUBST(LIB_TARGETS)
+# remove duplicite objs
+OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
+AC_SUBST(LIB_OBJS)
+AC_SUBST(MODULES)
+AC_SUBST(TARGETS)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

@@ -8,15 +8,15 @@ LINKER        = @LINKER@
 COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith -DGF_BITS=16
 CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
-CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE @AJA_CXXFLAGS@
+CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
 NVCCFLAGS     = @NVCCFLAGS@ -gencode arch=compute_20,code=sm_20 -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
-INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
-		@BLUEFISH444_INC@ @CURSES_CFLAGS@ @CUDA_INC@ @AJA_INC@
+INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
+                @JACK_TRANS_INC@ @SPEEX_INC@ \
+		@CURSES_CFLAGS@ @CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
@@ -185,8 +185,6 @@ all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(SWITCHER_TARGET)
 src/dir-stamp:
 	${MKDIR_P} src src/audio src/audio/capture src/audio/codec src/audio/playback src/capture_filter src/compat src/crypto src/hd-rum-translator src/ihdtv src/rtp src/rtsp src/utils src/video_capture src/video_compress src/video_decompress src/video_display src/video_rxtx src/vo_postprocess ag_plugin bin cuda_dxt dxt_compress ldgm/src ldgm/matrix-gen lib lib/ultragrid
 	touch $@
-
-modules: @LIB_TARGETS@
 
 $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
@@ -472,7 +470,7 @@ clean:
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_GENERATED_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
+	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@ @X_OBJ@
 	-rm -rf $(IMPORT_C_TARGET) $(SWITCHER_TARGET)
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
@@ -538,163 +536,18 @@ osx-gui-dmg: bundle
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
-sdl: @SDL_LIB_TARGET@
-gl: @GL_LIB_TARGET@
-testcard: @TESTCARD_LIB_TARGET@
-testcard2: @TESTCARD2_LIB_TARGET@
-decklink: @DECKLINK_PLAY_LIB_TARGET@ @DECKLINK_CAP_LIB_TARGET@ @DECKLINK_SOUND_PLAY_LIB_TARGET@
-quad: @QUAD_LIB_TARGET@
-deltacast: @DELTACAST_DISP_LIB_TARGET@ @DELTACAST_CAP_LIB_TARGET@
-dvs: @DVS_CAP_LIB_TARGET@ @DVS_DISP_LIB_TARGET@
-screen: @SCREEN_CAP_LIB_TARGET@
-sage: @SAGE_LIB_TARGET@
-rtdxt: @RTDXT_COMPRESS_LIB_TARGET@ @RTDXT_DECOMPRESS_LIB_TARGET@
-uyvy: @UYVY_COMPRESS_LIB_TARGET@
-jpeg: @JPEG_DECOMPRESS_LIB_TARGET@ @JPEG_COMPRESS_LIB_TARGET@
-alsa: @ALSA_PLAY_LIB_TARGET@ @ALSA_CAP_LIB_TARGET@
-portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
-jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
-scale: @SCALE_LIB_TARGET@
-libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
-rtsp: @RTSP_LIB_TARGET@
-rtsp_server: @RTSP_SERVER_LIB_TARGET@
+modules: @MODULES@
 
-@AJA_LIB_TARGET@: @AJA_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_aja.so $^ @AJA_LIB@ -o $@
-
-
-@SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sdl.so $^ @SDL_LIBS@ -o $@
-
-@GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@ @GL_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_gl.so $^ @GL_LIB@ -o $@
-
-@RTSP_LIB_TARGET@: @RTSP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_rtsp.so $^ @RTSP_LIBS@ -o $@
-	
-@TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_testcard.so $^ @TESTCARD_LIB@ -o $@
-
-@SWMIX_LIB_TARGET@: @GL_COMMON_OBJ@ @SWMIX_OBJ@ @X_OBJ@ src/host.o
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_swmix.so $^ @SWMIX_LIB@ -o $@
-
-@TESTCARD2_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD2_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_testcard2.so $^ @TESTCARD2_LIB@ -o $@
-
-@DECKLINK_CAP_LIB_TARGET@: @DECKLINK_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_decklink.so $^ @DECKLINK_LIB@ -o $@
-
-@DECKLINK_DISP_LIB_TARGET@: @DECKLINK_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_decklink.so $^ @DECKLINK_LIB@ -o $@
-
-@BLUEFISH444_CAP_LIB_TARGET@: @BLUEFISH444_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_bluefish444.so $^ @BLUEFISH444_LIB@ -o $@
-
-@BLUEFISH444_DISP_LIB_TARGET@: @BLUEFISH444_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_bluefish444.so $^ @BLUEFISH444_LIB@ -o $@
-
-@DELTACAST_CAP_LIB_TARGET@: @DELTACAST_DISP_OBJ@ @DELTACAST_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_deltacast.so $^ @DELTACAST_LIB@ -o $@
-
-@DELTACAST_DISP_LIB_TARGET@: @DELTACAST_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_deltacast.so $^ @DELTACAST_LIB@ -o $@
-
-@DVS_CAP_LIB_TARGET@: src/video_display/dvs.o @DVS_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_dvs.so $^ @DVS_LIB@ -o $@
-
-@DVS_DISP_LIB_TARGET@: @DVS_DISP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_dvs.so $^ @DVS_LIB@ -o $@
-
-@SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_screen.so $^ @SCREEN_CAP_LIB@ -o $@
-
-@SAGE_LIB_TARGET@: @SAGE_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_display_sage.so $^ @SAGE_LIB@ -o $@
-
-@RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_rtdxt.so @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
-
-@UYVY_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_uyvy.so @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
-
-@LIBAVCODEC_COMPRESS_LIB_TARGET@: @LIBAVCODEC_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_libavcodec.so $^ @LIBAVCODEC_LIBS@ -o $@
-
-@LIBAVCODEC_DECOMPRESS_LIB_TARGET@: @LIBAVCODEC_DECOMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_libavcodec.so $^ @LIBAVCODEC_LIBS@ -o $@
-
-@LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@: @LIBAVCODEC_AUDIO_CODEC_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acompress.so $^ @LIBAVCODEC_LIBS@ -o $@
-
-@JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_jpeg.so $^ @JPEG_LIB@ -o $@
-
-@CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@ @CUDA_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcompress_cuda_dxt.so $^ @CUDA_DXT_LIB@ -o $@
-
-@RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_rtdxt.so  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
-
-@JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_jpeg.so $^ @JPEG_LIB@ -o $@
-
-@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @CUDA_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vdecompress_jpeg_to_dxt.so $^ @JPEG_TO_DXT_LIB@ -o $@
-
-
-@ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_alsa.so $^ @ALSA_LIB@ -o $@
-
-@ALSA_CAP_LIB_TARGET@: @ALSA_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_alsa.so $^ @ALSA_LIB@ -o $@
-
-@PORTAUDIO_PLAY_LIB_TARGET@: @PORTAUDIO_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_portaudio.so $^ @PORTAUDIO_LIB@ -o $@
-
-@PORTAUDIO_CAP_LIB_TARGET@: @PORTAUDIO_CAP_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_portaudio.so $^ @PORTAUDIO_LIB@ -o $@
-
-@JACK_CAP_LIB_TARGET@: @JACK_CAP_OBJ@ @SPEEX_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_acap_jack.so $^ @JACK_LIB@ -o $@
-
-@JACK_PLAY_LIB_TARGET@: @JACK_PLAY_OBJ@ @SPEEX_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_jack.so $^ @JACK_LIB@ -o $@
-
-@DECKLINK_SOUND_PLAY_LIB_TARGET@: @DECKLINK_SOUND_PLAY_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_aplay_decklink.so $^ @DECKLINK_LIB@ -o $@
-
-@SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@ @X_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vo_pp_scale.so $^ @SCALE_LIB@ -o $@
-
-@TEXT_LIB_TARGET@: @TEXT_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vo_pp_text.so $^ @TEXT_LIB@ -o $@
-
-@V4L2_LIB_TARGET@: @V4L2_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vidcap_v4l2.so $^ @V4L2_LIBS@ -o $@
-
-@RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_video_rxtx_h264.so $^ @RTSP_SERVER_LIBS@ -o $@
-
-@VCAPTURE_FILTER_RESIZE_LIB_TARGET@: @RESIZE_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcapfilter_resize.so $^ @RESIZE_LIBS@ -o $@
-
-@VCAPTURE_FILTER_BLANK_LIB_TARGET@: @BLANK_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_vcapfilter_blank.so $^ @BLANK_LIBS@ -o $@
-
-@OPENSSL_LIB_TARGET@: @OPENSSL_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_openssl.so $^ @CRYPTO_LIBS@ -o $@
-
-@LDGM_GPU_LIB_TARGET@: @LDGM_GPU_OBJS@ @CUDA_COMMON_OBJ@
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,module_ldgm_gpu.so $^ @LDGM_GPU_LIBS@ -o $@
+@TARGETS@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)/$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then $(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir); fi
-	if [ -n "@LIB_TARGETS@" ]; then\
+	if [ -n "@MODULES@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
-		$(INSTALL) -m 644 @LIB_TARGETS@ $(DESTDIR)/$(libdir)/ultragrid/;\
+		$(INSTALL) -m 644 @MODULES@ $(DESTDIR)/$(libdir)/ultragrid/;\
 	fi
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
@@ -706,7 +559,7 @@ install: all
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv
 	$(RM) $(DESTDIR)/$(bindir)/hd-rum-transcode
-	if [ -n "@LIB_TARGETS@" ]; then for n in @LIB_TARGETS@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
+	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
 	$(RM) $(DESTDIR)/$(docdir)/@COPYRIGHT@
