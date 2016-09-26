@@ -49,6 +49,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "memory.h"
+#include "compat/platform_pipe.h"
 #include "compat/platform_semaphore.h"
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
@@ -58,11 +59,13 @@
 #include "addrinfo.h"
 #endif
 
+#include <algorithm>
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
 
 using std::condition_variable;
+using std::max;
 using std::mutex;
 using std::unique_lock;
 
@@ -151,7 +154,8 @@ struct _socket_udp {
         condition_variable boss_cv;
         condition_variable reader_cv;
 
-        void *to_be_freed; /// Data that should be freed with free() (may have remained from killed thread)
+        bool should_exit;
+        fd_t should_exit_fd[2];
 #ifdef WIN32
         WSAOVERLAPPED *overlapped;
         WSAEVENT *overlapped_events;
@@ -804,6 +808,8 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = s->queue;
                 s->queue_head = s->queue_tail = s->queue;
 
+                platform_pipe_init(s->should_exit_fd);
+
                 pthread_create(&s->thread_id, NULL, udp_reader, s);
         }
 
@@ -859,27 +865,23 @@ void udp_exit(socket_udp * s)
         }
 
         if (s->multithreaded) {
-                pthread_cancel(s->thread_id);
-#ifdef WIN32
-                closesocket(s->fd);
-#endif
+                char c = 0;
+                send(s->should_exit_fd[1], &c, 1, 0);
+                s->should_exit = true;
+                s->reader_cv.notify_one();
                 pthread_join(s->thread_id, NULL);
                 while (s->queue_tail != s->queue_head) {
                         free(s->queue_tail->buf);
                         s->queue_tail = s->queue_tail->next;
                 }
+                platform_pipe_close(s->should_exit_fd[1]);
         }
 
         udp_clean_async_state(s);
 
-        // close socket if haven't been already closed (either not on Winows or not multithreaded)
-#ifdef WIN32
-        if (!s->multithreaded)
-#endif
-                CLOSESOCKET(s->fd);
+        CLOSESOCKET(s->fd);
 
         free(s->addr);
-        free(s->to_be_freed);
         delete s;
 }
 
@@ -964,14 +966,24 @@ static void *udp_reader(void *arg)
 {
         socket_udp *s = (socket_udp *) arg;
 
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-
-        uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
-        uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-        s->to_be_freed = packet;
-
         while (1) {
-                pthread_testcancel();
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(s->fd, &fds);
+                FD_SET(s->should_exit_fd[0], &fds);
+                int nfds = max(s->fd, s->should_exit_fd[0]) + 1;
+
+                int rc = select(nfds, &fds, NULL, NULL, NULL);
+                if (rc <= 0) {
+                        perror("select");
+                        continue;
+                }
+                if (FD_ISSET(s->should_exit_fd[0], &fds)) {
+                        break;
+                }
+                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+
                 int size = recvfrom(s->fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
@@ -982,25 +994,25 @@ static void *udp_reader(void *arg)
                         /// we got WSAECONNRESET error (noone is listening). This can have
                         /// negative performance impact.
                         socket_error("recvfrom");
-                        pthread_testcancel();
                         continue;
                 }
 
                 unique_lock<mutex> lk(s->lock);
-                s->reader_cv.wait(lk, [s]{return s->queue_head->next != s->queue_tail;});
+                s->reader_cv.wait(lk, [s]{return s->queue_head->next != s->queue_tail || s->should_exit;});
+                if (s->should_exit) {
+                        free(packet);
+                        break;
+                }
 
                 s->queue_head->size = size;
                 s->queue_head->buf = packet;
                 s->queue_head = s->queue_head->next;
-                s->to_be_freed = nullptr;
 
                 lk.unlock();
                 s->boss_cv.notify_one();
-
-                packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
-                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-                s->to_be_freed = packet;
         }
+
+        platform_pipe_close(s->should_exit_fd[0]);
 
         return NULL;
 }
