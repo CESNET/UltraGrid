@@ -50,28 +50,7 @@
 #include "debug.h"
 
 #include <time.h>
-#include <sys/time.h>
 #include "compat/platform_time.h"
-
-#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
-#include <mach/clock.h>
-#include <mach/mach.h>
-
-int clock_gettime(int unused, struct timespec *ts) {
-	UNUSED(unused);
-
-        clock_serv_t cclock;
-        mach_timespec_t mts;
-
-        host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-        clock_get_time(cclock, &mts);
-        mach_port_deallocate(mach_task_self(), cclock);
-        ts->tv_sec = mts.tv_sec;
-        ts->tv_nsec = mts.tv_nsec;
-
-	return 0;
-}
-#endif
 
 uint64_t time_since_epoch_in_ms()
 {
