@@ -64,6 +64,10 @@
 
 #include "utils/misc.h" // to_fourcc
 
+#ifdef __SSSE3__
+#include "tmmintrin.h"
+#endif
+
 #ifdef __cplusplus
 #include <algorithm>
 using std::max;
@@ -1138,6 +1142,99 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
+ * @brief Converts UYVY to RGB using SSE.
+ * Uses Rec. 709 with standard SDI ceiling and floor
+ * There can be some inaccuracies due to the use of integer arithmetic
+ * @copydetails vc_copylinev210
+ * @todo make it faster if needed
+ */
+void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+#ifdef __SSSE3__
+        __m128i yfactor = _mm_set1_epi16(74); //1.164 << 6
+        __m128i rvfactor = _mm_set1_epi16(115); //1.793 << 6
+        __m128i gvfactor = _mm_set1_epi16(34); //0.534 << 6
+        __m128i gufactor = _mm_set1_epi16(14); //0.213 << 6
+        __m128i bufactor = _mm_set1_epi16(135); //2.115 << 6
+
+        __m128i ysub = _mm_set1_epi16(16);
+        __m128i uvsub = _mm_set1_epi16(128);
+
+        __m128i zero128 = _mm_set1_epi32(0);
+        __m128i max = _mm_set1_epi16(255);
+                                       //YYVVYYUU
+        __m128i ymask = _mm_set1_epi32(0x00FF00FF);
+        __m128i umask = _mm_set1_epi32(0x000000FF);
+
+        __m128i rgbshuffle = _mm_setr_epi8(0, 2, 1, 4, 6, 5, 8, 10, 9, 12, 14, 13, 15, 11, 7, 3);
+
+        __m128i yuv;
+        __m128i rgb;
+
+        __m128i y;
+        __m128i u;
+        __m128i v;
+        __m128i r;
+        __m128i g;
+        __m128i b;
+
+        while(dst_len >= 28){
+                yuv = _mm_lddqu_si128((__m128i const*) src);
+                src += 16;
+
+                u = _mm_and_si128(yuv, umask);
+                u = _mm_or_si128(u, _mm_bslli_si128(u, 2));
+
+                yuv = _mm_bsrli_si128(yuv, 1);
+                y = _mm_and_si128(yuv, ymask);
+
+                yuv = _mm_bsrli_si128(yuv, 1);
+                v = _mm_and_si128(yuv, umask);
+                v = _mm_or_si128(v, _mm_bslli_si128(v, 2));
+
+                y = _mm_subs_epi16(y, ysub);
+                y = _mm_mullo_epi16(y, yfactor);
+
+                u = _mm_subs_epi16(u, uvsub);
+                v = _mm_subs_epi16(v, uvsub);
+
+                r = _mm_adds_epi16(y, _mm_mullo_epi16(v, rvfactor));
+                g = _mm_subs_epi16(y, _mm_mullo_epi16(v, gvfactor));
+                g = _mm_subs_epi16(g, _mm_mullo_epi16(u, gufactor));
+                b = _mm_adds_epi16(y, _mm_mullo_epi16(u, bufactor));
+
+                //Make sure that the result is in the interval 0..255
+                r = _mm_max_epi16(zero128, r);
+                g = _mm_max_epi16(zero128, g);
+                b = _mm_max_epi16(zero128, b);
+
+                r = _mm_srli_epi16(r, 6);
+                g = _mm_srli_epi16(g, 6);
+                b = _mm_srli_epi16(b, 6);
+
+                r = _mm_min_epi16(max, r);
+                g = _mm_min_epi16(max, g);
+                b = _mm_min_epi16(max, b);
+
+                rgb = _mm_or_si128(_mm_bslli_si128(g, 1), r);
+                rgb = _mm_unpacklo_epi8(rgb, b);
+                rgb = _mm_shuffle_epi8(rgb, rgbshuffle);
+                _mm_storeu_si128((__m128i *) dst, rgb);
+                dst += 12;
+
+                rgb = _mm_or_si128(_mm_bslli_si128(g, 1), r);
+                rgb = _mm_unpackhi_epi8(rgb, b);
+                rgb = _mm_shuffle_epi8(rgb, rgbshuffle);
+                _mm_storeu_si128((__m128i *) dst, rgb);
+                dst += 12;
+
+                dst_len -= 24;
+        }
+#endif
+        //copy last few pixels
+        vc_copylineUYVYtoRGB(dst, src, dst_len);
+}
+
+/**
  * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
@@ -1145,6 +1242,109 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 3);
+}
+
+/**
+ * @brief Converts RGB to UYVY using SSE.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ * There can be some inaccuracies due to the use of integer arithmetic
+ * @copydetails vc_copylinev210
+ */
+void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+#ifdef __SSSE3__
+        __m128i rgb;
+        __m128i yuv;
+
+        __m128i r;
+        __m128i g;
+        __m128i b;
+
+        __m128i y;
+        __m128i u;
+        __m128i v;
+
+        //BB BB BB BB GR GR GR GR
+        __m128i shuffle = _mm_setr_epi8(0, 1, 3, 4, 6, 7, 9, 10, 2, 2, 5, 5, 8, 8, 11, 11);
+        __m128i mask = _mm_setr_epi16(0x00FF, 0x00FF, 0x00FF, 0x00FF, 0, 0, 0, 0);
+        __m128i lowmask = _mm_setr_epi16(0, 0, 0, 0, 0x00FF, 0x00FF, 0x00FF, 0x00FF);
+        __m128i zero = _mm_set1_epi16(0);
+
+        __m128i yrf = _mm_set1_epi16(23);
+        __m128i ygf = _mm_set1_epi16(79);
+        __m128i ybf = _mm_set1_epi16(8);
+
+        __m128i urf = _mm_set1_epi16(13);
+        __m128i ugf = _mm_set1_epi16(43);
+        __m128i ubf = _mm_set1_epi16(56);
+
+        __m128i vrf = _mm_set1_epi16(56);
+        __m128i vgf = _mm_set1_epi16(51);
+        __m128i vbf = _mm_set1_epi16(5);
+
+        __m128i yadd = _mm_set1_epi16(2048);
+        __m128i uvadd = _mm_set1_epi16(16384);
+
+        while(dst_len >= 16){
+                //Load first 4 pixels
+                rgb = _mm_lddqu_si128((__m128i const*) src);
+
+                src += 12;
+                rgb = _mm_shuffle_epi8(rgb, shuffle);
+
+                r = _mm_and_si128(rgb, mask);
+                rgb = _mm_bsrli_si128(rgb, 1);
+                //0B BB BB BB BG RG RG RG
+                g = _mm_and_si128(rgb, mask);
+                rgb = _mm_bsrli_si128(rgb, 7);
+                //00 00 00 00 BB BB BB BB
+                b = _mm_and_si128(rgb, mask);
+
+                //Load next 4 pixels
+                rgb = _mm_lddqu_si128((__m128i const*) src);
+                src += 12;
+                rgb = _mm_shuffle_epi8(rgb, shuffle);
+                b = _mm_or_si128(b, _mm_and_si128(rgb, lowmask));
+                rgb = _mm_bslli_si128(rgb, 7);
+                g = _mm_or_si128(g, _mm_and_si128(rgb, lowmask));
+                //0B BB BB BB BG RG RG RG
+                rgb = _mm_bslli_si128(rgb, 1);
+                r = _mm_or_si128(r, _mm_and_si128(rgb, lowmask));
+                //00 00 00 00 BB BB BB BB
+
+                //Compute YUV values
+                y = _mm_adds_epi16(yadd, _mm_mullo_epi16(r, yrf));
+                y = _mm_adds_epi16(y, _mm_mullo_epi16(g, ygf));
+                y = _mm_adds_epi16(y, _mm_mullo_epi16(b, ybf));
+
+                u = _mm_subs_epi16(uvadd, _mm_mullo_epi16(r, urf));
+                u = _mm_subs_epi16(u, _mm_mullo_epi16(g, ugf));
+                u = _mm_adds_epi16(u, _mm_mullo_epi16(b, ubf));
+
+                v = _mm_adds_epi16(uvadd, _mm_mullo_epi16(r, vrf));
+                v = _mm_subs_epi16(v, _mm_mullo_epi16(g, vgf));
+                v = _mm_subs_epi16(v, _mm_mullo_epi16(b, vbf));
+
+                y = _mm_srli_epi16(y, 7);
+                u = _mm_srli_epi16(u, 7);
+                v = _mm_srli_epi16(v, 7);
+
+                u = _mm_hadd_epi16(u, v);
+                u = _mm_srli_epi16(u, 1);
+
+                v = _mm_unpackhi_epi16(zero, u);
+                u = _mm_unpacklo_epi16(u, zero);
+
+                y = _mm_bslli_si128(y, 1);
+                yuv = _mm_or_si128(y, u);
+                yuv = _mm_or_si128(yuv, v);
+
+                _mm_storeu_si128((__m128i *) dst, yuv);
+                dst += 16;
+                dst_len -= 16;
+        }
+#endif
+        //copy last few pixels
+        vc_copylineRGBtoUYVY(dst, src, dst_len);
 }
 
 /**
