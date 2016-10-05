@@ -185,12 +185,11 @@ else
 fi
 fi
 
-AC_ARG_VAR([ARCH], [Architecture to build for.])
-if test $target_cpu = x86_64;
+AC_ARG_VAR([ARCH], [Architecture to build for])
+if test $target_cpu = x86_64 -o $target_cpu = i686
 then
-        test -z "$ARCH" && ARCH="-mssse3"
+        test -z "$ARCH" && ARCH="-msse4"
 fi
-#if test -z "$ARCH" && ARCH="-mssse3"
 CFLAGS="$CFLAGS $ARCH"
 CXXFLAGS="$CXXFLAGS $ARCH"
 
