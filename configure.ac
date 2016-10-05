@@ -1,6 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT([UltraGrid], [1.3], [ultragrid-dev@cesnet.cz])
+AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
 AC_CONFIG_SRCDIR([src/main.cpp])
@@ -181,6 +182,15 @@ else
         CU_SUFFIX="cu.lib"
 fi
 AC_SUBST(NVCCFLAGS)
+
+AC_ARG_VAR([ARCH], [Architecture to build for.])
+if test $target_cpu = x86_64;
+then
+        test -z "$ARCH" && ARCH="-mssse3"
+fi
+#if test -z "$ARCH" && ARCH="-mssse3"
+CFLAGS="$CFLAGS $ARCH"
+CXXFLAGS="$CXXFLAGS $ARCH"
 
 AC_CHECK_HEADERS([termios.h])
 
@@ -2920,7 +2930,7 @@ AC_SUBST(LIB_GENERATED_HEADERS)
 # Finally, substitute things into the Makefile and config.h
 
 RESULT=\
-"  Target ...................... $host
+"  Target ...................... $target
   Debug output ................ $debug_output
   Profiling support ........... $profile
   IPv6 support ................ $ipv6
