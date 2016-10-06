@@ -115,14 +115,15 @@ OBJS	      = @OBJS@ \
 		src/crypto/md5.o \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
+		src/lib_common.o \
 		src/module.o \
 		src/rtsp/rtsp_utils.o \
-		src/utils/config_file.o \
-		src/utils/list.o \
-		src/lib_common.o \
 		src/ug_runtime_error.o \
 		src/utils/audio_buffer.o \
+		src/utils/config_file.o \
+		src/utils/list.o \
 		src/utils/misc.o \
+		src/utils/net.o \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \

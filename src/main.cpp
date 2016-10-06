@@ -73,9 +73,11 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
 #include "ug_runtime_error.h"
 #include "utils/misc.h"
+#include "utils/net.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
@@ -537,7 +539,7 @@ int main(int argc, char *argv[])
         long packet_rate;
         const char *requested_mcast_if = NULL;
 
-        unsigned requested_mtu = 1500;
+        unsigned requested_mtu = 0;
         const char *postprocess = NULL;
         const char *requested_display = "none";
         const char *requested_receiver = "::1";
@@ -911,23 +913,6 @@ int main(int argc, char *argv[])
                 }
         }
 
-        printf("%s", PACKAGE_STRING);
-#ifdef GIT_VERSION
-        printf(" (rev %s)", GIT_VERSION);
-#endif
-        printf("\n");
-        printf("Display device   : %s\n", requested_display);
-        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
-        printf("Audio capture    : %s\n", audio_send);
-        printf("Audio playback   : %s\n", audio_recv);
-        printf("MTU              : %d B\n", requested_mtu);
-        printf("Video compression: %s\n", requested_compression);
-        printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
-        printf("Network protocol : %s\n", video_rxtx::get_long_name(video_protocol));
-        printf("Audio FEC        : %s\n", requested_audio_fec);
-        printf("Video FEC        : %s\n", requested_video_fec);
-        printf("\n");
-
         if (strcmp("none", audio_recv) != 0) {
                 audio_rxtx_mode |= MODE_RECEIVER;
         }
@@ -979,12 +964,13 @@ int main(int argc, char *argv[])
                 }
         }
 
-        if(should_export) {
-                if(!enable_export(export_opts)) {
-                        fprintf(stderr, "Export initialization failed.\n");
-                        return EXIT_FAILURE;
+        if (requested_mtu == 0) {
+                if (is_host_loopback(requested_receiver) && video_rx_port == video_tx_port &&
+                                audio_rx_port == audio_tx_port) {
+                        requested_mtu = min(RTP_MAX_MTU, 65536);
+                } else {
+                        requested_mtu = 1500;
                 }
-                video_exporter = video_export_init(export_dir);
         }
 
         if (bitrate != RATE_AUTO && bitrate != RATE_UNLIMITED) {
@@ -997,14 +983,7 @@ int main(int argc, char *argv[])
                 requested_receiver = argv[0];
         }
 
-        if (control_port != -1) {
-                if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
-                        fprintf(stderr, "Error: Unable to initialize remote control!\n");
-                        return EXIT_FAIL_CONTROL_SOCK;
-                }
-        }
-
-        if(!audio_host) {
+        if (!audio_host) {
                 audio_host = requested_receiver;
         }
 #ifdef HAVE_RTSP_SERVER
@@ -1013,6 +992,39 @@ int main(int argc, char *argv[])
             isStd = TRUE;
         }
 #endif
+
+        printf("%s", PACKAGE_STRING);
+#ifdef GIT_VERSION
+        printf(" (rev %s)", GIT_VERSION);
+#endif
+        printf("\n\n");
+        printf("Display device   : %s\n", requested_display);
+        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
+        printf("Audio capture    : %s\n", audio_send);
+        printf("Audio playback   : %s\n", audio_recv);
+        printf("MTU              : %d B\n", requested_mtu);
+        printf("Video compression: %s\n", requested_compression);
+        printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
+        printf("Network protocol : %s\n", video_rxtx::get_long_name(video_protocol));
+        printf("Audio FEC        : %s\n", requested_audio_fec);
+        printf("Video FEC        : %s\n", requested_video_fec);
+        printf("\n");
+
+        if(should_export) {
+                if(!enable_export(export_opts)) {
+                        fprintf(stderr, "Export initialization failed.\n");
+                        return EXIT_FAILURE;
+                }
+                video_exporter = video_export_init(export_dir);
+        }
+
+        if (control_port != -1) {
+                if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
+                        fprintf(stderr, "Error: Unable to initialize remote control!\n");
+                        return EXIT_FAIL_CONTROL_SOCK;
+                }
+        }
+
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, requested_encryption,
