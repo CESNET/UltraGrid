@@ -77,8 +77,11 @@ static struct video_frame *display_dummy_getf(void *state)
         return ((dummy_display_state *) state)->f;
 }
 
-static int display_dummy_putf(void *state, struct video_frame * /* frame */, int)
+static int display_dummy_putf(void *state, struct video_frame * /* frame */, int flags)
 {
+        if (flags == PUTF_DISCARD) {
+                return 0;
+        }
         auto s = (dummy_display_state *) state;
         auto curr_time = steady_clock::now();
         s->frames += 1;
