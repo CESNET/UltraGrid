@@ -388,7 +388,6 @@ static void udp_leave_mcast_grp4(unsigned long addr, int fd)
                     (fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_DROP_MEMBERSHIP");
-                        abort();
                 }
                 debug_msg("Dropped membership of multicast group\n");
         }
@@ -500,7 +499,6 @@ static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd)
                     (fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_DROP_MEMBERSHIP");
-                        abort();
                 }
         }
 #else
