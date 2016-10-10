@@ -578,6 +578,8 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
 
         free(tmp);
 
+        printf("Enable video input: %dx%d %f fps %s, codec %s\n", s->desc.width, s->desc.height, s->desc.fps, get_interlacing_description(s->desc.interlacing), get_codec_name(s->desc.color_spec));
+
         *state = s;
         return VIDCAP_INIT_OK;
 
