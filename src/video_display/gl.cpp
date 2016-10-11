@@ -813,6 +813,7 @@ static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
                         break;
                 case ' ':
                         gl->paused = !gl->paused;
+                        LOG(LOG_LEVEL_NOTICE) << "[GL] " << (gl->paused ? "Paused (press <space> to unpause)" : "Unpaused") << "\n";
                         break;
                 case 's':
                         screenshot(gl->current_frame);
