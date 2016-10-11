@@ -189,7 +189,7 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>][:buffers=<bufcnt>]\n");
+        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
@@ -394,12 +394,20 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                                         width = atoi(item + strlen("size="));
                                         height = atoi(strchr(item, 'x') + 1);
                                 }
-                        } else if (strncmp(item, "tpf=",
-                                        strlen("tpf=")) == 0) {
-                                        if(strchr(item, '/')) {
-                                                numerator = atoi(item + strlen("tpf="));
-                                                denominator = atoi(strchr(item, '/') + 1);
-                                        }
+                        } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
+                                numerator = atoi(item + strlen("tpf="));
+                                if (strchr(item, '/')) {
+                                        denominator = atoi(strchr(item, '/') + 1);
+                                } else {
+                                        denominator = 1;
+                                }
+                        } else if (strncmp(item, "fps=", strlen("fps=")) == 0) {
+                                denominator = atoi(item + strlen("fps="));
+                                if(strchr(item, '/')) {
+                                        numerator = atoi(strchr(item, '/') + 1);
+                                } else {
+                                        numerator = 1;
+                                }
                         } else if (strncmp(item, "buffers=",
                                         strlen("buffers=")) == 0) {
                                 s->buffer_count = atoi(item + strlen("buffers="));
