@@ -539,17 +539,17 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 case V4L2_FIELD_NONE:
                         s->desc.interlacing = PROGRESSIVE;
                         break;
-                case V4L2_FIELD_TOP:
+                case V4L2_FIELD_SEQ_TB:
                         s->desc.interlacing = UPPER_FIELD_FIRST;
                         break;
-                case V4L2_FIELD_BOTTOM:
+                case V4L2_FIELD_SEQ_BT:
                         s->desc.interlacing = LOWER_FIELD_FIRST;
                         break;
                 case V4L2_FIELD_INTERLACED:
                         s->desc.interlacing = INTERLACED_MERGED;
                         break;
-                case V4L2_FIELD_SEQ_TB:
-                case V4L2_FIELD_SEQ_BT:
+                case V4L2_FIELD_TOP:
+                case V4L2_FIELD_BOTTOM:
                 case V4L2_FIELD_ALTERNATE:
                 case V4L2_FIELD_INTERLACED_TB:
                 case V4L2_FIELD_INTERLACED_BT:
