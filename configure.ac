@@ -129,14 +129,7 @@ AC_MSG_RESULT($os_version_minor);
 
 if test $system = MacOSX
 then
-        COMMON_OSX_FLAGS="-I/opt/local/include -mmacosx-version-min=10.7"
-        if test $os_version_major = 11
-        then
-                OSX_SDK="macosx10.7"
-        else
-                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libc++"
-                OSX_SDK="macosx10.9"
-        fi
+        COMMON_OSX_FLAGS="-I/opt/local/include -mmacosx-version-min=10.7 -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
@@ -148,7 +141,6 @@ then
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
 fi
-AC_SUBST(OSX_SDK)
 
 AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
 AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
