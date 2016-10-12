@@ -1355,6 +1355,96 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int 
 }
 
 /**
+ * @brief Converts RGB to Grayscale using SSE.
+ * There can be some inaccuracies due to the use of integer arithmetic
+ * @copydetails vc_copylinev210
+ */
+void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+#ifdef __SSSE3__
+        __m128i rgb;
+
+        __m128i r;
+        __m128i g;
+        __m128i b;
+
+        __m128i y;
+
+        //BB BB BB BB GR GR GR GR
+        __m128i inshuffle = _mm_setr_epi8(0, 1, 3, 4, 6, 7, 9, 10, 2, 2, 5, 5, 8, 8, 11, 11);
+        __m128i outshuffle = _mm_setr_epi8(0, 2, 4, 6, 8, 10, 12, 14, 1, 1, 1, 1, 1, 1, 1, 1);
+        __m128i mask = _mm_setr_epi16(0x00FF, 0x00FF, 0x00FF, 0x00FF, 0, 0, 0, 0);
+        __m128i lowmask = _mm_setr_epi16(0, 0, 0, 0, 0x00FF, 0x00FF, 0x00FF, 0x00FF);
+
+        __m128i yrf = _mm_set1_epi16(23);
+        __m128i ygf = _mm_set1_epi16(79);
+        __m128i ybf = _mm_set1_epi16(8);
+
+        __m128i yadd = _mm_set1_epi16(2048);
+
+        while(dst_len >= 16){
+                //Load first 4 pixels
+                rgb = _mm_lddqu_si128((__m128i const*) src);
+
+                src += 12;
+                rgb = _mm_shuffle_epi8(rgb, inshuffle);
+
+                //BB BB BB BB GR GR GR GR
+                r = _mm_and_si128(rgb, mask);
+                rgb = _mm_bsrli_si128(rgb, 1);
+                //0B BB BB BB BG RG RG RG
+                g = _mm_and_si128(rgb, mask);
+                rgb = _mm_bsrli_si128(rgb, 7);
+                //00 00 00 00 BB BB BB BB
+                b = _mm_and_si128(rgb, mask);
+
+                //Load next 4 pixels
+                rgb = _mm_lddqu_si128((__m128i const*) src);
+                src += 12;
+                rgb = _mm_shuffle_epi8(rgb, inshuffle);
+				//BB BB BB BB GR GR GR GR
+                b = _mm_or_si128(b, _mm_and_si128(rgb, lowmask));
+                rgb = _mm_bslli_si128(rgb, 7);
+				//BG RG RG RG R0 00 00 00
+                g = _mm_or_si128(g, _mm_and_si128(rgb, lowmask));
+                rgb = _mm_bslli_si128(rgb, 1);
+                //GR GR GR GR 00 00 00 00
+                r = _mm_or_si128(r, _mm_and_si128(rgb, lowmask));
+
+                //Compute Y values
+                y = _mm_adds_epi16(yadd, _mm_mullo_epi16(r, yrf));
+                y = _mm_adds_epi16(y, _mm_mullo_epi16(g, ygf));
+                y = _mm_adds_epi16(y, _mm_mullo_epi16(b, ybf));
+
+                y = _mm_srli_epi16(y, 7);
+
+                y = _mm_shuffle_epi8(y, outshuffle);
+
+                _mm_storeu_si128((__m128i *) dst, y);
+                dst += 8;
+                dst_len -= 8;
+        }
+#endif
+        //copy last few pixels
+        register int ri, gi, bi;
+        register int y1, y2;
+        register uint16_t *d = (uint16_t *)(void *) dst;
+        while (dst_len >= 2) {
+                ri = *(src++);
+                gi = *(src++);
+                bi = *(src++);
+                y1 = 11993 * ri + 40239 * gi + 4063 * bi + (1<<20);
+                ri = *(src++);
+                gi = *(src++);
+                bi = *(src++);
+                y2 = 11993 * ri + 40239 * gi + 4063 * bi + (1<<20);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 8 |
+                       (min(max(y1, 0), (1<<24)-1) >> 16);
+                dst_len -= 2;
+        }
+}
+
+/**
  * @brief Converts BGR to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
