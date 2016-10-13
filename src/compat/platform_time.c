@@ -52,6 +52,11 @@
 #include <time.h>
 #include "compat/platform_time.h"
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 uint64_t time_since_epoch_in_ms()
 {
 #ifdef WIN32
@@ -64,11 +69,19 @@ uint64_t time_since_epoch_in_ms()
         i.HighPart = f.dwHighDateTime;
 
         return (i.QuadPart - 1164444736000000000ll) / 10000;
-#else
+#elif defined CLOCK_REALTIME
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);
 
         return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#else
+	clock_serv_t cclock;
+	mach_timespec_t mts;
+
+	host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+	clock_get_time(cclock, &mts);
+	mach_port_deallocate(mach_task_self(), cclock);
+	return mts.tv_sec * 1000ll + mts.tv_nsec / 1000000ll;
 #endif
 
 }
