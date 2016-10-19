@@ -186,7 +186,7 @@ void state_transcoder_decompress::worker()
         }
 }
 
-void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capture_filter)
+void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter)
 {
         struct state_transcoder_decompress *s;
         bool use_ipv6 = false;
@@ -194,14 +194,21 @@ void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capt
         s = new state_transcoder_decompress();
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
-        if (blend) {
-                char cfg[128] = "";
-                snprintf(cfg, sizeof cfg, "pipe:%p", s);
-                assert (initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display) == 0);
-        } else {
-                char cfg[2 + sizeof(void *) * 2 + 1] = "";
+        char cfg[128] = "";
+
+        switch(conf.mode){
+        case NORMAL:
                 snprintf(cfg, sizeof cfg, "%p", s);
                 assert (initialize_video_display(parent, "pipe", cfg, 0, NULL, &s->display) == 0);
+                break;
+        case BLEND:
+                snprintf(cfg, sizeof cfg, "pipe:%p", s);
+                assert (initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display) == 0);
+                break;
+        case CONFERENCE:
+                snprintf(cfg, sizeof cfg, "pipe:%p#%i:%i:%i", s, conf.width, conf.height, conf.fps);
+                assert (initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display) == 0);
+                break;
         }
 
         map<string, param_u> params;

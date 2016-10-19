@@ -443,6 +443,7 @@ static void usage(const char *progname) {
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
+                "\t\t--conference <width>:<height>[:fps] - enable combining of multiple inputs, increases latency\n"
                 "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
                 "\t\t--help\n"
                 "\t\t--verbose\n"
@@ -477,7 +478,7 @@ struct cmdline_parameters {
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
-    bool blend = false;
+    struct hd_rum_output_conf out_conf = {NORMAL, 0, 0, 0};
     const char *capture_filter = NULL;
     bool verbose = false;
 };
@@ -502,7 +503,17 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             print_capabilities(NULL, false);
             return false;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
-            parsed->blend = true;
+            parsed->out_conf.mode = BLEND;
+        } else if(strcmp(argv[start_index], "--conference") == 0) {
+            parsed->out_conf.mode = CONFERENCE;
+            char *item = argv[++start_index];
+            parsed->out_conf.width = atoi(item);
+            if((item = strchr(item, ':'))) {
+                parsed->out_conf.height = atoi(++item);
+            }
+            if((item = strchr(item, ':'))) {
+                parsed->out_conf.fps = atoi(++item);
+            }
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "--help") == 0) {
@@ -706,7 +717,7 @@ int main(int argc, char **argv)
     control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod, params.blend, params.capture_filter);
+    state.decompress = hd_rum_decompress_init(&state.mod, params.out_conf, params.capture_filter);
     if(!state.decompress) {
         return EXIT_FAIL_DECODER;
     }
