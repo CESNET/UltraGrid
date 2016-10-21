@@ -588,7 +588,7 @@ static void *audio_receiver_thread(void *arg)
 
                 pbuf_data.buffer.data_len = 0;
 
-                if(s->receiver == NET_NATIVE) {
+                if (s->receiver == NET_NATIVE || s->receiver == NET_STANDARD) {
                         gettimeofday(&curr_time, NULL);
                         auto curr_time_hr = std::chrono::high_resolution_clock::now();
                         ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
@@ -627,7 +627,7 @@ static void *audio_receiver_thread(void *arg)
                                         // We iterate in loop since there can be more than one frmae present in
                                         // the playout buffer and it would be discarded by following pbuf_remove()
                                         // call.
-                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, decode_audio_frame, &pbuf_data)) {
+                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &pbuf_data)) {
                                                 decoded = true;
                                         }
                                 }
@@ -639,61 +639,6 @@ static void *audio_receiver_thread(void *arg)
                                         break;
                         }
                         pdb_iter_done(&it);
-                }else if(s->receiver == NET_STANDARD){
-                //TODO now expecting to receive mulaw standard RTP (decode frame mulaw callback) , next steps, to be dynamic...
-                    gettimeofday(&curr_time, NULL);
-                    auto curr_time_hr = std::chrono::high_resolution_clock::now();
-                    ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
-                    rtp_update(s->audio_network_device, curr_time);
-                    rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
-                    timeout.tv_sec = 0;
-                    timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
-                                                                                 as video frames */
-                    rtp_recv_r(s->audio_network_device, &timeout, ts);
-                    pdb_iter_t it;
-                    cp = pdb_iter_init(s->audio_participants, &it);
-
-                    while (cp != NULL) {
-                        // should be perhaps run iteratively? similarly to NET_NATIVE
-                        if (pbuf_decode(cp->playout_buffer, curr_time_hr, decode_audio_frame_mulaw, &pbuf_data)) {
-                            bool failed = false;
-                            if(s->echo_state) {
-#ifdef HAVE_SPEEX
-echo_play(s->echo_state, &pbuf_data.buffer);
-#endif
-                            }
-
-                            struct audio_desc curr_desc;
-                            curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
-
-                            if(!audio_desc_eq(device_desc, curr_desc)) {
-                                int log_l;
-                                string msg;
-                                if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
-                                    curr_desc.ch_count,
-                                    curr_desc.sample_rate) != TRUE) {
-                                    log_l = LOG_LEVEL_ERROR;
-                                    msg = "Audio reconfiguration failed";
-                                    failed = true;
-                                }
-                                else {
-                                    log_l = LOG_LEVEL_INFO;
-                                    msg = "Audio reconfiguration succeeded";
-
-                                    device_desc = curr_desc;
-                                    rtp_flush_recv_buf(s->audio_network_device);
-                                }
-                                LOG(log_l) << msg << " (" << curr_desc << ")" << (log_l < LOG_LEVEL_WARNING ? "!" : ".") << "\n";
-                            }
-
-                            if(!failed)
-                                audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
-                        }
-
-                        pbuf_remove(cp->playout_buffer, curr_time_hr);
-                        cp = pdb_iter_next(&it);
-                    }
-                    pdb_iter_done(&it);
                 }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
                         decoded = jack_receive(s->jack_connection, &pbuf_data);
