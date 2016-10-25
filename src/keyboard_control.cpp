@@ -258,8 +258,8 @@ void keyboard_control::usage()
                 auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
                         double vol = atof(response_get_text(resp));
-                        double db = 20.0 * log10(vol / 100.0);
-                        cout << "Received audio volume: " << fixed << setprecision(2) << vol << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        double db = 20.0 * log10(vol);
+                        cout << "Received audio volume: " << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                 }
                 free_response(resp);
         }

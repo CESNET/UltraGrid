@@ -146,6 +146,9 @@ struct state_audio {
         volatile bool paused;
 
         int audio_tx_mode;
+
+        double volume;
+        bool muted;
 };
 
 /** 
@@ -239,6 +242,8 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         
         s = new state_audio();
         s->start_time = *start_time;
+
+        s->volume = 1.0;
 
         if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
                 // nothing to do, return empty state
@@ -507,8 +512,14 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         return r;
 }
 
-static struct response * audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg, struct state_audio_decoder *decoder)
+struct audio_decoder {
+        bool enabled;
+        struct pbuf_audio_data pbuf_data;
+};
+
+static struct response * audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg)
 {
+
         switch (msg->type) {
         case RECEIVER_MSG_CHANGE_RX_PORT:
                 {
@@ -534,21 +545,39 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                 }
         case RECEIVER_MSG_GET_VOLUME:
                 {
-                        double ret = audio_decoder_get_volume(decoder);
+                        double ret = s->volume;
                         char volume_str[128] = "";
                         snprintf(volume_str, sizeof volume_str, "%f", ret);
                         return new_response(RESPONSE_OK, volume_str);
                         break;
                 }
         case RECEIVER_MSG_INCREASE_VOLUME:
-                audio_decoder_increase_volume(decoder);
-                break;
         case RECEIVER_MSG_DECREASE_VOLUME:
-                audio_decoder_decrease_volume(decoder);
-                break;
         case RECEIVER_MSG_MUTE:
-                audio_decoder_mute(decoder);
-                break;
+                {
+                        if (msg->type == RECEIVER_MSG_MUTE) {
+                                s->muted = !s->muted;
+                        } else if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
+                                s->volume *= 1.1;
+                        } else {
+                                s->volume /= 1.1;
+                        }
+                        double new_volume = s->muted ? 0.0 : s->volume;
+                        double db = 20.0 * log10(new_volume);
+                        log_msg(LOG_LEVEL_INFO, "Volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
+                        struct pdb_e *cp;
+                        pdb_iter_t it;
+                        cp = pdb_iter_init(s->audio_participants, &it);
+                        while (cp != NULL) {
+                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
+                                if (dec_state) {
+                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, new_volume);
+                                }
+                                cp = pdb_iter_next(&it);
+                        }
+                        pdb_iter_done(&it);
+                        break;
+                }
         default:
                 abort();
         }
@@ -556,9 +585,15 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
         return new_response(RESPONSE_OK, NULL);
 }
 
-struct audio_decoder {
-        bool enabled;
-};
+static void audio_decoder_state_deleter(void *state)
+{
+        struct audio_decoder *s = (struct audio_decoder *) state;
+
+        free(s->pbuf_data.buffer.data);
+        audio_decoder_destroy(s->pbuf_data.decoder);
+
+        free(s);
+}
 
 static void *audio_receiver_thread(void *arg)
 {
@@ -567,26 +602,24 @@ static void *audio_receiver_thread(void *arg)
         struct timeval timeout, curr_time;
         uint32_t ts;
         struct pdb_e *cp;
-        struct pbuf_audio_data pbuf_data;
-        struct audio_desc device_desc;
+        struct audio_desc device_desc{};
 
-        memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
-        memset(&device_desc, 0, sizeof(struct audio_desc));
+        struct pbuf_audio_data *current_pbuf = NULL;
 
-        pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (query_supported_format_t) audio_playback_query_supported_format, s->audio_playback_device);
-        assert(pbuf_data.decoder != NULL);
-                
+#ifdef HAVE_JACK_TRANS
+        struct pbuf_audio_data jack_pbuf{};
+        current_pbuf = &jack_pbuf;
+#endif
+
         printf("Audio receiving started.\n");
         while (!should_exit) {
                 struct message *msg;
                 while((msg= check_message(&s->audio_receiver_module))) {
-                        struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg, pbuf_data.decoder);
+                        struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg);
                         free_message(msg, r);
                 }
 
                 bool decoded = false;
-
-                pbuf_data.buffer.data_len = 0;
 
                 if (s->receiver == NET_NATIVE || s->receiver == NET_STANDARD) {
                         gettimeofday(&curr_time, NULL);
@@ -617,17 +650,26 @@ static void *audio_receiver_thread(void *arg)
                                                 }
                                                 pdb_iter_done(&it);
                                         }
-                                        struct audio_decoder *dec_state = (struct audio_decoder *) malloc(sizeof(struct audio_decoder));
-                                        dec_state->enabled = true;
+                                        struct audio_decoder *dec_state;
+                                        dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
+                                        assert(dec_state != NULL);
                                         cp->decoder_state = dec_state;
-                                        cp->decoder_state_deleter = free;
+                                        dec_state->enabled = true;
+                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device);
+                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted ? 0.0 : s->volume);
+                                        assert(dec_state->pbuf_data.decoder != NULL);
+                                        cp->decoder_state_deleter = audio_decoder_state_deleter;
                                 }
 
-                                if (cp->decoder_state && ((struct audio_decoder *) cp->decoder_state)->enabled) {
+                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
+                                if (dec_state && dec_state->enabled) {
+                                        dec_state->pbuf_data.buffer.data_len = 0;
                                         // We iterate in loop since there can be more than one frmae present in
                                         // the playout buffer and it would be discarded by following pbuf_remove()
                                         // call.
-                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &pbuf_data)) {
+                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &dec_state->pbuf_data)) {
+
+                                                current_pbuf = &dec_state->pbuf_data;
                                                 decoded = true;
                                         }
                                 }
@@ -641,8 +683,8 @@ static void *audio_receiver_thread(void *arg)
                         pdb_iter_done(&it);
                 }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
-                        decoded = jack_receive(s->jack_connection, &pbuf_data);
-                        audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
+                        decoded = jack_receive(s->jack_connection, &jack_pbuf);
+                        audio_playback_put_frame(s->audio_playback_device, &jack_pbuf.buffer);
 #endif
                 }
 
@@ -650,12 +692,12 @@ static void *audio_receiver_thread(void *arg)
                         bool failed = false;
                         if(s->echo_state) {
 #ifdef HAVE_SPEEX
-                                echo_play(s->echo_state, &pbuf_data.buffer);
+                                echo_play(s->echo_state, &current_pbuf->buffer);
 #endif
                         }
 
                         struct audio_desc curr_desc;
-                        curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
+                        curr_desc = audio_desc_from_audio_frame(&current_pbuf->buffer);
 
                         if(!audio_desc_eq(device_desc, curr_desc)) {
                                 int log_l;
@@ -678,12 +720,13 @@ static void *audio_receiver_thread(void *arg)
                         }
 
                         if(!failed)
-                                audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
+                                audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
                 }
         }
 
-        free(pbuf_data.buffer.data);
-        audio_decoder_destroy(pbuf_data.decoder);
+#ifdef HAVE_JACK_TRANS
+        free(jack_pbuf.buffer.data);
+#endif
 
         return NULL;
 }

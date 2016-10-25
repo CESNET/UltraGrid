@@ -1,35 +1,26 @@
+/**
+ * @file   audio/playback/sdi.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/playback/sdi.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2016 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,8 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -139,15 +128,31 @@ static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
                 s->put_callback(s->udata, frame);
 }
 
-static struct audio_desc audio_play_sdi_query_format(void *state, struct audio_desc desc)
+static bool audio_play_sdi_query_format(struct state_sdi_playback *s, void *data, size_t *len)
 {
-        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
-        size_t len = sizeof desc;
-        if (s->get_property_callback(s->udata, DISPLAY_PROPERTY_AUDIO_FORMAT, &desc, &len)) {
-                return desc;
+        if (s->get_property_callback(s->udata, DISPLAY_PROPERTY_AUDIO_FORMAT, data, len)) {
+                return true;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "Cannot get audio format from playback card!\n");
-                return (struct audio_desc){2, 48000, 2, AC_PCM};
+		struct audio_desc desc = {2, 48000, 2, AC_PCM};
+		if (*len >= sizeof desc) {
+			memcpy(data, &desc, sizeof desc);
+			*len = sizeof desc;
+                        return true;
+                } else {
+                        return false;
+                }
+        }
+}
+
+static bool audio_play_sdi_ctl(void *state, int request, void *data, size_t *len)
+{
+        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
+        switch (request) {
+        case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
+                return audio_play_sdi_query_format(s, data, len);
+        default:
+                return false;
         }
 }
 
@@ -174,7 +179,7 @@ static const struct audio_playback_info aplay_sdi_info_embedded = {
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
-        audio_play_sdi_query_format,
+        audio_play_sdi_ctl,
         audio_play_sdi_reconfigure,
         audio_play_sdi_done
 };
@@ -184,7 +189,7 @@ static const struct audio_playback_info aplay_sdi_info_aesebu = {
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
-        audio_play_sdi_query_format,
+        audio_play_sdi_ctl,
         audio_play_sdi_reconfigure,
         audio_play_sdi_done
 };
@@ -194,7 +199,7 @@ static const struct audio_playback_info aplay_sdi_info_analog = {
         audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
-        audio_play_sdi_query_format,
+        audio_play_sdi_ctl,
         audio_play_sdi_reconfigure,
         audio_play_sdi_done
 };

@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2016 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -278,13 +278,26 @@ static void cleanup(struct state_portaudio_playback * s)
         free(s->tmp_buffer);
 }
 
-static struct audio_desc audio_play_portaudio_query_format(void *state, struct audio_desc desc)
+static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_t *len)
 {
-        struct state_portaudio_playback * s =
-                (struct state_portaudio_playback *) state;
-        return audio_desc{desc.bps, desc.sample_rate, min(desc.ch_count, s->max_output_channels),
-                        AC_PCM};
-
+        switch (request) {
+        case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
+                if (*len >= sizeof(struct audio_desc)) {
+                        struct state_portaudio_playback * s =
+                                (struct state_portaudio_playback *) state;
+                        struct audio_desc desc;
+                        memcpy(&desc, data, sizeof desc);
+                        desc.ch_count = min(desc.ch_count, s->max_output_channels);
+                        desc.codec = AC_PCM;
+                        memcpy(data, &desc, sizeof desc);
+                        *len = sizeof desc;
+                        return true;
+                } else {
+                        return false;
+                }
+        default:
+                return false;
+        }
 }
 
 static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
@@ -445,7 +458,7 @@ static const struct audio_playback_info aplay_portaudio_info = {
         audio_play_portaudio_help,
         audio_play_portaudio_init,
         audio_play_portaudio_put_frame,
-        audio_play_portaudio_query_format,
+        audio_play_portaudio_ctl,
         audio_play_portaudio_reconfigure,
         audio_play_portaudio_done
 };

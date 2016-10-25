@@ -53,7 +53,24 @@
 extern "C" {
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 3
+#define AUDIO_PLAYBACK_ABI_VERSION 4
+
+/** @anchor audio_playback_ctl_reqs
+ * @name Audio playback control requests
+ * @{ */
+/**
+ * Queries a format that corresponses the proposed audio format
+ * (from network) most closely. It can be the same format or
+ * a different one (depending on device capabilities). Returned
+ * format will thereafter be used with audio_playback_reconfigure().
+ *
+ * Support for this ctl is mandatory!
+ * @param[in,out] audio_desc
+ * - IN: suggested (received) audio format
+ * - OUT: corresponding supported (nearest) audio format that playback device is able to use
+ */
+#define AUDIO_PLAYBACK_CTL_QUERY_FORMAT 1
+/// @}
 
 struct audio_playback_info {
         void (*probe)(struct device_info **available_devices, int *count);
@@ -61,7 +78,7 @@ struct audio_playback_info {
         void *(*init)(const char *cfg);
         void (*write)(void *state, struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */
-        struct audio_desc (*query_format)(void *state, struct audio_desc);
+        bool (*ctl)(void *state, int request, void *data, size_t *len);
         int (*reconfigure)(void *state, struct audio_desc);
         void (*done)(void *state);
 };
@@ -78,16 +95,13 @@ int                             audio_playback_init(const char *device, const ch
 struct state_audio_playback    *audio_playback_init_null_device(void);
 
 /**
- * Queries a format that corresponses the proposed audio format
- * (from network) most closely. It can be the same format or
- * a different one (depending on device capabilities). Returned
- * format will thereafter be used with audio_playback_reconfigure().
- *
- * @param[in] s    audio state
- * @param[in] prop proposed (received from network) audio format
- * @return         format that device supports
+ * @param[in]     s        audio state
+ * @param[in]     request  one of @ref audio_playback_ctl_reqs
+ * @param[in,out] data	   data to be passed/returned
+ * @param[in,out] len	   input/output length of data
+ * @return                 status of the request
  */
-struct audio_desc               audio_playback_query_supported_format(struct state_audio_playback *s, struct audio_desc prop);
+bool audio_playback_ctl(struct state_audio_playback *s, int request, void *data, size_t *len);
 
 /**
  * Reconfigures audio playback to specified values. Those values

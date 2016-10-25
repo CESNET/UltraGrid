@@ -54,6 +54,7 @@
 #include "rtp/pbuf.h"
 #include "rtp/audio_decoders.h"
 #include "audio/audio.h"
+#include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "crypto/crc.h"
@@ -110,8 +111,8 @@ struct state_audio_decoder {
 
         audio_frame2_resampler resampler;
 
-        query_supported_format_t query_func;
-        void *query_func_data;
+        audio_playback_ctl_t audio_playback_ctl_func;
+        void *audio_playback_state;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -165,7 +166,7 @@ static void compute_scale(struct scale_data *scale_data, float vol_avg, int samp
         }
 }
 
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, query_supported_format_t q, void *q_state)
+void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state)
 {
         struct state_audio_decoder *s;
         bool scale_auto = false;
@@ -176,8 +177,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         s = new struct state_audio_decoder();
         s->magic = AUDIO_DECODER_MAGIC;
-        s->query_func = q;
-        s->query_func_data = q_state;
+        s->audio_playback_ctl_func = c;
+        s->audio_playback_state = p_state;
 
         gettimeofday(&s->t0, NULL);
         s->packet_counter = NULL;
@@ -475,10 +476,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
-                        audio_desc device_desc = decoder->query_func(decoder->query_func_data,
-                                        audio_desc{bps, sample_rate, output_channels, AC_PCM});
-
-                        if (!device_desc) {
+                        audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
+                        size_t len = sizeof device_desc;
+                        if (!decoder->audio_playback_ctl_func(decoder->audio_playback_state, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &device_desc, &len)) {
                                 log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
                                 return FALSE;
                         }
@@ -688,36 +688,9 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
     return true;
 }
 
-double audio_decoder_get_volume(void *state)
+void audio_decoder_set_volume(void *state, double val)
 {
     auto s = (struct state_audio_decoder *) state;
-    return s->scale->scale * 100.0;
-}
-
-void audio_decoder_increase_volume(void *state)
-{
-    auto s = (struct state_audio_decoder *) state;
-    s->scale->scale *= 1.1;
-    double db = 20.0 * log10(s->scale->scale);
-    log_msg(LOG_LEVEL_INFO, "Volume: %.2f%% (%+.2f dB)\n", s->scale->scale * 100.0, db);
-}
-
-void audio_decoder_decrease_volume(void *state)
-{
-    auto s = (struct state_audio_decoder *) state;
-    s->scale->scale /= 1.1;
-    double db = 20.0 * log10(s->scale->scale);
-    log_msg(LOG_LEVEL_INFO, "Volume: %.2f%% (%+.2f dB)\n", s->scale->scale * 100.0, db);
-}
-
-void audio_decoder_mute(void *state)
-{
-    auto s = (struct state_audio_decoder *) state;
-    s->muted = !s->muted;
-    if (s->muted) {
-            log_msg(LOG_LEVEL_INFO, "Muted.\n");
-    } else {
-            log_msg(LOG_LEVEL_INFO, "Unmuted.\n");
-    }
+    s->scale->scale = val;
 }
 

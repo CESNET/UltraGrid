@@ -181,9 +181,14 @@ static void *worker(void *args) {
         }
 }
 
-static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_desc desc)
+static bool audio_play_alsa_query_format(struct state_alsa_playback *s, void *data, size_t *len)
 {
-        struct state_alsa_playback *s = (struct state_alsa_playback *) state;
+        struct audio_desc desc;
+        if (*len < sizeof desc) {
+                return false;
+        } else {
+                memcpy(&desc, data, sizeof desc);
+        }
 
         int rc;
         unsigned int val;
@@ -202,7 +207,7 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set default parameters: %s\n",
                         snd_strerror(rc));
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         assert (desc.bps > 0 && desc.bps <= 4);
@@ -231,13 +236,13 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set capture format: %s\n",
                                 snd_strerror(rc));
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         ret.sample_rate = get_rate_near(s->handle, params, desc.sample_rate);
         if (!ret.sample_rate) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to find sample rate:\n");
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         /* set sampling rate */
@@ -249,7 +254,7 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set sampling rate (%s %d): %s\n",
                         dir == 0 ? "=" : (dir == -1 ? "<" : ">"),
                         val, snd_strerror(rc));
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         int channels = desc.ch_count;
@@ -257,7 +262,7 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
         rc = snd_pcm_hw_params_get_channels_max(params, &max_channels);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get max number of channels!\n");
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
         for ( ; ; ) {
                 if (!snd_pcm_hw_params_test_channels(s->handle, params, channels)) {
@@ -279,13 +284,13 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
 
         if (channels == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get usable channe countl!\n");
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         rc = snd_pcm_hw_params_set_channels(s->handle, params, channels);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to set channels!\n");
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
         ret.ch_count = channels;
@@ -294,10 +299,25 @@ static struct audio_desc audio_play_alsa_query_format(void *state, struct audio_
                 && snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_NONINTERLEAVED)) {
 
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "cannot find supported access mode!\n");
-                return (struct audio_desc){0, 0, 0, AC_NONE};
+                return false;
         }
 
-        return ret;
+        memcpy(data, &ret, sizeof ret);
+        *len = sizeof ret;
+        return true;
+}
+
+static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *len)
+{
+        struct state_alsa_playback *s = (struct state_alsa_playback *) state;
+
+        switch (request) {
+        case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
+                return audio_play_alsa_query_format(s, data, len);
+        default:
+                return false;
+        }
+
 }
 
 static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
@@ -688,7 +708,11 @@ static void * audio_play_alsa_init(const char *cfg)
          * (to arbitrary value) in order to work. This hack ensures
          * that. */
         if (strstr(snd_pcm_name(s->handle), "CARD=Speakerph")) {
-                audio_play_alsa_reconfigure(s, audio_play_alsa_query_format(s, (struct audio_desc){2, 48000, 1, AC_PCM}));
+                struct audio_desc desc = {2, 48000, 1, AC_PCM};
+                size_t len = sizeof desc;
+                if (audio_play_alsa_ctl(s, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &desc, &len)) {
+                        audio_play_alsa_reconfigure(s, desc);
+                }
         }
         
         return s;
@@ -842,7 +866,7 @@ static const struct audio_playback_info aplay_alsa_info = {
         audio_play_alsa_help,
         audio_play_alsa_init,
         audio_play_alsa_put_frame,
-        audio_play_alsa_query_format,
+        audio_play_alsa_ctl,
         audio_play_alsa_reconfigure,
         audio_play_alsa_done
 };

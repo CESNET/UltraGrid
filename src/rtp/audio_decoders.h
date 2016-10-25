@@ -43,17 +43,14 @@ extern "C" {
 
 struct coded_data;
 
-typedef struct audio_desc (*query_supported_format_t)(void *state, struct audio_desc prop);
+typedef bool (*audio_playback_ctl_t)(void *state, int request, void *data, size_t *len);
 
 int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
-                const char *encryption, query_supported_format_t q, void *q_state);
+                const char *encryption, audio_playback_ctl_t c, void *ap_state);
 void audio_decoder_destroy(void *state);
-double audio_decoder_get_volume(void *state);
-void audio_decoder_increase_volume(void *state);
-void audio_decoder_decrease_volume(void *state);
-void audio_decoder_mute(void *state);
+void audio_decoder_set_volume(void *state, double val);
 
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
 

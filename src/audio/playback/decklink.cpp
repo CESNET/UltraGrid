@@ -1,41 +1,28 @@
+/**
+ * @file   src/audio/playback/decklink.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_display/decklink.cpp
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Colin Perkins    <csp@isi.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
- * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2012-2016 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -382,9 +369,24 @@ static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame
 
 }
 
-static struct audio_desc audio_play_decklink_query_format(void *, struct audio_desc desc) {
-        return audio_desc{desc.bps <= 2 ? 2 : 4, 48000, desc.ch_count <= 2 ? 2 :
-                (desc.ch_count <= 8 ? 8 : 16), AC_PCM};
+static bool audio_play_decklink_ctl(void *state [[gnu::unused]], int request, void *data, size_t *len)
+{
+        switch (request) {
+        case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
+                if (*len >= sizeof(struct audio_desc)) {
+                        struct audio_desc desc;
+                        memcpy(&desc, data, sizeof desc);
+                        desc = audio_desc{desc.bps <= 2 ? 2 : 4, 48000, desc.ch_count <= 2 ? 2 :
+                                (desc.ch_count <= 8 ? 8 : 16), AC_PCM};
+                        memcpy(data, &desc, sizeof desc);
+                        *len = sizeof desc;
+                        return true;
+                } else {
+                        return false;
+                }
+        default:
+                return false;
+        }
 }
 
 static int audio_play_decklink_reconfigure(void *state, struct audio_desc desc) {
@@ -452,7 +454,7 @@ static const struct audio_playback_info aplay_decklink_info = {
         audio_play_decklink_help,
         audio_play_decklink_init,
         audio_play_decklink_put_frame,
-        audio_play_decklink_query_format,
+        audio_play_decklink_ctl,
         audio_play_decklink_reconfigure,
         audio_play_decklink_done
 };

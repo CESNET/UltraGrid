@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2016 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,9 +112,23 @@ static OSStatus theRenderProc(void *inRefCon,
         return noErr;
 }
 
-static struct audio_desc audio_play_ca_query_format(void *, struct audio_desc desc)
+static bool audio_play_ca_ctl(void *state [[gnu::unused]], int request, void *data, size_t *len)
 {
-        return audio_desc{desc.bps, desc.sample_rate, desc.ch_count, AC_PCM};
+        switch (request) {
+        case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
+                if (*len >= sizeof(struct audio_desc)) {
+                        struct audio_desc desc;
+                        memcpy(&desc, data, sizeof desc);
+                        desc.codec = AC_PCM;
+                        memcpy(data, &desc, sizeof desc);
+                        *len = sizeof desc;
+                        return true;
+                } else{
+                        return false;
+                }
+        default:
+                return false;
+        }
 }
 
 static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
@@ -360,7 +374,7 @@ static const struct audio_playback_info aplay_coreaudio_info = {
         audio_play_ca_help,
         audio_play_ca_init,
         audio_play_ca_put_frame,
-        audio_play_ca_query_format,
+        audio_play_ca_ctl,
         audio_play_ca_reconfigure,
         audio_play_ca_done
 };

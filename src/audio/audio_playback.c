@@ -137,8 +137,9 @@ void audio_playback_put_frame(struct state_audio_playback *s, struct audio_frame
         s->funcs->write(s->state, frame);
 }
 
-struct audio_desc audio_playback_query_supported_format(struct state_audio_playback *s, struct audio_desc prop) {
-        return s->funcs->query_format(s->state, prop);
+bool audio_playback_ctl(struct state_audio_playback *s, int request, void *data, size_t *len)
+{
+        return s->funcs->ctl(s->state, request, data, len);
 }
 
 int audio_playback_reconfigure(struct state_audio_playback *s, int quant_samples, int channels,
