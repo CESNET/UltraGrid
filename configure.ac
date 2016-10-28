@@ -2623,6 +2623,35 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# MCU-like video mixer
+# -------------------------------------------------------------------------------------------------
+video_mix=no
+
+define(video_mix_dep, opencv)
+
+AC_ARG_ENABLE(video-mixer,
+[  --disable-video-mixer   disable MCU-like video mixer (default is auto)]
+[                          Requires: video_mix_dep],
+    [video_mix_req=$enableval],
+    [video_mix_req=auto]
+    )
+
+PKG_CHECK_MODULES([VIDEO_MIX], [video_mix_dep], FOUND_VIDEO_MIX_DEP=yes, FOUND_VIDEO_MIX_DEP=no)
+
+if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
+then
+        CFLAGS="$CFLAGS ${VIDEO_MIX_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS ${VIDEO_MIX_CFLAGS}"
+        VIDEO_MIX_OBJ="src/video_display/conference.o"
+        ADD_MODULE("display_video_mix", "$VIDEO_MIX_OBJ", "$VIDEO_MIX_LIBS")
+        video_mix=yes
+fi
+
+if test $video_mix_req = yes -a $video_mix = no; then
+        AC_MSG_ERROR([Could not found OpenCV needed for video mixer!]);
+fi
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 
@@ -2699,6 +2728,7 @@ RESULT=\
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
   GPU accelerated LDGM ........ $ldgm_gpu
+  MCU-like video mixer ........ $video_mix
   "
 
 AC_MSG_RESULT(

@@ -442,16 +442,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         double avg_bpp; // average bit per pixel
         int bitrate;
 
-#ifndef HAVE_GPL
-        if (s->requested_codec_id == H264 || s->requested_codec_id == H264) {
-                log_msg(LOG_LEVEL_ERROR, "%s is not available in UltraGrid BSD build. "
-                                "Reconfigure UltraGrid with --enable-gpl if "
-                                "needed.\n", get_codec_name(s->requested_codec_id));
-                exit_uv(1);
-                return false;
-        }
-#endif
-
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
                 codec = avcodec_find_encoder_by_name(s->backend.c_str());
@@ -507,6 +497,16 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
                                 get_codec_name(ug_codec), codec->name);
         }
+
+#ifndef HAVE_GPL
+        if (strcmp(codec->name, "libx264") == 0 || strcmp(codec->name, "libx265") == 0) {
+                log_msg(LOG_LEVEL_ERROR, "Encoder %s is not available in UltraGrid BSD build. "
+                                "Reconfigure UltraGrid without '--enable-bsd' to enable GPL build "
+                                "or select a different codec or encoder.\n", codec->name);
+                exit_uv(1);
+                return false;
+        }
+#endif
 
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;

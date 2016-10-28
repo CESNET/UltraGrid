@@ -4,8 +4,15 @@ extern "C" {
 
 struct module;
 
+enum hd_rum_mode_t {NORMAL, BLEND, CONFERENCE};
+struct hd_rum_output_conf{
+        enum hd_rum_mode_t mode;
+        int width, height;
+        int fps;
+};
+
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
-void *hd_rum_decompress_init(struct module *parent, bool blend, const char *capture_filter);
+void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter);
 void hd_rum_decompress_done(void *state);
 void hd_rum_decompress_set_active(void *decompress_state, void *recompress_state, bool active);
 void hd_rum_decompress_remove_port(void *decompress_state, int index);
