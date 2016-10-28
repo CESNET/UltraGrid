@@ -12,23 +12,23 @@ UltraGrid - A High Definition Collaboratory
 
 
 About UltraGrid
-   UltraGrid from Laboratory of Advanced Networking Technologies (ANTLab) is 
-   a software implementation of high-quality low-latency video and audio
-   transmissions using commodity PC and Mac hardware. Supported resolutions
-   range through HD (1920x1080) up to 4K (4096x2160). The high-quality is
-   achieved either by using uncompressed streams or streams with very low
-   compression ratio. End-to-end transmission latency (i.e., all the way from
-   the camera to the display) is about 100ms, but it varies based on camera
-   and capture cards being used. UltraGrid was originally a research project
-   used to demonstrate the possibilities of 10Gbps networks and to study
-   multi-point data distribution in such environments. Recent advances in the
-   field of GPU-accelerated low-latency codecs extend its usability also to
-   Gigabit networks. UltraGrid is supported on PCs with Linux operating system
-   and Macs with MacOS X. The software is open-source distributed under
-   BSD license, i.e., we're interested in both research/academic and commercial
-   applications. Nowadays, main application areas are collaborative
-   environments, medical, cinematography and broadcasting applications, as well
-   as various educational activities.
+   UltraGrid brought by CESNET's Laboratory of Advanced Networking Technologies
+   (Sitola) is a software implementation of high-quality low-latency video and
+   audio transmissions using commodity PC and Mac hardware. Supported
+   resolutions range through HD (1920x1080) up to 4K (4096x2160) with up to 60
+   frames per second. The high-quality is achieved either by using uncompressed
+   streams or streams with very low compression ratio. End-to-end transmission
+   latency (i.e., all the way from the camera to the display) is about 100ms,
+   but it varies based on camera and capture cards being used. UltraGrid was
+   originally a research project used to demonstrate the possibilities of 10Gbps
+   networks and to study multi-point data distribution in such environments.
+   Recent advances in the field of GPU-accelerated low-latency codecs extend its
+   usability also to Gigabit networks. UltraGrid is supported on PCs with Linux
+   operating system and Macs with MacOS X. The software is open-source
+   distributed under BSD license, i.e., we're interested in both
+   research/academic and commercial applications. Nowadays, main application
+   areas are collaborative environments, medical, cinematography and
+   broadcasting applications, as well as various educational activities.
 
    It is a fork of the original UltraGrid developed by Colin Perkins, Ladan
    Gharai, et al..
@@ -66,13 +66,12 @@ Hardware and Software Requirements
             Proprietary drivers strongly recommended
             DXT compression on GPU is tested with OpenGL 3.3
             JPEG2000 compression requires NVidia GPU, GT 580 or higher
-                JPEG2000 compression is not yet supported 
         For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
-            we test with PCIe Myrinet 10GbE 
-        For SDI send/receive capabilities, DVS, DeckLink or Linsys Quad card is required
-            Linsys module in UG supports only capturing 
+            We test with PCIe Myrinet 10GbE 
+        For SDI send/receive capabilities, DVS, DeckLink, Magewell or Linsys Quad card is required
+            Magewell and Linsys modules in UG support only capturing 
 
-        Grabbing card should be located on a separate PCI bus from network card if possible.
+        Video capture card should be located on a separate PCI bus from network card if possible.
 
     Required Software Preliminaries
         You will need this software (in brackets are optional features for which you'll need it):
@@ -85,7 +84,7 @@ Hardware and Software Requirements
 
             devel packages need to be installed as well 
         
-        DVS SDK or VideomasterHD from Deltacast needs to be obtained separately
+        DVS SDK or VideomasterHD from Deltacast need to be obtained separately
         because it cannot be distributed with UltraGrid (license). Please refer
         our wiki for further information (https://www.sitola.cz/igrid/index.php/UltraGrid)
 
@@ -126,8 +125,10 @@ Using the UltraGrid System
    	uv -d gl ormal
 
    The system requires access to UDP ports 5004 and 5005: you should open
-   these ports on any firewall on the network path. High definition video
-   formats require approximately 1 gigabit per second of network capacity.
+   these ports on any firewall on the network path. Uncompressed high definition
+   video formats require approximately 1 Gigabit per second of network capacity.
+   Using different supported compression schemes, the needed network capacity
+   can be as low as 10 Megabits per second for a high definition video.
 
 
 Performance Tuning: Network
