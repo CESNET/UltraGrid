@@ -764,7 +764,7 @@ SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS_SAVE=$CPPFLAGS
 if test -n "$BLUEFISH444_PATH"; then
         if test $system = Linux; then
-                BLUEFISH444_INC="-I$BLUEFISH444_PATH/install/inc -I$BLUEFISH444_PATH/EmbAudio"
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/release/driver/inc"
         else
                 BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
         fi
@@ -772,7 +772,7 @@ if test -n "$BLUEFISH444_PATH"; then
         CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
         CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
         if test $system = Linux; then
-                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/install/lib $BLUEFISH444_LIB"
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/apis/BlueVelvet $BLUEFISH444_LIB"
         else
                 BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
         fi
