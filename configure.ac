@@ -771,9 +771,7 @@ if test -n "$BLUEFISH444_PATH"; then
         
         CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
         CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
-        if test $system = Linux; then
-                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/apis/BlueVelvet $BLUEFISH444_LIB"
-        else
+        if test $system = Windows; then
                 BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
         fi
 	LIBS="$LIBS $BLUEFISH444_LIB"
@@ -809,13 +807,15 @@ else
 if test $system = Linux
 then
         AC_CHECK_HEADERS([BlueVelvet.h], [BLUE_H=yes], [BLUE_H=no])
-        AC_CHECK_LIB(BlueVelvet, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
         if test $WORD_LEN -eq 64; then
+                AC_CHECK_LIB(BlueVelvet64, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
                 BLUE_AUDIO_LIB="BlueANCUtils64"
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet64"
         else
+                AC_CHECK_LIB(BlueVelvet, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
                 BLUE_AUDIO_LIB="BlueANCUtils"
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet"
         fi
-        BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet"
 fi
 fi
 
