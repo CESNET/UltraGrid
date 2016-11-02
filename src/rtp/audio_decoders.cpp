@@ -698,14 +698,16 @@ void audio_decoder_increase_volume(void *state)
 {
     auto s = (struct state_audio_decoder *) state;
     s->scale->scale *= 1.1;
-    log_msg(LOG_LEVEL_INFO, "Volume: %f%%\n", s->scale->scale * 100.0);
+    double db = 20.0 * log10(s->scale->scale);
+    log_msg(LOG_LEVEL_INFO, "Volume: %.2f%% (%+.2f dB)\n", s->scale->scale * 100.0, db);
 }
 
 void audio_decoder_decrease_volume(void *state)
 {
     auto s = (struct state_audio_decoder *) state;
     s->scale->scale /= 1.1;
-    log_msg(LOG_LEVEL_INFO, "Volume: %f%%\n", s->scale->scale * 100.0);
+    double db = 20.0 * log10(s->scale->scale);
+    log_msg(LOG_LEVEL_INFO, "Volume: %.2f%% (%+.2f dB)\n", s->scale->scale * 100.0, db);
 }
 
 void audio_decoder_mute(void *state)
