@@ -247,6 +247,7 @@ struct state_decklink {
         DeckLinkTimecode    *timecode;
 
         struct video_desc   vid_desc;
+        struct audio_desc   aud_desc;
 
         unsigned long int   frames;
         unsigned long int   frames_last;
@@ -264,6 +265,8 @@ struct state_decklink {
         buffer_pool_t       buffer_pool;
 
         bool                low_latency;
+
+        mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
  };
 
 static void show_help(void);
@@ -580,13 +583,15 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
  * as it doesn't break things up. In low latency mode, this is not an issue.
  */
 static int
-display_decklink_reconfigure(void *state, struct video_desc desc)
+display_decklink_reconfigure_video(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
-        
+
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
         HRESULT                           result;
+
+        unique_lock<mutex> lk(s->reconfiguration_lock);
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -669,6 +674,19 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         }
                         goto error;
                 }
+        }
+
+        // This workaround is needed (at least) for Decklink Extreme 4K when capturing
+        // (possibly from another process) and when playback is in low-latency mode.
+        // When video is enabled after audio, audio playback becomes silent without
+        // an error.
+        if (s->initialized_audio) {
+                EXIT_IF_FAILED(s->state[0].deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
+                EXIT_IF_FAILED(s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+                                        s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
+                                        s->aud_desc.ch_count,
+                                        bmdAudioOutputStreamContinuous),
+                                "EnableAudioOutput");
         }
 
         if (!s->low_latency) {
@@ -1273,6 +1291,8 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
+        unique_lock<mutex> lk(s->reconfiguration_lock);
+
         assert(s->play_audio);
 
         if (s->initialized_audio) {
@@ -1317,6 +1337,8 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 // reconfigure. However, this doesn't seem to bother, anyway.
                 CALL_AND_CHECK(s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration), "StartScheduledPlayback (audio)");
         }
+
+        s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
         s->initialized_audio = true;
         
@@ -1587,7 +1609,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_done,
         display_decklink_getf,
         display_decklink_putf,
-        display_decklink_reconfigure,
+        display_decklink_reconfigure_video,
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
