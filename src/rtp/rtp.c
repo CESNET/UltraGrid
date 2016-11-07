@@ -238,6 +238,7 @@ typedef struct {
         int wait_for_rtcp;
         int filter_my_packets;
         int reuse_bufs;
+        int record_source;
 } options;
 
 /*
@@ -962,6 +963,7 @@ static void init_opt(struct rtp *session)
         rtp_set_option(session, RTP_OPT_WEAK_VALIDATION, FALSE);
         rtp_set_option(session, RTP_OPT_FILTER_MY_PACKETS, FALSE);
         rtp_set_option(session, RTP_OPT_REUSE_PACKET_BUFS, FALSE);
+        rtp_set_option(session, RTP_OPT_RECORD_SOURCE, FALSE);
 }
 
 static void init_rng(const char *s)
@@ -1236,6 +1238,10 @@ int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
         case RTP_OPT_REUSE_PACKET_BUFS:
                 session->opt->reuse_bufs = optval;
                 break;
+        case RTP_OPT_RECORD_SOURCE:
+                assert(optval == FALSE || (!session->mt_recv && "Recording source not allowed in multithreaded mode!"));
+                session->opt->record_source = optval;
+                break;
         default:
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_set_option().\n",
@@ -1440,12 +1446,19 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                 buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
         } else {
                 if (!session->opt->reuse_bufs || (packet == NULL)) {
-                        packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
+                        packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN + (session->opt->record_source ? sizeof(struct sockaddr_storage) : 0));
                         buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
                 }
+                struct sockaddr_storage *sin = NULL;
+                socklen_t addrlen = 0;
+                if (session->opt->record_source) {
+                        sin = (struct sockaddr_storage *) ((char *) packet + RTP_MAX_PACKET_LEN);
+                        addrlen = sizeof(struct sockaddr_storage);
+                }
                 buflen =
-                        udp_recv(session->rtp_socket, (char *)buffer,
-                                        RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+                        udp_recvfrom(session->rtp_socket, (char *)buffer,
+                                        RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
+                                        (struct sockaddr *) sin, &addrlen);
                 if (buflen <= 0) {
                         free(packet);
                 }

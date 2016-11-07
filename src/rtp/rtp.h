@@ -213,7 +213,9 @@ typedef enum {
         RTP_OPT_FILTER_MY_PACKETS = 3,
 	RTP_OPT_REUSE_PACKET_BUFS = 4,	/* Each data packet is written into the same buffer, */
 	                                /* rather than malloc()ing a new buffer each time.   */
-	RTP_OPT_PEEK              = 5
+	RTP_OPT_PEEK              = 5,
+	RTP_OPT_RECORD_SOURCE     = 6   /* Record network source (sockaddr_storage) at the   */
+                                        /* end of the packet                                 */
 } rtp_option;
 
 /* API */
