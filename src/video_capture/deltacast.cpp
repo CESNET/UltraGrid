@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2013 CESNET, z.s.p.o.
+ * Copyright (c) 2011-2016 CESNET, z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -429,6 +429,11 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %u handle. Result = 0x%08X\n",BrdId,Result);
                 goto error;
         }
+
+        if (!delta_set_nb_channels(BrdId, s->BoardHandle, 1, 0)) {
+                goto error;
+        }
+
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_TYPE, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
                 fprintf(stderr, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
