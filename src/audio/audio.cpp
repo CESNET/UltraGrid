@@ -118,7 +118,7 @@ struct state_audio {
         struct audio_network_parameters audio_network_parameters;
         struct rtp *audio_network_device;
         struct pdb *audio_participants;
-        std::string jack_cfg;
+        std::string proto_cfg; // audio network protocol options
         void *jack_connection;
         enum audio_transport_device sender;
         enum audio_transport_device receiver;
@@ -199,11 +199,12 @@ static void audio_scale_usage(void)
  */
 struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, const char *fec_cfg, const char *encryption,
+                const char *proto, const char *proto_cfg,
+                const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                bool isStd, long packet_rate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
+                long packet_rate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -383,19 +384,23 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->audio_playback_device = audio_playback_init_null_device();
         }
 
-        s->sender = NET_NATIVE;
-        s->receiver = NET_NATIVE;
-        if(isStd && strcmp(recv_cfg, "none") != 0) s->receiver = NET_STANDARD;
-        if(isStd && strcmp(send_cfg, "none") != 0) s->sender = NET_STANDARD;
+        s->proto_cfg = proto_cfg;
 
-        if (jack_cfg) {
+        if (strcasecmp(proto, "ultragrid_rtp") == 0) {
+                s->sender = NET_NATIVE;
+                s->receiver = NET_NATIVE;
+        } else if (strcasecmp(proto, "rtsp") == 0) {
+                s->receiver = NET_STANDARD;
+                s->sender = NET_STANDARD;
+        } else if (strcasecmp(proto, "JACK") == 0) {
 #ifdef HAVE_JACK_TRANS
-                s->jack_cfg = jack_cfg;
-#else
                 fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
                                 "but JACK support isn't compiled.\n");
                 goto error;
 #endif
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", proto);
+                goto error;
         }
 
         return s;
@@ -425,7 +430,7 @@ error:
 
 void audio_start(struct state_audio *s) {
 #ifdef HAVE_JACK_TRANS
-        s->jack_connection = jack_start(s->jack_cfg.c_str());
+        s->jack_connection = jack_start(s->proto_cfg.c_str());
         if(s->jack_connection) {
                 if(is_jack_sender(s->jack_connection))
                         s->sender = NET_JACK;

@@ -121,7 +121,8 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
-#define OPT_PROTOCOL (('P' << 8) | 'R')
+#define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
+#define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
 #define OPT_PARAM (('O' << 8) | 'P')
 
 #define MAX_CAPTURE_COUNT 17
@@ -268,17 +269,17 @@ static void usage(void)
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
         printf("\n");
         printf("\n");
-        printf("\t--protocol <proto>       \ttransmission protocol, see '--protocol help'\n");
-        printf("\t                         \tfor list. Use --protocol rtsp for RTSP server\n");
-        printf("\t                         \t(see --protocol rtsp:help for usage)\n");
+        printf("\t--video-protocol <proto> \ttransmission protocol, see '--video-protocol help'\n");
+        printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
+        printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
+        printf("\n");
+        printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be ultragrid_rtp, JACK or rtsp\n");
         printf("\n");
 #ifdef HAVE_IPv6
         printf("\t-6                       \tUse IPv6\n");
         printf("\n");
 #endif //  HAVE_IPv6
         printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
-        printf("\n");
-        printf("\t-j <settings>            \tJACK Audio Connection Kit settings\n");
         printf("\n");
         printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
         printf("\t                         \tdual-link)\n");
@@ -501,12 +502,10 @@ int main(int argc, char *argv[])
         char *display_cfg = NULL;
         const char *audio_recv = "none";
         const char *audio_send = "none";
-        char *jack_cfg = NULL;
         const char *requested_video_fec = "none";
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
-        bool isStd = FALSE;
         int port_base = PORT_BASE;
         int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
 
@@ -580,7 +579,6 @@ int main(int argc, char *argv[])
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
-                {"jack", required_argument, 0, 'j'},
                 {"fec", required_argument, 0, 'f'},
                 {"port", required_argument, 0, 'P'},
                 {"limit-bitrate", required_argument, 0, 'l'},
@@ -606,7 +604,8 @@ int main(int argc, char *argv[])
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
                 {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
-                {"protocol", required_argument, 0, OPT_PROTOCOL},
+                {"audio-protocol", required_argument, 0, OPT_AUDIO_PROTOCOL},
+                {"video-protocol", required_argument, 0, OPT_VIDEO_PROTOCOL},
                 {"rtsp-server", optional_argument, 0, 'H'},
                 {"param", required_argument, 0, OPT_PARAM},
                 {0, 0, 0, 0}
@@ -615,11 +614,14 @@ int main(int argc, char *argv[])
 
         uv_state = &uv;
 
+        const char *audio_protocol = "ultragrid_rtp";
+        const char *audio_protocol_opts = "";
+
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:v6c:hj:M:p:f:P:l:A:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:v6c:hM:p:f:P:l:A:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -663,11 +665,19 @@ int main(int argc, char *argv[])
                 case 'H':
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
-                                        "Please use \"--protocol rtsp[:args]\"instead.\n");
+                                        "Please use \"--video-protocol rtsp[:args]\"instead.\n");
                         video_protocol = "rtsp";
                         video_protocol_opts = optarg ? optarg : "";
                         break;
-                case OPT_PROTOCOL:
+                case OPT_AUDIO_PROTOCOL:
+                        audio_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                audio_protocol_opts = delim + 1;
+                        }
+                        break;
+                case OPT_VIDEO_PROTOCOL:
                         video_protocol = optarg;
                         if (strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
@@ -680,9 +690,6 @@ int main(int argc, char *argv[])
                         break;
                 case 's':
                         audio_send = optarg;
-                        break;
-                case 'j':
-                        jack_cfg = optarg;
                         break;
                 case 'f':
                         if(strlen(optarg) > 2 && optarg[1] == ':' &&
@@ -986,12 +993,16 @@ int main(int argc, char *argv[])
         if (!audio_host) {
                 audio_host = requested_receiver;
         }
-#ifdef HAVE_RTSP_SERVER
+
         if((audio_send != NULL || audio_recv != NULL) && strcmp(video_protocol, "rtsp") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
-            isStd = TRUE;
+            if (strcmp(audio_protocol, "rtsp") != 0) {
+		log_msg(LOG_LEVEL_WARNING, "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n");
+            }
         }
-#endif
+        if (strcmp(audio_protocol, "rtsp") == 0 && strcmp(video_protocol, "rtsp") != 0) {
+                log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
+        }
 
         printf("%s", PACKAGE_STRING);
 #ifdef GIT_VERSION
@@ -1027,10 +1038,11 @@ int main(int argc, char *argv[])
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
-                        jack_cfg, requested_audio_fec, requested_encryption,
+                        audio_protocol, audio_protocol_opts,
+                        requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, isStd, packet_rate, &audio_offset, &start_time,
+                        audio_codec, packet_rate, &audio_offset, &start_time,
                         requested_mtu);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
