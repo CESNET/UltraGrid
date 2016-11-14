@@ -1,5 +1,5 @@
 /* -LICENSE-START-
-** Copyright (c) 2016 Blackmagic Design
+** Copyright (c) 2014 Blackmagic Design
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
@@ -25,47 +25,31 @@
 ** -LICENSE-END-
 */
 
-#ifndef BMD_DECKLINKAPIDISCOVERY_H
-#define BMD_DECKLINKAPIDISCOVERY_H
+#ifndef BMD_DECKLINKAPI_v10_2_H
+#define BMD_DECKLINKAPI_v10_2_H
 
-
-#ifndef BMD_CONST
-    #if defined(_MSC_VER)
-        #define BMD_CONST __declspec(selectany) static const
-    #else
-        #define BMD_CONST static const
-    #endif
-#endif
+#include "DeckLinkAPI.h"
 
 // Type Declarations
 
+/* Enum BMDDeckLinkConfigurationID - DeckLink Configuration ID */
 
-// Interface ID Declarations
-
-BMD_CONST REFIID IID_IDeckLink                                    = /* C418FBDD-0587-48ED-8FE5-640F0A14AF91 */ {0xC4,0x18,0xFB,0xDD,0x05,0x87,0x48,0xED,0x8F,0xE5,0x64,0x0F,0x0A,0x14,0xAF,0x91};
-
-// Forward Declarations
-
-class IDeckLink;
-
-/* Interface IDeckLink - represents a DeckLink device */
-
-class IDeckLink : public IUnknown
-{
-public:
-    virtual HRESULT GetModelName (/* out */ CFStringRef *modelName) = 0;
-    virtual HRESULT GetDisplayName (/* out */ CFStringRef *displayName) = 0;
-
-protected:
-    virtual ~IDeckLink () {} // call Release method to drop reference count
+typedef uint32_t BMDDeckLinkConfigurationID_v10_2;
+enum  _BMDDeckLinkConfigurationID_v10_2 {
+    /* Video output flags */
+	
+    bmdDeckLinkConfig3GBpsVideoOutput_v10_2                      = '3gbs',
 };
 
-/* Functions */
+/* Enum BMDAudioConnection_v10_2 - Audio connection types */
 
-extern "C" {
+typedef uint32_t BMDAudioConnection_v10_2;
+enum _BMDAudioConnection_v10_2 {
+    bmdAudioConnectionEmbedded_v10_2                             = /* 'embd' */ 0x656D6264,
+    bmdAudioConnectionAESEBU_v10_2                               = /* 'aes ' */ 0x61657320,
+    bmdAudioConnectionAnalog_v10_2                               = /* 'anlg' */ 0x616E6C67,
+    bmdAudioConnectionAnalogXLR_v10_2                            = /* 'axlr' */ 0x61786C72,
+    bmdAudioConnectionAnalogRCA_v10_2                            = /* 'arca' */ 0x61726361
+};
 
-
-}
-
-
-#endif /* defined(BMD_DECKLINKAPIDISCOVERY_H) */
+#endif /* defined(BMD_DECKLINKAPI_v10_2_H) */

@@ -33,7 +33,7 @@
 	#error The DeckLink API version of DeckLinkAPIDispatch.cpp is not the same version as DeckLinkAPI.h
 #endif
 
-#define kDeckLinkAPI_BundlePath "/Library/Application Support/Blackmagic Design/Blackmagic DeckLink/DeckLinkAPI.bundle"
+#define kDeckLinkAPI_BundlePath "/Library/Frameworks/DeckLinkAPI.framework"
 
 typedef IDeckLinkIterator_v8_0* (*CreateIteratorFunc)(void);
 typedef IDeckLinkAPIInformation* (*CreateAPIInformationFunc)(void);

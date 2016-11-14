@@ -261,6 +261,7 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat;
 
         uint32_t            link;
+        char                level; // 0 - undefined, 'A' - level A, 'B' - level B
 
         buffer_pool_t       buffer_pool;
 
@@ -279,9 +280,10 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
+        printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL) {
@@ -852,6 +854,10 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->link = to_fourcc('l', 'c', 'd', 'l');
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
                                 s->link = to_fourcc('l', 'c', 'q', 'l');
+                        } else if(strcasecmp(ptr, "LevelA") == 0) {
+                                s->level = 'A';
+                        } else if(strcasecmp(ptr, "LevelB") == 0) {
+                                s->level = 'B';
                         } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                                 char *packing = ptr + strlen("HDMI3DPacking=");
                                 if(strcasecmp(packing, "SideBySideHalf") == 0) {
@@ -1007,6 +1013,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
+		// Get IDeckLinkAttributes object
+		IDeckLinkAttributes *deckLinkAttributes = NULL;
+		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+		if (result != S_OK) {
+			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
+		}
+
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
@@ -1066,6 +1079,27 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output SDI standard.\n");
                         }
+                }
+
+                if (s->level != 0) {
+#if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - cannot set 3G-SDI level.\n");
+#else
+			if (deckLinkAttributes) {
+				BMD_BOOL supports_level_a;
+				if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
+					log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
+				} else {
+					if (s->level == 'A' && supports_level_a == BMD_FALSE) {
+						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
+					}
+				}
+			}
+                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->level == 'A');
+                        if(res != S_OK) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output 3G-SDI level.\n");
+                        }
+#endif
                 }
 
                 if (s->play_audio && i == 0) {
