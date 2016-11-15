@@ -467,11 +467,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 
         gettimeofday(&tv, NULL);
 
-#ifdef WIN32
-        long unsigned int i;
-#else
         uint32_t i;
-#endif
 
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
 
@@ -1296,11 +1292,7 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
 
         assert(s->play_audio);
 
-#ifdef WIN32
-        unsigned long int sampleFramesWritten;
-#else
-        unsigned int sampleFramesWritten;
-#endif
+        uint32_t sampleFramesWritten;
 
         auto t0 = chrono::high_resolution_clock::now();
 
