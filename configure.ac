@@ -103,7 +103,7 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
+else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi"
@@ -556,17 +556,14 @@ AC_ARG_ENABLE(dvs,
 [                          Requires: DVS_SDK],
 	[dvs_req=$enableval])
 
-case "$host" in
-	*darwin*)
+case "$system" in
+	MacOSX)
 		DVS_SDK_SUBDIR="universal"
 	;;
-  	x86_64-*-linux-*)
+  	Linux)
 		DVS_SDK_SUBDIR="linux-x86_64"
 	;;
-	i*86-*-linux-*)
-		DVS_SDK_SUBDIR="linux-x86"
-	;;
-	*mingw32*)
+	Windows)
 		DVS_SDK_SUBDIR="win32"
         ;;
 esac
@@ -643,8 +640,8 @@ AC_ARG_ENABLE(decklink,
 	[decklink_req=$enableval])
 DECKLINK_INC=
 
-case "$host_os" in
-	*darwin*)
+case "$system" in
+	MacOSX)
                 if test -z $DECKLINK_INC; then
                         DECKLINK_INC=$srcdir/DeckLink/Mac
                 fi
@@ -660,7 +657,7 @@ case "$host_os" in
                 fi
                 AC_LANG_POP(C++)
                 ;;
-	*mingw*)
+	Windows)
                 if test -z $DECKLINK_INC; then
                         DECKLINK_INC=$srcdir/DeckLink/Windows
                 fi
@@ -1463,8 +1460,8 @@ fi
 AC_SUBST(FOUND_GLEW)
 LIBS=$SAVED_LIBS
 
-case "$host_os" in
-	*darwin*)
+case "$system" in
+	MacOSX)
 	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
 			 [FOUND_GL_H=yes],
 			 [FOUND_GL_H=no],
@@ -1519,7 +1516,7 @@ case "$host_os" in
 		echo "OpenGL headers not found or not usable."
 	fi
 	;;
-	*mingw*)
+	Windows)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
 	LIBS="$LIBS -lglut -lglew32 -lopengl32"
@@ -1682,8 +1679,8 @@ AC_ARG_ENABLE(screen,
     [screen_cap_req=auto]
     )
 
-case "$host_os" in
-	*darwin*)
+case "$system" in
+	MacOSX)
 		if test $screen_cap_req != no -a $os_version_major -ge 10
 		then
                         screen_cap=yes
@@ -1697,7 +1694,7 @@ case "$host_os" in
 		fi
 
 	;;
-        mingw32)
+        Windows)
                 screen_cap=no
         ;;
 	*)
