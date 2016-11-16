@@ -519,13 +519,19 @@ static void screenshot(struct video_frame *frame)
 {
         char name[128];
         time_t t;
-        struct tm time_tmp;
-
         t = time(NULL);
+        struct tm *time_ptr;
+
+#ifdef WIN32
+        time_ptr = localtime(&t);
+#else
+        struct tm time_tmp;
         localtime_r(&t, &time_tmp);
+        time_ptr = &time_tmp;
+#endif
 
         strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
-                                               &time_tmp);
+                                               time_ptr);
         save_video_frame_as_pnm(frame, name);
 }
 
