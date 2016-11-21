@@ -602,6 +602,16 @@ void vidcap_state_aja::CaptureFrames (void)
                 //      DMA the new frame to system memory...
                 mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize);
 
+                if (log_level >= LOG_LEVEL_DEBUG) {
+                        RP188_STRUCT    timecodeValue;
+                        string 		timeCodeString;
+                        //      Use the embedded input time code...
+                        mDevice.GetRP188Data (mInputChannel, 0, timecodeValue);
+                        CRP188  inputRP188Info  (timecodeValue);
+                        inputRP188Info.GetRP188Str (timeCodeString);
+                        LOG(LOG_LEVEL_DEBUG) << "AJA: Captured frame with timecode: " << timeCodeString << '\n';
+                }
+
                 //      Check for dropped frames by ensuring the hardware has not started to process
                 //      the buffers that were just filled....
                 uint32_t readBackIn;
