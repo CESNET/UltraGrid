@@ -1,5 +1,5 @@
 /*
- * FILE:   testcard.c
+ * FILE:   testcard.cpp
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>
@@ -11,7 +11,7 @@
  *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2016 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -60,6 +60,7 @@
 #include "tv.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture/testcard.h"
 #include "video_capture/testcard_common.h"
 #include "song1.h"
 #include "utils/vf_split.h"
@@ -290,7 +291,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 
-static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
+int vidcap_testcard_init(const struct vidcap_params *params, void **state)
 {
         struct testcard_state *s;
         char *filename;
@@ -612,7 +613,7 @@ error:
         return VIDCAP_INIT_FAIL;
 }
 
-static void vidcap_testcard_done(void *state)
+void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = (struct testcard_state *) state;
         free(s->data);
@@ -655,6 +656,17 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                 state->t0 = curr_time;
                 state->count = 0;
         }
+
+        return vidcap_testcard_get_next_frame(arg, audio);
+}
+
+/*
+ * Except in vidcap_testcard_grab(), this function is used directly in decklink capture
+ * module.
+ */
+struct video_frame *vidcap_testcard_get_next_frame(void *arg, struct audio_frame **audio)
+{
+        struct testcard_state *state = (struct testcard_state *)arg;
 
         if (state->grab_audio) {
 #ifdef HAVE_LIBSDL_MIXER
