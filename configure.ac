@@ -2719,8 +2719,9 @@ RESULT=\
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec
 
-  resize capture filter ....... $resize
   blank capture filter ........ $blank
+  resize capture filter ....... $resize
+  text postprocess and filter . $text
   RTSP Server ................. $rtsp_server
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
