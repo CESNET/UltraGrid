@@ -1271,7 +1271,7 @@ cleanup:
 
         while  (vidcap_params_head) {
                 struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
-                vidcap_params_free_struct(vidcap_params_head);
+                vidcap_params_free(vidcap_params_head);
                 vidcap_params_head = next;
         }
 

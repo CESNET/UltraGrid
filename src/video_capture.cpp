@@ -434,7 +434,7 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
  *
  * @param[in] buf structure to be feed
  */
-void vidcap_params_free_struct(struct vidcap_params *buf)
+void vidcap_params_free(struct vidcap_params *buf)
 {
         if (!buf)
                 return;

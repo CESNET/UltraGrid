@@ -1248,7 +1248,7 @@ vidcap_swmix_done(void *state)
                 VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
                 VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
                 free(s->slaves[i].audio_frame.data);
-                vidcap_params_free_struct(s->slaves[i].device_params);
+                vidcap_params_free(s->slaves[i].device_params);
         }
         free(s->slaves);
 
