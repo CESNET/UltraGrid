@@ -55,6 +55,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/video_signal_generator.h"
 #include "video.h"
 #include "video_capture.h"
 #include "audio/audio.h"
@@ -122,6 +123,9 @@ struct vidcap_decklink_state {
         BMDVideoInputConversionMode conversion_mode;
 
         struct timeval          t0;
+
+        struct video_signal_generator *signal_generator; // when we want to capture testcard instead
+                                                         // of signal if no signal was detected
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -191,6 +195,10 @@ public:
                 deckLinkInput->StopStreams();
                 deckLinkInput->FlushStreams();
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
+                if (s->signal_generator) {
+                        assert(s->frame->tile_count == 1);
+                        video_signal_generator_reconfigure(s->signal_generator, video_desc_from_frame(s->frame));
+                }
                 if(result == S_OK) {
                         result = deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags);
                         if(s->grab_audio == FALSE ||
@@ -221,7 +229,7 @@ HRESULT
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioPacket)
 {
 	// Video
-
+        bool nosignal = false;
 	unique_lock<mutex> lk(s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
@@ -230,6 +238,10 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 		if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
 			log_msg(LOG_LEVEL_INFO, "Frame received (#%d) - No input signal detected\n", s->frames);
+                        nosignal = true;
+                        if (s->signal_generator) {
+                                newFrameReady = 1;
+                        }
 		} else {
                         newFrameReady = 1; // The new frame is ready to grab
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
@@ -243,7 +255,12 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 
         if (videoFrame && newFrameReady) {
                 /// @todo videoFrame should be actually retained until the data are processed
-                videoFrame->GetBytes(&pixelFrame);
+                if (!nosignal) {
+                        videoFrame->GetBytes(&pixelFrame);
+                } else {
+                        struct video_frame *generated_frame = video_signal_generator_grab(s->signal_generator);
+                        pixelFrame = generated_frame->tiles[0].data;
+                }
 
                 IDeckLinkTimecode *tc = NULL;
                 if (videoFrame->GetTimecode(bmdTimecodeRP188Any, &tc) == S_OK) {
@@ -334,7 +351,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audioConsumerLevels={true|false}]"
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audioConsumerLevels={true|false}][:always_signal]"
 #ifndef IN_CONV_BROKEN
                         "[:conversion=<conv_mode>]"
 #endif
@@ -529,6 +546,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                         fprintf(stderr, "Wrong config. Unknown color space %s\n", codec);
                         return false;
                 }
+        } else if (strcasecmp(opt, "always_signal") == 0) {
+                s->signal_generator = video_signal_generator_create();
         } else {
                 fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -1024,6 +1043,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                                 s->flags |= bmdVideoInputDualStream3D;
                                         }
                                         result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
+                                        if (s->signal_generator) {
+                                                assert(s->frame->tile_count == 1);
+                                                video_signal_generator_reconfigure(s->signal_generator, video_desc_from_frame(s->frame));
+                                        }
                                         if (result != S_OK)
                                         {
                                                 switch (result) {
@@ -1203,6 +1226,9 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         free(s->audio.data);
 
         vf_free(s->frame);
+
+        video_signal_generator_done(s->signal_generator);
+
         delete s;
 
         decklink_uninitialize();
