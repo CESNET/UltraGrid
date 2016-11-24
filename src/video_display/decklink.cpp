@@ -117,6 +117,21 @@ public:
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame\n";
                 }
 
+		if (log_level >= LOG_LEVEL_DEBUG) {
+			struct timespec tm;
+			clock_gettime(CLOCK_BOOTTIME, &tm);
+
+			IDeckLinkTimecode *timecode = NULL;
+			if (completedFrame->GetTimecode ((BMDTimecodeFormat) 0, &timecode) == S_OK) {
+				const char *timecodestr;
+				if (timecode && timecode->GetString(&timecodestr) == S_OK) {
+					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecodestr << " output at " <<  tm.tv_sec + tm.tv_nsec/(double)1e9 << '\n';
+					free((void *) timecodestr);
+				}
+			}
+		}
+
+
 		completedFrame->Release();
 		return S_OK;
 	}
@@ -147,7 +162,18 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
                         return S_OK;
                 }
-                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) { UNUSED(timecode); return E_FAIL; }
+                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) {
+#ifdef HAVE_LINUX
+                        uint8_t hours, minutes, seconds, frames;
+                        GetComponents(&hours, &minutes, &seconds, &frames);
+                        char *out = (char *) malloc(12);
+                        sprintf(out, "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
+                        *timecode = out;
+                        return S_OK;
+#else
+                        return E_FAIL;
+#endif
+                }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
 
@@ -244,7 +270,8 @@ struct state_decklink {
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
 
-        DeckLinkTimecode    *timecode;
+        DeckLinkTimecode    *timecode; ///< @todo Should be actually allocated dynamically and
+                                       ///< its lifespan controlled by AddRef()/Release() methods
 
         struct video_desc   vid_desc;
         struct audio_desc   aud_desc;
@@ -1171,8 +1198,6 @@ static void display_decklink_done(void *state)
 
         assert (s != NULL);
 
-        delete s->timecode;
-
         for (int i = 0; i < s->devices_cnt; ++i)
         {
                 if (s->initialized_video) {
@@ -1211,6 +1236,8 @@ static void display_decklink_done(void *state)
                 s->buffer_pool.frame_queue.pop();
                 delete tmp;
         }
+
+        delete s->timecode;
 
         delete s;
 
