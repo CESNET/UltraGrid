@@ -51,6 +51,7 @@
 
 #include "audio/audio.h"
 #include "blackmagic_common.h"
+#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -118,15 +119,14 @@ public:
                 }
 
 		if (log_level >= LOG_LEVEL_DEBUG) {
-			struct timespec tm;
-			clock_gettime(CLOCK_BOOTTIME, &tm);
-
 			IDeckLinkTimecode *timecode = NULL;
 			if (completedFrame->GetTimecode ((BMDTimecodeFormat) 0, &timecode) == S_OK) {
-				const char *timecodestr;
-				if (timecode && timecode->GetString(&timecodestr) == S_OK) {
-					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecodestr << " output at " <<  tm.tv_sec + tm.tv_nsec/(double)1e9 << '\n';
-					free((void *) timecodestr);
+				BMD_STR timecode_str;
+				if (timecode && timecode->GetString(&timecode_str) == S_OK) {
+                                        const char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
+					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecode_cstr << " output at " <<  time_since_epoch_in_ms() / (double) 1e3 << '\n';
+                                        release_bmd_api_str(timecode_str);
+                                        free((void *) timecode_cstr);
 				}
 			}
 		}
@@ -171,6 +171,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         *timecode = out;
                         return S_OK;
 #else
+                        UNUSED(timecode);
                         return E_FAIL;
 #endif
                 }
