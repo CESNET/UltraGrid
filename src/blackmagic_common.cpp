@@ -78,26 +78,30 @@ string bmd_hresult_to_string(HRESULT res)
  */
 const char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
 {
-       const  char *cstr;
+       const char *cstr;
 #ifdef HAVE_MACOSX
-        cstr = (char *) malloc(128);
-        CFStringGetCString(bmd_string, (char *) cstr, 128, kCFStringEncodingMacRoman);
+       size_t len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(bmd_string), kCFStringEncodingUTF8) + 1;
+       cstr = (char *) malloc(len);
+       CFStringGetCString(bmd_string, (char *) cstr, len, kCFStringEncodingUTF8);
 #elif defined WIN32
-        cstr = (char *) malloc(128);
-        wcstombs((char *) cstr, bmd_string, 128);
+       size_t len = SysStringLen(bmd_string) * 4 + 1;
+       cstr = (char *) malloc(len);
+       wcstombs((char *) cstr, bmd_string, len);
 #else // Linux
-        cstr = bmd_string;
+       cstr = strdup(bmd_string);
 #endif
 
-        return cstr;
+       return cstr;
 }
 
 void release_bmd_api_str(BMD_STR string)
 {
 #ifdef HAVE_MACOSX
         CFRelease(string);
+#elif defined WIN32
+        SysFreeString(string);
 #else
-        UNUSED(string);
+        free((void *) string);
 #endif
 }
 
