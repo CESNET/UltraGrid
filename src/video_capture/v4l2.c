@@ -193,6 +193,7 @@ static void show_help()
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
+        printf("\t\t<tfp> or <fps> should be given as a single integer or a fraction");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
