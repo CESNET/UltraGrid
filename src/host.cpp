@@ -19,7 +19,6 @@
 #include "video_compress.h"
 #include "video_display.h"
 #include "video.h"
-#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <set>
@@ -77,54 +76,6 @@ static void common_cleanup()
 #endif
 }
 
-bool set_output_buffering() {
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * stdout-buf
-         *   Buffering for stdout (no, line or full)
-         * * stderr-buf
-         *   Buffering for stdout (no, line or full)
-         * @}
-         */
-        const unordered_map<const char *, FILE *> outs = {
-                { "stdout-buf", stdout },
-                { "stderr-buf", stderr }
-        };
-        for (auto outp : outs) {
-                if (get_commandline_param(outp.first)) {
-                        const unordered_map<string, int> buf_map {
-                                { "no", _IONBF }, { "line", _IOLBF }, { "full", _IOFBF }
-                        };
-
-                        auto it = buf_map.find(get_commandline_param(outp.first));
-                        if (it == buf_map.end()) {
-                                log_msg(LOG_LEVEL_ERROR, "Wrong buffer type: %s\n", get_commandline_param(outp.first));
-                                return false;
-                        } else {
-                                setvbuf(outp.second, NULL, it->second, 0);
-                        }
-                }
-        }
-        return true;
-}
-
-#ifdef HAVE_X
-/**
- * Custom X11 error handler to catch errors and handle them more reasonably
- * than the default handler which exits the program immediately, which, however
- * is not correct in multithreaded program.
- */
-static int x11_error_handler(Display *d, XErrorEvent *e) {
-        char msg[1024] = "";
-        XGetErrorText(d, e->error_code, msg, sizeof msg - 1);
-        log_msg(LOG_LEVEL_ERROR, "X11 error - %s, serial: %d, error: %d, request: %d, minor: %d\n",
-                        msg, e->serial, e->error_code, e->request_code, e->minor_code);
-
-        return 0;
-}
-#endif
-
 bool common_preinit(int argc, char *argv[])
 {
         uv_argc = argc;
@@ -132,31 +83,19 @@ bool common_preinit(int argc, char *argv[])
 
 #ifdef HAVE_X
         void *handle = dlopen("libX11.so", RTLD_NOW);
+        bool x11_threads_initialized = false;
 
         if (handle) {
                 Status (*XInitThreadsProc)();
                 XInitThreadsProc = (Status (*)()) dlsym(handle, "XInitThreads");
                 if (XInitThreadsProc) {
-                        Status s = XInitThreadsProc();
-                        if (s != True) {
-                                log_msg(LOG_LEVEL_WARNING, "XInitThreads failed.\n");
-                        }
-                } else {
-                        log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XInitThreads: %s\n", dlerror());
+                        XInitThreadsProc();
+                        x11_threads_initialized = true;
                 }
-
-                typedef int (*XSetErrorHandler_t(int (*handler)(Display *, XErrorEvent *)))();
-                XSetErrorHandler_t *XSetErrorHandlerProc;
-                XSetErrorHandlerProc = (XSetErrorHandler_t *) dlsym(handle, "XSetErrorHandler");
-                if (XSetErrorHandlerProc) {
-                        XSetErrorHandlerProc(x11_error_handler);
-                } else {
-                        log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XSetErrorHandler: %s\n", dlerror());
-                }
-
                 dlclose(handle);
-        } else {
-                log_msg(LOG_LEVEL_WARNING, "Unable open X11 library: %s\n", dlerror());
+        }
+        if (!x11_threads_initialized) {
+                log_msg(LOG_LEVEL_WARNING, "Unable to XInitThreads: %s\n", dlerror());
         }
 #endif
 
@@ -195,9 +134,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
         // try to figure out actual input video format
         struct video_desc desc{};
         if (use_vidcap && root) {
-                // try 30x in 100 ms intervals
-                for (int attempt = 0; attempt < 30; ++attempt) {
-                        auto t0 = std::chrono::steady_clock::now();
+                for (int attempt = 0; attempt < 20; ++attempt) {
                         struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
                         m->type = SENDER_MSG_QUERY_VIDEO_MODE;
                         struct response *r = send_message_sync(root, "sender", (struct message *) m, 100, 0);
@@ -209,10 +146,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 break;
                         }
                         free_response(r);
-                        auto query_lasted = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
-                        // wait some time (100 ms - time of the last query) in order to
-                        // the signal to "settle"
-                        usleep(max<int>(100,query_lasted.count())*1000);
+                        usleep(100*1000);
                 }
         }
 

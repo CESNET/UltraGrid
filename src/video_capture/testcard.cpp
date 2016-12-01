@@ -287,7 +287,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
-static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
+static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 
 static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
@@ -531,7 +531,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                         }
                 }
                 s->data = (char *) s->pixmap.data;
-                if (codec == UYVY || codec == v210 || codec == YUYV) {
+                if (codec == UYVY || codec == v210) {
                         rgb2yuv422((unsigned char *) s->data, aligned_x,
                                    vf_get_tile(s->frame, 0)->height);
                 }
@@ -553,12 +553,6 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                             (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height);
                         free(s->pixmap.data);
-                }
-
-                if(codec == YUYV) {
-                        for (int i = 0; i < s->size; i += 2) {
-                                swap(s->data[i], s->data[i + 1]);
-                        }
                 }
 
                 tmp = filename;

@@ -34,10 +34,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo
- * Audio support is currently broken. Readd it in future.
- */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -45,12 +41,13 @@
 #include "config_win32.h"
 #endif
 
+#define NTV2_DEPRECATE 1
+
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -69,22 +66,11 @@
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 
-#include <condition_variable>
 #include <chrono>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 
 using namespace std;
-
-struct aligned_data_allocator {
-        void *allocate(size_t size) {
-                return aligned_malloc(size, AJA_PAGE_SIZE);
-        }
-        void deallocate(void *ptr) {
-                aligned_free(ptr);
-        }
-};
 
 static constexpr ULWord app = AJA_FOURCC ('U','L','G','R');
 
@@ -108,13 +94,15 @@ class vidcap_state_aja {
                 bool                   mWideVanc;                     ///     Wide VANC?
                 NTV2InputSource        mInputSource;                  ///     The input source I'm using
                 NTV2AudioSystem        mAudioSystem;                  ///     The audio system I'm using
+                AJACircularBuffer <AVDataBuffer *> mAVCircularBuffer; ///     My ring buffer object
                 uint32_t               mVideoBufferSize;              ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize;              ///     My audio buffer size, in bytes
+                AVDataBuffer           mAVHostBuffer [CIRCULAR_BUFFER_SIZE]; ///     My host buffers
+                AUTOCIRCULATE_TRANSFER_STRUCT mInputTransferStruct;   ///     My A/C input transfer info
+                AUTOCIRCULATE_TRANSFER_STATUS_STRUCT mInputTransferStatusStruct; ///     My A/C input status
                 AJAThread             *mProducerThread;               ///     My producer thread object -- does the frame capturing
-                video_frame_pool<aligned_data_allocator> mPool;
-                shared_ptr<video_frame> mOutputFrame;
-                mutex                  mOutputFrameLock;
-                condition_variable     mOutputFrameReady;
+                bool                   mFrameCaptured;
+                video_frame           *mOutputFrame;
                 bool                   mProgressive;
                 chrono::system_clock::time_point mT0;
                 int                    mFrames;
@@ -126,6 +114,7 @@ class vidcap_state_aja {
                 AJAStatus SetupVideo();
                 AJAStatus SetupAudio();
                 void SetupHostBuffers();
+                void SetupInputAutoCirculate();
                 NTV2VideoFormat GetVideoFormatFromInputSource();
                 void EnableInput(NTV2InputSource source);
 
@@ -141,7 +130,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
         mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
         mAudioSystem(NTV2_AUDIOSYSTEM_1),
-        mProducerThread(0), mOutputFrame(0), mProgressive(false),
+        mProducerThread(0), mFrameCaptured(false), mOutputFrame(0), mProgressive(false),
         mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
         mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
 {
@@ -227,6 +216,7 @@ void vidcap_state_aja::Init()
 
         //      Set up the circular buffers, the device signal routing, and both playout and capture Auto Circulate...
         SetupHostBuffers ();
+        SetupInputAutoCirculate ();
 
         //      This is for the timecode that we will burn onto the image...
         //NTV2FormatDescriptor fd = GetFormatDescriptor (GetNTV2StandardFromVideoFormat (mVideoFormat), mPixelFormat, mVancEnabled, Is2KFormat (mVideoFormat), mWideVanc);
@@ -239,10 +229,25 @@ vidcap_state_aja::~vidcap_state_aja() {
         //      Unsubscribe from input vertical event...
         mDevice.UnsubscribeInputVerticalEvent (mInputChannel);
 
+        //      Free all my buffers...
+        for (unsigned bufferNdx = 0; bufferNdx < CIRCULAR_BUFFER_SIZE; bufferNdx++)
+        {
+                if (mAVHostBuffer[bufferNdx].fVideoBuffer)
+                {
+                        delete mAVHostBuffer[bufferNdx].fVideoBuffer;
+                        mAVHostBuffer[bufferNdx].fVideoBuffer = NULL;
+                }
+                if (mAVHostBuffer[bufferNdx].fAudioBuffer)
+                {
+                        delete mAVHostBuffer[bufferNdx].fAudioBuffer;
+                        mAVHostBuffer[bufferNdx].fAudioBuffer = NULL;
+                }
+        }       //      for each buffer in the ring
+
         mDevice.SetEveryFrameServices (mSavedTaskMode);                                                                                                 //      Restore previous service level
         mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (AJAProcess::GetPid ()));     //      Release the device
 
-        mOutputFrame = {};
+        vf_free(mOutputFrame);
         free(mAudio.data);
 }
 
@@ -393,19 +398,6 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (!::NTV2BoardCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
                 mPixelFormat = NTV2_FBF_8BIT_YCBCR;
 
-        //      Set the pixel format for both device frame buffers...
-        mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
-
-        //      Enable and subscribe to the interrupts for the channel to be used...
-        mDevice.EnableInputInterrupt (mInputChannel);
-        mDevice.SubscribeInputVerticalEvent (mInputChannel);
-
-        //      Tell the hardware which buffers to use until the main worker thread runs
-        mDevice.SetInputFrame   (mInputChannel,  0);
-
-        //      Set the Frame Store modes
-        mDevice.SetMode (mInputChannel,  NTV2_MODE_CAPTURE);
-
         mDevice.SetReference (NTV2_REFERENCE_FREERUN);
 
         CNTV2SignalRouter       router;
@@ -473,7 +465,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 interlacing,
                 1};
         cout << "[AJA] Detected input video mode: " << desc << endl;
-        mPool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec) * desc.height);
+        mOutputFrame = vf_alloc_desc(desc);
 
         return AJA_STATUS_SUCCESS;
 }
@@ -520,12 +512,57 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 
 void vidcap_state_aja::SetupHostBuffers (void)
 {
+        //      Let my circular buffer know when it's time to quit...
+        mAVCircularBuffer.SetAbortFlag ((bool *) &should_exit);
+
         mVancEnabled = false;
         mWideVanc = false;
         mDevice.GetEnableVANCData (&mVancEnabled, &mWideVanc);
         mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancEnabled, mWideVanc);
         mAudioBufferSize = NTV2_AUDIOSIZE_MAX;
+
+        //      Allocate and add each in-host AVDataBuffer to my circular buffer member variable...
+        for (unsigned bufferNdx = 0; bufferNdx < CIRCULAR_BUFFER_SIZE; bufferNdx++ )
+        {
+                mAVHostBuffer [bufferNdx].fVideoBuffer = reinterpret_cast <uint32_t *> (new uint8_t [mVideoBufferSize]);
+                mAVHostBuffer [bufferNdx].fVideoBufferSize = mVideoBufferSize;
+                mAVHostBuffer [bufferNdx].fAudioBuffer = reinterpret_cast <uint32_t *> (new uint8_t [mAudioBufferSize]);
+                mAVHostBuffer [bufferNdx].fAudioBufferSize = mAudioBufferSize;
+                mAVCircularBuffer.Add (& mAVHostBuffer [bufferNdx]);
+        }       //      for each AVDataBuffer
+
 }       //      SetupHostBuffers
+
+static NTV2Crosspoint   channelToInputCrosspoint []     = {     NTV2CROSSPOINT_INPUT1,  NTV2CROSSPOINT_INPUT2,  NTV2CROSSPOINT_INPUT3,  NTV2CROSSPOINT_INPUT4,
+        NTV2CROSSPOINT_INPUT5,  NTV2CROSSPOINT_INPUT6,  NTV2CROSSPOINT_INPUT7,  NTV2CROSSPOINT_INPUT8,  NTV2_NUM_CROSSPOINTS};
+
+
+void vidcap_state_aja::SetupInputAutoCirculate (void)
+{
+        mDevice.StopAutoCirculate (channelToInputCrosspoint [mInputChannel]);
+
+        ::memset (&mInputTransferStruct,                0,      sizeof (mInputTransferStruct));
+        ::memset (&mInputTransferStatusStruct,  0,      sizeof (mInputTransferStatusStruct));
+
+        mInputTransferStruct.channelSpec                        = channelToInputCrosspoint [mInputChannel];
+        mInputTransferStruct.videoBufferSize            = mVideoBufferSize;
+        mInputTransferStruct.videoDmaOffset                     = 0;
+        mInputTransferStruct.audioBufferSize            = mAudioBufferSize;
+        mInputTransferStruct.frameRepeatCount           = 1;
+        mInputTransferStruct.desiredFrame                       = -1;
+        mInputTransferStruct.frameBufferFormat          = mPixelFormat;
+        mInputTransferStruct.bDisableExtraAudioInfo     = true;
+
+        bool ret;
+        ret = mDevice.AutoCirculateInitForInput(mInputChannel,
+                        10,                                    // Number of system frame
+                        mAudioSystem,                          // Audio system
+                        AUTOCIRCULATE_WITH_RP188,              // Options
+                        1);                                    // Number of channels
+        if (!ret) {
+                throw string("Unable to initialize auto circulate!");
+        }
+}       //      SetupInputAutoCirculate
 
 AJAStatus vidcap_state_aja::Run()
 {
@@ -541,6 +578,9 @@ AJAStatus vidcap_state_aja::Run()
 
 void vidcap_state_aja::Quit()
 {
+        if (mFrameCaptured) {
+                mAVCircularBuffer.EndConsumeNextBuffer ();
+        }
         //      Set the global 'quit' flag, and wait for the threads to go inactive...
         //mGlobalQuit = true;
 
@@ -578,96 +618,108 @@ void vidcap_state_aja::ProducerThreadStatic (AJAThread * pThread, void * pContex
 
 void vidcap_state_aja::CaptureFrames (void)
 {
-        uint32_t        currentInFrame                  = 0;    //      Will ping-pong between 0 and 1
+        //      Start AutoCirculate running...
+        mDevice.StartAutoCirculate (mInputTransferStruct.channelSpec);
 
-        //      Wait to make sure the next two SDK calls will be made during the same frame...
-        mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
-        currentInFrame  ^= 1;
-        mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
+        while (!should_exit)
+        {
+                AUTOCIRCULATE_STATUS_STRUCT     acStatus;
+                mDevice.GetAutoCirculate (mInputTransferStruct.channelSpec, &acStatus);
 
-        //      Wait until the hardware starts filling the new buffers, and then start audio
-        //      capture as soon as possible to match the video...
-        mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+                if (acStatus.state == NTV2_AUTOCIRCULATE_RUNNING && acStatus.bufferLevel > 1)
+                {
+                        //      At this point, there's at least one fully-formed frame available in the device's
+                        //      frame buffer to transfer to the host. Reserve an AVDataBuffer to "produce", and
+                        //      use it in the next transfer from the device...
+                        AVDataBuffer *  captureData     (mAVCircularBuffer.StartProduceNextBuffer ());
+                        if (captureData == nullptr)
+                                continue;
 
-        currentInFrame  ^= 1;
-        mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
+                        mInputTransferStruct.videoBuffer                = captureData->fVideoBuffer;
+                        mInputTransferStruct.videoBufferSize    = captureData->fVideoBufferSize;
+                        mInputTransferStruct.audioBuffer                = captureData->fAudioBuffer;
+                        mInputTransferStruct.audioBufferSize    = captureData->fAudioBufferSize;
 
-	while (!should_exit) {
-		//      Wait until the input has completed capturing a frame...
-                mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
-		//      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
-                currentInFrame  ^= 1;
+                        //      Do the transfer from the device into our host AVDataBuffer...
+                        mDevice.TransferWithAutoCirculate (&mInputTransferStruct, &mInputTransferStatusStruct);
+                        captureData->fAudioBufferSize = mInputTransferStatusStruct.audioBufferSize;
 
-                shared_ptr<video_frame> out = mPool.get_frame();
-                //      DMA the new frame to system memory...
-                mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize);
+                        //      "Capture" timecode into the host AVDataBuffer while we have full access to it...
+                        captureData->fRP188Data = mInputTransferStatusStruct.frameStamp.currentRP188;
 
-                if (log_level >= LOG_LEVEL_DEBUG) {
-                        RP188_STRUCT    timecodeValue;
-                        string 		timeCodeString;
-                        //      Use the embedded input time code...
-                        mDevice.GetRP188Data (mInputChannel, 0, timecodeValue);
-                        CRP188  inputRP188Info  (timecodeValue);
-                        inputRP188Info.GetRP188Str (timeCodeString);
-                        LOG(LOG_LEVEL_DEBUG) << "AJA: Captured frame with timecode: " << timeCodeString << '\n';
+                        //      Signal that we're done "producing" the frame, making it available for future "consumption"...
+                        mAVCircularBuffer.EndProduceNextBuffer ();
+                }       //      if A/C running and frame(s) are available for transfer
+                else
+                {
+                        //      Either AutoCirculate is not running, or there were no frames available on the device to transfer.
+                        //      Rather than waste CPU cycles spinning, waiting until a frame becomes available, it's far more
+                        //      efficient to wait for the next input vertical interrupt event to get signaled...
+                        mDevice.WaitForInputVerticalInterrupt (mInputChannel);
                 }
+        }       //      loop til quit signaled
 
-                //      Check for dropped frames by ensuring the hardware has not started to process
-                //      the buffers that were just filled....
-                uint32_t readBackIn;
-                mDevice.GetInputFrame   (mInputChannel,         readBackIn);
+        //      Stop AutoCirculate...
+        mDevice.StopAutoCirculate (mInputTransferStruct.channelSpec);
 
-                if (readBackIn == currentInFrame) {
-                        cerr    << "## WARNING:  Drop detected:  current in " << currentInFrame << ", readback in " << readBackIn << endl;
-                }
-
-                //      Tell the hardware which buffers to start using at the beginning of the next frame...
-                mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
-
-                unique_lock<mutex> lk(mOutputFrameLock);
-                mOutputFrame = out;
-                lk.unlock();
-                mOutputFrameReady.notify_one();
-	}       //      loop til quit signaled
 }       //      CaptureFrames
+
+static uint32_t video_frame_rp188_from_aja_rp188(const RP188_STRUCT & aja_rp188)
+{
+	return  (aja_rp188.High & 0x0f000000) <<  4 |
+		(aja_rp188.High & 0x000f0000) <<  8 |
+		(aja_rp188.High & 0x00000f00) << 12 |
+		(aja_rp188.High & 0x0000000f) << 16 |
+	        (aja_rp188.Low  & 0x0f000000) >> 12 |
+		(aja_rp188.Low  & 0x000f0000) >>  8 |
+		(aja_rp188.Low  & 0x00000f00) >>  4 |
+		(aja_rp188.Low  & 0x0000000f) >>  0;
+}
 
 #define NTV2_AUDIOSIZE_48K (48 * 1024)
 
 struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 {
-        if (should_exit) {
-                return NULL;
+        if (mFrameCaptured) {
+                mAVCircularBuffer.EndConsumeNextBuffer ();
         }
+        if (!should_exit)
+        {
+                //      Wait for the next frame to become ready to "consume"...
+                AVDataBuffer *  playData        (mAVCircularBuffer.StartConsumeNextBuffer ());
+                if (playData)
+                {
+                        mOutputFrame->tiles[0].data = (char *) playData->fVideoBuffer;
+                        mFrameCaptured = true;
+                        mFrames += 1;
 
-        struct video_frame *ret;
+                        mOutputFrame->timecode = video_frame_rp188_from_aja_rp188(playData->fRP188Data);
 
-        unique_lock<mutex> lk(mOutputFrameLock);
-        if (mOutputFrameReady.wait_for(lk, chrono::milliseconds(100), [this]{return mOutputFrame != NULL;}) == false) {
-                return NULL;
-        }
+                        LOG(LOG_LEVEL_VERBOSE) << "[AJA] Received frame with timestamp " << playData->fRP188Data << '\n';
 
-        ret = mOutputFrame.get();
-        ret->dispose_udata = new shared_ptr<video_frame>(mOutputFrame);
-        ret->dispose = [](video_frame *f) { delete static_cast<shared_ptr<video_frame> *>(f->dispose_udata); };
+                        for (unsigned int i = 0; i < audio_capture_channels; i++) {
+                                remux_channel(mAudio.data, (char *) playData->fAudioBuffer, mAudio.bps,
+                                                playData->fAudioBufferSize, mMaxAudioChannels,
+                                                mAudio.ch_count, i, i);
+                        }
+                        mAudio.data_len = playData->fAudioBufferSize / mMaxAudioChannels *
+                                audio_capture_channels;
+                        *audio = &mAudio;
 
-        mOutputFrame = NULL;
-        lk.unlock();
+                        chrono::system_clock::time_point now = chrono::system_clock::now();
+                        double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
+                        if (seconds >= 5) {
+                                LOG(LOG_LEVEL_INFO) << "[AJA] " << mFrames << " frames in "
+                                        << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
+                                mT0 = now;
+                                mFrames = 0;
+                        }
 
-        *audio = NULL;
+                        return mOutputFrame;
+                }
+        }       //      loop til quit signaled
 
-        mFrames += 1;
-
-        chrono::system_clock::time_point now = chrono::system_clock::now();
-        double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
-
-        if (seconds >= 5) {
-                LOG(LOG_LEVEL_INFO) << "[AJA] " << mFrames << " frames in "
-                        << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
-                mT0 = now;
-                mFrames = 0;
-        }
-
-        return ret;
+        return NULL;
 }
 
 static void show_help() {
@@ -766,12 +818,6 @@ static struct vidcap_type *vidcap_aja_probe(bool)
                 vt->description = "AJA capture card";
         }
         return vt;
-}
-
-static void supersede_compiler_warning_workaround() __attribute__((unused));
-static void supersede_compiler_warning_workaround()
-{
-        UNUSED(__AJA_trigger_link_error_if_incompatible__);
 }
 
 static const struct video_capture_info vidcap_aja_info = {

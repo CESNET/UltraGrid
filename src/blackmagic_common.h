@@ -48,16 +48,6 @@
 
 std::string bmd_hresult_to_string(HRESULT res);
 
-#ifdef WIN32
-#define BMD_BOOL BOOL
-#define BMD_TRUE TRUE
-#define BMD_FALSE FALSE
-#else
-#define BMD_BOOL bool
-#define BMD_TRUE true
-#define BMD_FALSE false
-#endif
-
 #ifdef HAVE_MACOSX
 #define BMD_STR CFStringRef
 #elif defined WIN32

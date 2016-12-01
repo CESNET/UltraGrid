@@ -1,5 +1,5 @@
 /* -LICENSE-START-
-** Copyright (c) 2016 Blackmagic Design
+** Copyright (c) 2011 Blackmagic Design
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
@@ -28,15 +28,6 @@
 #ifndef BMD_DECKLINKAPITYPES_H
 #define BMD_DECKLINKAPITYPES_H
 
-
-#ifndef BMD_CONST
-    #if defined(_MSC_VER)
-        #define BMD_CONST __declspec(selectany) static const
-    #else
-        #define BMD_CONST static const
-    #endif
-#endif
-
 // Type Declarations
 
 typedef int64_t BMDTimeValue;
@@ -46,15 +37,14 @@ typedef uint32_t BMDTimecodeUserBits;
 
 // Interface ID Declarations
 
-BMD_CONST REFIID IID_IDeckLinkTimecode                            = /* BC6CFBD3-8317-4325-AC1C-1216391E9340 */ {0xBC,0x6C,0xFB,0xD3,0x83,0x17,0x43,0x25,0xAC,0x1C,0x12,0x16,0x39,0x1E,0x93,0x40};
+#define IID_IDeckLinkTimecode                            /* BC6CFBD3-8317-4325-AC1C-1216391E9340 */ (REFIID){0xBC,0x6C,0xFB,0xD3,0x83,0x17,0x43,0x25,0xAC,0x1C,0x12,0x16,0x39,0x1E,0x93,0x40}
 
 /* Enum BMDTimecodeFlags - Timecode flags */
 
 typedef uint32_t BMDTimecodeFlags;
 enum _BMDTimecodeFlags {
     bmdTimecodeFlagDefault                                       = 0,
-    bmdTimecodeIsDropFrame                                       = 1 << 0,
-    bmdTimecodeFieldMark                                         = 1 << 1
+    bmdTimecodeIsDropFrame                                       = 1 << 0
 };
 
 /* Enum BMDVideoConnection - Video connection types */
@@ -67,27 +57,6 @@ enum _BMDVideoConnection {
     bmdVideoConnectionComponent                                  = 1 << 3,
     bmdVideoConnectionComposite                                  = 1 << 4,
     bmdVideoConnectionSVideo                                     = 1 << 5
-};
-
-/* Enum BMDAudioConnection - Audio connection types */
-
-typedef uint32_t BMDAudioConnection;
-enum _BMDAudioConnection {
-    bmdAudioConnectionEmbedded                                   = 1 << 0,
-    bmdAudioConnectionAESEBU                                     = 1 << 1,
-    bmdAudioConnectionAnalog                                     = 1 << 2,
-    bmdAudioConnectionAnalogXLR                                  = 1 << 3,
-    bmdAudioConnectionAnalogRCA                                  = 1 << 4,
-    bmdAudioConnectionMicrophone                                 = 1 << 5,
-    bmdAudioConnectionHeadphones                                 = 1 << 6
-};
-
-/* Enum BMDDeckControlConnection - Deck control connections */
-
-typedef uint32_t BMDDeckControlConnection;
-enum _BMDDeckControlConnection {
-    bmdDeckControlConnectionRS422Remote1                         = 1 << 0,
-    bmdDeckControlConnectionRS422Remote2                         = 1 << 1
 };
 
 // Forward Declarations
@@ -106,7 +75,7 @@ public:
     virtual HRESULT GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) = 0;
 
 protected:
-    virtual ~IDeckLinkTimecode () {} // call Release method to drop reference count
+    virtual ~IDeckLinkTimecode () {}; // call Release method to drop reference count
 };
 
 /* Functions */
@@ -114,7 +83,7 @@ protected:
 extern "C" {
 
 
-}
+};
 
 
 #endif /* defined(BMD_DECKLINKAPITYPES_H) */

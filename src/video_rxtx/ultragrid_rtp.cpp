@@ -82,7 +82,17 @@ using namespace std;
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &params) :
         rtp_video_rxtx(params), m_send_bytes_total(0)
 {
+        if ((params.at("postprocess").ptr != NULL &&
+                                strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
+                struct state_video_decoder *dec = video_decoder_init(m_parent, VIDEO_NORMAL,
+                                (const char *) params.at("postprocess").ptr, NULL, NULL);
+                video_decoder_destroy(dec);
+                throw EXIT_SUCCESS;
+        }
+
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
+        auto postprocess_c = (const char *) params.at("postprocess").ptr;
+        m_postprocess = postprocess_c ? postprocess_c : string();
         m_display_device = (struct display *) params.at("display_device").ptr;
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
@@ -264,6 +274,30 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 }
                         }
                         break;
+                case RECEIVER_MSG_POSTPROCESS:
+                        if (strcmp("flush", msg->postprocess_cfg) == 0) {
+                                m_postprocess = {};
+                        } else {
+                                m_postprocess = msg->postprocess_cfg;
+                        }
+                        {
+                                pdb_iter_t it;
+                                struct pdb_e *cp = pdb_iter_init(m_participants, &it);
+                                while (cp != NULL) {
+                                        if (cp->decoder_state) {
+                                                video_decoder_remove_display(
+                                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
+                                                video_decoder_destroy(
+                                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
+                                                cp->decoder_state = NULL;
+                                        }
+                                        cp = pdb_iter_next(&it);
+                                }
+                                pdb_iter_done(&it);
+
+                        }
+
+                        break;
                 case RECEIVER_MSG_GET_VOLUME:
                 case RECEIVER_MSG_INCREASE_VOLUME:
                 case RECEIVER_MSG_DECREASE_VOLUME:
@@ -310,7 +344,8 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 
         if(state) {
                 state->decoder = video_decoder_init(&m_receiver_mod, m_decoder_mode,
-                                d, m_requested_encryption);
+                                m_postprocess.c_str(), d,
+                                m_requested_encryption);
 
                 if(!state->decoder) {
                         fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
@@ -346,15 +381,12 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
-        auto last_not_timeout = std::chrono::steady_clock::time_point::min();
-
         while (!should_exit) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
-                auto curr_time_st = std::chrono::steady_clock::now();
                 auto curr_time_hr = std::chrono::high_resolution_clock::now();
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - curr_time_st).count() * 90000;
+                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
@@ -369,12 +401,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
-                // use longer timeout when we are not receivng any data
-                if (std::chrono::duration_cast<std::chrono::duration<double>>(last_not_timeout - curr_time_st).count() > 1.0) {
-                        timeout.tv_usec = 100000;
-                } else {
-                        timeout.tv_usec = 1000;
-                }
+                timeout.tv_usec = 1000;
                 ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
@@ -382,8 +409,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         // processing is needed here in case we are not receiving any data
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
-                } else {
-                        last_not_timeout = curr_time_st;
                 }
 
                 /* Decode and render for each participant in the conference... */

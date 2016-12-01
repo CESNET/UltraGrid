@@ -11,7 +11,6 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "compat/platform_time.h"
 #include "control_socket.h"
 #include "crypto/random.h"
 #include "host.h"
@@ -24,7 +23,6 @@
 #include "utils/misc.h"
 #include "tv.h"
 
-#include <cinttypes>
 #include <map>
 #include <string>
 #include <vector>
@@ -36,10 +34,9 @@ struct item;
 #define REPLICA_MAGIC 0xd2ff3323
 
 struct replica {
-    replica(const char *addr, uint16_t tx_port, int bufsize, struct module *parent) {
+    replica(const char *addr, int tx_port, int bufsize, struct module *parent) {
         magic = REPLICA_MAGIC;
         host = addr;
-        m_tx_port = tx_port;
         sock = udp_init(addr, 0, tx_port, 255, false, false);
         if (!sock) {
             throw string("Cannot initialize output port!\n");
@@ -48,9 +45,6 @@ struct replica {
             fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
-        mod.name = (char *) malloc(strlen(addr) + 2 /* [ ] for IPv6 addr */ + 5 /* port */ + 1 /* '\0' */);
-        bool is_ipv6 = strchr(addr, ':') != NULL;
-        sprintf(mod.name, "%s%s%s:%" PRIu16, is_ipv6 ? "[" : "", addr, is_ipv6 ? "]" : "", tx_port);
         mod.priv_data = this;
         module_register(&mod, parent);
         type = replica::type_t::NONE;
@@ -66,7 +60,6 @@ struct replica {
     struct module mod;
     uint32_t magic;
     string host;
-    int m_tx_port;
 
     enum type_t {
         NONE,
@@ -263,64 +256,23 @@ static void *writer(void *arg)
         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
             struct response *r = NULL;
             if (strncasecmp(msg->text, "delete-port ", strlen("delete-port ")) == 0) {
-                char *port_spec = msg->text + strlen("delete-port ");
-                int index = -1;
-                if (isdigit(port_spec[0])) {
-                    int i = atoi(port_spec);
-                    if (i >= 0 && i < (int) s->replicas.size()) {
-                        index = i;
-                    } else {
-                        log_msg(LOG_LEVEL_WARNING, "Invalid port index: %d. Not removing.\n", i);
-                    }
-                } else {
-                    int i = 0;
-                    for (auto r : s->replicas) {
-                        if (strcmp(r->mod.name, port_spec) == 0) {
-                            index = i;
-                            break;
-                        }
-                        i++;
-                    }
-                    if (index == -1) {
-                        log_msg(LOG_LEVEL_WARNING, "Unknown port name: %s. Not removing.\n", port_spec);
-                    }
-                }
-                if (index >= 0) {
-                    hd_rum_decompress_remove_port(s->decompress, index);
-                    delete s->replicas[index];
-                    s->replicas.erase(s->replicas.begin() + index);
-                    log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
-                }
+                int index = atoi(msg->text + strlen("delete-port "));
+                hd_rum_decompress_remove_port(s->decompress, index);
+                delete s->replicas[index];
+                s->replicas.erase(s->replicas.begin() + index);
+                log_msg(LOG_LEVEL_NOTICE, "Deleted output port %d.\n", index);
             } else if (strncasecmp(msg->text, "create-port", strlen("create-port")) == 0) {
-                // format of parameters is either:
-                // <host>:<port> [<compression>]
-                // or (for compat with older CoUniverse version)
-                // <host> <port> [<compression>]
-                char *host_port, *port_str = NULL, *save_ptr;
-                char *host;
-                int tx_port;
+                char *host, *save_ptr, *item;
                 strtok_r(msg->text, " ", &save_ptr);
-                host_port = strtok_r(NULL, " ", &save_ptr);
-                if (host_port && (strchr(host_port, ':') != NULL || (port_str = strtok_r(NULL, " ", &save_ptr)) != NULL)) {
-                    if (port_str) {
-                        host = host_port;
-                        tx_port = atoi(port_str);
-                    } else {
-                        tx_port = atoi(strrchr(host_port, ':') + 1);
-                        host = host_port;
-                        *strrchr(host_port, ':') = '\0';
-                    }
-                    // handle square brackets around an IPv6 address
-                    if (host[0] == '[' && host[strlen(host) - 1] == ']') {
-                        host += 1;
-                        host[strlen(host) - 1] = '\0';
-                    }
-                } else {
+                host = strtok_r(NULL, " ", &save_ptr);
+                item = strtok_r(NULL, " ", &save_ptr);
+                if (!host || !item ) {
                     const char *err_msg = "wrong format";
                     log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
                     free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, err_msg));
                     continue;
                 }
+                int tx_port = atoi(item);
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 struct replica *rep;
                 try {
@@ -443,7 +395,6 @@ static void usage(const char *progname) {
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
                 "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
-                "\t\t--conference <width>:<height>[:fps] - enable combining of multiple inputs, increases latency\n"
                 "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
                 "\t\t--help\n"
                 "\t\t--verbose\n"
@@ -474,11 +425,11 @@ struct host_opts {
 struct cmdline_parameters {
     const char *bufsize;
     unsigned short port;
-    vector<struct host_opts> hosts;
+    struct host_opts *hosts;
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     int control_connection_type = 0;
-    struct hd_rum_output_conf out_conf = {NORMAL, 0, 0, 0};
+    bool blend = false;
     const char *capture_filter = NULL;
     bool verbose = false;
 };
@@ -503,17 +454,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             print_capabilities(NULL, false);
             return false;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
-            parsed->out_conf.mode = BLEND;
-        } else if(strcmp(argv[start_index], "--conference") == 0) {
-            parsed->out_conf.mode = CONFERENCE;
-            char *item = argv[++start_index];
-            parsed->out_conf.width = atoi(item);
-            if((item = strchr(item, ':'))) {
-                parsed->out_conf.height = atoi(++item);
-            }
-            if((item = strchr(item, ':'))) {
-                parsed->out_conf.fps = atoi(++item);
-            }
+            parsed->blend = true;
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "--help") == 0) {
@@ -563,7 +504,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         }
     }
 
-    parsed->hosts.resize(parsed->host_count);
+    parsed->hosts = (struct host_opts *) calloc(parsed->host_count, sizeof(struct host_opts));
     // default values
     for(int i = 0; i < parsed->host_count; ++i) {
         parsed->hosts[i].bitrate = RATE_UNLIMITED;
@@ -607,19 +548,6 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     }
 
     return true;
-}
-
-static string format_port_list(struct hd_rum_translator_state *s)
-{
-    ostringstream oss;
-    for (auto it : s->replicas) {
-        if (!oss.str().empty()) {
-            oss << ",";
-        }
-        oss << it->host << ":" << it->m_tx_port;
-    }
-
-    return oss.str();
 }
 
 int main(int argc, char **argv)
@@ -717,7 +645,7 @@ int main(int argc, char **argv)
     control_start(state.control_state);
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(&state.mod, params.out_conf, params.capture_filter);
+    state.decompress = hd_rum_decompress_init(&state.mod, params.blend, params.capture_filter);
     if(!state.decompress) {
         return EXIT_FAIL_DECODER;
     }
@@ -775,7 +703,6 @@ int main(int argc, char **argv)
     }
 
     uint64_t received_data = 0;
-    uint64_t received_pkts = 0;
     struct timeval t0;
     gettimeofday(&t0, NULL);
 
@@ -788,7 +715,6 @@ int main(int argc, char **argv)
                && (state.qtail->size = udp_recv_timeout(sock_in, state.qtail->buf, SIZE, &timeout)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
-            received_pkts += 1;
 
             state.qtail = state.qtail->next;
 
@@ -803,12 +729,6 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                string port_list = format_port_list(&state);
-                string statline = "FWD receivedBytes " + to_string(received_data) + " receivedPackets " + to_string(received_pkts) + " timestamp " + to_string(time_since_epoch_in_ms());
-                if (!port_list.empty()) {
-                    statline += " portList " + format_port_list(&state);
-                }
-                control_report_stats(state.control_state, statline);
                 log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
                 t0 = t;
                 last_data = received_data;

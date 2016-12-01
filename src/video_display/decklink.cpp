@@ -51,7 +51,6 @@
 
 #include "audio/audio.h"
 #include "blackmagic_common.h"
-#include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -118,20 +117,6 @@ public:
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame\n";
                 }
 
-		if (log_level >= LOG_LEVEL_DEBUG) {
-			IDeckLinkTimecode *timecode = NULL;
-			if (completedFrame->GetTimecode ((BMDTimecodeFormat) 0, &timecode) == S_OK) {
-				BMD_STR timecode_str;
-				if (timecode && timecode->GetString(&timecode_str) == S_OK) {
-                                        const char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
-					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecode_cstr << " output at " <<  time_since_epoch_in_ms() / (double) 1e3 << '\n';
-                                        release_bmd_api_str(timecode_str);
-                                        free((void *) timecode_cstr);
-				}
-			}
-		}
-
-
 		completedFrame->Release();
 		return S_OK;
 	}
@@ -162,19 +147,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
                         return S_OK;
                 }
-                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) {
-#ifdef HAVE_LINUX
-                        uint8_t hours, minutes, seconds, frames;
-                        GetComponents(&hours, &minutes, &seconds, &frames);
-                        char *out = (char *) malloc(12);
-                        sprintf(out, "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
-                        *timecode = out;
-                        return S_OK;
-#else
-                        UNUSED(timecode);
-                        return E_FAIL;
-#endif
-                }
+                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) { UNUSED(timecode); return E_FAIL; }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
 
@@ -271,11 +244,9 @@ struct state_decklink {
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
 
-        DeckLinkTimecode    *timecode; ///< @todo Should be actually allocated dynamically and
-                                       ///< its lifespan controlled by AddRef()/Release() methods
+        DeckLinkTimecode    *timecode;
 
         struct video_desc   vid_desc;
-        struct audio_desc   aud_desc;
 
         unsigned long int   frames;
         unsigned long int   frames_last;
@@ -289,13 +260,10 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat;
 
         uint32_t            link;
-        char                level; // 0 - undefined, 'A' - level A, 'B' - level B
 
         buffer_pool_t       buffer_pool;
 
         bool                low_latency;
-
-        mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
  };
 
 static void show_help(void);
@@ -308,10 +276,9 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
-        printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL) {
@@ -495,7 +462,11 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 
         gettimeofday(&tv, NULL);
 
+#ifdef WIN32
+        long unsigned int i;
+#else
         uint32_t i;
+#endif
 
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
 
@@ -553,7 +524,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator)))
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fatal: cannot create display mode iterator.\n");
-                return bmdModeUnknown;
+                return (BMDDisplayMode) -1;
         }
 
         while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
@@ -609,15 +580,13 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
  * as it doesn't break things up. In low latency mode, this is not an issue.
  */
 static int
-display_decklink_reconfigure_video(void *state, struct video_desc desc)
+display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
-
+        
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
         HRESULT                           result;
-
-        unique_lock<mutex> lk(s->reconfiguration_lock);
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -666,7 +635,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                 &s->frameRateScale);
-                if (displayMode == bmdModeUnknown) {
+                if (displayMode == (BMDDisplayMode) -1) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not found suitable video mode.\n");
                         goto error;
                 }
@@ -700,19 +669,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         }
                         goto error;
                 }
-        }
-
-        // This workaround is needed (at least) for Decklink Extreme 4K when capturing
-        // (possibly from another process) and when playback is in low-latency mode.
-        // When video is enabled after audio, audio playback becomes silent without
-        // an error.
-        if (s->initialized_audio) {
-                EXIT_IF_FAILED(s->state[0].deckLinkOutput->DisableAudioOutput(), "DisableAudioOutput");
-                EXIT_IF_FAILED(s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
-                                        s->aud_desc.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                        s->aud_desc.ch_count,
-                                        bmdAudioOutputStreamContinuous),
-                                "EnableAudioOutput");
         }
 
         if (!s->low_latency) {
@@ -878,10 +834,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->link = to_fourcc('l', 'c', 'd', 'l');
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
                                 s->link = to_fourcc('l', 'c', 'q', 'l');
-                        } else if(strcasecmp(ptr, "LevelA") == 0) {
-                                s->level = 'A';
-                        } else if(strcasecmp(ptr, "LevelB") == 0) {
-                                s->level = 'B';
                         } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                                 char *packing = ptr + strlen("HDMI3DPacking=");
                                 if(strcasecmp(packing, "SideBySideHalf") == 0) {
@@ -1037,13 +989,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
-		// Get IDeckLinkAttributes object
-		IDeckLinkAttributes *deckLinkAttributes = NULL;
-		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
-		if (result != S_OK) {
-			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
-		}
-
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
@@ -1103,27 +1048,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output SDI standard.\n");
                         }
-                }
-
-                if (s->level != 0) {
-#if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - cannot set 3G-SDI level.\n");
-#else
-			if (deckLinkAttributes) {
-				BMD_BOOL supports_level_a;
-				if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
-					log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
-				} else {
-					if (s->level == 'A' && supports_level_a == BMD_FALSE) {
-						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
-					}
-				}
-			}
-                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->level == 'A');
-                        if(res != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output 3G-SDI level.\n");
-                        }
-#endif
                 }
 
                 if (s->play_audio && i == 0) {
@@ -1199,6 +1123,8 @@ static void display_decklink_done(void *state)
 
         assert (s != NULL);
 
+        delete s->timecode;
+
         for (int i = 0; i < s->devices_cnt; ++i)
         {
                 if (s->initialized_video) {
@@ -1237,8 +1163,6 @@ static void display_decklink_done(void *state)
                 s->buffer_pool.frame_queue.pop();
                 delete tmp;
         }
-
-        delete s->timecode;
 
         delete s;
 
@@ -1320,7 +1244,11 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
 
         assert(s->play_audio);
 
-        uint32_t sampleFramesWritten;
+#ifdef WIN32
+        unsigned long int sampleFramesWritten;
+#else
+        unsigned int sampleFramesWritten;
+#endif
 
         auto t0 = chrono::high_resolution_clock::now();
 
@@ -1344,8 +1272,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
-
-        unique_lock<mutex> lk(s->reconfiguration_lock);
 
         assert(s->play_audio);
 
@@ -1391,8 +1317,6 @@ static int display_decklink_reconfigure_audio(void *state, int quant_samples, in
                 // reconfigure. However, this doesn't seem to bother, anyway.
                 CALL_AND_CHECK(s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration), "StartScheduledPlayback (audio)");
         }
-
-        s->aud_desc = { quant_samples / 8, sample_rate, channels, AC_PCM };
 
         s->initialized_audio = true;
         
@@ -1663,7 +1587,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_done,
         display_decklink_getf,
         display_decklink_putf,
-        display_decklink_reconfigure_video,
+        display_decklink_reconfigure,
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,

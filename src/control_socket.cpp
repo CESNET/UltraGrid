@@ -56,7 +56,6 @@
 #include "module.h"
 #include "rtp/net_udp.h" // socket_error
 #include "tv.h"
-#include "utils/net.h"
 
 #define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
@@ -66,6 +65,17 @@ typedef const char *sso_val_type;
 #else
 typedef void *sso_val_type;
 #endif                          /* WIN32 */
+
+#ifdef WIN32
+#define CLOSESOCKET closesocket
+#else
+#define CLOSESOCKET close
+#endif
+
+// MSW does not have the macro defined
+#ifndef IN_LOOPBACKNET
+#define IN_LOOPBACKNET 127
+#endif
 
 using namespace std;
 
@@ -268,24 +278,11 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
 
         if(prefix_matches(message, "port ")) {
                 message = suffix(message, "port ");
-                if (isdigit(message[0])) { // index is a number
-                        snprintf(path, 1024, "%s[%d]", module_class_name(MODULE_CLASS_PORT), atoi(message));
-                        while(isdigit(*message))
-                                message++;
-                        while(isspace(*message))
-                                message++;
-                } else { // index is a name
-                        char *port_id_name = message;
-                        while (!isspace(message[0]) && message[0] != '\0')
-                                message++;
-                        if (message[0] != '\0') {
-                                message[0] = '\0';
-                                message++;
-                        }
-                        snprintf(path, 1024, "%s[%s]", module_class_name(MODULE_CLASS_PORT), port_id_name);
-                        while (isspace(message[0]) && message[0] != '\0')
-                                message++;
-                }
+                snprintf(path, 1024, "%s[%d]", module_class_name(MODULE_CLASS_PORT), atoi(message));
+                while(isdigit(*message))
+                        message++;
+                while(isspace(*message))
+                        message++;
         }
 
         if(strcasecmp(message, "quit") == 0) {
@@ -512,10 +509,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 msg->type = RECEIVER_MSG_MUTE;
                 resp = send_message(s->root_module, path, (struct message *) msg);
         } else if (prefix_matches(message, "postprocess ")) {
-                strncpy(path, "display", sizeof path);
-                struct msg_universal *msg = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                strncpy(msg->text, message, sizeof msg->text - 1);
-                msg->text[sizeof msg->text - 1] = '\0';
+                strncpy(path, "receiver", sizeof path);
+                struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                msg->type = RECEIVER_MSG_POSTPROCESS;
+                strncpy(msg->postprocess_cfg, suffix(message, "postprocess "), sizeof msg->postprocess_cfg - 1);
                 resp = send_message(s->root_module, path, (struct message *) msg);
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
@@ -598,6 +595,36 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
         }
 
         return ret;
+}
+
+static bool is_addr_loopback(struct sockaddr_storage *ss)
+{
+        switch (ss->ss_family) {
+        case AF_UNIX:
+                return true;
+        case AF_INET:
+        {
+                struct sockaddr_in *sin = (struct sockaddr_in *) ss;
+                uint32_t addr = ntohl(sin->sin_addr.s_addr);
+                if ((addr >> 24) == IN_LOOPBACKNET) {
+                        return true;
+                }
+        }
+        case AF_INET6:
+        {
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) ss;
+                if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
+                        uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
+                        if ((v4_addr >> 24) == IN_LOOPBACKNET) {
+                                return true;
+                        }
+                } else {
+                        return IN6_IS_ADDR_LOOPBACK(&sin->sin6_addr);
+                }
+        }
+        default:
+                return false;
+        }
 }
 
 static struct client *add_client(struct client *clients, int fd) {

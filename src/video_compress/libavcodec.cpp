@@ -59,7 +59,6 @@
 #include "video_compress.h"
 
 #include <map>
-#include <regex>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -67,13 +66,16 @@
 using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
+static constexpr const char *DEFAULT_X264_X265_PRESET = "superfast";
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
+static constexpr const char *DEFAULT_NVENC_PRESET = "llhp";
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 
 namespace {
 
 struct setparam_param {
+        bool have_preset;
         double fps;
         bool interlaced;
         bool no_periodic_intra;
@@ -81,14 +83,10 @@ struct setparam_param {
         string thread_mode;
 };
 
-static constexpr const char *DEFAULT_NVENC_PRESET = "llhq";
-static constexpr const char *DEFAULT_QSV_PRESET = "medium";
-
 typedef struct {
         enum AVCodecID av_codec;
         const char *prefered_encoder; ///< can be nullptr
         double avg_bpp;
-        list<pair<regex, string>> default_preset; // key: encoder, value: preset
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
 
@@ -99,45 +97,35 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
-        { H264, codec_params_t{
-                AV_CODEC_ID_H264,
+        {H264, { AV_CODEC_ID_H264,
                 "libx264",
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
-                {{regex("libx264"), "veryfast"},
-                        {regex(".*nvenc.*"), DEFAULT_NVENC_PRESET}, // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                        {regex("h264_qsv"), DEFAULT_QSV_PRESET}
-                },
                 setparam_h264_h265
         }},
-        { H265, codec_params_t{
+        { H265, {
                 AV_CODEC_ID_HEVC,
                 "libx265", //nullptr,
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
-                {{regex("libx265"), "ultrafast"}, {regex(".*nvenc.*"), DEFAULT_NVENC_PRESET},
-                        {regex("hevc_qsv"), DEFAULT_QSV_PRESET}},
                 setparam_h264_h265
         }},
-        { MJPG, codec_params_t{
+        { MJPG, {
                 AV_CODEC_ID_MJPEG,
                 nullptr,
                 1.2,
-                list<pair<regex, string>>(),
                 setparam_default
         }},
-        { J2K, codec_params_t{
+        { J2K, {
                 AV_CODEC_ID_JPEG2000,
                 nullptr,
                 1.0,
-                list<pair<regex, string>>(),
                 setparam_default
         }},
-        { VP8, codec_params_t{
+        { VP8, {
                 AV_CODEC_ID_VP8,
                 nullptr,
                 0.4,
-                list<pair<regex, string>>(),
                 setparam_vp8
         }},
 };
@@ -442,6 +430,16 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         double avg_bpp; // average bit per pixel
         int bitrate;
 
+#ifndef HAVE_GPL
+        if (s->requested_codec_id == H264 || s->requested_codec_id == H264) {
+                log_msg(LOG_LEVEL_ERROR, "%s is not available in UltraGrid BSD build. "
+                                "Reconfigure UltraGrid with --enable-gpl if "
+                                "needed.\n", get_codec_name(s->requested_codec_id));
+                exit_uv(1);
+                return false;
+        }
+#endif
+
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
                 codec = avcodec_find_encoder_by_name(s->backend.c_str());
@@ -498,16 +496,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 get_codec_name(ug_codec), codec->name);
         }
 
-#ifndef HAVE_GPL
-        if (strcmp(codec->name, "libx264") == 0 || strcmp(codec->name, "libx265") == 0) {
-                log_msg(LOG_LEVEL_ERROR, "Encoder %s is not available in UltraGrid BSD build. "
-                                "Reconfigure UltraGrid without '--enable-bsd' to enable GPL build "
-                                "or select a different codec or encoder.\n", codec->name);
-                exit_uv(1);
-                return false;
-        }
-#endif
-
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
@@ -540,6 +528,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                         fmts444, sizeof(fmts444));
                         total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
                 }
+                // there was a problem with codecs other than PIX_FMT_NV12 with NVENC.
+                // Therefore, use only this with NVENC for now.
+                if (strncmp(codec->name, "nvenc", strlen("nvenc")) == 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Using %s. Other pix formats seem to be broken with NVENC.\n",
+                                        av_get_pix_fmt_name(AV_PIX_FMT_NV12));
+                        requested_pix_fmts[0] = AV_PIX_FMT_NV12;
+                        total_pix_fmts = 1;
+                }
         } else {
                 switch (s->requested_subsampling) {
                 case 420:
@@ -561,22 +557,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         abort();
                 }
         }
-
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * lavc-use-codec
-         *   Restrict codec to use user specified pix fmt. Can be used eg. to enforce
-         *   AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken
-         *   for NVENC encoder.
-         * @}
-         */
-        if (get_commandline_param("lavc-use-codec")) {
-                const char *val = get_commandline_param("lavc-use-codec");
-                requested_pix_fmts[0] = av_get_pix_fmt(val);
-                total_pix_fmts = 1;
-        }
-
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
 
         pix_fmt = get_best_pix_fmt(requested_pix_fmts, codec->pix_fmts);
@@ -670,32 +650,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
 
-        bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
-
+        s->params.have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
         s->params.cpu_count = s->cpu_count;
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
-
-        if (!have_preset) {
-                auto & default_preset_map = codec_params[ug_codec].default_preset;
-                auto it = default_preset_map.begin();
-                for (; it != default_preset_map.end(); ++it) {
-                        if (regex_match(s->codec_ctx->codec->name, it->first)) {
-                                break;
-                        }
-                }
-                if (it != default_preset_map.end()) {
-                        if (av_opt_set(s->codec_ctx->priv_data, "preset", it->second.c_str(), 0) != 0) {
-                                LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
-                        } else {
-                                LOG(LOG_LEVEL_VERBOSE) << "[lavc] Setting preset to " << it->second <<  ".\n";
-                        }
-                } else {
-                        LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
-                }
-        }
 
         // set user supplied parameters
         for (auto item : s->lavc_opts) {
@@ -873,6 +833,10 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
         int ret;
+#if LIBAVCODEC_VERSION_MAJOR >= 54
+        int got_output;
+        AVPacket *pkt;
+#endif
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
 
@@ -888,7 +852,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         }
 
         auto dispose = [](struct video_frame *frame) {
-#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
+#if LIBAVCODEC_VERSION_MAJOR >= 54
                 AVPacket *pkt = (AVPacket *) frame->dispose_udata;
                 av_packet_unref(pkt);
                 free(pkt);
@@ -898,9 +862,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 vf_free(frame);
         };
         out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
-#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-        int got_output;
-        AVPacket *pkt;
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
         pkt->data = NULL;
@@ -910,6 +872,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
         out->tiles[0].data = (char *) malloc(s->compressed_desc.width *
                         s->compressed_desc.height * 4);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
+
 
         s->in_frame->pts = frame_seq++;
 
@@ -958,30 +921,8 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 }
         }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         /* encode the image */
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-        out->tiles[0].data_len = 0;
-        ret = avcodec_send_frame(s->codec_ctx, s->in_frame);
-        if (ret == 0) {
-                AVPacket pkt;
-                av_init_packet(&pkt);
-                ret = avcodec_receive_packet(s->codec_ctx, &pkt);
-                while (ret == 0) {
-                        assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
-                        memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-                                        pkt.data, pkt.size);
-                        out->tiles[0].data_len += pkt.size;
-                        av_packet_unref(&pkt);
-                        ret = avcodec_receive_packet(s->codec_ctx, &pkt);
-                }
-                if (ret != AVERROR(EAGAIN) && ret != 0) {
-                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
-                }
-        } else {
-		print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
-                return {};
-        }
-#elif LIBAVCODEC_VERSION_MAJOR >= 54
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
                         s->in_frame, &got_output);
         if (ret < 0) {
@@ -997,6 +938,7 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
                 return {};
         }
 #else
+        /* encode the image */
         ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) out->tiles[0].data,
                         out->tiles[0].width * out->tiles[0].height * 4,
                         s->in_frame);
@@ -1021,25 +963,6 @@ shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<
 static void cleanup(struct state_video_compress_libav *s)
 {
         if(s->codec_ctx) {
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-		int ret;
-		ret = avcodec_send_frame(s->codec_ctx, NULL);
-		if (ret != 0) {
-			log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
-					ret);
-		}
-		do {
-			AVPacket pkt;
-			av_init_packet(&pkt);
-			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
-			av_packet_unref(&pkt);
-			if (ret != 0 && ret != AVERROR_EOF) {
-				log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
-						ret);
-				break;
-			}
-		} while (ret != AVERROR_EOF);
-#endif
                 pthread_mutex_lock(s->lavcd_global_lock);
                 avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
@@ -1098,15 +1021,16 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        const char *tune;
-        if (codec_ctx->codec->id == AV_CODEC_ID_H264) {
-                tune = "zerolatency,fastdecode";
-        } else { // x265 supports only single tune parameter
-                tune = "zerolatency";
+        int ret;
+        if (!param->have_preset) {
+                ret = av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_X264_X265_PRESET, 0);
+                if (ret != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unable to set preset.\n");
+                }
         }
-        int ret = av_opt_set(codec_ctx->priv_data, "tune", tune, 0);
+        ret = av_opt_set(codec_ctx->priv_data, "tune", "zerolatency,fastdecode", 0);
         if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune %s.\n", tune);
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune zerolatency/fastdecode.\n");
         }
 
         // try to keep frame sizes as even as possible
@@ -1138,6 +1062,11 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
+        if (!param->have_preset) {
+                if (av_opt_set(codec_ctx->priv_data, "preset", DEFAULT_NVENC_PRESET, 0) != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Cannot set preset.\n");
+                }
+        }
         ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CBR.\n");
@@ -1152,10 +1081,6 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set delay.\n");
         }
-        ret = av_opt_set(codec_ctx->priv_data, "zerolatency", "1", 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set zero latency operation (no reordering delay).\n");
-        }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
 }
@@ -1166,7 +1091,9 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
         if (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
                 configure_x264_x265(codec_ctx, param);
-        } else if (regex_match(codec_ctx->codec->name, regex(".*nvenc.*"))) {
+        } else if (strcmp(codec_ctx->codec->name, "nvenc_h264") == 0 ||
+                        strcmp(codec_ctx->codec->name, "nvenc") == 0 ||
+                        strcmp(codec_ctx->codec->name, "nvenc_hevc") == 0) {
                 configure_nvenc(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
@@ -1178,7 +1105,7 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
         /// turn of periodic intra refresh for libx264/libx265 if requested
         if (!param->no_periodic_intra &&
                         (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
-                         strcmp(codec_ctx->codec->name, "libx265") == 0)) {
+                         strcmp(codec_ctx->codec->name, "libx264") == 0)) {
                 codec_ctx->refs = 1;
                 int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 if (ret != 0) {

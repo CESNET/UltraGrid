@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2015 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,8 +80,6 @@ extern "C" void NSApplicationLoad();
 
 using namespace std;
 
-#define SDL_USER_NEWFRAME SDL_USEREVENT
-
 struct state_sdl {
         uint32_t                magic;
 
@@ -104,16 +102,18 @@ struct state_sdl {
         struct audio_frame      audio_frame;
         bool                    play_audio;
 
-        int                     buffered_frames_count;
+        queue<struct video_frame *> frame_queue;
         queue<struct video_frame *> free_frame_queue;
         struct video_desc current_desc; /// with those desc new data frames will be generated (getf)
         struct video_desc current_display_desc;
         mutex                   lock;
+        condition_variable      frame_ready_cv;
         condition_variable      frame_consumed_cv;
         
 #ifdef HAVE_MACOSX
         void                   *autorelease_pool;
 #endif
+        volatile bool           should_exit;
         uint32_t sdl_flags_win, sdl_flags_fs;
 
         struct module   mod;
@@ -121,12 +121,12 @@ struct state_sdl {
         state_sdl(struct module *parent) : magic(MAGIC_SDL), frames(0), yuv_image(nullptr), sdl_screen(nullptr), dst_rect(),
                       deinterlace(false), fs(false), nodecorate(false), fixed_size(false),
                       fixed_w(0), fixed_h(0),
-                      screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false), buffered_frames_count(0),
+                      screen_w(0), screen_h(0), audio_buffer(nullptr), audio_frame(), play_audio(false),
                       current_desc(), current_display_desc(),
 #ifdef HAVE_MACOSX
                       autorelease_pool(nullptr),
 #endif
-                      sdl_flags_win(0), sdl_flags_fs(0)
+                      should_exit(false), sdl_flags_win(0), sdl_flags_fs(0)
         {
                 gettimeofday(&tv, NULL);
                 module_init_default(&mod);
@@ -147,6 +147,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
 static void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
+static int display_sdl_handle_events(struct state_sdl *s);
 static void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 static void compute_dst_rect(struct state_sdl *s, int vid_w, int vid_h, int window_w, int window_h, codec_t codec);
 static bool update_size(struct state_sdl *s, int win_w, int win_h);
@@ -250,142 +251,156 @@ static bool update_size(struct state_sdl *s, int win_w, int win_h)
         }
 }
 
-static void display_frame(struct state_sdl *s, struct video_frame *frame)
+/**
+ * Handles outer events like a keyboard press
+ * Responds to key:<br/>
+ * <table>
+ * <td><tr>q</tr><tr>terminates program</tr></td>
+ * <td><tr>f</tr><tr>toggles between fullscreen and windowed display mode</tr></td>
+ * </table>
+ *
+ * @since 08-04-2010, xsedmik
+ * @param arg Structure (state_sdl) contains the current settings
+ * @return zero value everytime
+ */
+static int display_sdl_handle_events(struct state_sdl *s)
 {
-        struct timeval tv;
-
-        if (s->deinterlace) {
-                vc_deinterlace((unsigned char *) frame->tiles[0].data,
-                                vc_get_linesize(frame->tiles[0].width,
-                                        frame->color_spec), frame->tiles[0].height);
-        }
-
-        if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
-                if (!display_sdl_reconfigure_real(s, video_desc_from_frame(frame))) {
-                        goto free_frame;
-                }
-        }
-
-        if (codec_is_a_rgb(frame->color_spec)) {
-                decoder_t decoder = nullptr;
-                if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
-                        log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bpp %d!\n",
-                                        s->sdl_screen->format->BitsPerPixel);
-                        goto free_frame;
-                }
-                codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
-                if (frame->color_spec == RGBA) {
-                        decoder = dst_codec == RGBA ? vc_copylineRGBA : vc_copylineRGBAtoRGB;
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                struct response *r;
+                if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
+                        const char *title = msg_univ->text + strlen("win_title");
+                        SDL_WM_SetCaption(title, title);
+                        r = new_response(RESPONSE_OK, NULL);
                 } else {
-                        decoder = dst_codec == RGBA ? vc_copylineRGBtoRGBA : vc_copylineRGB;
+                        fprintf(stderr, "[SDL] Unknown command received: %s\n", msg_univ->text);
+                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
                 }
-                assert(decoder != nullptr);
-                SDL_LockSurface(s->sdl_screen);
-                size_t linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
-                size_t dst_linesize = vc_get_linesize(frame->tiles[0].width, dst_codec);
-                for (size_t i = 0; i < min<size_t>(frame->tiles[0].height, s->sdl_screen->h); ++i) {
-                        decoder((unsigned char *) s->sdl_screen->pixels +
-                                        s->sdl_screen->pitch * (s->dst_rect.y + i) +
-                                        s->dst_rect.x *
-                                        s->sdl_screen->format->BytesPerPixel,
-                                        (unsigned char *) frame->tiles[0].data + i * linesize,
-                                        min<long>(dst_linesize,s->sdl_screen->pitch),
-                                        s->sdl_screen->format->Rshift,
-                                        s->sdl_screen->format->Gshift,
-                                        s->sdl_screen->format->Bshift);
-                }
-
-                SDL_UnlockSurface(s->sdl_screen);
-                SDL_Flip(s->sdl_screen);
-        } else {
-                SDL_LockYUVOverlay(s->yuv_image);
-                memcpy(*s->yuv_image->pixels, frame->tiles[0].data, frame->tiles[0].data_len);
-                SDL_UnlockYUVOverlay(s->yuv_image);
-                SDL_DisplayYUVOverlay(s->yuv_image, &s->dst_rect);
+                free_message(msg, r);
         }
 
-free_frame:
-        s->lock.lock();
-        s->free_frame_queue.push(frame);
-        s->lock.unlock();
+        SDL_Event sdl_event;
+        while (SDL_PollEvent(&sdl_event)) {
+                switch (sdl_event.type) {
+                case SDL_VIDEORESIZE:
+                        update_size(s, sdl_event.resize.w, sdl_event.resize.h);
+                        break;
+                case SDL_KEYDOWN:
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "d")) {
+                                s->deinterlace = s->deinterlace ? FALSE : TRUE;
+                                printf("Deinterlacing: %s\n", s->deinterlace ? "ON"
+                                                : "OFF");
+                                return 1;
+                        }
 
-        s->frames++;
-        gettimeofday(&tv, NULL);
-        double seconds = tv_diff(tv, s->tv);
-        if (seconds > 5) {
-                double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[SDL] %d frames in %g seconds = %g FPS\n",
-                                s->frames, seconds, fps);
-                s->tv = tv;
-                s->frames = 0;
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
+                                exit_uv(0);
+                        }
+
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
+                                s->fs = !s->fs;
+                                update_size(s, s->current_display_desc.width, s->current_display_desc.height);
+                                return 1;
+                        }
+                        break;
+                case SDL_QUIT:
+                        exit_uv(0);
+                }
         }
+
+        return 0;
+
 }
 
 static void display_sdl_run(void *arg)
 {
         struct state_sdl *s = (struct state_sdl *)arg;
-        bool should_exit_sdl = false;
+        struct timeval tv;
 
-        while (!should_exit_sdl) {
-                struct message *msg;
-                while ((msg = check_message(&s->mod))) {
-                        auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
-                        struct response *r;
-                        if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
-                                const char *title = msg_univ->text + strlen("win_title");
-                                SDL_WM_SetCaption(title, title);
-                                r = new_response(RESPONSE_OK, NULL);
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, "[SDL] Unknown command received: %s\n", msg_univ->text);
-                                r = new_response(RESPONSE_BAD_REQUEST, NULL);
-                        }
-                        free_message(msg, r);
-                }
+        while (!s->should_exit) {
+                display_sdl_handle_events(s);
 
-                SDL_Event sdl_event;
-                if (SDL_WaitEvent(&sdl_event)) {
-                        switch (sdl_event.type) {
-                        case SDL_USER_NEWFRAME:
-                        {
-                                std::unique_lock<std::mutex> lk(s->lock);
-                                s->buffered_frames_count -= 1;
+                struct video_frame *frame = NULL;
+
+                {
+                        unique_lock<mutex> lk(s->lock);
+                        if (s->frame_ready_cv.wait_for(lk, std::chrono::milliseconds(100),
+                                        [s]{return s->frame_queue.size() > 0;})) {
+                                frame = s->frame_queue.front();
+                                s->frame_queue.pop();
                                 lk.unlock();
                                 s->frame_consumed_cv.notify_one();
-                                if (sdl_event.user.data1 != NULL) {
-                                        display_frame(s, (struct video_frame *) sdl_event.user.data1);
-                                } else { // poison pill received
-                                        should_exit_sdl = true;
-                                }
-                                break;
-                        }
-                        case SDL_VIDEORESIZE:
-                                update_size(s, sdl_event.resize.w, sdl_event.resize.h);
-                                break;
-                        case SDL_KEYDOWN:
-                                switch (sdl_event.key.keysym.sym) {
-                                case SDLK_d:
-                                        s->deinterlace = s->deinterlace ? FALSE : TRUE;
-                                        log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
-                                                        s->deinterlace ? "ON" : "OFF");
-                                        break;
-                                case SDLK_f:
-                                        s->fs = !s->fs;
-                                        update_size(s, s->current_display_desc.width, s->current_display_desc.height);
-                                        break;
-                                case SDLK_q:
-                                        exit_uv(0);
-                                        break;
-                                default:
-                                        log_msg(LOG_LEVEL_DEBUG, "[SDL] Unhandled key: %s\n",
-                                                        SDL_GetKeyName(sdl_event.key.keysym.sym));
-                                        break;
-                                }
-                                break;
-                        case SDL_QUIT:
-                                exit_uv(0);
-                                break;
+                        } else {
+                                continue;
                         }
                 }
+
+                if (s->deinterlace) {
+                        vc_deinterlace((unsigned char *) frame->tiles[0].data,
+                                        vc_get_linesize(frame->tiles[0].width,
+                                                frame->color_spec), frame->tiles[0].height);
+                }
+
+                if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
+                        if (!display_sdl_reconfigure_real(s, video_desc_from_frame(frame))) {
+                                goto free_frame;
+                        }
+                }
+
+                if (codec_is_a_rgb(frame->color_spec)) {
+                        decoder_t decoder = nullptr;
+                        if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
+                                log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bpp %d!\n",
+                                                s->sdl_screen->format->BitsPerPixel);
+                                goto free_frame;
+                        }
+                        codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
+                        if (frame->color_spec == RGBA) {
+                                decoder = dst_codec == RGBA ? vc_copylineRGBA : vc_copylineRGBAtoRGB;
+                        } else {
+                                decoder = dst_codec == RGBA ? vc_copylineRGBtoRGBA : vc_copylineRGB;
+                        }
+                        assert(decoder != nullptr);
+                        SDL_LockSurface(s->sdl_screen);
+                        size_t linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+                        size_t dst_linesize = vc_get_linesize(frame->tiles[0].width, dst_codec);
+                        for (size_t i = 0; i < min<size_t>(frame->tiles[0].height, s->sdl_screen->h); ++i) {
+                                decoder((unsigned char *) s->sdl_screen->pixels +
+                                                s->sdl_screen->pitch * (s->dst_rect.y + i) +
+                                                s->dst_rect.x *
+                                                s->sdl_screen->format->BytesPerPixel,
+                                                (unsigned char *) frame->tiles[0].data + i * linesize,
+                                                min<long>(dst_linesize,s->sdl_screen->pitch),
+                                                s->sdl_screen->format->Rshift,
+                                                s->sdl_screen->format->Gshift,
+                                                s->sdl_screen->format->Bshift);
+                        }
+
+                        SDL_UnlockSurface(s->sdl_screen);
+                        SDL_Flip(s->sdl_screen);
+                } else {
+			SDL_LockYUVOverlay(s->yuv_image);
+                        memcpy(*s->yuv_image->pixels, frame->tiles[0].data, frame->tiles[0].data_len);
+                        SDL_UnlockYUVOverlay(s->yuv_image);
+                        SDL_DisplayYUVOverlay(s->yuv_image, &s->dst_rect);
+		}
+
+free_frame:
+                s->lock.lock();
+                s->free_frame_queue.push(frame);
+                s->lock.unlock();
+
+		s->frames++;
+		gettimeofday(&tv, NULL);
+		double seconds = tv_diff(tv, s->tv);
+		if (seconds > 5) {
+			double fps = s->frames / seconds;
+			log_msg(LOG_LEVEL_INFO, "[SDL] %d frames in %g seconds = %g FPS\n",
+				s->frames, seconds, fps);
+			s->tv = tv;
+			s->frames = 0;
+		}
 	}
 }
 
@@ -577,7 +592,6 @@ static void display_sdl_done(void *state)
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
 
-        SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
         SDL_Quit();
 #ifdef HAVE_MACOSX
         autorelease_pool_destroy(s->autorelease_pool);
@@ -618,25 +632,26 @@ static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock
 
         assert(s->magic == MAGIC_SDL);
 
+        if (!frame) {
+                s->should_exit = true;
+                return 0;
+        }
+
         if (nonblock == PUTF_DISCARD) {
                 vf_free(frame);
                 return 0;
         }
 
         std::unique_lock<std::mutex> lk(s->lock);
-        if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK
-                        && frame != NULL) {
+        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
                 vf_free(frame);
                 printf("1 frame(s) dropped!\n");
                 return 1;
         }
-        s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
-        s->buffered_frames_count += 1;
+        s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
+        s->frame_queue.push(frame);
         lk.unlock();
-        SDL_Event event;
-        event.type = SDL_USER_NEWFRAME;
-        event.user.data1 = frame;
-        SDL_PushEvent(&event);
+        s->frame_ready_cv.notify_one();
 
         return 0;
 }

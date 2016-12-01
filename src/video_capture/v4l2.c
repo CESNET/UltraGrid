@@ -69,7 +69,6 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
-#include "utils/list.h"
 #include "video.h"
 
 
@@ -97,62 +96,8 @@ struct vidcap_v4l2_state {
 
         struct timeval t0;
         int frames;
-
-        int buffer_count;
-
-        struct simple_linked_list *buffers_to_enqueue;
-        int dequeued_buffers;
-        pthread_mutex_t lock;
-        pthread_cond_t cv;
 };
 
-struct v4l2_dispose_deq_buffer_data {
-        struct vidcap_v4l2_state *s;
-        struct v4l2_buffer buf;
-};
-
-static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
-        struct v4l2_dispose_deq_buffer_data *dequeue_data;
-        while ((dequeue_data = simple_linked_list_pop(s->buffers_to_enqueue)) != NULL) {
-                s->dequeued_buffers -= 1;
-                if (ioctl(s->fd, VIDIOC_QBUF, &dequeue_data->buf) != 0) {
-                        perror("Unable to enqueue buffer");
-                }
-                free(dequeue_data);
-        }
-}
-
-static void common_cleanup(struct vidcap_v4l2_state *s) {
-        if (!s) {
-                return;
-        }
-
-        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        if(ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
-                fprintf(stderr, "Stream stopping error.\n");
-        };
-
-        pthread_mutex_lock(&s->lock);
-        enqueue_all_finished_frames(s);
-        while (s->dequeued_buffers != 0) {
-                pthread_cond_wait(&s->cv, &s->lock);
-                enqueue_all_finished_frames(s);
-        }
-        pthread_mutex_unlock(&s->lock);
-
-        pthread_cond_destroy(&s->cv);
-        pthread_mutex_destroy(&s->lock);
-        simple_linked_list_destroy(s->buffers_to_enqueue);
-
-        if (s->fd != -1)
-                close(s->fd);
-
-        if (s->convert) {
-                v4lconvert_destroy(s->convert);
-        }
-
-        free(s);
-}
 
 static void print_fps(int fd, struct v4l2_frmivalenum *param) {
         int res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param);
@@ -189,11 +134,10 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>]\n");
+        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>][:buffers=<bufcnt>]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
-        printf("\t\t<tfp> or <fps> should be given as a single integer or a fraction");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
@@ -274,7 +218,7 @@ static void show_help()
                                         }
                                         break;
                                 case V4L2_FRMSIZE_TYPE_CONTINUOUS:
-                                        printf("\t\t\t%u-%ux%u-%u with steps %u vertically and %u horizontally\n",
+                                        printf("\t\t\t%u-%ux%u-%u with steps %u vertically and %u horizontally",
                                                         size.stepwise.min_width, size.stepwise.max_width,
                                                         size.stepwise.min_height, size.stepwise.max_height,
                                                         size.stepwise.step_width, size.stepwise.step_height);
@@ -341,7 +285,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                  height = 0;
         uint32_t numerator = 0,
                  denominator = 0;
-        bool conversion_needed = false;
+        int buffer_count = DEFAULT_BUF_COUNT;
 
         printf("vidcap_v4l2_init\n");
 
@@ -360,11 +304,8 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 printf("Unable to allocate v4l2 capture state\n");
                 return VIDCAP_INIT_FAIL;
         }
-        s->buffer_count = DEFAULT_BUF_COUNT;
+
         s->fd = -1;
-        s->buffers_to_enqueue = simple_linked_list_init();
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->cv, NULL);
 
         char *tmp = NULL;
 
@@ -395,24 +336,16 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                                         width = atoi(item + strlen("size="));
                                         height = atoi(strchr(item, 'x') + 1);
                                 }
-                        } else if (strncmp(item, "tpf=", strlen("tpf=")) == 0) {
-                                numerator = atoi(item + strlen("tpf="));
-                                if (strchr(item, '/')) {
-                                        denominator = atoi(strchr(item, '/') + 1);
-                                } else {
-                                        denominator = 1;
-                                }
-                        } else if (strncmp(item, "fps=", strlen("fps=")) == 0) {
-                                denominator = atoi(item + strlen("fps="));
-                                if(strchr(item, '/')) {
-                                        numerator = atoi(strchr(item, '/') + 1);
-                                } else {
-                                        numerator = 1;
-                                }
+                        } else if (strncmp(item, "tpf=",
+                                        strlen("tpf=")) == 0) {
+                                        if(strchr(item, '/')) {
+                                                numerator = atoi(item + strlen("tpf="));
+                                                denominator = atoi(strchr(item, '/') + 1);
+                                        }
                         } else if (strncmp(item, "buffers=",
                                         strlen("buffers=")) == 0) {
-                                s->buffer_count = atoi(item + strlen("buffers="));
-                                assert (s->buffer_count <= MAX_BUF_COUNT);
+                                buffer_count = atoi(item + strlen("buffers="));
+                                assert (buffer_count <= MAX_BUF_COUNT);
                         } else {
                                 fprintf(stderr, "[V4L2] Invalid configuration argument: %s\n",
                                                 item);
@@ -518,6 +451,8 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
 
         s->desc.tile_count = 1;
 
+        s->conversion_needed = false;
+
         switch(fmt.fmt.pix.pixelformat) {
                 case V4L2_PIX_FMT_YUYV:
                         s->desc.color_spec = YUYV;
@@ -538,7 +473,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                         s->desc.color_spec = H264;
                         break;
                 default:
-                        conversion_needed = true;
+                        s->conversion_needed = true;
                         s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
                         s->desc.color_spec = RGB;
                         break;
@@ -548,17 +483,17 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 case V4L2_FIELD_NONE:
                         s->desc.interlacing = PROGRESSIVE;
                         break;
-                case V4L2_FIELD_SEQ_TB:
+                case V4L2_FIELD_TOP:
                         s->desc.interlacing = UPPER_FIELD_FIRST;
                         break;
-                case V4L2_FIELD_SEQ_BT:
+                case V4L2_FIELD_BOTTOM:
                         s->desc.interlacing = LOWER_FIELD_FIRST;
                         break;
                 case V4L2_FIELD_INTERLACED:
                         s->desc.interlacing = INTERLACED_MERGED;
                         break;
-                case V4L2_FIELD_TOP:
-                case V4L2_FIELD_BOTTOM:
+                case V4L2_FIELD_SEQ_TB:
+                case V4L2_FIELD_SEQ_BT:
                 case V4L2_FIELD_ALTERNATE:
                 case V4L2_FIELD_INTERLACED_TB:
                 case V4L2_FIELD_INTERLACED_BT:
@@ -571,7 +506,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         s->desc.width = fmt.fmt.pix.width;
         s->desc.height = fmt.fmt.pix.height;
 
-        if (conversion_needed) {
+        if(s->conversion_needed) {
                 s->convert = v4lconvert_create(s->fd);
         } else {
                 s->convert = NULL;
@@ -582,7 +517,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         memset(&reqbuf, 0, sizeof(reqbuf));
         reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         reqbuf.memory = V4L2_MEMORY_MMAP;
-        reqbuf.count = s->buffer_count;
+        reqbuf.count = buffer_count;
 
         if (ioctl (s->fd, VIDIOC_REQBUFS, &reqbuf) != 0) {
                 if (errno == EINVAL)
@@ -643,16 +578,14 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
 
         free(tmp);
 
-        printf("Enable video input: %dx%d %f fps %s, codec %s\n", s->desc.width, s->desc.height, s->desc.fps, get_interlacing_description(s->desc.interlacing), get_codec_name(s->desc.color_spec));
-
         *state = s;
         return VIDCAP_INIT_OK;
 
 error:
         free(tmp);
-
-        common_cleanup(s);
-
+        if (s->fd != -1)
+                close(s->fd);
+        free(s);
         return VIDCAP_INIT_FAIL;
 }
 
@@ -660,18 +593,33 @@ static void vidcap_v4l2_done(void *state)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
 
-        common_cleanup(s);
+        int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        if(ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
+                fprintf(stderr, "Stream stopping error.\n");
+        };
+
+        close(s->fd);
+
+        if(s->conversion_needed) {
+                v4lconvert_destroy(s->convert);
+        }
+
+        free(s);
 }
+
+struct v4l2_dispose_deq_buffer_data {
+        int fd;
+        struct v4l2_buffer buf;
+};
 
 static void vidcap_v4l2_dispose_video_frame(struct video_frame *frame) {
         struct v4l2_dispose_deq_buffer_data *data =
                 (struct v4l2_dispose_deq_buffer_data *) frame->dispose_udata;
-
         if (data) {
-                pthread_mutex_lock(&data->s->lock);
-                simple_linked_list_append(data->s->buffers_to_enqueue, data);
-                pthread_mutex_unlock(&data->s->lock);
-                pthread_cond_signal(&data->s->cv);
+                if (ioctl(data->fd, VIDIOC_QBUF, &data->buf) != 0) {
+                        perror("Unable to enqueue buffer");
+                };
+                free(data);
         } else {
                 free(frame->tiles[0].data);
         }
@@ -683,14 +631,6 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
         struct video_frame *out;
-
-        pthread_mutex_lock(&s->lock);
-        enqueue_all_finished_frames(s);
-        while (s->dequeued_buffers == s->buffer_count) { // we cannot dequeue any buffer
-                pthread_cond_wait(&s->cv, &s->lock);
-                enqueue_all_finished_frames(s);
-        }
-        pthread_mutex_unlock(&s->lock);
 
         *audio = NULL;
 
@@ -704,15 +644,13 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
                 return NULL;
         };
 
-        s->dequeued_buffers += 1;
-
         out = vf_alloc_desc(s->desc);
         out->dispose = vidcap_v4l2_dispose_video_frame;
 
-        if (!s->convert) {
+        if(!s->conversion_needed) {
                 struct v4l2_dispose_deq_buffer_data *frame_data =
                         malloc(sizeof(struct v4l2_dispose_deq_buffer_data));
-                frame_data->s = s;
+                frame_data->fd = s->fd;
                 memcpy(&frame_data->buf, &buf, sizeof(buf));
                 out->tiles[0].data = s->buffers[frame_data->buf.index].start;
                 out->tiles[0].data_len = frame_data->buf.bytesused;

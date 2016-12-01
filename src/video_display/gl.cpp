@@ -519,19 +519,13 @@ static void screenshot(struct video_frame *frame)
 {
         char name[128];
         time_t t;
-        t = time(NULL);
-        struct tm *time_ptr;
-
-#ifdef WIN32
-        time_ptr = localtime(&t);
-#else
         struct tm time_tmp;
+
+        t = time(NULL);
         localtime_r(&t, &time_tmp);
-        time_ptr = &time_tmp;
-#endif
 
         strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
-                                               time_ptr);
+                                               &time_tmp);
         save_video_frame_as_pnm(frame, name);
 }
 
@@ -696,7 +690,7 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
                 default:
                         fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
-                        exit_uv(EXIT_FAILURE);
+                        exit_uv(128);
                         return;
 
         }
@@ -819,7 +813,6 @@ static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
                         break;
                 case ' ':
                         gl->paused = !gl->paused;
-                        LOG(LOG_LEVEL_NOTICE) << "[GL] " << (gl->paused ? "Paused (press <space> to unpause)" : "Unpaused") << "\n";
                         break;
                 case 's':
                         screenshot(gl->current_frame);

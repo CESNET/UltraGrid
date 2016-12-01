@@ -1,51 +1,13 @@
-// This file uses AsciiDoc syntax. Translate with a2x. Eg.:
-// a2x ADDING-MODULES
-= Adding UltraGrid Modules
+To allow modules to be separatebly buildable, you need to follow these rules:
 
-== Adding modules to build system
+in configure.ac:
 
-In _configure.ac_ use macro +ADD_MODULE(name, objs, libs)+:
+1) declare target in proper format, eg.:
+        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen_cap.so.$video_capture_abi_version")
+2) give the target to LIB_TARGETS
+3) propagate variables you need (typically *_INC, *_LIB and *_OBJ
+2) give objects to LIB_OBJS
 
-* name can be an empty string (""). In that case module will be linked only
-  if UltraGrid is built statically (without modules support)
-* if you provide name, it should be in format <class>_<name> (eg.
-  vidcap_gl)
-* second parameter should be a variable containing required objects for the module
-* third parameter are libraries that are needed for the module to link with
-
-
-== Registering modules to UltraGrid runtime
-
-Module registration is done with macro +REGISTER_MODULE()+ defined in _lib_common.h_.
-
-Its syntax is:
-[source,C]
-----
-REGISTER_MODULE(name, info, class_type, abi_version);
-----
-
-* *name* is the name of the module, please note that it must not be enclosed in
-  a quotation marks ("")
-* *info* is a pointer to class-specific metadata for the module (usually
-  a structure with functions)
-* *class_type* is one of member from +enum library_class+ defined in _lib_common.h_
-* *abi_version* is a class-specific number specifying ABI version number. It is
-  usually defined in a header file corresponding with the class (eg. _video_capture.h_)
-
-Eg.:
-[source,C]
-----
-#include <lib_common.h>
-#include <video_capture.h>
-...
-
-static const struct video_capture_info vidcap_decklink_info = {
-        vidcap_decklink_probe,
-        vidcap_decklink_init,
-        vidcap_decklink_done,
-        vidcap_decklink_grab,
-};
-
-REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-----
+in Makefile.in
+1) create declared target - this will be separate library, so make sure that every dependency is tracked within that librarz
 

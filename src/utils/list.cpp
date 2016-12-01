@@ -36,9 +36,6 @@ void simple_linked_list_append(struct simple_linked_list *l, void *data)
 
 void *simple_linked_list_pop(struct simple_linked_list *l)
 {
-        if (simple_linked_list_size(l) == 0) {
-                return NULL;
-        }
         void *ret = l->l.front();
         l->l.pop_front();
 

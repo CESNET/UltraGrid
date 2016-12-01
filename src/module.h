@@ -103,9 +103,6 @@ struct module {
         void *priv_data;
         //uint32_t id;
 
-        char *name; ///< optional name of the module. May be used for indexing. Will be freed by
-                    ///< module_done(). Must not start with a digit.
-
 #ifdef __cplusplus
         module() = default;
         // don't be tempted to copy/move module because parent holds pointer to struct module

@@ -1239,7 +1239,6 @@ static GUID GUID_R210 = {0x30313272, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0
 static GUID GUID_v210 = {0x30313276, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_V210 = {0x30313256, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 static GUID GUID_HDYC = {0x43594448, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
-static GUID GUID_I420 = {0x30323449, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
 
 static const struct {
         const GUID *pSubtype;
@@ -1256,7 +1255,7 @@ static const struct {
         &MEDIASUBTYPE_RGB32,       32,  "RGB 32",             L"RGB 32", RGBA,
         &MEDIASUBTYPE_ARGB32,    32,  "ARGB 32",             L"ARGB 32", VIDEO_CODEC_NONE,
         &MEDIASUBTYPE_Overlay,     0,   "Overlay",            L"Overlay", VIDEO_CODEC_NONE,
-        &GUID_I420        ,       12,   "I420",               L"I420", VIDEO_CODEC_NONE,
+        &MEDIASUBTYPE_I420,       12,   "I420",               L"I420", VIDEO_CODEC_NONE,
         &MEDIASUBTYPE_YUY2,       12,   "YUY2",               L"YUY2", YUYV,
         &GUID_R210,               12,   "r210",               L"r210", R10k,
         &GUID_v210,               12,   "v210",               L"v210", v210,

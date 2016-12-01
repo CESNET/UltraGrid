@@ -259,7 +259,7 @@ void keyboard_control::usage()
                 if (response_get_status(resp) == 200) {
                         double vol = atof(response_get_text(resp));
                         double db = 20.0 * log10(vol / 100.0);
-                        cout << "Received audio volume: " << fixed << setprecision(2) << vol << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout << "Received audio volume: " << fixed << setprecision(2) << vol << " % (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                 }
                 free_response(resp);
         }

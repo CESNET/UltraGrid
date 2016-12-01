@@ -50,6 +50,7 @@
 #include <string.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
+#include <QuickTime/QuickTime.h>
 #include <pthread.h>
 
 #ifdef HAVE_SPEEX

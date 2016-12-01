@@ -84,7 +84,6 @@
 using std::condition_variable;
 using std::chrono::duration;
 using std::min;
-using std::max;
 using std::mutex;
 using std::ostringstream;
 using std::string;
@@ -180,8 +179,6 @@ struct vidcap_import_state {
         int video_reading_threads_count;
         bool should_exit_at_end;
         double force_fps;
-
-        volatile bool exit_control = false;
 };
 
 #ifdef WIN32
@@ -205,6 +202,8 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
 static void process_msg(struct vidcap_import_state *state, char *message) WIN32_UNUSED;
 
 static void cleanup_common(struct vidcap_import_state *s);
+
+volatile bool exit_control = false;
 
 static void message_queue_clear(struct message_queue *queue) {
         queue->head = queue->tail = NULL;
@@ -536,6 +535,12 @@ static void exit_reading_threads(struct vidcap_import_state *s)
 
                 pthread_join(s->audio_state.thread_id, NULL);
         }
+
+#ifndef WIN32
+        exit_control = true;
+
+        pthread_join(s->control_thread_id, NULL);
+#endif
 }
 
 static void free_entry(struct processed_entry *entry)
@@ -557,7 +562,7 @@ static void vidcap_import_finish(void *state)
         exit_reading_threads(s);
 
 #ifndef WIN32
-        s->exit_control = true;
+        exit_control = true;
 
         pthread_join(s->control_thread_id, NULL);
 #endif
@@ -802,7 +807,7 @@ static void * control_thread(void *args)
                 return NULL;
         }
 
-        while (!s->exit_control) {
+        while(!exit_control) {
                 fd_set set;
                 FD_ZERO(&set);
                 FD_SET(fd, &set);
@@ -1074,7 +1079,6 @@ static void * reading_thread(void *args)
                                         } else if (data->whence == IMPORT_SEEK_END) {
                                                 index = s->count + data->offset;
                                         }
-                                        index = min(max(0, index), s->count - 1);
                                         printf("Current index: frame %d\n", index);
                                         free(data);
                                 } else {
@@ -1085,7 +1089,14 @@ static void * reading_thread(void *args)
                 }
 
                 /// @todo are these checks necessary?
-                index = min(max(0, index), s->count - 1);
+                if(index < 0) {
+                        index = 0;
+                }
+
+                if(index >= s->count) {
+                        fprintf(stderr, "Warning: Index exceeds available frame count!\n");
+                        index = s->count - 1;
+                }
 
                 struct video_reader_data data_reader[MAX_NUMBER_WORKERS];
                 task_result_handle_t task_handle[MAX_NUMBER_WORKERS];

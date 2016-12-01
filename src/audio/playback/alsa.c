@@ -769,11 +769,6 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
         } else if (rc < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from writei: %s\n",
                         snd_strerror(rc));
-                if (rc == -ENODEV) { // someone pulled the device (eg. videoconferencing
-                                     // microphone) out - taking that as a fatal error
-                        log_msg(LOG_LEVEL_FATAL, MOD_NAME "Device removed, exiting!\n");
-                        exit_uv(EXIT_FAIL_AUDIO);
-                }
                 snd_pcm_recover(s->handle, rc, 0);
         }  else if (rc != (int)frames) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "short write, written %d frames (overrun)\n", rc);

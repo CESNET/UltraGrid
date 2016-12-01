@@ -351,7 +351,11 @@ static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len /
                 (s->audio_desc.bps * s->audio_desc.ch_count);
-        uint32_t sampleFramesWritten;
+#ifdef WIN32
+        unsigned long int sampleFramesWritten;
+#else
+        unsigned int sampleFramesWritten;
+#endif
         char *data = frame->data;
         // tmp_frame is used if we need to perform 1->2 channel multiplication
         struct audio_frame tmp_frame;

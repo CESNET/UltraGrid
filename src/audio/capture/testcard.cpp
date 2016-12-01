@@ -149,16 +149,11 @@ static void * audio_cap_testcard_init(const char *cfg)
 
         double volume = DEFAULT_VOLUME;
         int chunk_size = 0;
-        enum {
-                EBU,
-                WAV,
-                SILENCE
-        } pattern = EBU;
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
-                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence]\n");
+                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
                 printf("\t\t\t<wav> is a wav file to be played\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
@@ -173,11 +168,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 volume = atof(item + strlen("vol="));
                         } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
                                 wav_file = item + strlen("file=");
-                                pattern = WAV;
                         } else if(strncasecmp(item, "frames=", strlen("frames=")) == 0) {
                                 chunk_size = atoi(item + strlen("frames="));
-                        } else if(strcasecmp(item, "silence") == 0) {
-                                pattern = SILENCE;
                         }
 
                         fmt = NULL;
@@ -189,42 +181,24 @@ static void * audio_cap_testcard_init(const char *cfg)
         assert(s != 0);
         s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
 
-        switch (pattern) {
-        case EBU:
-        case SILENCE:
-        {
+        if(!wav_file) {
                 s->audio.ch_count = audio_capture_channels;
                 s->audio.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
                         DEFAULT_AUDIO_SAMPLE_RATE;
                 s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
-                if (pattern == EBU) {
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) EBU tone ", FREQUENCY,
-                                        volume);
-                } else {
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating silence ");
-                }
-
+                log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) EBU tone ", FREQUENCY,
+                                volume);
                 LOG(LOG_LEVEL_NOTICE) << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
 
-                if (pattern == EBU) {
-                        s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                        FREQUENCY, volume, &s->total_samples);
+                s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                                FREQUENCY, volume, &s->total_samples);
 
-                        s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-                        memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
-                                        s->audio_samples, s->chunk_size - 1);
-                } else {
-                        s->total_samples = s->audio.sample_rate;
-                        s->audio_samples = (char *) calloc(1, (s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-
-                }
-                break;
-        }
-        case WAV:
-        {
+                s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
+                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
+                memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
+                                s->audio_samples, s->chunk_size - 1);
+        } else {
                 FILE *wav = fopen(wav_file, "r");
                 if(!wav) {
                         fprintf(stderr, "Unable to open WAV.\n");
@@ -257,8 +231,6 @@ static void * audio_cap_testcard_init(const char *cfg)
                 memcpy(s->audio_samples + metadata.data_size, s->audio_samples, s->audio.max_size -
                                 metadata.data_size);
                 fclose(wav);
-                break;
-        }
         }
 
         s->audio.data_len = s->chunk_size * s->audio.bps * s->audio.ch_count;

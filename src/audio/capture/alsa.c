@@ -352,17 +352,12 @@ static struct audio_frame *audio_cap_alsa_read(void *state)
         }
         if (rc == -EPIPE) {
                 /* EPIPE means overrun */
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "overrun occurred\n");
+                fprintf(stderr, MOD_NAME "overrun occurred\n");
                 snd_pcm_prepare(s->handle);
         } else if (rc < 0) {
-		log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from read: %s\n", snd_strerror(rc));
-		if (rc == -ENODEV) { // someone pulled the device (eg. videoconferencing
-			// microphone) out - taking that as a fatal error
-			log_msg(LOG_LEVEL_FATAL, MOD_NAME "Device removed, exiting!\n");
-			exit_uv(EXIT_FAIL_AUDIO);
-		}
+                fprintf(stderr, MOD_NAME "error from read: %s\n", snd_strerror(rc));
         } else if (rc != (int)s->frames) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "short read, read %d frames\n", rc);
+                fprintf(stderr, MOD_NAME "short read, read %d frames\n", rc);
         }
 
         if(rc > 0) {
