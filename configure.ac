@@ -2341,8 +2341,10 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
         TEXT_LIB="$TEXT_LIBS"
         TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
+        CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
         ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
         AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
+        PKG_CHECK_MODULES([WAND7], [MagickWand > 7], AC_DEFINE([WAND7], [1], [MagickWand is v7 or later]))
 fi
 
 if test $text_req = yes -a $text = no; then

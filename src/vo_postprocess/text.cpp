@@ -47,7 +47,12 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <memory>
+
+#ifdef WAND7
+#include <MagickWand/MagickWand.h>
+#else
 #include <wand/magick_wand.h>
+#endif
 
 #include "capture_filter.h"
 #include "debug.h"
