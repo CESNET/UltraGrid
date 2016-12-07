@@ -2344,7 +2344,10 @@ then
         CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
         ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
         AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
-        PKG_CHECK_MODULES([WAND7], [MagickWand > 7], AC_DEFINE([WAND7], [1], [MagickWand is v7 or later]))
+        PKG_CHECK_MODULES([WAND7], [MagickWand > 7], [FOUND_WAND7=yes], [FOUND_WAND7=NO])
+        if test "$FOUND_WAND7" = yes; then
+                AC_DEFINE([WAND7], [1], [MagickWand is v7 or later])
+        fi
 fi
 
 if test $text_req = yes -a $text = no; then
