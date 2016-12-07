@@ -194,7 +194,7 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]] "
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]][:layout=<X>x<Y>]] "
                         "-t <dev1_config> -t <dev2_config>\n");
         printf("\tor\n");
         printf("\t-t swmix:file -t <dev1_config> -t <dev2_config> ...\n");
@@ -263,6 +263,7 @@ struct vidcap_swmix_state {
         char               *bicubic_algo;
         GLuint              bicubic_program;
         interpolation_t     interpolation;
+        int                 grid_x, grid_y;
 };
 
 
@@ -297,12 +298,19 @@ struct slave_data {
 static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
         struct slave_data *slaves_data = (struct slave_data *)
                 calloc(s->devices_cnt, sizeof(struct slave_data));
+        double m;
+        int n;
 
-        // arrangement
-        // we want to have least MxN, where N <= M + 1
-        double m = (-1.0 + sqrt(1.0 + 4.0 * s->devices_cnt)) / 2.0;
-        m = ceil(m);
-        int n = (s->devices_cnt + m - 1) / ((int) m);
+        if (s->grid_x != 0) {
+                m = s->grid_x;
+                n = s->grid_y;
+        } else {
+                // arrangement
+                // we want to have least MxN, where N <= M + 1
+                m = (-1.0 + sqrt(1.0 + 4.0 * s->devices_cnt)) / 2.0;
+                m = ceil(m);
+                n = (s->devices_cnt + m - 1) / ((int) m);
+        }
 
         for(int i = 0; i < s->devices_cnt; ++i) {
                 glGenTextures(2, slaves_data[i].texture);
@@ -917,7 +925,7 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl, int *grid_x, int *grid_y)
 {
         char *save_ptr = NULL;
         char *item;
@@ -968,6 +976,17 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                                         *bicubic_algo = strdup(strchr(item, ',') + 1);
                                                 }
                                         }
+                                } else if (strncasecmp(item, "layout=", strlen("layout=")) == 0) {
+                                        const char *l = item + strlen("layout=");
+                                        if (!strchr(l, 'x')) {
+                                                log_msg(LOG_LEVEL_ERROR, "Error parsing layout!\n");
+                                                return PARSE_ERROR;
+                                        }
+                                        *grid_x = atoi(l);
+                                        *grid_y = atoi(strchr(l, 'x') + 1);
+                                } else {
+                                        log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n", item);
+                                        return PARSE_ERROR;
                                 }
                 }
                 tmp = NULL;
@@ -989,7 +1008,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         int ret;
 
         ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                        interpolation, &s->bicubic_algo, &desc->interlacing);
+                        interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y);
         if(ret == PARSE_ERROR) {
                 show_help();
                 return false;
@@ -1011,7 +1030,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 }
                 while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                                interpolation, &s->bicubic_algo, &desc->interlacing);
+                                interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y);
                 if(ret != PARSE_OK) {
                         fprintf(stderr, "Malformed input file! First line should contain config "
                                         "string same as for cmdline use (between first ':' and '#' "
@@ -1036,6 +1055,11 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                         s->devices_cnt++;
                 else
                         break;
+        }
+
+        if (s->devices_cnt > s->grid_x * s->grid_y) {
+                log_msg(LOG_LEVEL_ERROR, "[swmix] Invalid layout! More devices given than layout size.\n");
+                return false;
         }
 
         s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
