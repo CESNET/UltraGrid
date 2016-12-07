@@ -984,6 +984,10 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                         }
                                         *grid_x = atoi(l);
                                         *grid_y = atoi(strchr(l, 'x') + 1);
+                                        if (*grid_x <= 0 || *grid_y <= 0) {
+                                                log_msg(LOG_LEVEL_ERROR, "Error parsing layout!\n");
+                                                return PARSE_ERROR;
+                                        }
                                 } else {
                                         log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n", item);
                                         return PARSE_ERROR;
@@ -1057,7 +1061,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                         break;
         }
 
-        if (s->devices_cnt > s->grid_x * s->grid_y) {
+        if (s->grid_x != 0 && s->devices_cnt > s->grid_x * s->grid_y) {
                 log_msg(LOG_LEVEL_ERROR, "[swmix] Invalid layout! More devices given than layout size.\n");
                 return false;
         }
