@@ -1178,6 +1178,99 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         return session;
 }
 
+rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback)
+{
+        struct rtp *session;
+        int i, j;
+        char *cname;
+        char *hname;
+        int ttl = 127;        /*  FIXME */
+        int tfrc_on = FALSE;  /*  FIXME */
+
+        session = (struct rtp *)malloc(sizeof(struct rtp));
+        memset(session, 0, sizeof(struct rtp));
+
+        session->magic = 0xfeedface;
+        session->opt = (options *) malloc(sizeof(options));
+        // socket is not designated to receiving
+        session->userdata = 0;
+        session->mt_recv = false;
+        session->send_rtcp_to_origin = true;
+
+        session->rtp_socket = udp_init_with_local(l, sa, len);
+        session->rtcp_socket = udp_init_if("::1", NULL, 0, 0, ttl, true, false);
+
+        init_opt(session);
+
+        if (session->rtp_socket == NULL || session->rtcp_socket == NULL) {
+                printf("Unable to open network\n");
+                free(session);
+                return NULL;
+        }
+
+        hname = udp_host_addr(session->rtp_socket);
+        init_rng(hname);
+        free(hname);
+
+        session->my_ssrc = (uint32_t) lrand48();
+        session->callback = callback;
+        session->invalid_rtp_count = 0;
+        session->invalid_rtcp_count = 0;
+        session->bye_count = 0;
+        session->csrc_count = 0;
+        session->ssrc_count = 0;
+        session->ssrc_count_prev = 0;
+        session->sender_count = 0;
+        session->initial_rtcp = TRUE;
+        session->sending_bye = FALSE;
+        session->avg_rtcp_size = -1;    /* Sentinal value: reception of first packet starts initial value... */
+        session->we_sent = FALSE;
+        session->rtcp_bw = 5 * 1024 * 1024;       /*  FIXME */
+        session->sdes_count_pri = 0;
+        session->sdes_count_sec = 0;
+        session->sdes_count_ter = 0;
+        session->rtp_seq = (uint16_t) lrand48();
+        session->rtp_pcount = 0;
+        session->mhdr = NULL;
+        session->tfrc_on = tfrc_on;
+        session->rtp_bcount = 0;
+        session->rtp_bytes_sent = 0;
+        gettimeofday(&(session->last_update), NULL);
+        gettimeofday(&(session->last_rtcp_send_time), NULL);
+        gettimeofday(&(session->next_rtcp_send_time), NULL);
+        session->encryption_enabled = 0;
+        session->encryption_algorithm = NULL;
+
+        /* Calculate when we're supposed to send our first RTCP packet... */
+        tv_add(&(session->next_rtcp_send_time), rtcp_interval(session));
+
+        /* Initialise the source database... */
+        for (i = 0; i < RTP_DB_SIZE; i++) {
+                session->db[i] = NULL;
+        }
+        session->last_advertised_csrc = 0;
+
+        /* Initialize sentinels in rr table */
+        for (i = 0; i < RTP_DB_SIZE; i++) {
+                for (j = 0; j < RTP_DB_SIZE; j++) {
+                        session->rr[i][j].next = &session->rr[i][j];
+                        session->rr[i][j].prev = &session->rr[i][j];
+                }
+        }
+
+        /* Create a database entry for ourselves... */
+        create_source(session, session->my_ssrc, FALSE);
+        cname = get_cname(session->rtp_socket);
+        rtp_set_sdes(session, session->my_ssrc, RTCP_SDES_CNAME, cname,
+                     strlen(cname));
+        free(cname);            /* cname is copied by rtp_set_sdes()... */
+
+        fprintf(stderr, "Created new RTP session with SSRC 0x%08x.\n",
+                  session->my_ssrc);
+
+        return session;
+}
+
 /**
  * rtp_set_my_ssrc:
  * @session: the RTP session 
@@ -3915,5 +4008,10 @@ void rtp_async_start(struct rtp *session, int nr_packets)
 void rtp_async_wait(struct rtp *session)
 {
        udp_async_wait(session->rtp_socket);
+}
+
+struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session)
+{
+        return udp_get_local(session->rtp_socket);
 }
 

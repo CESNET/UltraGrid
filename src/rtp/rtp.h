@@ -218,6 +218,8 @@ typedef enum {
                                         /* end of the packet                                 */
 } rtp_option;
 
+struct socket_udp_local;
+
 /* API */
 rtp_t		rtp_init(const char *addr, 
 			 uint16_t rx_port, uint16_t tx_port, 
@@ -233,6 +235,7 @@ rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    rtp_callback callback,
 			    uint8_t *userdata,
                             bool use_ipv6, bool multithreaded);
+rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);
@@ -301,6 +304,8 @@ bool             rtp_is_ipv6(struct rtp *session);
  */
 void             rtp_async_start(struct rtp *session, int nr_packets);
 void             rtp_async_wait(struct rtp *session);
+
+struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session);
 
 #ifdef __cplusplus
 }
