@@ -71,7 +71,7 @@ using std::unique_lock;
 
 #define MAX_UDP_READER_QUEUE_LEN 10
 
-static int resolve_address(socket_udp *s, const char *addr);
+static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
 
 #define IPv4	4
@@ -136,10 +136,6 @@ struct item {
 
 struct _socket_udp {
         int mode;               /* IPv4 or IPv6 */
-        char *addr;
-        uint16_t rx_port;
-        uint16_t tx_port;
-        ttl_t ttl;
         fd_t fd;
         struct sockaddr_storage sock;
         socklen_t sock_len;
@@ -512,7 +508,7 @@ static char *udp_host_addr6(socket_udp * s)
         char *hname = (char *) calloc(MAXHOSTNAMELEN + 1, 1);
         int gai_err, newsock;
         struct addrinfo hints, *ai;
-        struct sockaddr_in6 local, addr6;
+        struct sockaddr_in6 local, addr6, bound;
         socklen_t len = sizeof(local);
         int result = 0;
 
@@ -532,8 +528,15 @@ static char *udp_host_addr6(socket_udp * s)
                 perror("Cannot bind");
         }
         addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
-        addr6.sin6_port = htons(s->rx_port);
+	len = sizeof bound;
+	if (getsockname(s->fd, (struct sockaddr *)&bound, &len) == -1) {
+		perror("getsockname");
+		addr6.sin6_port = 0;
+	} else {
+		addr6.sin6_port = bound.sin6_port;
+	}
         addr6.sin6_scope_id = ((struct sockaddr_in6 *)&s->sock)->sin6_scope_id;
+	len = sizeof addr6;
         result = connect(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
                 perror("connect");
@@ -663,10 +666,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         socklen_t sin_len;
         unsigned int ifindex;
         socket_udp *s = new socket_udp();
-        s->addr = NULL;
-        s->rx_port = rx_port;
-        s->tx_port = tx_port;
-        s->ttl = ttl;
         s->fd = INVALID_SOCKET;
 
 	if (!address_is_ipv6(addr) && !use_ipv6) {
@@ -683,7 +682,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 #endif
 	}
 
-        if ((ret = resolve_address(s, addr)) != 0) {
+        if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 fprintf(stderr, "Can't resolve IP address for %s: %s\n", addr,
                                 gai_strerror(ret));
                 goto error;
@@ -761,19 +760,19 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         }
 
         // if we do not set tx port, fake that is the same as we are bound to
-        if (s->tx_port == 0) {
+        if (tx_port == 0) {
                 struct sockaddr_storage sin;
                 socklen_t addrlen = sizeof(sin);
                 if (getsockname(s->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
                                 sin.ss_family == ip_family) {
                         if (s->mode == IPv4) {
                                 struct sockaddr_in *s_in4 = (struct sockaddr_in *) &sin;
-                                s->tx_port = ntohs(s_in4->sin_port);
+                                tx_port = ntohs(s_in4->sin_port);
                                 ((struct sockaddr_in *) &s->sock)->sin_port = s_in4->sin_port;
                         } else if (s->mode == IPv6) {
 #ifdef HAVE_IPv6
                                 struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
-                                s->tx_port = ntohs(s_in6->sin6_port);
+                                tx_port = ntohs(s_in6->sin6_port);
                                 ((struct sockaddr_in6 *) &s->sock)->sin6_port = s_in6->sin6_port;
 #endif
                         } else {
@@ -796,8 +795,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         default:
                 abort();
         }
-
-        s->addr = strdup(addr);
 
         s->multithreaded = multithreaded;
         if (multithreaded) {
@@ -879,7 +876,6 @@ void udp_exit(socket_udp * s)
 
         CLOSESOCKET(s->fd);
 
-        free(s->addr);
         delete s;
 }
 
@@ -1233,7 +1229,7 @@ int udp_fd(socket_udp * s)
         return 0;
 }
 
-static int resolve_address(socket_udp *s, const char *addr)
+static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
 {
         struct addrinfo hints, *res0;
         int err;
@@ -1252,7 +1248,7 @@ static int resolve_address(socket_udp *s, const char *addr)
         hints.ai_socktype = SOCK_DGRAM;
 
         char tx_port_str[7];
-        sprintf(tx_port_str, "%u", s->tx_port);
+        sprintf(tx_port_str, "%u", tx_port);
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
