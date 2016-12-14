@@ -276,10 +276,6 @@ const rtcp_rr	*rtp_get_rr(struct rtp *session, uint32_t reporter, uint32_t repor
 int              rtp_set_encryption_key(struct rtp *session, const char *passphrase);
 int              rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc);
 
-char 		*rtp_get_addr(struct rtp *session);
-uint16_t	 rtp_get_rx_port(struct rtp *session);
-uint16_t	 rtp_get_tx_port(struct rtp *session);
-int		 rtp_get_ttl(struct rtp *session);
 uint8_t		*rtp_get_userdata(struct rtp *session);
 void 		 rtp_set_recv_iov(struct rtp *session, struct msghdr *m);
 

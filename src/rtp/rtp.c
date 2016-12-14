@@ -255,12 +255,9 @@ typedef int (*rtp_decrypt_func) (struct rtp *, unsigned char *data,
 struct rtp {
         socket_udp *rtp_socket;
         socket_udp *rtcp_socket;
-        struct sockaddr_storage rtcp_dest;
+        struct sockaddr_storage rtcp_dest; /* location to send RTCP RR to if tx_port is 0 */
         socklen_t rtcp_dest_len;
-        char *addr;
-        uint16_t rx_port;
-        uint16_t tx_port;
-        int ttl;
+        bool send_rtcp_to_origin; /* whether send RTCP reports to rtcp_dest */
         uint32_t my_ssrc;
         int last_advertised_csrc;
         source *db[RTP_DB_SIZE];
@@ -1067,8 +1064,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         char *cname;
         char *hname;
 
-        if (ttl < 0) {
-                fprintf(stderr, "ttl must be greater than zero\n");
+        if (ttl < 0 || ttl > 255) {
+                fprintf(stderr, "ttl must be in range [0..255]\n");
                 return NULL;
         }
         if (rx_port % 2) {
@@ -1084,11 +1081,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->magic = 0xfeedface;
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
-        session->addr = strdup(addr);
-        session->rx_port = rx_port;
-        session->tx_port = tx_port;
-        session->ttl = min(ttl, 127);
         session->multithreaded = multithreaded;
+        session->send_rtcp_to_origin = tx_port == 0;
 
         if (rx_port == 0) {
                 for (int i = 1<<15; i < 1<<16; i += 2) {
@@ -3233,7 +3227,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                                          initVec);
         }
 
-        if (session->tx_port != 0) {
+        if (!session->send_rtcp_to_origin) {
                 rc = udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
                 if (rc == -1) {
                         perror("sending RTCP packet");
@@ -3579,7 +3573,6 @@ void rtp_done(struct rtp *session)
 
         udp_exit(session->rtp_socket);
         udp_exit(session->rtcp_socket);
-        free(session->addr);
         free(session->opt);
         free(session);
 }
@@ -3811,58 +3804,6 @@ static int rijndael_decrypt(struct rtp *session, unsigned char *data,
                           &session->crypto_state.rijndael.keyInstDecrypt,
                           data, size * 8, data);
         return rc;
-}
-
-/**
- * rtp_get_addr:
- * @session: The RTP Session.
- *
- * Returns: The session's destination address, as set when creating the
- * session with rtp_init() or rtp_init_if().
- */
-char *rtp_get_addr(struct rtp *session)
-{
-        check_database(session);
-        return session->addr;
-}
-
-/**
- * rtp_get_rx_port:
- * @session: The RTP Session.
- *
- * Returns: The UDP port to which this session is bound, as set when
- * creating the session with rtp_init() or rtp_init_if().
- */
-uint16_t rtp_get_rx_port(struct rtp * session)
-{
-        check_database(session);
-        return session->rx_port;
-}
-
-/**
- * rtp_get_tx_port:
- * @session: The RTP Session.
- *
- * Returns: The UDP port to which RTP packets are transmitted, as set
- * when creating the session with rtp_init() or rtp_init_if().
- */
-uint16_t rtp_get_tx_port(struct rtp * session)
-{
-        check_database(session);
-        return session->tx_port;
-}
-
-/**
- * rtp_get_ttl:
- * @session: The RTP Session.
- *
- * Returns: The session's TTL, as set when creating the session with
- * rtp_init() or rtp_init_if().
- */
-int rtp_get_ttl(struct rtp *session)
-{
-        check_database(session);
-        return session->ttl;
 }
 
 /**
