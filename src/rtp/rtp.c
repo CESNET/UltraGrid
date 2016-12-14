@@ -312,7 +312,7 @@ struct rtp {
         } crypto_state;
         rtp_callback callback;
         struct msghdr *mhdr;
-        bool multithreaded;
+        bool mt_recv; /* whether the receiver uses separate thread for receiving */
         uint32_t magic;         /* For debugging...  */
 };
 
@@ -1081,7 +1081,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->magic = 0xfeedface;
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
-        session->multithreaded = multithreaded;
+        session->mt_recv = multithreaded;
         session->send_rtcp_to_origin = tx_port == 0;
 
         if (rx_port == 0) {
@@ -1433,7 +1433,7 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
         rtp_packet *packet = NULL;
         uint8_t *buffer = NULL;
 
-        if (session->multithreaded) {
+        if (session->mt_recv) {
                 buflen =
                         udp_recv_data(session->rtp_socket, (char **) &packet);
 
@@ -2240,7 +2240,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
         struct udp_fd_r fd;
         
         check_database(session);
-        if (session->multithreaded) {
+        if (session->mt_recv) {
                 int ret = FALSE;
                 if (udp_not_empty(session->rtp_socket, timeout)) {
                         rtp_recv_data(session, curr_rtp_ts);
