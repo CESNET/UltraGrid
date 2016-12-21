@@ -321,7 +321,7 @@ static void usage(void)
         printf("\t                         \tIf not specified, will use same as for video\n");
         printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
         printf("\n");
-        printf("\t--capture-filter <filter>\tCapture filter(s), must preceed\n");
+        printf("\t--capture-filter <filter>\tCapture filter(s), must be given before capture device\n");
         printf("\n");
         printf("\t--encryption <passphrase>\tKey material for encryption\n");
         printf("\n");
