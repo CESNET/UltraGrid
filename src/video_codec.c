@@ -617,7 +617,7 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
         assert(dst_len % 4 == 0);
 
         if((dst_len % 16 == 0)) {
-                asm("movdqa (%0), %%xmm4\n"
+                asm("movdqu (%0), %%xmm4\n"
                                 "movdqa %%xmm4, %%xmm5\n"
                                 "psrldq $1, %%xmm5\n"
                                 : :"r"(mask));
