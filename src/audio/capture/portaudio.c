@@ -203,7 +203,11 @@ static void portaudio_close(PaStream * stream)	// closes and frees all audio res
 static void * audio_cap_portaudio_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
-                printf("Available PortAudio capture devices:\n");
+                printf("Portaudio options:\n");
+                printf("\t-s poraudio[:<index>[:latency=<l>]]\n\n");
+                printf("<l>\tsuggested latency in sec (experimental, use in case of problems)\n");
+                printf("\nAvailable PortAudio capture devices:\n");
+
                 audio_cap_portaudio_help(NULL);
                 return &audio_init_state_ok;
         }
@@ -212,16 +216,26 @@ static void * audio_cap_portaudio_init(const char *cfg)
         int input_device;
 	PaError error;
         const	PaDeviceInfo *device_info = NULL;
+        PaTime latency = -1.0;
         
         s = (struct state_portaudio_capture *) malloc(sizeof(struct state_portaudio_capture));
 	/* 
 	 * so far we only work with portaudio
 	 * might get more complicated later..(jack?)
 	 */
-        if(cfg)
+        if (cfg) {
                 input_device = atoi(cfg);
-        else
+                if (strchr(cfg, ':')) {
+                        const char *option = strchr(cfg, ':') + 1;
+                        if (strncmp(option, "latency=", strlen("latency=")) == 0) {
+                                latency = atof(option + strlen("latency="));
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Unknown option: %s!\n", option);
+                        }
+                }
+        } else {
                 input_device = -1;
+        }
 
 	printf("Initializing portaudio capture.\n");
 
@@ -286,7 +300,7 @@ static void * audio_cap_portaudio_init(const char *cfg)
                 inputParameters.sampleFormat = paInt16;
                 s->frame.bps = 2;
         }
-        inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultLowInputLatency;
+        inputParameters.suggestedLatency = latency == -1.0 ? Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency : latency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
         s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
