@@ -1,0 +1,12 @@
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/Makefile	2016-10-28 08:24:00.504000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/Makefile	2016-10-28 09:52:23.176000000 +0000
+@@ -26,8 +26,8 @@ include configure.mk
+ SUBDIRS =	classes \
+ 			$(DRIVER_DIR) \
+ 			commonapps \
+-			demoapps \
+ 			linuxapps
++#			demoapps \
+ 
+ include internal.mk
+ include sdkversion.mk

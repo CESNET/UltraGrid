@@ -1,0 +1,114 @@
+diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
+--- a/ultragrid-nightly/debian.rules	2017-02-13 12:00:45.568820527 +0100
++++ b/ultragrid-nightly/debian.rules	2017-02-13 12:00:46.564838888 +0100
+@@ -34,7 +34,7 @@ CARDCONF+=--enable-deltacast --with-delt
+ #####################################################
+ # > aja
+ #####################################################
+-CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
++#CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
+ #####################################################
+ # < aja
+ #####################################################
+diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:45.568820527 +0100
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:46.604839625 +0100
+@@ -98,7 +98,7 @@ UltraGrid developed by Colin Perkins, La
+ #####################################################
+ # > aja
+ #####################################################
+-%define build_aja 1
++#%define build_aja 1
+ #####################################################
+ # < aja
+ #####################################################
+diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:45.576820674 +0100
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:46.732841985 +0100
+@@ -18,7 +18,7 @@ override_dh_auto_build:
+ #####################################################
+ # > aja
+ #####################################################
+-	cd ntv2sdklinux*/ntv2projects ; make QTDIR=/usr/lib/qt5
++#	cd ntv2sdklinux*/ntv2projects ; make QTDIR=/usr/lib/qt5
+ #####################################################
+ # < aja
+ #####################################################
+@@ -60,8 +60,8 @@ override_dh_auto_install:
+ #####################################################
+ # > aja
+ #####################################################
+-	cp -r ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+-	ln -s ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/aja_sdk
++#	cp -r ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
++#	ln -s ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/aja_sdk
+ #####################################################
+ # < aja
+ #####################################################
+diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:45.576820674 +0100
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:46.784842943 +0100
+@@ -49,12 +49,12 @@ Patch13:	bluefish-linux4.6-get-user-page
+ #####################################################
+ # > aja (ntv2sdklinux)
+ #####################################################
+-Patch20:	AJA-linuxdriver-uname.patch
+-Patch21:	AJA-nodemo.patch
+-Patch22:	AJA-qmake.patch
+-Patch23:	AJA-qt5.patch
+-Patch24:	AJA-gcc-explicit-constructors.patch
+-Patch25:	AJA-linux4.6-get-user-pages.patch
++#Patch20:	AJA-linuxdriver-uname.patch
++#Patch21:	AJA-nodemo.patch
++#Patch22:	AJA-qmake.patch
++#Patch23:	AJA-qt5.patch
++#Patch24:	AJA-gcc-explicit-constructors.patch
++#Patch25:	AJA-linux4.6-get-user-pages.patch
+ #####################################################
+ # < aja (ntv2sdklinux)
+ #####################################################
+@@ -97,12 +97,12 @@ VideoMasterHD		--deltacast
+ #####################################################
+ # > aja
+ #####################################################
+-%patch20 -p1
+-%patch21 -p1
+-%patch22 -p1
+-%patch23 -p1
+-%patch24 -p1
+-%patch25 -p1
++#%patch20 -p1
++#%patch21 -p1
++#%patch22 -p1
++#%patch23 -p1
++#%patch24 -p1
++#%patch25 -p1
+ #####################################################
+ # < aja
+ #####################################################
+@@ -120,10 +120,10 @@ VideoMasterHD		--deltacast
+ #####################################################
+ # > aja
+ #####################################################
+-ls
+-pushd ntv2sdklinux_*/ntv2projects
+-env libdir=%{_libdir} make QTDIR=/usr/lib/qt5
+-popd
++#ls
++#pushd ntv2sdklinux_*/ntv2projects
++#env libdir=%{_libdir} make QTDIR=/usr/lib/qt5
++#popd
+ #####################################################
+ # < aja
+ #####################################################
+@@ -175,8 +175,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
+ #####################################################
+ # > aja
+ #####################################################
+-cp -r ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
+-ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/aja_sdk
++#cp -r ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
++#ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/aja_sdk
+ #####################################################
+ # < aja
+ #####################################################

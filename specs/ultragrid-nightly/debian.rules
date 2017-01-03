@@ -1,0 +1,85 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_UPSTREAM_URL = https://github.com/CESNET/UltraGrid
+
+#####################################################
+# > bluefish
+#####################################################
+CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
+#####################################################
+# < bluefish
+#####################################################
+#####################################################
+# > dvs
+#####################################################
+CARDCONF+= --enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk
+#####################################################
+# < dvs
+#####################################################
+#####################################################
+# > blackmagick
+#####################################################
+CARDCONF+= --enable-decklink
+#####################################################
+# < blackmagick
+#####################################################
+#####################################################
+# > deltacast
+#####################################################
+CARDCONF+=--enable-deltacast --with-deltacast=/usr/src/ultragrid-externals/deltacast_sdk
+#####################################################
+# < deltacast
+#####################################################
+#####################################################
+# > aja
+#####################################################
+CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
+#####################################################
+# < aja
+#####################################################
+#####################################################
+# > cuda
+#####################################################
+CUDA:=--with-cuda=/usr/local/cuda-8.0
+#####################################################
+# < cuda
+#####################################################
+
+%:
+	dh $@ -- --fail-missing
+
+override_dh_auto_configure:
+	./autogen.sh
+	dh_auto_configure -- --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
+		--enable-sdl --enable-gl --enable-rtdxt --enable-jpeg \
+		--enable-portaudio --disable-jack-transport --enable-jack \
+		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
+		--disable-coreaudio --disable-sage --enable-screen\
+		--enable-v4l2 --enable-bsd --enable-libavcodec --enable-scale --enable-uyvy \
+		--disable-rtsp \
+		--enable-video-mixer --enable-swmix --enable-ihdtv \
+		$(CUDA) \
+		$(CARDCONF)
+
+override_dh_auto_install:
+	mkdir -p usr/share/doc/ultragrid
+	mkdir -p usr/lib/ultragrid
+	echo 1.3-20150306 > usr/share/doc/ultragrid/ultragrid.version
+	cp usr/share/doc/ultragrid/ultragrid.version usr/share/doc/ultragrid/ultragrid-full.version
+	cp speex-1.2rc1/COPYING usr/share/doc/ultragrid/COPYING-speex
+	cp dxt_compress/LICENSE usr/share/doc/ultragrid/LICENSE-dxt_compress
+	cp dxt_compress/LICENSE-rtdxt usr/share/doc/ultragrid/
+	dh_auto_install
+	#cp ${DELTACAST_DIRECTORY}/License.txt usr/share/doc/ultragrid/LICENSE-Deltacast
+
+override_dh_shlibdeps:
+	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:$$((find /usr/local -maxdepth 1 -type d -iname "*cuda*" ; echo /usr) | sort -r -n)/lib64:$$((find /usr/local -maxdepth 1 -type d -iname "*cuda*" ; echo /usr) | sort -r -n)/lib dh_shlibdeps -- --ignore-missing-info
+	for file in $$(grep ultragrid-proprietary-drivers debian -Hri | cut -d: -f1 | sort | uniq) ; do \
+		sed --in-place 's#, ultragrid-proprietary-drivers##g' $$file ; \
+		sed --in-place 's#ultragrid-proprietary-drivers, ##g' $$file ; \
+		sed --in-place 's#ultragrid-proprietary-drivers##g' $$file ; \
+	done
+
+#override_dh_strip:
+#	echo "nothing to do here"
