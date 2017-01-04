@@ -433,14 +433,122 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         return &s->module_data;
 }
 
+/**
+ * Finds best pixel format
+ *
+ * Iterates over formats in req_pix_fmts and tries to find the same format in
+ * second list, codec_pix_fmts. If found, returns that format. Efectivelly
+ * select first match of item from first list in second list.
+ */
+static enum AVPixelFormat get_first_matching_pix_fmt(const enum AVPixelFormat **req_pix_fmt_it,
+                const enum AVPixelFormat *codec_pix_fmts)
+{
+        assert(req_pix_fmt_it != NULL);
+        if(codec_pix_fmts == NULL)
+                return AV_PIX_FMT_NONE;
+
+        enum AVPixelFormat req;
+        while((req = *(*req_pix_fmt_it)++) != AV_PIX_FMT_NONE) {
+                const enum AVPixelFormat *tmp = codec_pix_fmts;
+                enum AVPixelFormat fmt;
+                while((fmt = *tmp++) != AV_PIX_FMT_NONE) {
+                        if(fmt == req)
+                                return req;
+                }
+        }
+
+        return AV_PIX_FMT_NONE;
+}
+
+bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
+{
+        bool is_x264_x265 = strcmp(s->codec_ctx->codec->name, "libx264") == 0 ||
+                strcmp(s->codec_ctx->codec->name, "libx265") == 0;
+
+        double avg_bpp; // average bit per pixel
+        avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
+                codec_params[ug_codec].avg_bpp;
+
+        int bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
+                desc.width * desc.height * avg_bpp * desc.fps;
+
+        bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
+
+        s->codec_ctx->strict_std_compliance = -2;
+
+        // set bitrate
+        if ((s->requested_bitrate > 0 || s->requested_bpp > 0.0)
+                        || !is_x264_x265) {
+                s->codec_ctx->bit_rate = bitrate;
+                s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
+                log_msg(LOG_LEVEL_INFO, "[lavc] Setting bitrate to %d bps.\n", bitrate);
+        }
+
+        if (is_x264_x265) {
+                // set CRF unless explicitly specified CQP or ABR (bitrate)
+                if (s->requested_crf >= 0.0 || (s->requested_bitrate == 0 && s->requested_bpp == 0.0 && s->requested_cqp == -1)) {
+                        double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
+                        av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0);
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
+                }
+                if (s->requested_cqp >= 0) {
+                        av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0);
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
+                }
+        }
+
+        /* resolution must be a multiple of two */
+        s->codec_ctx->width = desc.width;
+        s->codec_ctx->height = desc.height;
+        /* frames per second */
+        s->codec_ctx->time_base = (AVRational){1,(int) desc.fps};
+        if (s->requested_gop) {
+                s->codec_ctx->gop_size = s->requested_gop;
+        } else {
+                s->codec_ctx->gop_size = DEFAULT_GOP_SIZE;
+        }
+        s->codec_ctx->max_b_frames = 0;
+
+        s->codec_ctx->pix_fmt = pix_fmt;
+
+        codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
+
+        if (!have_preset) {
+                auto & default_preset_map = codec_params[ug_codec].default_preset;
+                auto it = default_preset_map.begin();
+                for (; it != default_preset_map.end(); ++it) {
+                        if (regex_match(s->codec_ctx->codec->name, it->first)) {
+                                break;
+                        }
+                }
+                if (it != default_preset_map.end()) {
+                        if (av_opt_set(s->codec_ctx->priv_data, "preset", it->second.c_str(), 0) != 0) {
+                                LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
+                        } else {
+                                LOG(LOG_LEVEL_VERBOSE) << "[lavc] Setting preset to " << it->second <<  ".\n";
+                        }
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
+                }
+        }
+
+        // set user supplied parameters
+        for (auto item : s->lavc_opts) {
+                if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
         codec_t ug_codec = VIDEO_CODEC_NONE;
         AVPixelFormat pix_fmt;
         AVCodec *codec = nullptr;
-        double avg_bpp; // average bit per pixel
-        int bitrate;
 
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
@@ -579,68 +687,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
 
-        pix_fmt = get_best_pix_fmt(requested_pix_fmts, codec->pix_fmts);
-        if(pix_fmt == AV_PIX_FMT_NONE) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format.\n");
-                if (s->requested_subsampling != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Requested subsampling not supported. "
-                                        "Try different subsampling, eg. "
-                                        "\"subsampling={420,422,444}\".\n");
-                }
-                return false;
-        }
-
-        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-        s->selected_pixfmt = pix_fmt;
-
-        // avcodec_alloc_context3 allocates context and sets default value
-        s->codec_ctx = avcodec_alloc_context3(codec);
-        if (!s->codec_ctx) {
-                log_msg(LOG_LEVEL_ERROR, "Could not allocate video codec context\n");
-                return false;
-        }
-
-        s->codec_ctx->strict_std_compliance = -2;
-
-        avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
-                codec_params[ug_codec].avg_bpp;
-        bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
-                desc.width * desc.height * avg_bpp * desc.fps;
-
-        bool is_x264_x265 = strcmp(s->codec_ctx->codec->name, "libx264") == 0 ||
-                                strcmp(s->codec_ctx->codec->name, "libx265") == 0;
-        // set bitrate
-        if ((s->requested_bitrate > 0 || s->requested_bpp > 0.0)
-                        || !is_x264_x265) {
-                s->codec_ctx->bit_rate = bitrate;
-                s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
-                log_msg(LOG_LEVEL_INFO, "[lavc] Setting bitrate to %d bps.\n", bitrate);
-        }
-
-        if (is_x264_x265) {
-                // set CRF unless explicitly specified CQP or ABR (bitrate)
-                if (s->requested_crf >= 0.0 || (s->requested_bitrate == 0 && s->requested_bpp == 0.0 && s->requested_cqp == -1)) {
-                        double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
-                        av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0);
-                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
-                }
-                if (s->requested_cqp >= 0) {
-                        av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0);
-                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
-                }
-        }
-
-        /* resolution must be a multiple of two */
-        s->codec_ctx->width = desc.width;
-        s->codec_ctx->height = desc.height;
-        /* frames per second */
-        s->codec_ctx->time_base= (AVRational){1,(int) desc.fps};
-        if (s->requested_gop) {
-                s->codec_ctx->gop_size = s->requested_gop;
-        } else {
-                s->codec_ctx->gop_size = DEFAULT_GOP_SIZE;
-        }
-        s->codec_ctx->max_b_frames = 0;
         switch(desc.color_spec) {
                 case UYVY:
                         s->decoder = (decoder_t) memcpy;
@@ -666,53 +712,57 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         return false;
         }
 
-        s->codec_ctx->pix_fmt = pix_fmt;
-
         s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
-
-        bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
 
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
         s->params.cpu_count = s->cpu_count;
 
-        codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
+        // Try to open the codec context
+        // It is done in a loop because some pixel formats that are reported
+        // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
+        // cards).
+        const AVPixelFormat *pix_fmt_iterator = requested_pix_fmts;
+        while ((pix_fmt = get_first_matching_pix_fmt(&pix_fmt_iterator, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+		// avcodec_alloc_context3 allocates context and sets default value
+		s->codec_ctx = avcodec_alloc_context3(codec);
+		if (!s->codec_ctx) {
+			log_msg(LOG_LEVEL_ERROR, "Could not allocate video codec context\n");
+			return false;
+		}
 
-        if (!have_preset) {
-                auto & default_preset_map = codec_params[ug_codec].default_preset;
-                auto it = default_preset_map.begin();
-                for (; it != default_preset_map.end(); ++it) {
-                        if (regex_match(s->codec_ctx->codec->name, it->first)) {
-                                break;
-                        }
-                }
-                if (it != default_preset_map.end()) {
-                        if (av_opt_set(s->codec_ctx->priv_data, "preset", it->second.c_str(), 0) != 0) {
-                                LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
-                        } else {
-                                LOG(LOG_LEVEL_VERBOSE) << "[lavc] Setting preset to " << it->second <<  ".\n";
-                        }
-                } else {
-                        LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
-                }
-        }
+		if (!set_codec_ctx_params(s, pix_fmt, desc, ug_codec)) {
+			avcodec_free_context(&s->codec_ctx);
+                        s->codec_ctx = NULL;
+			return false;
+		}
 
-        // set user supplied parameters
-        for (auto item : s->lavc_opts) {
-                if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
-                        return false;
+                log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
+                pthread_mutex_lock(s->lavcd_global_lock);
+                /* open it */
+                if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
+                        avcodec_free_context(&s->codec_ctx);
+                        s->codec_ctx = NULL;
+                        log_msg(LOG_LEVEL_ERROR, "Could not open codec\n");
+                        pthread_mutex_unlock(s->lavcd_global_lock);
+                        continue;
                 }
-        }
-
-        pthread_mutex_lock(s->lavcd_global_lock);
-        /* open it */
-        if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Could not open codec\n");
                 pthread_mutex_unlock(s->lavcd_global_lock);
+		break;
+	}
+
+        if (pix_fmt == AV_PIX_FMT_NONE) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format.\n");
+                if (s->requested_subsampling != 0) {
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Requested subsampling not supported. "
+                                        "Try different subsampling, eg. "
+                                        "\"subsampling={420,422,444}\".\n");
+                }
                 return false;
         }
-        pthread_mutex_unlock(s->lavcd_global_lock);
+
+        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
+        s->selected_pixfmt = pix_fmt;
 
         s->in_frame = av_frame_alloc();
         if (!s->in_frame) {
