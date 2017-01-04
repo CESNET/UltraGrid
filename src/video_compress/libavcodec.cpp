@@ -83,6 +83,7 @@ struct setparam_param {
 
 static constexpr const char *DEFAULT_NVENC_PRESET = "llhq";
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
+static constexpr const char *DEFAULT_NVENC_RC = "ll_2pass_size";
 
 typedef struct {
         enum AVCodecID av_codec;
@@ -1188,9 +1189,13 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
-        ret = av_opt_set(codec_ctx->priv_data, "cbr", "1", 0);
+        ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
         if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CBR.\n");
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set RC.\n");
+        }
+        ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "1", 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set spatial AQ.\n");
         }
         char gpu[3] = "";
         snprintf(gpu, 2, "%d", cuda_devices[0]);
