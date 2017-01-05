@@ -82,6 +82,8 @@ struct state_libavcodec_decompress {
         bool             broken_h264_mt_decoding_workaroud_active;
 };
 
+static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch);
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
@@ -125,57 +127,15 @@ static void deconfigure(struct state_libavcodec_decompress *s)
                 avcodec_free_context(&s->codec_ctx);
                 pthread_mutex_unlock(s->global_lavcd_lock);
         }
-        av_free(s->codec_ctx);
         av_free(s->frame);
+        s->frame = NULL;
         av_packet_unref(&s->pkt);
 }
 
-static bool configure_with(struct state_libavcodec_decompress *s,
-                struct video_desc desc)
+static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
-        int codec_id;
-        AVCodec *codec;
-        switch(desc.color_spec) {
-                case H264:
-                        codec_id = AV_CODEC_ID_H264;
-                        break;
-                case H265:
-                        codec_id = AV_CODEC_ID_HEVC;
-                        break;
-                case MJPG:
-                case JPEG:
-                        codec_id = AV_CODEC_ID_MJPEG;
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
-                                        "will use full-scale YUV.\n");
-                        break;
-                case J2K:
-                        codec_id = AV_CODEC_ID_JPEG2000;
-                        break;
-                case VP8:
-                        codec_id = AV_CODEC_ID_VP8;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
-                        return false;
-        }
-
-        codec = avcodec_find_decoder(codec_id);
-        if (codec == NULL) {
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to find codec.\n");
-                return false;
-        } else {
-                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s.\n", codec->name);
-        }
-
-        s->codec_ctx = avcodec_alloc_context3(codec);
-        if(s->codec_ctx == NULL) {
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to allocate codec context.\n");
-                return false;
-        }
-
-
         // zero should mean count equal to the number of virtual cores
-        if (codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+        if (s->codec_ctx->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
                 if(!broken_h264_mt_decoding) {
                         s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
@@ -199,14 +159,123 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
+}
 
-        pthread_mutex_lock(s->global_lavcd_lock);
-        if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to open decoder.\n");
-                pthread_mutex_unlock(s->global_lavcd_lock);
+static bool configure_with(struct state_libavcodec_decompress *s,
+                struct video_desc desc)
+{
+        enum AVCodecID codec_id;
+        const char *preferred_decoders[11]; // must be NULL-terminated
+        memset(preferred_decoders, 0, sizeof preferred_decoders);
+        // Note:
+        // Make sure that if adding hw decoders to prefered_decoders[] that
+        // that decoder fails if there is not the HW during init, not while decoding
+        // frames (like vdpau does). Otherwise, such a decoder would be initialized
+        // but no frame decoded then.
+        switch(desc.color_spec) {
+                case H264:
+                        //preferred_decoders[0] = "h264_cuvid";
+                        codec_id = AV_CODEC_ID_H264;
+                        break;
+                case H265:
+                        //preferred_decoders[0] = "hevc_cuvid";
+                        codec_id = AV_CODEC_ID_HEVC;
+                        break;
+                case MJPG:
+                case JPEG:
+                        codec_id = AV_CODEC_ID_MJPEG;
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
+                                        "will use full-scale YUV.\n");
+                        break;
+                case J2K:
+                        codec_id = AV_CODEC_ID_JPEG2000;
+                        break;
+                case VP8:
+                        codec_id = AV_CODEC_ID_VP8;
+                        break;
+                default:
+                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
+                        return false;
+        }
+        // boundry check
+        assert(preferred_decoders[(sizeof preferred_decoders / sizeof preferred_decoders[0]) - 1] == NULL);
+
+        // construct priority list of decoders that can be used for the codec
+        AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
+        memset(codecs_available, 0, sizeof codecs_available);
+        unsigned int codec_index = 0;
+        // first try codec specified from cmdline if any
+        /**
+         * @addtogroup cmdline_params
+         * @{
+         * * force-lavd-decoder
+         *   Forces specified Libavcodec decoder
+         * @}
+         */
+        if (get_commandline_param("force-lavd-decoder")) {
+                const char *val = get_commandline_param("force-lavd-decoder");
+                AVCodec *codec = avcodec_find_decoder_by_name(val);
+                if (codec == NULL) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", val);
+                } else {
+                        if (codec->id == codec_id) {
+                                if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
+                                        codecs_available[codec_index++] = codec;
+                                }
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", val);
+                        }
+                }
+        }
+        // then try preferred codecs
+        const char **preferred_decoders_it = preferred_decoders;
+        while (*preferred_decoders_it) {
+                AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
+                if (codec == NULL) {
+                        log_msg(LOG_LEVEL_VERBOSE, "[lavd] Decoder not available: %s\n", *preferred_decoders_it);
+                        preferred_decoders_it++;
+                        continue;
+                } else {
+                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
+                                codecs_available[codec_index++] = codec;
+                        }
+                }
+                preferred_decoders_it++;
+        }
+        // finally, add a default one if there are no preferred encoders or all fail
+        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
+                codecs_available[codec_index++] = avcodec_find_decoder(codec_id);
+        }
+
+        // initialize the codec - use the first decoder initialization of which succeeds
+        AVCodec **codec_it = codecs_available;
+        while (*codec_it) {
+                log_msg(LOG_LEVEL_VERBOSE, "[lavd] Trying decoder: %s\n", (*codec_it)->name);
+                s->codec_ctx = avcodec_alloc_context3(*codec_it);
+                if(s->codec_ctx == NULL) {
+                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to allocate codec context.\n");
+                        return false;
+                }
+                set_codec_context_params(s);
+                pthread_mutex_lock(s->global_lavcd_lock);
+                if (avcodec_open2(s->codec_ctx, *codec_it, NULL) < 0) {
+                        avcodec_free_context(&s->codec_ctx);
+                        pthread_mutex_unlock(s->global_lavcd_lock);
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Unable to open decoder %s.\n", (*codec_it)->name);
+                        codec_it++;
+                        continue;
+                } else {
+                        pthread_mutex_unlock(s->global_lavcd_lock);
+                        log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
+                        break;
+                }
+        }
+
+        if (s->codec_ctx == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Decoder could have not been initialized for codec %s.\n",
+                                get_codec_name(desc.color_spec));
                 return false;
         }
-        pthread_mutex_unlock(s->global_lavcd_lock);
 
         s->frame = av_frame_alloc();
         if(!s->frame) {
@@ -239,7 +308,7 @@ static void * libavcodec_decompress_init(void)
         avcodec_register_all();
 
         s->width = s->height = s->pitch = 0;
-        s->codec_ctx = NULL;;
+        s->codec_ctx = NULL;
         s->frame = NULL;
         av_init_packet(&s->pkt);
         s->pkt.data = NULL;
@@ -272,6 +341,21 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         return configure_with(s, desc);
 }
 
+static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                char *src_y = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *src_cbcr = (char *) in_frame->data[1] + in_frame->linesize[1] * (y / 2);
+                char *dst = dst_buffer + pitch * y;
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst++ = *src_cbcr++;
+                        *dst++ = *src_y++;
+                        *dst++ = *src_cbcr++;
+                        *dst++ = *src_y++;
+                }
+        }
+}
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
@@ -330,6 +414,35 @@ static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                         *dst++ = (*src_cr + *(src_cr + 1)) / 2;
                         src_cr += 2;
                         *dst++ = *src_y++;
+                }
+        }
+}
+
+/**
+ * Changes pixel format from planar YUV 422 to packed RGB.
+ * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
+ */
+static void nv12_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                unsigned char *src_cbcr = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y / 2);
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                for(int x = 0; x < width / 2; ++x) {
+                        int cb = *src_cbcr++ - 128;
+                        int cr = *src_cbcr++ - 128;
+                        int y = *src_y++ << 16;
+                        int r = 75700 * cr;
+                        int g = -26864 * cb - 38050 * cr;
+                        int b = 133176 * cb;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
+                        y = *src_y++ << 16;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
                 }
         }
 }
@@ -431,11 +544,18 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                         yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
                 }
         } else if(is420(av_codec)) {
-                assert(av_codec != AV_PIX_FMT_NV12);
                 if(out_codec == UYVY) {
-                        yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
+                        if (av_codec == AV_PIX_FMT_NV12) {
+                                nv12_to_yuv422((char *) dst, frame, width, height, pitch);
+                        } else {
+                                yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
+                        }
                 } else {
-                        yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
+                        if (av_codec == AV_PIX_FMT_NV12) {
+                                nv12_to_rgb24((char *) dst, frame, width, height, pitch);
+                        } else {
+                                yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
+                        }
                 }
         } else if (is444(av_codec)) {
                 if (out_codec == UYVY) {
