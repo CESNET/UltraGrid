@@ -145,7 +145,8 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
         printf ( "Unable to allocate memory\n" );
         return NULL;
     }
-    memset(out_buf, 0, buf_size);
+    memset(out_buf, 0, header_size);
+    memset((char*)out_buf + frame_size + header_size, 0, align_coef);
 
     //Insert frame size and copy input data into buffer
 
