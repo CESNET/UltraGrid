@@ -153,21 +153,19 @@ LDGM_session_cpu::encode ( char* data_ptr, char* parity_ptr )
 //    start encoding
    // printf ( "packet_size: %d\n", this->packet_size );
 
-    void *ppacket;
     char *parity_packet;
+
+	parity_packet = (char *) aligned_malloc(packet_size, 16);
+	if (!parity_packet)
+	{
+		printf ( "Error while using posix_memalign\n" );
+		return;
+	}
+	memset(parity_packet, 0, packet_size);
+
     for ( int m = 0; m < param_m; ++m) {
-
-        ppacket = aligned_malloc(packet_size, 16);
-
-        if (!ppacket)
-        {
-            printf ( "Error while using posix_memalign\n" );
-            return;
-        }
-
 //	printf ( "m: %d\n", m );
-        memset(ppacket, 0, packet_size);
-        parity_packet = (char*)ppacket;
+
 //	printf ( "max w: %d\n", max_row_weight );
         //Find out which packets to XOR
         for ( int k = 0; k < max_row_weight+2; ++k) {
@@ -180,20 +178,11 @@ LDGM_session_cpu::encode ( char* data_ptr, char* parity_ptr )
             }
         }
 
-        //Apply inverted staircase matrix
-        if( m > 0) {
-            char *prev_parity = parity_ptr + (m-1)*packet_size;
-            parity_packet = xor_using_sse(prev_parity, parity_packet, packet_size);
-        }
-
-
         //Add the new parity packet to overall parity
         memcpy ( parity_ptr + m*packet_size, parity_packet, packet_size );
-        aligned_free(ppacket);
-
     }
 
-
+	aligned_free(parity_packet);
 
     return ;
 }		/* -----  end of method LDGM_session_cpu::encode  ----- */
