@@ -102,6 +102,7 @@ struct vcodec_state {
 
 struct pbuf_audio_data {
         audio_frame buffer;
+        struct sockaddr_storage source; // network source address
         struct state_audio_decoder *decoder;
 
         bool reconfigured;

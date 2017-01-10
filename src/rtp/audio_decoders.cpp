@@ -374,14 +374,15 @@ static void *adec_compute_and_print_stats(void *arg) {
 }
 
 
-int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *)
+int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_stats *)
 {
-        struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
+        struct pbuf_audio_data *s = (struct pbuf_audio_data *) pbuf_data;
         struct state_audio_decoder *decoder = s->decoder;
 
         int input_channels = 0;
         int output_channels = 0;
         int bps, sample_rate, channel;
+        bool first = true;
 
         if(!cdata) {
                 return FALSE;
@@ -522,6 +523,10 @@ int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *
                 unsigned int buffer_len = ntohl(audio_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
 
+                if (first) {
+                        memcpy(&s->source, ((char *) cdata->data) + RTP_MAX_PACKET_LEN, sizeof(struct sockaddr_storage));
+                        first = false;
+                }
 
                 received_frame.replace(channel, offset, data, length);
 
