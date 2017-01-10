@@ -56,6 +56,14 @@ bool audio_desc::operator!() const
         return codec == AC_NONE;
 }
 
+bool audio_desc::operator==(audio_desc const & other) const
+{
+        return bps == other.bps &&
+                sample_rate == other.sample_rate &&
+                ch_count == other.ch_count &&
+                codec == other.codec;
+}
+
 audio_desc::operator string() const
 {
         ostringstream oss;

@@ -64,6 +64,7 @@ struct audio_desc {
         audio_codec_t codec;
 #ifdef __cplusplus
         bool operator!() const;
+        bool operator==(audio_desc const &) const;
         operator std::string() const;
 #endif
 };
@@ -86,6 +87,9 @@ typedef struct audio_frame
         int data_len;           /* size of useful data in buffer */
         int ch_count;		/* count of channels */
         unsigned int max_size;  /* maximal size of data in buffer */
+        void *network_source;   /* pointer to sockaddr_storage containing
+                                   network source that the audio stream came
+                                   from. Relevant only for receiver. */
 }
 audio_frame;
 

@@ -374,6 +374,9 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
+                size_t len = sizeof(struct rtp *);
+                audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
+                                        &s->audio_network_device, &len);
                 module_init_default(&s->audio_receiver_module);
                 s->audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
                 s->audio_receiver_module.priv_data = s;
@@ -609,6 +612,7 @@ static void *audio_receiver_thread(void *arg)
         uint32_t ts;
         struct pdb_e *cp;
         struct audio_desc device_desc{};
+        bool playback_supports_multiple_streams;
 
         struct pbuf_audio_data *current_pbuf = NULL;
 
@@ -616,6 +620,12 @@ static void *audio_receiver_thread(void *arg)
         struct pbuf_audio_data jack_pbuf{};
         current_pbuf = &jack_pbuf;
 #endif
+
+        size_t len = sizeof playback_supports_multiple_streams;
+        if (!audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS,
+                        &playback_supports_multiple_streams, &len)) {
+                playback_supports_multiple_streams = false;
+        }
 
         printf("Audio receiving started.\n");
         while (!should_exit) {
@@ -645,7 +655,7 @@ static void *audio_receiver_thread(void *arg)
                                 if (cp->decoder_state == NULL &&
                                                 !pbuf_is_empty(cp->playout_buffer)) { // the second check is need ed because we want to assign display to participant that really sends data
                                         // disable all previous sources
-                                        {
+                                        if (!playback_supports_multiple_streams) {
                                                 pdb_iter_t it;
                                                 struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
                                                 while (cp != NULL) {
@@ -683,7 +693,7 @@ static void *audio_receiver_thread(void *arg)
                                 pbuf_remove(cp->playout_buffer, curr_time_hr);
                                 cp = pdb_iter_next(&it);
 
-                                if (decoded)
+                                if (decoded && !playback_supports_multiple_streams)
                                         break;
                         }
                         pdb_iter_done(&it);
@@ -725,8 +735,24 @@ static void *audio_receiver_thread(void *arg)
                                 rtp_flush_recv_buf(s->audio_network_device);
                         }
 
-                        if(!failed)
-                                audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
+                        if(!failed) {
+                                if (!playback_supports_multiple_streams) {
+                                        audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
+                                } else {
+                                        pdb_iter_t it;
+                                        cp = pdb_iter_init(s->audio_participants, &it);
+                                        while (cp != NULL) {
+                                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
+                                                if (dec_state && dec_state->enabled && dec_state->pbuf_data.buffer.data_len > 0) {
+                                                        struct audio_frame *f = &dec_state->pbuf_data.buffer;
+                                                        f->network_source = &dec_state->pbuf_data.source;
+                                                        audio_playback_put_frame(s->audio_playback_device, f);
+                                                }
+                                                cp = pdb_iter_next(&it);
+                                        }
+                                        pdb_iter_done(&it);
+                                }
+                        }
                 }
         }
 

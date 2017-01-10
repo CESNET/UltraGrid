@@ -69,7 +69,19 @@ extern "C" {
  * - IN: suggested (received) audio format
  * - OUT: corresponding supported (nearest) audio format that playback device is able to use
  */
-#define AUDIO_PLAYBACK_CTL_QUERY_FORMAT 1
+#define AUDIO_PLAYBACK_CTL_QUERY_FORMAT     1
+/**
+ * Tells whether audio device can (and is willing to) process multiple incoming streams.
+ * Typically, mixer can do that. Otherwise, only most current stream will be passed to
+ * the audio device.
+ * @param[out] bool
+ */
+#define AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS 2
+/**
+ * Passes network device used for receiving to the playback
+ * @param[in] struct rtp *
+ */
+#define AUDIO_PLAYBACK_PUT_NETWORK_DEVICE   3
 /// @}
 
 struct audio_playback_info {
