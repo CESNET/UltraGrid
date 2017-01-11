@@ -86,7 +86,7 @@ Hardware and Software Requirements
         
         DVS SDK or VideomasterHD from Deltacast need to be obtained separately
         because it cannot be distributed with UltraGrid (license). Please refer
-        our wiki for further information (https://www.sitola.cz/igrid/index.php/UltraGrid)
+        our wiki for further information (https://github.com/CESNET/UltraGrid/wiki)
 
 Using the UltraGrid System
 
@@ -110,7 +110,7 @@ Using the UltraGrid System
    frames. 
 
    Further options follow UltraGrid command-line help (-h) or visit our wiki
-   for further information (https://www.sitola.cz/igrid/index.php/Running_UltraGrid)
+   for further information (https://github.com/CESNET/UltraGrid/wiki/Running-UltraGrid)
 
    As an example, if a user on host "ormal" wishes to send video captured
    using a DVS HDstation card at 60 frames per second to another user on
@@ -228,10 +228,8 @@ Performance Tuning: Other Factors
    than desired.
 
 
-   You can find more operating system tweaks at this pages (Linux):
-   https://www.sitola.cz/igrid/index.php/Setup_UltraGrid_%28Linux_source%29
-   and for Mac:
-   https://www.sitola.cz/igrid/index.php/Setup_UltraGrid_%28MacOS_X_source%29
+   You can find more operating system tweaks at this page:
+   https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid
 
 				  - * - 
 

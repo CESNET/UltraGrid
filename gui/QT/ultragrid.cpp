@@ -142,7 +142,7 @@ void UltraGridMainWindow::about()
     QMessageBox::about(this,"About UltraGrid",
                        "UltraGrid from CESNET is a software "
                        "implementation of high-quality low-latency video and audio transmissions using commodity PC and Mac hardware.\n\n"
-                       "More information can be found at http://ultragrid.sitola.cz\n\n"
+                       "More information can be found at http://www.ultragrid.cz\n\n"
                        "Please read documents distributed with the product to find out current and former developers."
                        );
 }

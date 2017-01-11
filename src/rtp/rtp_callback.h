@@ -48,7 +48,7 @@ extern "C" {
 
 /** @page av_pkt_description UltraGrid packet format
  * Packet formats are described in papers referenced here:<br/>
- * https://www.sitola.cz/igrid/index.php/Developer_Documentation#Packet_formats
+ * https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation#packet-formats
  */
 #define PT_ITU_T_G711_PCMU  0 /* mU-law std */
 #define PT_ITU_T_G711_PCMA  8 /* A-law std */

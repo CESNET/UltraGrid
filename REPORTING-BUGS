@@ -2,7 +2,7 @@ There are couple of ways to report a problem:
 
 * primary channel is an e-mail conference ultragrid-dev@cesnet.cz which leads
   to developers of UltraGrid
-* you can use our bug-tracking system - https://sitola.fi.muni.cz/mantis/
+* you can use our bug-tracking system - https://github.com/CESNET/UltraGrid/issues
   For reporting bugs, you need to register, but it is only matter of filling
   username and password
 
