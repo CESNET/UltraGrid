@@ -112,7 +112,10 @@ fromConnection:(AVCaptureConnection *)connection;
 + (void)usage: (BOOL) verbose
 {
         cout << "AV Foundation capture usage:" << "\n";
-        cout << "\t-t avfoundation[:device=<dev>][:preset=<preset>][:mode=<mode>[:framerate=<fr>]]" << "\n";
+        cout << "\t-t avfoundation[:device=<dev>][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
+        cout << "\n";
+        cout << "<fps> is a number (can be with a decimal point) of frames per second\n";
+        cout << "<fr_idx> is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
         cout << "\n";
         cout << "<preset> may be \"low\", \"medium\", \"high\", \"VGA\" or \"HD\"" << "\n";
         cout << "\n";
@@ -121,7 +124,7 @@ fromConnection:(AVCaptureConnection *)connection;
         cout << "\t-t avfoundation" << "\n";
         cout << "\t-t avfoundation:preset=high" << "\n";
         cout << "\t-t avfoundation:device=0:preset=high" << "\n";
-        cout << "\t-t avfoundation:device=0:mode=24:framerate=4 (advanced)" << "\n";
+        cout << "\t-t avfoundation:device=0:mode=24:fps=30 (advanced)" << "\n";
         cout << "\n";
         cout << "Available AV foundation capture devices and modes:" << "\n";
         cout << "(Type -t avfoundation:fullhelp to see available framerates)" << "\n\n";
@@ -144,7 +147,7 @@ fromConnection:(AVCaptureConnection *)connection;
                                 cout << endl;
                                 int k = 0;
                                 for ( AVFrameRateRange *range in format.videoSupportedFrameRateRanges ) {
-                                        cout << "\t\t" << k++ << ": " << range.maxFrameRate << "-" << range.minFrameRate << endl;
+                                        cout << "\t\t" << k++ << ": " << range.minFrameRate << "-" << range.maxFrameRate << endl;
                                 }
                         } else {
                                 for ( AVFrameRateRange *range in format.videoSupportedFrameRateRanges ) {
@@ -234,6 +237,8 @@ fromConnection:(AVCaptureConnection *)connection;
                 // Find a suitable AVCaptureDevice
                 AVCaptureDeviceFormat *format = nil;
                 AVFrameRateRange *rate = nil;
+                double fps_req = 0;
+                int rate_idx_req = -1;
                 for (format in [m_device formats] ) {
                         i++;
                         if (i == mode)
@@ -243,25 +248,44 @@ fromConnection:(AVCaptureConnection *)connection;
                         NSLog(@"Mode index out of bounds!");
                         format = nil;
                 }
-                if (format && [params valueForKey:@"framerate"]) {
-                        int rate_idx = -1;
-                        for ( rate in format.videoSupportedFrameRateRanges ) {
-                                rate_idx++;
-                                if (rate_idx == [[params valueForKey:@"framerate"] intValue])
-                                        break;
-                        }
-                        if (rate_idx != [[params valueForKey:@"framerate"] intValue]) {
-                                NSLog(@"Frame rate index out of bounds!");
-                                rate = nil;
-                        }
+                if ([params valueForKey:@"fps"]) {
+                        fps_req = [[params valueForKey:@"fps"] doubleValue];
+                }
+                if ([params valueForKey:@"fr_idx"]) {
+                        rate_idx_req = [[params valueForKey:@"fr_idx"] intValue];
+                }
+                if (format && (fps_req != 0 || rate_idx_req != -1)) {
+			int rate_idx = 0;
+			for (AVFrameRateRange *it in format.videoSupportedFrameRateRanges) {
+				if (rate_idx_req != -1) {
+					if (rate_idx == rate_idx_req) {
+						rate = it;
+						break;
+					}
+				} else { // fps_req != 0
+                                        const double eps = 0.01; // needed because there are ranges for like 30,00003-30,00003 FPS
+					if (fps_req >= (double) it.minFrameDuration.timescale / it.minFrameDuration.value - eps && fps_req <= (double) it.maxFrameDuration.timescale / it.maxFrameDuration.value + eps) {
+						rate = it;
+						break;
+					}
+				}
+				rate_idx++;
+			}
+			if (rate == nil) {
+				NSLog(@"Selected FPS not available! See '-t avfoundation:fullhelp'");
+			}
                 }
                 if ([m_device lockForConfiguration:&error]) {
                         if (format) {
                                 [m_device setActiveFormat: format];
-                        }
-                        if (rate) {
-                                m_device.activeVideoMinFrameDuration = rate.minFrameDuration;
-                                m_device.activeVideoMaxFrameDuration = rate.maxFrameDuration;
+				if (rate) {
+                                        /**
+                                         * @todo
+                                         * Allow selection of exact frame rate instead of the whole range.
+                                         */
+					m_device.activeVideoMinFrameDuration = rate.minFrameDuration;
+					m_device.activeVideoMaxFrameDuration = rate.maxFrameDuration;
+				}
                         }
                         [m_device unlockForConfiguration];
                 } else {
