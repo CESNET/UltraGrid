@@ -40,6 +40,7 @@
 #include "config_unix.h"
 #endif
 
+#include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
@@ -114,7 +115,7 @@ fromConnection:(AVCaptureConnection *)connection;
         cout << "AV Foundation capture usage:" << "\n";
         cout << "\t-t avfoundation[:device=<dev>][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
         cout << "\n";
-        cout << "<fps> is a number (can be with a decimal point) of frames per second\n";
+        cout << "<fps> is a number of frames per second (can be a number with a decimal point)\n";
         cout << "<fr_idx> is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
         cout << "\n";
         cout << "<preset> may be \"low\", \"medium\", \"high\", \"VGA\" or \"HD\"" << "\n";
@@ -230,6 +231,18 @@ fromConnection:(AVCaptureConnection *)connection;
                 forKey:(id)kCVPixelBufferPixelFormatTypeKey];
 #endif
 
+        // check if all options we get are recognized
+        id objects[] = { @"device", @"mode", @"fps", @"fr_idx", @"preset"};
+        NSUInteger count = sizeof(objects) / sizeof(id);
+        NSArray *knownKeys = [NSArray arrayWithObjects:objects
+                count:count];
+        NSMutableDictionary *params_copy = [params mutableCopy];
+        [params_copy removeObjectsForKeys: knownKeys];
+        if ([params_copy count] > 0) {
+                LOG(LOG_LEVEL_WARNING) << "[AVFoundation] Unknown options in config string!\n";
+        }
+        [params_copy release];
+
         if ([params valueForKey:@"mode"]) {
                 use_preset = false;
                 int mode = [[params valueForKey:@"mode"] intValue];
@@ -272,7 +285,7 @@ fromConnection:(AVCaptureConnection *)connection;
 				rate_idx++;
 			}
 			if (rate == nil) {
-				NSLog(@"Selected FPS not available! See '-t avfoundation:fullhelp'");
+				LOG(LOG_LEVEL_WARNING) << "[AVFoundation] Selected FPS not available! See '-t avfoundation:fullhelp'\n";
 			}
                 }
                 if ([m_device lockForConfiguration:&error]) {
@@ -497,15 +510,20 @@ static int vidcap_avfoundation_init(const struct vidcap_params *params, void **s
         char *item, *save_ptr, *cfg = tmp;
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
                 char *key_cstr = item;
+
+                NSString *val;
                 if (strchr(item, '=')) {
                         char *val_cstr = strchr(item, '=') + 1;
                         *strchr(item, '=') = '\0';
-                        NSString *key = [NSString stringWithCString:key_cstr encoding:NSASCIIStringEncoding];
-                        NSString *val = [NSString stringWithCString:val_cstr encoding:NSASCIIStringEncoding];
-                        [init_params setObject:val forKey:key];
-                        [key release];
-                        [val release];
+                        val = [NSString stringWithCString:val_cstr encoding:NSASCIIStringEncoding];
+                } else {
+                        val = @"";
                 }
+                NSString *key = [NSString stringWithCString:key_cstr encoding:NSASCIIStringEncoding];
+                [init_params setObject:val forKey:key];
+                [key release];
+                [val release];
+
                 cfg = NULL;
         }
         void *ret = nullptr;
