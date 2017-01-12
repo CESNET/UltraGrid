@@ -82,7 +82,7 @@ extern "C" {
 using namespace std;
 
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
-                bool try_init, int bitrate);
+                bool silent, int bitrate);
 static audio_channel *libavcodec_compress(void *, audio_channel *);
 static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
@@ -131,12 +131,12 @@ struct libavcodec_codec_state {
  * Initializates selected audio codec
  * @param audio_codec requested audio codec
  * @param direction   which direction will be used (encoding or decoding)
- * @param try_init    if true no error messages will be printed.
+ * @param silent      if true no error messages will be printed.
  *                    This is intended for checking which codecs are present
  * @retval NULL if initialization failed
  * @retval !=NULL codec state
  */
-static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
+static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool silent,
                 int bitrate)
 {
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
@@ -145,7 +145,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         const char *preferred_encoder = NULL;
         
         if (it == mapping.end()) {
-                if (!try_init) {
+                if (!silent) {
                         fprintf(stderr, "[Libavcodec] Cannot find mapping for codec \"%s\"!\n",
                                         get_name_to_audio_codec(audio_codec));
                 }
@@ -171,14 +171,14 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 s->codec = avcodec_find_decoder(codec_id);
         }
         if(!s->codec) {
-                if (!try_init) {
+                if (!silent) {
                         fprintf(stderr, "Your Libavcodec build doesn't contain codec \"%s\".\n",
                                 get_name_to_audio_codec(audio_codec));
                 }
                 free(s);
                 return NULL;
         } else {
-                if (!try_init) {
+                if (!silent) {
                         log_msg(LOG_LEVEL_NOTICE, "[lavc] Using audio encoder: %s\n", s->codec->name);
                 }
         }
@@ -187,7 +187,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         s->libav_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         s->codec_ctx = avcodec_alloc_context3(s->codec);
         if(!s->codec_ctx) { // not likely :)
-                if (!try_init) {
+                if (!silent) {
                         fprintf(stderr, "Could not allocate audio codec context\n");
                 }
                 free(s);
