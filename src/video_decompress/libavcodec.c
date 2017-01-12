@@ -193,6 +193,9 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 case VP8:
                         codec_id = AV_CODEC_ID_VP8;
                         break;
+                case VP9:
+                        codec_id = AV_CODEC_ID_VP9;
+                        break;
                 default:
                         log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
                         return false;
@@ -745,6 +748,7 @@ static const struct decode_from_to libavcodec_decoders[] = {
         { MJPG, UYVY, 500 },
         { J2K, RGB, 500 },
         { VP8, UYVY, 500 },
+        { VP9, UYVY, 500 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
 };
 

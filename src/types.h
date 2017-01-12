@@ -77,6 +77,7 @@ typedef enum {
         H265,     ///< H.264 frame
         MJPG,     ///< JPEG image, without restart intervals.
         VP8,      ///< VP8 frame
+        VP9,      ///< VP9 frame
         BGR,      ///< 8-bit BGR
         J2K,      ///< JPEG 2000
         VIDEO_CODEC_COUNT ///< count of known video codecs (including VIDEO_CODEC_NONE)

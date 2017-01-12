@@ -95,7 +95,7 @@ typedef struct {
 
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
-static void setparam_vp8(AVCodecContext *, struct setparam_param *);
+static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 
@@ -139,7 +139,14 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 nullptr,
                 0.4,
                 list<pair<regex, string>>(),
-                setparam_vp8
+                setparam_vp8_vp9
+        }},
+        { VP9, codec_params_t{
+                AV_CODEC_ID_VP9,
+                nullptr,
+                0.4,
+                list<pair<regex, string>>(),
+                setparam_vp8_vp9,
         }},
 };
 
@@ -1242,16 +1249,17 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
         }
 }
 
-static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         codec_ctx->thread_count = param->cpu_count;
-        codec_ctx->profile = 0;
-        codec_ctx->slices = 4;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
         if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set deadline.\n");
+        }
 
+        if (av_opt_set(codec_ctx->priv_data, "cpu-used", "8", 0)) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set quality/speed ratio modifier.\n");
         }
 }
 
