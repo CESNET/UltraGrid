@@ -88,17 +88,22 @@ static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
 static void cleanup_common(struct libavcodec_codec_state *s);
 
-static std::unordered_map<audio_codec_t, AVCodecID, std::hash<int>> mapping {
-        { AC_ALAW, AV_CODEC_ID_PCM_ALAW },
-        { AC_MULAW, AV_CODEC_ID_PCM_MULAW },
-        { AC_SPEEX, AV_CODEC_ID_SPEEX },
+struct codec_param {
+        AVCodecID id;
+        const char *preferred_encoder;
+};
+
+static std::unordered_map<audio_codec_t, codec_param, std::hash<int>> mapping {
+        { AC_ALAW, {AV_CODEC_ID_PCM_ALAW, NULL} },
+        { AC_MULAW, {AV_CODEC_ID_PCM_MULAW, NULL} },
+        { AC_SPEEX, {AV_CODEC_ID_SPEEX, NULL} },
 #if LIBAVCODEC_VERSION_MAJOR >= 54
-        { AC_OPUS, AV_CODEC_ID_OPUS },
+        { AC_OPUS, {AV_CODEC_ID_OPUS, NULL} },
 #endif
-        { AC_G722, AV_CODEC_ID_ADPCM_G722 },
-        { AC_FLAC, AV_CODEC_ID_FLAC },
-        { AC_MP3, AV_CODEC_ID_MP3 },
-        { AC_AAC, AV_CODEC_ID_AAC },
+        { AC_G722, {AV_CODEC_ID_ADPCM_G722, NULL} },
+        { AC_FLAC, {AV_CODEC_ID_FLAC, NULL} },
+        { AC_MP3, {AV_CODEC_ID_MP3, NULL} },
+        { AC_AAC, {AV_CODEC_ID_AAC, "libfdk_aac"} },
 };
 
 struct libavcodec_codec_state {
@@ -137,6 +142,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
 
         auto it = mapping.find(audio_codec);
+        const char *preferred_encoder = NULL;
         
         if (it == mapping.end()) {
                 if (!try_init) {
@@ -145,7 +151,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 }
                 return NULL;
         } else {
-                codec_id = it->second;
+                codec_id = it->second.id;
+                preferred_encoder = it->second.preferred_encoder;
         }
 
         avcodec_register_all();
@@ -154,7 +161,12 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 calloc(1, sizeof(struct libavcodec_codec_state));
         s->direction = direction;
         if(direction == AUDIO_CODER) {
-                s->codec = avcodec_find_encoder(codec_id);
+                if (preferred_encoder) {
+                        s->codec = avcodec_find_encoder_by_name(preferred_encoder);
+                }
+                if (!s->codec) {
+                        s->codec = avcodec_find_encoder(codec_id);
+                }
         } else {
                 s->codec = avcodec_find_decoder(codec_id);
         }
@@ -165,6 +177,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 }
                 free(s);
                 return NULL;
+        } else {
+                if (!try_init) {
+                        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using audio encoder: %s\n", s->codec->name);
+                }
         }
 
         s->magic = MAGIC;
