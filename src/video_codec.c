@@ -171,7 +171,7 @@ struct alternative_fourcc {
 /**
  * This array contains FourCC aliases mapping
  */
-const struct alternative_fourcc fourcc_aliases[] = {
+static const struct alternative_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
@@ -191,8 +191,10 @@ struct alternative_codec_name {
         const char *primary_name;
 };
 
-const struct alternative_codec_name codec_name_aliases[] = {
+static const struct alternative_codec_name codec_name_aliases[] = {
         {"2vuy", "UYVY"},
+        {"AVC", "H.264"},
+        {"HEVC", "H.265"},
 };
 
 void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10)
@@ -286,7 +288,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
 static codec_t get_codec_from_name_wo_alias(const char *name)
 {
         for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
-                if (codec_info[i].name && strcmp(codec_info[i].name, name) == 0) {
+                if (codec_info[i].name && strcasecmp(codec_info[i].name, name) == 0) {
                         return i;
                 }
         }
@@ -303,8 +305,8 @@ codec_t get_codec_from_name(const char *name)
 
         // try to find if this is not an alias
         for (size_t i = 0; i < sizeof(codec_name_aliases) / sizeof(struct alternative_codec_name); ++i) {
-                if (strcmp(name, codec_name_aliases[i].alias) == 0) {
-                        ret = get_codec_from_name_wo_alias(name);
+                if (strcasecmp(name, codec_name_aliases[i].alias) == 0) {
+                        ret = get_codec_from_name_wo_alias(codec_name_aliases[i].primary_name);
                         if (ret != VIDEO_CODEC_NONE) {
                                 return ret;
                         }
