@@ -971,6 +971,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 							mode_found = true;
 							break;
 						}
+                                                displayMode->Release();
 					}
                                 }
 
