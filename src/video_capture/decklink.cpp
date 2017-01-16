@@ -74,13 +74,6 @@
 #define STDMETHODCALLTYPE
 #endif
 
-/**
- * @todo
- * The input conversion doesn't seem to work right now. After fixing, remove this
- * macro (and related ifdefs).
- */
-#define IN_CONV_BROKEN 1
-
 using namespace std;
 using namespace std::chrono;
 
@@ -324,11 +317,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audioConsumerLevels={true|false}][:detect-format]"
-#ifndef IN_CONV_BROKEN
-                        "[:conversion=<conv_mode>]"
-#endif
-                        "]\n");
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audioConsumerLevels={true|false}][:detect-format][:conversion=<conv_mode>]]\n");
         printf("\t\tor\n");
 	printf("\t-t decklink{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*\n");
 	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
@@ -356,7 +345,6 @@ decklink_help()
         printf("\tIf set false the selected analog input gain levels are used.\n");
 	printf("\n");
 
-#ifndef IN_CONV_BROKEN
         printf("conversion\n");
         printf("\tnone - No video input conversion\n");
         printf("\t10lb - HD1080 to SD video input down conversion\n");
@@ -364,8 +352,9 @@ decklink_help()
         printf("\t72lb - Letter box from HD720 to SD video input down conversion\n");
         printf("\t72ab - Letterbox video input up conversion\n");
         printf("\tamup - Anamorphic video input up conversion\n");
+        printf("Then use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
+               "\t-t decklink:mode=pal:conversion=10lb\n");
 	printf("\n");
-#endif
 
         printf("detect-format\n");
         printf("\tTry to detect input video format even if the device doesn't support autodetect.\n");
@@ -829,7 +818,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         s->connection = (BMDVideoConnection) 0;
         s->flags = 0;
         s->audio_consumer_levels = -1;
-        s->conversion_mode = bmdNoVideoInputConversion;
+        s->conversion_mode = (BMDVideoInputConversionMode) 0;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
@@ -971,6 +960,14 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
                                                         s->connection) == S_OK) {
                                         printf("Input set to: %d\n", s->connection);
+                                }
+                        }
+
+                        if (s->conversion_mode) {
+                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
+                                if(result != S_OK) {
+                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set conversion mode.\n");
+                                        goto error;
                                 }
                         }
 
@@ -1154,13 +1151,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         if (result == S_OK) {
                                                 LOG(LOG_LEVEL_NOTICE) << "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
                                         }
-                                }
-
-
-                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
-                                if(result != S_OK) {
-                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set conversion mode.\n");
-                                        goto error;
                                 }
 
                                 // Start streaming
