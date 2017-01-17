@@ -172,6 +172,10 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // that decoder fails if there is not the HW during init, not while decoding
         // frames (like vdpau does). Otherwise, such a decoder would be initialized
         // but no frame decoded then.
+        // Note 2:
+        // cuvid decoders cannot be currently used as the default ones because they
+        // currently support only 4:2:0 subsampling and fail during decoding if other
+        // subsampling is given.
         switch(desc.color_spec) {
                 case H264:
                         //preferred_decoders[0] = "h264_cuvid";
