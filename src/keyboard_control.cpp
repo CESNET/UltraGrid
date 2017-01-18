@@ -59,6 +59,8 @@
 #include <conio.h>
 #endif
 
+#define CTRL_X 24
+
 using namespace std;
 
 #ifdef HAVE_TERMIOS_H
@@ -96,7 +98,8 @@ keyboard_control::keyboard_control() :
 #else
         m_should_exit(false),
 #endif
-        m_started(false)
+        m_started(false),
+        m_locked_against_changes(true)
 {
 }
 
@@ -163,6 +166,8 @@ void keyboard_control::stop()
 #endif
 }
 
+#define LOCKED_MSG() do { cout << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
+
 void keyboard_control::run()
 {
         while(1) {
@@ -181,43 +186,56 @@ void keyboard_control::run()
 #endif
                         debug_msg("Key %c pressed\n", c);
                         switch (c) {
+                        case CTRL_X:
+                                m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
+                                cout << "Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n";
+                                break;
                         case '*':
                         case '/':
                         case '9':
                         case '0':
-                        case 'm': {
-                                char path[] = "audio.receiver";
-                                auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                                switch (c) {
-                                case '0':
-                                case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
-                                case '9':
-                                case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
-                                case 'm': m->type = RECEIVER_MSG_MUTE; break;
+                        case 'm':
+                                if (!m_locked_against_changes) {
+                                        char path[] = "audio.receiver";
+                                        auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                                        switch (c) {
+                                        case '0':
+                                        case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
+                                        case '9':
+                                        case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
+                                        case 'm': m->type = RECEIVER_MSG_MUTE; break;
                                 }
 
                                 auto resp = send_message(m_root, path, (struct message *) m);
                                 free_response(resp);
 
-                                break;
+                                } else {
+                                        LOCKED_MSG();
                                 }
+                                break;
                         case '+':
                         case '-':
-                                {
+                                if (!m_locked_against_changes) {
                                         int audio_delay = audio_offset > 0 ? audio_offset :
                                                 -video_offset;
                                         audio_delay += c == '+' ? 10 : -10;
                                         log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
                                         audio_offset = max(audio_delay, 0);
                                         video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
+                                } else {
+                                        LOCKED_MSG();
                                 }
                                 break;
                         case 'h':
                                 usage();
                                 break;
                         case 'v':
-                                log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
-                                cout << "Log level: " << log_level << "\n";
+                                if (!m_locked_against_changes) {
+                                        log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                                        cout << "Log level: " << log_level << "\n";
+                                } else {
+                                        LOCKED_MSG();
+                                }
                                 break;
                         case '\n':
                                 cout << endl;
@@ -245,9 +263,11 @@ void keyboard_control::usage()
                 "\t   m   - mute/unmute\n" <<
                 "\t   v   - increase verbosity level\n" <<
                 "\t   h   - show help\n" <<
+                "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
+        cout << "Locked against changes: " << (m_locked_against_changes ? "true" : "false") << "\n";
         int audio_delay = audio_offset > 0 ? audio_offset : -video_offset;
         cout << "Audio playback delay: " << audio_delay << " ms\n";
 

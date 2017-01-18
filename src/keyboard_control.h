@@ -63,6 +63,7 @@ private:
         bool m_should_exit;
 #endif
         bool m_started;
+        bool m_locked_against_changes;
 };
 
 #endif // keyboard_control_h_
