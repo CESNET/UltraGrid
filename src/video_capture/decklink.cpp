@@ -65,6 +65,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -100,6 +101,7 @@ struct vidcap_decklink_state {
 	unsigned int		next_frame_time; // avarege time between frames
         struct video_frame     *frame;
         struct audio_frame      audio;
+        queue<IDeckLinkAudioInputPacket *> audioPackets;
         codec_t                 codec;
         BMDVideoInputFlags flags;
 
@@ -133,8 +135,6 @@ public:
         void                         *pixelFrame{};
         void                         *pixelFrameRight{};
         uint32_t                      timecode{};
-        void                         *audioFrame{};
-        int                           audioFrameSamples{};
         struct vidcap_decklink_state *s;
         int                           i; ///< index of the device
 	
@@ -224,10 +224,10 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 		}
 	}
 
-        /// @todo
-        /// Figure out when there are comming audio packets (if video processing is not fast enough/progressive NTSC with Intensity or 3:2 pulldown)
-        /// @todo
-        /// All the newFrameReady stuff is a bit ugly...
+        if (audioPacket) {
+                audioPacket->AddRef();
+                s->audioPackets.push(audioPacket);
+        }
 
         if (videoFrame && newFrameReady) {
                 /// @todo videoFrame should be actually retained until the data are processed
@@ -242,22 +242,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                                 log_msg(LOG_LEVEL_ERROR, "Failed to acquire timecode from stream. Disabling sync.\n");
                                 s->sync_timecode = FALSE;
                         }
-                }
-
-                if(audioPacket) {
-                        audioPacket->GetBytes(&audioFrame);
-                        if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
-                                demux_channel(s->audio.data, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps,
-                                                2, /* channels (originally( */
-                                        0 /* we want first channel */
-                                                );
-                                s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
-                        } else {
-                                s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
-                                memcpy(s->audio.data, audioFrame, s->audio.data_len);
-                        }
-                } else {
-                        audioFrame = NULL;
                 }
 
                 if(rightEyeFrame)
@@ -862,7 +846,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 }
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = audio_capture_channels;
-                s->audio.data = (char *) malloc (48000 * audio_capture_channels * 2);
+                s->audio.max_size = (s->audio.sample_rate / 10) * s->audio.ch_count * s->audio.bps;
+                s->audio.data = (char *) malloc(s->audio.max_size);
         } else {
                 s->grab_audio = FALSE;
         }
@@ -1316,6 +1301,39 @@ static int nr_frames(struct vidcap_decklink_state *s) {
         return tiles_total;
 }
 
+static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
+        if (!s->audioPackets.empty()) {
+                s->audio.data_len = 0;
+                while (!s->audioPackets.empty()) {
+                        auto audioPacket = s->audioPackets.front();
+                        s->audioPackets.pop();
+
+                        void *audioFrame;
+                        audioPacket->GetBytes(&audioFrame);
+
+                        if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
+                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1u * s->audio.bps <= s->audio.max_size) {
+                                        demux_channel(s->audio.data + s->audio.data_len, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, 2 /* channels (originally) */, 0 /* we want first channel */);
+                                        s->audio.data_len += audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
+                                } else {
+                                        LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                                }
+                        } else {
+                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= s->audio.max_size) {
+                                        memcpy(s->audio.data + s->audio.data_len, audioFrame, s->audio.data_len);
+                                        s->audio.data_len += audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
+                                } else {
+                                        LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                                }
+                        }
+                        audioPacket->Release();
+                }
+                return &s->audio;
+        } else {
+                return NULL;
+        }
+}
+
 static struct video_frame *
 vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
@@ -1432,11 +1450,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         if (count == s->devices_cnt) {
                 s->frames++;
 
-                if(s->state[0].delegate->audioFrame != NULL) {
-                        *audio = &s->audio;
-                } else {
-                        *audio = NULL;
-                }
+                lk.lock();
+                *audio = process_new_audio_packets(s);
+                lk.unlock();
 
                 struct timeval t;
                 gettimeofday(&t, NULL);
