@@ -173,7 +173,9 @@ struct state_video_compress_libav {
         int                 cpu_count;
         AVCodecContext     *codec_ctx;
 
-        unsigned char      *decoded;
+        unsigned char      *decoded; ///< intermediate representation for codecs
+                                     ///< that are not directly supported
+        codec_t             decoded_codec;
         decoder_t           decoder;
 
         codec_t             requested_codec_id;
@@ -201,8 +203,11 @@ static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, in
 static void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt);
+static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
 
 
 static void usage(void);
@@ -685,6 +690,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
          *   Restrict codec to use user specified pix fmt. Can be used eg. to enforce
          *   AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken
          *   for NVENC encoder.
+         *   Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le
+         *   to force 10-bit encoding.
          * @}
          */
         if (get_commandline_param("lavc-use-codec")) {
@@ -694,37 +701,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
-
-        switch(desc.color_spec) {
-                case UYVY:
-                        s->decoder = (decoder_t) memcpy;
-                        break;
-                case YUYV:
-                        s->decoder = (decoder_t) vc_copylineYUYV;
-                        break;
-                case v210:
-                        s->decoder = (decoder_t) vc_copylinev210;
-                        break;
-                case RGB:
-                        s->decoder = (decoder_t) vc_copylineRGBtoUYVY;
-                        break;
-                case BGR:
-                        s->decoder = (decoder_t) vc_copylineBGRtoUYVY;
-                        break;
-                case RGBA:
-                        s->decoder = (decoder_t) vc_copylineRGBAtoUYVY;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unable to find "
-                                        "appropriate pixel format.\n");
-                        return false;
-        }
-
-        s->decoded = (unsigned char *) malloc(desc.width * desc.height * 4);
-
-        s->params.fps = desc.fps;
-        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
-        s->params.cpu_count = s->cpu_count;
 
         // Try to open the codec context
         // It is done in a loop because some pixel formats that are reported
@@ -772,6 +748,45 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
 
+        s->decoded_codec = UYVY; // most compressions use 8-bit YUV formats internally
+        switch(desc.color_spec) {
+                case UYVY:
+                        s->decoder = (decoder_t) memcpy;
+                        break;
+                case YUYV:
+                        s->decoder = (decoder_t) vc_copylineYUYV;
+                        break;
+                case v210:
+                        if (s->selected_pixfmt == AV_PIX_FMT_YUV420P10LE ||
+                                        s->selected_pixfmt == AV_PIX_FMT_YUV422P10LE ||
+                                        s->selected_pixfmt == AV_PIX_FMT_YUV444P10LE) {
+                                s->decoder = (decoder_t) memcpy;
+                                s->decoded_codec = v210;
+                        } else {
+                                s->decoder = (decoder_t) vc_copylinev210;
+                        }
+                        break;
+                case RGB:
+                        s->decoder = (decoder_t) vc_copylineRGBtoUYVY;
+                        break;
+                case BGR:
+                        s->decoder = (decoder_t) vc_copylineBGRtoUYVY;
+                        break;
+                case RGBA:
+                        s->decoder = (decoder_t) vc_copylineRGBAtoUYVY;
+                        break;
+                default:
+                        log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unable to find "
+                                        "appropriate pixel format.\n");
+                        return false;
+        }
+
+        s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
+
+        s->params.fps = desc.fps;
+        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
+        s->params.cpu_count = s->cpu_count;
+
         s->in_frame = av_frame_alloc();
         if (!s->in_frame) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
@@ -797,7 +812,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 chunk_size = chunk_size / 2 * 2;
                 s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
                         chunk_size;
-                if(is420(s->selected_pixfmt)) {
+
+                if (av_pix_fmt_desc_get(s->selected_pixfmt)->log2_chroma_h == 1) { // eg. 4:2:0
                         chunk_size /= 2;
                 }
                 s->in_frame_part[i]->data[1] = s->in_frame->data[1] + s->in_frame->linesize[1] * i *
@@ -894,7 +910,152 @@ static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int h
         }
 }
 
-static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt) {
+static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        for(int y = 0; y < height; y += 2) {
+                /*  every even row */
+                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                /*  every odd row */
+                uint32_t *src2 = (uint32_t *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y / 2);
+                for(int x = 0; x < width / 6; ++x) {
+			//block 1, bits  0 -  9: U0+0
+			//block 1, bits 10 - 19: Y0
+			//block 1, bits 20 - 29: V0+1
+			//block 2, bits  0 -  9: Y1
+			//block 2, bits 10 - 19: U2+3
+			//block 2, bits 20 - 29: Y2
+			//block 3, bits  0 -  9: V2+3
+			//block 3, bits 10 - 19: Y3
+			//block 3, bits 20 - 29: U4+5
+			//block 4, bits  0 -  9: Y4
+			//block 4, bits 10 - 19: V4+5
+			//block 4, bits 20 - 29: Y5
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src++;
+                        w0_1 = *src++;
+                        w0_2 = *src++;
+                        w0_3 = *src++;
+                        w1_0 = *src2++;
+                        w1_1 = *src2++;
+                        w1_2 = *src2++;
+                        w1_3 = *src2++;
+
+                        *dst_y++ = (w0_0 >> 10) & 0x3ff;
+                        *dst_y++ = w0_1 & 0x3ff;
+                        *dst_y++ = (w0_1 >> 20) & 0x3ff;
+                        *dst_y++ = (w0_2 >> 10) & 0x3ff;
+                        *dst_y++ = w0_3 & 0x3ff;
+                        *dst_y++ = (w0_3 >> 20) & 0x3ff;
+
+                        *dst_y2++ = (w1_0 >> 10) & 0x3ff;
+                        *dst_y2++ = w1_1 & 0x3ff;
+                        *dst_y2++ = (w1_1 >> 20) & 0x3ff;
+                        *dst_y2++ = (w1_2 >> 10) & 0x3ff;
+                        *dst_y2++ = w1_3 & 0x3ff;
+                        *dst_y2++ = (w1_3 >> 20) & 0x3ff;
+
+                        *dst_cb++ = ((w0_0 & 0x3ff) + (w1_0 & 0x3ff)) / 2;
+                        *dst_cb++ = (((w0_1 >> 10) & 0x3ff) + ((w1_1 >> 10) & 0x3ff)) / 2;
+                        *dst_cb++ = (((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2;
+
+                        *dst_cr++ = (((w0_0 >> 20) & 0x3ff) + ((w1_0 >> 20) & 0x3ff)) / 2;
+                        *dst_cr++ = ((w0_2 & 0x3ff) + (w1_2 & 0x3ff)) / 2;
+                        *dst_cr++ = (((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2;
+                }
+        }
+}
+
+static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        for(int y = 0; y < height; y += 1) {
+                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = *src++;
+                        w0_1 = *src++;
+                        w0_2 = *src++;
+                        w0_3 = *src++;
+
+                        *dst_y++ = (w0_0 >> 10) & 0x3ff;
+                        *dst_y++ = w0_1 & 0x3ff;
+                        *dst_y++ = (w0_1 >> 20) & 0x3ff;
+                        *dst_y++ = (w0_2 >> 10) & 0x3ff;
+                        *dst_y++ = w0_3 & 0x3ff;
+                        *dst_y++ = (w0_3 >> 20) & 0x3ff;
+
+                        *dst_cb++ = w0_0 & 0x3ff;
+                        *dst_cb++ = (w0_1 >> 10) & 0x3ff;
+                        *dst_cb++ = (w0_2 >> 20) & 0x3ff;
+
+                        *dst_cr++ = (w0_0 >> 20) & 0x3ff;
+                        *dst_cr++ = w0_2 & 0x3ff;
+                        *dst_cr++ = (w0_3 >> 10) & 0x3ff;
+                }
+        }
+}
+
+static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        for(int y = 0; y < height; y += 1) {
+                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = *src++;
+                        w0_1 = *src++;
+                        w0_2 = *src++;
+                        w0_3 = *src++;
+
+                        *dst_y++ = (w0_0 >> 10) & 0x3ff;
+                        *dst_y++ = w0_1 & 0x3ff;
+                        *dst_y++ = (w0_1 >> 20) & 0x3ff;
+                        *dst_y++ = (w0_2 >> 10) & 0x3ff;
+                        *dst_y++ = w0_3 & 0x3ff;
+                        *dst_y++ = (w0_3 >> 20) & 0x3ff;
+
+                        *dst_cb++ = w0_0 & 0x3ff;
+                        *dst_cb++ = w0_0 & 0x3ff;
+                        *dst_cb++ = (w0_1 >> 10) & 0x3ff;
+                        *dst_cb++ = (w0_1 >> 10) & 0x3ff;
+                        *dst_cb++ = (w0_2 >> 20) & 0x3ff;
+                        *dst_cb++ = (w0_2 >> 20) & 0x3ff;
+
+                        *dst_cr++ = (w0_0 >> 20) & 0x3ff;
+                        *dst_cr++ = (w0_0 >> 20) & 0x3ff;
+                        *dst_cr++ = w0_2 & 0x3ff;
+                        *dst_cr++ = w0_2 & 0x3ff;
+                        *dst_cr++ = (w0_3 >> 10) & 0x3ff;
+                        *dst_cr++ = (w0_3 >> 10) & 0x3ff;
+                }
+        }
+}
+
+static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
+        if (src == v210) {
+                if (fmt == AV_PIX_FMT_YUV420P10LE) {
+                        return v210_to_yuv420p10le;
+                } else if (fmt == AV_PIX_FMT_YUV422P10LE) {
+                        return v210_to_yuv422p10le;
+                } else if (fmt == AV_PIX_FMT_YUV444P10LE) {
+                        return v210_to_yuv444p10le;
+                } else {
+                        abort();
+                }
+        }
+
         if(is422(fmt)) {
                 return to_yuv422p;
         } else if(is420(fmt)) {
@@ -991,7 +1152,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 task_result_handle_t handle[s->cpu_count];
                 struct my_task_data data[s->cpu_count];
                 for(int i = 0; i < s->cpu_count; ++i) {
-                        data[i].callback = select_pixfmt_callback(s->selected_pixfmt);
+                        data[i].callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
                         data[i].out_frame = s->in_frame_part[i];
 
                         size_t height = tx->tiles[0].height / s->cpu_count;
@@ -1005,7 +1166,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         }
                         data[i].width = tx->tiles[0].width;
                         data[i].in_data = decoded + i * height *
-                                vc_get_linesize(tx->tiles[0].width, UYVY);
+                                vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
 
                         // run !
                         handle[i] = task_run_async(my_task, (void *) &data[i]);
