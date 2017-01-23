@@ -1182,10 +1182,19 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
 
-        // this options increases variance in frame sizes quite a lot
-        //if (param->interlaced) {
-        //        codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
-        //}
+        /**
+         * @addtogroup cmdline_params
+         * @{
+         * * lavc-h264-interlaced-dct
+         *   Use interlaced DCT for H.264
+         * @}
+         */
+        if (get_commandline_param("lavc-h264-interlaced-dct")) {
+                // this options increases variance in frame sizes quite a lot
+                if (param->interlaced) {
+                        codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
+                }
+        }
 }
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
