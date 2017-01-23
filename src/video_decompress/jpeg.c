@@ -216,11 +216,14 @@ static void jpeg_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to jpeg_decoders[] = {
-        { JPEG, RGB, 500 },
-        { JPEG, UYVY, 500 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-};
+static const struct decode_from_to *jpeg_decompress_get_decoders() {
+        static const struct decode_from_to ret[] = {
+		{ JPEG, RGB, 500 },
+		{ JPEG, UYVY, 500 },
+		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+        };
+        return ret;
+}
 
 static const struct video_decompress_info jpeg_info = {
         jpeg_decompress_init,
@@ -228,7 +231,7 @@ static const struct video_decompress_info jpeg_info = {
         jpeg_decompress,
         jpeg_decompress_get_property,
         jpeg_decompress_done,
-        jpeg_decoders,
+        jpeg_decompress_get_decoders,
 };
 
 REGISTER_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

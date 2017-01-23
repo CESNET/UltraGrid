@@ -85,7 +85,7 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
                         }
                 }
                 // first pass - find the one with best priority (least)
-                const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->available_decoders;
+                const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->get_available_decoders();
                 while (f->from != VIDEO_CODEC_NONE) {
                         if(in_codec == f->from && out_codec == f->to) {
                                 int priority = f->priority;

@@ -139,13 +139,15 @@ struct decode_from_to {
         int priority;
 };
 
+typedef const struct decode_from_to *(*decompress_get_available_decoders_t)(void);
+
 struct video_decompress_info {
         decompress_init_t init;
         decompress_reconfigure_t reconfigure;
         decompress_decompress_t decompress;
         decompress_get_property_t get_property;
         decompress_done_t done;
-        const struct decode_from_to *available_decoders;
+        decompress_get_available_decoders_t get_available_decoders;
 };
 
 bool decompress_init_multi(codec_t from, codec_t to, struct state_decompress **out, int count);

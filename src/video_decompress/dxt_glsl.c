@@ -232,15 +232,18 @@ static void dxt_glsl_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to dxt_glsl_decoders[] = {
-        { DXT1, RGBA, 500 },
-        { DXT1_YUV, RGBA, 500 },
-        { DXT5, RGBA, 500 },
-        { DXT1, UYVY, 500 },
-        { DXT1_YUV, UYVY, 500 },
-        { DXT5, UYVY, 500 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-};
+static const struct decode_from_to *dxt_glsl_decompress_get_decoders() {
+        static const struct decode_from_to ret[] = {
+                { DXT1, RGBA, 500 },
+                { DXT1_YUV, RGBA, 500 },
+                { DXT5, RGBA, 500 },
+                { DXT1, UYVY, 500 },
+                { DXT1_YUV, UYVY, 500 },
+                { DXT5, UYVY, 500 },
+                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+        };
+        return ret;
+}
 
 static const struct video_decompress_info dxt_glsl_info = {
         dxt_glsl_decompress_init,
@@ -248,7 +251,7 @@ static const struct video_decompress_info dxt_glsl_info = {
         dxt_glsl_decompress,
         dxt_glsl_decompress_get_property,
         dxt_glsl_decompress_done,
-        dxt_glsl_decoders,
+        dxt_glsl_decompress_get_decoders,
 };
 
 REGISTER_MODULE(dxt_glsl, &dxt_glsl_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

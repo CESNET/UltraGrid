@@ -745,16 +745,19 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to libavcodec_decoders[] = {
-        { H264, UYVY, 500 },
-        { H265, UYVY, 500 },
-        { JPEG, UYVY, 600 },
-        { MJPG, UYVY, 500 },
-        { J2K, RGB, 500 },
-        { VP8, UYVY, 500 },
-        { VP9, UYVY, 500 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-};
+static const struct decode_from_to *libavcodec_decompress_get_decoders() {
+        static const struct decode_from_to ret[] = {
+                { H264, UYVY, 500 },
+                { H265, UYVY, 500 },
+                { JPEG, UYVY, 600 },
+                { MJPG, UYVY, 500 },
+                { J2K, RGB, 500 },
+                { VP8, UYVY, 500 },
+                { VP9, UYVY, 500 },
+                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+        };
+        return ret;
+}
 
 static const struct video_decompress_info libavcodec_info = {
         libavcodec_decompress_init,
@@ -762,7 +765,7 @@ static const struct video_decompress_info libavcodec_info = {
         libavcodec_decompress,
         libavcodec_decompress_get_property,
         libavcodec_decompress_done,
-        libavcodec_decoders,
+        libavcodec_decompress_get_decoders,
 };
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
