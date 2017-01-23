@@ -8,7 +8,7 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
-/* Copyright (c) 2005-2013 CESNET z.s.p.o.
+/* Copyright (c) 2005-2017 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -65,9 +65,11 @@ extern "C" {
 typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
-/** Prints list of suppored codecs for video module
- */
+/// Prints list of suppored codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10);
+/// @returns number of bits per color component
+int              get_bits_per_component(codec_t codec) __attribute__((pure));
+/// @returns number of bytes per pixel
 double           get_bpp(codec_t codec) __attribute__((pure));
 uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
 int              get_halign(codec_t codec) __attribute__((pure));

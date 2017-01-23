@@ -217,6 +217,17 @@ void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *
         }
 }
 
+int get_bits_per_component(codec_t codec)
+{
+        unsigned int i = (unsigned int) codec;
+
+        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[i].bits_per_channel;
+        } else {
+                return 0;
+        }
+}
+
 double get_bpp(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;

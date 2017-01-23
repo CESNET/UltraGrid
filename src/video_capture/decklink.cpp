@@ -119,6 +119,7 @@ struct vidcap_decklink_state {
         struct timeval          t0;
 
         bool                    detect_format;
+        bool                    is_10b;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -170,10 +171,10 @@ public:
                 unique_lock<mutex> lk(s->lock);
                 switch(flags) {
                         case bmdDetectedVideoInputYCbCr422:
-                                s->codec = UYVY;
+                                s->codec = s->is_10b ? v210 : UYVY;
                                 break;
                         case bmdDetectedVideoInputRGB444:
-                                s->codec = RGBA;
+                                s->codec = s->is_10b ? R10k : RGBA;
                                 break;
                         default:
                                 fprintf(stderr, "[Decklink] Unhandled color spec!\n");
@@ -816,6 +817,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 delete s;
 		return VIDCAP_INIT_NOERR;
 	}
+
+        s->is_10b = get_bits_per_component(s->codec) == 10;
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
