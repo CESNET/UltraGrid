@@ -230,7 +230,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;
-        params["packet_rate"].i = 0;
+        params["bitrate"].ll = 0;
         params["start_time"].ptr = (void *) &start_time;
         params["video_delay"].ptr = 0;
 

@@ -12,7 +12,7 @@
  * This file contains common (global) variables and functions.
  */
 /*
- * Copyright (c) 2005-2014 CESNET z.s.p.o.
+ * Copyright (c) 2005-2017 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -124,7 +124,6 @@ extern volatile int video_offset;
 
 #define RATE_UNLIMITED 0
 #define RATE_AUTO -1
-#define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)
 
 bool common_preinit(int argc, char *argv[]);
 

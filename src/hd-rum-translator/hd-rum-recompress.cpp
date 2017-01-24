@@ -33,7 +33,7 @@ struct state_recompress {
 
 void *recompress_init(struct module *parent,
                 const char *host, const char *compress, unsigned short rx_port,
-                unsigned short tx_port, int mtu, char *fec, long packet_rate)
+                unsigned short tx_port, int mtu, char *fec, long long bitrate)
 {
         bool use_ipv6 = false;
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
@@ -56,7 +56,7 @@ void *recompress_init(struct module *parent,
         params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) fec;
         params["encryption"].ptr = (void *) NULL;
-        params["packet_rate"].i = packet_rate;
+        params["bitrate"].ll = bitrate;
         params["start_time"].ptr = (void *) &start_time;
         params["video_delay"].ptr = 0;
 

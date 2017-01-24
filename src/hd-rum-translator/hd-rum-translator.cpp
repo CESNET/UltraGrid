@@ -723,13 +723,6 @@ int main(int argc, char **argv)
     }
 
     for (i = 0; i < params.host_count; i++) {
-        int packet_rate;
-        if (params.hosts[i].bitrate != RATE_AUTO && params.hosts[i].bitrate != RATE_UNLIMITED) {
-                packet_rate = compute_packet_rate(params.hosts[i].bitrate, params.hosts[i].mtu);
-        } else {
-                packet_rate = params.hosts[i].bitrate;
-        }
-
         int tx_port = params.port;
         if(params.hosts[i].port) {
             tx_port = params.hosts[i].port;
@@ -748,7 +741,7 @@ int main(int argc, char **argv)
             char *fec = NULL;
             state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
                     params.hosts[i].addr, compress,
-                    0, tx_port, params.hosts[i].mtu, fec, packet_rate);
+                    0, tx_port, params.hosts[i].mtu, fec, params.hosts[i].bitrate);
             hd_rum_decompress_append_port(state.decompress, state.replicas[i]->recompress);
             hd_rum_decompress_set_active(state.decompress, state.replicas[i]->recompress, false);
         } else {
@@ -756,7 +749,7 @@ int main(int argc, char **argv)
 
             state.replicas[i]->recompress = recompress_init(&state.replicas[i]->mod,
                     params.hosts[i].addr, params.hosts[i].compression,
-                    0, tx_port, params.hosts[i].mtu, params.hosts[i].fec, packet_rate);
+                    0, tx_port, params.hosts[i].mtu, params.hosts[i].fec, params.hosts[i].bitrate);
             if(state.replicas[i]->recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         params.hosts[i].addr);

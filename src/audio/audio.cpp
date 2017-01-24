@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2016 CESNET z.s.p.o.
+ * Copyright (c) 2005-2017 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -204,7 +204,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                long packet_rate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
+                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -345,7 +345,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->audio_sender_module.cls = MODULE_CLASS_SENDER;
                 s->audio_sender_module.priv_data = s;
                 module_register(&s->audio_sender_module, &s->mod);
-                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
+                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, bitrate);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
                         goto error;

@@ -235,7 +235,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
                                         params.at("mtu").i, TX_MEDIA_VIDEO,
                                         static_cast<const char *>(params.at("fec").ptr),
                                         static_cast<const char *>(params.at("encryption").ptr),
-                                        params.at("packet_rate").i)) == NULL) {
+                                        params.at("bitrate").ll)) == NULL) {
                 throw ug_runtime_error("Unable to initialize transmitter", EXIT_FAIL_TRANSMIT);
         }
 

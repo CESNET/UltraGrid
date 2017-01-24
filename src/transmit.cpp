@@ -17,7 +17,7 @@
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2014 CESNET z.s.p.o.
+ * Copyright (c) 2005-2017 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -142,7 +142,7 @@ struct tx {
 
         const struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
-        long packet_rate;
+        long long int bitrate;
 		
 #ifdef HAVE_RTSP_SERVER
         struct rtpenc_h264_state *rtpenc_h264_state;
@@ -193,7 +193,7 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
 }
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                const char *fec, const char *encryption, long packet_rate)
+                const char *fec, const char *encryption, long long int bitrate)
 {
         struct tx *tx;
 
@@ -241,7 +241,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
 
-                tx->packet_rate = packet_rate;
+                tx->bitrate = bitrate;
 #ifdef HAVE_RTSP_SERVER
                 tx->rtpenc_h264_state = rtpenc_h264_init_state();
 #endif
@@ -250,9 +250,9 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 }
 
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                const char *fec, const char *encryption, long packet_rate)
+                const char *fec, const char *encryption, long long int bitrate)
 {
-  return tx_init(parent, mtu, media_type, fec, encryption, packet_rate);
+  return tx_init(parent, mtu, media_type, fec, encryption, bitrate);
 }
 
 static bool set_fec(struct tx *tx, const char *fec_const)
@@ -607,8 +607,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         pos = 0;
         fec_symbol_offset = 0;
 
-        long packet_rate = tx->packet_rate;
-        if (packet_rate == RATE_AUTO) {
+        long packet_rate;
+        if (tx->bitrate == RATE_UNLIMITED) {
+                packet_rate = 0;
+        } else if (tx->bitrate == RATE_AUTO) {
                 double time_for_frame = 1.0 / frame->fps / frame->tile_count;
                 double interval_between_pkts = time_for_frame / tx->mult_count / packet_count;
                 // use only 75% of the time
@@ -616,6 +618,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 // prevent bitrate to be "too low", here 1 Mbps at minimum
                 interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000000.0);
                 packet_rate = interval_between_pkts * 1000ll * 1000 * 1000;
+        } else { // bitrate given manually
+                packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
         }
 
         // initialize header array with values (except offset which is different among
@@ -777,8 +781,12 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 /* fifth word */
                 audio_hdr[4] = htonl(get_audio_tag(buffer->get_codec()));
 
-                int packet_rate = tx->packet_rate;
-                if (packet_rate == RATE_AUTO) {
+                int packet_rate;
+                if (tx->bitrate > 0) {
+                        packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
+                } else if (packet_rate == RATE_UNLIMITED) {
+                        packet_rate = 0;
+                } else if (packet_rate == RATE_AUTO) {
                         /**
                          * @todo
                          * Following code would actually work but seems to be useless in most of cases (eg.

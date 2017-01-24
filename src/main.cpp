@@ -535,7 +535,6 @@ int main(int argc, char *argv[])
         unsigned display_flags = 0;
         int ret;
         struct vidcap_params *audio_cap_dev;
-        long packet_rate;
         const char *requested_mcast_if = NULL;
 
         unsigned requested_mtu = 0;
@@ -980,12 +979,6 @@ int main(int argc, char *argv[])
                 }
         }
 
-        if (bitrate != RATE_AUTO && bitrate != RATE_UNLIMITED) {
-                packet_rate = compute_packet_rate(bitrate, requested_mtu);
-        } else {
-                packet_rate = bitrate;
-        }
-
         if (argc > 0) {
                 requested_receiver = argv[0];
         }
@@ -1042,7 +1035,7 @@ int main(int argc, char *argv[])
                         requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, packet_rate, &audio_offset, &start_time,
+                        audio_codec, bitrate, &audio_offset, &start_time,
                         requested_mtu);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
@@ -1151,7 +1144,7 @@ int main(int argc, char *argv[])
                 params["mtu"].i = requested_mtu;
                 params["fec"].ptr = (void *) requested_video_fec;
                 params["encryption"].ptr = (void *) requested_encryption;
-                params["packet_rate"].i = packet_rate;
+                params["bitrate"].ll = bitrate;
                 params["start_time"].ptr = (void *) &start_time;
                 params["video_delay"].ptr = (void *) &video_offset;
 
