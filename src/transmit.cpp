@@ -619,7 +619,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000000.0);
                 packet_rate = interval_between_pkts * 1000ll * 1000 * 1000;
         } else { // bitrate given manually
-                packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
+                int avg_packet_size = tile->data_len / packet_count;
+                packet_rate = 1000ll * 1000 * 1000 * avg_packet_size * 8 / tx->bitrate;
         }
 
         // initialize header array with values (except offset which is different among
@@ -783,7 +784,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
 
                 int packet_rate;
                 if (tx->bitrate > 0) {
-                        packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
+                        //packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
+			packet_rate = 0;
                 } else if (packet_rate == RATE_UNLIMITED) {
                         packet_rate = 0;
                 } else if (packet_rate == RATE_AUTO) {
