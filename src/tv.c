@@ -87,9 +87,10 @@ uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time)
         uint32_t tmp, tmp1, tmp2;
 
         /* We return an unsigned, so fail is prev_time is later than curr_time */
-        assert(curr_time.tv_sec >= prev_time.tv_sec);
-        if (curr_time.tv_sec == prev_time.tv_sec) {
-                assert(curr_time.tv_usec >= prev_time.tv_usec);
+        if (curr_time.tv_sec < prev_time.tv_sec ||
+                        (curr_time.tv_sec == prev_time.tv_sec && curr_time.tv_usec < prev_time.tv_usec)) {
+                log_msg(LOG_LEVEL_WARNING, "Discontinuity in time: %lf s!\n", tv_diff(curr_time, prev_time));
+                return 0;
         }
 
         tmp1 = (curr_time.tv_sec - prev_time.tv_sec) * ((uint32_t) 1000000);
