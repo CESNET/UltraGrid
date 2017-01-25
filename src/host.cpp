@@ -302,3 +302,14 @@ const char *get_commandline_param(const char *key)
         }
 }
 
+int get_audio_delay(void)
+{
+        return audio_offset > 0 ? audio_offset : -video_offset;
+}
+
+void set_audio_delay(int audio_delay)
+{
+	audio_offset = max(audio_delay, 0);
+	video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
+}
+

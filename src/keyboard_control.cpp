@@ -216,12 +216,10 @@ void keyboard_control::run()
                         case '+':
                         case '-':
                                 if (!m_locked_against_changes) {
-                                        int audio_delay = audio_offset > 0 ? audio_offset :
-                                                -video_offset;
+                                        int audio_delay = get_audio_delay();
                                         audio_delay += c == '+' ? 10 : -10;
                                         log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
-                                        audio_offset = max(audio_delay, 0);
-                                        video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
+                                        set_audio_delay(audio_delay);
                                 } else {
                                         LOCKED_MSG();
                                 }
@@ -268,8 +266,7 @@ void keyboard_control::usage()
                 "\n";
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         cout << "Locked against changes: " << (m_locked_against_changes ? "true" : "false") << "\n";
-        int audio_delay = audio_offset > 0 ? audio_offset : -video_offset;
-        cout << "Audio playback delay: " << audio_delay << " ms\n";
+        cout << "Audio playback delay: " << get_audio_delay() << " ms\n";
 
         {
                 char path[] = "audio.receiver";

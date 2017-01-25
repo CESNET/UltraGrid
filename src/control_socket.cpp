@@ -511,6 +511,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 struct msg_receiver *msg = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
                 msg->type = RECEIVER_MSG_MUTE;
                 resp = send_message(s->root_module, path, (struct message *) msg);
+        } else if (prefix_matches(message, "av-delay ")) {
+                int val = atoi(suffix(message, "av-delay "));
+                set_audio_delay(val);
+                resp = new_response(RESPONSE_OK, NULL);
         } else if (prefix_matches(message, "postprocess ")) {
                 strncpy(path, "display", sizeof path);
                 struct msg_universal *msg = (struct msg_universal *) new_message(sizeof(struct msg_universal));
