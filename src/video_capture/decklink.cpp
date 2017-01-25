@@ -1323,7 +1323,7 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                                 }
                         } else {
                                 if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= s->audio.max_size) {
-                                        memcpy(s->audio.data + s->audio.data_len, audioFrame, s->audio.data_len);
+                                        memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps);
                                         s->audio.data_len += audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
                                 } else {
                                         LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
