@@ -1209,7 +1209,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set RC.\n");
         }
-        ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "1", 0);
+        ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "0", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set spatial AQ.\n");
         }
