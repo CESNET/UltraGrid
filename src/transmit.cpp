@@ -786,9 +786,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 if (tx->bitrate > 0) {
                         //packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
 			packet_rate = 0;
-                } else if (packet_rate == RATE_UNLIMITED) {
+                } else if (tx->bitrate == RATE_UNLIMITED) {
                         packet_rate = 0;
-                } else if (packet_rate == RATE_AUTO) {
+                } else if (tx->bitrate == RATE_AUTO) {
                         /**
                          * @todo
                          * Following code would actually work but seems to be useless in most of cases (eg.
