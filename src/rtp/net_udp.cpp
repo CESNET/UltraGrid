@@ -63,10 +63,12 @@
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
+#include <queue>
 
 using std::condition_variable;
 using std::max;
 using std::mutex;
+using std::queue;
 using std::unique_lock;
 
 #define MAX_UDP_READER_QUEUE_LEN 10
@@ -129,9 +131,9 @@ struct ip_mreq {
 #endif
 
 struct item {
-    struct item *next;
-    long size;
+    inline item(uint8_t *b, int s) :  buf(b), size(s) {}
     uint8_t *buf;
+    int size;
 };
 
 /*
@@ -146,9 +148,7 @@ struct socket_udp_local {
 
         // for multithreaded receiving
         pthread_t thread_id;
-        struct item queue[MAX_UDP_READER_QUEUE_LEN];
-        struct item *queue_head;
-        struct item *queue_tail;
+        queue<struct item> packets;
         mutex lock;
         condition_variable boss_cv;
         condition_variable reader_cv;
@@ -815,11 +815,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         s->local->multithreaded = multithreaded;
         if (multithreaded) {
-                for (int i = 0; i < MAX_UDP_READER_QUEUE_LEN; i++)
-                        s->local->queue[i].next = s->local->queue + i + 1;
-                s->local->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = s->local->queue;
-                s->local->queue_head = s->local->queue_tail = s->local->queue;
-
                 platform_pipe_init(s->local->should_exit_fd);
 
                 pthread_create(&s->local->thread_id, NULL, udp_reader, s);
@@ -904,9 +899,10 @@ void udp_exit(socket_udp * s)
                         s->local->should_exit = true;
                         s->local->reader_cv.notify_one();
                         pthread_join(s->local->thread_id, NULL);
-                        while (s->local->queue_tail != s->local->queue_head) {
-                                free(s->local->queue_tail->buf);
-                                s->local->queue_tail = s->local->queue_tail->next;
+                        while (!s->local->packets.empty()) {
+                                auto it = s->local->packets.front();
+                                free(it.buf);
+                                s->local->packets.pop();
                         }
                         platform_pipe_close(s->local->should_exit_fd[1]);
                 }
@@ -992,9 +988,6 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 /**
  * When receiving data in separate thread, this function fetches data
  * from socket and puts it in queue.
- *
- * @todo
- * Remove ugly thread cancellation stuff.
  */
 static void *udp_reader(void *arg)
 {
@@ -1032,15 +1025,13 @@ static void *udp_reader(void *arg)
                 }
 
                 unique_lock<mutex> lk(s->local->lock);
-                s->local->reader_cv.wait(lk, [s]{return s->local->queue_head->next != s->local->queue_tail || s->local->should_exit;});
+                s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < MAX_UDP_READER_QUEUE_LEN || s->local->should_exit;});
                 if (s->local->should_exit) {
                         free(packet);
                         break;
                 }
 
-                s->local->queue_head->size = size;
-                s->local->queue_head->buf = packet;
-                s->local->queue_head = s->local->queue_head->next;
+                s->local->packets.emplace(packet, size);
 
                 lk.unlock();
                 s->local->boss_cv.notify_one();
@@ -1103,11 +1094,11 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
         if (timeout) {
                 std::chrono::microseconds tmout_us =
                         std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
-                s->local->boss_cv.wait_for(lk, tmout_us, [s]{return s->local->queue_head != s->local->queue_tail;});
+                s->local->boss_cv.wait_for(lk, tmout_us, [s]{return !s->local->packets.empty();});
         } else {
-                s->local->boss_cv.wait(lk, [s]{return s->local->queue_head != s->local->queue_tail;});
+                s->local->boss_cv.wait(lk, [s]{return !s->local->packets.empty();});
         }
-        return (s->local->queue_head != s->local->queue_tail);
+        return !s->local->packets.empty();
 }
 
 /**
@@ -1147,10 +1138,11 @@ int udp_recv_data(socket_udp * s, char **buffer)
         int ret;
         unique_lock<mutex> lk(s->local->lock);
 
-        *buffer = (char *) s->local->queue_tail->buf;
-        ret = s->local->queue_tail->size;
-        s->local->queue_tail->buf = NULL;
-        s->local->queue_tail = s->local->queue_tail->next;
+        auto it = s->local->packets.front();
+        *buffer = (char *) it.buf;
+        ret = it.size;
+        s->local->packets.pop();
+
         lk.unlock();
         s->local->reader_cv.notify_one();
 
