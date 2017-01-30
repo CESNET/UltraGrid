@@ -263,7 +263,7 @@ rtp_video_rxtx::~rtp_video_rxtx()
 
 void rtp_video_rxtx::display_buf_increase_warning(int size)
 {
-        fprintf(stderr, "\n***\n"
+        log_msg(LOG_LEVEL_VERBOSE, "\n***\n"
                         "Unable to set buffer size to %d B.\n"
 #if defined WIN32
                         "See https://github.com/CESNET/UltraGrid/wiki/Extending-Network-Buffers-%28Windows%29 for details.\n",

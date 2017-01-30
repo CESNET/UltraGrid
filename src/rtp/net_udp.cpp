@@ -71,7 +71,7 @@ using std::mutex;
 using std::queue;
 using std::unique_lock;
 
-#define MAX_UDP_READER_QUEUE_LEN 10
+#define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
 
 static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
@@ -149,6 +149,7 @@ struct socket_udp_local {
         // for multithreaded receiving
         pthread_t thread_id;
         queue<struct item> packets;
+        unsigned int max_packets;
         mutex lock;
         condition_variable boss_cv;
         condition_variable reader_cv;
@@ -815,8 +816,19 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         s->local->multithreaded = multithreaded;
         if (multithreaded) {
+		/**
+		 * @addtogroup cmdline_params
+		 * @{
+		 * * udp-queue-len
+		 *   Use different queue size than default @ref DEFAULT_MAX_UDP_READER_QUEUE_LEN
+		 * @}
+		 */
+                if (!get_commandline_param("udp-queue-len")) {
+                        s->local->max_packets = DEFAULT_MAX_UDP_READER_QUEUE_LEN;
+                } else {
+                        s->local->max_packets = atoi(get_commandline_param("udp-queue-len"));
+                }
                 platform_pipe_init(s->local->should_exit_fd);
-
                 pthread_create(&s->local->thread_id, NULL, udp_reader, s);
         }
 
@@ -1025,7 +1037,7 @@ static void *udp_reader(void *arg)
                 }
 
                 unique_lock<mutex> lk(s->local->lock);
-                s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < MAX_UDP_READER_QUEUE_LEN || s->local->should_exit;});
+                s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < s->local->max_packets || s->local->should_exit;});
                 if (s->local->should_exit) {
                         free(packet);
                         break;
@@ -1315,7 +1327,7 @@ int udp_set_recv_buf(socket_udp *s, int size)
                 return FALSE;
         }
 
-        debug_msg("Socket buffer size set to %d B.\n", opt);
+        verbose_msg("Socket recv buffer size set to %d B.\n", opt);
 
         return TRUE;
 }
@@ -1341,7 +1353,7 @@ int udp_set_send_buf(socket_udp *s, int size)
                 return FALSE;
         }
 
-        debug_msg("Socket buffer size set to %d B.\n", opt);
+        verbose_msg("Socket send buffer size set to %d B.\n", opt);
 
         return TRUE;
 }
