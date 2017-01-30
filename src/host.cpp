@@ -55,7 +55,7 @@ char *export_dir = NULL;
 volatile bool should_exit = false;
 
 volatile int log_level = LOG_LEVEL_INFO;
-bool color_term = (getenv("TERM") && set<string>{"linux", "screen", "xterm", "xterm-256color"}.count(getenv("TERM")) > 0) && isatty(1) && isatty(2);
+bool color_nix_term = (getenv("TERM") && set<string>{"linux", "screen", "xterm", "xterm-256color"}.count(getenv("TERM")) > 0) && isatty(1) && isatty(2);
 
 bool ldgm_device_gpu = false;
 

@@ -50,6 +50,9 @@
 #include "host.h"
 
 #include <mutex>
+#ifdef WIN32
+#include <wincon.h>
+#endif
 
 static void _dprintf(const char *format, ...)
 {
@@ -77,6 +80,8 @@ static void _dprintf(const char *format, ...)
 void log_msg(int level, const char *format, ...)
 {
         static std::mutex log_lock;
+        va_list ap;
+        const char *color_nix = NULL;
 
         if (log_level < level) {
                 return;
@@ -95,44 +100,54 @@ void log_msg(int level, const char *format, ...)
         }
 #endif                          /* WIN32 */
 
-        va_list ap;
-        const char *color = NULL;
+#ifdef WIN32
+        HANDLE con;
+        bool no_color = true;
+        CONSOLE_SCREEN_BUFFER_INFO con_info;
+        uint32_t color_win = 0u;
 
         switch (level) {
-        case LOG_LEVEL_FATAL:   color = "\033[1;31m"; break;
-        case LOG_LEVEL_ERROR:   color = "\033[0;31m"; break;
-        case LOG_LEVEL_WARNING: color = "\033[0;33m"; break;
-        case LOG_LEVEL_NOTICE:  color = "\033[0;32m"; break;
+        case LOG_LEVEL_FATAL:   color_win = FOREGROUND_RED | FOREGROUND_INTENSITY; break;
+        case LOG_LEVEL_ERROR:   color_win = FOREGROUND_RED; break;
+        case LOG_LEVEL_WARNING: color_win = FOREGROUND_RED | FOREGROUND_GREEN; break;
+        case LOG_LEVEL_NOTICE:  color_win = FOREGROUND_GREEN; break;
         }
 
+#else
+        switch (level) {
+        case LOG_LEVEL_FATAL:   color_nix = "\033[1;31m"; break;
+        case LOG_LEVEL_ERROR:   color_nix = "\033[0;31m"; break;
+        case LOG_LEVEL_WARNING: color_nix = "\033[0;33m"; break;
+        case LOG_LEVEL_NOTICE:  color_nix = "\033[0;32m"; break;
+        }
+#endif
+
+        // format new format string
         char *format_new = (char *) alloca(strlen(format) + 7 /* col start */ + 4 /* col end */ +
                         (3 + 20 /* 64b int dec */ + 1 /* dot */ + 3 /* ms */) /* time */ + 1);
-        if ((color_term && color) || log_level >= LOG_LEVEL_VERBOSE) {
-                format_new[0] = '\0';
-                if (color_term && color) {
-                        strcat(format_new, color);
-                }
-                if (log_level >= LOG_LEVEL_VERBOSE) {
-                        unsigned long long time_ms = time_since_epoch_in_ms();
-                        sprintf(format_new + strlen(format_new), "[%llu.%03llu] ", time_ms / 1000,
-                                        time_ms % 1000);
-                }
-                strcat(format_new, format);
-                if (color_term && color) {
-                        strcat(format_new, "\033[0m");
-                }
-                format = format_new;
+        format_new[0] = '\0';
+        if (color_nix_term && color_nix) {
+                strcat(format_new, color_nix);
+        }
+        if (log_level >= LOG_LEVEL_VERBOSE) {
+                unsigned long long time_ms = time_since_epoch_in_ms();
+                sprintf(format_new + strlen(format_new), "[%llu.%03llu] ", time_ms / 1000,
+                                time_ms % 1000);
+        }
+        strcat(format_new, format);
+        if (color_nix_term && color_nix) {
+                strcat(format_new, "\033[0m");
         }
 
         // get number of required bytes
         va_start(ap, format);
-        int size = vsnprintf(NULL, 0, format, ap);
+        int size = vsnprintf(NULL, 0, format_new, ap);
         va_end(ap);
 
         // format the string
         char *buffer = (char *) alloca(size + 1);
         va_start(ap, format);
-        if (vsprintf(buffer, format, ap) != size) {
+        if (vsprintf(buffer, format_new, ap) != size) {
                 va_end(ap);
                 return;
         }
@@ -140,15 +155,30 @@ void log_msg(int level, const char *format, ...)
 
         // print it
         log_lock.lock();
+#ifdef WIN32
+        if (color_win != 0u) {
+                con = GetStdHandle(STD_ERROR_HANDLE);
+                no_color = con == INVALID_HANDLE_VALUE || getenv("NO_COLOR");
+                if (!no_color) {
+                        GetConsoleScreenBufferInfo(con, &con_info);
+                        SetConsoleTextAttribute(con, ((con_info.wAttributes) & 0xF0) | color_win);
+                }
+        }
+#endif
         int written = 0;
         do {
-                ssize_t ret = write(1, buffer + written, size - written);
+                ssize_t ret = write(STDERR_FILENO, buffer + written, size - written);
                 if (ret <= 0) {
                         break;
                 } else {
                         written += ret;
                 }
         } while (written < size);
+#ifdef WIN32
+        if (!no_color) {
+                SetConsoleTextAttribute(con, con_info.wAttributes);
+        }
+#endif
         log_lock.unlock();
 }
 
