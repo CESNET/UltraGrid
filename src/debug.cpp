@@ -49,6 +49,8 @@
 
 #include "host.h"
 
+#include <mutex>
+
 static void _dprintf(const char *format, ...)
 {
         if (log_level < LOG_LEVEL_DEBUG) {
@@ -74,6 +76,8 @@ static void _dprintf(const char *format, ...)
 
 void log_msg(int level, const char *format, ...)
 {
+        static std::mutex log_lock;
+
         if (log_level < level) {
                 return;
         }
@@ -120,9 +124,32 @@ void log_msg(int level, const char *format, ...)
                 format = format_new;
         }
 
+        // get number of required bytes
         va_start(ap, format);
-        vfprintf(stderr, format, ap);
+        int size = vsnprintf(NULL, 0, format, ap);
         va_end(ap);
+
+        // format the string
+        char *buffer = (char *) alloca(size + 1);
+        va_start(ap, format);
+        if (vsprintf(buffer, format, ap) != size) {
+                va_end(ap);
+                return;
+        }
+        va_end(ap);
+
+        // print it
+        log_lock.lock();
+        int written = 0;
+        do {
+                ssize_t ret = write(1, buffer + written, size - written);
+                if (ret <= 0) {
+                        break;
+                } else {
+                        written += ret;
+                }
+        } while (written < size);
+        log_lock.unlock();
 }
 
 /**
