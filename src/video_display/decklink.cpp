@@ -298,9 +298,9 @@ struct state_decklink {
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
  };
 
-static void show_help(void);
+static void show_help(bool full);
 
-static void show_help(void)
+static void show_help(bool full)
 {
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
@@ -312,6 +312,26 @@ static void show_help(void)
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
+        if (!full) {
+                printf("\t\tconversion - use '-d decklink:fullhelp' for list of conversions\n");
+        } else {
+                printf("\t\toutput conversion can be:\n"
+                                "\t\t\tnone - no conversion\n"
+                                "\t\t\tltbx - down-converted letterbox SD\n"
+                                "\t\t\tamph - down-converted anamorphic SD\n"
+                                "\t\t\t720c - HD720 to HD1080 conversion\n"
+                                "\t\t\tHWlb - simultaneous output of HD and down-converted letterbox SD\n"
+                                "\t\t\tHWam - simultaneous output of HD and down-converted anamorphic SD\n"
+                                "\t\t\tHWcc - simultaneous output of HD and center cut SD\n"
+                                "\t\t\txcap - simultaneous output of 720p and 1080p cross-conversion\n"
+                                "\t\t\tua7p - simultaneous output of SD and up-converted anamorphic 720p\n"
+                                "\t\t\tua1i - simultaneous output of SD and up-converted anamorphic 1080i\n"
+                                "\t\t\tu47p - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 720p\n"
+                                "\t\t\tu41i - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n"
+                                "\t\t\tup7p - simultaneous output of SD and up-converted pollarbox 720p\n"
+                                "\t\t\tup1i - simultaneous output of SD and up-converted pollarbox 1080i\n");
+        }
+
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL) {
@@ -832,8 +852,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         if(fmt == NULL || strlen(fmt) == 0) {
                 fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
 
-        } else if (strcmp(fmt, "help") == 0) {
-                show_help();
+        } else if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                show_help(strcmp(fmt, "fullhelp") == 0);
                 delete s;
                 return &display_init_noerr;
         } else {
