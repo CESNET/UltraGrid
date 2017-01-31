@@ -627,7 +627,8 @@ static void * audio_play_alsa_init(const char *cfg)
         struct state_alsa_playback *s;
         const char *name;
 
-        s = calloc(1, sizeof(struct state_alsa_playback));
+        s = malloc(sizeof(struct state_alsa_playback));
+        *s = (struct state_alsa_playback){.new_api = true};
 
         const char *new_api;
         new_api = get_commandline_param("alsa-playback-api");
@@ -641,8 +642,10 @@ static void * audio_play_alsa_init(const char *cfg)
                         free(s);
                         return NULL;
                 }
-        } else {
-		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "You may try to use \"--param alsa-playback-api=new\" to use a new playback API which may become default in future versions.\n");
+        }
+
+        if (s->new_api) {
+		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using new API. In case of problems, you may try to use '--param alsa-playback-api=old'.\n");
 	}
 
         gettimeofday(&s->start_time, NULL);
