@@ -308,7 +308,7 @@ static void show_help(bool full)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency]\n");
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
@@ -848,6 +848,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->link = 0;
         cardId[0] = "0";
         s->devices_cnt = 1;
+        s->low_latency = true;
 
         if(fmt == NULL || strlen(fmt) == 0) {
                 fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
@@ -946,8 +947,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 				} else {
 					use1080p_not_psf = true;
 				}
-                        } else if (strcasecmp(ptr, "low-latency") == 0) {
-                                s->low_latency = true;
+                        } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
+                                s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                                 free(tmp);
@@ -968,9 +969,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         gettimeofday(&s->tv, NULL);
 
-        if (!s->low_latency) {
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Consider using low-latency mode "
-                        "since it will become default in future.\n";
+        if (s->low_latency) {
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using low-latency mode. "
+                        "In case of problems, you can try '-d decklink:no-low-latency'.\n";
         }
 
         // Initialize the DeckLink API
