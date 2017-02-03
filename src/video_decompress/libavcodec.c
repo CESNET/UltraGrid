@@ -162,12 +162,16 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
 }
 
-static bool configure_with(struct state_libavcodec_decompress *s,
-                struct video_desc desc)
+static void jpeg_callback(void)
 {
-        enum AVCodecID codec_id;
-        const char *preferred_decoders[11]; // must be NULL-terminated
-        memset(preferred_decoders, 0, sizeof preferred_decoders);
+        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
+                        "will use full-scale YUV.\n");
+}
+
+struct decoder_info {
+        codec_t ug_codec;
+        enum AVCodecID avcodec_id;
+        void (*codec_callback)(void);
         // Note:
         // Make sure that if adding hw decoders to prefered_decoders[] that
         // that decoder fails if there is not the HW during init, not while decoding
@@ -177,36 +181,39 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // cuvid decoders cannot be currently used as the default ones because they
         // currently support only 4:2:0 subsampling and fail during decoding if other
         // subsampling is given.
-        switch(desc.color_spec) {
-                case H264:
-                        //preferred_decoders[0] = "h264_cuvid";
-                        codec_id = AV_CODEC_ID_H264;
+        const char *preferred_decoders[11]; // must be NULL-terminated
+};
+
+const static struct decoder_info decoders[] = {
+        { H264, AV_CODEC_ID_H264, NULL, { NULL /* "h264_cuvid" */ } },
+        { H265, AV_CODEC_ID_HEVC, NULL, { NULL /* "hevc_cuvid" */ } },
+        { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
+        { JPEG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
+        { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
+        { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
+        { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
+};
+
+static bool configure_with(struct state_libavcodec_decompress *s,
+                struct video_desc desc)
+{
+        const struct decoder_info *dec = NULL;
+
+        for (unsigned int i = 0; i < sizeof decoders / sizeof decoders[0]; ++i) {
+                if (decoders[i].ug_codec == desc.color_spec) {
+                        dec = &decoders[i];
                         break;
-                case H265:
-                        //preferred_decoders[0] = "hevc_cuvid";
-                        codec_id = AV_CODEC_ID_HEVC;
-                        break;
-                case MJPG:
-                case JPEG:
-                        codec_id = AV_CODEC_ID_MJPEG;
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
-                                        "will use full-scale YUV.\n");
-                        break;
-                case J2K:
-                        codec_id = AV_CODEC_ID_JPEG2000;
-                        break;
-                case VP8:
-                        codec_id = AV_CODEC_ID_VP8;
-                        break;
-                case VP9:
-                        codec_id = AV_CODEC_ID_VP9;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
-                        return false;
+                }
         }
-        // boundry check
-        assert(preferred_decoders[(sizeof preferred_decoders / sizeof preferred_decoders[0]) - 1] == NULL);
+
+        if (dec == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
+                return false;
+        }
+
+        if (dec->codec_callback) {
+                dec->codec_callback();
+        }
 
         // construct priority list of decoders that can be used for the codec
         AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
@@ -226,7 +233,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 if (codec == NULL) {
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", val);
                 } else {
-                        if (codec->id == codec_id) {
+                        if (codec->id == dec->avcodec_id) {
                                 if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
                                         codecs_available[codec_index++] = codec;
                                 }
@@ -236,7 +243,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 }
         }
         // then try preferred codecs
-        const char **preferred_decoders_it = preferred_decoders;
+        const char * const *preferred_decoders_it = dec->preferred_decoders;
         while (*preferred_decoders_it) {
                 AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
                 if (codec == NULL) {
@@ -252,7 +259,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         // finally, add a default one if there are no preferred encoders or all fail
         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                codecs_available[codec_index++] = avcodec_find_decoder(codec_id);
+                codecs_available[codec_index++] = avcodec_find_decoder(dec->avcodec_id);
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
