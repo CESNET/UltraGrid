@@ -1199,7 +1199,13 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
+        int ret;
+        ret = av_opt_set(codec_ctx->priv_data, "look_ahead", "0", 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set unset look-ahead.\n");
+        }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+        // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
 }
 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
