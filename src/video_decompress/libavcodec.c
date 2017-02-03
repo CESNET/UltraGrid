@@ -75,7 +75,8 @@ struct state_libavcodec_decompress {
         codec_t          in_codec;
         codec_t          out_codec;
 
-        int              last_frame_seq;
+        unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
+        bool             last_frame_seq_initialized;
 
         struct video_desc saved_desc;
         unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
@@ -292,7 +293,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         av_init_packet(&s->pkt);
 
-        s->last_frame_seq = -1;
+        s->last_frame_seq_initialized = false;
         s->saved_desc = desc;
 
         return true;
@@ -652,35 +653,25 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                 }
 
                 if(got_frame) {
-                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", tv_diff(t1, t0), av_get_picture_type_char(s->frame->pict_type));
-                        /* pass frame only if this is I-frame or we have complete
-                         * GOP (assuming we are not using B-frames */
-                        if(
-#ifdef LAVD_ACCEPT_CORRUPTED
-                                        true
-#else
-                                        s->frame->pict_type == AV_PICTURE_TYPE_I ||
-                                        /* H.264 is quite error-resilient so we
-                                         * put all frames no matter if missing
-                                         * I-frames */
-                                        (s->in_codec == H264) ||
-#ifndef DISABLE_H265_INTRA_REFRESH
-                                        (s->in_codec == H265) ||
-#endif
-                                        (s->frame->pict_type == AV_PICTURE_TYPE_P &&
-                                         s->last_frame_seq == frame_seq - 1)
-#endif // LAVD_ACCEPT_CORRUPTED
-                                        ) {
+                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0));
+                        /* Skip the frame if this is not an I-frame
+                         * and we have missed some of previous frames for VP8 because the
+                         * decoder makes ugly artifacts. We rather wait for next I-frame. */
+                        if (s->in_codec == VP8 &&
+                                        (s->frame->pict_type != AV_PICTURE_TYPE_I &&
+                                         (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
+                                                "(last valid %d, this %u).\n",
+                                                s->last_frame_seq_initialized ?
+                                                s->last_frame_seq : -1, (unsigned) frame_seq);
+                                res = FALSE;
+                        } else {
                                 res = change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
                                                 s->out_codec, s->width, s->height, s->pitch);
                                 if(res == TRUE) {
+                                        s->last_frame_seq_initialized = true;
                                         s->last_frame_seq = frame_seq;
                                 }
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
-                                                "(last valid %d, this %d).\n", s->last_frame_seq,
-                                                frame_seq);
-                                res = FALSE;
                         }
                 }
 
