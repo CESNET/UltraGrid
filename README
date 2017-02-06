@@ -65,7 +65,7 @@ Hardware and Software Requirements
         OpenGL3 - compatible card
             Proprietary drivers strongly recommended
             DXT compression on GPU is tested with OpenGL 3.3
-            JPEG2000 compression requires NVidia GPU, GT 580 or higher
+            JPEG compression requires NVidia GeForce 4xx or newer
         For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
             We test with PCIe Myrinet 10GbE 
         For SDI send/receive capabilities, DVS, DeckLink, Magewell or Linsys Quad card is required
