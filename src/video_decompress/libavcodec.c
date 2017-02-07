@@ -95,6 +95,8 @@ static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
 static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
+static void yuv444p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch);
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch);
 static void error_callback(void *, int, const char *, va_list);
@@ -533,6 +535,32 @@ static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
 }
 
 /**
+ * Changes pixel format from planar YUV 444 to packed RGB.
+ * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
+ */
+static void yuv444p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                for(int x = 0; x < width; ++x) {
+                        int cb = *src_cb++ - 128;
+                        int cr = *src_cr++ - 128;
+                        int y = *src_y++ << 16;
+                        int r = 75700 * cr;
+                        int g = -26864 * cb - 38050 * cr;
+                        int b = 133176 * cb;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
+                }
+        }
+}
+
+/**
  * Changes pixel format from frame to native (currently UYVY).
  *
  * @todo             figure out color space transformations - eg. JPEG returns full-scale YUV.
@@ -576,8 +604,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 if (out_codec == UYVY) {
                         yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "For yuv444p, there is transcoding to UYVY only!\n");
-                        return FALSE;
+                        yuv444p_to_rgb24((char *) dst, frame, width, height, pitch);
                 }
         } else if (av_codec == AV_PIX_FMT_RGB24) {
                 if (out_codec == RGB) {
@@ -586,8 +613,9 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                                                 vc_get_linesize(width, RGB));
                         }
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "For RGB24, there is transcoding to RGB only!\n");
-                        return FALSE;
+                        for (int y = 0; y < height; ++y) {
+                                vc_copylineUYVYtoRGB(dst + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, RGB));
+                        }
                 }
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
