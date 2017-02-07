@@ -637,46 +637,46 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 if (desc.interlacing == INTERLACED_MERGED) {
                         // 422
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422, sizeof(fmts422));
-                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
                         // 444
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444, sizeof(fmts444));
-                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
                         // 420
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420, sizeof(fmts420));
-                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
                 } else {
                         // 420
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420, sizeof(fmts420));
-                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
                         // 422
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422, sizeof(fmts422));
-                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
                         // 444
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444, sizeof(fmts444));
-                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
                 }
         } else {
                 switch (s->requested_subsampling) {
                 case 420:
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420, sizeof(fmts420));
-                        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
                         break;
                 case 422:
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422, sizeof(fmts422));
-                        total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
                         break;
                 case 444:
                         memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444, sizeof(fmts444));
-                        total_pix_fmts += sizeof(fmts444) / sizeof(enum AVPixelFormat);
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
                         break;
                 default:
                         abort();
@@ -727,7 +727,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                         avcodec_free_context(&s->codec_ctx);
                         s->codec_ctx = NULL;
-                        log_msg(LOG_LEVEL_ERROR, "Could not open codec\n");
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Could not open codec for pixel format %s\n", av_get_pix_fmt_name(pix_fmt));
                         pthread_mutex_unlock(s->lavcd_global_lock);
                         continue;
                 }
@@ -1056,14 +1056,14 @@ static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) 
                 }
         }
 
-        if(is422(fmt)) {
+        if (is422_8(fmt)) {
                 return to_yuv422p;
-        } else if(is420(fmt)) {
+        } else if (is420_8(fmt)) {
                 if (fmt == AV_PIX_FMT_NV12)
                         return to_nv12;
                 else
                         return to_yuv420p;
-        } else if (is444(fmt)) {
+        } else if (is444_8(fmt)) {
                 return to_yuv444p;
         } else {
                 log_msg(LOG_LEVEL_FATAL, "[lavc] Unknown subsampling.\n");

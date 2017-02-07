@@ -83,38 +83,6 @@ struct state_libavcodec_decompress {
         bool             broken_h264_mt_decoding_workaroud_active;
 };
 
-static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch);
 static void error_callback(void *, int, const char *, va_list);
@@ -389,6 +357,23 @@ static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                         *dst++ = *src_cbcr++;
                         *dst++ = *src_y++;
                 }
+        }
+}
+
+static void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch)
+{
+        for (int y = 0; y < height; ++y) {
+                vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY));
+        }
+}
+
+static void rgb24_to_rgb(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch)
+{
+        for (int y = 0; y < height; ++y) {
+                memcpy(dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                vc_get_linesize(width, RGB));
         }
 }
 
@@ -849,70 +834,53 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch) {
         assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
 
-        if (av_codec == AV_PIX_FMT_YUV420P10LE) {
-                if (out_codec == v210) {
-                        yuv420p10le_to_v210((char *) dst, frame, width, height, pitch);
-                } else if (out_codec == UYVY) {
-                        yuv420p10le_to_uyvy((char *) dst, frame, width, height, pitch);
-                } else {
-                        assert(out_codec == RGB);
-                        yuv420p10le_to_rgb24((char *) dst, frame, width, height, pitch);
+        struct {
+                int av_codec;
+                codec_t uv_codec;
+                void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch);
+        } convert_funcs[] = {
+                // 10-bit YUV
+                {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210},
+                {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy},
+                {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24},
+                {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210},
+                {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy},
+                {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24},
+                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210},
+                {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy},
+                {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24},
+                // 8-bit YUV
+                {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422},
+                {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24},
+                {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422},
+                {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24},
+                {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422},
+                {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
+                // 8-bit YUV (JPEG color range)
+                {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422},
+                {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24},
+                {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422},
+                {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
+                {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422},
+                {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
+                // 8-bit YUV (NV12)
+                {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422},
+                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
+                // RGB
+                {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
+                {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+        };
+
+        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch) = NULL;
+        for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                if (convert_funcs[i].av_codec == av_codec &&
+                                convert_funcs[i].uv_codec == out_codec) {
+                        convert = convert_funcs[i].convert;
                 }
-        } else if (av_codec == AV_PIX_FMT_YUV422P10LE) {
-                if (out_codec == v210) {
-                        yuv422p10le_to_v210((char *) dst, frame, width, height, pitch);
-                } else if (out_codec == UYVY) {
-                        yuv422p10le_to_uyvy((char *) dst, frame, width, height, pitch);
-                } else {
-                        assert(out_codec == RGB);
-                        yuv422p10le_to_rgb24((char *) dst, frame, width, height, pitch);
-                }
-        } else if (av_codec == AV_PIX_FMT_YUV444P10LE) {
-                if (out_codec == v210) {
-                        yuv444p10le_to_v210((char *) dst, frame, width, height, pitch);
-                } else if (out_codec == UYVY) {
-                        yuv444p10le_to_uyvy((char *) dst, frame, width, height, pitch);
-                } else {
-                        assert(out_codec == RGB);
-                        yuv444p10le_to_rgb24((char *) dst, frame, width, height, pitch);
-                }
-        } else if (is422(av_codec)) {
-                if(out_codec == UYVY) {
-                        yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
-                } else {
-                        yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
-                }
-        } else if(is420(av_codec)) {
-                if(out_codec == UYVY) {
-                        if (av_codec == AV_PIX_FMT_NV12) {
-                                nv12_to_yuv422((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
-                        }
-                } else {
-                        if (av_codec == AV_PIX_FMT_NV12) {
-                                nv12_to_rgb24((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
-                        }
-                }
-        } else if (is444(av_codec)) {
-                if (out_codec == UYVY) {
-                        yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
-                } else {
-                        yuv444p_to_rgb24((char *) dst, frame, width, height, pitch);
-                }
-        } else if (av_codec == AV_PIX_FMT_RGB24) {
-                if (out_codec == RGB) {
-                        for (int y = 0; y < height; ++y) {
-                                memcpy(dst + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                                vc_get_linesize(width, RGB));
-                        }
-                } else {
-                        for (int y = 0; y < height; ++y) {
-                                vc_copylineUYVYtoRGB(dst + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, RGB));
-                        }
-                }
+        }
+
+        if (convert) {
+                convert((char *) dst, frame, width, height, pitch);
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
                                 "format: %s (id %d)\n",
