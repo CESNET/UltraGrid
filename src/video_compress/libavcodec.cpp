@@ -197,12 +197,12 @@ struct state_video_compress_libav {
         map<string, string> lavc_opts; ///< user-supplied options from command-line
 };
 
-void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt);
+static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt);
 
 
 static void usage(void);
@@ -819,7 +819,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         return true;
 }
 
-void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -841,7 +841,7 @@ void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int heigh
         }
 }
 
-void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
+static void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -856,7 +856,7 @@ void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
         }
 }
 
-void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
+static void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
         for(int y = 0; y < height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -873,7 +873,7 @@ void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
         }
 }
 
-void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -894,7 +894,7 @@ void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
         }
 }
 
-pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt) {
+static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt) {
         if(is422(fmt)) {
                 return to_yuv422p;
         } else if(is420(fmt)) {
@@ -926,7 +926,7 @@ void *my_task(void *arg) {
         return NULL;
 }
 
-shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
+static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
