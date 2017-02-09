@@ -1519,7 +1519,7 @@ case "$system" in
 	Windows)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglut -lglew32 -lopengl32"
+	LIBS="$LIBS -lfreeglut -lglew32 -lopengl32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
 #include <GL/glew.h>
@@ -1532,8 +1532,8 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	LIBS=$SAVED_LIBS
 	AC_MSG_RESULT([$HAVE_GL])
 
-	if test "$HAVE_GL" = yes; then
-		GL_LIB="$GL_LIB -lglut -lglew32 -lopengl32"
+	if test $gl_req != no -a "$HAVE_GL" = yes; then
+		GL_LIB="$GL_LIB -lfreeglut -lglew32 -lopengl32"
 		GL_OBJ="$GL_OBJ src/video_display/gl.o"
 		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 		gl=yes	
@@ -2479,6 +2479,7 @@ then
         LIBAVUTIL_LIBS="-lavutil"
 else
         found_libavcodec=no
+        found_libavutil=no
 fi
 else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
