@@ -1850,7 +1850,7 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
-AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
+AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH/bin$PATH_SEPARATOR$PATH]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
 if test -n "$NVCC" -a $cuda_req != no
