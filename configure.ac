@@ -1886,6 +1886,25 @@ then
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
 fi
 
+# CUDA host compiler
+HOST_CC_REPORT=""
+AC_ARG_WITH(cuda-host-compiler,
+	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
+if test "x${with_cuda_host_compiler}" != "x" ; then
+	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
+	if test "x${cuda_host_cc}" = "xyes" ; then
+		NVCCFLAGS+=" -ccbin ${with_cuda_host_compiler}"
+	else
+		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
+	fi
+else
+	with_cuda_host_compiler="default"
+fi
+
+if test "x$NVCC" != "X" ; then
+	HOST_CC_REPORT=" (host code compiler: ${with_cuda_host_compiler})"
+fi
+
 AC_SUBST(NVCC)
 AC_SUBST(FOUND_CUDA)
 AC_SUBST(CUDA_PATH)
@@ -2691,7 +2710,7 @@ RESULT=\
   License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
-  CUDA support ................ $FOUND_CUDA
+  CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
   Syphon ...................... $syphon
 
