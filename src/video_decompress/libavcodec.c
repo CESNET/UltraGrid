@@ -56,6 +56,8 @@
 using std::max;
 using std::min;
 #else
+#undef max
+#undef min
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
@@ -172,7 +174,7 @@ struct decoder_info {
         const char *preferred_decoders[11]; // must be NULL-terminated
 };
 
-const static struct decoder_info decoders[] = {
+static const struct decoder_info decoders[] = {
         { H264, AV_CODEC_ID_H264, NULL, { NULL /* "h264_cuvid" */ } },
         { H265, AV_CODEC_ID_HEVC, NULL, { NULL /* "hevc_cuvid" */ } },
         { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },

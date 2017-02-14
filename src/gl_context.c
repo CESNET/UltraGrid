@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -7,6 +5,8 @@
 #endif
 
 #if defined HAVE_MACOSX || (defined HAVE_LINUX && defined HAVE_LIBGL) || defined WIN32
+
+#include <stdio.h>
 
 #ifdef HAVE_MACOSX
 #include "mac_gl_common.h"

@@ -103,6 +103,7 @@ namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
 public:
+        virtual ~PlaybackDelegate() = default;
         // IUnknown needs only a dummy implementation
         virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
@@ -153,6 +154,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 BMDTimecodeBCD timecode;
         public:
                 DeckLinkTimecode() : timecode(0) {}
+                virtual ~DeckLinkTimecode() = default;
                 /* IDeckLinkTimecode */
                 virtual BMDTimecodeBCD STDMETHODCALLTYPE GetBCD (void) { return timecode; }
                 virtual HRESULT STDMETHODCALLTYPE GetComponents (/* out */ uint8_t *hours, /* out */ uint8_t *minutes, /* out */ uint8_t *seconds, /* out */ uint8_t *frames) { 
@@ -1152,9 +1154,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                          */
                         printf(MOD_NAME "Audio output set to: ");
                         switch(audioConnection) {
-                                case 0:
-                                        printf("embedded");
-                                        break;
                                 case bmdAudioOutputSwitchAESEBU:
                                         printf("AES/EBU");
                                         break;

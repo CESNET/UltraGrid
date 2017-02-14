@@ -76,9 +76,9 @@ static void catch_signal(int)
 static struct termios old_tio;
 #endif
 
+#ifdef HAVE_TERMIOS_H
 static void restore_old_tio(void)
 {
-#ifdef HAVE_TERMIOS_H
         struct sigaction sa, sa_old;
         memset(&sa, 0, sizeof sa);
         sa.sa_handler = SIG_IGN;
@@ -88,8 +88,8 @@ static void restore_old_tio(void)
         /* restore the former settings */
         tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
         sigaction(SIGTTOU, &sa_old, NULL);
-#endif
 }
+#endif
 
 keyboard_control::keyboard_control() :
         m_root(nullptr),

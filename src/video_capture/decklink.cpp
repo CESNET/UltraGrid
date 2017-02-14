@@ -142,7 +142,7 @@ public:
         VideoDelegate(struct vidcap_decklink_state *state, int index) : s(state), i(index) {
         }
 	
-        ~VideoDelegate () {
+        virtual ~VideoDelegate () {
 		if(rightEyeFrame)
                         rightEyeFrame->Release();
 	}
@@ -702,6 +702,10 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         case bmdProgressiveSegmentedFrame:
                                 s->frame->interlacing = SEGMENTED_FRAME;
                                 break;
+                        case bmdUnknownFieldDominance:
+				LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
+                                s->frame->interlacing = PROGRESSIVE;
+                                break;
                 }
 
                 displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
@@ -1100,19 +1104,16 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 } else {
                                         if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
                                                                 audioConnection) == S_OK) {
-                                                printf("[Decklink capture] Audio input set to: ");
-                                                switch(audioConnection) {
-                                                        case bmdAudioConnectionEmbedded:
-                                                                printf("embedded");
-                                                                break;
-                                                        case bmdAudioConnectionAESEBU:
-                                                                printf("AES/EBU");
-                                                                break;
-                                                        case bmdAudioConnectionAnalog:
-                                                                printf("analog");
-                                                                break;
-                                                }
-                                                printf(".\n");
+                                                const map<BMDAudioConnection, string> mapping = {
+                                                        { bmdAudioConnectionEmbedded, "embedded" },
+                                                        { bmdAudioConnectionAESEBU, "AES/EBU" },
+                                                        { bmdAudioConnectionAnalog, "analog" },
+							{ bmdAudioConnectionAnalogXLR, "analogXLR" },
+							{ bmdAudioConnectionAnalogRCA, "analogRCA" },
+							{ bmdAudioConnectionMicrophone, "microphone" },
+							{ bmdAudioConnectionHeadphones, "headphones" },
+                                                };
+                                                printf("[Decklink capture] Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
                                         } else {
                                                 fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 

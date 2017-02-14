@@ -35,15 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "debug.h"
 #include "host.h"
 
