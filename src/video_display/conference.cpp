@@ -247,7 +247,6 @@ cv::Mat TiledImage::getImg(){
 
 using namespace std;
 
-static constexpr int BUFFER_LEN = 5;
 static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
