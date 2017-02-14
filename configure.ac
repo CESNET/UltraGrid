@@ -108,7 +108,6 @@ else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi"
 	LIBS="$LIBS $NET_LIBS"
-        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
