@@ -58,13 +58,20 @@
 #include <queue>
 #include <unordered_map>
 #include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
-
+#if CV_MAJOR_VERSION <= 2
+        #include <opencv2/gpu/gpu.hpp>
+        namespace cvgpu = cv::gpu;
+        #define CVGPU_STREAM_ENQ_UPLOAD(cpuSrc, gpuDst, stream) do { (stream).enqueueUpload((cpuSrc), (gpuDst)); } while (0)
+#else
+        #include <opencv2/core/cuda.hpp>
+        namespace cvgpu = cv::cuda;
+        #define CVGPU_STREAM_ENQ_UPLOAD(cpuSrc, gpuDst, stream) do { (gpuDst).upload((cpuSrc), (stream)); } while (0)
+#endif
 #include <sys/time.h>
 
 struct Tile{
         std::shared_ptr<cv::Mat> img;
-        std::shared_ptr<cv::gpu::GpuMat> gpuImg;
+        std::shared_ptr<cvgpu::GpuMat> gpuImg;
         int width, height;
         int posX, posY;
 
@@ -98,12 +105,12 @@ class TiledImage{
         private:
                 std::vector<std::shared_ptr<struct Tile>> imgs;
                 std::unordered_map<uint32_t, std::shared_ptr<struct Tile>> tiles;
-                cv::gpu::GpuMat image;
-                cv::gpu::Stream stream;
+                cvgpu::GpuMat image;
+                cvgpu::Stream stream;
 };
 
 TiledImage::TiledImage(int width, int height){
-        image = cv::gpu::GpuMat(height, width, CV_8UC3);
+        image = cvgpu::GpuMat(height, width, CV_8UC3);
         layout = Normal;
 }
 
@@ -116,7 +123,7 @@ void TiledImage::addTile(unsigned width, unsigned height, uint32_t ssrc){
         t->dirty = 1;
 
         t->img = std::make_shared<cv::Mat> (height, width, CV_8UC3);
-        t->gpuImg = std::make_shared<cv::gpu::GpuMat> (height, width, CV_8UC3);
+        t->gpuImg = std::make_shared<cvgpu::GpuMat> (height, width, CV_8UC3);
 
         imgs.push_back(t);
         tiles[ssrc] = t;
@@ -139,9 +146,9 @@ void TiledImage::removeTile(uint32_t ssrc){
 //Uploads the tile to the gpu, resizes it and puts it in the correct position
 void TiledImage::uploadTile(uint32_t ssrc){
         std::shared_ptr<struct Tile> t = tiles[ssrc];
-        stream.enqueueUpload(*t->img, *t->gpuImg);
-        cv::gpu::GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-        cv::gpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
+        CVGPU_STREAM_ENQ_UPLOAD(*(t->img), *(t->gpuImg), stream);
+        cvgpu::GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
+        cvgpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
         t->dirty = 0;
 }
 
@@ -224,17 +231,17 @@ void TiledImage::computeLayout(){
 }
 
 cv::Mat TiledImage::getImg(){
-        cv::gpu::GpuMat rect;
-        cv::gpu::GpuMat tileImg;
+        cvgpu::GpuMat rect;
+        cvgpu::GpuMat tileImg;
 
         stream.waitForCompletion();
 
         for(std::shared_ptr<struct Tile> t: imgs){
                 if(t->dirty){
                         //If the tile changed we need to upload it to the gpu
-                        stream.enqueueUpload(*t->img, *t->gpuImg);
+                        CVGPU_STREAM_ENQ_UPLOAD(*(t->img), *(t->gpuImg), stream);
                         rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-                        cv::gpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
+                        cvgpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
                         t->dirty = 0;
                 }
         }
