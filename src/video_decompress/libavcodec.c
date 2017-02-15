@@ -88,6 +88,7 @@ struct state_libavcodec_decompress {
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch);
 static void error_callback(void *, int, const char *, va_list);
+static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
 
 static bool broken_h264_mt_decoding = false;
 
@@ -150,6 +151,8 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
 
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
+        // callback to negotiate pixel format that is supported by UG
+        s->codec_ctx->get_format = get_format_callback;
 }
 
 static void jpeg_callback(void)
@@ -816,6 +819,58 @@ static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         free(tmp);
 }
 
+static const struct {
+        int av_codec;
+        codec_t uv_codec;
+        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch);
+} convert_funcs[] = {
+        // 10-bit YUV
+        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210},
+        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy},
+        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24},
+        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210},
+        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy},
+        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24},
+        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210},
+        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy},
+        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24},
+        // 8-bit YUV
+        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422},
+        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24},
+        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422},
+        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24},
+        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422},
+        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
+        // 8-bit YUV (JPEG color range)
+        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422},
+        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24},
+        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422},
+        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
+        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422},
+        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
+        // 8-bit YUV (NV12)
+        {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422},
+        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
+        // RGB
+        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
+        {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+};
+
+static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
+{
+        while (*fmt != AV_PIX_FMT_NONE) {
+                for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                        if (convert_funcs[i].av_codec == *fmt) {
+                                return *fmt;
+                        }
+                }
+                fmt++;
+        }
+
+        return AV_PIX_FMT_NONE;
+}
+
+
 /**
  * Changes pixel format from frame to native (currently UYVY).
  *
@@ -835,43 +890,6 @@ static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch) {
         assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
-
-        struct {
-                int av_codec;
-                codec_t uv_codec;
-                void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch);
-        } convert_funcs[] = {
-                // 10-bit YUV
-                {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210},
-                {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy},
-                {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24},
-                {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210},
-                {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy},
-                {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24},
-                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210},
-                {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy},
-                {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24},
-                // 8-bit YUV
-                {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422},
-                {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24},
-                {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422},
-                {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24},
-                {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422},
-                {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
-                // 8-bit YUV (JPEG color range)
-                {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422},
-                {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24},
-                {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422},
-                {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
-                {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422},
-                {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
-                // 8-bit YUV (NV12)
-                {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422},
-                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
-                // RGB
-                {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
-                {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
-        };
 
         void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch) = NULL;
         for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
