@@ -37,11 +37,14 @@ BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
 BuildRequires:	cuda-core-8-0,cuda-command-line-tools-8-0,cuda-cudart-dev-8-0,clang
 %endif
 
+%define build_conference 1
 # bug OpenCV3 in Fedora 25 does not contain gpu support stuff
 %if 0%{?fedora} > 24
 %define build_conference 0
-%else
-%define build_conference 1
+%endif
+# nor Leap 42.2
+%if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
+%define build_conference 0
 %endif
 
 Conflicts:	ultragrid-core
