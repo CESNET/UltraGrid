@@ -480,7 +480,7 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 	char *strtok_context;
 	int i = 1;
 
-	if (strchr(init_fmt, "=") == NULL) { // positional arguments
+	if (strchr(init_fmt, '=') == NULL) { // positional arguments
 		while ((token = strtok_s(init_fmt, ":", &strtok_context)) != NULL) {
 			init_fmt = NULL;
 			switch (i) {
