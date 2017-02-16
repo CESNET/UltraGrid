@@ -556,6 +556,14 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         return true;
 }
 
+ADD_TO_PARAM_DOC(lavc_use_codec,
+                "* lavc-use-codec=<c>\n"
+                "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
+                "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
+                "  for NVENC encoder.\n"
+                "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
+                "  to force 10-bit encoding.\n");
+
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
@@ -683,17 +691,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
         }
 
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * lavc-use-codec
-         *   Restrict codec to use user specified pix fmt. Can be used eg. to enforce
-         *   AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken
-         *   for NVENC encoder.
-         *   Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le
-         *   to force 10-bit encoding.
-         * @}
-         */
         if (get_commandline_param("lavc-use-codec")) {
                 const char *val = get_commandline_param("lavc-use-codec");
                 requested_pix_fmts[0] = av_get_pix_fmt(val);
@@ -1315,6 +1312,8 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
+ADD_TO_PARAM_DOC(lavc_h264_interlaced_dct, "* lavc-h264-interlaced-dct\n"
+                 "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *tune;
@@ -1343,13 +1342,6 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
 
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * lavc-h264-interlaced-dct
-         *   Use interlaced DCT for H.264
-         * @}
-         */
         if (get_commandline_param("lavc-h264-interlaced-dct")) {
                 // this options increases variance in frame sizes quite a lot
                 if (param->interlaced) {

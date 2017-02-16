@@ -618,6 +618,8 @@ static struct client *add_client(struct client *clients, fd_t fd) {
         return new_client;
 }
 
+ADD_TO_PARAM_DOC(control_accept_global, "* control-accept-global\n"
+                "  Open control socket to public network.\n");
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
@@ -676,13 +678,6 @@ static void * control_thread(void *args)
                                 if (fd == INVALID_SOCKET) {
                                         socket_error("[control socket] accept");
                                 } else {
-					/**
-					 * @addtogroup cmdline_params
-					 * @{
-					 * * control-accept-global
-					 *   Open control socket to public network.
-					 * @}
-					 */
                                         if (get_commandline_param("control-accept-global") ||
                                                         is_addr_loopback(&client_addr)) {
                                                 clients = add_client(clients, fd);

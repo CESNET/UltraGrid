@@ -77,16 +77,12 @@ static void common_cleanup()
 #endif
 }
 
+ADD_TO_PARAM_DOC(buffering,
+         "* stdout-buf={no|line|full}\n"
+         "  Buffering for stdout\n"
+         "* stderr-buf={no|line|full}\n"
+         "  Buffering for stderr\n");
 bool set_output_buffering() {
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * stdout-buf
-         *   Buffering for stdout (no, line or full)
-         * * stderr-buf
-         *   Buffering for stdout (no, line or full)
-         * @}
-         */
         const unordered_map<const char *, FILE *> outs = {
                 { "stdout-buf", stdout },
                 { "stderr-buf", stderr }
@@ -311,5 +307,28 @@ void set_audio_delay(int audio_delay)
 {
 	audio_offset = max(audio_delay, 0);
 	video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
+}
+
+static const char *param_doc_strings[100];
+
+void register_param_doc(const char *doc)
+{
+        for (unsigned int i = 0; i < sizeof param_doc_strings / sizeof param_doc_strings[0]; ++i) {
+                if (param_doc_strings[i] == NULL) {
+                        param_doc_strings[i] = doc;
+                        break;
+                }
+        }
+}
+
+void print_param_doc()
+{
+        for (unsigned int i = 0; i < sizeof param_doc_strings / sizeof param_doc_strings[0]; ++i) {
+                if (param_doc_strings[i] != NULL) {
+                        puts(param_doc_strings[i]);
+                } else {
+                        break;
+                }
+        }
 }
 

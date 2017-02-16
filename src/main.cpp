@@ -474,8 +474,13 @@ bool parse_audio_capture_format(const char *optarg)
         return true;
 }
 
-static void parse_params(char *optarg)
+static bool parse_params(char *optarg)
 {
+        if (optarg && strcmp(optarg, "help") == 0) {
+                puts("Params can be one or more (separated by comma) of following:");
+                print_param_doc();
+                return false;
+        }
         char *item, *save_ptr;
         while ((item = strtok_r(optarg, ",:", &save_ptr))) {
                 char *key_cstr = item;
@@ -488,6 +493,7 @@ static void parse_params(char *optarg)
                 }
                 optarg = NULL;
         }
+        return true;
 }
 
 int main(int argc, char *argv[])
@@ -886,7 +892,9 @@ int main(int argc, char *argv[])
                         start_paused = true;
                         break;
                 case OPT_PARAM:
-                        parse_params(optarg);
+                        if (!parse_params(optarg)) {
+                                return EXIT_SUCCESS;
+                        }
                         break;
                 case '?':
                 default:

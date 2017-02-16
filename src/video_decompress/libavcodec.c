@@ -187,6 +187,8 @@ static const struct decoder_info decoders[] = {
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
 };
 
+ADD_TO_PARAM_DOC(force_lavd_decoder, "* force-lavd-decoder=<decoder>\n"
+                "  Forces specified Libavcodec decoder\n");
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc)
 {
@@ -213,13 +215,6 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         memset(codecs_available, 0, sizeof codecs_available);
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * force-lavd-decoder
-         *   Forces specified Libavcodec decoder
-         * @}
-         */
         if (get_commandline_param("force-lavd-decoder")) {
                 const char *val = get_commandline_param("force-lavd-decoder");
                 AVCodec *codec = avcodec_find_decoder_by_name(val);
@@ -1065,6 +1060,13 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
+ADD_TO_PARAM_DOC(lavd_use_10bit,
+                "* lavd-use-10bit\n"
+                "  Indicates that we are using decoding to v210 (currently only H.264/HEVC).\n"
+                "  If so, can be decompressed to v210. With this flag, v210 (10-bit UYVY)\n"
+                "  will be announced as a supported codec. Please note that if the\n"
+                "  compressed content won't be actually in 10-bit format, decompression\n"
+                "  will fail.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         const struct decode_from_to dec_static[] = {
                 { H264, UYVY, 500 },
@@ -1082,17 +1084,6 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         pthread_mutex_lock(&lock); // prevent concurent initialization
         if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
                 memcpy(ret, dec_static, sizeof dec_static);
-                /**
-                 * @addtogroup cmdline_params
-                 * @{
-                 * * lavd-use-10bit
-                 *   Indicates that we are using decoding to v210 (currently only H.264/HEVC).
-                 *   If so, can be decompressed to v210. With this flag, v210 (10-bit UYVY)
-                 *   will be announced as a supported codec. Please note that if the
-                 *   compressed content won't be actually in 10-bit format, decompression
-                 *   will fail.
-                 * @}
-                 */
                 // add also decoder from H.264/HEVC to v210 if user explicitly indicated to do so
                 if (get_commandline_param("lavd-use-10bit")) {
                         ret[sizeof dec_static / sizeof dec_static[0]] =
