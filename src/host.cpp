@@ -57,10 +57,6 @@ volatile bool should_exit = false;
 volatile int log_level = LOG_LEVEL_INFO;
 bool color_nix_term = (getenv("TERM") && set<string>{"linux", "screen", "xterm", "xterm-256color"}.count(getenv("TERM")) > 0) && isatty(1) && isatty(2);
 
-bool ldgm_device_gpu = false;
-
-const char *window_title = NULL;
-
 volatile int audio_offset;
 volatile int video_offset;
 
@@ -331,4 +327,7 @@ void print_param_doc()
                 }
         }
 }
+
+ADD_TO_PARAM_DOC(ldgm_device, "* window-title=<title>\n"
+                "  Use alternative window title (SDL/GL only)\n");
 

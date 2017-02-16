@@ -103,8 +103,13 @@ keyboard_control::keyboard_control() :
 {
 }
 
+ADD_TO_PARAM_DOC(disable_keyboard_control, "* disable-keyboard-control\n"
+                "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start(struct module *root)
 {
+        if (get_commandline_param("disable-keyboard-control")) {
+                return;
+        }
         m_root = root;
 #ifdef HAVE_TERMIOS_H
         if (pipe(m_should_exit_pipe) != 0) {

@@ -114,12 +114,10 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_ENCRYPTION (('E' << 8) | 'N')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
-#define OPT_LDGM_DEVICE (('L' << 8) | 'D')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
-#define OPT_DISABLE_KEY_CTRL (('D' << 8) | 'K')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_AUDIO_PROTOCOL (('A' << 8) | 'P')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
@@ -263,8 +261,6 @@ static void usage(void)
         printf("\n");
         printf("\t--list-modules           \tprints list of modules\n");
         printf("\n");
-        printf("\t--disable-keyboard-control\tdisables keyboard control (usable mainly for non-interactive runs)\n");
-        printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
         printf("\n");
@@ -290,8 +286,6 @@ static void usage(void)
                "\t                         \t\"mult:<nr>\",\n");
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
-        printf("\n");
-        printf("\t--ldgm-device {GPU|CPU}  \tdevice to be used to compute LDGM\n");
         printf("\n");
         printf("\t-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]\n");
         printf("\t                         \t<port> is base port number, also 3 subsequent\n");
@@ -328,6 +322,8 @@ static void usage(void)
         printf("\n");
         printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
         printf("\t                         \t(may be also negative to delayed video)\n");
+        printf("\n");
+        printf("\t--param <params>|help    \tAdditional advanced parameters, use help for list\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -558,7 +554,6 @@ int main(int argc, char *argv[])
         keyboard_control kc{};
 
         bool print_capabilities_req = false;
-        bool disable_key_control = false;
         bool start_paused = false;
 
         if (!common_preinit(argc, argv)) {
@@ -602,12 +597,10 @@ int main(int argc, char *argv[])
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", optional_argument, 0, OPT_VERBOSE},
-                {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
-                {"disable-keyboard-control", no_argument, 0, OPT_DISABLE_KEY_CTRL},
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
                 {"audio-protocol", required_argument, 0, OPT_AUDIO_PROTOCOL},
                 {"video-protocol", required_argument, 0, OPT_VIDEO_PROTOCOL},
@@ -865,15 +858,10 @@ int main(int argc, char *argv[])
                                 log_level = LOG_LEVEL_VERBOSE;
                         }
                         break;
-                case OPT_LDGM_DEVICE:
-                        if (strcasecmp(optarg, "GPU") == 0) {
-                                ldgm_device_gpu = true;
-                        } else {
-                                ldgm_device_gpu = false;
-                        }
-                        break;
                 case OPT_WINDOW_TITLE:
-                        window_title = optarg;
+                        log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
+                                        "--param window-title=<title>\n");
+                        commandline_params["window-title"] = optarg;
                         break;
                 case OPT_CAPABILITIES:
                         print_capabilities_req = true;
@@ -885,9 +873,6 @@ int main(int argc, char *argv[])
                 case OPT_LIST_MODULES:
                         list_all_modules();
                         return EXIT_SUCCESS;
-                case OPT_DISABLE_KEY_CTRL:
-                        disable_key_control = true;
-                        break;
                 case OPT_START_PAUSED:
                         start_paused = true;
                         break;
@@ -1118,9 +1103,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */
 
         control_start(control);
-        if (!disable_key_control) {
-                kc.start(&uv.root_module);
-        }
+        kc.start(&uv.root_module);
 
         try {
                 map<string, param_u> params;

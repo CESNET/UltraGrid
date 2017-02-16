@@ -872,7 +872,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
         glutIdleFunc(glut_idle_callback);
-	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
+	s->window = glutCreateWindow(get_commandline_param("window-title") ? get_commandline_param("window-title") : DEFAULT_WIN_NAME);
         if (s->hide_window)
                 glutHideWindow();
         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ?  GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);

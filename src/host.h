@@ -106,10 +106,6 @@ extern unsigned int cuda_devices_count;
 extern volatile int log_level;
 extern bool color_nix_term;
 
-extern bool ldgm_device_gpu;
-
-extern const char *window_title;
-
 #define MODE_SENDER   (1<<0)
 #define MODE_RECEIVER (1<<1)
 
