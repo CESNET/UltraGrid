@@ -858,6 +858,16 @@ static const struct {
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                char out[1024] = "[lavd] Available output pixel formats:";
+                const enum AVPixelFormat *it = fmt;
+                while (*it != AV_PIX_FMT_NONE) {
+                        strncat(out, " ", sizeof out - strlen(out) - 1);
+                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                }
+                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
+        }
+
         while (*fmt != AV_PIX_FMT_NONE) {
                 for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
                         if (convert_funcs[i].av_codec == *fmt) {
