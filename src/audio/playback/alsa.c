@@ -449,8 +449,18 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                         maxval = atoi(maxval_str);
                 }
 
-                rc = snd_pcm_hw_params_set_buffer_time_minmax(s->handle, params, &minval, &mindir,
-                                &maxval, &maxdir);
+                if (get_commandline_param("low-latency-audio")) {
+			unsigned int val;
+			int dir;
+			rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
+                                        &val, &dir);
+                        if (rc == 0) {
+                                log_msg(LOG_LEVEL_INFO, "[ALSA play.] Buffer len set to: %c%u\n", dir < 0 ? '-' : dir == 0 ? '=' : '+', val);
+                        }
+                } else {
+                        rc = snd_pcm_hw_params_set_buffer_time_minmax(s->handle, params, &minval, &mindir,
+                                        &maxval, &maxdir);
+                }
                 if (rc < 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
                                         snd_strerror(rc));
@@ -490,7 +500,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 		jitter_buffer_reset(s->buf);
 #else
                 audio_buffer_destroy(s->buf);
-                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, 20);
+                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, get_commandline_param("low-latency-audio") ? 20 : 5);
 #endif
                 s->timestamp = 0;
                 pthread_create(&s->thread_id, NULL, worker, s);

@@ -668,6 +668,10 @@ static void *audio_receiver_thread(void *arg)
                                         }
                                         struct audio_decoder *dec_state;
                                         dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
+
+                                        if (get_commandline_param("low-latency-audio")) {
+                                                pbuf_set_playout_delay(cp->playout_buffer, 0.005);
+                                        }
                                         assert(dec_state != NULL);
                                         cp->decoder_state = dec_state;
                                         dec_state->enabled = true;

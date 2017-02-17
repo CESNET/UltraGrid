@@ -328,6 +328,9 @@ void print_param_doc()
         }
 }
 
+// some common parameters used within multiple modules
+ADD_TO_PARAM_DOC(low_latency_audio, "* low-latency-audio\n"
+                "  Try to reduce audio latency at the expense of worse reliability\n");
 ADD_TO_PARAM_DOC(ldgm_device, "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 
