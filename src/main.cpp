@@ -251,7 +251,7 @@ static void usage(void)
             ("\t-t <capture_device>        \tselect capture device, use '-t help'\n");
         printf("\t                         \tto get list of supported devices\n");
         printf("\n");
-        printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
+        printf("\t-c <cfg>                 \tvideo compression (see '-c help')\n");
         printf("\n");
         printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
         printf("\n");
@@ -263,7 +263,6 @@ static void usage(void)
         printf("\n");
         printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
         printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
-        printf("\n");
         printf("\n");
         printf("\t--video-protocol <proto> \ttransmission protocol, see '--video-protocol help'\n");
         printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
@@ -297,40 +296,38 @@ static void usage(void)
         printf("\t-l <limit_bitrate> | unlimited | auto\tlimit sending bitrate\n");
         printf("\t                         \tto <limit_bitrate> (with optional k/M/G suffix)\n");
         printf("\n");
+        printf("\t-A <address>             \taudio destination address\n");
+        printf("\t                         \tIf not specified, will use same as for video\n");
+        printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
+        printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
+        printf("\n");
+        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
+        printf("\n");
+        printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
+        printf("\t                         \t(may be also negative to delayed video)\n");
         printf("\n");
         printf("\t--audio-scale <factor> | <method> | help\n");
         printf("\t                         \tscales received audio\n");
         printf("\n");
-        printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
-        printf("\n");
+#if 0
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
+#endif
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
         printf("\n");
         printf("\t--playback <directory>   \treplays captured recorded\n");
         printf("\n");
         printf("\t--record[=<directory>]   \trecord captured audio and video\n");
         printf("\n");
-        printf("\t-A <address>             \taudio destination address\n");
-        printf("\t                         \tIf not specified, will use same as for video\n");
-        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
-        printf("\n");
         printf("\t--capture-filter <filter>\tCapture filter(s), must be given before capture device\n");
         printf("\n");
         printf("\t--encryption <passphrase>\tKey material for encryption\n");
         printf("\n");
-        printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
-        printf("\t                         \t(may be also negative to delayed video)\n");
-        printf("\n");
         printf("\t--param <params>|help    \tAdditional advanced parameters, use help for list\n");
         printf("\n");
-        printf("\taddress(es)              \tdestination address\n");
+        printf("\taddress                  \tdestination address\n");
         printf("\n");
-        printf("\t                         \tIf comma-separated list of addresses\n");
-        printf("\t                         \tis entered, video frames are split\n");
-        printf("\t                         \tand chunks are sent/received\n");
-        printf("\t                         \tindependently.\n");
         printf("\n");
 }
 
