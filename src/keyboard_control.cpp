@@ -171,7 +171,7 @@ void keyboard_control::stop()
 #endif
 }
 
-#define LOCKED_MSG() do { cout << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
+#define LOCKED_MSG() do { LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
 
 void keyboard_control::run()
 {
