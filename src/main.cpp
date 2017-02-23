@@ -484,6 +484,11 @@ static bool parse_params(char *optarg)
                 } else {
                         commandline_params[key_cstr] = string();
                 }
+                if (!validate_param(key_cstr)) {
+                        log_msg(LOG_LEVEL_ERROR, "Unknown parameter: %s\n", key_cstr);
+                        log_msg(LOG_LEVEL_INFO, "Type '%s --param help' for list.\n", uv_argv[0]);
+                        return false;
+                }
                 optarg = NULL;
         }
         return true;

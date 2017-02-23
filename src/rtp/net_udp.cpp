@@ -655,7 +655,7 @@ static bool address_is_ipv6(const char *addr)
         return strchr(addr, ':') != NULL;
 }
 
-ADD_TO_PARAM_DOC(udp_queue_len,
+ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
 /**

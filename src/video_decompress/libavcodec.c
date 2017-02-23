@@ -187,7 +187,7 @@ static const struct decoder_info decoders[] = {
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
 };
 
-ADD_TO_PARAM_DOC(force_lavd_decoder, "* force-lavd-decoder=<decoder>\n"
+ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>\n"
                 "  Forces specified Libavcodec decoder\n");
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc)
@@ -1222,7 +1222,7 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
-ADD_TO_PARAM_DOC(lavd_use_10bit,
+ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
                 "* lavd-use-10bit\n"
                 "  Indicates that we are using decoding to v210 (currently only H.264/HEVC).\n"
                 "  If so, it can be decompressed to v210. With this flag, v210 (10-bit YUV)\n"

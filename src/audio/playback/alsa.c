@@ -320,7 +320,7 @@ static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *le
 
 }
 
-ADD_TO_PARAM_DOC(alsa_playback_buffer, "* alsa-playback-buffer=[<min>-]<max>\n"
+ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=[<min>-]<max>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
 
 /**

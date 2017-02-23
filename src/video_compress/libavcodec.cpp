@@ -556,7 +556,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         return true;
 }
 
-ADD_TO_PARAM_DOC(lavc_use_codec,
+ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "* lavc-use-codec=<c>\n"
                 "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
                 "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
@@ -1312,7 +1312,7 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
-ADD_TO_PARAM_DOC(lavc_h264_interlaced_dct, "* lavc-h264-interlaced-dct\n"
+ADD_TO_PARAM(lavc_h264_interlaced_dct, "lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {

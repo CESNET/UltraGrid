@@ -618,7 +618,7 @@ static struct client *add_client(struct client *clients, fd_t fd) {
         return new_client;
 }
 
-ADD_TO_PARAM_DOC(control_accept_global, "* control-accept-global\n"
+ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-global\n"
                 "  Open control socket to public network.\n");
 static void * control_thread(void *args)
 {

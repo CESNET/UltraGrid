@@ -73,9 +73,10 @@ static void common_cleanup()
 #endif
 }
 
-ADD_TO_PARAM_DOC(buffering,
+ADD_TO_PARAM(stdout_buf, "stdout-buf",
          "* stdout-buf={no|line|full}\n"
-         "  Buffering for stdout\n"
+         "  Buffering for stdout\n");
+ADD_TO_PARAM(stderr_buf, "stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
 bool set_output_buffering() {
@@ -305,23 +306,41 @@ void set_audio_delay(int audio_delay)
 	video_offset = audio_delay < 0 ? abs(audio_delay) : 0;
 }
 
-static const char *param_doc_strings[100];
+static struct {
+        const char *param;
+        const char *doc;
+} params[100];
 
-void register_param_doc(const char *doc)
+void register_param(const char *param, const char *doc)
 {
-        for (unsigned int i = 0; i < sizeof param_doc_strings / sizeof param_doc_strings[0]; ++i) {
-                if (param_doc_strings[i] == NULL) {
-                        param_doc_strings[i] = doc;
+        assert(param != NULL && doc != NULL);
+        for (unsigned int i = 0; i < sizeof params / sizeof params[0]; ++i) {
+                if (params[i].param == NULL) {
+                        params[i].param = param;
+                        params[i].doc = doc;
                         break;
                 }
         }
 }
 
+bool validate_param(const char *param)
+{
+        for (unsigned int i = 0; i < sizeof params / sizeof params[0]; ++i) {
+                if (params[i].param == NULL) {
+                        return false;
+                }
+                if (strcmp(params[i].param, param) == 0) {
+                        return true;
+                }
+        }
+        return false;
+}
+
 void print_param_doc()
 {
-        for (unsigned int i = 0; i < sizeof param_doc_strings / sizeof param_doc_strings[0]; ++i) {
-                if (param_doc_strings[i] != NULL) {
-                        puts(param_doc_strings[i]);
+        for (unsigned int i = 0; i < sizeof params / sizeof params[0]; ++i) {
+                if (params[i].doc != NULL) {
+                        puts(params[i].doc);
                 } else {
                         break;
                 }
@@ -329,8 +348,8 @@ void print_param_doc()
 }
 
 // some common parameters used within multiple modules
-ADD_TO_PARAM_DOC(low_latency_audio, "* low-latency-audio\n"
+ADD_TO_PARAM(low_latency_audio, "low-latency-audio", "* low-latency-audio\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n");
-ADD_TO_PARAM_DOC(ldgm_device, "* window-title=<title>\n"
+ADD_TO_PARAM(window_title, "window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 

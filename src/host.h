@@ -138,7 +138,8 @@ void print_version(void);
 const char *get_commandline_param(const char *key);
 
 bool set_output_buffering();
-void register_param_doc(const char *doc);
+void register_param(const char *param, const char *doc);
+bool validate_param(const char *param);
 void print_param_doc(void);
 
 #ifdef __cplusplus
@@ -151,11 +152,11 @@ void print_param_doc(void);
 extern std::unordered_map<std::string, std::string> commandline_params;
 #endif
 
-#define ADD_TO_PARAM_DOC(salt, string) static void add_to_param_doc##salt(void)  __attribute__((constructor));\
+#define ADD_TO_PARAM(salt, param, doc) static void add_to_param_doc##salt(void)  __attribute__((constructor));\
 \
 static void add_to_param_doc##salt(void) \
 {\
-        register_param_doc(string);\
+        register_param(param, doc);\
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 

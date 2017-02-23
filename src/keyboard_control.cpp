@@ -103,7 +103,7 @@ keyboard_control::keyboard_control() :
 {
 }
 
-ADD_TO_PARAM_DOC(disable_keyboard_control, "* disable-keyboard-control\n"
+ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start(struct module *root)
 {
