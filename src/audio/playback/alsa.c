@@ -320,6 +320,15 @@ static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *le
 
 }
 
+ADD_TO_PARAM_DOC(alsa_playback_buffer, "* alsa-playback-buffer=[<min>-]<max>\n"
+                                "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
+
+/**
+ * @todo
+ * Consider using snd_pcm_hw_params_set_buffer_time_first() by default, it works fine
+ * with PulseAudio. However, may underrun with different drivers/devices (Juli@?) where
+ * the buffer size is significantly lower.
+ */
 static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
@@ -440,13 +449,14 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 unsigned int minval = 0;
                 unsigned int maxval = 15000;
 
-                const char *minval_str = get_commandline_param("alsa-playback-bufmin");
-                if (minval_str) {
-                        minval = atoi(minval_str);
-                }
-                const char *maxval_str = get_commandline_param("alsa-playback-bufmax");
-                if (maxval_str) {
-                        maxval = atoi(maxval_str);
+                const char *buff_str = get_commandline_param("alsa-playback-buffer");
+                if (buff_str) {
+                        if (strchr(buff_str, '-')) {
+                                minval = atoi(buff_str);
+                                maxval = atoi(strchr(buff_str, '-') + 1);
+                        } else {
+                                maxval = atoi(buff_str);
+                        }
                 }
 
                 if (get_commandline_param("low-latency-audio")) {
@@ -455,7 +465,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 			rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
                                         &val, &dir);
                         if (rc == 0) {
-                                log_msg(LOG_LEVEL_INFO, "[ALSA play.] Buffer len set to: %c%u\n", dir < 0 ? '-' : dir == 0 ? '=' : '+', val);
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Buffer len set to: %c%u us\n", dir < 0 ? '-' : dir == 0 ? '=' : '+', val);
                         }
                 } else {
                         rc = snd_pcm_hw_params_set_buffer_time_minmax(s->handle, params, &minval, &mindir,
