@@ -475,7 +475,7 @@ static bool parse_params(char *optarg)
                 return false;
         }
         char *item, *save_ptr;
-        while ((item = strtok_r(optarg, ",:", &save_ptr))) {
+        while ((item = strtok_r(optarg, ",", &save_ptr))) {
                 char *key_cstr = item;
                 if (strchr(item, '=')) {
                         char *val_cstr = strchr(item, '=') + 1;
