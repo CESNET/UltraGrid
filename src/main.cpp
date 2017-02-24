@@ -15,7 +15,7 @@
  *          Martin Pulec     <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2014 CESNET z.s.p.o.
+ * Copyright (c) 2005-2017 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -83,7 +83,7 @@
 #include "video_capture.h"
 #include "video_display.h"
 #include "video_compress.h"
-#include "video_export.h"
+#include "export.h"
 #include "video_rxtx.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
@@ -385,48 +385,6 @@ static void *capture_thread(void *arg)
         return NULL;
 }
 
-static bool enable_export(const char *dir)
-{
-        if(!dir) {
-                for (int i = 1; i <= 9999; i++) {
-                        char name[16];
-                        snprintf(name, 16, "export.%04d", i);
-                        int ret = platform_mkdir(name);
-                        if(ret == -1) {
-                                if(errno == EEXIST) {
-                                        continue;
-                                } else {
-                                        fprintf(stderr, "[Export] Directory creation failed: %s\n",
-                                                        strerror(errno));
-                                        return false;
-                                }
-                        } else {
-                                export_dir = strdup(name);
-                                break;
-                        }
-                }
-        } else {
-                int ret = platform_mkdir(dir);
-                if(ret == -1) {
-                                if(errno == EEXIST) {
-                                        fprintf(stderr, "[Export] Warning: directory %s exists!\n", dir);
-                                } else {
-                                        perror("[Export] Directory creation failed");
-                                        return false;
-                                }
-                }
-
-                export_dir = strdup(dir);
-        }
-
-        if(export_dir) {
-                printf("Using export directory: %s\n", export_dir);
-                return true;
-        } else {
-                return false;
-        }
-}
-
 bool parse_audio_capture_format(const char *optarg)
 {
         if (strcmp(optarg, "help") == 0) {
@@ -548,7 +506,7 @@ int main(int argc, char *argv[])
         const char *requested_display = "none";
         const char *requested_receiver = "::1";
         const char *requested_encryption = NULL;
-        struct video_export *video_exporter = NULL;
+        struct exporter *exporter = NULL;
 
         long long int bitrate = RATE_AUTO;
 
@@ -1038,12 +996,10 @@ int main(int argc, char *argv[])
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
 
-        if(should_export) {
-                if(!enable_export(export_opts)) {
-                        fprintf(stderr, "Export initialization failed.\n");
-                        return EXIT_FAILURE;
-                }
-                video_exporter = video_export_init(export_dir);
+        exporter = export_init(export_opts, should_export);
+        if (!exporter) {
+                log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
+                return EXIT_FAILURE;
         }
 
         if (control_port != -1) {
@@ -1060,7 +1016,7 @@ int main(int argc, char *argv[])
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
                         audio_codec, bitrate, &audio_offset, &start_time,
-                        requested_mtu);
+                        requested_mtu, exporter);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
@@ -1141,7 +1097,7 @@ int main(int argc, char *argv[])
 
                 // common
                 params["parent"].ptr = &uv.root_module;
-                params["exporter"].ptr = video_exporter;
+                params["exporter"].ptr = exporter;
                 params["compression"].ptr = (void *) requested_compression;
                 params["rxtx_mode"].i = video_rxtx_mode;
                 params["paused"].b = start_paused;
@@ -1289,9 +1245,7 @@ cleanup:
         if (uv.display_device)
                 display_done(uv.display_device);
 
-        video_export_destroy(video_exporter);
-
-        free(export_dir);
+        export_destroy(exporter);
 
         kc.stop();
         control_done(control);

@@ -1,9 +1,9 @@
 /**
- * @file   video_rxtx.cpp
+ * @file   video_rxtx/ultragrid_rtp.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2017 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,7 @@
 
 #include "compat/platform_time.h"
 #include "control_socket.h"
+#include "export.h"
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
@@ -68,7 +69,6 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
-#include "video_export.h"
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
 #include "utils/worker.h"

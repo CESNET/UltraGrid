@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2017 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@
 struct display;
 struct module;
 struct video_compress;
-struct video_export;
+struct exporter;
 struct video_frame;
 
 class video_rxtx;
@@ -107,7 +107,7 @@ private:
 
         struct compress_state *m_compression;
         pthread_mutex_t m_lock;
-        struct video_export *m_video_exporter;
+        struct exporter *m_exporter;
 
         pthread_t m_thread_id;
         bool m_poisoned, m_joined;

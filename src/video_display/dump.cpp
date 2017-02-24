@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016 CESNET, z. s. p. o.
+ * Copyright (c) 2016-2017 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,10 +42,10 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "export.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_export.h"
 
 #include <chrono>
 
@@ -62,16 +62,16 @@ struct dump_display_state {
                         perror("mkdir");
                         throw string("Unable to create directory!");
                 }
-                e = video_export_init(dirname.c_str());
+                e = export_init(dirname.c_str(), true);
         }
         ~dump_display_state() {
                 vf_free(f);
-                video_export_destroy(e);
+                export_destroy(e);
         }
         struct video_frame *f = nullptr;
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
-        struct video_export *e;
+        struct exporter *e;
         size_t max_tile_data_len = 0;
 };
 
@@ -115,7 +115,7 @@ static int display_dump_putf(void *state, struct video_frame *frame, int)
         }
 
         if (frame) {
-                video_export(s->e, frame);
+                export_video(s->e, frame);
         }
 
         return 0;

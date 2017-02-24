@@ -115,6 +115,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/crypt_des.o \
 		src/crypto/md5.o \
 		src/crypto/random.o \
+		src/export.o \
 		src/ihdtv/ihdtv.o \
 		src/lib_common.o \
 		src/module.o \

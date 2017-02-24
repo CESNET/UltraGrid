@@ -62,7 +62,6 @@
 
 #include "audio/codec.h"
 #include "audio/echo.h" 
-#include "audio/export.h" 
 #include "audio/audio_capture.h" 
 #include "audio/audio_playback.h" 
 #include "audio/capture/sdi.h"
@@ -71,6 +70,7 @@
 #include "audio/utils.h"
 #include "compat/platform_semaphore.h"
 #include "debug.h"
+#include "../export.h" // not audio/export.h
 #include "host.h"
 #include "module.h"
 #include "perf.h"
@@ -138,7 +138,7 @@ struct state_audio {
         char *audio_channel_map;
         const char *audio_scale;
         echo_cancellation_t *echo_state;
-        struct audio_export *exporter;
+        struct exporter *exporter;
         int  resample_to;
 
         char *requested_encryption;
@@ -204,7 +204,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if,
                 const char *audio_codec_cfg,
-                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu)
+                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu, struct exporter *exporter)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -268,13 +268,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 goto error;
         }
 
-        if(export_dir) {
-                char name[512];
-                snprintf(name, 512, "%s/sound.wav", export_dir);
-                s->exporter = audio_export_init(name);
-        } else {
-                s->exporter = NULL;
-        }
+        s->exporter = exporter;
 
         if(echo_cancellation) {
 #ifdef HAVE_SPEEX
@@ -486,7 +480,6 @@ void audio_done(struct state_audio *s)
                 if(s->audio_participants) {
                         pdb_destroy(&s->audio_participants);
                 }
-                audio_export_destroy(s->exporter);
                 module_done(&s->mod);
                 free(s->requested_encryption);
 
@@ -952,7 +945,7 @@ static void *audio_sender_thread(void *arg)
 
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
-                        audio_export(s->exporter, buffer);
+                        export_audio(s->exporter, buffer);
                         if(s->echo_state) {
 #ifdef HAVE_SPEEX
                                 buffer = echo_cancel(s->echo_state, buffer);

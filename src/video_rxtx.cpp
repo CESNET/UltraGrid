@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2017 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "export.h"
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
@@ -64,7 +65,6 @@
 #include "video_compress.h"
 #include "video_decompress.h"
 #include "video_display.h"
-#include "video_export.h"
 #include "video_rxtx.h"
 
 using namespace std;
@@ -73,7 +73,7 @@ video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default")
                 m_report_paused_play(false), m_rxtx_mode(params.at("rxtx_mode").i),
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
                 m_compression(nullptr),
-                m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)),
+                m_exporter(static_cast<struct exporter *>(params.at("exporter").ptr)),
                 m_thread_id(), m_poisoned(false), m_joined(true) {
 
         module_init_default(&m_sender_mod);
@@ -188,7 +188,7 @@ void *video_rxtx::sender_loop() {
                 if (!tx_frame)
                         goto exit;
 
-                video_export(m_video_exporter, tx_frame.get());
+                export_video(m_exporter, tx_frame.get());
 
                 tx_frame->paused_play = ret == STREAM_PAUSED_PLAY;
 

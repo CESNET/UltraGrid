@@ -109,8 +109,6 @@ extern bool color_nix_term;
 #define MODE_SENDER   (1<<0)
 #define MODE_RECEIVER (1<<1)
 
-// if not NULL, data should be exported
-extern char *export_dir;
 extern char *sage_network_device;
 
 // Both of following varables are non-negative. It indicates amount of milliseconds that

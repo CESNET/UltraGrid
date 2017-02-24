@@ -1,9 +1,9 @@
 /**
- * @file   audio/export.h
+ * @file   export.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2017 CESNET z.s.p.o.
+ * Copyright (c) 2017 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,23 +35,24 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _AUDIO_EXPORT_H_
-#define _AUDIO_EXPORT_H_
+#ifndef EXPORT_H_
+#define EXPORT_H_
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // __cplusplus
 
-struct audio_export;
 struct audio_frame;
+struct exporter;
+struct video_frame;
 
-struct audio_export * audio_export_init(char *filename);
-void audio_export_destroy(struct audio_export *state);
-void audio_export(struct audio_export *state, struct audio_frame *frame);
+struct exporter *export_init(const char *path, bool should_export);
+void export_destroy(struct exporter *state);
+void export_audio(struct exporter *state, struct audio_frame *frame);
+void export_video(struct exporter *state, struct video_frame *frame);
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
 
-
-#endif /* _AUDIO_EXPORT_H_ */
+#endif /* EXPORT_H_ */
