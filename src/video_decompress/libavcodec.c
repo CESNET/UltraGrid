@@ -187,8 +187,8 @@ static const struct decoder_info decoders[] = {
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
 };
 
-ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>\n"
-                "  Forces specified Libavcodec decoder\n");
+ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
+                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter\n");
 static bool configure_with(struct state_libavcodec_decompress *s,
                 struct video_desc desc)
 {
@@ -216,17 +216,23 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
         if (get_commandline_param("force-lavd-decoder")) {
-                const char *val = get_commandline_param("force-lavd-decoder");
-                AVCodec *codec = avcodec_find_decoder_by_name(val);
-                if (codec == NULL) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", val);
-                } else {
-                        if (codec->id == dec->avcodec_id) {
-                                if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
-                                        codecs_available[codec_index++] = codec;
-                                }
+                const char *param = get_commandline_param("force-lavd-decoder");
+                char *val = alloca(strlen(param) + 1);
+                strcpy(val, param);
+                char *item, *save_ptr;
+                while ((item = strtok_r(val, ":", &save_ptr))) {
+                        val = NULL;
+                        AVCodec *codec = avcodec_find_decoder_by_name(item);
+                        if (codec == NULL) {
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", item);
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", val);
+                                if (codec->id == dec->avcodec_id) {
+                                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
+                                                codecs_available[codec_index++] = codec;
+                                        }
+                                } else {
+                                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", item);
+                                }
                         }
                 }
         }
