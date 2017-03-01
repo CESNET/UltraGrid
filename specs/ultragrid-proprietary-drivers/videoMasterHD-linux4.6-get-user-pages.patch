@@ -1,0 +1,280 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x64/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x64/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x64/USBufMngr_Linux.c	2017-02-11 13:39:17.594479289 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x64/USBufMngr_Linux.c	2017-02-11 15:33:57.438617868 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x86/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x86/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x86/USBufMngr_Linux.c	2017-02-11 13:39:17.602479438 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/ASI/x86/USBufMngr_Linux.c	2017-02-11 15:34:29.100169785 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x64/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x64/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x64/USBufMngr_Linux.c	2017-02-11 14:29:01.016689380 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x64/USBufMngr_Linux.c	2017-02-11 15:34:29.108170177 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x86/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x86/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x86/USBufMngr_Linux.c	2017-02-11 13:39:17.610479584 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/DVI/x86/USBufMngr_Linux.c	2017-02-11 15:34:29.112170374 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x64/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x64/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x64/USBufMngr_Linux.c	2017-02-11 13:39:17.614479658 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x64/USBufMngr_Linux.c	2017-02-11 15:34:29.112170374 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x86/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x86/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x86/USBufMngr_Linux.c	2017-02-11 13:39:17.622479806 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/HD/x86/USBufMngr_Linux.c	2017-02-11 15:34:29.116170570 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x64/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x64/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x64/USBufMngr_Linux.c	2017-02-11 13:39:17.666480615 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x64/USBufMngr_Linux.c	2017-02-11 15:34:29.120170766 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x86/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x86/USBufMngr_Linux.c
+--- a/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x86/USBufMngr_Linux.c	2017-02-11 13:39:17.702481279 +0100
++++ b/VideoMasterHD_SDK_Linux_v5.21/Drivers/X300/x86/USBufMngr_Linux.c	2017-02-11 15:34:29.124170962 +0100
+@@ -15,6 +15,7 @@
+ #include "KernelObjects.h"
+ #include "SkelIoctls.h"
+ #include <linux/pagemap.h>
++#include <linux/version.h>
+ 
+ /***** FUNCTIONS DEFINITION *******************************************************************************************/
+ 
+@@ -48,7 +49,11 @@ BOOL32 USBufMngr_RetrievePages( PDEVICE_
+       ppPage_X = (struct page **)pDescr_X->pOSData_v;
+ 
+       down_read(&current->mm->mmap_sem);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+       RetVal_i = get_user_pages(current, current->mm, ((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#else
++      RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
++#endif
+       up_read(&current->mm->mmap_sem);
+ 
+       if (RetVal_i < 0) 
+@@ -131,7 +136,11 @@ ULONG i;
+          if (!PageReserved(ppPage_X[i])) 
+             SetPageDirty(ppPage_X[i]);
+          else RetailOutput("Page %d is reserverd\n",i);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
+          page_cache_release(ppPage_X[i]);
++#else
++         put_page(ppPage_X[i]);
++#endif
+       }
+ 
+       kfree(pDescr_X->pOSData_v);

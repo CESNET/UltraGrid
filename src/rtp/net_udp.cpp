@@ -655,6 +655,9 @@ static bool address_is_ipv6(const char *addr)
         return strchr(addr, ':') != NULL;
 }
 
+ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
+                "* udp-queue-len=<l>\n"
+                "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
 /**
  * udp_init_if:
  * Creates a session for sending and receiving UDP datagrams over IP
@@ -816,13 +819,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         s->local->multithreaded = multithreaded;
         if (multithreaded) {
-		/**
-		 * @addtogroup cmdline_params
-		 * @{
-		 * * udp-queue-len
-		 *   Use different queue size than default @ref DEFAULT_MAX_UDP_READER_QUEUE_LEN
-		 * @}
-		 */
                 if (!get_commandline_param("udp-queue-len")) {
                         s->local->max_packets = DEFAULT_MAX_UDP_READER_QUEUE_LEN;
                 } else {

@@ -299,10 +299,10 @@ error:
 
 static void show_help(struct vidcap_dshow_state *s) {
 	printf("dshow grabber options:\n");
-	printf("\t-t dshow:[Device]<DeviceNumber>:[Mode]<ModeNumber>[:RGB]\n");
+	printf("\t-t dshow[:device=<DeviceNumber>][:mode=<ModeNumber>][:codec=RGB]\n");
 	printf("\t    Flag RGB forces use of RGB codec, otherwise native is used if possible.\n");
 	printf("\tor\n");
-	printf("\t-t dshow:[Device]<DeviceNumber>:RGB:width:height:fps\n\n");
+	printf("\t-t dshow:[Device]<DeviceNumber>:RGB:<width>:<height>:<fps>\n\n");
 
 	if (!common_init(s)) return;
 
@@ -480,9 +480,10 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 	char *strtok_context;
 	int i = 1;
 
-	while ((token = strtok_s(init_fmt, ":", &strtok_context)) != NULL) {
-		init_fmt = NULL;
-		switch (i) {
+	if (strchr(init_fmt, '=') == NULL) { // positional arguments
+		while ((token = strtok_s(init_fmt, ":", &strtok_context)) != NULL) {
+			init_fmt = NULL;
+			switch (i) {
 			case 1 :
 				if (strstr(token, "Device") == token) token = token + strlen("Device");
 				if (isdigit(token[0])) { // device specified by number
@@ -544,8 +545,30 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 			default :
 				fprintf(stderr, "[dshow] More arguments than expected, ignoring.\n");
 				break;
+			}
+			i++;
 		}
-		i++;
+	} else {
+		while ((token = strtok_s(init_fmt, ":", &strtok_context)) != NULL) {
+			init_fmt = NULL;
+			if (strncmp(token, "device=", strlen("device=")) == 0) {
+				token  = strchr(token, '=') + 1;
+				if (isdigit(token[0])) { // device specified by number
+					s->deviceNumber = atoi(token);
+				} else { // device specified by name
+					s->deviceName = (char *) malloc(sizeof(char) * (strlen(token) + 100));
+					strcpy_s(s->deviceName, strlen(token), token);
+					s->deviceNumber = -1;
+				}
+			} else if (strncmp(token, "mode=", strlen("mode=")) == 0) {
+				token  = strchr(token, '=') + 1;
+				s->modeNumber = atoi(token);
+			} else if (strcmp(token, "RGB") == 0) {
+				s->color_spec = BGR;
+			} else {
+				log_msg(LOG_LEVEL_WARNING, "[dshow] Unknown argument: %s, ignoring.\n", token);
+			}
+		}
 	}
 
 	return true;

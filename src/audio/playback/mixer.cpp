@@ -124,7 +124,7 @@ static void mixer_dummy_rtp_callback(struct rtp *session [[gnu::unused]], rtp_ev
 struct am_participant {
         am_participant(struct socket_udp_local *l, struct sockaddr_storage *ss, string const & audio_codec) {
                 assert(l != nullptr && ss != nullptr);
-                m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, 50);
+                m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5);
                 assert(m_buffer != NULL);
                 struct sockaddr *sa = (struct sockaddr *) ss;
                 assert(ss->ss_family == AF_INET || ss->ss_family == AF_INET6);

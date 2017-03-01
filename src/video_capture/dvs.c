@@ -10,7 +10,7 @@
  *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2017 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -91,7 +91,6 @@ struct vidcap_dvs_state {
         struct audio_frame audio;
         const hdsp_mode_table_t *mode;
         unsigned grab_audio:1;
-        unsigned int detect_mode:1;
 
         int frames;
         struct       timeval t, t0;
@@ -184,7 +183,9 @@ static void show_help(void)
         int res;
 
 	printf("DVS options:\n\n");
-	printf("\t -t dvs[:<mode>:<codec>][:<card>] | help\n\n");
+        printf("\t -t dvs[:<mode>:<codec>[:<card>]] | help\n");
+        printf("\tor\n");
+        printf("\t -t dvs[:device=<card>][:mode=<mode>][:codec=<codec>] | help\n\n");
         snprintf(name, 128, "PCI,card:%d", card_idx);
 
         //sv = sv_open(name);
@@ -196,7 +197,7 @@ static void show_help(void)
                 return;
         }
 	while (res == SV_OK) {
-                printf("\tCard \"%s\" - supported modes:\n\n", name);
+                printf("\tCard \"%d\" - supported modes:\n\n", card_idx);
                 for(i=0; hdsp_mode_table[i].width !=0; i++) {
                         int res;
                         sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
@@ -250,8 +251,6 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
         s->tile = vf_get_tile(s->frame, 0);
         s->frames = 0;
 
-        s->detect_mode = FALSE;
-        
         if (vidcap_params_get_fmt(params) != NULL) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 			show_help();
@@ -260,21 +259,17 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
                 }
 
                 char *fmt = strdup(vidcap_params_get_fmt(params));
-                char *tmp;
+                char *item;
 
-                if(strncmp(fmt, "PCI", 3) == 0) {
-                        strncat(card_name, fmt, sizeof card_name - 1);
-                        printf("[DVS] Choosen card: %s.\n", card_name);
-                        s->detect_mode = TRUE;
-                } else {
-                        tmp = strtok(fmt, ":");
-                        if (!tmp) {
+                if (isdigit(fmt[0])) {
+                        item = strtok(fmt, ":");
+                        if (!item) {
                                 fprintf(stderr, "Wrong config %s\n", fmt);
                                 free(fmt);
                                 free(s);
                                 return VIDCAP_INIT_FAIL;
                         }
-                        mode_index = atoi(tmp);
+                        mode_index = atoi(item);
                         for(i=0; hdsp_mode_table[i].width != 0; i++) {
                                 if(hdsp_mode_table[i].mode == mode_index) {
                                           s->mode = &hdsp_mode_table[i];
@@ -288,34 +283,66 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
                                 return VIDCAP_INIT_FAIL;
                         }
 
-                        tmp = strtok(NULL, ":");
-                        if (!tmp) {
+                        item = strtok(NULL, ":");
+                        if (!item) {
                                 fprintf(stderr, "Wrong config %s\n", fmt);
                                 free(fmt);
                                 free(s);
                                 return VIDCAP_INIT_FAIL;
                         }
 
-                        s->frame->color_spec = get_codec_from_name(tmp);
+                        s->frame->color_spec = get_codec_from_name(item);
                         if (s->frame->color_spec == VIDEO_CODEC_NONE) {
-                                fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
+                                fprintf(stderr, "dvs: unknown codec: %s\n", item);
                                 free(fmt);
                                 free(s);
                                 return VIDCAP_INIT_FAIL;
                         }
 
                         /* card name */
-                        tmp = strtok(NULL, ":");
-                        if(tmp) {
-                                tmp[strlen(tmp)] = ':';
-                                strncat(card_name, fmt, sizeof card_name - 1);
+                        item = strtok(NULL, ":");
+                        if(item) {
+                                snprintf(card_name, sizeof card_name, "PCI,card:%s", item);
                                 printf("[DVS] Choosen card: %s.\n", card_name);
+                        }
+                } else { // new format - key=value
+                        char *tmp = fmt;
+                        while ((item = strtok(tmp, ":"))) {
+                                if (strncmp(item, "mode=", sizeof("mode=")) == 0) {
+                                        mode_index = atoi(strchr(item, '=') + 1);
+                                        for(i=0; hdsp_mode_table[i].width != 0; i++) {
+                                                if(hdsp_mode_table[i].mode == mode_index) {
+                                                        s->mode = &hdsp_mode_table[i];
+                                                        break;
+                                                }
+                                        }
+                                        if(s->mode == NULL) {
+                                                fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
+                                                free(fmt);
+                                                free(s);
+                                                return VIDCAP_INIT_FAIL;
+                                        }
+                                } else if (strncmp(item, "device=", sizeof("device=")) == 0) {
+                                        snprintf(card_name, sizeof card_name, "PCI,card:%s", strchr(item, '=') + 1);
+                                        printf("[DVS] Choosen card: %s.\n", card_name);
+                                } else if (strncmp(item, "codec=", sizeof("codec=")) == 0) {
+                                        s->frame->color_spec = get_codec_from_name(strchr(item, '=') + 1);
+                                        if (s->frame->color_spec == VIDEO_CODEC_NONE) {
+                                                fprintf(stderr, "dvs: unknown codec: %s\n", item);
+                                                free(fmt);
+                                                free(s);
+                                                return VIDCAP_INIT_FAIL;
+                                        }
+                                } else {
+                                        log_msg(LOG_LEVEL_ERROR, "dvs: unknown option: %s\n", item);
+                                        free(fmt);
+                                        free(s);
+                                        return VIDCAP_INIT_FAIL;
+                                }
                         }
                 }
 
                 free(fmt);
-        } else {
-                s->detect_mode = TRUE;
         }
 
         gettimeofday(&s->t0, NULL);
@@ -341,7 +368,7 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
 
         s->hd_video_mode = 0;
 
-        if(!s->detect_mode) {
+        if(!s->mode) {
                 switch(s->frame->color_spec) {
                         case DVS10:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;

@@ -82,6 +82,8 @@
 #include "ntp.h"
 #include "rtp.h"
 
+#undef max
+#undef min
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 
@@ -2798,7 +2800,7 @@ rtp_send_data_hdr(struct rtp *session,
         }
 
 #ifdef WIN32
-        send_vector[0].buf = buffer + RTP_PACKET_HEADER_SIZE;
+        send_vector[0].buf = (char *) (buffer + RTP_PACKET_HEADER_SIZE);
         send_vector[0].len = buffer_len;
 #else
         send_vector[0].iov_base = buffer + RTP_PACKET_HEADER_SIZE;

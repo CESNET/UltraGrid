@@ -446,6 +446,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                 compute_dst_rect(s, s->current_display_desc.width, s->current_display_desc.height, s->sdl_screen->w, s->sdl_screen->h, s->current_display_desc.color_spec);
         }
 
+        const char *window_title = get_commandline_param("window-title");
         if (window_title) {
                 SDL_WM_SetCaption(window_title, window_title);
         } else {

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2017 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,8 @@
 using std::max;
 using std::min;
 #else
+#undef max
+#undef min
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
@@ -75,28 +77,18 @@ struct state_libavcodec_decompress {
         codec_t          in_codec;
         codec_t          out_codec;
 
-        int              last_frame_seq;
+        unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
+        bool             last_frame_seq_initialized;
 
         struct video_desc saved_desc;
         unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
         bool             broken_h264_mt_decoding_workaroud_active;
 };
 
-static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
-static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch);
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch);
 static void error_callback(void *, int, const char *, va_list);
+static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
 
 static bool broken_h264_mt_decoding = false;
 
@@ -159,14 +151,20 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
 
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
+        // callback to negotiate pixel format that is supported by UG
+        s->codec_ctx->get_format = get_format_callback;
 }
 
-static bool configure_with(struct state_libavcodec_decompress *s,
-                struct video_desc desc)
+static void jpeg_callback(void)
 {
-        enum AVCodecID codec_id;
-        const char *preferred_decoders[11]; // must be NULL-terminated
-        memset(preferred_decoders, 0, sizeof preferred_decoders);
+        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
+                        "will use full-scale YUV.\n");
+}
+
+struct decoder_info {
+        codec_t ug_codec;
+        enum AVCodecID avcodec_id;
+        void (*codec_callback)(void);
         // Note:
         // Make sure that if adding hw decoders to prefered_decoders[] that
         // that decoder fails if there is not the HW during init, not while decoding
@@ -176,66 +174,70 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // cuvid decoders cannot be currently used as the default ones because they
         // currently support only 4:2:0 subsampling and fail during decoding if other
         // subsampling is given.
-        switch(desc.color_spec) {
-                case H264:
-                        //preferred_decoders[0] = "h264_cuvid";
-                        codec_id = AV_CODEC_ID_H264;
+        const char *preferred_decoders[11]; // must be NULL-terminated
+};
+
+static const struct decoder_info decoders[] = {
+        { H264, AV_CODEC_ID_H264, NULL, { NULL /* "h264_cuvid" */ } },
+        { H265, AV_CODEC_ID_HEVC, NULL, { NULL /* "hevc_cuvid" */ } },
+        { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
+        { JPEG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
+        { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
+        { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
+        { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
+};
+
+ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
+                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter\n");
+static bool configure_with(struct state_libavcodec_decompress *s,
+                struct video_desc desc)
+{
+        const struct decoder_info *dec = NULL;
+
+        for (unsigned int i = 0; i < sizeof decoders / sizeof decoders[0]; ++i) {
+                if (decoders[i].ug_codec == desc.color_spec) {
+                        dec = &decoders[i];
                         break;
-                case H265:
-                        //preferred_decoders[0] = "hevc_cuvid";
-                        codec_id = AV_CODEC_ID_HEVC;
-                        break;
-                case MJPG:
-                case JPEG:
-                        codec_id = AV_CODEC_ID_MJPEG;
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: JPEG decoder "
-                                        "will use full-scale YUV.\n");
-                        break;
-                case J2K:
-                        codec_id = AV_CODEC_ID_JPEG2000;
-                        break;
-                case VP8:
-                        codec_id = AV_CODEC_ID_VP8;
-                        break;
-                case VP9:
-                        codec_id = AV_CODEC_ID_VP9;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
-                        return false;
+                }
         }
-        // boundry check
-        assert(preferred_decoders[(sizeof preferred_decoders / sizeof preferred_decoders[0]) - 1] == NULL);
+
+        if (dec == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unsupported codec!!!\n");
+                return false;
+        }
+
+        if (dec->codec_callback) {
+                dec->codec_callback();
+        }
 
         // construct priority list of decoders that can be used for the codec
         AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
         memset(codecs_available, 0, sizeof codecs_available);
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
-        /**
-         * @addtogroup cmdline_params
-         * @{
-         * * force-lavd-decoder
-         *   Forces specified Libavcodec decoder
-         * @}
-         */
         if (get_commandline_param("force-lavd-decoder")) {
-                const char *val = get_commandline_param("force-lavd-decoder");
-                AVCodec *codec = avcodec_find_decoder_by_name(val);
-                if (codec == NULL) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", val);
-                } else {
-                        if (codec->id == codec_id) {
-                                if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
-                                        codecs_available[codec_index++] = codec;
-                                }
+                const char *param = get_commandline_param("force-lavd-decoder");
+                char *val = alloca(strlen(param) + 1);
+                strcpy(val, param);
+                char *item, *save_ptr;
+                while ((item = strtok_r(val, ":", &save_ptr))) {
+                        val = NULL;
+                        AVCodec *codec = avcodec_find_decoder_by_name(item);
+                        if (codec == NULL) {
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", item);
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", val);
+                                if (codec->id == dec->avcodec_id) {
+                                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
+                                                codecs_available[codec_index++] = codec;
+                                        }
+                                } else {
+                                        log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not valid for codec: %s\n", item);
+                                }
                         }
                 }
         }
         // then try preferred codecs
-        const char **preferred_decoders_it = preferred_decoders;
+        const char * const *preferred_decoders_it = dec->preferred_decoders;
         while (*preferred_decoders_it) {
                 AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
                 if (codec == NULL) {
@@ -251,7 +253,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         // finally, add a default one if there are no preferred encoders or all fail
         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                codecs_available[codec_index++] = avcodec_find_decoder(codec_id);
+                codecs_available[codec_index++] = avcodec_find_decoder(dec->avcodec_id);
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
@@ -292,7 +294,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         av_init_packet(&s->pkt);
 
-        s->last_frame_seq = -1;
+        s->last_frame_seq_initialized = false;
         s->saved_desc = desc;
 
         return true;
@@ -333,7 +335,7 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
                 (struct state_libavcodec_decompress *) state;
         
         s->pitch = pitch;
-        assert(out_codec == UYVY || out_codec == RGB);
+        assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
 
         s->pitch = pitch;
         s->rshift = rshift;
@@ -364,6 +366,23 @@ static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
         }
 }
 
+static void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch)
+{
+        for (int y = 0; y < height; ++y) {
+                vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY));
+        }
+}
+
+static void rgb24_to_rgb(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch)
+{
+        for (int y = 0; y < height; ++y) {
+                memcpy(dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                vc_get_linesize(width, RGB));
+        }
+}
+
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
@@ -389,6 +408,68 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
         }
 }
 
+static void yuv420p_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height / 2; ++y) {
+                uint8_t *src_y1 = (in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint8_t *src_y2 = (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
+                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src_cb << 2;
+                        w1_0 = *src_cb << 2;
+                        src_cb++;
+                        w0_0 = w0_0 | (*src_y1++ << 2) << 10;
+                        w1_0 = w1_0 | (*src_y2++ << 2) << 10;
+                        w0_0 = w0_0 | (*src_cr << 2) << 20;
+                        w1_0 = w1_0 | (*src_cr << 2) << 20;
+                        src_cr++;
+
+                        w0_1 = *src_y1++ << 2;
+                        w1_1 = *src_y2++ << 2;
+                        w0_1 = w0_1 | (*src_cb << 2) << 10;
+                        w1_1 = w1_1 | (*src_cb << 2) << 10;
+                        src_cb++;
+                        w0_1 = w0_1 | (*src_y1++ << 2) << 20;
+                        w1_1 = w1_1 | (*src_y2++ << 2) << 20;
+
+                        w0_2 = *src_cr << 2;
+                        w1_2 = *src_cr << 2;
+                        src_cr++;
+                        w0_2 = w0_2 | (*src_y1++ << 2) << 10;
+                        w1_2 = w1_2 | (*src_y2++ << 2) << 10;
+                        w0_2 = w0_2 | (*src_cb << 2) << 20;
+                        w1_2 = w1_2 | (*src_cb << 2) << 20;
+                        src_cb++;
+
+                        w0_3 = *src_y1++;
+                        w1_3 = *src_y2++;
+                        w0_3 = w0_3 | (*src_cr << 2) << 10;
+                        w1_3 = w1_3 | (*src_cr << 2) << 10;
+                        src_cr++;
+                        w0_3 = w0_3 | (*src_y1++ << 2) << 20;
+                        w1_3 = w1_3 | (*src_y2++ << 2) << 20;
+
+                        *dst1++ = w0_0;
+                        *dst1++ = w0_1;
+                        *dst1++ = w0_2;
+                        *dst1++ = w0_3;
+
+                        *dst2++ = w1_0;
+                        *dst2++ = w1_1;
+                        *dst2++ = w1_2;
+                        *dst2++ = w1_3;
+                }
+        }
+}
+
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
@@ -405,6 +486,43 @@ static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 }
         }
 }
+
+static void yuv422p_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint8_t *src_y = (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = *src_cb++ << 2;
+                        w0_0 = w0_0 | (*src_y++ << 2) << 10;
+                        w0_0 = w0_0 | (*src_cr++ << 2) << 20;
+
+                        w0_1 = *src_y++ << 2;
+                        w0_1 = w0_1 | (*src_cb++ << 2) << 10;
+                        w0_1 = w0_1 | (*src_y++ << 2) << 20;
+
+                        w0_2 = *src_cr++ << 2;
+                        w0_2 = w0_2 | (*src_y++ << 2) << 10;
+                        w0_2 = w0_2 | (*src_cb++ << 2) << 20;
+
+                        w0_3 = *src_y++ << 2;
+                        w0_3 = w0_3 | (*src_cr++ << 2) << 10;
+                        w0_3 = w0_3 | (*src_y++ << 2) << 20;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
 
 static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
@@ -424,6 +542,49 @@ static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 }
         }
 }
+
+static void yuv444p_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint8_t *src_y = (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *src_cb = (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint8_t *src_cr = (in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = ((src_cb[0] << 2) + (src_cb[1] << 2)) / 2;
+                        w0_0 = w0_0 | (*src_y++ << 2) << 10;
+                        w0_0 = w0_0 | ((src_cr[0] << 2) + (src_cr[1] << 2)) / 2 << 20;
+                        src_cb += 2;
+                        src_cr += 2;
+
+                        w0_1 = *src_y++ << 2;
+                        w0_1 = w0_1 | ((src_cb[0] << 2) + (src_cb[1] << 2)) / 2 << 10;
+                        w0_1 = w0_1 | (*src_y++ << 2) << 20;
+                        src_cb += 2;
+
+                        w0_2 = ((src_cr[0] << 2) + (src_cr[1] << 2)) / 2;
+                        w0_2 = w0_2 | (*src_y++ << 2) << 10;
+                        w0_2 = w0_2 | ((src_cb[0] << 2) + (src_cb[1] << 2)) / 2 << 20;
+                        src_cr += 2;
+                        src_cb += 2;
+
+                        w0_3 = *src_y++ << 2;
+                        w0_3 = w0_3 | ((src_cr[0] << 2) + (src_cr[1] << 2)) / 2 << 10;
+                        w0_3 = w0_3 | (*src_y++ << 2) << 20;
+                        src_cr += 2;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
 
 /**
  * Changes pixel format from planar YUV 422 to packed RGB.
@@ -525,6 +686,365 @@ static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
 }
 
 /**
+ * Changes pixel format from planar YUV 444 to packed RGB.
+ * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
+ */
+static void yuv444p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+                for(int x = 0; x < width; ++x) {
+                        int cb = *src_cb++ - 128;
+                        int cr = *src_cr++ - 128;
+                        int y = *src_y++ << 16;
+                        int r = 75700 * cr;
+                        int g = -26864 * cb - 38050 * cr;
+                        int b = 133176 * cb;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
+                }
+        }
+}
+
+static void yuv420p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height / 2; ++y) {
+                uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
+                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src_cb;
+                        w1_0 = *src_cb;
+                        src_cb++;
+                        w0_0 = w0_0 | (*src_y1++) << 10;
+                        w1_0 = w1_0 | (*src_y2++) << 10;
+                        w0_0 = w0_0 | (*src_cr) << 20;
+                        w1_0 = w1_0 | (*src_cr) << 20;
+                        src_cr++;
+
+                        w0_1 = *src_y1++;
+                        w1_1 = *src_y2++;
+                        w0_1 = w0_1 | (*src_cb) << 10;
+                        w1_1 = w1_1 | (*src_cb) << 10;
+                        src_cb++;
+                        w0_1 = w0_1 | (*src_y1++) << 20;
+                        w1_1 = w1_1 | (*src_y2++) << 20;
+
+                        w0_2 = *src_cr;
+                        w1_2 = *src_cr;
+                        src_cr++;
+                        w0_2 = w0_2 | (*src_y1++) << 10;
+                        w1_2 = w1_2 | (*src_y2++) << 10;
+                        w0_2 = w0_2 | (*src_cb) << 20;
+                        w1_2 = w1_2 | (*src_cb) << 20;
+                        src_cb++;
+
+                        w0_3 = *src_y1++;
+                        w1_3 = *src_y2++;
+                        w0_3 = w0_3 | (*src_cr) << 10;
+                        w1_3 = w1_3 | (*src_cr) << 10;
+                        src_cr++;
+                        w0_3 = w0_3 | (*src_y1++) << 20;
+                        w1_3 = w1_3 | (*src_y2++) << 20;
+
+                        *dst1++ = w0_0;
+                        *dst1++ = w0_1;
+                        *dst1++ = w0_2;
+                        *dst1++ = w0_3;
+
+                        *dst2++ = w1_0;
+                        *dst2++ = w1_1;
+                        *dst2++ = w1_2;
+                        *dst2++ = w1_3;
+                }
+        }
+}
+
+static void yuv422p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = *src_cb++;
+                        w0_0 = w0_0 | (*src_y++) << 10;
+                        w0_0 = w0_0 | (*src_cr++) << 20;
+
+                        w0_1 = *src_y++;
+                        w0_1 = w0_1 | (*src_cb++) << 10;
+                        w0_1 = w0_1 | (*src_y++) << 20;
+
+                        w0_2 = *src_cr++;
+                        w0_2 = w0_2 | (*src_y++) << 10;
+                        w0_2 = w0_2 | (*src_cb++) << 20;
+
+                        w0_3 = *src_y++;
+                        w0_3 = w0_3 | (*src_cr++) << 10;
+                        w0_3 = w0_3 | (*src_y++) << 20;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
+static void yuv444p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = (src_cb[0] + src_cb[1]) / 2;
+                        w0_0 = w0_0 | (*src_y++) << 10;
+                        w0_0 = w0_0 | (src_cr[0] + src_cr[1]) / 2 << 20;
+                        src_cb += 2;
+                        src_cr += 2;
+
+                        w0_1 = *src_y++;
+                        w0_1 = w0_1 | (src_cb[0] + src_cb[1]) / 2 << 10;
+                        w0_1 = w0_1 | (*src_y++) << 20;
+                        src_cb += 2;
+
+                        w0_2 = (src_cr[0] + src_cr[1]) / 2;
+                        w0_2 = w0_2 | (*src_y++) << 10;
+                        w0_2 = w0_2 | (src_cb[0] + src_cb[1]) / 2 << 20;
+                        src_cr += 2;
+                        src_cb += 2;
+
+                        w0_3 = *src_y++;
+                        w0_3 = w0_3 | (src_cr[0] + src_cr[1]) / 2 << 10;
+                        w0_3 = w0_3 | (*src_y++) << 20;
+                        src_cr += 2;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
+static void yuv420p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height / 2; ++y) {
+                uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint8_t *dst1 = (uint8_t *)(void *)(dst_buffer + (y * 2) * pitch);
+                uint8_t *dst2 = (uint8_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+
+                for(int x = 0; x < width / 2; ++x) {
+                        uint8_t tmp;
+                        // U
+                        tmp = *src_cb++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                        // V
+                        tmp = *src_cr++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                }
+        }
+}
+
+static void yuv422p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst++ = *src_cb++ >> 2;
+                        *dst++ = *src_y++ >> 2;
+                        *dst++ = *src_cr++ >> 2;
+                        *dst++ = *src_y++ >> 2;
+                }
+        }
+}
+
+static void yuv444p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst++ = (src_cb[0] + src_cb[0]) / 2 >> 2;
+                        *dst++ = *src_y++ >> 2;
+                        *dst++ = (src_cr[0] + src_cr[1]) / 2 >> 2;
+                        *dst++ = *src_y++ >> 2;
+                        src_cb += 2;
+                        src_cr += 2;
+                }
+        }
+}
+
+static void yuv420p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        char *uyvy = tmp;
+        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
+        for (int i = 0; i < height; i++) {
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                uyvy += vc_get_linesize(UYVY, width);
+                dst_buffer += pitch;
+        }
+        free(tmp);
+}
+
+static void yuv422p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        char *uyvy = tmp;
+        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
+        for (int i = 0; i < height; i++) {
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                uyvy += vc_get_linesize(UYVY, width);
+                dst_buffer += pitch;
+        }
+        free(tmp);
+}
+
+static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        char *uyvy = tmp;
+        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
+        for (int i = 0; i < height; i++) {
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                uyvy += vc_get_linesize(UYVY, width);
+                dst_buffer += pitch;
+        }
+        free(tmp);
+}
+
+static void not_implemented_conv(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        UNUSED(dst_buffer);
+        UNUSED(in_frame);
+        UNUSED(width);
+        UNUSED(height);
+        UNUSED(pitch);
+        log_msg(LOG_LEVEL_ERROR, "Selected conversion is not implemented!\n");
+}
+
+
+static const struct {
+        int av_codec;
+        codec_t uv_codec;
+        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch);
+} convert_funcs[] = {
+        // 10-bit YUV
+        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210},
+        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy},
+        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24},
+        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210},
+        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy},
+        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24},
+        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210},
+        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy},
+        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24},
+        // 8-bit YUV
+        {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210},
+        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422},
+        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24},
+        {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210},
+        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422},
+        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24},
+        {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210},
+        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422},
+        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
+        // 8-bit YUV (JPEG color range)
+        {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210},
+        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422},
+        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24},
+        {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210},
+        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422},
+        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
+        {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210},
+        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422},
+        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
+        // 8-bit YUV (NV12)
+        {AV_PIX_FMT_NV12, v210, not_implemented_conv},
+        {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422},
+        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
+        // RGB
+        {AV_PIX_FMT_RGB24, v210, not_implemented_conv},
+        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
+        {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+};
+
+static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
+{
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                char out[1024] = "[lavd] Available output pixel formats:";
+                const enum AVPixelFormat *it = fmt;
+                while (*it != AV_PIX_FMT_NONE) {
+                        strncat(out, " ", sizeof out - strlen(out) - 1);
+                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                }
+                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
+        }
+
+        while (*fmt != AV_PIX_FMT_NONE) {
+                for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                        if (convert_funcs[i].av_codec == *fmt) {
+                                return *fmt;
+                        }
+                }
+                fmt++;
+        }
+
+        return AV_PIX_FMT_NONE;
+}
+
+
+/**
  * Changes pixel format from frame to native (currently UYVY).
  *
  * @todo             figure out color space transformations - eg. JPEG returns full-scale YUV.
@@ -542,45 +1062,18 @@ static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch) {
-        assert(out_codec == UYVY || out_codec == RGB);
+        assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
 
-        if(is422(av_codec)) {
-                if(out_codec == UYVY) {
-                        yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
-                } else {
-                        yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
+        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch) = NULL;
+        for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                if (convert_funcs[i].av_codec == av_codec &&
+                                convert_funcs[i].uv_codec == out_codec) {
+                        convert = convert_funcs[i].convert;
                 }
-        } else if(is420(av_codec)) {
-                if(out_codec == UYVY) {
-                        if (av_codec == AV_PIX_FMT_NV12) {
-                                nv12_to_yuv422((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
-                        }
-                } else {
-                        if (av_codec == AV_PIX_FMT_NV12) {
-                                nv12_to_rgb24((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
-                        }
-                }
-        } else if (is444(av_codec)) {
-                if (out_codec == UYVY) {
-                        yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "For yuv444p, there is transcoding to UYVY only!\n");
-                        return FALSE;
-                }
-        } else if (av_codec == AV_PIX_FMT_RGB24) {
-                if (out_codec == RGB) {
-                        for (int y = 0; y < height; ++y) {
-                                memcpy(dst + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                                vc_get_linesize(width, RGB));
-                        }
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "For RGB24, there is transcoding to RGB only!\n");
-                        return FALSE;
-                }
+        }
+
+        if (convert) {
+                convert((char *) dst, frame, width, height, pitch);
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
                                 "format: %s (id %d)\n",
@@ -652,35 +1145,25 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                 }
 
                 if(got_frame) {
-                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", tv_diff(t1, t0), av_get_picture_type_char(s->frame->pict_type));
-                        /* pass frame only if this is I-frame or we have complete
-                         * GOP (assuming we are not using B-frames */
-                        if(
-#ifdef LAVD_ACCEPT_CORRUPTED
-                                        true
-#else
-                                        s->frame->pict_type == AV_PICTURE_TYPE_I ||
-                                        /* H.264 is quite error-resilient so we
-                                         * put all frames no matter if missing
-                                         * I-frames */
-                                        (s->in_codec == H264) ||
-#ifndef DISABLE_H265_INTRA_REFRESH
-                                        (s->in_codec == H265) ||
-#endif
-                                        (s->frame->pict_type == AV_PICTURE_TYPE_P &&
-                                         s->last_frame_seq == frame_seq - 1)
-#endif // LAVD_ACCEPT_CORRUPTED
-                                        ) {
+                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0));
+                        /* Skip the frame if this is not an I-frame
+                         * and we have missed some of previous frames for VP8 because the
+                         * decoder makes ugly artifacts. We rather wait for next I-frame. */
+                        if (s->in_codec == VP8 &&
+                                        (s->frame->pict_type != AV_PICTURE_TYPE_I &&
+                                         (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
+                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
+                                                "(last valid %d, this %u).\n",
+                                                s->last_frame_seq_initialized ?
+                                                s->last_frame_seq : -1, (unsigned) frame_seq);
+                                res = FALSE;
+                        } else {
                                 res = change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
                                                 s->out_codec, s->width, s->height, s->pitch);
                                 if(res == TRUE) {
+                                        s->last_frame_seq_initialized = true;
                                         s->last_frame_seq = frame_seq;
                                 }
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
-                                                "(last valid %d, this %d).\n", s->last_frame_seq,
-                                                frame_seq);
-                                res = FALSE;
                         }
                 }
 
@@ -745,8 +1228,13 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
+ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
+                "* lavd-use-10bit\n"
+                "  Indicates that we are using decoding to v210 (currently only H.264/HEVC).\n"
+                "  If so, it can be decompressed to v210. With this flag, v210 (10-bit YUV)\n"
+                "  will be announced as a supported codec.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
-        static const struct decode_from_to ret[] = {
+        const struct decode_from_to dec_static[] = {
                 { H264, UYVY, 500 },
                 { H265, UYVY, 500 },
                 { JPEG, UYVY, 600 },
@@ -754,8 +1242,24 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 { J2K, RGB, 500 },
                 { VP8, UYVY, 500 },
                 { VP9, UYVY, 500 },
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
+
+        static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        static struct decode_from_to ret[sizeof dec_static / sizeof dec_static[0] + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
+
+        pthread_mutex_lock(&lock); // prevent concurent initialization
+        if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
+                memcpy(ret, dec_static, sizeof dec_static);
+                // add also decoder from H.264/HEVC to v210 if user explicitly indicated to do so
+                if (get_commandline_param("lavd-use-10bit")) {
+                        ret[sizeof dec_static / sizeof dec_static[0]] =
+                                (struct decode_from_to) {H264, v210, 400};
+                        ret[sizeof dec_static / sizeof dec_static[0] + 1] =
+                                (struct decode_from_to) {H265, v210, 400};
+                }
+        }
+        pthread_mutex_unlock(&lock); // prevent concurent initialization
+
         return ret;
 }
 

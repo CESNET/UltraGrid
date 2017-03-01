@@ -1,0 +1,202 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile	2016-07-29 12:52:24.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile	2016-11-10 12:35:45.260626366 +0100
+@@ -1,13 +1,15 @@
+ #################################
+ # VideoMasterHD
+ #################################
+-
++DESTDIR ?= /
++libdir ?= /usr/lib
+ default:
+ 	
+ install:
+-	cp libvideomasterhd.so.1.0.1 /usr/lib
+-	/sbin/ldconfig
+-	ln -sf /usr/lib/libvideomasterhd.so.1 /usr/lib/libvideomasterhd.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)
++	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
++	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so 
+ 
+ 	
+ 	
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile	2016-07-29 12:45:18.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile	2016-11-10 12:36:08.509034544 +0100
+@@ -5,18 +5,13 @@
+ #################################
+ # Setup common variables
+ #################################
+-
+-LBITS := $(shell getconf LONG_BIT)
+-ifeq ($(LBITS),64)
+-TARGET_DIR := lib32
+-else
+-TARGET_DIR := lib
+-endif
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 	
+ install:
+-
+-	cp libvideomasterhd.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd.so.1.0.1
+-	/sbin/ldconfig
+-	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/$(TARGET_DIR)/libvideomasterhd.so
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1.0.1
++	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
++	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile	2016-07-29 12:52:32.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile	2016-11-10 12:36:33.357470804 +0100
+@@ -1,11 +1,13 @@
+ #################################
+ # VideoMasterHD_Audio
+ #################################
+-
++DESTDIR ?= /
++libdir ?= /usr/lib
+ default:
+ 
+ install:
+-	cp libvideomasterhd_audio.so.1.0.1 /usr/lib
+-	/sbin/ldconfig
+-	ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/lib/libvideomasterhd_audio.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)
++	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
++	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so 
+ 
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile	2016-07-29 12:45:28.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile	2016-11-10 12:36:53.389822505 +0100
+@@ -5,18 +5,13 @@
+ #################################
+ # Setup common variables
+ #################################
+-
+-LBITS := $(shell getconf LONG_BIT)
+-ifeq ($(LBITS),64)
+-TARGET_DIR := lib32
+-else
+-TARGET_DIR := lib
+-endif
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 
+ install:
+-
+-	cp libvideomasterhd_audio.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1.0.1
+-	/sbin/ldconfig
+-	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1.0.1
++	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
++	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile	2016-07-29 12:52:32.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile	2016-11-10 12:37:03.966008184 +0100
+@@ -1,12 +1,15 @@
+ #################################
+ # VideoMasterHD_Vbi
+ #################################
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 
+ install:
+-	cp libvideomasterhd_vbi.so.1.0.1 /usr/lib
+-	/sbin/ldconfig
+-	ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/lib/libvideomasterhd_vbi.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)
++	ln -sf libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1
++	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
+ 
+ 	
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile	2016-07-29 12:45:28.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile	2016-11-10 12:37:22.462332910 +0100
+@@ -5,19 +5,14 @@
+ #################################
+ # Setup common variables
+ #################################
+-
+-LBITS := $(shell getconf LONG_BIT)
+-ifeq ($(LBITS),64)
+-TARGET_DIR := lib32
+-else
+-TARGET_DIR := lib
+-endif
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 
+ install:
+-
+-	cp libvideomasterhd_vbi.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1.0.1
+-	/sbin/ldconfig
+-	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1.0.1
++	ln -sf libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1
++	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
+ 	
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile	2016-07-29 12:52:34.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile	2016-11-10 12:37:34.846550326 +0100
+@@ -1,12 +1,14 @@
+ #################################
+ # VideoMasterHD_Vbi
+ #################################
+-
++DESTDIR ?= /
++libdir ?= /usr/lib
+ default:
+ 
+ install:
+-	cp libvideomasterhd_vbidata.so.1.0.1 /usr/lib
+-	/sbin/ldconfig
+-	ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/lib/libvideomasterhd_vbidata.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)
++	ln -sf libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1
++	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
+ 
+ 	
+diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile	2016-07-29 12:45:30.000000000 +0200
++++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile	2016-11-10 12:37:57.434946882 +0100
+@@ -5,19 +5,14 @@
+ #################################
+ # Setup common variables
+ #################################
+-
+-LBITS := $(shell getconf LONG_BIT)
+-ifeq ($(LBITS),64)
+-TARGET_DIR := lib32
+-else
+-TARGET_DIR := lib
+-endif
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 
+ install:
+-
+-	cp libvideomasterhd_vbidata.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1.0.1
+-	/sbin/ldconfig
+-	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1.0.1
++	ln -sf libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1
++	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
+ 	

@@ -189,11 +189,11 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>]\n");
+        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
-        printf("\t\t<tfp> or <fps> should be given as a single integer or a fraction");
+        printf("\t\t<tfp> or <fps> should be given as a single integer or a fraction\n");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
@@ -374,12 +374,12 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 char *save_ptr = NULL;
                 char *item;
                 while((item = strtok_r(init_fmt, ":", &save_ptr))) {
-                        if (strncmp(item, "dev=",
-                                        strlen("dev=")) == 0) {
-                                dev_name = item + strlen("dev=");
-                        } else if (strncmp(item, "fmt=",
-                                        strlen("fmt=")) == 0) {
-                                                char *fmt = item + strlen("fmt=");
+                        if (strncmp(item, "dev=", strlen("dev=")) == 0
+                                        || strncmp(item, "device=", strlen("device=")) == 0) {
+                                dev_name = strchr(item, '=') + 1;
+                        } else if (strncmp(item, "fmt=", strlen("fmt=")) == 0
+                         || strncmp(item, "codec=", strlen("codec=")) == 0) {
+                                                char *fmt = strchr(item, '=') + 1;
                                                 union {
                                                         uint32_t fourcc;
                                                         char str[4];

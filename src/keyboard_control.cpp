@@ -76,9 +76,9 @@ static void catch_signal(int)
 static struct termios old_tio;
 #endif
 
+#ifdef HAVE_TERMIOS_H
 static void restore_old_tio(void)
 {
-#ifdef HAVE_TERMIOS_H
         struct sigaction sa, sa_old;
         memset(&sa, 0, sizeof sa);
         sa.sa_handler = SIG_IGN;
@@ -88,8 +88,8 @@ static void restore_old_tio(void)
         /* restore the former settings */
         tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
         sigaction(SIGTTOU, &sa_old, NULL);
-#endif
 }
+#endif
 
 keyboard_control::keyboard_control() :
         m_root(nullptr),
@@ -103,8 +103,13 @@ keyboard_control::keyboard_control() :
 {
 }
 
+ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
+                "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start(struct module *root)
 {
+        if (get_commandline_param("disable-keyboard-control")) {
+                return;
+        }
         m_root = root;
 #ifdef HAVE_TERMIOS_H
         if (pipe(m_should_exit_pipe) != 0) {
@@ -166,7 +171,7 @@ void keyboard_control::stop()
 #endif
 }
 
-#define LOCKED_MSG() do { cout << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
+#define LOCKED_MSG() do { LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
 
 void keyboard_control::run()
 {

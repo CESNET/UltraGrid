@@ -604,7 +604,7 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
         return ret;
 }
 
-static struct client *add_client(struct client *clients, int fd) {
+static struct client *add_client(struct client *clients, fd_t fd) {
         struct client *new_client = (struct client *)
                 malloc(sizeof(struct client));
         new_client->fd = fd;
@@ -618,6 +618,8 @@ static struct client *add_client(struct client *clients, int fd) {
         return new_client;
 }
 
+ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-global\n"
+                "  Open control socket to public network.\n");
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
@@ -672,17 +674,10 @@ static void * control_thread(void *args)
 
                 if ((rc = select(max_fd, &fds, NULL, NULL, timeout_ptr)) >= 1) {
                         if(s->connection_type == SERVER && FD_ISSET(s->socket_fd, &fds)) {
-                                int fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
+                                fd_t fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
                                 if (fd == INVALID_SOCKET) {
                                         socket_error("[control socket] accept");
                                 } else {
-					/**
-					 * @addtogroup cmdline_params
-					 * @{
-					 * * control-accept-global
-					 *   Open control socket to public network.
-					 * @}
-					 */
                                         if (get_commandline_param("control-accept-global") ||
                                                         is_addr_loopback(&client_addr)) {
                                                 clients = add_client(clients, fd);

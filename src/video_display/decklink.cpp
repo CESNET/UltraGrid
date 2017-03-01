@@ -103,6 +103,7 @@ namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
 public:
+        virtual ~PlaybackDelegate() = default;
         // IUnknown needs only a dummy implementation
         virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
@@ -153,6 +154,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 BMDTimecodeBCD timecode;
         public:
                 DeckLinkTimecode() : timecode(0) {}
+                virtual ~DeckLinkTimecode() = default;
                 /* IDeckLinkTimecode */
                 virtual BMDTimecodeBCD STDMETHODCALLTYPE GetBCD (void) { return timecode; }
                 virtual HRESULT STDMETHODCALLTYPE GetComponents (/* out */ uint8_t *hours, /* out */ uint8_t *minutes, /* out */ uint8_t *seconds, /* out */ uint8_t *frames) { 
@@ -298,9 +300,9 @@ struct state_decklink {
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
  };
 
-static void show_help(void);
+static void show_help(bool full);
 
-static void show_help(void)
+static void show_help(bool full)
 {
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
@@ -308,10 +310,30 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:low-latency]\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency]\n");
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
+        if (!full) {
+                printf("\t\tconversion - use '-d decklink:fullhelp' for list of conversions\n");
+        } else {
+                printf("\t\toutput conversion can be:\n"
+                                "\t\t\tnone - no conversion\n"
+                                "\t\t\tltbx - down-converted letterbox SD\n"
+                                "\t\t\tamph - down-converted anamorphic SD\n"
+                                "\t\t\t720c - HD720 to HD1080 conversion\n"
+                                "\t\t\tHWlb - simultaneous output of HD and down-converted letterbox SD\n"
+                                "\t\t\tHWam - simultaneous output of HD and down-converted anamorphic SD\n"
+                                "\t\t\tHWcc - simultaneous output of HD and center cut SD\n"
+                                "\t\t\txcap - simultaneous output of 720p and 1080p cross-conversion\n"
+                                "\t\t\tua7p - simultaneous output of SD and up-converted anamorphic 720p\n"
+                                "\t\t\tua1i - simultaneous output of SD and up-converted anamorphic 1080i\n"
+                                "\t\t\tu47p - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 720p\n"
+                                "\t\t\tu41i - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n"
+                                "\t\t\tup7p - simultaneous output of SD and up-converted pollarbox 720p\n"
+                                "\t\t\tup1i - simultaneous output of SD and up-converted pollarbox 1080i\n");
+        }
+
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL) {
@@ -828,12 +850,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->link = 0;
         cardId[0] = "0";
         s->devices_cnt = 1;
+        s->low_latency = true;
 
         if(fmt == NULL || strlen(fmt) == 0) {
                 fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
 
-        } else if (strcmp(fmt, "help") == 0) {
-                show_help();
+        } else if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                show_help(strcmp(fmt, "fullhelp") == 0);
                 delete s;
                 return &display_init_noerr;
         } else {
@@ -926,8 +949,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 				} else {
 					use1080p_not_psf = true;
 				}
-                        } else if (strcasecmp(ptr, "low-latency") == 0) {
-                                s->low_latency = true;
+                        } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
+                                s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                                 free(tmp);
@@ -948,9 +971,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         gettimeofday(&s->tv, NULL);
 
-        if (!s->low_latency) {
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Consider using low-latency mode "
-                        "since it will become default in future.\n";
+        if (s->low_latency) {
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using low-latency mode. "
+                        "In case of problems, you can try '-d decklink:no-low-latency'.\n";
         }
 
         // Initialize the DeckLink API
@@ -1131,9 +1154,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                          */
                         printf(MOD_NAME "Audio output set to: ");
                         switch(audioConnection) {
-                                case 0:
-                                        printf("embedded");
-                                        break;
                                 case bmdAudioOutputSwitchAESEBU:
                                         printf("AES/EBU");
                                         break;

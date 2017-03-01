@@ -212,8 +212,17 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
         m_coding_session->set_pcMatrix(filename);
 }
 
+ADD_TO_PARAM(ldgm_device, "ldgm-device", "* ldgm-device={CPU|GPU}\n"
+                "  specify whether use CPU or GPU for LDGM\n");
+
 void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
 {
+        bool ldgm_device_gpu = false;
+
+        if (get_commandline_param("ldgm-device")) {
+		ldgm_device_gpu = strcasecmp(get_commandline_param("ldgm-device"), "GPU");
+        }
+
         if (ldgm_device_gpu) {
                 LDGM_session_gpu *(*loader)();
                 loader = reinterpret_cast<LDGM_session_gpu *(*)()>(

@@ -1,0 +1,36 @@
+diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
+--- a/ultragrid-nightly/debian.rules	2017-02-13 12:00:45.568820527 +0100
++++ b/ultragrid-nightly/debian.rules	2017-02-13 12:00:45.952827605 +0100
+@@ -20,7 +20,7 @@ CARDCONF+= --enable-dvs --with-dvs=/usr/
+ #####################################################
+ # > blackmagick
+ #####################################################
+-CARDCONF+= --enable-decklink
++#CARDCONF+= --enable-decklink
+ #####################################################
+ # < blackmagick
+ #####################################################
+diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:45.568820527 +0100
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:45.992828343 +0100
+@@ -84,7 +84,7 @@ UltraGrid developed by Colin Perkins, La
+ #####################################################
+ # > blackmagick
+ #####################################################
+-%define build_blackmagick 1
++#%define build_blackmagick 1
+ #####################################################
+ # < blackmagick
+ #####################################################
+diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:45.576820674 +0100
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:46.168831588 +0100
+@@ -13,7 +13,7 @@ BuildRequires:	%kernel_module_package_bu
+ #####################################################
+ # > blackmagick (DesktopVideo)
+ #####################################################
+-Requires:	desktopvideo
++#Requires:	desktopvideo
+ #####################################################
+ # < blackmagick (Desktopvideo)
+ #####################################################

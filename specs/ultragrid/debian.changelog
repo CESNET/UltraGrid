@@ -1,0 +1,16 @@
+ultragrid (1.3-20150306) unstable; urgency=low
+  * NMU Ultragrid 1.3 released
+  * Disabled linsys and sage support 
+  * Added support for AJA cards
+  * Added support for live555, openssl and several other features
+
+ -- SITOLA repository (maintainer) <xrucka@fi.muni.cz>  Thu, 02 Jun 2015 15:16:00 +0200
+
+ultragrid (1.2-20131226u1404) trusty; urgency=low
+  * Ultragrid 1.2 released
+  * Disabled binary package containing fastdxt
+  * Added support for BlueFish444 cards, v4l2 and swmix (software videomixer)
+  * Added support for libavcodec compression
+
+ -- SITOLA repository (maintainer) <xrucka@fi.muni.cz>  Thu, 26 Dec 2013 16:18:00 +0100
+

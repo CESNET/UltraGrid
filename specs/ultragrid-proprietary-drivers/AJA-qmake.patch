@@ -1,0 +1,72 @@
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/qthevcmon/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/qthevcmon/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/qthevcmon/Makefile	2016-10-28 10:10:47.880000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/qthevcmon/Makefile	2016-10-28 09:59:37.824000000 +0000
+@@ -10,7 +10,7 @@ NTV2_ROOT := $(shell pwd)/../..
+ 
+ QT_PRO_FILE = qthevcmon.pro
+ QMAKE_FILE = qMakefile
+-QMAKE ?= qmake
++QMAKE ?= qmake-qt4
+ 
+ include $(NTV2_ROOT)/qt.mk
+ 
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 10:11:03.048000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 08:27:53.656000000 +0000
+@@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
+ 
+ dnl Get the operating system and version number...
+ uname=`uname`
+-uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[[^0-9]]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[^0-9]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.mk b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.mk
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.mk	2016-10-28 10:10:47.848000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.mk	2016-10-28 09:58:29.384000000 +0000
+@@ -115,7 +115,7 @@ export X11LIBDIR
+ 
+ # setup the QT Dirs
+ ifeq ($(QTDIR),)
+-    QTDIR := $(dir $(lastword $(shell qmake -v 2>&1)))
++    QTDIR := $(dir $(lastword $(shell qmake-qt4 -v 2>&1)))
+     ifeq ($(QTDIR),)
+         $(warning QTDIR environment variable not set, skipping applications that require Qt. Try installing the appropriate Qt package.)
+     endif
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtmultiinput/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtmultiinput/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtmultiinput/Makefile	2016-10-28 10:10:47.852000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtmultiinput/Makefile	2016-10-28 09:59:37.820000000 +0000
+@@ -22,7 +22,7 @@ export AJA_APP_BINDIR
+ QT_PRO_FILE = ntv2qtmultiinput.pro
+ QT_QRC_FILE = ntv2qtmultiinput.qrc
+ QMAKE_FILE = qMakefile
+-QMAKE ?= qmake
++QMAKE ?= qmake-qt4
+ 
+ include ../../qt.mk
+ 
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtpreview/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtpreview/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtpreview/Makefile	2016-10-28 10:10:47.852000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtpreview/Makefile	2016-10-28 09:59:37.820000000 +0000
+@@ -11,7 +11,7 @@ NTV2_ROOT := $(shell pwd)/../..
+ QT_PRO_FILE = ntv2qtpreview.pro
+ QT_QRC_FILE = ntv2qtpreview.qrc
+ QMAKE_FILE = qMakefile
+-QMAKE ?= qmake
++QMAKE ?= qmake-qt4
+ 
+ include $(NTV2_ROOT)/qt.mk
+ 
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtrawcapture/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtrawcapture/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtrawcapture/Makefile	2016-10-28 10:10:47.868000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/demoapps/ntv2qtrawcapture/Makefile	2016-10-28 09:59:37.824000000 +0000
+@@ -11,7 +11,7 @@ NTV2_ROOT := $(shell pwd)/../..
+ QT_PRO_FILE = ntv2qtrawcapture.pro
+ QT_QRC_FILE = ntv2qtrawcapture.qrc
+ QMAKE_FILE = qMakefile
+-QMAKE ?= qmake
++QMAKE ?= qmake-qt4
+ 
+ include ../../qt.mk
+ 

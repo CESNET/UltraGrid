@@ -108,7 +108,6 @@ else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi"
 	LIBS="$LIBS $NET_LIBS"
-        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
@@ -1519,7 +1518,7 @@ case "$system" in
 	Windows)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglut -lglew32 -lopengl32"
+	LIBS="$LIBS -lfreeglut -lglew32 -lopengl32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
 #include <GL/glew.h>
@@ -1532,8 +1531,8 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	LIBS=$SAVED_LIBS
 	AC_MSG_RESULT([$HAVE_GL])
 
-	if test "$HAVE_GL" = yes; then
-		GL_LIB="$GL_LIB -lglut -lglew32 -lopengl32"
+	if test $gl_req != no -a "$HAVE_GL" = yes; then
+		GL_LIB="$GL_LIB -lfreeglut -lglew32 -lopengl32"
 		GL_OBJ="$GL_OBJ src/video_display/gl.o"
 		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 		gl=yes	
@@ -1773,9 +1772,9 @@ then
         RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
-        ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMMON_OBJ",
+        ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMPRESS_OBJ ",
                   "$RTDXT_LIB")
-        ADD_MODULE("vdecompress_rtdxt", "$RTDXT_COMMON_OBJ",
+        ADD_MODULE("vdecompress_rtdxt", "$RTDXT_DECOMPRESS_OBJ ",
                   "$RTDXT_LIB")
         LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
 fi
@@ -1850,7 +1849,7 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
-AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
+AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH/bin$PATH_SEPARATOR$PATH]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
 if test -n "$NVCC" -a $cuda_req != no
@@ -1884,6 +1883,34 @@ then
         fi
 
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
+fi
+
+# CUDA host compiler
+HOST_CC_REPORT=""
+AC_ARG_WITH(cuda-host-compiler,
+	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
+if test "x${with_cuda_host_compiler}" != "x" ; then
+	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
+	if test "x${cuda_host_cc}" = "xyes" ; then
+		NVCCFLAGS+=" -ccbin ${with_cuda_host_compiler}"
+	else
+		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
+	fi
+else
+        # workaround, to remove - NVCC doesn't support gcc 6 but clang 3.8
+        if test $system = Linux -a $nvcc_major -eq 8; then
+                AC_CHECK_PROG([CLANG38], [clang-3.8], [yes])
+                if test "$CLANG38" == yes; then
+                        with_cuda_host_compiler="clang-3.8"
+                        NVCCFLAGS="$NVCCFLAGS -ccbin $with_cuda_host_compiler"
+                fi
+        else
+                with_cuda_host_compiler="default"
+        fi
+fi
+
+if test "x$NVCC" != "X" ; then
+	HOST_CC_REPORT=" (host code compiler: ${with_cuda_host_compiler})"
 fi
 
 AC_SUBST(NVCC)
@@ -2154,7 +2181,7 @@ fi
 speex=yes
 SPEEX_PATH=speex-1.2rc1
 SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
-SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o src/audio/jitter.o"
+SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
 SPEEX_LIB=
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
@@ -2460,6 +2487,7 @@ then
         LIBAVUTIL_LIBS="-lavutil"
 else
         found_libavcodec=no
+        found_libavutil=no
 fi
 else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
@@ -2691,7 +2719,7 @@ RESULT=\
   License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
-  CUDA support ................ $FOUND_CUDA
+  CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
   Syphon ...................... $syphon
 
