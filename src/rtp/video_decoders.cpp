@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2017 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -269,7 +269,7 @@ struct state_video_decoder
                 module_done(&mod);
         }
         struct module mod;
-        struct control_state *control;
+        struct control_state *control = {};
 
         thread decompress_thread_id,
                   fec_thread_id;
@@ -280,36 +280,36 @@ struct state_video_decoder
 
         struct display   *display = NULL; ///< assigned display device
         /// @{
-        codec_t           native_codecs[VIDEO_CODEC_COUNT]; ///< list of native codecs
-        size_t            native_count;  ///< count of @ref native_codecs
+        codec_t           native_codecs[VIDEO_CODEC_COUNT] = {}; ///< list of native codecs
+        size_t            native_count = 0;  ///< count of @ref native_codecs
         enum interlacing_t *disp_supported_il = NULL; ///< display supported interlacing mode
-        size_t            disp_supported_il_cnt; ///< count of @ref disp_supported_il
+        size_t            disp_supported_il_cnt = 0; ///< count of @ref disp_supported_il
         /// @}
 
-        unsigned int      max_substreams; ///< maximal number of expected substreams
+        unsigned int      max_substreams = 0; ///< maximal number of expected substreams
         change_il_t       change_il = NULL;      ///< function to change interlacing, if needed. Otherwise NULL.
         vector<void *>    change_il_state;
 
         mutex lock;
 
-        enum decoder_type_t decoder_type;  ///< how will the video data be decoded
+        enum decoder_type_t decoder_type = {};  ///< how will the video data be decoded
         struct line_decoder *line_decoder = NULL; ///< if the video is uncompressed and only pixelformat change
                                            ///< is neeeded, use this structure
         struct state_decompress **decompress_state = NULL; ///< state of the decompress (for every substream)
-        unsigned int accepts_corrupted_frame:1;     ///< whether we should pass corrupted frame to decompress
+        bool accepts_corrupted_frame = false;     ///< whether we should pass corrupted frame to decompress
         bool buffer_swapped = true; /**< variable indicating that display buffer
                               * has been processed and we can write to a new one */
         condition_variable buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
 
         synchronized_queue<unique_ptr<frame_msg>, 1> decompress_queue;
 
-        codec_t           out_codec;
-        int               pitch;
+        codec_t           out_codec = VIDEO_CODEC_NONE;
+        int               pitch = 0;
 
         synchronized_queue<unique_ptr<frame_msg>, 1> fec_queue;
 
-        enum video_mode   video_mode;  ///< video mode set for this decoder
-        unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
+        enum video_mode   video_mode = {} ;  ///< video mode set for this decoder
+        bool          merged_fb = false; ///< flag if the display device driver requires tiled video or not
 
         long int last_buffer_number = -1; ///< last received buffer ID
         timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
@@ -324,7 +324,7 @@ struct state_video_decoder
         bool             reconfiguration_in_progress = false;
 #endif
 
-        struct reported_statistics_cumul stats; ///< stats to be reported through control socket
+        struct reported_statistics_cumul stats = {}; ///< stats to be reported through control socket
 };
 
 /**
@@ -874,11 +874,7 @@ after_linedecoder_lookup:
                                                 DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
                                                 &res,
                                                 &size);
-                                if(ret && res) {
-                                        decoder->accepts_corrupted_frame = TRUE;
-                                } else {
-                                        decoder->accepts_corrupted_frame = FALSE;
-                                }
+                                decoder->accepts_corrupted_frame = ret && res;
 
                                 decoder->decoder_type = EXTERNAL_DECODER;
                                 goto after_decoder_lookup;
@@ -1065,7 +1061,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         out->dst_pitch = decoder->pitch;
                         out->src_linesize = vc_get_linesize(desc.width, desc.color_spec);
                         out->dst_linesize = vc_get_linesize(desc.width, out_codec);
-                        decoder->merged_fb = TRUE;
+                        decoder->merged_fb = true;
                 } else if(display_mode == DISPLAY_PROPERTY_VIDEO_MERGED
                                 && decoder->video_mode != VIDEO_NORMAL) {
                         int x, y;
@@ -1091,7 +1087,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                                 vc_get_linesize(desc.width, out_codec);
                                 }
                         }
-                        decoder->merged_fb = TRUE;
+                        decoder->merged_fb = true;
                 } else if (display_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
                         int x, y;
                         for(x = 0; x < src_x_tiles; ++x) {
@@ -1112,7 +1108,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                                 vc_get_linesize(desc.width, out_codec);
                                 }
                         }
-                        decoder->merged_fb = FALSE;
+                        decoder->merged_fb = false;
                 }
         } else if (decoder->decoder_type == EXTERNAL_DECODER) {
                 int buf_size;
@@ -1128,11 +1124,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 return false;
                         }
                 }
-                if(display_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
-                        decoder->merged_fb = FALSE;
-                } else {
-                        decoder->merged_fb = TRUE;
-                }
+                decoder->merged_fb = display_mode != DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
         }
 
         // Pass metadata to receiver thread (it can tweak parameters)

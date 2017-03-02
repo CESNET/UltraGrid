@@ -935,12 +935,14 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 
         *interl = PROGRESSIVE;
 
-        tmp = parse_string = strdup(fmt);
+        parse_string = (char *) alloca(strlen(fmt) + 1);
+        strcpy(parse_string, fmt);
+        tmp = parse_string;
+
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 switch (token_nr) {
                         case 0:
                                 if(strcasecmp(item, "file") == 0) {
-                                        free(parse_string);
                                         return PARSE_FILE;
                                 }
                                 *width = atoi(item);
@@ -962,7 +964,6 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 *color_spec = get_codec_from_name(item);
                                 if (*color_spec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
-                                        free(parse_string);
                                         return PARSE_ERROR;
                                 }
                                 break;
@@ -996,7 +997,6 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                 tmp = NULL;
                 token_nr += 1;
         }
-        free(parse_string);
 
         if(token_nr < 3)
                 return PARSE_ERROR;

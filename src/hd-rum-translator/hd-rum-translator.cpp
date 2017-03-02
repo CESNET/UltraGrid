@@ -511,7 +511,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             if((item = strchr(item, ':'))) {
                 parsed->out_conf.height = atoi(++item);
             }
-            if((item = strchr(item, ':'))) {
+            if(item && (item = strchr(item, ':'))) {
                 parsed->out_conf.fps = atoi(++item);
             }
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {

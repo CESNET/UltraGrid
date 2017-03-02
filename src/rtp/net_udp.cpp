@@ -418,6 +418,7 @@ static char *udp_host_addr4(void)
         hent = gethostbyname(hname);
         if (hent == NULL) {
                 socket_herror("Can't resolve IP address for %s", hname);
+                free(hname);
                 return NULL;
         }
         assert(hent->h_addrtype == AF_INET);
@@ -903,7 +904,8 @@ void udp_exit(socket_udp * s)
         if (!s->local_is_slave) {
                 if (s->local->multithreaded) {
                         char c = 0;
-                        send(s->local->should_exit_fd[1], &c, 1, 0);
+                        int ret = send(s->local->should_exit_fd[1], &c, 1, 0);
+                        assert (ret == 1);
                         s->local->should_exit = true;
                         s->local->reader_cv.notify_one();
                         pthread_join(s->local->thread_id, NULL);

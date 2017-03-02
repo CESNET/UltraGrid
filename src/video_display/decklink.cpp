@@ -610,6 +610,8 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 {
                                         log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s\n", modeNameCString);
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
+                                        release_bmd_api_str(modeNameString);
+                                        free((void *) modeNameCString);
                                         break;
                                 }
                         }

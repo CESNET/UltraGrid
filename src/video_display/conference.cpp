@@ -261,27 +261,27 @@ struct state_conference_common {
         ~state_conference_common() {
                 display_done(real_display);
         }
-        struct display *real_display;
-        struct video_desc display_desc;
+        struct display *real_display = {};
+        struct video_desc display_desc = {};
 
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
         unordered_map<uint32_t, chrono::system_clock::time_point> ssrc_list;
 
-        int width;
-        int height;
-        double fps;
+        int width = 0;
+        int height = 0;
+        double fps = 0.0;
         bool autofps;
         TiledImage output = TiledImage(width, height);
 
         chrono::system_clock::time_point next_frame;
 
-        pthread_t thread_id;
+        pthread_t thread_id = {};
 
         mutex lock;
         condition_variable cv;
 
-        struct module *parent;
+        struct module *parent = NULL;
 };
 
 struct state_conference {
@@ -336,6 +336,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         char *item;
 
                         item = strtok_r(tmp, "#", &save_ptr);
+                        if(!item || strlen(item) == 0){
+                                show_help();
+                                delete s;
+                                return &display_init_noerr;
+                        }
                         //Display configuration
                         fmt_copy = strdup(item);
                         requested_display = fmt_copy;
@@ -348,21 +353,25 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         //Mosaic configuration
                         if(!item || strlen(item) == 0){
                                 show_help();
+                                delete s;
                                 return &display_init_noerr;
                         }
                         width = atoi(item);
                         item = strchr(item, ':');
                         if(!item || strlen(item + 1) == 0){
                                 show_help();
+                                delete s;
                                 return &display_init_noerr;
                         }
                         height = atoi(++item);
                         if((item = strchr(item, ':'))){
                                 fps = atoi(++item);
                         }
+                        free(tmp);
                 }
         } else {
                 show_help();
+                delete s;
                 return &display_init_noerr;
         }
         s->common = shared_ptr<state_conference_common>(new state_conference_common(width, height, fps));

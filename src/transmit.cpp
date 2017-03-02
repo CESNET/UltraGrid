@@ -808,6 +808,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         }
 #endif
                         packet_rate = 0;
+                } else {
+                        abort();
                 }
 
                 do {

@@ -299,6 +299,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         
         gettimeofday(&s->t0, NULL);
         
+        assert(addrs && strlen(addrs) > 0);
         tmp = strdup(addrs);
         s->audio_participants = pdb_init(audio_delay);
         addr = strtok_r(tmp, ",", &unused);

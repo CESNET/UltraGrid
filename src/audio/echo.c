@@ -243,8 +243,6 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
                 s->frame.data_len = rounded_data_len;
 
-                pthread_mutex_unlock(&s->lock);
-
                 res = &s->frame;
         } else {
                 if(!s->near_end_residual) {

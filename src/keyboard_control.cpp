@@ -281,7 +281,11 @@ void keyboard_control::usage()
                 if (response_get_status(resp) == 200) {
                         double vol = atof(response_get_text(resp));
                         double db = 20.0 * log10(vol);
+                        std::streamsize p = cout.precision();
+                        ios_base::fmtflags f = cout.flags();
                         cout << "Received audio volume: " << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout.precision(p);
+                        cout.flags(f);
                 }
                 free_response(resp);
         }

@@ -982,7 +982,7 @@ int main(int argc, char *argv[])
                 audio_host = requested_receiver;
         }
 
-        if((audio_send != NULL || audio_recv != NULL) && strcmp(video_protocol, "rtsp") == 0){
+        if((strcmp("none", audio_send) != 0 || strcmp("none", audio_recv) != 0) && strcmp(video_protocol, "rtsp") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             if (strcmp(audio_protocol, "rtsp") != 0) {
 		log_msg(LOG_LEVEL_WARNING, "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n");
