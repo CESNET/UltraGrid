@@ -368,7 +368,7 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
 
         s->hd_video_mode = 0;
 
-        if(!s->mode) {
+        if (s->mode) {
                 switch(s->frame->color_spec) {
                         case DVS10:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
