@@ -1,7 +1,7 @@
 diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c	2017-02-11 13:39:17.418476049 +0100
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c	2017-02-11 15:31:16.590766174 +0100
-@@ -2797,8 +2797,10 @@ ntv2_sgl_map_user_pages(struct page **pa
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c	2016-10-28 10:24:00.508000000 +0200
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma.c	2017-03-03 09:46:07.148690755 +0100
+@@ -2797,12 +2797,16 @@ ntv2_sgl_map_user_pages(struct page **pa
  	down_read(&current->mm->mmap_sem);
  	/* rw==READ means read from drive, write into memory area */
  	res = get_user_pages(
@@ -12,7 +12,13 @@ diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma
  		uaddr,
  		nr_pages,
  		rw == READ, // DMA engines ignore permissions
-@@ -2910,7 +2912,11 @@ ntv2_sgl_map_user_pages(struct page **pa
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+ 		0, /* don't force */
++#endif
+ 		pages,
+ 		NULL);
+ 	up_read(&current->mm->mmap_sem);
+@@ -2910,7 +2914,11 @@ ntv2_sgl_map_user_pages(struct page **pa
   out_unmap:
  	if (res > 0) {
  		for (j=0; j < res; j++)
@@ -24,7 +30,7 @@ diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/ntv2driverdma
  	}
  	return res;
  }
-@@ -2928,7 +2934,11 @@ static int ntv2_sgl_unmap_user_pages(str
+@@ -2928,7 +2936,11 @@ static int ntv2_sgl_unmap_user_pages(str
  		/* FIXME: cache flush missing for rw==READ
  		 * FIXME: call the correct reference counting function
  		 */
