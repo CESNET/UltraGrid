@@ -230,6 +230,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 width = width / FACTOR * FACTOR;
         }
 
+        // don't know why but when not done, it leaves black or grey border on the right side
+        // for BGR
+        if (codec == BGR) {
+                width = width / (FACTOR * 3) * (FACTOR * 3);
+        }
+
         if (!video_desc_eq(s->saved_desc,
                                 video_desc_from_frame(in))) {
 
