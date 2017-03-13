@@ -893,6 +893,14 @@ int main(int argc, char *argv[])
         argc -= optind;
         argv += optind;
 
+        if (argc > 0) {
+                requested_receiver = argv[0];
+        }
+
+        if (!audio_host) {
+                audio_host = requested_receiver;
+        }
+
         if (!set_output_buffering()) {
                 log_msg(LOG_LEVEL_WARNING, "Cannot set console output buffering!\n");
         }
@@ -972,14 +980,6 @@ int main(int argc, char *argv[])
                 } else {
                         requested_mtu = 1500;
                 }
-        }
-
-        if (argc > 0) {
-                requested_receiver = argv[0];
-        }
-
-        if (!audio_host) {
-                audio_host = requested_receiver;
         }
 
         if((strcmp("none", audio_send) != 0 || strcmp("none", audio_recv) != 0) && strcmp(video_protocol, "rtsp") == 0){
