@@ -172,13 +172,13 @@ struct line_decoder {
 
 struct reported_statistics_cumul {
         mutex             lock;
-        long long int     received_bytes_total = 0;
-        long long int     expected_bytes_total = 0;
+        unsigned long long int     received_bytes_total = 0;
+        unsigned long long int     expected_bytes_total = 0;
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         unsigned long int fec_ok = 0, fec_nok = 0;
-        long long int     nano_per_frame_decompress = 0;
-        long long int     nano_per_frame_expected = 0;
-        long long int     reported_frames = 0;
+        unsigned long long int     nano_per_frame_decompress = 0;
+        unsigned long long int     nano_per_frame_expected = 0;
+        unsigned long int     reported_frames = 0;
         void print() {
                 char buff[256];
                 int bytes = sprintf(buff, "Video dec stats (cumulative): %lu total / %lu disp / %lu "
@@ -239,10 +239,10 @@ struct frame_msg {
         struct video_frame *recv_frame; ///< received frame with FEC and/or compression
         struct video_frame *nofec_frame; ///< frame without FEC
         unique_ptr<map<int, int>[]> pckt_list;
-        long long int received_pkts_cum, expected_pkts_cum;
+        unsigned long long int received_pkts_cum, expected_pkts_cum;
         struct reported_statistics_cumul &stats;
-        long int nanoPerFrameDecompress = 0;
-        long int nanoPerFrameExpected = 0;
+        unsigned long long int nanoPerFrameDecompress = 0;
+        unsigned long long int nanoPerFrameExpected = 0;
         bool is_displayed = false;
         bool is_corrupted = false;
 };
