@@ -110,6 +110,7 @@ void main()
         gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
         gl_FragColor.g = yuv.r - 0.2132 * yuv.g + tmp;
         gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
+        gl_FragColor.a = 1.0;
 });
 
 /* DXT YUV (FastDXT) related */
