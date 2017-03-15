@@ -101,44 +101,60 @@ static void audio_cap_testcard_help(const char *driver_name)
         printf("\ttestcard : Testing sound signal\n");
 }
 
+static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume) {
+        char *data = (char *) calloc(1, sample_rate * channels * bps);
+        double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
+
+        for (int i = 0; i < (int) sample_rate; i += 1)
+        {
+                for (int channel = 0; channel < channels; ++channel) {
+                        int64_t val = round(sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale);
+                        format_to_out_bps(data + i * bps * channels + bps * channel,
+                                        bps, val);
+                }
+        }
+
+        return data;
+}
+
 /**
  * Generates line-up EBU tone according to https://tech.ebu.ch/docs/tech/tech3304.pdf
  */
 static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequency, double volume, unsigned int *total_samples) {
-                *total_samples = (3 + channels + 1 + 3) * sample_rate;
-                char *ret = (char *) calloc(1, *total_samples * channels * bps);
-                double scale = pow(10.0, volume/20.0) * sqrt(2.0);
+        *total_samples = (3 + channels + 1 + 3) * sample_rate;
+        char *ret = (char *) calloc(1, *total_samples * channels * bps);
+        double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
 
-                char* data = ret;
-                for (int i=0; i < (int) sample_rate * 3; i += 1)
-                {
-                        for (int channel = 0; channel < channels; ++channel) {
-                                int64_t val = round(sin( ((double)(i)/((double)sample_rate / frequency)) * M_PI * 2. ) * ((1ll<<(bps*8)) / 2 - 1) * scale);
-                                //fprintf(stderr, "%ld ", val);
-                                format_to_out_bps(data + i * bps * channels + bps * channel,
-                                                bps, val);
-                        }
-                }
-                data += sample_rate * 3 * bps * channels;
-
+        char* data = ret;
+        for (int i = 0; i < (int) sample_rate * 3; i += 1)
+        {
                 for (int channel = 0; channel < channels; ++channel) {
-                        memset(data, 0, sample_rate * bps * channels);
-                        data += sample_rate * bps * channels / 2;
-                        for (int i=0; i < (int) sample_rate / 2; i += 1)
-                        {
-                                int64_t val = sin( ((double)(i)/((double)sample_rate / frequency)) * M_PI * 2. ) * ((1ll<<(bps*8)) / 2 - 1) * scale;
-                                format_to_out_bps(data + i * bps * channels + bps * channel,
-                                                bps, val);
-                        }
-                        data += sample_rate * bps * channels / 2;
+                        int64_t val = round(sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale);
+                        //fprintf(stderr, "%ld ", val);
+                        format_to_out_bps(data + i * bps * channels + bps * channel,
+                                        bps, val);
                 }
+        }
+        data += sample_rate * 3 * bps * channels;
 
+        for (int channel = 0; channel < channels; ++channel) {
                 memset(data, 0, sample_rate * bps * channels);
-                data += sample_rate * bps * channels;
+                data += sample_rate * bps * channels / 2;
+                for (int i=0; i < (int) sample_rate / 2; i += 1)
+                {
+                        int64_t val = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale;
+                        format_to_out_bps(data + i * bps * channels + bps * channel,
+                                        bps, val);
+                }
+                data += sample_rate * bps * channels / 2;
+        }
 
-                memcpy(data, ret, sample_rate * 3 * bps * channels);
+        memset(data, 0, sample_rate * bps * channels);
+        data += sample_rate * bps * channels;
 
-                return ret;
+        memcpy(data, ret, sample_rate * 3 * bps * channels);
+
+        return ret;
 }
 
 static void * audio_cap_testcard_init(const char *cfg)
@@ -150,15 +166,16 @@ static void * audio_cap_testcard_init(const char *cfg)
         double volume = DEFAULT_VOLUME;
         int chunk_size = 0;
         enum {
+                SINE,
                 EBU,
                 WAV,
                 SILENCE
-        } pattern = EBU;
+        } pattern = SINE;
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
-                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence]\n");
+                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence|:ebu]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
                 printf("\t\t\t<wav> is a wav file to be played\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
@@ -176,6 +193,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 pattern = WAV;
                         } else if(strncasecmp(item, "frames=", strlen("frames=")) == 0) {
                                 chunk_size = atoi(item + strlen("frames="));
+                        } else if(strcasecmp(item, "ebu") == 0) {
+                                pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
                         }
@@ -190,6 +209,7 @@ static void * audio_cap_testcard_init(const char *cfg)
         s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
 
         switch (pattern) {
+        case SINE:
         case EBU:
         case SILENCE:
         {
@@ -198,18 +218,30 @@ static void * audio_cap_testcard_init(const char *cfg)
                         DEFAULT_AUDIO_SAMPLE_RATE;
                 s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
-                if (pattern == EBU) {
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) EBU tone ", FREQUENCY,
-                                        volume);
-                } else {
+                switch (pattern) {
+                case SINE:
+                case EBU:
+                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) %s ", FREQUENCY,
+                                        volume, pattern == SINE ? "sine" : "EBU tone");
+                        break;
+                case SILENCE:
                         log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating silence ");
+                        break;
+                default:
+                        abort();
                 }
 
                 LOG(LOG_LEVEL_NOTICE) << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
 
-                if (pattern == EBU) {
-                        s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                        FREQUENCY, volume, &s->total_samples);
+                if (pattern == EBU || pattern == SINE) {
+                        if (pattern == EBU) {
+                                s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                                                FREQUENCY, volume, &s->total_samples);
+                        } else {
+                                s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                                                FREQUENCY, volume);
+                                s->total_samples = s->audio.sample_rate;
+                        }
 
                         s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
                                                 s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
