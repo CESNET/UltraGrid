@@ -59,6 +59,7 @@
 
 #include "lib_common.h"
 
+#include <limits.h>
 #include <unordered_map>
 
 using namespace std;
@@ -371,7 +372,8 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg)
 {
         char *val = get_val_from_cfg(audio_codec_cfg, "bitrate=");
         if (val) {
-                int ret =  unit_evaluate(val);
+                long long ret =  unit_evaluate(val);
+                assert(ret > 0 && ret <= INT_MAX);
                 free(val);
                 return ret;
         } else {

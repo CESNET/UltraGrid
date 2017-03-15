@@ -455,7 +455,9 @@ bool parse_audio_capture_format(const char *optarg)
                         }
                         audio_capture_bps = bps / 8;
                 } else if (strncmp(item, "rate=", strlen("bps=")) == 0) {
-                        audio_capture_sample_rate = unit_evaluate(item + strlen("rate="));
+                        long long val = unit_evaluate(item + strlen("rate="));
+                        assert(val > 0 && val <= numeric_limits<decltype(audio_capture_sample_rate)>::max());
+                        audio_capture_sample_rate = val;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Unkonwn format for --audio-capture-format!\n");
                         return false;
@@ -646,6 +648,10 @@ int main(int argc, char *argv[])
                         break;
                 case 'm':
                         requested_mtu = atoi(optarg);
+                        if (requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
+                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", requested_mtu);
+                                return EXIT_FAIL_USAGE;
+                        }
                         break;
                 case 'M':
                         decoder_mode = get_video_mode_from_str(optarg);
@@ -735,9 +741,18 @@ int main(int argc, char *argv[])
                         } else if(strcmp(optarg, "auto") == 0) {
                                 bitrate = RATE_AUTO;
                         } else {
+                                bool force = false;
+                                if (optarg[strlen(optarg) - 1] == '!') {
+                                        force = true;
+                                        optarg[strlen(optarg) - 1] = '\0';
+                                }
                                 bitrate = unit_evaluate(optarg);
-                                if(bitrate <= 0) {
-                                        log_msg(LOG_LEVEL_ERROR, "Bitrate must be positive!\n");
+                                if (bitrate <= 0) {
+                                        log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
+                                        return EXIT_FAIL_USAGE;
+                                }
+                                if (bitrate < 10 * 1000 * 1000 && !force) {
+                                        log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too low, use \"-l %s!\" to force if this is not a mistake.\n", bitrate, optarg);
                                         return EXIT_FAIL_USAGE;
                                 }
                         }

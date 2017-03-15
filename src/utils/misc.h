@@ -42,7 +42,8 @@
 extern "C" {
 #endif
 
-double unit_evaluate(const char *str);
+long long unit_evaluate(const char *str);
+double unit_evaluate_dbl(const char *str);
 
 /**
  * @brief Creates FourCC word

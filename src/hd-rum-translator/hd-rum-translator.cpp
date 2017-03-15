@@ -593,6 +593,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                         parsed->hosts[host_idx].bitrate = RATE_AUTO;
                     } else {
                         parsed->hosts[host_idx].bitrate = unit_evaluate(argv[i + 1]);
+                        assert(parsed->hosts[host_idx].bitrate > 0);
                     }
                     break;
                 default:

@@ -41,15 +41,19 @@
 #include "config_win32.h"
 #endif
 
+#include <limits.h>
+
+#include "debug.h"
 #include "utils/misc.h"
 
 /**
- * Converts units in format xy{k,M,G} to integral representation.
+ * Converts units in format <val>[.<val>][kMG] to integral representation.
  *
  * @param   str string to be parsed
- * @returns     integral representation of the string
+ * @returns     positive integral representation of the string
+ * @returns     -1 if error
  */
-double unit_evaluate(const char *str) {
+long long unit_evaluate(const char *str) {
         char *end_ptr;
         char unit_prefix_u;
         double ret = strtod(str, &end_ptr);
@@ -65,10 +69,48 @@ double unit_evaluate(const char *str) {
                 case '\0':
                         break;
                 default:
-                        fprintf(stderr, "[lavc] Error: unknown unit prefix %c.\n",
-                                        *end_ptr);
+                        log_msg(LOG_LEVEL_ERROR, "Error: unknown unit suffix %c.\n", *end_ptr);
+                        return -1;
         }
 
-        return ret;
+        if (ret < 0.0 && ret >= LLONG_MAX) {
+                return -1;
+        } else {
+                return ret;
+        }
+}
+
+/**
+ * Converts units in format <val>[.<val>][kMG] to floating point representation.
+ *
+ * @param   str string to be parsed
+ * @returns     positive floating point representation of the string
+ * @returns     NAN if error
+ */
+double unit_evaluate_dbl(const char *str) {
+        char *end_ptr;
+        char unit_prefix_u;
+        double ret = strtod(str, &end_ptr);
+        unit_prefix_u = toupper(*end_ptr);
+        switch(unit_prefix_u) {
+                case 'G':
+                        ret *= 1000;
+                case 'M':
+                        ret *= 1000;
+                case 'K':
+                        ret *= 1000;
+                        break;
+                case '\0':
+                        break;
+                default:
+                        log_msg(LOG_LEVEL_ERROR, "Error: unknown unit suffix %c.\n", *end_ptr);
+                        return NAN;
+        }
+
+        if (ret < 0.0) {
+                return NAN;
+        } else {
+                return ret;
+        }
 }
 

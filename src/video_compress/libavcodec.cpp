@@ -179,7 +179,7 @@ struct state_video_compress_libav {
         decoder_t           decoder;
 
         codec_t             requested_codec_id;
-        int64_t             requested_bitrate;
+        long long int       requested_bitrate;
         double              requested_bpp;
         double              requested_crf;
         int                 requested_cqp;
@@ -303,9 +303,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
                                 char *bitrate_str = item + strlen("bitrate=");
                                 s->requested_bitrate = unit_evaluate(bitrate_str);
+                                assert(s->requested_bitrate >= 0);
                         } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                                 char *bpp_str = item + strlen("bpp=");
-                                s->requested_bpp = unit_evaluate(bpp_str);
+                                s->requested_bpp = unit_evaluate_dbl(bpp_str);
+                                assert(!isnan(s->requested_bpp));
                         } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                                 char *crf_str = item + strlen("crf=");
                                 s->requested_crf = atof(crf_str);
