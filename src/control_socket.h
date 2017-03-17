@@ -54,8 +54,6 @@
 struct control_state;
 struct module;
 
-#define CONTROL_DEFAULT_PORT 5054
-
 /**
  * @retval 0 if success
  */
