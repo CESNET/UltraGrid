@@ -161,8 +161,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
         if(s->connection_type == SERVER) {
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
                 if (s->socket_fd == INVALID_SOCKET) {
-                        perror("socket");
-                        fprintf(stderr, "Remote control will be disabled!\n");
+                        perror("Control socket - socket");
                 } else {
                         int val = 1;
                         int rc;
@@ -178,7 +177,6 @@ int control_init(int port, int connection_type, struct control_state **state, st
                                 perror("setsockopt IPV6_V6ONLY");
                         }
 
-
                         /* setting address to in6addr_any allows connections to be established
                          * from both IPv4 and IPv6 hosts. This behavior can be modified
                          * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
@@ -191,8 +189,16 @@ int control_init(int port, int connection_type, struct control_state **state, st
                         rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
                         if (rc != 0) {
                                 perror("Control socket - bind");
+                                CLOSESOCKET(s->socket_fd);
+                                s->socket_fd = INVALID_SOCKET;
+                        } else {
+                                rc = listen(s->socket_fd, MAX_CLIENTS);
+                                if (rc != 0) {
+                                        perror("Control socket - listen");
+                                        CLOSESOCKET(s->socket_fd);
+                                        s->socket_fd = INVALID_SOCKET;
+                                }
                         }
-                        listen(s->socket_fd, MAX_CLIENTS);
                 }
         } else {
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -225,8 +231,14 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 if(!connected) {
                         fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
+                        delete s;
                         return -1;
                 }
+        }
+
+        if (s->socket_fd == INVALID_SOCKET) {
+                delete s;
+                return -1;
         }
 
         module_register(&s->mod, root_module);
