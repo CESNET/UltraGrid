@@ -1273,6 +1273,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         decoder->reconfiguration_in_progress = false;
                 } else {
                         // skip the frame if we are not yet reconfigured
+                        vf_free(frame);
                         return FALSE;
                 }
         }
@@ -1282,6 +1283,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
                 if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
+                        vf_free(frame);
                         return FALSE;
 #endif
                 }
@@ -1407,6 +1409,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                          */
                         if (check_for_mode_change(decoder, hdr)) {
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
+                                vf_free(frame);
                                 return FALSE;
 #endif
                         }
@@ -1414,6 +1417,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         // hereafter, display framebuffer can be used, so we
                         // check if we got it
                         if (decoder->frame == NULL) {
+                                vf_free(frame);
                                 return FALSE;
                         }
                 }
@@ -1525,6 +1529,7 @@ next_packet:
         }
 
         if(!pckt) {
+                vf_free(frame);
                 return FALSE;
         }
 

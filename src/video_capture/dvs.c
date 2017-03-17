@@ -409,6 +409,10 @@ static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
                         }
                 }
                 s->hd_video_mode |= val;
+                if (s->mode == NULL) {
+                        log_msg(LOG_LEVEL_ERROR, "[DVS] Mode detected, however unknown. Report to " PACKAGE_BUGREPORT ".\n");
+                        goto error_detect;
+                }
                 printf("[DVS] Autodetected video mode: %dx%d @ %2.2fFPS.\n", s->mode->width, s->mode->height, s->mode->fps);
 
                 res = sv_query(s->sv, SV_QUERY_IOMODE, 0, &val);

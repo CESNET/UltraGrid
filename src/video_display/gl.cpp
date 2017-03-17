@@ -386,6 +386,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 }
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, "[GL] Unknown option: %s\n", tok);
+                                free(tmp);
                                 delete s;
                                 return NULL;
                         }

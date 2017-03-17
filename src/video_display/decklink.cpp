@@ -862,7 +862,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 delete s;
                 return &display_init_noerr;
         } else {
-                char *tmp = strdup(fmt);
+                char tmp[strlen(fmt) + 1];
+                strcpy(tmp, fmt);
                 char *ptr;
                 char *save_ptr = 0ul;
 
@@ -955,13 +956,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
-                                free(tmp);
                                 delete s;
                                 return NULL;
                         }
                         ptr = strtok_r(NULL, ":", &save_ptr);
                 }
-                free (tmp);
         }
 
 	if (s->stereo && s->devices_cnt > 1) {

@@ -567,6 +567,7 @@ static char *udp_host_addr6(socket_udp * s)
             || IN6_IS_ADDR_MULTICAST(&local.sin6_addr)) {
                 if (gethostname(hname, MAXHOSTNAMELEN) != 0) {
                         error_msg("gethostname failed\n");
+                        free(hname);
                         return NULL;
                 }
 
@@ -582,6 +583,7 @@ static char *udp_host_addr6(socket_udp * s)
                 if ((gai_err = getaddrinfo(hname, NULL, &hints, &ai))) {
                         error_msg("getaddrinfo: %s: %s\n", hname,
                                   gai_strerror(gai_err));
+                        free(hname);
                         return NULL;
                 }
 
@@ -593,6 +595,7 @@ static char *udp_host_addr6(socket_udp * s)
                      hname, MAXHOSTNAMELEN) == NULL) {
                         error_msg("inet_ntop: %s: \n", hname);
                         freeaddrinfo(ai);
+                        free(hname);
                         return NULL;
                 }
                 freeaddrinfo(ai);
@@ -601,12 +604,13 @@ static char *udp_host_addr6(socket_udp * s)
         if (inet_ntop(AF_INET6, &local.sin6_addr, hname, MAXHOSTNAMELEN) ==
             NULL) {
                 error_msg("inet_ntop: %s: \n", hname);
+                free(hname);
                 return NULL;
         }
         return hname;
 #else                           /* HAVE_IPv6 */
         UNUSED(s);
-        return "::";            /* The unspecified address... */
+        return strdup("::");    /* The unspecified address... */
 #endif                          /* HAVE_IPv6 */
 }
 

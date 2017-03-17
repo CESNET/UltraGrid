@@ -93,6 +93,7 @@ static void * border_init(const char *config) {
                                                 }
                                         } else {
                                                 log_msg(LOG_LEVEL_ERROR, "Wrong color format!\"");
+                                                free(tmp);
                                                 delete s;
                                                 return NULL;
                                         }

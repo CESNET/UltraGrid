@@ -238,10 +238,10 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["decoder_mode"].l = VIDEO_NORMAL;
         params["display_device"].ptr = s->display;
 
-        s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create("ultragrid_rtp", params));
-        assert (s->video_rxtx);
-
         try {
+                s->video_rxtx = dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create("ultragrid_rtp", params));
+                assert (s->video_rxtx);
+
                 s->worker_thread = thread(&state_transcoder_decompress::worker, s);
                 s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
                 s->display_thread = thread(display_run, s->display);

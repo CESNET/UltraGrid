@@ -338,6 +338,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         item = strtok_r(tmp, "#", &save_ptr);
                         if(!item || strlen(item) == 0){
                                 show_help();
+                                free(tmp);
                                 delete s;
                                 return &display_init_noerr;
                         }
@@ -353,6 +354,8 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         //Mosaic configuration
                         if(!item || strlen(item) == 0){
                                 show_help();
+                                free(fmt_copy);
+                                free(tmp);
                                 delete s;
                                 return &display_init_noerr;
                         }
@@ -360,6 +363,8 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         item = strchr(item, ':');
                         if(!item || strlen(item + 1) == 0){
                                 show_help();
+                                free(fmt_copy);
+                                free(tmp);
                                 delete s;
                                 return &display_init_noerr;
                         }

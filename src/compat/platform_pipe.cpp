@@ -64,9 +64,11 @@ static fd_t open_socket(int *port)
         s_in.sin_port = htons(0);
         if (::bind(sock, (const struct sockaddr *) &s_in,
                         sizeof(s_in)) != 0) {
+                CLOSESOCKET(sock);
                 return INVALID_SOCKET;
         }
         if (listen(sock, 10) != 0) {
+                CLOSESOCKET(sock);
                 return INVALID_SOCKET;
         }
         socklen_t len = sizeof(s_in);
