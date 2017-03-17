@@ -47,12 +47,6 @@
 
 #include <thread>
 
-#ifdef WIN32
-#define CLOSESOCKET closesocket
-#else
-#define CLOSESOCKET close
-#endif
-
 using std::thread;
 
 static fd_t open_socket(int *port)

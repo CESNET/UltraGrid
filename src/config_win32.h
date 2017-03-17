@@ -271,4 +271,6 @@ void ShowMessage(int level, char *msg);
 
 #define sleep(sec) Sleep(1000 * (sec))
 
+#define CLOSESOCKET closesocket
+
 #endif

@@ -13,13 +13,6 @@
 #include <stdio.h>
 #include "debug.h"
 
-#ifdef WIN32
-#define CLOSESOCKET closesocket
-#else
-#define CLOSESOCKET close
-#endif
-
-
 void usage(const char *progname);
 int main(int argc, char *argv[]);
 void sig_handler(int signal);

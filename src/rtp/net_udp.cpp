@@ -89,12 +89,6 @@ typedef char *sockopt_t;
 typedef void *sockopt_t;
 #endif
 
-#ifdef WIN32
-#define CLOSESOCKET closesocket
-#else
-#define CLOSESOCKET close
-#endif
-
 /* This is pretty nasty but it's the simplest way to get round */
 /* the Detexis bug that means their MUSICA IPv6 stack uses     */
 /* IPPROTO_IP instead of IPPROTO_IPV6 in setsockopt calls      */

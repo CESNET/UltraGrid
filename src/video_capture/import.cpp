@@ -778,6 +778,7 @@ static void * control_thread(void *args)
         rc = bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
         if (rc != 0) {
                 perror("Video import: unable to bind communication pipe");
+                CLOSESOCKET(fd);
                 return NULL;
         }
         listen(fd, MAX_CLIENTS);
@@ -798,7 +799,7 @@ static void * control_thread(void *args)
                 clients->next = NULL;
         } else {
                 perror("Video import: unable to create communication pipe");
-                close(fd);
+                CLOSESOCKET(fd);
                 return NULL;
         }
 
@@ -845,7 +846,7 @@ static void * control_thread(void *args)
                                         }
                                         if(ret == 0) {
                                                 if(!cur->pipe) {
-                                                        close(cur->fd);
+                                                        CLOSESOCKET(cur->fd);
                                                         *parent_ptr = cur->next;
                                                         free(cur);
                                                         cur = *parent_ptr; // now next
@@ -881,12 +882,12 @@ static void * control_thread(void *args)
         struct client *cur = clients;
         while(cur) {
                 struct client *tmp = cur;
-                close(cur->fd);
+                CLOSESOCKET(cur->fd);
                 cur = cur->next;
                 free(tmp);
         }
 
-        close(fd);
+        CLOSESOCKET(fd);
         unlink(PIPE);
 
         return NULL;
@@ -991,7 +992,7 @@ static void *video_reader_callback(void *arg)
                 }
                 if (fstat(fd, &sb)) {
                         perror("fstat");
-                        close(fd);
+                        CLOSESOCKET(fd);
                         free_entry(data->entry);
                         return NULL;
                 }
@@ -1015,13 +1016,13 @@ static void *video_reader_callback(void *arg)
                                         aligned_free(data->entry->tiles[i].data);
                                 }
                                 free(data->entry);
-                                close(fd);
+                                CLOSESOCKET(fd);
                                 return NULL;
                         }
                         bytes += res;
                 } while (bytes < data->entry->tiles[i].data_len);
 
-                close(fd);
+                CLOSESOCKET(fd);
         }
 
         return data;
