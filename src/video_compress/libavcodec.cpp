@@ -307,7 +307,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                                 char *bpp_str = item + strlen("bpp=");
                                 s->requested_bpp = unit_evaluate_dbl(bpp_str);
-                                assert(!isnan(s->requested_bpp));
+                                assert(!std::isnan(s->requested_bpp));
                         } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                                 char *crf_str = item + strlen("crf=");
                                 s->requested_crf = atof(crf_str);
