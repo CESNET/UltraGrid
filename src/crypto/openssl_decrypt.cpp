@@ -55,16 +55,13 @@
 struct openssl_decrypt {
         AES_KEY key;
 
-        enum openssl_mode mode;
-
         unsigned char ivec[AES_BLOCK_SIZE];
         unsigned char ecount[AES_BLOCK_SIZE];
         unsigned int num;
 };
 
 static int openssl_decrypt_init(struct openssl_decrypt **state,
-                                const char *passphrase,
-                                enum openssl_mode mode)
+                                const char *passphrase)
 {
         struct openssl_decrypt *s =
                 (struct openssl_decrypt *)
@@ -78,18 +75,8 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
                         strlen(passphrase));
         MD5Final(hash, &context);
 
-        switch(mode) {
-                case MODE_AES128_ECB:
-                        AES_set_decrypt_key(hash, 128, &s->key);
-                        break;
-                case MODE_AES128_CTR:
-                        AES_set_encrypt_key(hash, 128, &s->key);
-                        break;
-                default:
-                        abort();
-        }
-
-        s->mode = mode;
+        AES_set_encrypt_key(hash, 128, &s->key);
+        // for ECB it should be AES_set_decrypt_key(hash, 128, &s->key);
 
         *state = s;
         return 0;
@@ -103,23 +90,35 @@ static void openssl_decrypt_destroy(struct openssl_decrypt *s)
 }
 
 static void openssl_decrypt_block(struct openssl_decrypt *s,
-                const unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
-                int len)
+                const unsigned char *ciphertext, unsigned char *plaintext, const char *ivec_or_nonce_and_counter,
+                int len, enum openssl_mode mode)
 {
-        if(nonce_and_counter) {
-                memcpy(s->ivec, nonce_and_counter, AES_BLOCK_SIZE);
+        if (ivec_or_nonce_and_counter) {
+                memcpy(s->ivec, ivec_or_nonce_and_counter, AES_BLOCK_SIZE);
                 s->num = 0;
         }
 
-        switch(s->mode) {
+        switch (mode) {
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(ciphertext, plaintext,
                                         &s->key, AES_DECRYPT);
                         break;
                 case MODE_AES128_CTR:
+#ifdef HAVE_AES_CTR128_ENCRYPT
                         AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
+#else
+                        log_msg(LOG_LEVEL_ERROR, "AES CTR not compiled in!\n");
+#endif
+                        break;
+                case MODE_AES128_CFB:
+                        {
+                                int inum = s->num;
+                                AES_cfb128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
+                                                &inum, AES_DECRYPT);
+                                s->num = inum;
+                        }
                         break;
                 default:
                         abort();
@@ -129,7 +128,7 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
 static int openssl_decrypt(struct openssl_decrypt *decrypt,
                 const char *ciphertext, int ciphertext_len,
                 const char *aad, int aad_len,
-                char *plaintext)
+                char *plaintext, enum openssl_mode mode)
 {
         UNUSED(ciphertext_len);
         uint32_t data_len;
@@ -149,14 +148,14 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
                 openssl_decrypt_block(decrypt,
                                 (const unsigned char *) ciphertext + i,
                                 (unsigned char *) plaintext + i,
-                                nonce_and_counter, block_length);
+                                nonce_and_counter, block_length, mode);
                 nonce_and_counter = NULL;
                 crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
         }
         openssl_decrypt_block(decrypt,
                         (const unsigned char *) ciphertext + data_len,
                         (unsigned char *) &expected_crc,
-                        0, sizeof(uint32_t));
+                        0, sizeof(uint32_t), mode);
         if(crc != expected_crc) {
                 return 0;
         }

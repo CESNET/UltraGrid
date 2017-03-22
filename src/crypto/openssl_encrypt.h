@@ -44,7 +44,8 @@ struct openssl_encrypt;
 
 enum openssl_mode {
         MODE_AES128_CTR, // no autenticity, only integrity (CRC)
-        MODE_AES128_ECB // do not use
+        MODE_AES128_ECB, // do not use
+        MODE_AES128_CFB,
 };
 
 

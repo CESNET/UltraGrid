@@ -2590,6 +2590,10 @@ if test $crypto_req != no -a $crypto = yes; then
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
         CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
         ADD_MODULE("openssl", "$OPENSSL_OBJ", "$CRYPTO_LIBS")
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $CRYPTO_LIBS"
+        AC_CHECK_FUNCS(AES_ctr128_encrypt)
+        LIBS=$SAVED_LIBS
 else
         crypto=no
 fi

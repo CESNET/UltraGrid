@@ -143,6 +143,7 @@ typedef uint32_t fec_video_payload_hdr_t[5];
  * bits 9 - 31 currently unused
  */
 #define CRYPTO_TYPE_AES128_CTR 1u
+#define CRYPTO_TYPE_AES128_CFB 2u
 typedef uint32_t crypto_payload_hdr_t[1];
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);

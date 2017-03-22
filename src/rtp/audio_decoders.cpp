@@ -194,8 +194,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                         delete s;
                         return NULL;
                 }
-                if (s->dec_funcs->init(&s->decrypt,
-                                                encryption, MODE_AES128_CTR) != 0) {
+                if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
                         delete s;
                         return NULL;
@@ -405,6 +404,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 // for definition see rtp_callbacks.h
                 uint32_t *audio_hdr = (uint32_t *)(void *) cdata->data->data;
                 const int pt = cdata->data->pt;
+                enum openssl_mode crypto_mode;
 
                 if(pt == PT_ENCRYPT_AUDIO) {
                         if(!decoder->decrypt) {
@@ -430,6 +430,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         data = cdata->data->data + sizeof(audio_payload_hdr_t);
                 } else {
                         assert(pt == PT_ENCRYPT_AUDIO);
+                        uint32_t encryption_hdr = ntohl(*(uint32_t *)(cdata->data->data + sizeof(audio_payload_hdr_t)));
+                        crypto_mode = encryption_hdr >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
                         char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
                                 sizeof(audio_payload_hdr_t);
                         int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -
@@ -438,8 +440,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         if((length = decoder->dec_funcs->decrypt(decoder->decrypt,
                                         ciphertext, ciphertext_len,
                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
-                                        plaintext
-                                        )) == 0) {
+                                        plaintext, crypto_mode)) == 0) {
                                 log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
                                 return FALSE;
                         }

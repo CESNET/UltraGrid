@@ -626,8 +626,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
                                 delete s;
                                 return NULL;
                 }
-                if (s->dec_funcs->init(&s->decrypt,
-                                                encryption, MODE_AES128_CTR) != 0) {
+                if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
                         log_msg(LOG_LEVEL_FATAL, "Unable to create decompress!\n");
                         delete s;
                         return NULL;
@@ -1303,6 +1302,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 uint32_t data_pos;
                 uint32_t substream;
                 pckt = cdata->data;
+                enum openssl_mode crypto_mode;
 
                 pt = pckt->pt;
                 hdr = (uint32_t *)(void *) pckt->data;
@@ -1344,14 +1344,19 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         data = (char *) hdr + sizeof(fec_video_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO:
-                        len = pckt->data_len - sizeof(video_payload_hdr_t)
-                                - sizeof(crypto_payload_hdr_t);
+                        {
+                                len = pckt->data_len - sizeof(video_payload_hdr_t)
+                                        - sizeof(crypto_payload_hdr_t);
+                                uint32_t crypto_hdr = ntohl(*(uint32_t *)(cdata->data->data + sizeof(video_payload_hdr_t)));
+                                crypto_mode = crypto_hdr >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
+                        }
                         data = (char *) hdr + sizeof(video_payload_hdr_t)
                                 + sizeof(crypto_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO_LDGM:
                         len = pckt->data_len - sizeof(fec_video_payload_hdr_t)
                                 - sizeof(crypto_payload_hdr_t);
+                        crypto_mode = ntohl(*hdr) >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
                         data = (char *) hdr + sizeof(fec_video_payload_hdr_t)
                                 + sizeof(crypto_payload_hdr_t);
                         break;
@@ -1394,7 +1399,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                         data, len,
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
                                         sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t),
-                                        plaintext)) == 0) {
+                                        plaintext, crypto_mode)) == 0) {
                                 log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
                                 goto next_packet;
                         }

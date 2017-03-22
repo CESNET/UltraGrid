@@ -81,17 +81,17 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
                 return -1;
         }
         s->mode = mode;
-        assert(s->mode == MODE_AES128_CTR); // only functional by now
+        assert(s->mode == MODE_AES128_CFB || MODE_AES128_CTR); // only functional by now
 
         *state = s;
         return 0;
 }
 
 static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plaintext,
-                unsigned char *ciphertext, char *nonce_plus_counter, int len)
+                unsigned char *ciphertext, char *ivec_or_nonce_plus_counter, int len)
 {
-        if(nonce_plus_counter) {
-                memcpy(nonce_plus_counter, (char *) s->ivec, 16);
+        if (ivec_or_nonce_plus_counter) {
+                memcpy(ivec_or_nonce_plus_counter, (char *) s->ivec, 16);
                 /* We do start a new block so we zero the byte counter
                  * Please NB that counter doesn't need to be incremented
                  * because the counter is incremented everytime s->num == 0,
@@ -105,8 +105,20 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
 
         switch(s->mode) {
                 case MODE_AES128_CTR:
+#ifdef HAVE_AES_CTR128_ENCRYPT
                         AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
+#else
+                        log_msg(LOG_LEVEL_ERROR, "AES CTR not compiled in!\n");
+#endif
+                        break;
+                case MODE_AES128_CFB:
+                        {
+                                int inum = s->num;
+                                AES_cfb128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
+                                                &inum, AES_ENCRYPT);
+                                s->num = inum;
+                        }
                         break;
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
@@ -156,6 +168,7 @@ static int openssl_encrypt(struct openssl_encrypt *encryption,
 static int openssl_get_overhead(struct openssl_encrypt *s)
 {
         switch(s->mode) {
+                case MODE_AES128_CFB:
                 case MODE_AES128_CTR:
                         return sizeof(uint32_t) /* data_len */ +
                                 16 /* nonce + counter */ + sizeof(uint32_t) /* crc */;

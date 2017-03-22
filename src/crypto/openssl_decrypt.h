@@ -57,7 +57,7 @@ struct openssl_decrypt_info {
          * @retval   >0          state was not created
          */
         int (*init)(struct openssl_decrypt **state,
-                        const char *passphrase, enum openssl_mode mode);
+                        const char *passphrase);
         /**
          * Destroys decryption state
          */
@@ -77,7 +77,7 @@ struct openssl_decrypt_info {
         int (*decrypt)(struct openssl_decrypt *decrypt,
                         const char *ciphertext, int ciphertext_len,
                         const char *aad, int aad_len,
-                        char *plaintext);
+                        char *plaintext, enum openssl_mode mode);
 };
 
 #endif // __cplusplus
