@@ -43,9 +43,11 @@
 struct openssl_encrypt;
 
 enum openssl_mode {
-        MODE_AES128_CTR, // no autenticity, only integrity (CRC)
-        MODE_AES128_ECB, // do not use
-        MODE_AES128_CFB,
+        MODE_AES128_NONE = 0,
+        MODE_AES128_CTR = 1, // no autenticity, only integrity (CRC)
+        MODE_AES128_CFB = 2,
+        MODE_AES128_MAX = MODE_AES128_CFB,
+        MODE_AES128_ECB = -1, // do not use
 };
 
 

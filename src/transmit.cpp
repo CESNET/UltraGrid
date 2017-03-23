@@ -100,6 +100,8 @@
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
 
+#define DEFAULT_CIPHER_MODE MODE_AES128_CFB
+
 // Mulaw audio memory reservation
 #define BUFFER_MTU_SIZE 1500
 static char *data_buffer_mulaw;
@@ -234,7 +236,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                                 return NULL;
                         }
                         if (tx->enc_funcs->init(&tx->encryption,
-                                                encryption, MODE_AES128_CFB) != 0) {
+                                                encryption, DEFAULT_CIPHER_MODE) != 0) {
                                 fprintf(stderr, "Unable to initialize encryption\n");
                                 module_done(&tx->mod);
                                 return NULL;
@@ -545,7 +547,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         hdrs_len += (sizeof(video_payload_hdr_t));
                 }
 
-                encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CFB << 24);
+                encryption_hdr[0] = htonl(DEFAULT_CIPHER_MODE << 24);
                 hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
         } else {
                 if (frame->fec_params.type != FEC_NONE) {
@@ -832,7 +834,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         if(data_len) { /* check needed for FEC_MULT */
                                 char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
                                 if(tx->encryption) {
-                                        crypto_hdr[0] = htonl(CRYPTO_TYPE_AES128_CFB << 24);
+                                        crypto_hdr[0] = htonl(DEFAULT_CIPHER_MODE << 24);
                                         data_len = tx->enc_funcs->encrypt(tx->encryption,
                                                         const_cast<char *>(data), data_len,
                                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),

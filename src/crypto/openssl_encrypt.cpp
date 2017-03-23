@@ -104,6 +104,8 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
         }
 
         switch(s->mode) {
+                case MODE_AES128_NONE:
+                        abort();
                 case MODE_AES128_CTR:
 #ifdef HAVE_AES_CTR128_ENCRYPT
                         AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,

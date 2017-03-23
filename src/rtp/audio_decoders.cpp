@@ -430,8 +430,12 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         data = cdata->data->data + sizeof(audio_payload_hdr_t);
                 } else {
                         assert(pt == PT_ENCRYPT_AUDIO);
-                        uint32_t encryption_hdr = ntohl(*(uint32_t *)(cdata->data->data + sizeof(audio_payload_hdr_t)));
-                        crypto_mode = encryption_hdr >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
+                        uint32_t encryption_hdr = ntohl(*(uint32_t *) (cdata->data->data + sizeof(audio_payload_hdr_t)));
+                        crypto_mode = (enum openssl_mode) (encryption_hdr >> 24);
+                        if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
+                                log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
+                                return FALSE;
+                        }
                         char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
                                 sizeof(audio_payload_hdr_t);
                         int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -

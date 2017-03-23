@@ -99,6 +99,8 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
         }
 
         switch (mode) {
+                case MODE_AES128_NONE:
+                        abort();
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(ciphertext, plaintext,

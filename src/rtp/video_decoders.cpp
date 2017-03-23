@@ -1344,21 +1344,19 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         data = (char *) hdr + sizeof(fec_video_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO:
-                        {
-                                len = pckt->data_len - sizeof(video_payload_hdr_t)
-                                        - sizeof(crypto_payload_hdr_t);
-                                uint32_t crypto_hdr = ntohl(*(uint32_t *)(cdata->data->data + sizeof(video_payload_hdr_t)));
-                                crypto_mode = crypto_hdr >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
-                        }
-                        data = (char *) hdr + sizeof(video_payload_hdr_t)
-                                + sizeof(crypto_payload_hdr_t);
-                        break;
                 case PT_ENCRYPT_VIDEO_LDGM:
-                        len = pckt->data_len - sizeof(fec_video_payload_hdr_t)
-                                - sizeof(crypto_payload_hdr_t);
-                        crypto_mode = ntohl(*hdr) >> 24 == CRYPTO_TYPE_AES128_CTR ? MODE_AES128_CTR : MODE_AES128_CFB;
-                        data = (char *) hdr + sizeof(fec_video_payload_hdr_t)
-                                + sizeof(crypto_payload_hdr_t);
+                        {
+				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t);
+                                len = pckt->data_len - sizeof(crypto_payload_hdr_t) - media_hdr_len;
+				data = (char *) hdr + sizeof(crypto_payload_hdr_t) + media_hdr_len;
+                                uint32_t crypto_hdr = ntohl(*(uint32_t *)((char *) hdr + media_hdr_len));
+                                crypto_mode = (enum openssl_mode) (crypto_hdr >> 24);
+				if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
+					log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
+					ret = FALSE;
+					goto cleanup;
+				}
+                        }
                         break;
                 default:
                         log_msg(LOG_LEVEL_WARNING, "[decoder] Unknown packet type: %d.\n", pckt->pt);
