@@ -1,12 +1,16 @@
-next
+1.4
 ====
-* added AJA capture
+* added AJA capture cards support
+* added Magewell capture cards support
 * support for new libavcodec encoders, including Quick Sync and NVENC
-* added support for H.265
+* added support for H.265/HEVC codec including NVENC acceleration
+* significant GPUJPEG performance improvements
 * added Reed-Solomon forward error correction (suitable for H.264)
-* much better integration with CoUniverse
+* significantly increased Windows performance
 * Syphon support
 * added text and border postprocessors, grayscale, mirror, and flip capture filters
+* updated to match recent versions of supported drivers and APIs
+* much better integration with CoUniverse
 
 1.3
 ====
