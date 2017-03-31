@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([UltraGrid], [1.3], [ultragrid-dev@cesnet.cz])
+AC_INIT([UltraGrid], [1.4], [ultragrid-dev@cesnet.cz])
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
