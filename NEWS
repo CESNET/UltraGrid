@@ -11,6 +11,7 @@
 * added text and border postprocessors, grayscale, mirror, and flip capture filters
 * updated to match recent versions of supported drivers and APIs
 * much better integration with CoUniverse
+* added videoconferencing mode and audio mixer
 
 1.3
 ====
