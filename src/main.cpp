@@ -560,18 +560,6 @@ int main(int argc, char *argv[])
         bool print_capabilities_req = false;
         bool start_paused = false;
 
-        if (!common_preinit(argc, argv)) {
-                log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
-                return EXIT_FAILURE;
-        }
-
-        vidcap_params_set_device(vidcap_params_head, "none");
-
-        if (argc == 1) {
-                usage();
-                return EXIT_FAIL_USAGE;
-        }
-
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
                 {"capture", required_argument, 0, 't'},
@@ -612,9 +600,7 @@ int main(int argc, char *argv[])
                 {"param", required_argument, 0, OPT_PARAM},
                 {0, 0, 0, 0}
         };
-        int option_index = 0;
-
-        uv_state = &uv;
+        const char optstring[] = "d:t:m:r:s:v6c:hM:p:f:P:l:A:";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -622,9 +608,42 @@ int main(int argc, char *argv[])
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
+        if (argc == 1) {
+                usage();
+                return EXIT_FAIL_USAGE;
+        }
+
+        // First we need to set verbosity level prior to everything else.
+        // common_preinit() uses the verbosity level.
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:v6c:hM:p:f:P:l:A:", getopt_options,
-                            &option_index)) != -1) {
+                getopt_long(argc, argv, optstring, getopt_options,
+                            NULL)) != -1) {
+                switch (ch) {
+                case OPT_VERBOSE:
+                        if (optarg) {
+                                log_level = atoi(optarg);
+                        } else {
+                                log_level = LOG_LEVEL_VERBOSE;
+                        }
+                        break;
+                default:
+                        break;
+                }
+        }
+        optind = 1;
+
+        uv_state = &uv;
+
+        if (!common_preinit(argc, argv)) {
+                log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
+                return EXIT_FAILURE;
+        }
+
+        vidcap_params_set_device(vidcap_params_head, "none");
+
+        while ((ch =
+                getopt_long(argc, argv, optstring, getopt_options,
+                            NULL)) != -1) {
                 switch (ch) {
                 case 'd':
                         if (!strcmp(optarg, "help")) {
@@ -869,12 +888,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_VERBOSE:
-                        if (optarg) {
-                                log_level = atoi(optarg);
-                        } else {
-                                log_level = LOG_LEVEL_VERBOSE;
-                        }
-                        break;
+                        break; // already handled earlier
                 case OPT_WINDOW_TITLE:
                         log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
                                         "--param window-title=<title>\n");
