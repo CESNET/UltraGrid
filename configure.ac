@@ -1898,6 +1898,9 @@ if test "x${with_cuda_host_compiler}" != "x" ; then
 	fi
 else
         # workaround, to remove - NVCC doesn't support gcc 6 but clang 3.8
+        if test -z "$nvcc_major"; then
+                nvcc_major=0
+        fi
         if test $system = Linux -a $nvcc_major -eq 8; then
                 AC_CHECK_PROG([CLANG38], [clang-3.8], [yes])
                 if test "$CLANG38" == yes; then
