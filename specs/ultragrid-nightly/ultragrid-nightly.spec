@@ -1,11 +1,11 @@
 Name:		ultragrid-nightly
-Version:	1.3
-Release:	20170209.00
+Version:	1.4
+Release:	20170401.00
 Summary:	Software for real-time transmissions of high-definition video
 Group:		Applications/Multimedia
 
 License:	GPL
-URL:		https://ultragrid.cz
+URL:		http://ultragrid.cz
 Source0:	ultragrid-nightly-%{version}.tar.bz2
 
 BuildRequires:	gcc-c++,make,automake,autoconf,git,libtool
@@ -14,7 +14,7 @@ BuildRequires:	SDL-devel,SDL_mixer-devel,SDL_ttf-devel
 BuildRequires:	qt-x11,qt-devel,libX11-devel
 BuildRequires:	portaudio-devel,jack-audio-connection-kit-devel,alsa-lib-devel,libv4l-devel
 BuildRequires:	zip,kernel-headers
-BuildRequires:	ffmpeg-devel, openssl-devel
+BuildRequires:	openssl-devel
 BuildRequires:	libgpujpeg-devel
 BuildRequires:	opencv-devel
 
@@ -25,8 +25,10 @@ BuildRequires: 	cairo >= 1.14.0-2
 BuildRequires: 	ultragrid-proprietary-drivers
 %if %{defined fedora}
 BuildRequires:	libjpeg-turbo-devel,mesa-libGL-devel
+BuildRequires:	ffmpeg-devel
 %else
 # suse_version
+BuildRequires:	libavcodec-devel, libswscale-devel
 BuildRequires:	libjpeg62-devel,Mesa-libGL-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
@@ -47,7 +49,7 @@ BuildRequires:	cuda-core-8-0,cuda-command-line-tools-8-0,cuda-cudart-dev-8-0,cla
 %define build_conference 0
 %endif
 
-Conflicts:	ultragrid-core
+Conflicts:	ultragrid-core, ultragrid
 Provides:	ultragrid
 
 %description
@@ -118,12 +120,14 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # < aja
 #####################################################
 
+%define UGLIBDIR %{_libdir}/ultragrid
+
 %prep
 %setup -q
 
 %build
 # need to run autogen as configure.ac is patched during setup
-./autogen.sh
+./autogen.sh || true
 
 # fastdxt requires objects from sage build, but these are not available
 # jack-transport is broken since 1.2 release
@@ -172,14 +176,19 @@ make install DESTDIR=${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid
 echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-nightly.version
 
+# copy the real cudart to our rpath
+sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
+
 %files
 %defattr(-,root,root,-)
-%{_datadir}/ultragrid
-%{_docdir}/ultragrid
+%dir %{_datadir}/ultragrid
+%{_datadir}/ultragrid/*
+%dir %{_docdir}/ultragrid
+%{_docdir}/ultragrid/*
 %{_bindir}/uv
 %{_bindir}/hd-rum-transcode
 %{_bindir}/uv-qt
-%{_libdir}/ultragrid
+%dir %{_libdir}/ultragrid
 %if 0%{?build_dvs} > 0
 %{_libdir}/ultragrid/module_vidcap_dvs.so
 %{_libdir}/ultragrid/module_display_dvs.so
@@ -235,9 +244,14 @@ echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-n
 %{_libdir}/ultragrid/module_acompress_libavcodec.so
 %{_libdir}/ultragrid/module_openssl.so
 %{_libdir}/ultragrid/module_ldgm_gpu.so
+# cudart
+%{_libdir}/ultragrid/*cudart*
 
 %changelog
-* Thu Feb 2 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.3-20170209
+* Fri Mar 31 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.4-20170401
+- Switching to 1.4 release
+
+* Thu Feb 2 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz>
 - Integrated package definitions int main git repository
 
 * Thu Sep 17 2015 Ultragrid Development Team <ultragrid-dev@cesnet.cz>

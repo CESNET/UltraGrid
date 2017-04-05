@@ -1,7 +1,31 @@
+diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
+--- a/ultragrid/debian.rules	2017-04-06 12:53:03.317244490 +0200
++++ b/ultragrid/debian.rules	2017-04-06 12:53:04.105257586 +0200
+@@ -35,7 +35,7 @@ CARDCONF+=--enable-deltacast --with-delt
+ #####################################################
+ # > aja
+ #####################################################
+-CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
++#CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
+ #####################################################
+ # < aja
+ #####################################################
+diff -rupN a/ultragrid/ultragrid.spec b/ultragrid/ultragrid.spec
+--- a/ultragrid/ultragrid.spec	2017-04-06 12:53:03.317244490 +0200
++++ b/ultragrid/ultragrid.spec	2017-04-06 12:53:04.145258252 +0200
+@@ -116,7 +116,7 @@ UltraGrid developed by Colin Perkins, La
+ #####################################################
+ # > aja
+ #####################################################
+-%define build_aja 1
++#%define build_aja 1
+ #####################################################
+ # < aja
+ #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-04-05 23:40:49.261078166 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-04-05 23:40:53.725260237 +0200
-@@ -34,7 +34,7 @@ CARDCONF+=--enable-deltacast --with-delt
+--- a/ultragrid-nightly/debian.rules	2017-04-06 12:53:03.313244424 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-06 12:53:04.049256655 +0200
+@@ -35,7 +35,7 @@ CARDCONF+=--enable-deltacast --with-delt
  #####################################################
  # > aja
  #####################################################
@@ -11,9 +35,9 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < aja
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
---- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:49.261078166 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:53.901267420 +0200
-@@ -113,7 +113,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:53:03.313244424 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:53:04.085257254 +0200
+@@ -115,7 +115,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
  #####################################################
@@ -23,8 +47,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultrag
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:49.285079144 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:54.601295999 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:53:03.321244557 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:53:04.165258583 +0200
 @@ -18,7 +18,7 @@ override_dh_auto_build:
  #####################################################
  # > aja
@@ -46,8 +70,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:49.285079144 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:54.845305961 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:53:03.321244557 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:53:04.201259182 +0200
 @@ -49,12 +49,12 @@ Patch13:	bluefish-linux4.6-get-user-page
  #####################################################
  # > aja (ntv2sdklinux)

@@ -1,3 +1,8 @@
+ultragrid-nightly (1.4-20170401) unstable; urgency=low
+  * Ultragrid 1.4 released
+
+ -- SITOLA repository (maintainer) <xrucka@fi.muni.cz>  Fri, 31 Mar 2017 21:56:00 +0200
+
 ultragrid-nightly (1.3-20150306) unstable; urgency=low
   * Ultragrid 1.3 released
   * Disabled linsys and sage support 

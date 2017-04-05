@@ -1,62 +1,56 @@
 Name:		ultragrid
-Version:	1.3
-Release:	20150604.00
+Version:	1.4
+Release:	20170401.00
 Summary:	Software for real-time transmissions of high-definition video
 Group:		Applications/Multimedia
 
 License:	GPL
-URL:		https://sitola.fi.muni.cz/igrid/index.php/UltraGrid
+URL:		http://ultragrid.cz
 Source0:	ultragrid-%{version}.tar.bz2
-#%if %{defined fedora}
-%if 0%{?fedora} < 21
-Patch0:		cuda-6.5-configure.patch
-%else
-Patch0:		cuda-7.0-configure.patch
-%endif
-#%endif
 
-BuildRequires:	gcc-c++,make,automake,autoconf,git
-BuildRequires:	ImageMagick-devel,libjpeg-turbo-devel,freeglut-devel,mesa-libGL-devel,glew-devel
+BuildRequires:	gcc-c++,make,automake,autoconf,git,libtool
+BuildRequires:	ImageMagick-devel,freeglut-devel,glew-devel
 BuildRequires:	SDL-devel,SDL_mixer-devel,SDL_ttf-devel
 BuildRequires:	qt-x11,qt-devel,libX11-devel
 BuildRequires:	portaudio-devel,jack-audio-connection-kit-devel,alsa-lib-devel,libv4l-devel
 BuildRequires:	zip,kernel-headers
-BuildRequires:	ffmpeg-devel, live555-devel, opencv-devel, openssl-devel
+BuildRequires:	openssl-devel
 BuildRequires:	libgpujpeg-devel
+BuildRequires:	opencv-devel
+
+# bug
+#BuildRequires: live555-devel
 
 BuildRequires: 	cairo >= 1.14.0-2
 BuildRequires: 	ultragrid-proprietary-drivers
 %if %{defined fedora}
-%if 0%{?fedora} < 21
-BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
+BuildRequires:	libjpeg-turbo-devel,mesa-libGL-devel
+BuildRequires:	ffmpeg-devel
 %else
-BuildRequires:	cuda-core-7-0,cuda-command-line-tools-7-0,cuda-cudart-dev-7-0
-%endif
+# suse_version
+BuildRequires:	libavcodec-devel, libswscale-devel
+BuildRequires:	libjpeg62-devel,Mesa-libGL-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
 
-#BuildArch:	x86_64 i686
+%if 0%{?fedora} > 1 && 0%{?fedora} < 21
+BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
+%else
+BuildRequires:	cuda-core-8-0,cuda-command-line-tools-8-0,cuda-cudart-dev-8-0,clang
+%endif
 
-# dummy, protoze commit
-# main package - ultragrid
-# old 1.0 release
-Requires:	ultragrid-audio-alsa = %{version}-%{release}, ultragrid-audio-jack = %{version}-%{release}
-Requires:	ultragrid-audio-portaudio = %{version}-%{release}, ultragrid-card-decklink = %{version}-%{release}
-Requires:	ultragrid-card-deltacast = %{version}-%{release}, ultragrid-card-dvs = %{version}-%{release}
-#Requires:	ultragrid-card-linsys = %{version}-%{release}, ultragrid-card-screen = %{version}-%{release}
-Requires:	ultragrid-compress-rtdxt = %{version}-%{release}
-Requires:	ultragrid-core = %{version}-%{release}
-#, ultragrid-debuginfo = %{version}-%{release}
-Requires:	ultragrid-display-opengl = %{version}-%{release}
-Requires:	ultragrid-display-sdl = %{version}-%{release}, ultragrid-gui = %{version}-%{release}
-Requires:	ultragrid-plugin-scale = %{version}-%{release}
+%define build_conference 1
+# bug OpenCV3 in Fedora 25 does not contain gpu support stuff
+%if 0%{?fedora} > 24
+%define build_conference 0
+%endif
+# nor Leap 42.2
+%if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
+%define build_conference 0
+%endif
 
-# new in 1.2 release
-Requires:	ultragrid-card-bluefish444 = %{version}-%{release}, ultragrid-card-v4l2 = %{version}-%{release}
-Requires:	ultragrid-plugin-swmix = %{version}-%{release}, ultragrid-compress-libavcodec = %{version}-%{release}
-Requires:	ultragrid-compress-uyvy = %{version}-%{release}
-
-
+Conflicts:	ultragrid-core, ultragrid-nightly
+Obsoletes:	ultragrid-core < 1.4
 
 %description
 Ultragrid is a low-latency (As low as 83ms end-to-end)
@@ -78,395 +72,191 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 /^libBlueANCUtils64/d; \
 /^libsail\.so/d; \
 /^libquanta\.so/d; \
+/^libcudart\.so.*/d; \
 '"
 
-#define __find_requires	/bin/bash -c "/usr/lib/rpm/find-requires | sed -e '\
-#/^libvideomasterhd/d; \
-#/^libcudart\.so/d; \
-#/^libsail\.so/d; \
-#/^libquanta\.so/d; \
-#/^libnpp\.so/d; \
-#/^librt\.so/d; \
-#'"
+%define __find_provides	/bin/bash -c "/usr/lib/rpm/find-provides | sed -e '\
+/^libvideomasterhd/d; \
+/^libBlueVelvet/d; \
+/^libBlueANCUtils64/d; \
+/^libsail\.so/d; \
+/^libquanta\.so/d; \
+/^libcudart\.so.*/d; \
+'"
 
-%package	full
-Requires: 	ultragrid
-#Requires:	ultragrid-display-sage3svn = %{version}-%{release}
-Requires:	ultragrid-compress-jpeg = %{version}-%{release}
-Summary:	Full ultragrid installation
-%description	full
-Full ultragrid installation containing all drivers including the ones
-requiring external libraries outside rpm repositories to operate (currently cuda).
-Some might require manual installation using rpm --nodeps.
+#####################################################
+# > bluefish
+#####################################################
+%define build_bluefish 1
+#####################################################
+# < bluefish
+#####################################################
+#####################################################
+# > dvs
+#####################################################
+%define build_dvs 1
+#####################################################
+# < dvs
+#####################################################
+#####################################################
+# > blackmagick
+#####################################################
+%define build_blackmagick 1
+#####################################################
+# < blackmagick
+#####################################################
+#####################################################
+# > deltacast
+#####################################################
+%define build_deltacast 1
+#####################################################
+# < deltacast
+#####################################################
+#####################################################
+# > aja
+#####################################################
+%define build_aja 1
+#####################################################
+# < aja
+#####################################################
 
-%package	audio-alsa
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	ALSA input/output modules for Ultragrid.
-%description	audio-alsa
-Advanced Linux Sound Architecture (ALSA) support for Ultragrid.
-
-%package	core
-Summary:	The core ultragrid functionality
-%description	core
-The very core of ultragrid. For individual codecs and cards install respective packages.
-
-%package    openssl
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:    SSL functionality for Ultragrid.
-%description    openssl
-SSL functionality for Ultragrid.
-
-#%package	compress-fastdxt
-#Requires:	ultragrid-core = %{version}-%{release}
-#Summary:	FastDXT compression plugin for Ultragrid.
-#%description	compress-fastdxt
-#FastDXT DXT compression & decompression plugin for Ultragrid.
-
-%package	plugin-lgdm
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	ldgm module for Ultragrid
-%description	plugin-lgdm
-ldgm module for Ultragrid.
-
-%package 	compress-cudadxt
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	DXT compression and decompression on CUDA-capable graphics card
-%description	compress-cudadxt
-DXT compression and decompression on CUDA-capable graphics card.
-
-%package	compress-jpeg2dxt
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	video compresion from jpeg to dxt
-%description	compress-jpeg2dxt
-Video compresion from jpeg to dxt.
-
-%package	plugin-rtsp
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	rtsp plugin for Ultragrid
-%description	plugin-rtsp
-rtsp plugin for Ultragrid.
-
-%package	 card-aja
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	AJA ideo capture adapters support for Ultragrid
-%description	card-aja
-AJA ideo capture adapters support for Ultragrid.
-
-%package	audio-jack
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	JACK input/output modules for Ultragrid
-%description	audio-jack
-Jack Audio Connection Kit (JACK) support for Ultragrid.
-
-%package	compress-jpeg
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	JPEG  compression plugin for Ultragrid. Requires CUDA.
-%description	compress-jpeg
-GPU JPEG compression & decompression plugin for Ultragrid.
-Requires the NVIDIA CUDA repository (see https://developer.nvidia.com/cuda-downloads)
-
-%package	display-opengl
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	OpenGL display plugin for Ultragrid.
-%description	display-opengl
-OpenGL display plugin for Ultragrid.
-
-%package	audio-portaudio
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Portaudio input/output modules for Ultragrid.
-%description	audio-portaudio
-Portaudio support for ultragrid.
-
-%package	compress-rtdxt
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	RTDXT compression plugin for Ultragrid.
-%description	compress-rtdxt
-RTDXT DXT compression/decompression plugin for Ultragrid.
-
-%package	compress-rxtx-h264
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Video compression plugin rxtx h264 for Ultragrid.
-%description	compress-rxtx-h264
-Video compression plugin rxtx h264 for Ultragrid.
-
-%package	gui
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Simplistic GUI for Ultragrid.
-%description	gui
-QT gui for ultragrid.
-
-%package	display-sdl
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	SDL display plugin for Ultragrid.
-%description	display-sdl
-SDL display plugin for ultragrid.
-
-%package	plugin-scale
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Image scaling plugin for Ultragrid.
-%description	plugin-scale
-OpenGL image scaling plugin for Ultragrid.
-
-%package	plugin-vcapfilter
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Plugin for VCAP filtering functionality for Ultragrid.
-%description	plugin-vcapfilter
-Plugin for VCAP filtering functionality.
-
-%package	card-dvs
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	DVS video capture adapters support for Ultragrid.
-%description	card-dvs
-Requires the DVS SDK installed (proprietary). Setup symbolic link
-/opt/ultragrid-externals/dvs_sdk pointing to your DVS SDK installation.
-
-%package	card-deltacast
-Requires:	ultragrid = %{version}-%{release}
-Summary:	Deltacast video capture adapters support for Ultragrid.
-%description	card-deltacast
-Requires the Deltacast drivers installed (VideoMasterHd, proprietary).
-
-%package	card-decklink
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Decklink video capture adapters support for Ultragrid.
-%description	card-decklink
-Decklink video capture adapters support for Ultragrid.
-
-#%package	card-linsys
-#Requires:	ultragrid-core = %{version}-%{release}
-#Summary:	Linsys video capture adapters support for Ultragrid.
-#%description	card-linsys
-#Linsys video capture adapters support for Ultragrid.
-
-#%package	display-sage3svn
-#Requires:	ultragrid-core = %{version}-%{release}
-#Summary:	SAGE 3.x video output for Ultragrid.
-#%description	display-sage3svn
-#Scalable Adaptive Graphics Environment (SAGE) 3.x display for Ultragrid.
-
-%package	card-screen
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Screen capture adapter for Ultragrid.
-%description	card-screen
-OpenGL/X11 screen capture adapter for Ultragrid.
-
-%package	card-bluefish444
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	BlueFish444 card input/output driver
-%description	card-bluefish444
-Requires the BlueFish444 drivers installed (Epoch driver, proprietary).
-
-%package	card-v4l2
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Video4Linux input driver
-%description	card-v4l2
-Video4Linux v2 input driver
-
-%package	plugin-swmix
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Software videomixer for Ultragrid
-%description	plugin-swmix
-This plugin allows to grab multiple cards and place the grabbed frames
-to arbitrary positions in output video stream
-
-%package	compress-libavcodec
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	Libavcodec (ffmpeg) compression/decompression wrapper for Ultragrid.
-%description	compress-libavcodec
-Allows to acces the ffmpeg enabled copression, expecially h264.
-
-%package	compress-uyvy
-Requires:	ultragrid-core = %{version}-%{release}
-Summary:	UYVY compression for Ultragrid.
-%description	compress-uyvy
-UYVY compression for Ultragrid.
+%define UGLIBDIR %{_libdir}/ultragrid
 
 %prep
 %setup -q
-%patch0 -p1
-#%patch1 -p1
-
 
 %build
-
 # need to run autogen as configure.ac is patched during setup
-./autogen.sh
+./autogen.sh || true
 
 # fastdxt requires objects from sage build, but these are not available
 # jack-transport is broken since 1.2 release
-%configure --docdir=%{_docdir} --enable-rt --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
+# rstp is broken with current live555
+%configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
 	--enable-sdl --enable-gl --enable-rtdxt --enable-jpeg \
 	--enable-portaudio --disable-jack-transport --enable-jack \
 	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
-	--disable-coreaudio --enable-dvs --enable-decklink \
-	--enable-deltacast --disable-sage --enable-screen\
-    --enable-v4l2 --enable-bsd --enable-libavcodec --enable-scale --enable-uyvy \
-    --enable-swmix --enable-bluefish444 --enable-blue-audio --enable-ihdtv \
-    %if 0%{?fedora} < 21
-    --with-cuda=/usr/local/cuda-6.5 \
-    %else
-    --with-cuda=/usr/local/cuda-7.0 \
-    %endif
-	--with-dvs=/opt/ultragrid-externals/dvs_sdk \
-	--with-bluefish444=/opt/ultragrid-externals/bluefish_sdk --with-deltacast=/opt/ultragrid-externals/deltacast_sdk \
-    --with-aja=/opt/ultragrid-externals/aja_sdk
- # --enable-testcard-extras \
-#make %{?_smp_mflags}
+	--disable-coreaudio --disable-sage --enable-screen\
+	--enable-v4l2 --enable-bsd --enable-libavcodec --enable-scale --enable-uyvy \
+	--disable-rtsp \
+	--enable-swmix --enable-ihdtv \
+	%if 0%{?build_conference} > 0
+		--enable-video-mixer \
+	%else
+		--disable-video-mixer \
+	%endif
+	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
+		--with-cuda=/usr/local/cuda-6.5 \
+	%else
+		--with-cuda=/usr/local/cuda-8.0 --with-cuda-host-compiler=clang \
+	%endif
+	%if 0%{?build_bluefish} > 0
+		--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk  \
+	%endif
+	%if 0%{?build_dvs} > 0
+		--enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk \
+	%endif
+	%if 0%{?build_blackmagick} > 0
+		--enable-decklink \
+	%endif
+	%if 0%{?build_deltacast} > 0
+		--enable-deltacast --with-deltacast=/usr/src/ultragrid-externals/deltacast_sdk \
+	%endif
+	%if 0%{?build_aja} > 0
+		--with-aja=/usr/src/ultragrid-externals/aja_sdk \
+	%endif
+	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
+# --enable-testcard-extras \
+
+make %{?_smp_mflags}
+
 %install
 rm -rf ${RPM_BUILD_ROOT}
 make install DESTDIR=${RPM_BUILD_ROOT}
-echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/%{name}/ultragrid.version
-echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/%{name}/ultragrid-full.version
+mkdir -p ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid
+echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid.version
+
+# copy the real cudart to our rpath
+sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
 
 %files
 %defattr(-,root,root,-)
-%{_datadir}/%{name}/ultragrid.version
-
-%files full
-%defattr(-,root,root,-)
-%{_datadir}/%{name}/ultragrid-full.version
-
-%files core
-%defattr(-,root,root,-)
+%dir %{_datadir}/ultragrid
+%{_datadir}/ultragrid/*
+%dir %{_docdir}/ultragrid
+%{_docdir}/ultragrid/*
 %{_bindir}/uv
 %{_bindir}/hd-rum-transcode
-#%{_libdir}/%{name}/ug_lib_common.so.*
-%{_libdir}/%{name}/*vidcap_testcard*.so*
-#%{_libdir}/%{name}/vidcap_testcard2.so.*
-#%{_docdir}/%{name}-%{version}/*
-%{_defaultdocdir}/%{name}
-%{_datadir}/%{name}
-
-%files openssl
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/module_openssl.so*
-
-#%files compress-fastdxt
-#%defattr(-,root,root,-)
-#%{_libdir}/%{name}/*vcompress_fastdxt.so*
-
-%files plugin-lgdm
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/module_ldgm_gpu.so*
-
-%files compress-cudadxt
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vcompress_cuda_dxt.so*
-
-%files compress-jpeg2dxt
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vdecompress_jpeg_to_dxt.so*
-
-%files plugin-rtsp
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vidcap_rtsp.so*
-
-%files card-aja
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vidcap_aja.so*
-
-%files audio-alsa
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*acap_alsa.so*
-%{_libdir}/%{name}/*aplay_alsa.so*
-
-%files audio-jack
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*acap_jack.so*
-%{_libdir}/%{name}/*aplay_jack.so*
-
-%files compress-jpeg
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vcompress_jpeg.so*
-%{_libdir}/%{name}/*vdecompress_jpeg.so*
-
-%files display-opengl
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*display_gl.so*
-
-%files audio-portaudio
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*acap_portaudio.so*
-%{_libdir}/%{name}/*aplay_portaudio.so*
-
-%files gui
-%defattr(-,root,root,-)
 %{_bindir}/uv-qt
-
-%files compress-rtdxt
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vcompress_rtdxt.so*
-%{_libdir}/%{name}/*vdecompress_rtdxt.so*
-
-%files compress-rxtx-h264
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*video_rxtx_h264.so*
-
-%files plugin-scale
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vo_pp_scale.so*
-
-%files plugin-vcapfilter
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/module_vcapfilter_resize.so*
-%{_libdir}/%{name}/module_vcapfilter_blank.so*
-
-%files display-sdl
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*display_sdl.so*
-
-%files card-decklink
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*aplay_decklink.so*
-%{_libdir}/%{name}/*display_decklink.so*
-%{_libdir}/%{name}/*vidcap_decklink.so*
-
-%files card-dvs
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*display_dvs.so*
-%{_libdir}/%{name}/*vidcap_dvs.so*
-
-#%files card-linsys
-#%defattr(-,root,root,-)
-#%{_libdir}/%{name}/*vidcap_linsys.so*
-
-#%files display-sage3svn
-#%defattr(-,root,root,-)
-#%{_libdir}/%{name}/*display_sage.so*
-
-%files card-screen
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vidcap_screen.so*
-
-%files card-deltacast
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*display_deltacast.so*
-%{_libdir}/%{name}/*vidcap_deltacast.so*
-
-%files card-bluefish444
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*display_bluefish444.so*
-%{_libdir}/%{name}/*vidcap_bluefish444.so*
-
-%files card-v4l2
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vidcap_v4l2.so*
-
-%files plugin-swmix
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vidcap_swmix.so*
-
-%files compress-libavcodec
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vcompress_libavcodec.so*
-%{_libdir}/%{name}/*vdecompress_libavcodec.so*
-%{_libdir}/%{name}/*acodec_libavcodec.so*
-
-%files compress-uyvy
-%defattr(-,root,root,-)
-%{_libdir}/%{name}/*vcompress_uyvy.so*
+%dir %{_libdir}/ultragrid
+%if 0%{?build_dvs} > 0
+%{_libdir}/ultragrid/module_vidcap_dvs.so
+%{_libdir}/ultragrid/module_display_dvs.so
+%endif
+%if 0%{?build_blackmagick} > 0
+%{_libdir}/ultragrid/module_vidcap_decklink.so
+%{_libdir}/ultragrid/module_display_decklink.so
+%{_libdir}/ultragrid/module_aplay_decklink.so
+%endif
+%if 0%{?build_bluefish} > 0
+%{_libdir}/ultragrid/module_vidcap_bluefish444.so
+%{_libdir}/ultragrid/module_display_bluefish444.so
+%endif
+%if 0%{?build_aja} > 0
+%{_libdir}/ultragrid/module_vidcap_aja.so
+%endif
+%if 0%{?build_deltacast} > 0
+%{_libdir}/ultragrid/module_vidcap_deltacast.so
+%{_libdir}/ultragrid/module_display_deltacast.so
+%endif
+%{_libdir}/ultragrid/module_display_sdl.so
+# rtsp is broken with current live555
+#%{_libdir}/ultragrid/module_vidcap_rtsp.so
+#%{_libdir}/ultragrid/module_video_rxtx_h264.so
+%{_libdir}/ultragrid/module_vcapfilter_resize.so
+%{_libdir}/ultragrid/module_vcapfilter_blank.so
+%{_libdir}/ultragrid/module_vidcap_testcard.so
+%{_libdir}/ultragrid/module_display_gl.so
+%{_libdir}/ultragrid/module_vidcap_swmix.so
+# Fedora 25 OpenCV3
+%if 0%{?build_conference} > 0
+%{_libdir}/ultragrid/module_display_video_mix.so
+%endif
+%{_libdir}/ultragrid/module_vidcap_screen.so
+%{_libdir}/ultragrid/module_vcompress_rtdxt.so
+%{_libdir}/ultragrid/module_vdecompress_rtdxt.so
+%{_libdir}/ultragrid/module_vcompress_uyvy.so
+%{_libdir}/ultragrid/module_vcompress_jpeg.so
+%{_libdir}/ultragrid/module_vdecompress_jpeg.so
+%{_libdir}/ultragrid/module_vcompress_cuda_dxt.so
+%{_libdir}/ultragrid/module_vdecompress_jpeg_to_dxt.so
+%{_libdir}/ultragrid/module_acap_portaudio.so
+%{_libdir}/ultragrid/module_aplay_portaudio.so
+%{_libdir}/ultragrid/module_acap_jack.so
+%{_libdir}/ultragrid/module_aplay_jack.so
+%{_libdir}/ultragrid/module_acap_alsa.so
+%{_libdir}/ultragrid/module_aplay_alsa.so
+%{_libdir}/ultragrid/module_vo_pp_scale.so
+%{_libdir}/ultragrid/module_vo_pp_text.so
+%{_libdir}/ultragrid/module_vidcap_v4l2.so
+%{_libdir}/ultragrid/module_vcompress_libavcodec.so
+%{_libdir}/ultragrid/module_vdecompress_libavcodec.so
+%{_libdir}/ultragrid/module_acompress_libavcodec.so
+%{_libdir}/ultragrid/module_openssl.so
+%{_libdir}/ultragrid/module_ldgm_gpu.so
+# cudart
+%{_libdir}/ultragrid/*cudart*
 
 %changelog
+* Fri Mar 31 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.4-20170401
+- Switching to 1.4 release
+
+* Thu Feb 2 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz>
+- Integrated package definitions int main git repository
+
+* Thu Sep 17 2015 Ultragrid Development Team <ultragrid-dev@cesnet.cz>
+- Fixed the package specification to reflect changes in module naming
+
 * Wed Apr 2 2014 Ultragrid Development Team <ultragrid-dev@cesnet.cz>
 - Fixed dependency issues for BlueFish444 cards
 
