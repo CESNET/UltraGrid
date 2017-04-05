@@ -546,7 +546,7 @@ install: all
 	if [ -f "$(GUI_TARGET)" ]; then $(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir); fi
 	if [ -n "@MODULES@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
-		$(INSTALL) -m 644 @MODULES@ $(DESTDIR)/$(libdir)/ultragrid/;\
+		$(INSTALL) -m 755 @MODULES@ $(DESTDIR)/$(libdir)/ultragrid/;\
 	fi
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)

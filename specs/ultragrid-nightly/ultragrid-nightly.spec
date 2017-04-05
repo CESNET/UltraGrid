@@ -70,16 +70,17 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 /^libBlueANCUtils64/d; \
 /^libsail\.so/d; \
 /^libquanta\.so/d; \
+/^libcudart\.so.*/d; \
 '"
 
-#define __find_requires	/bin/bash -c "/usr/lib/rpm/find-requires | sed -e '\
-#/^libvideomasterhd/d; \
-#/^libcudart\.so/d; \
-#/^libsail\.so/d; \
-#/^libquanta\.so/d; \
-#/^libnpp\.so/d; \
-#/^librt\.so/d; \
-#'"
+%define __find_provides	/bin/bash -c "/usr/lib/rpm/find-provides | sed -e '\
+/^libvideomasterhd/d; \
+/^libBlueVelvet/d; \
+/^libBlueANCUtils64/d; \
+/^libsail\.so/d; \
+/^libquanta\.so/d; \
+/^libcudart\.so.*/d; \
+'"
 
 #####################################################
 # > bluefish
@@ -160,6 +161,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%if 0%{?build_aja} > 0
 		--with-aja=/usr/src/ultragrid-externals/aja_sdk \
 	%endif
+	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
 
 make %{?_smp_mflags}

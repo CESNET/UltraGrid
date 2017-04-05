@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-02-13 12:00:45.568820527 +0100
-+++ b/ultragrid-nightly/debian.rules	2017-02-13 12:00:46.880844713 +0100
+--- a/ultragrid-nightly/debian.rules	2017-04-05 23:40:49.261078166 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-05 23:40:55.249322459 +0200
 @@ -6,7 +6,7 @@ DEB_UPSTREAM_URL = https://github.com/CE
  #####################################################
  # > bluefish
@@ -11,9 +11,9 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
---- a/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:45.568820527 +0100
-+++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:46.924845524 +0100
-@@ -70,7 +70,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:49.261078166 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:55.429329811 +0200
+@@ -85,7 +85,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultrag
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:45.576820674 +0100
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:47.076848326 +0100
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:49.285079144 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:55.957351376 +0200
 @@ -25,8 +25,8 @@ override_dh_auto_build:
  #####################################################
  # > bluefish
@@ -54,8 +54,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:45.576820674 +0100
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:47.124849211 +0100
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:49.285079144 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:56.165359873 +0200
 @@ -39,10 +39,10 @@ Patch1:		videoMasterHD-linux4.6-get-user
  #####################################################
  # > bluefish (EpochLinuxDriver)

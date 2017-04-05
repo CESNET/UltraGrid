@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-02-13 12:00:45.568820527 +0100
-+++ b/ultragrid-nightly/debian.rules	2017-02-13 12:00:46.564838888 +0100
+--- a/ultragrid-nightly/debian.rules	2017-04-05 23:40:49.261078166 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-05 23:40:53.725260237 +0200
 @@ -34,7 +34,7 @@ CARDCONF+=--enable-deltacast --with-delt
  #####################################################
  # > aja
@@ -11,9 +11,9 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < aja
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
---- a/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:45.568820527 +0100
-+++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-02-13 12:00:46.604839625 +0100
-@@ -98,7 +98,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:49.261078166 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-05 23:40:53.901267420 +0200
+@@ -113,7 +113,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
  #####################################################
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultrag
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:45.576820674 +0100
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-02-13 12:00:46.732841985 +0100
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:49.285079144 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-05 23:40:54.601295999 +0200
 @@ -18,7 +18,7 @@ override_dh_auto_build:
  #####################################################
  # > aja
@@ -46,8 +46,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:45.576820674 +0100
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-02-13 12:00:46.784842943 +0100
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:49.285079144 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-05 23:40:54.845305961 +0200
 @@ -49,12 +49,12 @@ Patch13:	bluefish-linux4.6-get-user-page
  #####################################################
  # > aja (ntv2sdklinux)
