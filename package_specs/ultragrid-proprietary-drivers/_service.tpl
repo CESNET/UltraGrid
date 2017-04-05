@@ -10,7 +10,7 @@
 	</service>
 	<service name="extract_file">
 		<param name="archive">*ultragrid*.tar</param>
-		<param name="files">*/specs/ultragrid-proprietary-drivers/*</param>
+		<param name="files">*/package_specs/ultragrid-proprietary-drivers/*</param>
 	</service>
 	<service name="download_url">
 		<param name="protocol">http</param>

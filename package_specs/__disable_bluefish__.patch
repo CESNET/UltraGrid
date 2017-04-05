@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-04-06 12:53:03.317244490 +0200
-+++ b/ultragrid/debian.rules	2017-04-06 12:53:04.345261575 +0200
+--- a/ultragrid/debian.rules	2017-04-06 12:55:38.579859115 +0200
++++ b/ultragrid/debian.rules	2017-04-06 12:55:39.603876567 +0200
 @@ -7,7 +7,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-archi
  #####################################################
  # > bluefish
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec b/ultragrid/ultragrid.spec
---- a/ultragrid/ultragrid.spec	2017-04-06 12:53:03.317244490 +0200
-+++ b/ultragrid/ultragrid.spec	2017-04-06 12:53:04.385262241 +0200
+--- a/ultragrid/ultragrid.spec	2017-04-06 12:55:38.579859115 +0200
++++ b/ultragrid/ultragrid.spec	2017-04-06 12:55:39.639877180 +0200
 @@ -88,7 +88,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec b/ultragrid/ultragrid.spec
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-04-06 12:53:03.313244424 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-04-06 12:53:04.285260578 +0200
+--- a/ultragrid-nightly/debian.rules	2017-04-06 12:55:38.575859047 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-06 12:55:39.543875543 +0200
 @@ -7,7 +7,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-archi
  #####################################################
  # > bluefish
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultragrid-nightly.spec
---- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:53:03.313244424 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:53:04.325261243 +0200
+--- a/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:55:38.575859047 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec	2017-04-06 12:55:39.583876226 +0200
 @@ -87,7 +87,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
@@ -47,8 +47,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec b/ultragrid-nightly/ultrag
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:53:03.321244557 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:53:04.405262573 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:55:38.583859184 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:55:39.659877521 +0200
 @@ -25,8 +25,8 @@ override_dh_auto_build:
  #####################################################
  # > bluefish
@@ -78,8 +78,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:53:03.321244557 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:53:04.441263172 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:55:38.583859184 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:55:39.695878134 +0200
 @@ -39,10 +39,10 @@ Patch1:		videoMasterHD-linux4.6-get-user
  #####################################################
  # > bluefish (EpochLinuxDriver)
