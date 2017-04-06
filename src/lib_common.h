@@ -41,8 +41,6 @@
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define MK_STATIC_REF(A) &A, NULL
-#define STRINGIFY(A) #A
-#define TOSTRING(x) STRINGIFY(x)
 
 #ifdef BUILD_LIBRARIES
 #include <dlfcn.h>

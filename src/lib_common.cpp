@@ -89,7 +89,7 @@ void open_all(const char *pattern) {
                 char *dir = dirname(tmp);
                 snprintf(path, sizeof(path), "%s/../lib/ultragrid/%s", dir, pattern);
         } else {
-                snprintf(path, sizeof(path), TOSTRING(LIB_DIR) "/ultragrid/%s", pattern);
+                snprintf(path, sizeof(path), LIB_DIR "/ultragrid/%s", pattern);
         }
         free(tmp);
 
