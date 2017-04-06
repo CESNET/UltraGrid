@@ -70,7 +70,7 @@ static void print_available_delta_boards() {
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08X\n",
+                                " information. Result = 0x%08lX\n",
                                 Result);
                 return;
         }
@@ -94,7 +94,7 @@ static void print_available_delta_boards() {
                         if (it != board_type_map.end()) {
                                 board = it->second;
                         }
-                        printf("\t\tBoard %d: %s\n", i, board.c_str());
+                        printf("\t\tBoard %lu: %s\n", i, board.c_str());
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }

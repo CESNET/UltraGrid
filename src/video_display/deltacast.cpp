@@ -213,7 +213,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_BUFFERTOOSMALL)
                 {
-                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08X\n",Result);
+                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08lX\n", Result);
                 } else {
                         for(i = 0; i < s->audio_desc.ch_count; ++i) {
                                 int ret;
@@ -228,7 +228,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_NOERROR)
                 {
-                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08X\n",Result);
+                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08lX\n",Result);
                 }
         }
         pthread_mutex_unlock(&s->lock);
@@ -427,7 +427,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08X\n",
+                                " information. Result = 0x%08lX\n",
                                 Result);
                 goto error;
         }
@@ -437,7 +437,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         }
         
         if(BrdId >= NbBoards) {
-                fprintf(stderr, "[DELTACAST] Wrong index %d. Found %d cards.\n", BrdId, NbBoards);
+                fprintf(stderr, "[DELTACAST] Wrong index %lu. Found %lu cards.\n", BrdId, NbBoards);
                 goto error;
         }
 
@@ -445,7 +445,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %u handle. Result = 0x%08X\n",BrdId,Result);
+                fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %lu handle. Result = 0x%08lX\n", BrdId, Result);
                 goto error;
         }
 
