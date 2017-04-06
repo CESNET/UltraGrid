@@ -12,3 +12,8 @@ RPMs are built as usual, yet DEBs require a small change:
 2) rename the series file and move it into respective place
 3) rename debian.rules to debian/rules
 4) continue with normal build
+
+The pseudoautomated build system deployed for nightly builds
+uses template package specifications. To convert the
+templates to specifications, launch script deploy-templates.sh,
+shipped in this directory.

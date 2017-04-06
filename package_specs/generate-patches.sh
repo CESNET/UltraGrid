@@ -17,15 +17,17 @@ for vendor in ${vendors[*]} ; do
 	cp -r a b.$vendor
 	
 	for pkg in ${subpackages[*]} ; do
-		FILEMASK="a/$pkg/*.spec a/$pkg/*.dsc"
+		FILEMASK="a/$pkg/*.spec a/$pkg/*.spec.tpl a/$pkg/*.dsc.tpl a/$pkg/*.dsc"
 		if test -f "a/$pkg/debian/rules" ; then
 			FILEMASK+=" a/$pkg/debian/rules"
 		fi
 		if test -f "a/$pkg/debian.rules" ; then
 			FILEMASK+=" a/$pkg/debian.rules"
 		fi
-		for specfile in $(ls -1 $FILEMASK ) ; do
-			cat $specfile | ${scriptroot}/comment.py on "$vendor" > "$(echo $specfile | sed -r "s#^a/#b.$vendor/#g")"
+		for specfile in $(echo $FILEMASK ) ; do
+			if test -f "$specfile" ; then
+				cat $specfile | ${scriptroot}/comment.py on "$vendor" > "$(echo $specfile | sed -r "s#^a/#b.$vendor/#g")"
+			fi
 		done
 	done
 
