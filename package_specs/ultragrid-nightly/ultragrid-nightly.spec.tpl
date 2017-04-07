@@ -15,7 +15,6 @@ BuildRequires:	qt-x11,qt-devel,libX11-devel
 BuildRequires:	portaudio-devel,jack-audio-connection-kit-devel,alsa-lib-devel,libv4l-devel
 BuildRequires:	zip,kernel-headers
 BuildRequires:	openssl-devel
-BuildRequires:	libgpujpeg-devel
 BuildRequires:	opencv-devel
 
 # bug
@@ -33,10 +32,25 @@ BuildRequires:	libjpeg62-devel,Mesa-libGL-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
 
+#####################################################
+# > cuda
+#####################################################
+%define cuda 1
+#####################################################
+# < cuda
+#####################################################
+
+%if 0%{?cuda} > 0
 %if 0%{?fedora} > 1 && 0%{?fedora} < 21
 BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
+%define cudaconf --with-cuda=/usr/local/cuda-6.5
 %else
 BuildRequires:	cuda-core-8-0,cuda-command-line-tools-8-0,cuda-cudart-dev-8-0,clang
+%define cudaconf --with-cuda=/usr/local/cuda-8.0 --with-cuda-host-compiler=clang
+%endif
+BuildRequires:	libgpujpeg-devel
+%else
+%define cudaconf --disable-cuda
 %endif
 
 %define build_conference 1
@@ -133,7 +147,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # jack-transport is broken since 1.2 release
 # rstp is broken with current live555
 %configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
-	--enable-sdl --enable-gl --enable-rtdxt --enable-jpeg \
+	--enable-sdl --enable-gl --enable-rtdxt \
 	--enable-portaudio --disable-jack-transport --enable-jack \
 	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
@@ -145,25 +159,36 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%else
 		--disable-video-mixer \
 	%endif
-	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
-		--with-cuda=/usr/local/cuda-6.5 \
+	%{?cudaconf} \
+	%if 0%{?cuda} > 0
+		--enable-jpeg \
 	%else
-		--with-cuda=/usr/local/cuda-8.0 --with-cuda-host-compiler=clang \
+		--disable-jpeg \
 	%endif
 	%if 0%{?build_bluefish} > 0
 		--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk  \
+	%else
+		--disable-bluefish444 --disable-blue-audio \
 	%endif
 	%if 0%{?build_dvs} > 0
 		--enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk \
+	%else
+		--disable-dvs \
 	%endif
 	%if 0%{?build_blackmagick} > 0
 		--enable-decklink \
+	%else
+		--disable-decklink \
 	%endif
 	%if 0%{?build_deltacast} > 0
 		--enable-deltacast --with-deltacast=/usr/src/ultragrid-externals/deltacast_sdk \
+	%else
+		--disable-deltacast \
 	%endif
 	%if 0%{?build_aja} > 0
-		--with-aja=/usr/src/ultragrid-externals/aja_sdk \
+		--enable-aja --with-aja=/usr/src/ultragrid-externals/aja_sdk \
+	%else
+		--disable-aja \
 	%endif
 	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
@@ -175,9 +200,10 @@ rm -rf ${RPM_BUILD_ROOT}
 make install DESTDIR=${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid
 echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-nightly.version
-
+%if 0%{?cuda} > 0
 # copy the real cudart to our rpath
 sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
+%endif
 
 %files
 %defattr(-,root,root,-)
@@ -226,10 +252,6 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/module_vcompress_rtdxt.so
 %{_libdir}/ultragrid/module_vdecompress_rtdxt.so
 %{_libdir}/ultragrid/module_vcompress_uyvy.so
-%{_libdir}/ultragrid/module_vcompress_jpeg.so
-%{_libdir}/ultragrid/module_vdecompress_jpeg.so
-%{_libdir}/ultragrid/module_vcompress_cuda_dxt.so
-%{_libdir}/ultragrid/module_vdecompress_jpeg_to_dxt.so
 %{_libdir}/ultragrid/module_acap_portaudio.so
 %{_libdir}/ultragrid/module_aplay_portaudio.so
 %{_libdir}/ultragrid/module_acap_jack.so
@@ -243,9 +265,15 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/module_vdecompress_libavcodec.so
 %{_libdir}/ultragrid/module_acompress_libavcodec.so
 %{_libdir}/ultragrid/module_openssl.so
+%if 0%{?cuda} > 0
+%{_libdir}/ultragrid/module_vcompress_jpeg.so
+%{_libdir}/ultragrid/module_vdecompress_jpeg.so
+%{_libdir}/ultragrid/module_vcompress_cuda_dxt.so
+%{_libdir}/ultragrid/module_vdecompress_jpeg_to_dxt.so
 %{_libdir}/ultragrid/module_ldgm_gpu.so
 # cudart
 %{_libdir}/ultragrid/*cudart*
+%endif
 
 %changelog
 * Fri Mar 31 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.4-20170401

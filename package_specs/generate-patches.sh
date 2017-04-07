@@ -2,7 +2,7 @@
 
 scriptroot="$(dirname "$(realpath "$0")")"
 
-vendors=( deltacast blackmagick dvs aja bluefish )
+vendors=( deltacast blackmagick dvs aja bluefish cuda )
 subpackages=( ultragrid-nightly ultragrid ultragrid-proprietary-drivers )
 
 mkdir a

@@ -1,54 +1,54 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-04-06 12:57:40.321949643 +0200
-+++ b/ultragrid/debian.rules	2017-04-06 12:57:40.653955384 +0200
-@@ -21,7 +21,7 @@ CARDCONF+= --enable-dvs --with-dvs=/usr/
+--- a/ultragrid/debian.rules	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/debian.rules	2017-04-07 13:20:59.706220930 +0200
+@@ -28,7 +28,7 @@ CARDCONF_DVS=--enable-dvs --with-dvs=/us
  #####################################################
  # > blackmagick
  #####################################################
--CARDCONF+= --enable-decklink
-+#CARDCONF+= --enable-decklink
+-CARDCONF_DECKLINK= --enable-decklink
++#CARDCONF_DECKLINK= --enable-decklink
  #####################################################
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-04-06 12:57:40.321949643 +0200
-+++ b/ultragrid/ultragrid.spec.tpl	2017-04-06 12:57:40.689956006 +0200
-@@ -102,7 +102,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid/ultragrid.spec.tpl	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/ultragrid.spec.tpl	2017-04-07 13:20:59.662220114 +0200
+@@ -115,7 +115,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > blackmagick
  #####################################################
 -%define build_blackmagick 1
-+#%define build_blackmagick 1
++#%%define build_blackmagick 1
  #####################################################
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-04-06 12:57:40.317949573 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-04-06 12:57:40.593954345 +0200
-@@ -21,7 +21,7 @@ CARDCONF+= --enable-dvs --with-dvs=/usr/
+--- a/ultragrid-nightly/debian.rules	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-07 13:20:59.642219744 +0200
+@@ -28,7 +28,7 @@ CARDCONF_DVS=--enable-dvs --with-dvs=/us
  #####################################################
  # > blackmagick
  #####################################################
--CARDCONF+= --enable-decklink
-+#CARDCONF+= --enable-decklink
+-CARDCONF_DECKLINK= --enable-decklink
++#CARDCONF_DECKLINK= --enable-decklink
  #####################################################
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-06 12:57:40.317949573 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-06 12:57:40.633955038 +0200
-@@ -101,7 +101,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:20:59.606219075 +0200
+@@ -115,7 +115,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > blackmagick
  #####################################################
 -%define build_blackmagick 1
-+#%define build_blackmagick 1
++#%%define build_blackmagick 1
  #####################################################
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:57:40.325949712 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:57:40.749957044 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:20:59.346214257 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:20:59.726221301 +0200
 @@ -13,7 +13,7 @@ BuildRequires:	%kernel_module_package_bu
  #####################################################
  # > blackmagick (DesktopVideo)

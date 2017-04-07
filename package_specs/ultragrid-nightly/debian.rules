@@ -4,49 +4,57 @@ SHELL=/bin/bash
 DEB_UPSTREAM_URL = https://github.com/CESNET/UltraGrid
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+CARDCONF_BLUEFISH=--disable-bluefish444 --disable-blue-audio
+CARDCONF_DVS=--disable-dvs
+CARDCONF_DECKLINK=--disable-decklink
+CARDCONF_DECKLINK=--disable-deltacast
+CARDCONF_AJA=--disable-aja
+CUDA=--disable-cuda
+
 #####################################################
 # > bluefish
 #####################################################
-CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
+CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
 #####################################################
 # < bluefish
 #####################################################
 #####################################################
 # > dvs
 #####################################################
-CARDCONF+= --enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk
+CARDCONF_DVS=--enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk
 #####################################################
 # < dvs
 #####################################################
 #####################################################
 # > blackmagick
 #####################################################
-CARDCONF+= --enable-decklink
+CARDCONF_DECKLINK= --enable-decklink
 #####################################################
 # < blackmagick
 #####################################################
 #####################################################
 # > deltacast
 #####################################################
-CARDCONF+=--enable-deltacast --with-deltacast=/usr/src/ultragrid-externals/deltacast_sdk
+CARDCONF_DELTACAST= --enable-deltacast --with-deltacast=/usr/src/ultragrid-externals/deltacast_sdk
 #####################################################
 # < deltacast
 #####################################################
 #####################################################
 # > aja
 #####################################################
-CARDCONF+=--with-aja=/usr/src/ultragrid-externals/aja_sdk
+CARDCONF_AJA= --enable-aja --with-aja=/usr/src/ultragrid-externals/aja_sdk
 #####################################################
 # < aja
 #####################################################
 #####################################################
 # > cuda
 #####################################################
-CUDA:=--with-cuda=/usr/local/cuda-8.0
+CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
 #####################################################
 # < cuda
 #####################################################
 
+CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DECKLINK) $(CARDCONF_AJA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
 UGLIBDIR=$(LIBDIR)/ultragrid
 
@@ -56,7 +64,7 @@ UGLIBDIR=$(LIBDIR)/ultragrid
 override_dh_auto_configure:
 	./autogen.sh || true
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
-		--enable-sdl --enable-gl --enable-rtdxt --enable-jpeg \
+		--enable-sdl --enable-gl --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\

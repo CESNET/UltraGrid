@@ -1,54 +1,54 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-04-06 12:57:40.321949643 +0200
-+++ b/ultragrid/debian.rules	2017-04-06 12:57:41.377967906 +0200
-@@ -7,7 +7,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-archi
+--- a/ultragrid/debian.rules	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/debian.rules	2017-04-07 13:21:00.422234200 +0200
+@@ -14,7 +14,7 @@ CUDA=--disable-cuda
  #####################################################
  # > bluefish
  #####################################################
--CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
-+#CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
+-CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
++#CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
  #####################################################
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-04-06 12:57:40.321949643 +0200
-+++ b/ultragrid/ultragrid.spec.tpl	2017-04-06 12:57:41.417968598 +0200
-@@ -88,7 +88,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid/ultragrid.spec.tpl	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/ultragrid.spec.tpl	2017-04-07 13:21:00.386233534 +0200
+@@ -101,7 +101,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################
 -%define build_bluefish 1
-+#%define build_bluefish 1
++#%%define build_bluefish 1
  #####################################################
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-04-06 12:57:40.317949573 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-04-06 12:57:41.317966868 +0200
-@@ -7,7 +7,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-archi
+--- a/ultragrid-nightly/debian.rules	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-07 13:21:00.366233163 +0200
+@@ -14,7 +14,7 @@ CUDA=--disable-cuda
  #####################################################
  # > bluefish
  #####################################################
--CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
-+#CARDCONF+= --enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
+-CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
++#CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk
  #####################################################
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-06 12:57:40.317949573 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-06 12:57:41.357967560 +0200
-@@ -87,7 +87,7 @@ UltraGrid developed by Colin Perkins, La
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:21:00.330232496 +0200
+@@ -101,7 +101,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################
 -%define build_bluefish 1
-+#%define build_bluefish 1
++#%%define build_bluefish 1
  #####################################################
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:57:40.325949712 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-06 12:57:41.437968943 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-04-07 13:20:59.346214257 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-07 13:21:00.538236350 +0200
 @@ -25,8 +25,8 @@ override_dh_auto_build:
  #####################################################
  # > bluefish
@@ -78,8 +78,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < bluefish
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:57:40.325949712 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-06 12:57:41.477969634 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:20:59.346214257 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:21:00.446234646 +0200
 @@ -39,10 +39,10 @@ Patch1:		videoMasterHD-linux4.6-get-user
  #####################################################
  # > bluefish (EpochLinuxDriver)
@@ -103,10 +103,10 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
 -%patch11 -p1
 -%patch12 -p1
 -%patch13 -p1
-+#%patch10 -p1
-+#%patch11 -p1
-+#%patch12 -p1
-+#%patch13 -p1
++#%%patch10 -p1
++#%%patch11 -p1
++#%%patch12 -p1
++#%%patch13 -p1
  #####################################################
  # < bluefish
  #####################################################

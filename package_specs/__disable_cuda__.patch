@@ -1,0 +1,48 @@
+diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
+--- a/ultragrid/debian.rules	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/debian.rules	2017-04-07 13:21:00.658238574 +0200
+@@ -49,7 +49,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
+ #####################################################
+ # > cuda
+ #####################################################
+-CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
++#CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
+ #####################################################
+ # < cuda
+ #####################################################
+diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
+--- a/ultragrid/ultragrid.spec.tpl	2017-04-07 13:20:59.342214183 +0200
++++ b/ultragrid/ultragrid.spec.tpl	2017-04-07 13:21:00.622237908 +0200
+@@ -35,7 +35,7 @@ BuildRequires:	glib2-devel, libcurl-deve
+ #####################################################
+ # > cuda
+ #####################################################
+-%define cuda 1
++#%%define cuda 1
+ #####################################################
+ # < cuda
+ #####################################################
+diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
+--- a/ultragrid-nightly/debian.rules	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/debian.rules	2017-04-07 13:21:00.602237537 +0200
+@@ -49,7 +49,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
+ #####################################################
+ # > cuda
+ #####################################################
+-CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
++#CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
+ #####################################################
+ # < cuda
+ #####################################################
+diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:20:59.338214108 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:21:00.566236870 +0200
+@@ -35,7 +35,7 @@ BuildRequires:	glib2-devel, libcurl-deve
+ #####################################################
+ # > cuda
+ #####################################################
+-%define cuda 1
++#%%define cuda 1
+ #####################################################
+ # < cuda
+ #####################################################
