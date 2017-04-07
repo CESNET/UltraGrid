@@ -26,6 +26,27 @@ def checkArgs(argv):
 
     return True
 
+def comment_line(line, mode):
+    expr_skip = re.compile("^#{2,}$")
+
+    # rpmspec commenting
+    expr_spec_on = re.compile("^\s*%.*")
+    expr_spec_off   = re.compile("^#\s*%%.*")
+
+    if (expr_skip.match(line)):
+        print(line, end="")
+    elif(mode == MODE_ON):
+        if (expr_spec_on.match(line)):
+            line = line.replace("%", "%%")
+        print("#"+line, end="")
+    elif(mode == MODE_OFF and len(line) > 1 and line[0] == "#"):
+        if (expr_spec_off.match(line)):
+            line = line.replace("%%", "%")
+        print(line[1:], end="")
+    else:
+        print(line, end="")
+
+
 def main(argv):
     if (not checkArgs(argv)):
         usage(argv[0])
@@ -35,7 +56,6 @@ def main(argv):
     pattern = argv[2]
 
     expr_on   = re.compile("^# > "+pattern+"( .*)?$")
-    expr_skip = re.compile("^#{2,}$")
     expr_off  = re.compile("^# < "+pattern+"( .*)?$")
 
     commentingMode = False
@@ -55,14 +75,7 @@ def main(argv):
             commentingMode = not commentingMode
             print(line, end="")
         elif (commentingMode):
-            if (expr_skip.match(line)):
-                print(line, end="")
-            elif(mode == MODE_ON):
-                print("#"+line, end="")
-            elif(mode == MODE_OFF and len(line) > 1 and line[0] == "#"):
-                print(line[1:], end="")
-            else:
-                print(line, end="")
+            comment_line(line, mode)
         else:
             print(line, end="")
         lineIdx += 1
