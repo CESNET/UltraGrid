@@ -62,7 +62,7 @@ struct dump_display_state {
                         perror("mkdir");
                         throw string("Unable to create directory!");
                 }
-                e = export_init(dirname.c_str(), true);
+                e = export_init(NULL, dirname.c_str(), true);
         }
         ~dump_display_state() {
                 vf_free(f);

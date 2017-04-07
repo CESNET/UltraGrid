@@ -229,6 +229,16 @@ void keyboard_control::run()
                                         LOCKED_MSG();
                                 }
                                 break;
+                        case 'e':
+                                if (!m_locked_against_changes) {
+                                        char path[] = "exporter";
+                                        auto m = (struct message *) new_message(sizeof(struct msg_universal));
+                                        auto resp = send_message(m_root, path, (struct message *) m);
+                                        free_response(resp);
+                                } else {
+                                        LOCKED_MSG();
+                                }
+                                break;
                         case 'h':
                                 usage();
                                 break;
@@ -265,6 +275,7 @@ void keyboard_control::usage()
                 "\t   -   - decrease audio delay by 10 ms\n" <<
                 "\t   m   - mute/unmute\n" <<
                 "\t   v   - increase verbosity level\n" <<
+                "\t   e   - record captured content (toggle)\n" <<
                 "\t   h   - show help\n" <<
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<

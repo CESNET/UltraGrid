@@ -44,25 +44,30 @@
 #include "export.h"
 
 #include "audio/export.h"
+#include "debug.h"
+#include "messaging.h"
+#include "module.h"
 #include "video_export.h"
 
 struct exporter {
-        bool should_export;
+        struct module mod;
         char *dir;
         bool dir_auto;
         struct video_export *video_export;
         struct audio_export *audio_export;
+        bool exporting;
+        pthread_mutex_t lock;
 };
 
 static bool create_dir(struct exporter *s);
 static bool enable_export(struct exporter *s);
 static void disable_export(struct exporter *s);
 
-struct exporter *export_init(const char *path, bool should_export)
+struct exporter *export_init(struct module *parent, const char *path, bool should_export)
 {
         struct exporter *s = calloc(1, sizeof(struct exporter));
+        pthread_mutex_init(&s->lock, NULL);
 
-        s->should_export = should_export;
         if (path) {
                 s->dir = strdup(path);
         } else {
@@ -75,9 +80,14 @@ struct exporter *export_init(const char *path, bool should_export)
                 }
         }
 
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_EXPORTER;
+        module_register(&s->mod, parent);
+
         return s;
 
 error:
+        pthread_mutex_destroy(&s->lock);
         free(s->dir);
         free(s);
         return NULL;
@@ -101,6 +111,9 @@ static bool enable_export(struct exporter *s)
                 goto error;
         }
 
+        s->exporting = true;
+
+        pthread_mutex_unlock(&s->lock);
         return true;
 
 error:
@@ -159,26 +172,52 @@ static void disable_export(struct exporter *s) {
                 free(s->dir);
                 s->dir = NULL;
         }
+        s->exporting = false;
 }
 
 void export_destroy(struct exporter *s) {
         disable_export(s);
 
+        pthread_mutex_destroy(&s->lock);
+        module_done(&s->mod);
         free(s->dir);
         free(s);
 }
 
+static void process_messages(struct exporter *s) {
+        struct message *m;
+        while ((m = check_message(&s->mod))) {
+                pthread_mutex_lock(&s->lock);
+                if (s->exporting) {
+                        disable_export(s);
+                } else {
+                        enable_export(s);
+                }
+                log_msg(LOG_LEVEL_NOTICE, "Exporing: %s\n", s->exporting ? "ON" : "OFF");
+                pthread_mutex_unlock(&s->lock);
+                free_message(m, new_response(RESPONSE_OK, NULL));
+        }
+}
+
 void export_audio(struct exporter *s, struct audio_frame *frame)
 {
-        if (s->should_export) {
+        process_messages(s);
+
+        pthread_mutex_lock(&s->lock);
+        if (s->exporting) {
                 audio_export(s->audio_export, frame);
         }
+        pthread_mutex_unlock(&s->lock);
 }
 
 void export_video(struct exporter *s, struct video_frame *frame)
 {
-        if (s->should_export) {
+        process_messages(s);
+
+        pthread_mutex_lock(&s->lock);
+        if (s->exporting) {
                 video_export(s->video_export, frame);
         }
+        pthread_mutex_unlock(&s->lock);
 }
 

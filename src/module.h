@@ -76,6 +76,7 @@ enum module_class {
         MODULE_CLASS_FILTER,
         MODULE_CLASS_DISPLAY,
         MODULE_CLASS_DECODER,
+        MODULE_CLASS_EXPORTER,
 };
 
 struct module;

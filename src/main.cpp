@@ -996,7 +996,7 @@ int main(int argc, char *argv[])
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
 
-        exporter = export_init(export_opts, should_export);
+        exporter = export_init(&uv.root_module, export_opts, should_export);
         if (!exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
                 return EXIT_FAILURE;
