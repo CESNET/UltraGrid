@@ -45,7 +45,7 @@ function launch() {
 		sed "/Version/s/-.*/-${DATE}00/" "$spec" > "${PACKAGE}/$(basename "$spec" | sed -r 's/^([^:]+[:])*([^:]+).tpl$/\2/g')"
 	done
 
-	for spec in S{SPECDIR}/*.spec.tpl ; do
+	for spec in ${SPECDIR}/*.spec.tpl ; do
 		sed -r "/Release:/s/[[:space:]][^[:digit:]]+/ ${DATE}.00/" "$spec" > "${PACKAGE}/$(basename "$spec" | sed -r 's/^([^:]+[:])*([^:]+).tpl$/\2/g')"
 	done
 
