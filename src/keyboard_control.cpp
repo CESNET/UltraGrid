@@ -171,8 +171,6 @@ void keyboard_control::stop()
 #endif
 }
 
-#define LOCKED_MSG() do { LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n"; } while(0)
-
 void keyboard_control::run()
 {
         while(1) {
@@ -190,71 +188,83 @@ void keyboard_control::run()
                         int c = getch();
 #endif
                         debug_msg("Key %c pressed\n", c);
+
                         switch (c) {
                         case CTRL_X:
                                 m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
-                                cout << "Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n";
+                                LOG(LOG_LEVEL_NOTICE) << "Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n";
                                 break;
                         case '*':
                         case '/':
                         case '9':
                         case '0':
                         case 'm':
-                                if (!m_locked_against_changes) {
-                                        char path[] = "audio.receiver";
-                                        auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                                        switch (c) {
-                                        case '0':
-                                        case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
-                                        case '9':
-                                        case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
-                                        case 'm': m->type = RECEIVER_MSG_MUTE; break;
-                                }
-
-                                auto resp = send_message(m_root, path, (struct message *) m);
-                                free_response(resp);
-
-                                } else {
-                                        LOCKED_MSG();
-                                }
-                                break;
                         case '+':
                         case '-':
-                                if (!m_locked_against_changes) {
-                                        int audio_delay = get_audio_delay();
-                                        audio_delay += c == '+' ? 10 : -10;
-                                        log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
-                                        set_audio_delay(audio_delay);
-                                } else {
-                                        LOCKED_MSG();
-                                }
-                                break;
                         case 'e':
-                                if (!m_locked_against_changes) {
-                                        char path[] = "exporter";
-                                        auto m = (struct message *) new_message(sizeof(struct msg_universal));
-                                        auto resp = send_message(m_root, path, (struct message *) m);
-                                        free_response(resp);
-                                } else {
-                                        LOCKED_MSG();
-                                }
+                        case 'v':
+                                if (m_locked_against_changes) {
+                                        LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n";
+                                        goto after_protected;
+                                } // else process it in next switch
                                 break;
                         case 'h':
                                 usage();
-                                break;
-                        case 'v':
-                                if (!m_locked_against_changes) {
-                                        log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
-                                        cout << "Log level: " << log_level << "\n";
-                                } else {
-                                        LOCKED_MSG();
-                                }
                                 break;
                         case '\n':
                                 cout << endl;
                                 break;
                         }
+
+                        // these are settings that are protected by Ctrl-X
+                        switch (c) {
+                        case '*':
+                        case '/':
+                        case '9':
+                        case '0':
+                        case 'm':
+                        {
+                                char path[] = "audio.receiver";
+                                auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                                switch (c) {
+                                case '0':
+                                case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
+                                case '9':
+                                case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
+                                case 'm': m->type = RECEIVER_MSG_MUTE; break;
+                                }
+
+                                auto resp = send_message(m_root, path, (struct message *) m);
+                                free_response(resp);
+                                break;
+                        }
+                        case '+':
+                        case '-':
+                        {
+                                int audio_delay = get_audio_delay();
+                                audio_delay += c == '+' ? 10 : -10;
+                                log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
+                                set_audio_delay(audio_delay);
+                                break;
+                        }
+                        case 'e':
+                        {
+                                char path[] = "exporter";
+                                auto m = (struct message *) new_message(sizeof(struct msg_universal));
+                                auto resp = send_message(m_root, path, (struct message *) m);
+                                free_response(resp);
+                                break;
+                        }
+                        case 'v':
+                        {
+                                log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                                cout << "Log level: " << log_level << "\n";
+                                break;
+                        }
+                        }
                 }
+
+after_protected:
 #ifdef HAVE_TERMIOS_H
                 if (FD_ISSET(m_should_exit_pipe[0], &set)) {
 #else
