@@ -441,12 +441,15 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
 
         tmp = interlacing << 29;
         fps = round(input_fps);
-        fpsd = 1;
-        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
-                fd = 1;
-        else
-                fd = 0;
+        fpsd = 1; /// @todo make use of this value (for now it is always one)
+        fd = 0;
         fi = 0;
+        if (input_fps > 1.0 && fabs(input_fps - round(input_fps) / 1.001) < 0.005) { // 29.97 etc.
+                fd = 1;
+        } else if (fps < 1.0) {
+                fps = round(1.0 / input_fps);
+                fi = 1;
+        }
 
         tmp |= fps << 19;
         tmp |= fpsd << 15;
