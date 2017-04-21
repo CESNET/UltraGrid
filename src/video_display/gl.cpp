@@ -88,7 +88,8 @@
 #define STRINGIFY(A) #A
 
 #define MAX_BUFFER_SIZE 1
-#define SYSTEM_VSYNC 0xFF
+#define SYSTEM_VSYNC 0xFE
+#define SINGLE_BUF 0xFF // use single buffering instead of double
 
 using namespace std;
 
@@ -237,7 +238,7 @@ static struct state_gl *gl;
 static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
 static int display_gl_reconfigure(void *state, struct video_desc desc);
 
-static void gl_draw(double ratio, double bottom_offset);
+static void gl_draw(double ratio, double bottom_offset, bool double_buf);
 static void gl_show_help(void);
 
 static void gl_change_aspect(struct state_gl *s, int width, int height);
@@ -261,11 +262,12 @@ extern "C" void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:fixed_size[=WxH]]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:fixed_size[=WxH]|:[vsync=<x>|single]]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\tnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\tvsync=<x>\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
+        printf("\t\tsingle\t\tuse single buffer (instead of double-buffering\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
         printf("\t\tcursor\t\tshow visible cursor\n");
         printf("\t\tsize\t\tspecifies desired size of window compared "
@@ -348,6 +350,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 if(pos) s->video_aspect /= atof(pos + 1);
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->vsync = 0;
+                        } else if(!strcasecmp(tok, "single")) {
+                                s->vsync = SINGLE_BUF;
                         } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
                                 if (toupper((tok + strlen("vsync="))[0]) == 'D') {
                                         s->vsync = SYSTEM_VSYNC;
@@ -787,7 +791,7 @@ static void glut_idle_callback(void)
                 glFinish();
         }
         gl_render(s, frame->tiles[0].data);
-        gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
+        gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
 #ifdef HAVE_SYPHON
 
         if (s->syphon) {
@@ -877,7 +881,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
 #endif // HAVE_LINUX
 
         glutInit(&uv_argc, uv_argv);
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+        glutInitDisplayMode(GLUT_RGBA | (s->vsync == SINGLE_BUF ? GLUT_SINGLE : GLUT_DOUBLE));
 
 #ifdef HAVE_MACOSX
         /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
@@ -1014,11 +1018,17 @@ static void gl_resize(int width, int height)
 
         glLoadIdentity( );
 
+        if (gl->vsync == SINGLE_BUF) {
+                glDrawBuffer(GL_FRONT);
+                /* Clear the screen */
+                glClear(GL_COLOR_BUFFER_BIT);
+        }
+
         if (gl->current_frame) {
                 // redraw last frame
                 for (int i = 0; i < 2; ++i) {
                         gl_render(gl, gl->current_frame->tiles[0].data);
-                        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
+                        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
                         glutSwapBuffers();
                 }
                 glutPostRedisplay();
@@ -1075,15 +1085,15 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
-static void gl_draw(double ratio, double bottom_offset)
+static void gl_draw(double ratio, double bottom_offset, bool double_buf)
 {
         float bottom;
         gl_check_error();
 
-        glDrawBuffer(GL_BACK);
-
-        /* Clear the screen */
-        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawBuffer(double_buf ? GL_BACK : GL_FRONT);
+        if (double_buf) {
+                glClear(GL_COLOR_BUFFER_BIT);
+        }
 
         glLoadIdentity( );
         glTranslatef( 0.0f, 0.0f, -1.35f );
