@@ -706,6 +706,14 @@ static void gl_render(struct state_gl *s, char *data)
         gl_check_error();
 }
 
+static void pop_frame(struct state_gl *s)
+{
+        unique_lock<mutex> lk(s->lock);
+        s->frame_queue.pop();
+        lk.unlock();
+        s->frame_consumed_cv.notify_one();
+}
+
 static void glut_idle_callback(void)
 {
         struct state_gl *s = gl;
@@ -738,26 +746,27 @@ static void glut_idle_callback(void)
                 }
         }
 
-        unique_lock<mutex> lk(s->lock);
-        double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
-        s->new_frame_ready_cv.wait_for(lk, chrono::duration<double>(timeout), [s] {
-                        return s->frame_queue.size() > 0;});
-        if (s->frame_queue.size() == 0) {
-                return;
+        {
+                unique_lock<mutex> lk(s->lock);
+                double timeout = min(2.0 / s->current_display_desc.fps, 0.1);
+                s->new_frame_ready_cv.wait_for(lk, chrono::duration<double>(timeout), [s] {
+                                return s->frame_queue.size() > 0;});
+                if (s->frame_queue.size() == 0) {
+                        return;
+                }
+                frame = s->frame_queue.front();
         }
-        frame = s->frame_queue.front();
-        s->frame_queue.pop();
-        lk.unlock();
-        s->frame_consumed_cv.notify_one();
 
         if (!frame) {
 #ifdef FREEGLUT
                 glutLeaveMainLoop();
 #endif
+                pop_frame(s);
                 return;
         }
 
         if (s->paused) {
+                pop_frame(s);
                 unique_lock<mutex> lk(s->lock);
                 s->free_frame_queue.push(frame);
                 return;
@@ -774,14 +783,20 @@ static void glut_idle_callback(void)
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
 
+        if (s->vsync > 0) { // latency optimalization
+                glFinish();
+        }
         gl_render(s, frame->tiles[0].data);
         gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
 #ifdef HAVE_SYPHON
+
         if (s->syphon) {
                 syphon_server_publish(s->syphon, frame->tiles[0].width, frame->tiles[0].height, s->texture_display);
         }
 #endif
-        glutPostRedisplay();
+
+        glutSwapBuffers();
+        pop_frame(s);
 
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -1064,6 +1079,8 @@ static void gl_draw(double ratio, double bottom_offset)
 {
         float bottom;
         gl_check_error();
+
+        glDrawBuffer(GL_BACK);
 
         /* Clear the screen */
         glClear(GL_COLOR_BUFFER_BIT);
