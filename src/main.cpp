@@ -239,9 +239,9 @@ void exit_uv(int status) {
         should_exit = true;
 }
 
-static void usage(void)
+static void usage(const char *exec_path)
 {
-        printf("\nUsage: %s [options] address(es)\n\n", uv_argv[0]);
+        printf("\nUsage: %s [options] address\n\n", exec_path ? exec_path : "<executable_path>");
         printf("Options:\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
         const char *video_protocol_opts = "";
 
         if (argc == 1) {
-                usage();
+                usage(argv[0]);
                 return EXIT_FAIL_USAGE;
         }
 
@@ -733,7 +733,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'h':
-                        usage();
+                        usage(uv_argv[0]);
                         return 0;
                 case 'P':
                         if(strchr(optarg, ':')) {
@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
                                         if((tok = strtok_r(NULL, ":", &save_ptr))) {
                                                 audio_tx_port = atoi(tok);
                                         } else {
-                                                usage();
+                                                usage(uv_argv[0]);
                                                 return EXIT_FAIL_USAGE;
                                         }
                                 }
@@ -875,11 +875,11 @@ int main(int argc, char *argv[])
                                 connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
 
                                 if(connection_type < 0 || connection_type > 1){
-                                        usage();
+                                        usage(uv_argv[0]);
                                         return EXIT_FAIL_USAGE;
                                 }
                                 if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                        usage();
+                                        usage(uv_argv[0]);
                                         return EXIT_FAIL_USAGE;
                                 }
                         } else {
@@ -914,7 +914,7 @@ int main(int argc, char *argv[])
                         break;
                 case '?':
                 default:
-                        usage();
+                        usage(uv_argv[0]);
                         return EXIT_FAIL_USAGE;
                 }
         }
