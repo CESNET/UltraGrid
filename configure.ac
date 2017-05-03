@@ -2689,6 +2689,35 @@ if test $video_mix_req = yes -a $video_mix = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# libavcodec hw-accelerated decoding
+# -------------------------------------------------------------------------------------------------
+lavc_hwdec=no
+
+define(lavc_hwdec_dep, libavutil >= 55.22.1 libva)
+
+AC_ARG_ENABLE(lavc-hw-decoding,
+[  --disable-lavc-hw-decoding   disable lavc-hw-decoding (default is auto)]
+[                          Requires: lavc_hwdec_dep],
+    [lavc_hwdec_req=$enableval],
+    [lavc_hwdec_req=auto]
+    )
+
+PKG_CHECK_MODULES([LAVC_HWDEC], [lavc_hwdec_dep], [FOUND_HWDEC_DEP=yes], [FOUND_HWDEC_DEP=no])
+
+if test $lavc_hwdec_req != no -a $FOUND_HWDEC_DEP = yes
+then
+        CFLAGS="$CFLAGS -DUSE_HWDEC ${LAVC_HWDEC_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS -DUSE_HWDEC ${LAVC_HWDEC_CFLAGS}"
+		LIBS="$LIBS ${LAVC_HWDEC_LIBS}"
+        lavc_hwdec=yes
+fi
+
+if test $lavc_hwdec_req = yes -a $lavc_hwdec = no; then
+	AC_MSG_ERROR([Could not find hwdec dependencies!]);
+fi
+
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 
@@ -2767,6 +2796,7 @@ RESULT=\
   testcard extras ............. $testcard_extras_req
   GPU accelerated LDGM ........ $ldgm_gpu
   MCU-like video mixer ........ $video_mix
+  Libavcodec hw decoding ...... $lavc_hwdec
   "
 
 AC_MSG_RESULT(
