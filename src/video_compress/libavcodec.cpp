@@ -739,7 +739,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format.\n");
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
                 if (s->requested_subsampling != 0) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Requested subsampling not supported. "
                                         "Try different subsampling, eg. "
