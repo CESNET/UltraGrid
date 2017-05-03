@@ -229,7 +229,7 @@ vidcap_import_probe(bool verbose)
 
 static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
 {
-        FILE *audio_file = fopen(audio_filename, "r");
+        FILE *audio_file = fopen(audio_filename, "rb");
         if(!audio_file) {
                 perror("Cannot open audio file");
                 return false;
