@@ -2664,7 +2664,7 @@ if test $syphon_req == yes
 then
         AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
         LIBS="$LIBS -framework Syphon"
-        OBJS="$OBJS src/syphon_server.o"
+        OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
         syphon=yes
 fi
 
