@@ -169,18 +169,7 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
     for(int i = 0; i < m_config.num_recognizing_threads; i++){
         m_workers[i]->set_image((unsigned char *) image->data, image->w, image->h, 1, image->w);
     }
-    
-    /*Boxa* boxes = find_all_boxes();
-    
-    //remove small boxes
-    remove_small_boxes(boxes);
-    
-    //recognize boxes    
-    m_words_queue.set_input_length(boxes->n);
-    m_boxes_queue.add(boxes);
-    
-    word_vector words = m_words_queue.return_all();
-    */
+   
     m_words_queue.clear();
     m_words_queue.set_number_threads(m_config.num_recognizing_threads);
     m_tesseract_worker_trigger.triger();
@@ -232,7 +221,7 @@ int levenshtein_distance::levenshtein_distance_substitution_weight(char letter, 
     int letter_type;
     int regex_type;
     int weight_mat[4][4] = {    //matrix of weights to be search in
-      // d| a| .|' '| <- regex type/ ↓ letter type
+     //d/D|a/A|.|' '| <- regex type/ ↓ letter type
         {0, 2, 2, 3},//d
         {2, 0, 2, 3},//a
         {2, 2, 0, 2},//.
@@ -254,9 +243,11 @@ int levenshtein_distance::levenshtein_distance_substitution_weight(char letter, 
     regex = towlower(regex);    //while substitution don't care if is digit required or optional
     switch(regex){
         case 'd':
+        case 'D':
             regex_type = 0;
             break;
         case 'a':
+        case 'A':
             regex_type = 1;
             break;
         case '.':
@@ -297,9 +288,6 @@ int levenshtein_distance::levenshtein_distance_addition_weight(char regex){
             regex_type = 5;
             break;
     }
-    //else{
-    //    cerr << "using wrong character " << letter << " in levenshtein distance, can only use digit-\"d\" punctional-\".\" alpha-\"a\" blank-\" \"" << endl;
-    //}
     return weight_mat[regex_type];
 }
 
@@ -647,7 +635,9 @@ void tesseract_utils::tesseract_worker::stop_thread(){
 void tesseract_utils::tesseract_worker::thread_function(){
     while(still_running){
         m_worker_trigger.can_go();
-        
+        if(!still_running){
+            break;
+        }
         word_vector return_words;
         float recognizing_height_base = (m_height / (float)m_sum_all_workers);
         int recognizing_offset = RECOGNIZING_OFFSET * 2;

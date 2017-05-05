@@ -138,6 +138,7 @@ cv::Mat screen::create_histogram(struct video_frame *in, float shrink_coeficient
     int height = in->tiles[0].height;
     cv::Mat picture = cv::Mat(height, width, CV_8UC3,  in->tiles[0].data);
     cv::Mat resize_picture;
+    //shrinking frame and than calculating frame from it, is faster than from normal size
     cv::resize(picture, resize_picture, cv::Size(width/shrink_coeficient, height/shrink_coeficient), 0, 0, cv::INTER_LINEAR);
     
     const int histSize[] = {256};
@@ -162,7 +163,9 @@ cv::Mat screen::create_histogram(struct video_frame *in, float shrink_coeficient
     
     cv::Mat combined_histogramtogramtogram;
     
+    //horizonal concat
     hconcat( combinator, combined_histogramtogramtogram );
+    //vertical concat
     //cv::vconcat( combinator, combined_histogramtogramtogram );
     
     cv::normalize(combined_histogramtogramtogram, combined_histogramtogramtogram, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
@@ -415,7 +418,6 @@ cv::Mat histogram_coding::string_to_mat_decoding(std::string str){
         string_mat_data = string(result[3]);
     }
     vector<std::string> strings = split_string_code(string_mat_data);
-    cout << strings.size() << "=" << rows << "x" << cols << endl;
     cv::Mat ret = cv::Mat(rows,cols,CV_32SC1);
     if(strings.size() == rows * cols){
         for(int i=0;i<rows;i++){

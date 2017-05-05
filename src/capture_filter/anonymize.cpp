@@ -315,6 +315,7 @@ bool state_anonymize::process_command(const std::string setting, const std::stri
     }else if(setting.compare("") == 0){//explicit show/ explicit deny ???????????????
         
     }
+    return true;
 }
 
 void state_anonymize::set_defoult_setting(){
