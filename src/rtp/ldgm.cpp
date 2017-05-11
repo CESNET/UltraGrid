@@ -220,7 +220,7 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
         bool ldgm_device_gpu = false;
 
         if (get_commandline_param("ldgm-device")) {
-		ldgm_device_gpu = strcasecmp(get_commandline_param("ldgm-device"), "GPU");
+            ldgm_device_gpu = strcasecmp(get_commandline_param("ldgm-device"), "GPU") == 0;
         }
 
         if (ldgm_device_gpu) {
