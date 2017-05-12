@@ -111,6 +111,10 @@ extern bool color_nix_term;
 
 extern char *sage_network_device;
 
+typedef void (*mainloop_t)(void *);
+extern mainloop_t mainloop;
+extern void *mainloop_udata;
+
 // Both of following varables are non-negative. It indicates amount of milliseconds that
 // audio or video should be delayed. This shall be used for AV sync control. For
 // getting/setting you can use get_av_delay()/set_av_delay(). All is in milliseconds.
@@ -140,6 +144,8 @@ bool set_output_buffering();
 void register_param(const char *param, const char *doc);
 bool validate_param(const char *param);
 void print_param_doc(void);
+
+bool register_mainloop(mainloop_t, void *);
 
 #ifdef __cplusplus
 }

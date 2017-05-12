@@ -1205,9 +1205,18 @@ int main(int argc, char *argv[])
                         goto cleanup;
                 }
 
-                if (strcmp("none", requested_display) != 0)
-                        display_run(uv.display_device);
+                if (strcmp("none", requested_display) != 0) {
+                        if (!mainloop) {
+                                display_run(uv.display_device);
+                        } else {
+                                throw string("Cannot run display when "
+                                                "another mainloop registered!\n");
+                        }
+                }
 
+                if (mainloop) {
+                        mainloop(mainloop_udata);
+                }
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());

@@ -65,6 +65,9 @@ volatile int video_offset;
 
 std::unordered_map<std::string, std::string> commandline_params;
 
+mainloop_t mainloop;
+void *mainloop_udata;
+
 static void common_cleanup()
 {
 #ifdef USE_MTRACE
@@ -354,6 +357,18 @@ void print_param_doc()
                         break;
                 }
         }
+}
+
+bool register_mainloop(mainloop_t m, void *u)
+{
+        if (mainloop) {
+                return false;
+        }
+
+        mainloop = m;
+        mainloop_udata = u;
+
+        return true;
 }
 
 // some common parameters used within multiple modules
