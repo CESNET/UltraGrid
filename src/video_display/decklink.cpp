@@ -310,7 +310,7 @@ static void show_help(bool full)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audioConsumerLevels={true|false}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency]\n");
+        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency]\n");
         printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
         printf("\t\tsingle-link/dual-link specifies if the video output will be in a single-link (HD/3G/6G/12G) or in dual-link HD-SDI mode\n");
         printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
@@ -387,7 +387,7 @@ static void show_help(bool full)
         printf("\tRightOnly\n");
         printf("\n");
 
-        printf("audioConsumerLevels if set to true sets audio analog level to maximum attenuation on audio output.\n");
+        printf("If audio_level is mic audio analog level is set to maximum attenuation on audio output.\n");
         printf("\n");
         print_decklink_version();
         printf("\n");
@@ -927,8 +927,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                         delete s;
                                         return NULL;
                                 }
-                        } else if(strncasecmp(ptr, "audioConsumerLevels=", strlen("audioConsumerLevels=")) == 0) {
-                                if (strcasecmp(ptr + strlen("audioConsumerLevels="), "false") == 0) {
+                        } else if(strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
+                                if (strcasecmp(ptr + strlen("audio_level="), "false") == 0) {
                                         audio_consumer_levels = 0;
                                 } else {
                                         audio_consumer_levels = 1;

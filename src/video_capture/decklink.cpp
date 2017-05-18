@@ -302,7 +302,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audioConsumerLevels={true|false}][:detect-format][:conversion=<conv_mode>]]\n");
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n");
         printf("\t\tor\n");
 	printf("\t-t decklink{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*\n");
 	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
@@ -325,9 +325,9 @@ decklink_help()
         printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
 	printf("\n");
 
-        printf("audioConsumerLevels\n");
-        printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
-        printf("\tIf set false the selected analog input gain levels are used.\n");
+        printf("audio_level\n");
+        printf("\tline - the selected analog input gain levels are used\n");
+        printf("\tmic - analog audio levels are set to maximum gain on audio input.\n");
 	printf("\n");
 
         printf("conversion\n");
@@ -467,9 +467,9 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                         fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
                         return false;
                 }
-        } else if(strncasecmp(opt, "audioConsumerLevels=",
-                                strlen("audioConsumerLevels=")) == 0) {
-                const char *levels = opt + strlen("audioConsumerLevels=");
+        } else if(strncasecmp(opt, "audio_level=",
+                                strlen("audio_level=")) == 0) {
+                const char *levels = opt + strlen("audio_level=");
                 if (strcasecmp(levels, "false") == 0) {
                         s->audio_consumer_levels = 0;
                 } else {
