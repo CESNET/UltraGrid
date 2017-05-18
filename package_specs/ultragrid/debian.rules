@@ -68,7 +68,7 @@ override_dh_auto_configure:
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\
-		--enable-v4l2 --enable-bsd --enable-libavcodec --enable-scale --enable-uyvy \
+		--enable-v4l2 --enable-gpl --enable-libavcodec --enable-scale --enable-uyvy \
 		--disable-rtsp \
 		--enable-video-mixer --enable-swmix --enable-ihdtv \
 		$(CUDA) \
