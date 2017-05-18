@@ -69,6 +69,8 @@ using std::mutex;
 using std::queue;
 using std::unique_lock;
 
+#define FPS 30.0
+
 /**
  * Class state_vidcap_syphon must be value-initialized
  */
@@ -85,6 +87,8 @@ struct state_vidcap_syphon {
 
         NSString *appName;
         NSString *serverName;
+
+        double override_fps;
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames;
@@ -154,6 +158,10 @@ static void oneshot_init(int value [[gnu::unused]])
                 return;
         }
 
+        if (!s->override_fps) {
+                LOG(LOG_LEVEL_WARNING) << "[Syphon capture] FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
+        }
+
         s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] options:nil newFrameHandler:^(SyphonClient *client) {
                 if ([client hasNewFrame] == NO)
                         return;
@@ -162,13 +170,13 @@ static void oneshot_init(int value [[gnu::unused]])
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
 
-                struct video_desc d{width, height, RGB, 30, PROGRESSIVE, 1};
+                struct video_desc d{width, height, RGB, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
                 if (!video_desc_eq(s->saved_desc, d)) {
                         reconfigure(s, d);
                         s->saved_desc = d;
                 }
 
-                struct video_frame *f = vf_alloc_desc_data(video_desc{width, height, RGB, 30, PROGRESSIVE, 1});
+                struct video_frame *f = vf_alloc_desc_data(d);
 
                 glBindTexture(GL_TEXTURE_RECTANGLE_ARB, [img textureName]);
                 glBegin(GL_QUADS);
@@ -234,7 +242,11 @@ static void syphon_mainloop(void *state)
 
 static void usage()
 {
-        printf("\t-t syphon[:name=<server_name>][:app=<app_name>]\n");
+        printf("\t-t syphon[:name=<server_name>][:app=<app_name>][:override_fps=<fps>]\n");
+        printf("\n");
+        printf("\tname\n\t\tsyphon server name\n");
+        printf("\tname\n\t\tsyphon server application name\n");
+        printf("\toverride_fps\n\t\toverrides FPS in metadata (but not the actual rate captured)\n");
 }
 
 static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
@@ -255,6 +267,8 @@ static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
                         s->appName = [NSString stringWithCString: item + strlen("app=") encoding:NSASCIIStringEncoding];
                 } else if (strstr(item, "name=") == item) {
                         s->serverName = [NSString stringWithCString: item + strlen("name=") encoding:NSASCIIStringEncoding];
+                } else if (strstr(item, "override_fps=") == item) {
+                        s->override_fps = atof(item + strlen("override_fps="));
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "Syphon: Unknown argument - " << item << "\n";
                         ret = VIDCAP_INIT_FAIL;
