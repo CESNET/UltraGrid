@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-04-07 13:20:59.342214183 +0200
-+++ b/ultragrid/debian.rules	2017-04-07 13:21:00.186229827 +0200
+--- a/ultragrid/debian.rules	2017-05-18 13:55:34.041023204 +0200
++++ b/ultragrid/debian.rules	2017-05-18 13:55:35.181043441 +0200
 @@ -42,7 +42,7 @@ CARDCONF_DELTACAST= --enable-deltacast -
  #####################################################
  # > aja
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < aja
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-04-07 13:20:59.342214183 +0200
-+++ b/ultragrid/ultragrid.spec.tpl	2017-04-07 13:21:00.150229160 +0200
+--- a/ultragrid/ultragrid.spec.tpl	2017-05-18 13:55:34.041023204 +0200
++++ b/ultragrid/ultragrid.spec.tpl	2017-05-18 13:55:35.145042802 +0200
 @@ -129,7 +129,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
  # < aja
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-04-07 13:20:59.338214108 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-04-07 13:21:00.130228789 +0200
+--- a/ultragrid-nightly/debian.rules	2017-05-18 13:55:34.009022636 +0200
++++ b/ultragrid-nightly/debian.rules	2017-05-18 13:55:35.121042377 +0200
 @@ -42,7 +42,7 @@ CARDCONF_DELTACAST= --enable-deltacast -
  #####################################################
  # > aja
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < aja
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:20:59.338214108 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-04-07 13:21:00.090228047 +0200
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-18 13:55:34.009022636 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-18 13:55:35.081041666 +0200
 @@ -129,7 +129,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
@@ -47,8 +47,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-04-07 13:20:59.346214257 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-04-07 13:21:00.302231977 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-05-18 13:55:34.093024129 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-05-18 13:55:35.305045642 +0200
 @@ -18,7 +18,7 @@ override_dh_auto_build:
  #####################################################
  # > aja
@@ -70,8 +70,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < aja
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:20:59.346214257 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-04-07 13:21:00.206230198 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-18 13:55:34.113024482 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-18 13:55:35.205043868 +0200
 @@ -49,12 +49,12 @@ Patch13:	bluefish-linux4.6-get-user-page
  #####################################################
  # > aja (ntv2sdklinux)
