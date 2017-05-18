@@ -240,7 +240,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			//CHANGE DST PORT
 			struct msg_sender *msgV1 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			msgV1->port = ntohs(Vdestination->rtpPort.num());
+			msgV1->tx_port = ntohs(Vdestination->rtpPort.num());
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
 			resp = send_message(fmod, pathV, (struct message *) msgV1);
 			resp = NULL;
@@ -269,7 +269,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			//CHANGE DST PORT
 			struct msg_sender *msgA1 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			msgA1->port = ntohs(Adestination->rtpPort.num());
+			msgA1->tx_port = ntohs(Adestination->rtpPort.num());
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
 			resp = send_message(fmod, pathA, (struct message *) msgA1);
 			resp = NULL;
@@ -301,7 +301,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 			//CHANGE DST PORT
 			struct msg_sender *msgV1 = (struct msg_sender *) new_message(
 					sizeof(struct msg_sender));
-			msgV1->port = rtp_port;
+			msgV1->tx_port = rtp_port;
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
 			struct response *resp;
 			resp = send_message(fmod, pathV, (struct message *) msgV1);
@@ -331,7 +331,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 					sizeof(struct msg_sender));
 
 			//TODO: GET AUDIO PORT SET (NOT A COMMON CASE WHEN RTSP IS ENABLED: DEFAULT -> vport + 2)
-			msgA1->port = rtp_port_audio;
+			msgA1->tx_port = rtp_port_audio;
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
 			struct response *resp;
                         resp = send_message(fmod, pathA, (struct message *) msgA1);
