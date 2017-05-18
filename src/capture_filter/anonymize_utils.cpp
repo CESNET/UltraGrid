@@ -17,29 +17,6 @@ using namespace std;
 set<int> print_message_struct::messages_setting;
 bool print_message_struct::error_messages;
 
-//TO DO: delete before release
-//print dimensions of matrix
-void debug_mat(cv::Mat mat){
-      string r;
-
-    uchar depth = mat.type() & CV_MAT_DEPTH_MASK;
-    int chans = 1 + (mat.type() >> CV_CN_SHIFT);
-
-    switch ( depth ) {
-      case CV_8U:  r = "8U"; break;
-      case CV_8S:  r = "8S"; break;
-      case CV_16U: r = "16U"; break;
-      case CV_16S: r = "16S"; break;
-      case CV_32S: r = "32S"; break;
-      case CV_32F: r = "32F"; break;
-      case CV_64F: r = "64F"; break;
-      default:     r = "User"; break;
-    }
-
-
-    cout << r << "C" << chans << " --- " << mat.cols << "x" << mat.rows << endl;
-}
-
 bool print_message_struct::print_message(Message_type message_type){
     
     if(message_type == Message_type::forced){
@@ -440,10 +417,6 @@ vector<std::string> histogram_coding::split_string_code(std::string str){
         }
     }
     return ret;
-}
-
-bool histogram_coding::delta_encoding(){
-    
 }
 
 //TO DO: probably use this one

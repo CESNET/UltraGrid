@@ -32,7 +32,7 @@ tesseract_utils::~tesseract_utils() {
     for (int i=0;i<m_workers.size();i++){
         m_workers[i]->stop_thread();
     }
-    m_tesseract_worker_trigger.triger();
+    m_tesseract_worker_trigger.triger();    //need to trigger workers, so they stop waiting
     int k = 0;
     for(std::thread &t : m_threads){
         t.join();
@@ -54,22 +54,6 @@ void tesseract_utils::init(){
                 m_workers.push_back(worker);
                 m_threads.push_back(thread(&tesseract_utils::tesseract_worker::thread_function, worker));
             }
-            //not currently used
-          /*GenericVector<STRING> pars_vec;
-           pars_vec.push_back("language_model_penalty_non_freq_dict_word");
-           pars_vec.push_back("language_model_penalty_non_dict_word");
-           pars_vec.push_back("segment_penalty_dict_nonword");
-           pars_vec.push_back("segment_penalty_garbage");
-           pars_vec.push_back("stopper_nondict_certainty_base");
-           pars_vec.push_back("language_model_penalty_spacing");
-
-           GenericVector<STRING> pars_values;
-           pars_values.push_back("0.50");
-           pars_values.push_back("0.50");
-           pars_values.push_back("1.0");
-           pars_values.push_back("1.0");
-           pars_values.push_back("-10");
-           pars_values.push_back("1.0");*/
            
            if (m_api_name_search.Init(NULL, m_config.tesseract_language_name.c_str(), tesseract::OEM_TESSERACT_ONLY)) {
                string error = "Could not initialize tesseract api for name search, trying tesseract language \"";
@@ -142,15 +126,19 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
     }
     
     //unsharp
-    float sharpening_amount = 0.5;
-    //cv::GaussianBlur(resize_picture, unsharped_picture, cv::Size(0, 0), 9);
-    //Sharpened = Original + ( Original - Blurred ) * Amount
-    //cv::addWeighted(resize_picture, 1 + sharpening_amount, unsharped_picture, -1 * sharpening_amount, 0, unsharped_picture); 
+    /*
+     * testing of unsharp filter, didn't found setting to increase accuracy of recognition,
+     * left it here, if somenone mave more experience with this, mabe can increse recognition quality
+        float sharpening_amount = 0.5;
+        //cv::GaussianBlur(resize_picture, unsharped_picture, cv::Size(0, 0), 9);
+        //Sharpened = Original + ( Original - Blurred ) * Amount
+        //cv::addWeighted(resize_picture, 1 + sharpening_amount, unsharped_picture, -1 * sharpening_amount, 0, unsharped_picture); 
 
-    //prepare format for tesseract
+        //prepare format for tesseract
+        //Pix *image = pixCreateNoInit(unsharped_picture.cols, unsharped_picture.rows, 8);
+   */
     Pix *image = pixCreateNoInit(resize_picture.cols, resize_picture.rows, 8);
-    //Pix *image = pixCreateNoInit(unsharped_picture.cols, unsharped_picture.rows, 8);
-   
+    
     time1 = chrono::system_clock::now();
     vc_copylineRGBtoGrayscale_SSE((unsigned char *) image->data, (unsigned char *) resize_picture.data, (resize_picture.rows * resize_picture.cols));
     time2 = chrono::system_clock::now();
@@ -180,10 +168,11 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
         elapsed_seconds = time2 - time1;
         cout << "time to recognize words from frame using " << m_config.num_recognizing_threads << " threads: " << elapsed_seconds.count() << " seconds" << endl;
     }
-    
+    //unscale position changed by resizing 
     unscale_position(words);
     
-    sort(words.begin(), words.end(), tmp_sort_words_function);
+    //
+    sort(words.begin(), words.end(), sort_by_hight_words_function);
     
     //keep boxes to anonymize
     time1 = chrono::system_clock::now();
@@ -202,30 +191,15 @@ void tesseract_utils::destroy_box(BOX *b) {
     boxDestroy(&b);
 }
 
-void tesseract_utils::destroy_word(word_type word) {
-    //boxDestroy(&b);
-}
-
-/*void tesseract_utils::remove_small_boxes(Boxa* boxes){
-    for(int i = 0; i < boxaGetCount(boxes);){
-        BOX* box = boxaGetBox(boxes, i, L_CLONE);
-        if((box->w < 5) || (box->h < 14) ){//|| (box->w > 1000) || (box->h > 1000)){
-            boxaRemoveBox(boxes, i);
-        }else{
-            i++;
-        }
-    }
-}*/
-
 int levenshtein_distance::levenshtein_distance_substitution_weight(char letter, char regex){
     int letter_type;
     int regex_type;
     int weight_mat[4][4] = {    //matrix of weights to be search in
-     //d/D|a/A|.|' '| <- regex type/ ↓ letter type
+     //d/D|a/A|p| s| <- regex type/ ↓ letter type
         {0, 2, 2, 3},//d
         {2, 0, 2, 3},//a
-        {2, 2, 0, 2},//.
-        {3, 3, 2, 0} //' '
+        {2, 2, 0, 2},//p
+        {3, 3, 2, 0} //s
     };
     //find letter type
     if(iswdigit(letter)){    
@@ -250,10 +224,10 @@ int levenshtein_distance::levenshtein_distance_substitution_weight(char letter, 
         case 'A':
             regex_type = 1;
             break;
-        case '.':
+        case 'p':
             regex_type = 2;
             break;
-        case ' ':
+        case 's':
             regex_type = 3;
             break;
     }
@@ -264,8 +238,8 @@ int levenshtein_distance::levenshtein_distance_substitution_weight(char letter, 
 int levenshtein_distance::levenshtein_distance_addition_weight(char regex){
     int regex_type;
     int weight_mat[6] = {    //vector of weights to be search in
-      // D| A| .|' '| d| a
-         3, 3, 2, 1,  0, 0
+      // D| A| p| s| d| a
+         3, 3, 2, 1, 0, 0
     };
     //find regex type
     switch(regex){
@@ -275,10 +249,10 @@ int levenshtein_distance::levenshtein_distance_addition_weight(char regex){
         case 'A':
             regex_type = 1;
             break;
-        case '.':
+        case 'p':
             regex_type = 2;
             break;
-        case ' ':
+        case 's':
             regex_type = 3;
             break;
         case 'd':
@@ -294,7 +268,7 @@ int levenshtein_distance::levenshtein_distance_addition_weight(char regex){
 int levenshtein_distance::levenshtein_distance_deletition_weight(unsigned wchar_t letter){
     int letter_type;
     int weight_mat[4] = {    //vector of weights to be search in
-      // d| a| .|' '|
+      // d| a| p| s|
          3, 3, 2, 1
     };
     //find letter type
@@ -427,8 +401,8 @@ word_vector tesseract_utils::keep_boxes_to_anonymize(word_vector words){
     }
     
     //calculate levenshtein distance
-    string regex_date = "dD.dD.DDDD";
-    string regex_personalnum = "DDDDDD.ddDD";
+    string regex_date = "dDpdDpDDDD";
+    string regex_personalnum = "DDDDDDpdDDD";
     for(int i=0; i < words.size(); i++){
         
         process_words_package word_package;
@@ -498,37 +472,6 @@ void tesseract_utils::unscale_position(word_vector & words){
         words.at(i).m_height /= m_config.scale_size; 
     }
 }
-/*
-Boxa* tesseract_utils::find_all_boxes(){
-    std::chrono::time_point<std::chrono::system_clock> time1, time2,time3, time4;
-    std::chrono::duration<double> elapsed_seconds;
-    cout << "start -----------====================================" <<endl;
-    time1 = std::chrono::system_clock::now();
-    m_api.Recognize(NULL);
-    time2 = std::chrono::system_clock::now();
-    elapsed_seconds = time2-time1;
-    cout << "correct time??? " << elapsed_seconds.count() << endl;
-    cout << "words iterator -------------------------------------" << endl;
-    time3 = std::chrono::system_clock::now();
-    tesseract::ResultIterator* ri = m_api.GetIterator();
-    tesseract::PageIteratorLevel level = tesseract::RIL_WORD;
-    if(ri != 0){
-        do{
-            const char* word = ri->GetUTF8Text(level);
-            float conf = ri->Confidence(level);
-            int x1,y1,x2,y2;
-            ri->BoundingBox(level, &x1, &y1, &x2, &y2);
-            cout << "word--: " << word << " ; conf: " << conf << " ;box:" << x1 << " " << y1 << " " << x2 << " " << y2 << endl;
-            delete[] word;
-        }while(ri->Next(level));
-    }
-    time4 = std::chrono::system_clock::now();
-    elapsed_seconds = time4-time3;
-    cout << "iteration time!!!!!!!!!! " << elapsed_seconds.count() << " seconds -------------------" << endl;
-    elapsed_seconds = time4-time1;
-    cout << "all time!!!!!!!!!! " << elapsed_seconds.count()  << " seconds -------------------" << endl;
-    return m_api.GetComponentImages(tesseract::RIL_WORD, true, NULL, NULL);
-}*/
 
 void tesseract_utils::set_year(int year){
     m_actual_year = year;
@@ -555,46 +498,6 @@ tesseract_utils::tesseract_worker_trigger::tesseract_worker_trigger(){
 tesseract_utils::tesseract_worker_trigger::~tesseract_worker_trigger(){
 
 }
-/*
-int tesseract_utils::tesseract_worker_trigger::size(){
-    m_mutex.lock();
-    int size;
-    size = m_internal_queue.size();
-    m_mutex.unlock();
-    return size;
-}
-
-void tesseract_utils::tesseract_worker_trigger::add(Boxa * item){
-    m_mutex.lock();
-    for (int i=0;i<item->n;i++){
-        m_internal_queue.push_back(boxaGetBox(item, i, L_CLONE));
-    }
-    m_condv.notify_all();
-    m_mutex.unlock();
-    boxaDestroy(&item);
-}
-
-BOX * tesseract_utils::tesseract_worker_trigger::remove(){
-    unique_lock<mutex> m_lock(m_mutex);
-    while((m_internal_queue.size() == 0) && still_running){
-        m_condv.wait(m_lock);      //wait until something is there
-    }
-    if(still_running){
-        BOX * item = m_internal_queue.front();
-        m_internal_queue.pop_front();
-        return item;
-    }else{
-        for(BOX * item : m_internal_queue){
-            boxDestroy(&item);
-        }
-        return NULL;
-    }
-}
-void tesseract_utils::tesseract_worker_trigger::end_queue(){
-    still_running = false;
-    m_condv.notify_all();
-}
-*/
 
 void tesseract_utils::tesseract_worker_trigger::triger(){
     m_mutex.lock();
@@ -633,11 +536,14 @@ void tesseract_utils::tesseract_worker::stop_thread(){
 }
 
 void tesseract_utils::tesseract_worker::thread_function(){
+    chrono::time_point<std::chrono::system_clock> time1, time2;
+    std::chrono::duration<double> elapsed_seconds;
     while(still_running){
         m_worker_trigger.can_go();
         if(!still_running){
             break;
         }
+        time1 = chrono::system_clock::now();
         word_vector return_words;
         float recognizing_height_base = (m_height / (float)m_sum_all_workers);
         int recognizing_offset = RECOGNIZING_OFFSET * 2;
@@ -658,8 +564,19 @@ void tesseract_utils::tesseract_worker::thread_function(){
         
         m_private_api.SetRectangle(0, recognizing_start_y_position, m_width, int(recognizing_height_base) + recognizing_offset);
         
+        time2 = chrono::system_clock::now();
+        if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
+            elapsed_seconds = time2 - time1;
+            cout << "time in thread " << m_num_worker << ", time of prerecognize functions is " << elapsed_seconds.count() << " seconds" << endl;
+        }
+        time1 = chrono::system_clock::now();
         m_private_api.Recognize(NULL);
-        
+        time2 = chrono::system_clock::now();
+        if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
+            elapsed_seconds = time2 - time1;
+            cout << "time in thread " << m_num_worker << ", time to only recognize is " << elapsed_seconds.count() << " seconds" << endl;
+        }
+        time1 = chrono::system_clock::now();
         tesseract::ResultIterator* ri = m_private_api.GetIterator();
         tesseract::PageIteratorLevel level = tesseract::RIL_WORD;
         if((ri != 0) && still_running){
@@ -678,7 +595,12 @@ void tesseract_utils::tesseract_worker::thread_function(){
         }
         delete ri;
         m_output_data_queue.add(return_words);
-        m_output_data_queue.thread_done();        
+        m_output_data_queue.thread_done();    
+        time2 = chrono::system_clock::now();   
+        if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
+            elapsed_seconds = time2 - time1;
+            cout << "time in thread " << m_num_worker << ", time to cycle results and save them is " << elapsed_seconds.count() << " seconds" << endl;
+        } 
     }
 }
         
@@ -711,11 +633,9 @@ void tesseract_utils::tesseract_worker_data_queue::add(word_vector items){
  */
 word_vector tesseract_utils::tesseract_worker_data_queue::return_all(){
     unique_lock<mutex> m_lock(m_mutex);
-    cout << "returning all words" << endl;
     m_condv.wait(m_lock, [this](){return m_threads_done >= m_threads;});
     word_vector return_vector(m_internal_queue);
     m_internal_queue.clear();
-    cout << "return " << return_vector.size() << "words" << endl;
     return return_vector;
 }
 

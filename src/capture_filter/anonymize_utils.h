@@ -148,7 +148,6 @@ struct histogram_coding{
     static std::string mat_to_string_coding(cv::Mat);
     static cv::Mat string_to_mat_decoding(std::string);    
     static vector<std::string> split_string_code(std::string);
-    static bool delta_encoding();
     static std::string int_to_character_coding(unsigned int num);
     static unsigned int char_to_int_coding(std::string num);
 };
@@ -240,7 +239,7 @@ public:
 class tesseract_utils{
 public:
     /**
-     * class representing queue of BOXes
+     * class representing trigger
      */
     class tesseract_worker_trigger{ 
         mutex m_mutex;
@@ -254,6 +253,7 @@ public:
     
     /**
      * class representing queue of words
+     * return words after all threads called function thread_done()
      */
     class tesseract_worker_data_queue{
         word_vector m_internal_queue;  
@@ -286,10 +286,27 @@ public:
         int m_height;
     public:
         tesseract_worker(tesseract_worker_trigger & queue, tesseract_worker_data_queue & w_queue, int num_worker, int all_workers);
+        /**
+         * inicializate Tesseract engine inside this thread
+         * @param datapath tesseract thing
+         * @param language language to be set
+         */
         void init_api(const char* datapath, string language);
+        /**
+         * set image to tesseract engine
+         */
         void set_image(const unsigned char* imagedata, int width, int height, int bytes_per_pixel, int bytes_per_line);
+        /**
+         * end tesseract api
+         */
         void end_api();
+        /**
+         * stop this thread
+         */
         void stop_thread();
+        /**
+         * function inside tesseract threads
+         */
         void thread_function();
     };
     
@@ -301,20 +318,23 @@ public:
     tesseract_utils();
     ~tesseract_utils();
     word_vector find_boxes(struct video_frame *in);
+    /**
+     * inicialization function
+     */
     void init();
+    /**
+     * ending function, close Tesseract engine
+     */
     void finalize();
-    void destroy_word(word_type);
     static void destroy_box(BOX*);
     /**
-     * don't use if you don't know what you doing, use find_boxes
-     * @param in
-     * @return 
+     * semantic processing
+     * @param input words
+     * @return  processed words
      */
-    //Boxa* find_all_boxes();
-    //void remove_small_boxes(Boxa* boxes);
-    word_vector  keep_boxes_to_anonymize(word_vector); //propably paralel
+    word_vector  keep_boxes_to_anonymize(word_vector); 
     static bool compare_index_word_type(word_type a, word_type b){return a.m_index < b.m_index;}
-    static bool tmp_sort_words_function(word_type a, word_type b){return a.m_y < b.m_y;}
+    static bool sort_by_hight_words_function(word_type a, word_type b){return a.m_y < b.m_y;}
     void unscale_position(word_vector &);
     
     void set_year(int year);
@@ -385,6 +405,9 @@ class video_frame_process_worker{
 public:
     video_frame_process_worker(video_frame_work_queue * queue, screen_package * screens, configuration_values config);
     ~video_frame_process_worker();
+    /**
+     * function for frame recognition thread
+     */
     void thread_function();
     //quit tesseract inside, can't start after
     void stop();
