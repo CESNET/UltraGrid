@@ -38,6 +38,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @note
+ * Currently incompatible with upstream version of live555. Works with older
+ * version from https://github.com/xanview/live555/, commit 35c375 (live555
+ * version from 7th Aug 2015).
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
