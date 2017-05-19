@@ -641,6 +641,8 @@ int main(int argc, char *argv[])
                         break;
                 case 'v':
                         print_version();
+                        printf("\n");
+                        print_configuration();
                         return EXIT_SUCCESS;
                 case 'c':
                         requested_compression = optarg;
@@ -979,11 +981,8 @@ int main(int argc, char *argv[])
                 log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
         }
 
-        printf("%s", PACKAGE_STRING);
-#ifdef GIT_VERSION
-        printf(" (rev %s)", GIT_VERSION);
-#endif
-        printf("\n\n");
+        print_version();
+        printf("\n");
         printf("Display device   : %s\n", requested_display);
         printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
         printf("Audio capture    : %s\n", audio_send);
