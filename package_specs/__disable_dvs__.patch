@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-05-18 13:55:34.041023204 +0200
-+++ b/ultragrid/debian.rules	2017-05-18 13:55:34.897038400 +0200
+--- a/ultragrid/debian.rules	2017-05-19 15:14:28.700837150 +0200
++++ b/ultragrid/debian.rules	2017-05-19 15:14:29.644840311 +0200
 @@ -21,7 +21,7 @@ CARDCONF_BLUEFISH=--enable-bluefish444 -
  #####################################################
  # > dvs
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < dvs
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-05-18 13:55:34.041023204 +0200
-+++ b/ultragrid/ultragrid.spec.tpl	2017-05-18 13:55:34.857037691 +0200
+--- a/ultragrid/ultragrid.spec.tpl	2017-05-19 15:14:28.700837150 +0200
++++ b/ultragrid/ultragrid.spec.tpl	2017-05-19 15:14:29.596840150 +0200
 @@ -108,7 +108,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > dvs
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
  # < dvs
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-05-18 13:55:34.009022636 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-05-18 13:55:34.829037193 +0200
+--- a/ultragrid-nightly/debian.rules	2017-05-19 15:14:28.688837109 +0200
++++ b/ultragrid-nightly/debian.rules	2017-05-19 15:14:29.572840070 +0200
 @@ -21,7 +21,7 @@ CARDCONF_BLUEFISH=--enable-bluefish444 -
  #####################################################
  # > dvs
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < dvs
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-18 13:55:34.009022636 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-18 13:55:34.793036554 +0200
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-19 15:14:28.688837109 +0200
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-19 15:14:29.524839910 +0200
 @@ -108,7 +108,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > dvs
@@ -47,8 +47,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
  # < dvs
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-05-18 13:55:34.093024129 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-05-18 13:55:35.045041027 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-05-19 15:14:28.712837189 +0200
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-05-19 15:14:29.812840874 +0200
 @@ -50,10 +50,10 @@ override_dh_auto_install:
  #####################################################
  # > dvs
@@ -65,8 +65,8 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < dvs
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-18 13:55:34.113024482 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-18 13:55:34.917038755 +0200
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-19 15:14:28.712837189 +0200
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-19 15:14:29.672840405 +0200
 @@ -61,7 +61,7 @@ Patch25:	AJA-linux4.6-get-user-pages.pat
  #####################################################
  # > dvs (sdk)

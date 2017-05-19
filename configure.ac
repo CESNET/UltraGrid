@@ -240,10 +240,16 @@ $TARGET: "$2"
 # -------------------------------------------------------------------------------------------------
 # Licensing
 # -------------------------------------------------------------------------------------------------
-AC_ARG_ENABLE(bsd,
-              AS_HELP_STRING([--enable-bsd], [build UltraGrid as a BSD binary (default is GPL)]),
+bsd=no
+AC_ARG_ENABLE(bsd-build,
+              AS_HELP_STRING([--enable-bsd-build], [build UltraGrid as a BSD binary (default is GPL)]),
 	[bsd=$enableval],
-        [bsd=no])
+        )
+
+AC_ARG_ENABLE(gpl-build,
+              AS_HELP_STRING([--enable-gpl-build], [build UltraGrid as a GPL binary (default)]),
+	[bsd=`test $enableval = yes && echo no || echo yes`],
+        )
 
 if test $bsd = no
 then

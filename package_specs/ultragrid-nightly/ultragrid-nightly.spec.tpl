@@ -151,7 +151,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	--enable-portaudio --disable-jack-transport --enable-jack \
 	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
-	--enable-v4l2 --enable-gpl --enable-libavcodec --enable-scale --enable-uyvy \
+	--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 	--disable-rtsp \
 	--enable-swmix --enable-ihdtv \
 	%if 0%{?build_conference} > 0
