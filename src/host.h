@@ -134,6 +134,7 @@ bool common_preinit(int argc, char *argv[]);
 void print_capabilities(struct module *root, bool use_vidcap);
 
 void print_version(void);
+void print_configuration(void);
 
 const char *get_commandline_param(const char *key);
 

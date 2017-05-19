@@ -1,6 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT([UltraGrid], [1.4], [ultragrid-dev@cesnet.cz])
+configure_flags="$*"
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
@@ -8,6 +9,8 @@ AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
+
+AC_DEFINE_UNQUOTED([CONFIG_FLAGS], ["$configure_flags"], [Flags passed to configure])
 
 AC_CANONICAL_HOST
 AC_PROG_CC
@@ -88,11 +91,11 @@ AC_DEFUN([HM_VERSION_WARNING], [
 AC_MSG_CHECKING([GIT presence])
 if which git
 then
-        AC_MSG_CHECKING([unreleased changes in GIT tree])
-        git_version=`git describe | tr -d '\012'`
-        if test "$git_version" -a "$git_version" != "$VERSION" ; then
-                AC_DEFINE_UNQUOTED([GIT_VERSION], "$git_version", [Current GIT revision])
-                AC_MSG_RESULT($git_version);
+        AC_MSG_CHECKING([checking GIT revision ])
+        git_rev=`git rev-parse --short HEAD`
+        if test "$git_rev"; then
+                AC_DEFINE_UNQUOTED([GIT_REV], "$git_rev", [Current GIT revision])
+                AC_MSG_RESULT($git_rev);
         else
                 AC_MSG_RESULT(no);
         fi
