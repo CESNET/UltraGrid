@@ -466,10 +466,10 @@ state_anonymize::~state_anonymize(){
 }
 
 struct video_frame * state_anonymize::filter(struct video_frame *in){
-    chrono::time_point<std::chrono::system_clock> time1, time2;
-    chrono::time_point<std::chrono::system_clock> t_frame_start, t_frame_end;
+    chrono::time_point<std::chrono::steady_clock> time1, time2;
+    chrono::time_point<std::chrono::steady_clock> t_frame_start, t_frame_end;
     std::chrono::duration<double> elapsed_seconds;
-    t_frame_start = chrono::system_clock::now();
+    t_frame_start = chrono::steady_clock::now();
 
     struct video_frame * in_rgb = new struct video_frame();
     in_rgb->tiles = new tile();
@@ -483,9 +483,9 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
         
         in_rgb->tiles[0].data = (char *) malloc((in->tiles[0].data_len / 2)*3);
         
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         vc_copylineUYVYtoRGB_SSE((unsigned char *) in_rgb->tiles[0].data, (unsigned char *) in->tiles[0].data, (in->tiles[0].data_len / 2)*3);
-        time2 = chrono::system_clock::now();
+        time2 = chrono::steady_clock::now();
         if(print_message_struct::print_message(print_message_struct::Message_type::time_frame_to_RGB)){
             elapsed_seconds = time2 - time1;
             cout << "frame preprocess: UYVY -> RGB  " << elapsed_seconds.count() << " seconds" << endl;
@@ -493,9 +493,9 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
     }else if(in->color_spec == RGB){
         
         in_rgb->tiles[0].data = (char *) malloc((in->tiles[0].data_len / 2)*3);
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         vc_copylineRGB((unsigned char *) in_rgb->tiles[0].data, (unsigned char *) in->tiles[0].data, in->tiles[0].data_len, 0, 8, 16);
-        time2 = chrono::system_clock::now();
+        time2 = chrono::steady_clock::now();
         if(print_message_struct::print_message(print_message_struct::Message_type::time_frame_to_RGB)){
             elapsed_seconds = time2 - time1;
             cout << "frame preprocess: RGB -> RGB " << elapsed_seconds.count() << " seconds" << endl;
@@ -513,26 +513,26 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
     if(print_message_struct::print_message(print_message_struct::Message_type::order_of_action_more)){
         cout << "calculating histogram" << endl;
     }
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     cv::Mat new_histogram = screen::create_histogram(in_rgb, m_config.shrink_size);
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::histogram_time)){
         elapsed_seconds = time2 - time1;
         cout << "time to COMPUTE histograms " << elapsed_seconds.count() << " seconds" << endl;
     }
     
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     vector<word_type>* words = m_screens->get_boxes(new_histogram);
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::histogram_time)){
         elapsed_seconds = time2 - time1;
         cout << "time to FIND words associated with histogram: " << elapsed_seconds.count() << " seconds, number of screens saved: " << m_screens->size() << endl;
     }
     
     if(words != NULL){
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         pixelate(words, in);
-        time2 = chrono::system_clock::now();
+        time2 = chrono::steady_clock::now();
         if(print_message_struct::print_message(print_message_struct::Message_type::time_pixelate)){
             elapsed_seconds = time2 - time1;
             cout << "time to pixelate " << words->size() << "words: " << elapsed_seconds.count() << " seconds" << endl;
@@ -550,9 +550,9 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
         if(m_config.anonymize_unrecognized){
             vector<word_type> tmp_word;
             tmp_word.push_back(word_type(0, 0, in->tiles->width, in->tiles->height, 100, ""));
-            time1 = chrono::system_clock::now();
+            time1 = chrono::steady_clock::now();
             pixelate(&tmp_word, in);
-            time2 = chrono::system_clock::now();
+            time2 = chrono::steady_clock::now();
             if(print_message_struct::print_message(print_message_struct::Message_type::time_pixelate)){
                 elapsed_seconds = time2 - time1;
                 cout << "time to pixelate unrecognized screen: " << elapsed_seconds.count() << " seconds" << endl;
@@ -560,7 +560,7 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
         }
     }
     
-    t_frame_end = chrono::system_clock::now();
+    t_frame_end = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::frame_time)){
         elapsed_seconds = t_frame_end - t_frame_start;
         cout << "time for frame: " << elapsed_seconds.count() << " seconds" << endl;

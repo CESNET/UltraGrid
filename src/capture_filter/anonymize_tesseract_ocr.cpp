@@ -101,14 +101,14 @@ void tesseract_utils::finalize(){
  * @return 
  */
 std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){ 
-    chrono::time_point<std::chrono::system_clock> time1, time2, time3, time4;
+    chrono::time_point<std::chrono::steady_clock> time1, time2, time3, time4;
     std::chrono::duration<double> elapsed_seconds;
     if(in->color_spec != RGB){
         log_msg(LOG_LEVEL_WARNING, "Cannot \"find boxes\" from other format then RGB\n");
         log_msg(LOG_LEVEL_ERROR,   "internal error in \"find boxes\"\n");
     }
     
-    time3 = chrono::system_clock::now();
+    time3 = chrono::steady_clock::now();
     int width  = in->tiles[0].width;
     int height = in->tiles[0].height;
     cv::Mat picture_mat = cv::Mat(height, width, CV_8UC3,  in->tiles[0].data);
@@ -117,9 +117,9 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
     cv::Mat unsharped_picture;
     
     //resize
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     cv::resize(picture_mat, resize_picture, cv::Size(width*m_config.scale_size, height*m_config.scale_size), 0, 0, cv::INTER_LINEAR);
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::time_frame_preprocess)){
         elapsed_seconds = time2 - time1;
         cout << "time to preprocess; resize frame: " << elapsed_seconds.count() << " seconds; resize scale: " << m_config.scale_size << endl;
@@ -139,21 +139,21 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
    */
     Pix *image = pixCreateNoInit(resize_picture.cols, resize_picture.rows, 8);
     
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     vc_copylineRGBtoGrayscale_SSE((unsigned char *) image->data, (unsigned char *) resize_picture.data, (resize_picture.rows * resize_picture.cols));
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::time_frame_preprocess)){
         elapsed_seconds = time2 - time1;
         cout << "time to preprocess; to grayscale frame: " << elapsed_seconds.count() << " seconds" << endl;
     }
     //vc_copylineRGBtoGrayscale_SSE((unsigned char *) image->data, (unsigned char *) unsharped_picture.data, (unsharped_picture.rows * unsharped_picture.cols));
-    time4 = chrono::system_clock::now();
+    time4 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::time_frame_preprocess)){
         elapsed_seconds = time4 - time3;
         cout << "time to complete preprocess: " << elapsed_seconds.count() << " seconds" << endl;
     }
     
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     for(int i = 0; i < m_config.num_recognizing_threads; i++){
         m_workers[i]->set_image((unsigned char *) image->data, image->w, image->h, 1, image->w);
     }
@@ -163,7 +163,7 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
     m_tesseract_worker_trigger.triger();
     
     word_vector words = m_words_queue.return_all();
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
         elapsed_seconds = time2 - time1;
         cout << "time to recognize words from frame using " << m_config.num_recognizing_threads << " threads: " << elapsed_seconds.count() << " seconds" << endl;
@@ -175,9 +175,9 @@ std::vector<word_type> tesseract_utils::find_boxes(struct video_frame *in){
     sort(words.begin(), words.end(), sort_by_hight_words_function);
     
     //keep boxes to anonymize
-    time1 = chrono::system_clock::now();
+    time1 = chrono::steady_clock::now();
     words = keep_boxes_to_anonymize(words);
-    time2 = chrono::system_clock::now();
+    time2 = chrono::steady_clock::now();
     if(print_message_struct::print_message(print_message_struct::Message_type::time_semantic_analysis)){
         elapsed_seconds = time2 - time1;
         cout << "time to semantic analysis: " << elapsed_seconds.count() << " seconds" << endl;
@@ -536,14 +536,14 @@ void tesseract_utils::tesseract_worker::stop_thread(){
 }
 
 void tesseract_utils::tesseract_worker::thread_function(){
-    chrono::time_point<std::chrono::system_clock> time1, time2;
+    chrono::time_point<std::chrono::steady_clock> time1, time2;
     std::chrono::duration<double> elapsed_seconds;
     while(still_running){
         m_worker_trigger.can_go();
         if(!still_running){
             break;
         }
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         word_vector return_words;
         float recognizing_height_base = (m_height / (float)m_sum_all_workers);
         int recognizing_offset = RECOGNIZING_OFFSET * 2;
@@ -564,19 +564,19 @@ void tesseract_utils::tesseract_worker::thread_function(){
         
         m_private_api.SetRectangle(0, recognizing_start_y_position, m_width, int(recognizing_height_base) + recognizing_offset);
         
-        time2 = chrono::system_clock::now();
+        time2 = chrono::steady_clock::now();
         if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
             elapsed_seconds = time2 - time1;
             cout << "time in thread " << m_num_worker << ", time of prerecognize functions is " << elapsed_seconds.count() << " seconds" << endl;
         }
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         m_private_api.Recognize(NULL);
-        time2 = chrono::system_clock::now();
+        time2 = chrono::steady_clock::now();
         if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
             elapsed_seconds = time2 - time1;
             cout << "time in thread " << m_num_worker << ", time to only recognize is " << elapsed_seconds.count() << " seconds" << endl;
         }
-        time1 = chrono::system_clock::now();
+        time1 = chrono::steady_clock::now();
         tesseract::ResultIterator* ri = m_private_api.GetIterator();
         tesseract::PageIteratorLevel level = tesseract::RIL_WORD;
         if((ri != 0) && still_running){
@@ -596,7 +596,7 @@ void tesseract_utils::tesseract_worker::thread_function(){
         delete ri;
         m_output_data_queue.add(return_words);
         m_output_data_queue.thread_done();    
-        time2 = chrono::system_clock::now();   
+        time2 = chrono::steady_clock::now();   
         if(print_message_struct::print_message(print_message_struct::Message_type::time_tesseract_OCR)){
             elapsed_seconds = time2 - time1;
             cout << "time in thread " << m_num_worker << ", time to cycle results and save them is " << elapsed_seconds.count() << " seconds" << endl;
