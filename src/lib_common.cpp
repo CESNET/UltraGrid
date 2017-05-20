@@ -78,20 +78,66 @@ const map<enum library_class, library_class_info_t> library_class_info = {
 
 static map<string, string> lib_errors;
 
+#ifdef BUILD_LIBRARIES
+static int running_from_path(char * uv_argv[]) {
+        const char * env_path = getenv("PATH");
+        if (env_path == NULL) {
+                // LOG(LOG_LEVEL_WARNING) << "Failed to determine environment PATH variable, plugins shall be searched relative to binary" << "\n";
+                return 0;
+        }
+
+        char * realbinpath = realpath(uv_argv[0], NULL);
+        // if no / si present in argv[0], consider it binary name - thus run from path
+        if (realbinpath == NULL)
+                return (strchr(uv_argv[0], '/') == NULL);
+
+        char *tmp_bin = strdup(uv_argv[0]);
+        char *bin = basename(tmp_bin);
+
+        char * rw_path = strdup(env_path);
+        char * token_cont = rw_path;
+
+        int path_match = 0;
+        do {
+                char * fragment = strtok(token_cont, ":");
+                token_cont = NULL;
+                if (fragment == NULL)
+                        break;
+
+                char * fullpath = strdup(fragment);
+                fullpath = (char *)realloc(fullpath, strlen(fullpath) + 1 + strlen(bin) + 1);
+                strcat(strcat(fullpath, "/"), bin);
+        
+                char * realfull = realpath(fullpath, NULL);
+                path_match = (realfull != NULL) && (strcmp(realfull, realbinpath) == 0);
+
+                free(fullpath);
+                free(realfull);
+        } while (!path_match);
+
+        free(rw_path);
+        free(tmp_bin);
+        free(realbinpath);
+
+        return path_match;
+}
+
+#endif
+
 void open_all(const char *pattern) {
 #ifdef BUILD_LIBRARIES
         char path[512];
         glob_t glob_buf;
 
-        char *tmp = strdup(uv_argv[0]);
         /* binary not from $PATH */
-        if(strchr(uv_argv[0], '/') != NULL) {
+        if (!running_from_path(uv_argv)) {
+                char *tmp = strdup(uv_argv[0]);
                 char *dir = dirname(tmp);
+                free(tmp);
                 snprintf(path, sizeof(path), "%s/../lib/ultragrid/%s", dir, pattern);
         } else {
                 snprintf(path, sizeof(path), LIB_DIR "/ultragrid/%s", pattern);
         }
-        free(tmp);
 
         glob(path, 0, NULL, &glob_buf);
 
