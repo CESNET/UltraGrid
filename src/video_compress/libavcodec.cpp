@@ -573,6 +573,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         AVPixelFormat pix_fmt;
         AVCodec *codec = nullptr;
 
+        s->params.fps = desc.fps;
+        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
+        s->params.cpu_count = s->cpu_count;
+
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
                 codec = avcodec_find_encoder_by_name(s->backend.c_str());
@@ -781,10 +785,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
-
-        s->params.fps = desc.fps;
-        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
-        s->params.cpu_count = s->cpu_count;
 
         s->in_frame = av_frame_alloc();
         if (!s->in_frame) {
