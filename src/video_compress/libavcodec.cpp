@@ -192,7 +192,6 @@ struct state_video_compress_libav {
         AVFrame            *in_frame;
         // for every core - parts of the above
         AVFrame           **in_frame_part;
-        int                 cpu_count;
         AVCodecContext     *codec_ctx;
 
         unsigned char      *decoded; ///< intermediate representation for codecs
@@ -452,13 +451,13 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
                         return NULL;
         }
 
-        s->cpu_count = thread::hardware_concurrency();
-        if(s->cpu_count < 1) {
+        s->params.cpu_count = thread::hardware_concurrency();
+        if(s->params.cpu_count < 1) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Cannot get number of CPU cores!\n");
-                s->cpu_count = 1;
+                s->params.cpu_count = 1;
         }
-        s->in_frame_part = (AVFrame **) calloc(s->cpu_count, sizeof(AVFrame *));
-        for(int i = 0; i < s->cpu_count; i++) {
+        s->in_frame_part = (AVFrame **) calloc(s->params.cpu_count, sizeof(AVFrame *));
+        for(int i = 0; i < s->params.cpu_count; i++) {
                 s->in_frame_part[i] = av_frame_alloc();
         }
 
@@ -699,7 +698,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
-        s->params.cpu_count = s->cpu_count;
 
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
@@ -948,8 +946,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
                 return false;
         }
-        for(int i = 0; i < s->cpu_count; ++i) {
-                int chunk_size = s->codec_ctx->height / s->cpu_count;
+        for(int i = 0; i < s->params.cpu_count; ++i) {
+                int chunk_size = s->codec_ctx->height / s->params.cpu_count;
                 chunk_size = chunk_size / 2 * 2;
                 s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
                         chunk_size;
@@ -1351,20 +1349,20 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 
         {
-                task_result_handle_t handle[s->cpu_count];
-                struct my_task_data data[s->cpu_count];
-                for(int i = 0; i < s->cpu_count; ++i) {
+                task_result_handle_t handle[s->params.cpu_count];
+                struct my_task_data data[s->params.cpu_count];
+                for(int i = 0; i < s->params.cpu_count; ++i) {
                         data[i].callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
                         data[i].out_frame = s->in_frame_part[i];
 
-                        size_t height = tx->tiles[0].height / s->cpu_count;
+                        size_t height = tx->tiles[0].height / s->params.cpu_count;
                         // height needs to be even
                         height = height / 2 * 2;
-                        if (i < s->cpu_count - 1) {
+                        if (i < s->params.cpu_count - 1) {
                                 data[i].height = height;
                         } else { // we are last so we need to do the rest
                                 data[i].height = tx->tiles[0].height -
-                                        height * (s->cpu_count - 1);
+                                        height * (s->params.cpu_count - 1);
                         }
                         data[i].width = tx->tiles[0].width;
                         data[i].in_data = decoded + i * height *
@@ -1374,7 +1372,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         handle[i] = task_run_async(my_task, (void *) &data[i]);
                 }
 
-                for(int i = 0; i < s->cpu_count; ++i) {
+                for(int i = 0; i < s->params.cpu_count; ++i) {
                         wait_task(handle[i]);
                 }
         }
@@ -1495,7 +1493,7 @@ static void libavcodec_compress_done(struct module *mod)
         cleanup(s);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
-        for(int i = 0; i < s->cpu_count; i++) {
+        for(int i = 0; i < s->params.cpu_count; i++) {
                 av_free(s->in_frame_part[i]);
         }
         free(s->in_frame_part);
