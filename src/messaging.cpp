@@ -146,6 +146,10 @@ static struct response *send_message_common(struct module *root, const char *con
 
         simple_linked_list_append(receiver->msg_queue, msg);
 
+        if (receiver->new_message) {
+                receiver->new_message(receiver);
+        }
+
         pthread_mutex_unlock(&receiver->lock);
 
         if (!sync) {
@@ -195,6 +199,10 @@ struct response *send_message_to_receiver(struct module *receiver, struct messag
 {
         pthread_mutex_guard guard(receiver->lock);
         simple_linked_list_append(receiver->msg_queue, msg);
+        if (receiver->new_message) {
+                receiver->new_message(receiver);
+        }
+
         return new_response(RESPONSE_ACCEPTED, NULL);
 }
 

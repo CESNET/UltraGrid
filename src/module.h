@@ -83,6 +83,7 @@ struct module;
 struct simple_linked_list;
 
 typedef void (*module_deleter_t)(struct module *);
+typedef void (*notify_t)(struct module *);
 
 /**
  * @struct module
@@ -96,6 +97,7 @@ struct module {
         struct module *parent;
         struct simple_linked_list *childs;
         module_deleter_t deleter;
+        notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
 
         struct simple_linked_list *msg_queue;
 
