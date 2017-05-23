@@ -478,7 +478,7 @@ int main(int argc, char *argv[])
         bool should_export = false;
         char *export_opts = NULL;
 
-        int control_port = -1;
+        int control_port = 0;
         int connection_type = 0;
         struct control_state *control = NULL;
 
@@ -1001,11 +1001,9 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
 
-        if (control_port != -1) {
-                if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
-                        fprintf(stderr, "Error: Unable to initialize remote control!\n");
-                        return EXIT_FAIL_CONTROL_SOCK;
-                }
+        if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
+                fprintf(stderr, "Error: Unable to initialize remote control!\n");
+                return EXIT_FAIL_CONTROL_SOCK;
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
