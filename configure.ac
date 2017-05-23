@@ -2702,7 +2702,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 lavc_hwdec=no
 
-define(lavc_hwdec_dep, libavutil >= 55.22.1 libva)
+define(lavc_hwdec_dep, libavutil >= 55.22.1 libva vdpau)
 
 AC_ARG_ENABLE(lavc-hw-decoding,
 [  --disable-lavc-hw-decoding   disable lavc-hw-decoding (default is auto)]
@@ -2795,7 +2795,7 @@ RESULT=\
   JPEG to DXT ................. $jpeg_to_dxt
   CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec
+  Libavcodec .................. $libavcodec (HW dec: $lavc_hwdec)
 
   blank capture filter ........ $blank
   resize capture filter ....... $resize
@@ -2805,7 +2805,6 @@ RESULT=\
   testcard extras ............. $testcard_extras_req
   GPU accelerated LDGM ........ $ldgm_gpu
   MCU-like video mixer ........ $video_mix
-  Libavcodec hw decoding ...... $lavc_hwdec
   "
 
 AC_MSG_RESULT(

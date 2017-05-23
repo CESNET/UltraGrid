@@ -1407,8 +1407,6 @@ fail:
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
-        struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
-
         if (log_level >= LOG_LEVEL_DEBUG) {
                 char out[1024] = "[lavd] Available output pixel formats:";
                 const enum AVPixelFormat *it = fmt;
@@ -1421,6 +1419,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
 
 #ifdef USE_HWDEC
+        struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         hwaccel_state_reset(&state->hwaccel);
         const char *param = get_commandline_param("use-hw-accel");
         bool hwaccel = param != NULL;
