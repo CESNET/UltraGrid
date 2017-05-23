@@ -99,6 +99,7 @@
 #define DEFAULT_AUDIO_FEC       "none"
 static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
+#define AUDIO_PROTOCOLS "ultragrid_rtp, JACK or rtsp" // available audio protocols
 
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
@@ -268,7 +269,7 @@ static void usage(const char *exec_path)
         printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
         printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
         printf("\n");
-        printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be ultragrid_rtp, JACK or rtsp\n");
+        printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
         printf("\n");
 #ifdef HAVE_IPv6
         printf("\t-6                       \tUse IPv6\n");
@@ -660,6 +661,10 @@ int main(int argc, char *argv[])
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
                                 audio_protocol_opts = delim + 1;
+                        }
+                        if (strcmp(audio_protocol, "help") == 0) {
+                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
+                                return EXIT_SUCCESS;
                         }
                         break;
                 case OPT_VIDEO_PROTOCOL:
