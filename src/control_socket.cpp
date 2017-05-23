@@ -48,6 +48,7 @@
 #include <map>
 #include <mutex>
 #include <queue>
+#include <stdio.h>
 #include <string>
 #include <thread>
 
@@ -139,6 +140,17 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
         return count;
 }
 
+static void new_message(struct module *m) {
+        control_state *s = (control_state *) m->priv_data;
+        if(s->started) {
+                // just wake up from select
+                int ret = write_all(s->internal_fd[1], "noop\r\n", 6);
+                if (ret <= 0) {
+                        log_msg(LOG_LEVEL_ERROR, "[control] Cannot write to pipe!\n");
+                }
+        }
+}
+
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module)
 {
         control_state *s = new control_state();
@@ -148,6 +160,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_CONTROL;
+        s->mod.new_message = new_message;
         s->mod.priv_data = s;
 
         if(connection_type == 0) {
@@ -305,6 +318,8 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         } else if (strcasecmp(message, "exit") == 0) {
                 exit_uv(0);
                 resp = new_response(RESPONSE_OK, NULL);
+        } else if (strcasecmp(message, "noop") == 0) {
+                return ret;
         } else if (prefix_matches(message, "stats ") || prefix_matches(message, "event ")) {
                 if (is_internal_port(client_fd)) {
                         struct client *cur = clients;
@@ -630,6 +645,29 @@ static struct client *add_client(struct client *clients, fd_t fd) {
         return new_client;
 }
 
+static void process_messages(struct control_state *s)
+{
+        struct message *msg;
+        while((msg = check_message(&s->mod))) {
+		struct msg_universal *m = (struct msg_universal *) msg;
+		if (strcmp(m->text, "get_port") != 0) {
+                        free_message(msg, new_response(RESPONSE_NOT_IMPL, NULL));
+                        continue;
+		}
+
+                struct response *r;
+		uint16_t port = socket_get_recv_port(s->socket_fd);
+		if (port) {
+                        char port_str[6];
+                        sprintf(port_str, "%hu", port);
+                        r = new_response(RESPONSE_OK, port_str);
+                } else {
+                        r = new_response(RESPONSE_INT_SERV_ERR, "get_recv_port");
+                }
+                free_message(msg, r);
+        }
+}
+
 ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-global\n"
                 "  Open control socket to public network.\n");
 static void * control_thread(void *args)
@@ -654,8 +692,9 @@ static void * control_thread(void *args)
         gettimeofday(&last_report_sent, NULL);
 
         while(!should_exit) {
-                fd_t max_fd = 0;
+                process_messages(s);
 
+                fd_t max_fd = 0;
                 fd_set fds;
                 FD_ZERO(&fds);
                 if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {

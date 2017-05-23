@@ -102,3 +102,22 @@ bool is_host_loopback(const char *hostname)
         return ret;
 }
 
+uint16_t socket_get_recv_port(int fd)
+{
+        struct sockaddr_storage ss;
+        socklen_t len = sizeof(ss);
+        if (getsockname(fd, (struct sockaddr *)&ss, &len) == -1) {
+                perror("getsockname");
+                return 0;
+        } else {
+                switch (ss.ss_family) {
+                case AF_INET:
+                        return ntohs(((struct sockaddr_in *) &ss)->sin_port);
+                case AF_INET6:
+                        return ntohs(((struct sockaddr_in6 *) &ss)->sin6_port);
+                default:
+                        return 0;
+                }
+        }
+}
+

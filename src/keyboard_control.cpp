@@ -313,16 +313,26 @@ void keyboard_control::usage()
 
 	{
 		struct video_desc desc{};
-                        struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                        m->type = SENDER_MSG_QUERY_VIDEO_MODE;
-                        struct response *r = send_message_sync(m_root, "sender", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-                        if (response_get_status(r) == RESPONSE_OK) {
-                                const char *text = response_get_text(r);
-                                istringstream iss(text);
-                                iss >> desc;
-                                cout << "Captured video format: " <<  desc << "\n";
-                        }
-                        free_response(r);
+                struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+                m->type = SENDER_MSG_QUERY_VIDEO_MODE;
+                struct response *r = send_message_sync(m_root, "sender", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) == RESPONSE_OK) {
+                        const char *text = response_get_text(r);
+                        istringstream iss(text);
+                        iss >> desc;
+                        cout << "Captured video format: " <<  desc << "\n";
+                }
+                free_response(r);
+	}
+
+	{
+                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                strcpy(m->text, "get_port");
+                struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) == RESPONSE_OK) {
+                        cout << "Control port: " <<  response_get_text(r) << "\n";
+                }
+                free_response(r);
 	}
 
         cout << "\n";
