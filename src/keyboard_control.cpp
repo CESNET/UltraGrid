@@ -251,6 +251,7 @@ void keyboard_control::run()
                         {
                                 char path[] = "exporter";
                                 auto m = (struct message *) new_message(sizeof(struct msg_universal));
+                                strcpy(((struct msg_universal *) m)->text, "toggle");
                                 auto resp = send_message(m_root, path, (struct message *) m);
                                 free_response(resp);
                                 break;
@@ -331,6 +332,16 @@ void keyboard_control::usage()
                 struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
                         cout << "Control port: " <<  response_get_text(r) << "\n";
+                }
+                free_response(r);
+	}
+
+	{
+                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                strcpy(m->text, "status");
+                struct response *r = send_message_sync(m_root, "exporter", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) == RESPONSE_OK) {
+                        cout << "Exporting: " <<  response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
