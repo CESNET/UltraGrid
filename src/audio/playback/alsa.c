@@ -641,6 +641,8 @@ init_local_config_with_workaround(char const * pcm_node_name)
         return lconf;
 }
 
+ADD_TO_PARAM(alsa_playback_api, "alsa-playback-api", "* alsa-playback-api={new|old}\n"
+                                "  ALSA API.\n");
 static void * audio_play_alsa_init(const char *cfg)
 {
         int rc;
