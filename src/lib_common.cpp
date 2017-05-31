@@ -133,8 +133,8 @@ void open_all(const char *pattern) {
         if (!running_from_path(uv_argv)) {
                 char *tmp = strdup(uv_argv[0]);
                 char *dir = dirname(tmp);
-                free(tmp);
                 snprintf(path, sizeof(path), "%s/../lib/ultragrid/%s", dir, pattern);
+                free(tmp);
         } else {
                 snprintf(path, sizeof(path), LIB_DIR "/ultragrid/%s", pattern);
         }
