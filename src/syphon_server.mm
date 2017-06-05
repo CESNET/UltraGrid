@@ -55,5 +55,6 @@ void syphon_server_publish(void *s, int width, int height, unsigned int id) {
 
 void syphon_server_unregister(void *s) {
         [(SyphonServer *)s stop];
+        [(SyphonServer *)s dealloc];
 }
 

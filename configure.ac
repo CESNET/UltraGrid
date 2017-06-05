@@ -2654,7 +2654,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 syphon=no
 AC_ARG_ENABLE(syphon,
-[  --disable-syphon        enables Syphon support (default is disabled)]
+[  --enable-syphon        enables Syphon support (default is disabled)]
 [                          Requires: Syphon],
     [syphon_req=$enableval],
     [syphon_req=no]

@@ -71,6 +71,56 @@ using std::unique_lock;
 
 #define FPS 30.0
 
+static const char fp_display_rgba_to_yuv422_legacy[] =
+"#define LEGACY 1\n"
+    "#if LEGACY\n"
+    "#define TEXCOORD gl_TexCoord[0]\n"
+    "#else\n"
+    "#define TEXCOORD TEX0\n"
+    "#define texture2D texture\n"
+    "#endif\n"
+    "\n"
+    "#if LEGACY\n"
+    "#define colorOut gl_FragColor\n"
+    "#else\n"
+    "out vec4 colorOut;\n"
+    "#endif\n"
+    "\n"
+    "#if ! LEGACY\n"
+    "in vec4 TEX0;\n"
+    "#endif\n"
+    "\n"
+    "uniform sampler2DRect image;\n"
+    "uniform float imageWidth; // is original image width, it means twice as wide as ours\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "        vec4 rgba1, rgba2;\n"
+    "        vec4 yuv1, yuv2;\n"
+    "        vec2 coor1, coor2;\n"
+    "        float U, V;\n"
+    "\n"
+    "        coor1 = TEXCOORD.xy - vec2(1.0 / (imageWidth * 2.0), 0.0);\n"
+    "        coor2 = TEXCOORD.xy + vec2(1.0 / (imageWidth * 2.0), 0.0);\n"
+    "\n"
+    "        rgba1  = texture2DRect(image, coor1);\n"
+    "        rgba2  = texture2DRect(image, coor2);\n"
+    "        \n"
+    "        yuv1.x = 1.0/16.0 + (rgba1.r * 0.2126 + rgba1.g * 0.7152 + rgba1.b * 0.0722) * 0.8588; // Y\n"
+    "        yuv1.y = 0.5 + (-rgba1.r * 0.1145 - rgba1.g * 0.3854 + rgba1.b * 0.5) * 0.8784;\n"
+    "        yuv1.z = 0.5 + (rgba1.r * 0.5 - rgba1.g * 0.4541 - rgba1.b * 0.0458) * 0.8784;\n"
+    "        \n"
+    "        yuv2.x = 1.0/16.0 + (rgba2.r * 0.2126 + rgba2.g * 0.7152 + rgba2.b * 0.0722) * 0.8588; // Y\n"
+    "        yuv2.y = 0.5 + (-rgba2.r * 0.1145 - rgba2.g * 0.3854 + rgba2.b * 0.5) * 0.8784;\n"
+    "        yuv2.z = 0.5 + (rgba2.r * 0.5 - rgba2.g * 0.4541 - rgba2.b * 0.0458) * 0.8784;\n"
+    "        \n"
+    "        U = mix(yuv1.y, yuv2.y, 0.5);\n"
+    "        V = mix(yuv1.z, yuv2.z, 0.5);\n"
+    "        \n"
+    "        colorOut = vec4(U,yuv1.x, V, yuv2.x);\n"
+    "}\n"
+;
+
 /**
  * Class state_vidcap_syphon must be value-initialized
  */
@@ -89,9 +139,12 @@ struct state_vidcap_syphon {
         NSString *serverName;
 
         double override_fps;
+        bool use_rgb;
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames;
+
+        GLuint program_to_yuv422;
 
         ~state_vidcap_syphon() {
                 [appName release];
@@ -110,7 +163,11 @@ static struct state_vidcap_syphon *state_global;
 
 static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
         glBindTexture(GL_TEXTURE_2D, s->tex_id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        if (s->use_rgb) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        } else {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        }
 
         glBindFramebufferEXT(GL_FRAMEBUFFER, s->fbo_id);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_id, 0);
@@ -122,9 +179,15 @@ static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
         glLoadIdentity( );
         glMatrixMode( GL_PROJECTION );
         glLoadIdentity( );
-        glViewport( 0, 0, ( GLint ) desc.width, ( GLint ) desc.height );
+        glViewport( 0, 0, ( GLint ) desc.width / (s->use_rgb ? 1 : 2), ( GLint ) desc.height );
 
         glOrtho(0, desc.width, 0, desc.height, 10, -10);
+
+        if (!s->use_rgb) {
+                glUniform1f(glGetUniformLocation(s->program_to_yuv422, "imageWidth"),
+                                (GLfloat) desc.width);
+        }
+
 }
 
 static void oneshot_init(int value [[gnu::unused]])
@@ -145,6 +208,12 @@ static void oneshot_init(int value [[gnu::unused]])
 
         glGenFramebuffersEXT(1, &s->fbo_id);
         glGenTextures(1, &s->tex_id);
+
+        if (!s->use_rgb) {
+                s->program_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
+                glUseProgram(s->program_to_yuv422);
+                glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
+        }
 
         NSArray *descriptions;
         if (s->appName || s->serverName) {
@@ -170,7 +239,7 @@ static void oneshot_init(int value [[gnu::unused]])
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
 
-                struct video_desc d{width, height, RGB, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
+                struct video_desc d{width, height, s->use_rgb ? RGB : UYVY, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
                 if (!video_desc_eq(s->saved_desc, d)) {
                         reconfigure(s, d);
                         s->saved_desc = d;
@@ -186,7 +255,7 @@ static void oneshot_init(int value [[gnu::unused]])
                 glTexCoord2i(width, height); glVertex2i(width, 0);
                 glEnd();
 
-                glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, f->tiles[0].data);
+                glReadPixels(0, 0, width / (s->use_rgb ? 1 : 2), height, s->use_rgb ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, f->tiles[0].data);
                 gl_check_error();
 
                 [img release];
@@ -242,11 +311,12 @@ static void syphon_mainloop(void *state)
 
 static void usage()
 {
-        printf("\t-t syphon[:name=<server_name>][:app=<app_name>][:override_fps=<fps>]\n");
+        printf("\t-t syphon[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]\n");
         printf("\n");
         printf("\tname\n\t\tsyphon server name\n");
         printf("\tname\n\t\tsyphon server application name\n");
         printf("\toverride_fps\n\t\toverrides FPS in metadata (but not the actual rate captured)\n");
+        printf("\tRGB\n\t\tuse RGB as an output codec instead of default UYVY\n");
 }
 
 static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
@@ -269,6 +339,8 @@ static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
                         s->serverName = [NSString stringWithCString: item + strlen("name=") encoding:NSASCIIStringEncoding];
                 } else if (strstr(item, "override_fps=") == item) {
                         s->override_fps = atof(item + strlen("override_fps="));
+                } else if (strcasecmp(item, "RGB") == 0) {
+                        s->use_rgb = true;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "Syphon: Unknown argument - " << item << "\n";
                         ret = VIDCAP_INIT_FAIL;
@@ -305,6 +377,10 @@ static void vidcap_syphon_done(void *state)
 
         if (s->fbo_id != 0) {
                 glDeleteFramebuffersEXT(1, &s->fbo_id);
+        }
+
+        if (s->program_to_yuv422) {
+                glDeleteProgram(s->program_to_yuv422);
         }
 
         delete s;
