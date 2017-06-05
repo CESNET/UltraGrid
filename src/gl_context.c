@@ -120,29 +120,41 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
 
         /* compile */
         /* fragmemt */
-        glShaderSource(fhandle, 1, &fprogram, NULL);
-        glCompileShader(fhandle);
-        /* Print compile log */
-        glGetShaderInfoLog(fhandle,32768,NULL,log);
-        debug_msg("Compile Log: %s\n", log);
+        if (fprogram) {
+                glShaderSource(fhandle, 1, &fprogram, NULL);
+                glCompileShader(fhandle);
+                /* Print compile log */
+                glGetShaderInfoLog(fhandle, sizeof log, NULL, log);
+                if (strlen(log) > 0) {
+                        log_msg(LOG_LEVEL_INFO, "Fragment compile log: %s\n", log);
+                }
+        }
         /* vertex */
-        glShaderSource(vhandle, 1, &vprogram, NULL);
-        glCompileShader(vhandle);
-        /* Print compile log */
-        glGetShaderInfoLog(vhandle,32768,NULL,log);
-        debug_msg("Compile Log: %s\n", log);
+        if (vprogram) {
+                glShaderSource(vhandle, 1, &vprogram, NULL);
+                glCompileShader(vhandle);
+                /* Print compile log */
+                glGetShaderInfoLog(vhandle, sizeof log, NULL, log);
+                if (strlen(log) > 0) {
+                        log_msg(LOG_LEVEL_INFO, "Vertex compile log: %s\n", log);
+                }
+        }
 
         /* attach and link */
-        glAttachShader(phandle, vhandle);
-        glAttachShader(phandle, fhandle);
+        if (vprogram) {
+                glAttachShader(phandle, vhandle);
+        }
+        if (fprogram) {
+                glAttachShader(phandle, fhandle);
+        }
         glLinkProgram(phandle);
+        glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
+        if (strlen(log) > 0) {
+                log_msg(LOG_LEVEL_INFO, "Link Log: %s\n", log);
+        }
 
-        debug_msg("Program compilation/link status: ");
+        // check GL errors
         gl_check_error();
-
-        glGetProgramInfoLog(phandle, 32768, NULL, (GLchar*)log);
-        if ( strlen(log) > 0 )
-                debug_msg("Link Log: %s\n", log);
 
         // mark shaders for deletion when program is deleted
         glDeleteShader(vhandle);
