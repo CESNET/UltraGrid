@@ -492,7 +492,7 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
         }
     }else if(in->color_spec == RGB){
         
-        in_rgb->tiles[0].data = (char *) malloc((in->tiles[0].data_len / 2)*3);
+        in_rgb->tiles[0].data = (char *) malloc((in->tiles[0].data_len ));
         time1 = chrono::steady_clock::now();
         vc_copylineRGB((unsigned char *) in_rgb->tiles[0].data, (unsigned char *) in->tiles[0].data, in->tiles[0].data_len, 0, 8, 16);
         time2 = chrono::steady_clock::now();
@@ -529,7 +529,7 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
         cout << "time to FIND words associated with histogram: " << elapsed_seconds.count() << " seconds, number of screens saved: " << m_screens->size() << endl;
     }
     
-    if(words != NULL){
+    if(words != NULL){  //already recognized frame
         time1 = chrono::steady_clock::now();
         pixelate(words, in);
         time2 = chrono::steady_clock::now();
@@ -538,7 +538,7 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
             cout << "time to pixelate " << words->size() << "words: " << elapsed_seconds.count() << " seconds" << endl;
         }
         screen::free_video_frame(in_rgb);
-    }else{
+    }else{              //not recognized frame
         if(m_config.recognize_new_screens){
             if(print_message_struct::print_message(print_message_struct::Message_type::order_of_action_more)){
                 cout << "unknown screen, adding it for process" << endl;
@@ -548,10 +548,29 @@ struct video_frame * state_anonymize::filter(struct video_frame *in){
             screen::free_video_frame(in_rgb);
         }
         if(m_config.anonymize_unrecognized){
-            vector<word_type> tmp_word;
-            tmp_word.push_back(word_type(0, 0, in->tiles->width, in->tiles->height, 100, ""));
             time1 = chrono::steady_clock::now();
-            pixelate(&tmp_word, in);
+                
+            int width  = in->tiles[0].width;
+            int height = in->tiles[0].height;
+            cv::Mat picture;
+            char* buffer;
+            if(in->color_spec == UYVY){
+                buffer = (char *) malloc((in->tiles[0].data_len / 2)*3);
+                vc_copylineUYVYtoRGB_SSE((unsigned char *) buffer, (unsigned char *) in->tiles[0].data, (in->tiles[0].data_len / 2)*3);
+                picture = cv::Mat(height, width, CV_8UC3,  buffer);
+            }else if(in->color_spec == RGB){
+                picture = cv::Mat(height, width, CV_8UC3,  in->tiles[0].data);
+            }  
+            cv::Mat resize_picture;
+            cv::resize(picture, resize_picture, cv::Size(width/m_config.pixelization_size, height/m_config.pixelization_size), 0, 0, cv::INTER_LINEAR); 
+            cv::resize(resize_picture, picture, cv::Size(width, height), 0, 0, cv::INTER_LINEAR);
+            if(in->color_spec == UYVY){
+                vc_copylineRGBtoUYVY_SSE((unsigned char *) in->tiles[0].data, (unsigned char *) picture.data, in->tiles[0].data_len);
+            }else  if(in->color_spec == RGB){
+                vc_copylineRGB((unsigned char *) in->tiles[0].data, (unsigned char *) picture.data, in->tiles[0].data_len, 0, 8, 16);
+            }
+            free(buffer);
+
             time2 = chrono::steady_clock::now();
             if(print_message_struct::print_message(print_message_struct::Message_type::time_pixelate)){
                 elapsed_seconds = time2 - time1;
