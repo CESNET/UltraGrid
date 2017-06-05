@@ -28,6 +28,9 @@
 #ifdef HAVE_X
 #include <dlfcn.h>
 #include <X11/Xlib.h>
+/// @todo
+/// The actual SONAME should be actually figured in configure.
+#define X11_LIB_NAME "libX11.so.6"
 #endif
 
 #ifdef USE_MTRACE
@@ -124,7 +127,7 @@ bool common_preinit(int argc, char *argv[])
         uv_argv = argv;
 
 #ifdef HAVE_X
-        void *handle = dlopen("libX11.so", RTLD_NOW);
+        void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);
 
         if (handle) {
                 Status (*XInitThreadsProc)();
@@ -149,7 +152,7 @@ bool common_preinit(int argc, char *argv[])
 
                 dlclose(handle);
         } else {
-                log_msg(LOG_LEVEL_WARNING, "Unable open X11 library: %s\n", dlerror());
+                log_msg(LOG_LEVEL_WARNING, "Unable open " X11_LIB_NAME " library: %s\n", dlerror());
         }
 #endif
 
