@@ -120,6 +120,7 @@ struct vidcap_decklink_state {
 
         bool                    detect_format;
         bool                    is_10b;
+        bool                    p_not_i;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -344,6 +345,8 @@ decklink_help()
         printf("detect-format\n");
         printf("\tTry to detect input video format even if the device doesn't support autodetect.\n");
         printf("\tSource interface still has to be given, eg. \"-t decklink:connection=HDMI:detect-format\".\n");
+        printf("p_not_i\n");
+        printf("\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n");
 	printf("\n");
 
 
@@ -502,6 +505,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if (strcasecmp(opt, "detect-format") == 0) {
                 s->detect_format = true;
+        } else if (strcasecmp(opt, "p_not_i") == 0) {
+                s->p_not_i = true;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -706,6 +711,10 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 				LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
                                 s->frame->interlacing = PROGRESSIVE;
                                 break;
+                }
+
+                if (s->p_not_i) {
+                        s->frame->interlacing = PROGRESSIVE;
                 }
 
                 displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
