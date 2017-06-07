@@ -29,6 +29,9 @@ struct response {
 namespace {
 struct responder {
         responder() : received_response(nullptr) {}
+        ~responder() {
+                free_response(received_response);
+        }
         static void receive_response(void *s, struct response *r) {
                 (*((shared_ptr<responder> *) s))->receive_response_real(r);
         }
@@ -113,7 +116,9 @@ static struct response *send_message_common(struct module *root, const char *con
                                         unique_lock<mutex> lk(responder->lock);
                                         responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
                                         if (responder->received_response) {
-                                                return responder->received_response;
+                                                struct response *resp = responder->received_response;
+                                                responder->received_response = NULL;
+                                                return resp;
                                         } else {
                                                 return new_response(RESPONSE_ACCEPTED, NULL);
                                         }
@@ -149,7 +154,9 @@ static struct response *send_message_common(struct module *root, const char *con
                 unique_lock<mutex> lk(responder->lock);
                 responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
                 if (responder->received_response) {
-                        return responder->received_response;
+                        struct response *resp = responder->received_response;
+                        responder->received_response = NULL;
+                        return resp;
                 } else {
                         return new_response(RESPONSE_ACCEPTED, NULL);
                 }
