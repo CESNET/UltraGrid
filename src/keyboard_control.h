@@ -52,6 +52,7 @@ public:
         void start(struct module *root);
         void stop();
         void run();
+        void info();
         void usage();
 
 private:

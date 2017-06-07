@@ -211,6 +211,9 @@ void keyboard_control::run()
                         case 'h':
                                 usage();
                                 break;
+                        case 'i':
+                                info();
+                                break;
                         case '\n':
                                 cout << endl;
                                 break;
@@ -276,21 +279,8 @@ after_protected:
         }
 }
 
-
-void keyboard_control::usage()
+void keyboard_control::info()
 {
-        cout << "\nAvailable keybindings:\n" <<
-                "\t  * 0  - increase volume\n" <<
-                "\t  / 9  - decrease volume\n" <<
-                "\t   +   - increase audio delay by 10 ms\n" <<
-                "\t   -   - decrease audio delay by 10 ms\n" <<
-                "\t   m   - mute/unmute\n" <<
-                "\t   v   - increase verbosity level\n" <<
-                "\t   e   - record captured content (toggle)\n" <<
-                "\t   h   - show help\n" <<
-                "\tCtrl-x - unlock/lock against changes\n" <<
-                "\tCtrl-c - exit\n" <<
-                "\n";
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         cout << "Locked against changes: " << (m_locked_against_changes ? "true" : "false") << "\n";
         cout << "Audio playback delay: " << get_audio_delay() << " ms\n";
@@ -361,5 +351,24 @@ void keyboard_control::usage()
 	}
 
         cout << "\n";
+}
+
+void keyboard_control::usage()
+{
+        cout << "\nAvailable keybindings:\n" <<
+                "\t  * 0  - increase volume\n" <<
+                "\t  / 9  - decrease volume\n" <<
+                "\t   +   - increase audio delay by 10 ms\n" <<
+                "\t   -   - decrease audio delay by 10 ms\n" <<
+                "\t   m   - mute/unmute\n" <<
+                "\t   v   - increase verbosity level\n" <<
+                "\t   e   - record captured content (toggle)\n" <<
+                "\t   h   - show help\n" <<
+                "\t   i   - show various information\n" <<
+                "\tCtrl-x - unlock/lock against changes\n" <<
+                "\tCtrl-c - exit\n" <<
+                "\n";
+
+        info();
 }
 
