@@ -79,49 +79,95 @@ const map<enum library_class, library_class_info_t> library_class_info = {
 static map<string, string> lib_errors;
 
 #ifdef BUILD_LIBRARIES
-static int running_from_path(char * uv_argv[]) {
-        const char * env_path = getenv("PATH");
-        if (env_path == NULL) {
-                // LOG(LOG_LEVEL_WARNING) << "Failed to determine environment PATH variable, plugins shall be searched relative to binary" << "\n";
-                return 0;
-        }
-
-        char * realbinpath = realpath(uv_argv[0], NULL);
-        // if no / si present in argv[0], consider it binary name - thus run from path
-        if (realbinpath == NULL)
-                return (strchr(uv_argv[0], '/') == NULL);
-
-        char *tmp_bin = strdup(uv_argv[0]);
-        char *bin = basename(tmp_bin);
-
-        char * rw_path = strdup(env_path);
-        char * token_cont = rw_path;
-
-        int path_match = 0;
-        do {
-                char * fragment = strtok(token_cont, ":");
-                token_cont = NULL;
-                if (fragment == NULL)
-                        break;
-
-                char * fullpath = strdup(fragment);
-                fullpath = (char *)realloc(fullpath, strlen(fullpath) + 1 + strlen(bin) + 1);
-                strcat(strcat(fullpath, "/"), bin);
-        
-                char * realfull = realpath(fullpath, NULL);
-                path_match = (realfull != NULL) && (strcmp(realfull, realbinpath) == 0);
-
-                free(fullpath);
-                free(realfull);
-        } while (!path_match);
-
-        free(rw_path);
-        free(tmp_bin);
-        free(realbinpath);
-
-        return path_match;
+static void push_basename_entry(char ***binarynames, const char *bnc, size_t * templates) {
+	char * alt_v0 = strdup(bnc);
+	assert(alt_v0 != NULL);
+	char * bn_v0 = basename(alt_v0);
+	for (size_t i = 0; i < *templates && bn_v0 != NULL; ++i) {
+		if (strcmp((*binarynames)[i], bn_v0) == 0)
+			bn_v0 = NULL;
+	}
+	if (bn_v0 != NULL) {
+		*binarynames = (char **)realloc(*binarynames, (*templates + 2)*sizeof(**binarynames));
+		assert(*binarynames != NULL);
+		(*binarynames)[(*templates)++] = strdup(bn_v0);
+		(*binarynames)[*templates +1] = NULL;
+	}
+	free(alt_v0);
 }
 
+static int running_from_path(char * uv_argv[]) {
+	const char *env_path = getenv("PATH");
+	if (env_path == NULL) {
+		// LOG(LOG_LEVEL_WARNING) << "Failed to determine environment PATH variable, plugins shall be searched relative to binary" << "\n";
+		return 0;
+	}
+
+	char *self_path = realpath("/proc/self/exe", NULL);
+	if (self_path == NULL) {
+		// LOG(LOG_LEVEL_WARNING) << "Failed to determine path to running process" << "\n";
+		return 0;
+	}
+
+	// considered binary names, currently only uv, but reserve other as well
+	const char * binarynames_tpl[] = {
+		"uv",
+		"ultragrid",
+		"uv-nightly",
+		"ultragrid-nightly"
+	};
+
+	size_t templates = sizeof(binarynames_tpl)/sizeof(binarynames_tpl[0]);
+	char **binarynames = (char **)calloc(templates + 1 + 3, sizeof(*binarynames)); // pre-allocate 3 dirnames
+	assert(binarynames != NULL);
+	for (size_t i = 0; i < templates; ++i)
+		binarynames[i] = strdup(binarynames_tpl[i]);
+	
+	push_basename_entry(&binarynames, uv_argv[0], &templates);
+	if (strchr(uv_argv[0], '/') != NULL) {
+		char * alt_v0 = realpath(uv_argv[0], NULL);
+		if (alt_v0 != NULL) {
+			push_basename_entry(&binarynames, alt_v0, &templates);
+			free(alt_v0);
+		}
+	}
+	push_basename_entry(&binarynames, self_path, &templates);
+
+	char *pathdup = strdup(env_path);
+	char *tokencont = pathdup;
+	int rval = 0;
+
+	// if path contains /, make it the first and only candidate 
+
+	char *next_token = NULL;
+	while (rval == 0) {
+		// loop through paths
+		const char *pathelem = strtok_r(tokencont, ":", &next_token);
+		tokencont = NULL;
+		if (pathelem == NULL)
+			break;
+		
+		for (size_t i = 0; binarynames[i] != NULL && rval == 0; ++i) {
+			char * candidate = (char *)calloc(1, strlen(pathelem) + 1 + strlen(binarynames[i]) + 1);
+			sprintf(candidate, "%s/%s", pathelem, binarynames[i]);
+
+			char * real_candidate = realpath(candidate, NULL);
+			if (real_candidate != NULL) {
+				rval = strcmp(real_candidate, self_path) == 0;
+				free(real_candidate);
+			}
+			free(candidate);
+		}	
+	};
+	
+	for (size_t i = 0; binarynames[i] != NULL; ++i)
+		free(binarynames[i]);
+	free(binarynames);
+
+	free(pathdup);
+	free(self_path);
+	return rval;
+}
 #endif
 
 void open_all(const char *pattern) {
