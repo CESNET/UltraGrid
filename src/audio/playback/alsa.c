@@ -475,7 +475,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
                                         snd_strerror(rc));
                 } else {
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Buffer size: %d-%d ns\n", minval, maxval);
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Buffer size: %d-%d us\n", minval, maxval);
                 }
         } else {
                 val = BUFFER_MIN * 1000;
@@ -510,7 +510,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 		jitter_buffer_reset(s->buf);
 #else
                 audio_buffer_destroy(s->buf);
-                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, get_commandline_param("low-latency-audio") ? 20 : 5);
+                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, get_commandline_param("low-latency-audio") ? 5 : 20);
 #endif
                 s->timestamp = 0;
                 pthread_create(&s->thread_id, NULL, worker, s);
