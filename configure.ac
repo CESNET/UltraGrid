@@ -2698,31 +2698,31 @@ if test $video_mix_req = yes -a $video_mix = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# libavcodec hw-accelerated decoding
+# libavcodec hw-accelerated encoding/decoding
 # -------------------------------------------------------------------------------------------------
-lavc_hwdec=no
+lavc_hwacc=no
 
-define(lavc_hwdec_dep, libavutil >= 55.22.1 libva vdpau)
+define(lavc_hwacc_dep, libavutil >= 55.22.1 libva vdpau)
 
-AC_ARG_ENABLE(lavc-hw-decoding,
-[  --disable-lavc-hw-decoding   disable lavc-hw-decoding (default is auto)]
-[                          Requires: lavc_hwdec_dep],
-    [lavc_hwdec_req=$enableval],
-    [lavc_hwdec_req=auto]
+AC_ARG_ENABLE(lavc-hw-accel,
+[  --disable-lavc-hw-accel   disable lavc-hw-accel (default is auto)]
+[                          Requires: lavc_hwacc_dep],
+    [lavc_hwacc_req=$enableval],
+    [lavc_hwacc_req=auto]
     )
 
-PKG_CHECK_MODULES([LAVC_HWDEC], [lavc_hwdec_dep], [FOUND_HWDEC_DEP=yes], [FOUND_HWDEC_DEP=no])
+PKG_CHECK_MODULES([LAVC_HWACC], [lavc_hwacc_dep], [FOUND_HWACC_DEP=yes], [FOUND_HWACC_DEP=no])
 
-if test $lavc_hwdec_req != no -a $FOUND_HWDEC_DEP = yes
+if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
 then
-        CFLAGS="$CFLAGS -DUSE_HWDEC ${LAVC_HWDEC_CFLAGS}"
-        CXXFLAGS="$CXXFLAGS -DUSE_HWDEC ${LAVC_HWDEC_CFLAGS}"
-		LIBS="$LIBS ${LAVC_HWDEC_LIBS}"
-        lavc_hwdec=yes
+        CFLAGS="$CFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
+		LIBS="$LIBS ${LAVC_HWACC_LIBS}"
+        lavc_hwacc=yes
 fi
 
-if test $lavc_hwdec_req = yes -a $lavc_hwdec = no; then
-	AC_MSG_ERROR([Could not find hwdec dependencies!]);
+if test $lavc_hwacc_req = yes -a $lavc_hwacc = no; then
+	AC_MSG_ERROR([Could not find hwacc dependencies!]);
 fi
 
 
@@ -2795,7 +2795,7 @@ RESULT=\
   JPEG to DXT ................. $jpeg_to_dxt
   CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec (HW dec: $lavc_hwdec)
+  Libavcodec .................. $libavcodec (HW accel: $lavc_hwacc)
 
   blank capture filter ........ $blank
   resize capture filter ....... $resize

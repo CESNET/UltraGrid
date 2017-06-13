@@ -51,7 +51,7 @@
 #include "video.h"
 #include "video_decompress.h"
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vdpau.h>
 #include <libavutil/hwcontext_vaapi.h>
@@ -73,7 +73,7 @@ using std::min;
 
 #define MOD_NAME "[lavd] "
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 struct hw_accel_state {
         enum {
                 HWACCEL_NONE,
@@ -110,7 +110,7 @@ struct state_libavcodec_decompress {
         unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
         bool             broken_h264_mt_decoding_workaroud_active;
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
         struct hw_accel_state hwaccel;
 #endif
 };
@@ -122,7 +122,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
 static bool broken_h264_mt_decoding = false;
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 static void hwaccel_state_init(struct hw_accel_state *hwaccel){
         hwaccel->type = HWACCEL_NONE;
         hwaccel->copy = false;
@@ -176,7 +176,7 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         s->frame = NULL;
         av_packet_unref(&s->pkt);
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
         hwaccel_state_reset(&s->hwaccel);
 #endif
 }
@@ -249,7 +249,7 @@ static const struct decoder_info decoders[] = {
 ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
                 "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter\n");
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 ADD_TO_PARAM(force_hw_accel, "use-hw-accel", "* use-hw-accel\n"
                 "  Tries to use hardware acceleration. \n");
 #endif
@@ -389,7 +389,7 @@ static void * libavcodec_decompress_init(void)
 
         av_log_set_callback(error_callback);
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
         hwaccel_state_init(&s->hwaccel);
 #endif
 
@@ -1087,7 +1087,7 @@ static const struct {
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
 };
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 static int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
         int ret;
         ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
@@ -1418,7 +1418,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
         }
 
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
         struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         hwaccel_state_reset(&state->hwaccel);
         const char *param = get_commandline_param("use-hw-accel");
@@ -1509,7 +1509,7 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
         av_log_default_callback(ptr, level, fmt, vl);
 }
 
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
 static void transfer_frame(struct hw_accel_state *s, AVFrame *frame){
         av_hwframe_transfer_data(s->tmp_frame, frame, 0);
 
@@ -1587,7 +1587,7 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                                                 s->last_frame_seq : -1, (unsigned) frame_seq);
                                 res = FALSE;
                         } else {
-#ifdef USE_HWDEC
+#ifdef USE_HWACC
                                 if(s->hwaccel.copy){
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }

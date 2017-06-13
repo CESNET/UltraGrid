@@ -64,6 +64,17 @@
 #include <thread>
 #include <unordered_map>
 
+#ifdef USE_HWACC
+extern "C"
+{
+#include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_vdpau.h>
+#include <libavutil/hwcontext_vaapi.h>
+#include <libavcodec/vdpau.h>
+#include <libavcodec/vaapi.h>
+}
+#endif
+
 using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
@@ -197,6 +208,9 @@ struct state_video_compress_libav {
         int                 requested_gop;
 
         map<string, string> lavc_opts; ///< user-supplied options from command-line
+
+        bool hwenc;
+        AVFrame *hwframe;
 };
 
 static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -445,8 +459,89 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         s->module_data.deleter = libavcodec_compress_done;
         module_register(&s->module_data, parent);
 
+        s->hwenc = false;
+        s->hwframe = NULL;
+
         return &s->module_data;
 }
+
+#ifdef USE_HWACC
+static int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
+        int ret;
+        ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
+
+        if(ret < 0){
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to create hwdevice!!\n");
+                return ret;
+        }
+
+        return 0;
+}
+
+static int create_hw_frame_ctx(AVBufferRef *device_ref,
+                AVCodecContext *s,
+                enum AVPixelFormat format,
+                enum AVPixelFormat sw_format,
+                int pool_size,
+                AVBufferRef **ctx)
+{
+        *ctx = av_hwframe_ctx_alloc(device_ref);
+        if(!*ctx){
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to allocate hwframe_ctx!!\n");
+                return -1;
+        }
+
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *) (*ctx)->data;
+        frames_ctx->format    = format;
+        frames_ctx->width     = s->width;
+        frames_ctx->height    = s->height;
+        frames_ctx->sw_format = sw_format;
+        frames_ctx->initial_pool_size = pool_size;
+
+        int ret = av_hwframe_ctx_init(*ctx);
+        if (ret < 0) {
+                av_buffer_unref(ctx);
+                *ctx = NULL;
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init hwframe_ctx!!\n\n");
+                return ret;
+        }
+
+        return 0;
+}
+
+static int vaapi_init(struct AVCodecContext *s){
+
+        int pool_size = 20; //Default in ffmpeg examples
+
+        AVBufferRef *device_ref;
+        AVBufferRef *hw_frames_ctx;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VAAPI, &device_ref);
+        if(ret < 0)
+                goto fail;
+
+        if (s->active_thread_type & FF_THREAD_FRAME)
+                pool_size += s->thread_count;
+
+        ret = create_hw_frame_ctx(device_ref,
+                        s,
+                        AV_PIX_FMT_VAAPI,
+                        AV_PIX_FMT_NV12,
+                        pool_size,
+                        &hw_frames_ctx);
+        if(ret < 0)
+                goto fail;
+
+        s->hw_frames_ctx = hw_frames_ctx;
+
+        av_buffer_unref(&device_ref);
+        return 0;
+
+fail:
+        av_buffer_unref(&hw_frames_ctx);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
+#endif
 
 /**
  * Finds best pixel format
@@ -461,6 +556,24 @@ static enum AVPixelFormat get_first_matching_pix_fmt(const enum AVPixelFormat **
         assert(req_pix_fmt_it != NULL);
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
+
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                char out[1024] = "[lavc] Available codec pixel formats:";
+                const enum AVPixelFormat *it = codec_pix_fmts;
+                while (*it != AV_PIX_FMT_NONE) {
+                        strncat(out, " ", sizeof out - strlen(out) - 1);
+                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                }
+                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
+                out[0] = '\0';
+                strncat(out, "[lavd] Requested pixel formats:", sizeof out - strlen(out) - 1);
+                it = *req_pix_fmt_it;
+                while (*it != AV_PIX_FMT_NONE) {
+                        strncat(out, " ", sizeof out - strlen(out) - 1);
+                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                }
+                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
+        }
 
         enum AVPixelFormat req;
         while((req = *(*req_pix_fmt_it)++) != AV_PIX_FMT_NONE) {
@@ -646,6 +759,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
+#ifdef USE_HWACC
+        if (regex_match(codec->name, regex(".*vaapi.*"))) {
+                requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_VAAPI;
+        }
+#endif
+
         if (s->requested_subsampling == 0) {
                 // for interlaced formats, it is better to use either 422 or 444
                 if (desc.interlacing == INTERLACED_MERGED) {
@@ -726,6 +845,15 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
                 log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
                 pthread_mutex_lock(s->lavcd_global_lock);
+#ifdef USE_HWACC
+                if (pix_fmt == AV_PIX_FMT_VAAPI){
+                        vaapi_init(s->codec_ctx);
+                        s->hwenc = true;
+                        s->hwframe = av_frame_alloc();
+                        av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
+                        pix_fmt = AV_PIX_FMT_NV12;
+                }
+#endif
                 /* open it */
                 if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                         avcodec_free_context(&s->codec_ctx);
@@ -734,6 +862,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         pthread_mutex_unlock(s->lavcd_global_lock);
                         continue;
                 }
+
                 pthread_mutex_unlock(s->lavcd_global_lock);
 		break;
 	}
@@ -791,8 +920,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
                 return false;
         }
+
+        AVPixelFormat fmt = (s->hwenc) ? AV_PIX_FMT_NV12 : s->codec_ctx->pix_fmt;
 #if LIBAVCODEC_VERSION_MAJOR >= 53
-        s->in_frame->format = s->codec_ctx->pix_fmt;
+        s->in_frame->format = fmt;
         s->in_frame->width = s->codec_ctx->width;
         s->in_frame->height = s->codec_ctx->height;
 #endif
@@ -801,7 +932,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
          * just the most convenient way if av_malloc() is to be used */
         ret = av_image_alloc(s->in_frame->data, s->in_frame->linesize,
                         s->codec_ctx->width, s->codec_ctx->height,
-                        s->codec_ctx->pix_fmt, 32);
+                        fmt, 32);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
                 return false;
@@ -1043,6 +1174,7 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
 }
 
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
+
         if (src == v210) {
                 if (fmt == AV_PIX_FMT_YUV420P10LE) {
                         return v210_to_yuv420p10le;
@@ -1176,10 +1308,18 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 }
         }
 
+        AVFrame *frame = s->in_frame;
+#ifdef USE_HWACC
+        if(s->hwenc){
+                av_hwframe_transfer_data(s->hwframe, s->in_frame, 0);
+                frame = s->hwframe;
+        }
+#endif
+
         /* encode the image */
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
-        ret = avcodec_send_frame(s->codec_ctx, s->in_frame);
+        ret = avcodec_send_frame(s->codec_ctx, frame);
         if (ret == 0) {
                 AVPacket pkt;
                 av_init_packet(&pkt);
@@ -1201,7 +1341,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
-                        s->in_frame, &got_output);
+                        frame, &got_output);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
                 return {};
@@ -1217,7 +1357,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 #else
         ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) out->tiles[0].data,
                         out->tiles[0].width * out->tiles[0].height * 4,
-                        s->in_frame);
+                        frame);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
                 return {};
@@ -1271,6 +1411,10 @@ static void cleanup(struct state_video_compress_libav *s)
         }
         free(s->decoded);
         s->decoded = NULL;
+
+        if(s->hwframe){
+                av_frame_free(&s->hwframe);
+        }
 }
 
 static void libavcodec_compress_done(struct module *mod)
