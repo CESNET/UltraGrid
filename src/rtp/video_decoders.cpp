@@ -542,7 +542,6 @@ static void *decompress_thread(void *args) {
 
                 msg->nanoPerFrameDecompress =
                         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
-                msg->nanoPerFrameExpected = 1000000000 / decoder->frame->fps;
 
                 if(decoder->change_il) {
                         for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
@@ -1562,6 +1561,7 @@ next_packet:
                 fec_msg->pckt_list = std::move(pckt_list);
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
+                fec_msg->nanoPerFrameExpected = 1000000000 / decoder->frame->fps;
 
                 auto t0 = std::chrono::high_resolution_clock::now();
                 decoder->fec_queue.push(move(fec_msg));
