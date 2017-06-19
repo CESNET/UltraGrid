@@ -58,11 +58,19 @@
 #include "ntv2devicescanner.h"
 #include "ntv2democommon.h"
 #include "ntv2capture.h"
+#if AJA_NTV2_SDK_VERSION_MAJOR >= 13
+#include "ajabase/common/videotypes.h"
+#include "ajabase/common/circularbuffer.h"
+#include "ajabase/system/process.h"
+#include "ajabase/system/systemtime.h"
+#include "ajabase/system/thread.h"
+#else
 #include "ajastuff/common/videotypes.h"
 #include "ajastuff/common/circularbuffer.h"
 #include "ajastuff/system/process.h"
 #include "ajastuff/system/systemtime.h"
 #include "ajastuff/system/thread.h"
+#endif
 
 #include "ntv2utils.h"
 #include "ntv2devicefeatures.h"
@@ -73,6 +81,7 @@
 #include <chrono>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 using namespace std;
@@ -110,7 +119,7 @@ class vidcap_state_aja {
                 NTV2AudioSystem        mAudioSystem;                  ///     The audio system I'm using
                 uint32_t               mVideoBufferSize;              ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize;              ///     My audio buffer size, in bytes
-                AJAThread             *mProducerThread;               ///     My producer thread object -- does the frame capturing
+                thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
                 video_frame_pool<aligned_data_allocator> mPool;
                 shared_ptr<video_frame> mOutputFrame;
                 mutex                  mOutputFrameLock;
@@ -134,14 +143,14 @@ class vidcap_state_aja {
                  **/
                 virtual void                    StartProducerThread (void);
                 virtual void                    CaptureFrames (void);
-                static void     ProducerThreadStatic (AJAThread * pThread, void * pContext);
+                static void     ProducerThreadStatic (vidcap_state_aja * pContext);
 };
 
 vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters) :
         mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
         mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
         mAudioSystem(NTV2_AUDIOSYSTEM_1),
-        mProducerThread(0), mOutputFrame(0), mProgressive(false),
+        mOutputFrame(0), mProgressive(false),
         mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
         mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
 {
@@ -207,7 +216,7 @@ void vidcap_state_aja::Init()
         if (!mDevice.Open (mDeviceIndex))
                 throw string("Unable to open device.");
 
-        if (!mDevice.AcquireStreamForApplication (app, static_cast <uint32_t> (AJAProcess::GetPid ())))
+        if (!mDevice.AcquireStreamForApplication (app, static_cast <uint32_t> (getpid())))
                 throw string("Cannot aquire stream.");
 
         mDevice.GetEveryFrameServices (&mSavedTaskMode);        //      Save the current state before we change it
@@ -233,14 +242,11 @@ void vidcap_state_aja::Init()
 }
 
 vidcap_state_aja::~vidcap_state_aja() {
-        delete mProducerThread;
-        mProducerThread = NULL;
-
         //      Unsubscribe from input vertical event...
         mDevice.UnsubscribeInputVerticalEvent (mInputChannel);
 
         mDevice.SetEveryFrameServices (mSavedTaskMode);                                                                                                 //      Restore previous service level
-        mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (AJAProcess::GetPid ()));     //      Release the device
+        mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (getpid()));     //      Release the device
 
         mOutputFrame = {};
         free(mAudio.data);
@@ -544,10 +550,7 @@ void vidcap_state_aja::Quit()
         //      Set the global 'quit' flag, and wait for the threads to go inactive...
         //mGlobalQuit = true;
 
-        if (mProducerThread)
-                while (mProducerThread->Active ())
-                        AJATime::Sleep (10);
-
+        mProducerThread.join();
 }       //      Quit
 
 //////////////////////////////////////////////
@@ -556,23 +559,14 @@ void vidcap_state_aja::Quit()
 void vidcap_state_aja::StartProducerThread (void)
 {
         //      Create and start the capture thread...
-        mProducerThread = new AJAThread ();
-        mProducerThread->Attach (ProducerThreadStatic, this);
-        mProducerThread->SetPriority (AJA_ThreadPriority_High);
-        mProducerThread->Start ();
-
+        mProducerThread = thread(ProducerThreadStatic, this);
 }       //      StartProducerThread
 
 
 //      The capture thread function
-void vidcap_state_aja::ProducerThreadStatic (AJAThread * pThread, void * pContext)           //      static
+void vidcap_state_aja::ProducerThreadStatic (vidcap_state_aja * pContext)           //      static
 {
-        (void) pThread;
-
-        //      Grab the NTV2Capture instance pointer from the pContext parameter,
-        //      then call its CaptureFrames method...
-        auto pApp    (reinterpret_cast <vidcap_state_aja *> (pContext));
-        pApp->CaptureFrames ();
+        pContext->CaptureFrames ();
 
 }       //      ProducerThreadStatic
 

@@ -886,28 +886,60 @@ AC_ARG_WITH(aja,
             [AJA_PATH=$withval
              ])
 
-if test -n "$AJA_PATH"
+# In lines below, there is a compatibility check for NTV2 12.x (Linux only).
+# For macOS, only NTV2 13 is checked/supported.
+if test $system = Linux
 then
-        AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-        fi
-
-        if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
+        if test -n "$AJA_PATH"
         then
-                aja=yes
-                AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
+                # NTV2 SDK 12.x
+                AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+                # NTV2 SDK 13.x
+                if test "$FOUND_LIBAJA" = no; then
+                        AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+                        NTV2_13=yes
+                fi
+        fi
+else # Mac
+        AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
+        if test "$FOUND_LIBAJA" = yes; then
+                AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+        fi
+fi
+
+if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
+then
+        aja=yes
+        if test $system = Linux -a "$NTV2_13" != yes
+	then
                 AJA_INC="$AJA_INC -I${AJA_PATH}/ntv2projects/classes -I${AJA_PATH}/ajaapi -I${AJA_PATH}/ntv2projects/includes -I${AJA_PATH}/ntv2projects/democlasses"
                 AJA_LIB="${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a"
-                AJA_CAP_OBJ="src/video_capture/aja.o"
-                AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
-
-                ADD_MODULE("vidcap_aja", "$AJA_CAP_OBJ", "$AJA_LIB")
-		INC="$INC $AJA_INC"
-		CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
+        else # ntv2 13.x
+                AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
         fi
-
-        if test $aja_req = yes -a $aja = no; then
-                AC_MSG_ERROR([AJA not found]);
+        if test $system = Linux
+        then
+                AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
+                if test "$NTV2_13" = yes
+                then
+                        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
+                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
+                fi
+        else # mac
+                AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
+                AJA_LIB="-lajantv2"
         fi
+        AJA_CAP_OBJ="src/video_capture/aja.o"
+        AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
+
+        ADD_MODULE("vidcap_aja", "$AJA_CAP_OBJ", "$AJA_LIB")
+        INC="$INC $AJA_INC"
+        CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
+fi
+
+if test $aja_req = yes -a $aja = no; then
+        AC_MSG_ERROR([AJA not found]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
