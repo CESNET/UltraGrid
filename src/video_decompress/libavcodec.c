@@ -73,6 +73,16 @@ using std::min;
 
 #define MOD_NAME "[lavd] "
 
+#include "pmmintrin.h"
+// compat with older Clang compiler
+#ifndef _mm_bslli_si128
+#define _mm_bslli_si128 _mm_slli_si128
+#endif
+#ifndef _mm_bsrli_si128
+#define _mm_bsrli_si128 _mm_srli_si128
+#endif
+#endif
+
 #ifdef USE_HWACC
 struct hw_accel_state {
         enum {
@@ -462,7 +472,67 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 char *dst1 = dst_buffer + (y * 2) * pitch;
                 char *dst2 = dst_buffer + (y * 2 + 1) * pitch;
 
-                for(int x = 0; x < width / 2; ++x) {
+                int x = 0;
+
+#ifdef __SSE3__
+                __m128i y1;
+                __m128i y2;
+                __m128i u1;
+                __m128i u2;
+                __m128i v1;
+                __m128i v2;
+                __m128i out1l;
+                __m128i out1h;
+                __m128i out2l;
+                __m128i out2h;
+                __m128i zero = _mm_set1_epi32(0);
+
+                for (; x < width - 15; x += 16){
+                        y1 = _mm_lddqu_si128((__m128i const*) src_y1);
+                        y2 = _mm_lddqu_si128((__m128i const*) src_y2);
+                        src_y1 += 16;
+                        src_y2 += 16;
+
+                        out1l = _mm_unpacklo_epi8(zero, y1);
+                        out1h = _mm_unpackhi_epi8(zero, y1);
+                        out2l = _mm_unpacklo_epi8(zero, y2);
+                        out2h = _mm_unpackhi_epi8(zero, y2);
+
+                        u1 = _mm_lddqu_si128((__m128i const*) src_cb);
+                        v1 = _mm_lddqu_si128((__m128i const*) src_cr);
+                        src_cb += 8;
+                        src_cr += 8;
+
+                        u1 = _mm_unpacklo_epi8(u1, zero);
+                        v1 = _mm_unpacklo_epi8(v1, zero);
+                        u2 = _mm_unpackhi_epi8(u1, zero);
+                        v2 = _mm_unpackhi_epi8(v1, zero);
+                        u1 = _mm_unpacklo_epi8(u1, zero);
+                        v1 = _mm_unpacklo_epi8(v1, zero);
+
+                        v1 = _mm_bslli_si128(v1, 2);
+                        v2 = _mm_bslli_si128(v2, 2);
+
+                        u1 = _mm_or_si128(u1, v1);
+                        u2 = _mm_or_si128(u2, v2);
+
+                        out1l = _mm_or_si128(out1l, u1);
+                        out1h = _mm_or_si128(out1h, u2);
+                        out2l = _mm_or_si128(out2l, u1);
+                        out2h = _mm_or_si128(out2h, u2);
+
+                        _mm_storeu_si128((__m128i *) dst1, out1l);
+                        dst1 += 16;
+                        _mm_storeu_si128((__m128i *) dst1, out1h);
+                        dst1 += 16;
+                        _mm_storeu_si128((__m128i *) dst2, out2l);
+                        dst2 += 16;
+                        _mm_storeu_si128((__m128i *) dst2, out2h);
+                        dst2 += 16;
+                }
+#endif
+
+                for(; x < width - 1; x += 2) {
                         *dst1++ = *src_cb;
                         *dst1++ = *src_y1++;
                         *dst1++ = *src_cr;

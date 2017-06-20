@@ -75,6 +75,17 @@ extern "C"
 }
 #endif
 
+#ifdef __SSE3__
+#include "pmmintrin.h"
+// compat with older Clang compiler
+#ifndef _mm_bslli_si128
+#define _mm_bslli_si128 _mm_slli_si128
+#endif
+#ifndef _mm_bsrli_si128
+#define _mm_bsrli_si128 _mm_srli_si128
+#endif
+#endif
+
 using namespace std;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
@@ -1029,7 +1040,67 @@ static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int h
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
                 unsigned char *dst_cbcr = out_frame->data[1] + out_frame->linesize[1] * y / 2;
-                for(int x = 0; x < width / 2; ++x) {
+
+                int x = 0;
+#ifdef __SSE3__
+                __m128i yuv;
+                __m128i yuv2;
+                __m128i y1;
+                __m128i y2;
+                __m128i y3;
+                __m128i y4;
+                __m128i uv;
+                __m128i uv2;
+                __m128i uv3;
+                __m128i uv4;
+                __m128i ymask = _mm_set1_epi32(0xFF00FF00);
+                __m128i dsty;
+                __m128i dsty2;
+                __m128i dstuv;
+
+                for (; x < (width - 15); x += 16){
+                        yuv = _mm_lddqu_si128((__m128i const*) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*) src2);
+                        src += 16;
+                        src2 += 16;
+
+                        y1 = _mm_and_si128(ymask, yuv);
+                        y1 = _mm_bsrli_si128(y1, 1);
+                        y2 = _mm_and_si128(ymask, yuv2);
+                        y2 = _mm_bsrli_si128(y2, 1);
+
+                        uv = _mm_andnot_si128(ymask, yuv);
+                        uv2 = _mm_andnot_si128(ymask, yuv2);
+
+                        uv = _mm_avg_epu8(uv, uv2);
+
+                        yuv = _mm_lddqu_si128((__m128i const*) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*) src2);
+                        src += 16;
+                        src2 += 16;
+
+                        y3 = _mm_and_si128(ymask, yuv);
+                        y3 = _mm_bsrli_si128(y3, 1);
+                        y4 = _mm_and_si128(ymask, yuv2);
+                        y4 = _mm_bsrli_si128(y4, 1);
+
+                        uv3 = _mm_andnot_si128(ymask, yuv);
+                        uv4 = _mm_andnot_si128(ymask, yuv2);
+
+                        uv3 = _mm_avg_epu8(uv3, uv4);
+
+                        dsty = _mm_packus_epi16(y1, y3);
+                        dsty2 = _mm_packus_epi16(y2, y4);
+                        dstuv = _mm_packus_epi16(uv, uv3);
+                        _mm_storeu_si128((__m128i *) dst_y, dsty);
+                        _mm_storeu_si128((__m128i *) dst_y2, dsty2);
+                        _mm_storeu_si128((__m128i *) dst_cbcr, dstuv);
+                        dst_y += 16;
+                        dst_y2 += 16;
+                        dst_cbcr += 16;
+                }
+#endif
+                for(; x < width - 1; x += 2) {
                         *dst_cbcr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
