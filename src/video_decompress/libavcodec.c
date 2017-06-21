@@ -73,6 +73,7 @@ using std::min;
 
 #define MOD_NAME "[lavd] "
 
+#ifdef __SSE3__
 #include "pmmintrin.h"
 // compat with older Clang compiler
 #ifndef _mm_bslli_si128
