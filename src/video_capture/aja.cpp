@@ -99,7 +99,7 @@ static constexpr ULWord app = AJA_FOURCC ('U','L','G','R');
 
 class vidcap_state_aja {
         public:
-                vidcap_state_aja(unordered_map<string, string> const & parameters);
+                vidcap_state_aja(unordered_map<string, string> const & parameters, bool grabAudio);
                 void Init();
                 virtual ~vidcap_state_aja();
                 struct video_frame *grab(struct audio_frame **audio);
@@ -122,6 +122,8 @@ class vidcap_state_aja {
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
                 video_frame_pool<aligned_data_allocator> mPool;
                 shared_ptr<video_frame> mOutputFrame;
+                shared_ptr<uint32_t>   mOutputAudioFrame;
+                size_t                 mOutputAudioFrameSize;
                 mutex                  mOutputFrameLock;
                 condition_variable     mOutputFrameReady;
                 bool                   mProgressive;
@@ -131,6 +133,8 @@ class vidcap_state_aja {
                 int                    mMaxAudioChannels;
                 NTV2TCSource           mTimeCodeSource;                ///< @brief     Time code source
                 bool                   mCheckFor4K;
+                bool                   mGrabAudio;
+                uint32_t               mAudioInLastAddress;    ///< @brief My record of the location of the last audio sample captured
 
                 AJAStatus SetupVideo();
                 AJAStatus SetupAudio();
@@ -146,13 +150,13 @@ class vidcap_state_aja {
                 static void     ProducerThreadStatic (vidcap_state_aja * pContext);
 };
 
-vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters) :
+vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters, bool grabAudio) :
         mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
         mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
         mAudioSystem(NTV2_AUDIOSYSTEM_1),
         mOutputFrame(0), mProgressive(false),
         mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
-        mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
+        mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false), mGrabAudio(grabAudio)
 {
         for (auto it : parameters) {
                 if (it.first == "progressive") {
@@ -391,6 +395,8 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
         }
 
+        mAudioSystem = ::NTV2InputSourceToAudioSystem(mInputSource);
+
         //      Set the device video format to whatever we detected at the input...
         mDevice.SetVideoFormat (mVideoFormat, false, false, mInputChannel);
 
@@ -490,28 +496,41 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 #if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
         mDevice.SetAudioSystemInputSource (mAudioSystem, mInputSource);
 #else
-        NTV2AudioSource audioSource     (NTV2_AUDIO_EMBEDDED);
-        if (NTV2_INPUT_SOURCE_IS_HDMI (mInputSource))
-                audioSource = NTV2_AUDIO_HDMI;
-        else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
-                audioSource = NTV2_AUDIO_ANALOG;
-
-        mDevice.SetAudioSystemInputSource (mAudioSystem, audioSource, ::NTV2ChannelToEmbeddedAudioInput(mInputChannel));
+        mDevice.SetAudioSystemInputSource (mAudioSystem, ::NTV2InputSourceToAudioSource(mInputSource), ::NTV2InputSourceToEmbeddedAudioInput(mInputSource));
 #endif
 
         mMaxAudioChannels = ::NTV2BoardGetMaxAudioChannels (mDeviceID);
-        mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource));
+        if (mMaxAudioChannels < (int) audio_capture_channels) {
+                LOG(LOG_LEVEL_ERROR) << "[AJA] Invalid number of capture channels requested. Requested " <<
+                        audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
+                return AJA_STATUS_FAIL;
+        }
+        if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
+                LOG(LOG_LEVEL_ERROR) << "[AJA] Unable to set channel count!\n";
+                return AJA_STATUS_FAIL;
+        }
         mDevice.SetAudioRate (NTV2_AUDIO_48K, NTV2InputSourceToAudioSystem(mInputSource));
 
         //      How big should the on-device audio buffer be?   1MB? 2MB? 4MB? 8MB?
         //      For this demo, 4MB will work best across all platforms (Windows, Mac & Linux)...
         mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, NTV2InputSourceToAudioSystem(mInputSource));
 
-        if (mMaxAudioChannels < (int) audio_capture_channels)
-        {
-                cerr << "[AJA] Invalid number of capture channels requested. Requested " <<
-                        audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
-        }
+        //
+        //      Loopback mode plays whatever audio appears in the input signal when it's
+        //      connected directly to an output (i.e., "end-to-end" mode). If loopback is
+        //      left enabled, the video will lag the audio as video frames get briefly delayed
+        //      in our ring buffer. Audio, therefore, needs to come out of the (buffered) fram
+        //      data being played, so loopback must be turned off...
+        //
+        mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem);
+
+        //      Reset both the input and output sides of the audio system so that the buffer
+        //      pointers are reset to zero and inhibited from advancing.
+        mDevice.SetAudioInputReset(mAudioSystem, true);
+
+        //      Ensure that the audio system will capture samples when the reset is removed
+        mDevice.SetAudioCaptureEnable (mAudioSystem, true);
+
         mAudio.bps = 4;
         mAudio.sample_rate = 48000;
         mAudio.data = (char *) malloc(NTV2_AUDIOSIZE_MAX);
@@ -521,7 +540,6 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized sucessfully: " << audio_desc_from_frame(&mAudio) << "\n";
 
         return AJA_STATUS_SUCCESS;
-
 }       //      SetupAudio
 
 void vidcap_state_aja::SetupHostBuffers (void)
@@ -551,6 +569,9 @@ void vidcap_state_aja::Quit()
         //mGlobalQuit = true;
 
         mProducerThread.join();
+
+        //      Don't leave the audio system active after we exit
+        mDevice.SetAudioInputReset      (mAudioSystem, true);
 }       //      Quit
 
 //////////////////////////////////////////////
@@ -558,7 +579,7 @@ void vidcap_state_aja::Quit()
 //      This is where we start the capture thread
 void vidcap_state_aja::StartProducerThread (void)
 {
-        //      Create and start the capture thread...
+        //      Create and start the capture thread..
         mProducerThread = thread(ProducerThreadStatic, this);
 }       //      StartProducerThread
 
@@ -574,22 +595,68 @@ void vidcap_state_aja::CaptureFrames (void)
 {
         uint32_t        currentInFrame                  = 0;    //      Will ping-pong between 0 and 1
 
+        uint32_t        currentAudioInAddress   = 0;
+        uint32_t        audioReadOffset                 = 0;
+        uint32_t        audioInWrapAddress              = 0;
+        uint32_t        audioOutWrapAddress             = 0;
+        uint32_t        audioBytesCaptured              = 0;
+
+
+        mDevice.GetAudioReadOffset      (audioReadOffset, mAudioSystem);
+        mDevice.GetAudioWrapAddress     (audioOutWrapAddress, mAudioSystem);
+
         //      Wait to make sure the next two SDK calls will be made during the same frame...
         mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+
         currentInFrame  ^= 1;
         mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
 
         //      Wait until the hardware starts filling the new buffers, and then start audio
         //      capture as soon as possible to match the video...
         mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+        mDevice.SetAudioInputReset (mAudioSystem, false);
+
+        mAudioInLastAddress             = audioReadOffset;
+        audioInWrapAddress              = audioOutWrapAddress + audioReadOffset;
 
         currentInFrame  ^= 1;
         mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
 
-	while (!should_exit) {
-		//      Wait until the input has completed capturing a frame...
+        while (!should_exit) {
+                uint32_t *pHostAudioBuffer = NULL;
+                //      Wait until the input has completed capturing a frame...
                 mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
-		//      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
+
+                if (mGrabAudio) {
+                        pHostAudioBuffer = reinterpret_cast <uint32_t *> (aligned_malloc(NTV2_AUDIOSIZE_MAX, AJA_PAGE_SIZE));
+                        //      Read the audio position registers as close to the interrupt as possible...
+                        mDevice.ReadAudioLastIn (&currentAudioInAddress, mInputChannel);
+                        currentAudioInAddress &= ~0x7f;  //      Force 128 B alignment (originally there was 4 bytes)
+                        currentAudioInAddress += audioReadOffset;
+
+                        if (currentAudioInAddress < mAudioInLastAddress) {
+                                //      Audio address has wrapped around the end of the buffer.
+                                //      Do the calculations and transfer from the last address to the end of the buffer...
+                                audioBytesCaptured      = audioInWrapAddress - mAudioInLastAddress;
+
+                                mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured);
+
+                                //      Transfer the new samples from the start of the buffer to the current address...
+                                mDevice.DMAReadAudio (mAudioSystem, &pHostAudioBuffer [audioBytesCaptured / sizeof (uint32_t)],
+                                                audioReadOffset, currentAudioInAddress - audioReadOffset);
+
+                                audioBytesCaptured += currentAudioInAddress - audioReadOffset;
+                        } else {
+                                audioBytesCaptured = currentAudioInAddress - mAudioInLastAddress;
+
+                                //      No wrap, so just perform a linear DMA from the buffer...
+                                mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured);
+                        }
+
+                        mAudioInLastAddress = currentAudioInAddress;
+                }
+
+                //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
                 currentInFrame  ^= 1;
 
                 shared_ptr<video_frame> out = mPool.get_frame();
@@ -620,6 +687,8 @@ void vidcap_state_aja::CaptureFrames (void)
 
                 unique_lock<mutex> lk(mOutputFrameLock);
                 mOutputFrame = out;
+		mOutputAudioFrame = shared_ptr<uint32_t>(pHostAudioBuffer, aligned_free);
+		mOutputAudioFrameSize = audioBytesCaptured;
                 lk.unlock();
                 mOutputFrameReady.notify_one();
 	}       //      loop til quit signaled
@@ -645,9 +714,19 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         ret->dispose = [](video_frame *f) { delete static_cast<shared_ptr<video_frame> *>(f->dispose_udata); };
 
         mOutputFrame = NULL;
-        lk.unlock();
 
-        *audio = NULL;
+        if (mOutputAudioFrame) {
+                for (int i = 0; i < mAudio.ch_count; ++i) {
+                        remux_channel(mAudio.data, (char *) mOutputAudioFrame.get(), mAudio.bps, mOutputAudioFrameSize, mMaxAudioChannels, mAudio.ch_count, i, i);
+                }
+                mAudio.data_len = mOutputAudioFrameSize / mMaxAudioChannels * mAudio.ch_count;
+                mOutputAudioFrame = {};
+                *audio = &mAudio;
+        } else {
+                *audio = NULL;
+        }
+
+        lk.unlock();
 
         mFrames += 1;
 
@@ -724,7 +803,7 @@ static int vidcap_aja_init(const struct vidcap_params *params, void **state)
 
         vidcap_state_aja *ret = nullptr;
         try {
-                ret = new vidcap_state_aja(parameters_map);
+                ret = new vidcap_state_aja(parameters_map, vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED);
                 ret->Run();
         } catch (string const & s) {
                 LOG(LOG_LEVEL_ERROR) << "[AJA cap.] " << s << "\n";
