@@ -96,15 +96,52 @@ struct state_alsa_playback {
         JitterBuffer *buf;
 #else
         audio_buffer_t *buf;
+        long int audio_buf_len_ms;
 #endif
         pthread_mutex_t lock;
         bool should_exit_thread;
         bool thread_started;
         uint32_t timestamp;
         struct timeval last_audio_read;
+
+        long sched_latency_ms;
 };
 
 static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame);
+
+static long get_sched_latency_ns(void)
+{
+        const char *proc_file = "/proc/sys/kernel/sched_latency_ns";
+
+        int fd = open(proc_file, O_RDONLY);
+        if (!fd) {
+                return -1;
+        }
+
+        char buf[11] = ""; // 9 digits + LF + zero
+        unsigned int idx = 0;
+        while (idx < sizeof buf - 1) {
+                ssize_t bytes = read(fd, buf + idx, sizeof buf - 1 - idx);
+                if (bytes < 0) {
+                        log_msg(LOG_LEVEL_INFO, "read %s: %s\n", proc_file, strerror(errno));
+                        close(fd);
+                        return -1;
+                }
+                if (bytes == 0) {
+                        break;
+                }
+                idx += bytes;
+        }
+
+        close(fd);
+
+        // more than 9 digits (is unlikely)
+        if (idx == sizeof buf - 1) {
+                return -1;
+        }
+
+        return atol(buf);
+}
 
 static void *worker(void *args) {
         struct state_alsa_playback *s = args;
@@ -113,10 +150,9 @@ static void *worker(void *args) {
                 .sample_rate = s->desc.sample_rate,
                 .ch_count = s->desc.ch_count };
 
-        size_t len = f.bps * f.ch_count * (f.sample_rate / 250); // 4 ms
-        size_t len_100ms = f.bps * f.ch_count * (f.sample_rate / 10);
-        char *silence = alloca(len_100ms);
-        memset(silence, 0, len_100ms);
+        size_t len = f.bps * f.ch_count * (f.sample_rate * s->sched_latency_ms / 1000);
+        char *silence = alloca(len);
+        memset(silence, 0, len);
 
 #ifdef USE_SPEEX_JITTER_BUFFER
 	const int pkt_max_len = s->desc.sample_rate / 10;
@@ -166,13 +202,11 @@ static void *worker(void *args) {
                         f.data = data;
                         s->last_audio_read = now;
                 } else {
+                        f.data_len = len;
                         f.data = silence;
 
                         if (tv_diff(now, s->last_audio_read) < 2.0) {
                                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "underrun occurred\n");
-                                f.data_len = len;
-                        } else {
-                                f.data_len = len_100ms;
                         }
                 }
 #endif
@@ -449,7 +483,8 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         if (s->new_api) {
                 int mindir = -1, maxdir = 1;
                 unsigned int minval = 0;
-                unsigned int maxval = 15000;
+                unsigned int maxval = s->sched_latency_ms * 1000 * 2;
+                //maxval = 15000;
 
                 const char *buff_str = get_commandline_param("alsa-playback-buffer");
                 if (buff_str) {
@@ -512,11 +547,12 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 		jitter_buffer_reset(s->buf);
 #else
                 audio_buffer_destroy(s->buf);
-                int len = get_commandline_param("low-latency-audio") ? 5 : 20;
+                s->audio_buf_len_ms = get_commandline_param("low-latency-audio") ? 5 : s->sched_latency_ms * 2;
+                log_msg(LOG_LEVEL_INFO, "[ALSA play.] Setting audio buffer length: %d ms\n", s->audio_buf_len_ms);
                 if (get_commandline_param("alsa-internal-buffer")) {
-                        len = atoi(get_commandline_param("alsa-internal-buffer"));
+                        s->audio_buf_len_ms = atoi(get_commandline_param("alsa-internal-buffer"));
                 }
-                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, len);
+                s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, s->audio_buf_len_ms);
 #endif
                 s->timestamp = 0;
                 pthread_create(&s->thread_id, NULL, worker, s);
@@ -657,6 +693,15 @@ static void * audio_play_alsa_init(const char *cfg)
 
         s = malloc(sizeof(struct state_alsa_playback));
         *s = (struct state_alsa_playback){.new_api = true};
+
+        long latency_ns = get_sched_latency_ns();
+        if (latency_ns > 0) {
+                s->sched_latency_ms = latency_ns / 1000 / 1000;
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Sched latency: %ld ms.\n", s->sched_latency_ms);
+        } else {
+                s->sched_latency_ms = 24;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get latency, assuming %ld.\n", s->sched_latency_ms);
+        }
 
         const char *new_api;
         new_api = get_commandline_param("alsa-playback-api");
