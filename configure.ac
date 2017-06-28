@@ -2700,6 +2700,25 @@ then
         syphon=yes
 fi
 
+# ------------------------------------------------------------------------------
+# Spout
+# ------------------------------------------------------------------------------
+spout=no
+AC_ARG_ENABLE(spout,
+[  --enable-spout        enables Spout support (default is disabled)]
+[                          Requires: Spout],
+    [spout_req=$enableval],
+    [spout_req=no]
+    )
+
+if test $spout_req == yes
+then
+        AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
+        LIBS="$LIBS -lspout_sender"
+        spout=yes
+fi
+
+
 # -------------------------------------------------------------------------------------------------
 # MCU-like video mixer
 # -------------------------------------------------------------------------------------------------
@@ -2799,6 +2818,7 @@ RESULT=\
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
   Syphon ...................... $syphon
+  Spout ....................... $spout
 
   AJA ......................... $aja
   AV Foundation ............... $avfoundation

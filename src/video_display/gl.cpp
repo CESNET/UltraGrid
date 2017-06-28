@@ -64,6 +64,7 @@
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
 
+#include "spout_sender.h"
 #include "syphon_server.h"
 
 #include <algorithm>
@@ -195,7 +196,7 @@ struct state_gl {
         bool            paused;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor;
         chrono::steady_clock::time_point                      cursor_shown_from; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
-        string          syphon_srv_name;
+        string          syphon_spout_srv_name;
 
         bool should_exit_main_loop; // used only for GLUT (not freeglut)
 
@@ -203,7 +204,7 @@ struct state_gl {
 
         struct module   mod;
 
-        void *syphon;
+        void *syphon_spout;
         bool hide_window;
 
         bool fixed_size, first_run;
@@ -215,7 +216,7 @@ struct state_gl {
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
                 should_exit_main_loop(false), window_size_factor(1.0),
-                syphon(nullptr), hide_window(false), fixed_size(false), first_run(true),
+                syphon_spout(nullptr), hide_window(false), fixed_size(false), first_run(true),
                 fixed_w(0), fixed_h(0)
         {
                 gettimeofday(&tv, NULL);
@@ -262,7 +263,7 @@ extern "C" void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:fixed_size[=WxH]|:[vsync=<x>|single]]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>|:spout=<name>]|:fixed_size[=WxH]|:[vsync=<x>|single]]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\tnovsync\t\tdo not turn sync on VBlank\n");
@@ -273,6 +274,7 @@ static void gl_show_help(void) {
         printf("\t\tsize\t\tspecifies desired size of window compared "
                         "to native resolution (in percents)\n");
         printf("\t\tsyphon\t\tuse Syphon (optionally with name)\n");
+        printf("\t\tspout\t\tuse Spout (optionally with name)\n");
         printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
 
         printf("\n\nKeyboard shortcuts:\n");
@@ -360,15 +362,15 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 }
                         } else if (!strcasecmp(tok, "cursor")) {
                                 s->show_cursor = state_gl::SC_TRUE;
-                        } else if (!strncmp(tok, "syphon", strlen("syphon"))) {
-#ifdef HAVE_SYPHON
-                                if (!strncmp(tok, "syphon=", strlen("syphon="))) {
-                                        s->syphon_srv_name = tok + strlen("syphon=");
+                        } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
+#if defined HAVE_SYPHON || defined HAVE_SPOUT
+                                if (strchr(tok, '=')) {
+                                        s->syphon_spout_srv_name = strchr(tok, '=') + 1;
                                 } else {
-                                        s->syphon_srv_name = "UltraGrid";
+                                        s->syphon_spout_srv_name = "UltraGrid";
                                 }
 #else
-                                log_msg(LOG_LEVEL_ERROR, "[GL] Syphon support not compiled in.\n");
+                                log_msg(LOG_LEVEL_ERROR, "[GL] Syphon/Spout support not compiled in.\n");
                                 free(tmp);
                                 delete s;
                                 return NULL;
@@ -644,9 +646,17 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         gl_check_error();
 
 #ifdef HAVE_SYPHON
-        if (!s->syphon && !s->syphon_srv_name.empty()) {
-                s->syphon = syphon_server_register(CGLGetCurrentContext(), s->syphon_srv_name.c_str());
+        if (!s->syphon_spout && !s->syphon_spout_srv_name.empty()) {
+                s->syphon_spout = syphon_server_register(CGLGetCurrentContext(), s->syphon_spout_srv_name.c_str());
         }
+#endif
+#ifdef HAVE_SPOUT
+        if (!s->syphon_spout_srv_name.empty()) {
+                if (s->syphon_spout) {
+                         spout_sender_unregister(s->syphon_spout);
+                }
+                s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name.c_str(), desc.width, desc.height);
+	}
 #endif
 
         s->current_display_desc = desc;
@@ -792,12 +802,16 @@ static void glut_idle_callback(void)
         }
         gl_render(s, frame->tiles[0].data);
         gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
-#ifdef HAVE_SYPHON
 
-        if (s->syphon) {
-                syphon_server_publish(s->syphon, frame->tiles[0].width, frame->tiles[0].height, s->texture_display);
+        // publish to Syphon/Spout
+        if (s->syphon_spout) {
+#ifdef HAVE_SYPHON
+                syphon_server_publish(s->syphon_spout, frame->tiles[0].width, frame->tiles[0].height, s->texture_display);
+#elif defined HAVE_SPOUT
+                spout_sender_sendframe(s->syphon_spout, frame->tiles[0].width, frame->tiles[0].height, s->texture_display);
+                glBindTexture(GL_TEXTURE_2D, s->texture_display);
+#endif // HAVE_SPOUT
         }
-#endif
 
         glutSwapBuffers();
         pop_frame(s);
@@ -1205,11 +1219,13 @@ static void display_gl_done(void *state)
 
         vf_free(s->current_frame);
 
+        if (s->syphon_spout) {
 #ifdef HAVE_SYPHON
-        if (s->syphon) {
-                syphon_server_unregister(s->syphon);
-        }
+                syphon_server_unregister(s->syphon_spout);
+#elif defined HAVE_SPOUT
+                spout_sender_unregister(s->syphon_spout);
 #endif
+        }
         
         delete s;
 }
