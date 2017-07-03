@@ -51,12 +51,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#include <GL/glew.h>
-
-#ifndef HAVE_MACOSX
-#include "x11_common.h"
-#endif
-
 #include "gl_context.h"
 
 using namespace std;
@@ -144,56 +138,18 @@ struct module * uyvy_compress_init(struct module *parent, const char *)
 
         if(!init_gl_context(&s->context, GL_CONTEXT_LEGACY))
                 abort();
-        glewInit();
 
         glEnable(GL_TEXTURE_2D);
 
-        const GLchar  *FProgram;
-        char          *log;
-        GLuint         FSHandle,PHandle;
+        s->program_rgba_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
+        if (!s->program_rgba_to_yuv422) {
+                log_msg(LOG_LEVEL_ERROR, "UYVY: Unable to create shader!\n");
+                free(s);
+                return NULL;
+        }
 
-        int len;
-        GLsizei gllen;
-
-        PHandle = glCreateProgram();
-
-        FProgram = (const GLchar *) fp_display_rgba_to_yuv422_legacy;
-        /* Set up program objects. */
-        s->program_rgba_to_yuv422 = glCreateProgram();
-        FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
-
-        /* Compile Shader */
-        len = strlen(FProgram);
-        glShaderSource(FSHandle, 1, &FProgram, &len);
-        glCompileShader(FSHandle);
-
-        /* Print compile log */
-        log = (char *) calloc(32768,sizeof(char));
-        glGetShaderInfoLog(FSHandle, 32768, &gllen, log);
-        printf("Compile Log: %s\n", log);
-#if 0
-        glShaderSource(VSHandle,1, &VProgram,NULL);
-        glCompileShaderARB(VSHandle);
-        memset(log, 0, 32768);
-        glGetInfoLogARB(VSHandle,32768, &gllen,log);
-        printf("Compile Log: %s\n", log);
-
-        /* Attach and link our program */
-        glAttachObjectARB(PHandle,VSHandle);
-#endif
-        glAttachShader(PHandle, FSHandle);
-        glLinkProgram(PHandle);
-
-        /* Print link log. */
-        memset(log, 0, 32768);
-        glGetInfoLogARB(PHandle,32768,NULL,log);
-        printf("Link Log: %s\n", log);
-        free(log);
-
-        s->program_rgba_to_yuv422 = PHandle;
-
-        glUseProgram(PHandle);
-        glUniform1i(glGetUniformLocationARB(PHandle,"image"),0);
+        glUseProgram(s->program_rgba_to_yuv422);
+        glUniform1i(glGetUniformLocation(s->program_rgba_to_yuv422,"image"),0);
         glUseProgram(0);
 
         s->configured = FALSE;

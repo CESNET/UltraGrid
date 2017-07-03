@@ -1847,9 +1847,9 @@ then
 fi
 
 # Mac
-if test "$system" = MacOSX
+if test $uyvy_req != no -a "$system" != Linux -a "$gl" = yes
 then
-        uyvy=no
+        uyvy=yes
 fi
 
 # common
