@@ -198,6 +198,9 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         Init();
 }
 
+
+ADD_TO_PARAM(aja_fourcc, "aja-fourcc", "* aja-fourcc\n"
+                "  Specifies application FourCC for AJA.\n");
 void vidcap_state_aja::Init()
 {
         AJAStatus       status  (AJA_STATUS_SUCCESS);
@@ -220,7 +223,16 @@ void vidcap_state_aja::Init()
         if (!mDevice.Open (mDeviceIndex))
                 throw string("Unable to open device.");
 
-        if (!mDevice.AcquireStreamForApplication (app, static_cast <uint32_t> (getpid())))
+        ULWord fourcc = app;
+        if (get_commandline_param("aja-fourcc")) {
+                const char *fcc_req  = get_commandline_param("aja-fourcc");
+                char fcc_s[4] = "";
+                // trim or pad with spaces
+                strncpy(fcc_s, fcc_req, 4);
+                fourcc = AJA_FOURCC(fcc_s[0], fcc_s[1], fcc_s[2], fcc_s[3]);
+        }
+
+        if (!mDevice.AcquireStreamForApplication (fourcc, static_cast <uint32_t> (getpid())))
                 throw string("Cannot aquire stream.");
 
         mDevice.GetEveryFrameServices (&mSavedTaskMode);        //      Save the current state before we change it
