@@ -385,6 +385,28 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 return AJA_STATUS_BAD_PARAM;    //      Nope
 
         mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
+
+//      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
+        mDevice.EnableChannel (mInputChannel);
+
+        //      Enable and subscribe to the interrupts for the channel to be used...
+        mDevice.EnableInputInterrupt (mInputChannel);
+        mDevice.SubscribeInputVerticalEvent (mInputChannel);
+
+        //      Set the video format to match the incomming video format.
+        //      Does the device support the desired input source?
+
+        //      If the device supports bi-directional SDI and the
+        //      requested input is SDI, ensure the SDI direction
+        //      is configured for input...
+        if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
+        {
+                mDevice.SetSDITransmitEnable (mInputChannel, false);
+
+                //      Give the input circuit some time (~10 frames) to lock onto the input signal...
+                mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10);
+        }
+
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
 #if AJA_NTV2_SDK_VERSION_BEFORE(12,4)
                 mTimeCodeSource = ::NTV2ChannelToTimecodeSource (mInputChannel);
