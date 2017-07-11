@@ -101,6 +101,7 @@ keyboard_control::keyboard_control() :
         m_started(false),
         m_locked_against_changes(true)
 {
+        m_start_time = time(NULL);
 }
 
 ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
@@ -212,6 +213,7 @@ void keyboard_control::run()
                                 usage();
                                 break;
                         case 'i':
+                                cout << "\n";
                                 info();
                                 break;
                         case '\n':
@@ -281,6 +283,7 @@ after_protected:
 
 void keyboard_control::info()
 {
+        cout << "Start time: " << asctime(localtime(&m_start_time));
         cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         cout << "Locked against changes: " << (m_locked_against_changes ? "true" : "false") << "\n";
         cout << "Audio playback delay: " << get_audio_delay() << " ms\n";
