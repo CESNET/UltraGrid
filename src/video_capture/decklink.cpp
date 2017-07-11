@@ -935,8 +935,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         // Print the model name of the DeckLink card
                         result = deckLink->GetDisplayName(&deviceNameString);
                         if (result == S_OK) {
-                                LOG(LOG_LEVEL_INFO) << "Using device " << deviceNameString << "\n";
+                                const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                LOG(LOG_LEVEL_INFO) << "Using device " << deviceNameCString << "\n";
                                 release_bmd_api_str(deviceNameString);
+                                free((void *) deviceNameCString);
                         }
 
                         // Query the DeckLink for its configuration interface
@@ -1050,8 +1052,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 BMD_STR displayModeString = NULL;
                                 result = displayMode->GetName(&displayModeString);
                                 if (result == S_OK) {
-                                        LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeString << "\n";
+                                        const char *displayModeCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                        LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
                                         release_bmd_api_str(displayModeString);
+                                        free((void *)displayModeCString);
                                 }
                         } else {
                                 if (mode_idx == MODE_SPEC_FOURCC) {
