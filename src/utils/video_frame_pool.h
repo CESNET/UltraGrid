@@ -49,6 +49,7 @@
 #ifdef __cplusplus
 
 #include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <memory>
