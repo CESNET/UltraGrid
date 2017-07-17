@@ -1938,19 +1938,7 @@ if test "x${with_cuda_host_compiler}" != "x" ; then
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
 	fi
 else
-        # workaround, to remove - NVCC doesn't support gcc 6 but clang 3.8
-        if test -z "$nvcc_major"; then
-                nvcc_major=0
-        fi
-        if test $system = Linux -a $nvcc_major -eq 8; then
-                AC_CHECK_PROG([CLANG38], [clang-3.8], [yes])
-                if test "$CLANG38" == yes; then
-                        with_cuda_host_compiler="clang-3.8"
-                        NVCCFLAGS="$NVCCFLAGS -ccbin $with_cuda_host_compiler"
-                fi
-        else
-                with_cuda_host_compiler="default"
-        fi
+	with_cuda_host_compiler="default"
 fi
 
 if test "x$NVCC" != "X" ; then
