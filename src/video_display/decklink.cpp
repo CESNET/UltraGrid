@@ -61,6 +61,7 @@
 #include "video_display.h"
 
 #include <chrono>
+#include <cstdint>
 #include <iomanip>
 #include <mutex>
 #include <queue>
@@ -168,8 +169,9 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
 #ifdef HAVE_LINUX
                         uint8_t hours, minutes, seconds, frames;
                         GetComponents(&hours, &minutes, &seconds, &frames);
-                        char *out = (char *) malloc(12);
-                        sprintf(out, "%02d:%02d:%02d:%02d", hours, minutes, seconds, frames);
+                        char *out = (char *) malloc(14);
+                        assert(minutes <= 59 && seconds <= 59);
+                        sprintf(out, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
                         *timecode = out;
                         return S_OK;
 #else

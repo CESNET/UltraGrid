@@ -61,6 +61,8 @@ bool is_addr_loopback(struct sockaddr_storage *ss)
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
                 if ((addr >> 24) == IN_LOOPBACKNET) {
                         return true;
+                } else {
+                        return false;
                 }
         }
         case AF_INET6:
@@ -70,6 +72,8 @@ bool is_addr_loopback(struct sockaddr_storage *ss)
                         uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
                         if ((v4_addr >> 24) == IN_LOOPBACKNET) {
                                 return true;
+                        } else {
+                                return false;
                         }
                 } else {
                         return IN6_IS_ADDR_LOOPBACK(&sin->sin6_addr);
