@@ -1561,7 +1561,7 @@ next_packet:
                 fec_msg->pckt_list = std::move(pckt_list);
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
-                fec_msg->nanoPerFrameExpected = 1000000000 / decoder->frame->fps;
+                fec_msg->nanoPerFrameExpected = decoder->frame ? 1000000000 / decoder->frame->fps : 0;
 
                 auto t0 = std::chrono::high_resolution_clock::now();
                 decoder->fec_queue.push(move(fec_msg));
