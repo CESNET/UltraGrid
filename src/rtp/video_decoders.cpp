@@ -1553,6 +1553,7 @@ next_packet:
                 unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->stats));
                 fec_msg->buffer_num = std::move(buffer_num);
                 fec_msg->recv_frame = frame;
+                fec_msg->nanoPerFrameExpected = 1000000000 / frame->fps;
                 frame = NULL;
                 fec_msg->recv_frame->fec_params = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
                 fec_msg->recv_frame->ssrc = ssrc;
