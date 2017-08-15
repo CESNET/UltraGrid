@@ -133,8 +133,15 @@ static bool create_dir(struct exporter *s)
 {
         if (!s->dir) {
                 for (int i = 1; i <= 9999; i++) {
-                        char name[16];
-                        snprintf(name, 16, "export.%04d", i);
+                        char name[21];
+                        time_t t = time(NULL);
+                        struct tm *tmp = localtime(&t);
+                        strftime(name, sizeof name, "export.%Y%m%d", tmp);
+                        if (i > 1) {
+                                char num[6];
+                                snprintf(num, sizeof num, "-%d", i);
+                                strncat(name, num, sizeof name - strlen(name) - 1);
+                        }
                         int ret = platform_mkdir(name);
                         if(ret == -1) {
                                 if(errno == EEXIST) {
