@@ -178,6 +178,7 @@ struct reported_statistics_cumul {
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         unsigned long int fec_ok = 0, fec_nok = 0;
         unsigned long long int     nano_per_frame_decompress = 0;
+        unsigned long long int     nano_per_frame_error_correction = 0;
         unsigned long long int     nano_per_frame_expected = 0;
         unsigned long int     reported_frames = 0;
         void print() {
@@ -223,6 +224,7 @@ struct frame_msg {
                                 " isDisplayed " << (stats.displayed += (is_displayed ? 1 : 0)) <<
                                 " timestamp " << time_since_epoch_in_ms() <<
                                 " nanoPerFrameDecompress " << (stats.nano_per_frame_decompress += nanoPerFrameDecompress) <<
+                                " nanoPerFrameErrorCorrection " << (stats.nano_per_frame_error_correction += nanoPerFrameErrorCorrection) <<
                                 " nanoPerFrameExpected " << (stats.nano_per_frame_expected += nanoPerFrameExpected) <<
                                 " reportedFrames " << (stats.reported_frames += 1);
                         if ((stats.displayed + stats.dropped + stats.missing) % 600 == 599) {
@@ -243,6 +245,7 @@ struct frame_msg {
         unsigned long long int received_pkts_cum, expected_pkts_cum;
         struct reported_statistics_cumul &stats;
         unsigned long long int nanoPerFrameDecompress = 0;
+        unsigned long long int nanoPerFrameErrorCorrection = 0;
         unsigned long long int nanoPerFrameExpected = 0;
         bool is_displayed = false;
         bool is_corrupted = false;
@@ -362,6 +365,7 @@ static void *fec_thread(void *args) {
 
                 struct video_frame *frame = decoder->frame;
                 struct tile *tile = NULL;
+                auto t0 = std::chrono::high_resolution_clock::now();
 
                 if (data->recv_frame->fec_params.type != FEC_NONE) {
                         if(!fec_state || desc.k != data->recv_frame->fec_params.k ||
@@ -481,6 +485,9 @@ static void *fec_thread(void *args) {
                                 }
                         }
                 }
+
+                data->nanoPerFrameErrorCorrection =
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
 
                 decoder->decompress_queue.push(move(data));
 cleanup:
