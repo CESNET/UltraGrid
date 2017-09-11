@@ -391,6 +391,7 @@ bool parse_audio_capture_format(const char *optarg)
         if (strcmp(optarg, "help") == 0) {
                 printf("Usage:\n");
                 printf("\t--audio-capture-format {channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n");
+                printf("\t\tmultiple options can be separated by a colon\n");
                 return false;
         }
 
