@@ -114,7 +114,7 @@ static void *worker(void *args) {
                 .ch_count = s->desc.ch_count };
 
         size_t len = f.bps * f.ch_count * (f.sample_rate / 250); // 4 ms
-        size_t len_100ms = f.bps * f.sample_rate * (f.ch_count / 10);
+        size_t len_100ms = f.bps * f.ch_count * (f.sample_rate / 10);
         char *silence = alloca(len_100ms);
         memset(silence, 0, len_100ms);
 
