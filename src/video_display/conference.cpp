@@ -63,10 +63,12 @@
 #include <sys/time.h>
 
 struct Tile{
-        std::shared_ptr<cv::Mat> img;
-        std::shared_ptr<cv::gpu::GpuMat> gpuImg;
+        cv::Mat img;
+        cv::gpu::GpuMat gpuImg;
         int width, height;
         int posX, posY;
+
+        uint32_t ssrc;
 
         //If true, it idicates that the tile image was changed
         //and needs to be uploaded to the gpu again
@@ -83,7 +85,8 @@ class TiledImage{
 
                 void addTile(unsigned width, unsigned height, uint32_t ssrc);
                 void removeTile(uint32_t ssrc);
-                std::shared_ptr<cv::Mat> getMat(uint32_t ssrc);
+                struct Tile *getTile(uint32_t ssrc);
+                cv::Mat *getMat(uint32_t ssrc);
                 void uploadTile(uint32_t ssrc);
 
                 //In Normal layout every tile covers equal space
@@ -96,64 +99,71 @@ class TiledImage{
                 unsigned primary = 0; //The biggest tile in the OneBig layout
 
         private:
-                std::vector<std::shared_ptr<struct Tile>> imgs;
-                std::unordered_map<uint32_t, std::shared_ptr<struct Tile>> tiles;
+                std::vector<struct Tile> imgs;
                 cv::gpu::GpuMat image;
                 cv::gpu::Stream stream;
 };
 
 TiledImage::TiledImage(int width, int height){
-        image = cv::gpu::GpuMat(height, width, CV_8UC3);
+        image.create(height, width, CV_8UC3);
         layout = Normal;
 }
 
 void TiledImage::addTile(unsigned width, unsigned height, uint32_t ssrc){
-        std::shared_ptr<struct Tile> t = std::make_shared<struct Tile>();
-        t->width = width;
-        t->height = height;
-        t->posX = 0;
-        t->posY = 0;
-        t->dirty = 1;
+        struct Tile t;
+        t.width = width;
+        t.height = height;
+        t.posX = 0;
+        t.posY = 0;
+        t.ssrc = ssrc;
+        t.dirty = 1;
 
-        t->img = std::make_shared<cv::Mat> (height, width, CV_8UC3);
-        t->gpuImg = std::make_shared<cv::gpu::GpuMat> (height, width, CV_8UC3);
+        t.img.create(height, width, CV_8UC3);
+        t.gpuImg.create(height, width, CV_8UC3);
 
-        imgs.push_back(t);
-        tiles[ssrc] = t;
+        imgs.push_back(std::move(t));
 }
 
 void TiledImage::removeTile(uint32_t ssrc){
-        std::vector<std::shared_ptr<struct Tile>>::iterator it = imgs.begin();
+        auto it = imgs.begin();
 
         while(it != imgs.end()){
-                if(*it == tiles[ssrc]){
+                if(it->ssrc == ssrc){
                         it = imgs.erase(it);
                 } else {
                         it++;
                 }
         }
-
-        tiles.erase(ssrc);
 }
 
 //Uploads the tile to the gpu, resizes it and puts it in the correct position
 void TiledImage::uploadTile(uint32_t ssrc){
-        std::shared_ptr<struct Tile> t = tiles[ssrc];
-        stream.enqueueUpload(*t->img, *t->gpuImg);
+        struct Tile *t = getTile(ssrc);
+        stream.enqueueUpload(t->img, t->gpuImg);
         cv::gpu::GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-        cv::gpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
+        cv::gpu::resize(t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
         t->dirty = 0;
 }
 
-std::shared_ptr<cv::Mat> TiledImage::getMat(uint32_t ssrc){
-        return tiles[ssrc]->img;
+struct Tile *TiledImage::getTile(uint32_t ssrc){
+        for(auto& t : imgs){
+                if(t.ssrc == ssrc){
+                        return &t;
+                }
+        }
+
+        return nullptr;
+}
+
+cv::Mat *TiledImage::getMat(uint32_t ssrc){
+        return &getTile(ssrc)->img;
 }
 
 void setTileSize(struct Tile *t, unsigned width, unsigned height){
-        float scaleFactor = std::min((float) width / t->img->size().width, (float) height / t->img->size().height);
+        float scaleFactor = std::min((float) width / t->img.size().width, (float) height / t->img.size().height);
 
-        t->width = t->img->size().width * scaleFactor;
-        t->height = t->img->size().height * scaleFactor;
+        t->width = t->img.size().width * scaleFactor;
+        t->height = t->img.size().height * scaleFactor;
 
         //Center tile
         t->posX += (width - t->width) / 2;
@@ -167,11 +177,11 @@ void TiledImage::computeLayout(){
         unsigned height = image.size().height;
 
         if(imgs.size() == 1){
-                Tile *t = imgs[0].get();
-                t->posX = 0;
-                t->posY = 0;
-                setTileSize(t, width, height);
-                t->dirty = 1;
+                Tile& t = imgs[0];
+                t.posX = 0;
+                t.posY = 0;
+                setTileSize(&t, width, height);
+                t.dirty = 1;
                 image.setTo(cv::Scalar::all(0));
                 return;
         }
@@ -197,24 +207,24 @@ void TiledImage::computeLayout(){
 
         unsigned i = 0;
         int pos = 0;
-        for(std::shared_ptr<struct Tile> t: imgs){
+        for(struct Tile& t: imgs){
                 unsigned curW = tileW;
                 unsigned curH = tileH;
-                t->posX = (pos % rows) * curW;
-                t->posY = (pos / rows) * curH;
+                t.posX = (pos % rows) * curW;
+                t.posY = (pos / rows) * curH;
                 if(layout == OneBig){
-                        t->posY += bigH;
+                        t.posY += bigH;
                         if(i == primary){
-                                t->posX = 0;
-                                t->posY = 0;
+                                t.posX = 0;
+                                t.posY = 0;
                                 curW = width;
                                 curH = bigH;
                                 pos--;
                         }
                 }
 
-                setTileSize(t.get(), curW, curH);
-                t->dirty = 1;
+                setTileSize(&t, curW, curH);
+                t.dirty = 1;
 
                 i++;
                 pos++;
@@ -229,13 +239,13 @@ cv::Mat TiledImage::getImg(){
 
         stream.waitForCompletion();
 
-        for(std::shared_ptr<struct Tile> t: imgs){
-                if(t->dirty){
+        for(struct Tile& t: imgs){
+                if(t.dirty){
                         //If the tile changed we need to upload it to the gpu
-                        stream.enqueueUpload(*t->img, *t->gpuImg);
-                        rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-                        cv::gpu::resize(*t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
-                        t->dirty = 0;
+                        stream.enqueueUpload(t.img, t.gpuImg);
+                        rect = image(cv::Rect(t.posX, t.posY, t.width, t.height));
+                        cv::gpu::resize(t.gpuImg, rect, cv::Size(t.width, t.height), 0, 0, cv::INTER_NEAREST, stream);
+                        t.dirty = 0;
                 }
         }
 
