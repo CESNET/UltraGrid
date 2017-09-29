@@ -206,7 +206,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
                 assert (initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display) == 0);
                 break;
         case CONFERENCE:
-                snprintf(cfg, sizeof cfg, "pipe:%p#%i:%i:%i", s, conf.width, conf.height, conf.fps);
+                snprintf(cfg, sizeof cfg, "pipe:%p#%s", s, conf.arg);
                 assert (initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display) == 0);
                 break;
         }

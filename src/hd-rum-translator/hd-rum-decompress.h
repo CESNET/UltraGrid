@@ -7,8 +7,7 @@ struct module;
 enum hd_rum_mode_t {NORMAL, BLEND, CONFERENCE};
 struct hd_rum_output_conf{
         enum hd_rum_mode_t mode;
-        int width, height;
-        int fps;
+        const char *arg;
 };
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);

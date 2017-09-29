@@ -478,7 +478,7 @@ struct cmdline_parameters {
     int host_count;
     int control_port = -1;
     int control_connection_type = 0;
-    struct hd_rum_output_conf out_conf = {NORMAL, 0, 0, 0};
+    struct hd_rum_output_conf out_conf = {NORMAL, NULL};
     const char *capture_filter = NULL;
     bool verbose = false;
 };
@@ -507,13 +507,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         } else if(strcmp(argv[start_index], "--conference") == 0) {
             parsed->out_conf.mode = CONFERENCE;
             char *item = argv[++start_index];
-            parsed->out_conf.width = atoi(item);
-            if((item = strchr(item, ':'))) {
-                parsed->out_conf.height = atoi(++item);
-            }
-            if(item && (item = strchr(item, ':'))) {
-                parsed->out_conf.fps = atoi(++item);
-            }
+            parsed->out_conf.arg = item;
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "--help") == 0) {
