@@ -71,7 +71,7 @@ struct Tile{
         uint32_t ssrc;
 
         //If true, it idicates that the tile image was changed
-        //and needs to be uploaded to the gpu again
+        //and needs to be scaled and/or uploaded to the gpu again
         bool dirty;
 };
 
@@ -81,13 +81,18 @@ class TiledImage{
                 virtual ~TiledImage() {}
 
                 void computeLayout();
-                cv::Mat getImg();
+                virtual cv::Mat getImg() = 0;
 
                 void addTile(unsigned width, unsigned height, uint32_t ssrc);
                 void removeTile(uint32_t ssrc);
                 struct Tile *getTile(uint32_t ssrc);
                 cv::Mat *getMat(uint32_t ssrc);
-                void uploadTile(uint32_t ssrc);
+                void updateTile(uint32_t ssrc, bool scaleNow = true);
+                virtual void processTile(struct Tile *) = 0;
+
+                virtual void resetImg() = 0;
+
+                int width, height;
 
                 //In Normal layout every tile covers equal space
                 //In OneBig layout the primary tile takes 2/3 of space
@@ -98,14 +103,36 @@ class TiledImage{
                 Layout layout;
                 unsigned primary = 0; //The biggest tile in the OneBig layout
 
-        private:
+        protected:
                 std::vector<struct Tile> imgs;
+};
+
+class TiledImageGpu : public TiledImage{
+        public:
+                TiledImageGpu(int width, int height) : TiledImage(width, height){
+                        image.create(height, width, CV_8UC3);
+                }
+                cv::Mat getImg() override;
+                void processTile(struct Tile *) override;
+                void resetImg() override { image.setTo(cv::Scalar::all(0)); }
+        private:
                 cv::gpu::GpuMat image;
                 cv::gpu::Stream stream;
 };
 
-TiledImage::TiledImage(int width, int height){
-        image.create(height, width, CV_8UC3);
+class TiledImageCpu : public TiledImage{
+        public:
+                TiledImageCpu(int width, int height) : TiledImage(width, height){
+                        image.create(height, width, CV_8UC3);
+                }
+                cv::Mat getImg() override;
+                void processTile(struct Tile *) override;
+                void resetImg() override { image.setTo(cv::Scalar::all(0)); }
+        private:
+                cv::Mat image;
+};
+
+TiledImage::TiledImage(int width, int height) : width(width), height(height){
         layout = Normal;
 }
 
@@ -119,7 +146,6 @@ void TiledImage::addTile(unsigned width, unsigned height, uint32_t ssrc){
         t.dirty = 1;
 
         t.img.create(height, width, CV_8UC3);
-        t.gpuImg.create(height, width, CV_8UC3);
 
         imgs.push_back(std::move(t));
 }
@@ -137,12 +163,26 @@ void TiledImage::removeTile(uint32_t ssrc){
 }
 
 //Uploads the tile to the gpu, resizes it and puts it in the correct position
-void TiledImage::uploadTile(uint32_t ssrc){
-        struct Tile *t = getTile(ssrc);
+void TiledImageGpu::processTile(struct Tile *t){
         stream.enqueueUpload(t->img, t->gpuImg);
         cv::gpu::GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
         cv::gpu::resize(t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
         t->dirty = 0;
+}
+
+void TiledImageCpu::processTile(struct Tile *t){
+        cv::Mat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
+        cv::resize(t->img, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST);
+        t->dirty = 0;
+}
+
+void TiledImage::updateTile(uint32_t ssrc, bool scaleNow){
+        struct Tile *t = getTile(ssrc);
+        if(!scaleNow){
+                t->dirty = true;
+                return;
+        }
+        processTile(t);
 }
 
 struct Tile *TiledImage::getTile(uint32_t ssrc){
@@ -173,8 +213,6 @@ void setTileSize(struct Tile *t, unsigned width, unsigned height){
 void TiledImage::computeLayout(){
         unsigned tileW;
         unsigned tileH;
-        unsigned width = image.size().width;
-        unsigned height = image.size().height;
 
         if(imgs.size() == 1){
                 Tile& t = imgs[0];
@@ -182,11 +220,11 @@ void TiledImage::computeLayout(){
                 t.posY = 0;
                 setTileSize(&t, width, height);
                 t.dirty = 1;
-                image.setTo(cv::Scalar::all(0));
+                resetImg();
                 return;
         }
 
-        unsigned smallH = image.size().height / 3;
+        unsigned smallH = height / 3;
         unsigned bigH = smallH * 2;
 
         unsigned rows;
@@ -230,22 +268,15 @@ void TiledImage::computeLayout(){
                 pos++;
         }
 
-        image.setTo(cv::Scalar::all(0));
+        resetImg();
 }
 
-cv::Mat TiledImage::getImg(){
-        cv::gpu::GpuMat rect;
-        cv::gpu::GpuMat tileImg;
-
+cv::Mat TiledImageGpu::getImg(){
         stream.waitForCompletion();
 
         for(struct Tile& t: imgs){
                 if(t.dirty){
-                        //If the tile changed we need to upload it to the gpu
-                        stream.enqueueUpload(t.img, t.gpuImg);
-                        rect = image(cv::Rect(t.posX, t.posY, t.width, t.height));
-                        cv::gpu::resize(t.gpuImg, rect, cv::Size(t.width, t.height), 0, 0, cv::INTER_NEAREST, stream);
-                        t.dirty = 0;
+                        processTile(&t);
                 }
         }
 
@@ -255,17 +286,33 @@ cv::Mat TiledImage::getImg(){
         return result;
 }
 
+cv::Mat TiledImageCpu::getImg(){
+        for(struct Tile& t: imgs){
+                if(t.dirty){
+                        processTile(&t);
+                }
+        }
+
+        return image;
+}
+
 using namespace std;
 
 static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
 struct state_conference_common {
-        state_conference_common(int width, int height, int fps) : width(width), 
+        state_conference_common(int width, int height, int fps, bool gpu) : width(width), 
                                                               height(height),
-                                                              fps(fps)
+                                                              fps(fps),
+                                                              gpu(gpu)
         {
                 autofps = fps <= 0;
+                if(gpu){
+                        output = std::unique_ptr<TiledImage>(new TiledImageGpu(width, height));
+                }else{
+                        output = std::unique_ptr<TiledImage>(new TiledImageCpu(width, height));
+                }
         }
 
         ~state_conference_common() {
@@ -282,7 +329,8 @@ struct state_conference_common {
         int height = 0;
         double fps = 0.0;
         bool autofps;
-        TiledImage output = TiledImage(width, height);
+        bool gpu;
+        std::unique_ptr<TiledImage> output;
 
         chrono::system_clock::time_point next_frame;
 
@@ -314,9 +362,9 @@ static struct display *display_conference_fork(void *state)
 }
 
 static void show_help(){
-        printf("Mosaic display\n");
+        printf("Conference display\n");
         printf("Usage:\n");
-        printf("\t-d conference:<display_config>#<width>:<height>:[fps]\n");
+        printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[{CPU|GPU}]\n");
 }
 
 static void *display_conference_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -332,6 +380,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
 
         int width, height;
         double fps = 0;
+        bool gpu = true;
 
 
         if (fmt && strlen(fmt) > 0) {
@@ -361,7 +410,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                                 cfg = delim + 1;
                         }
                         item = strtok_r(NULL, "#", &save_ptr);
-                        //Mosaic configuration
+                        //Conference configuration
                         if(!item || strlen(item) == 0){
                                 show_help();
                                 free(fmt_copy);
@@ -382,6 +431,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                         if((item = strchr(item, ':'))){
                                 fps = atoi(++item);
                         }
+                        if((item && (item = strchr(item, ':')))){
+                                if(strcasecmp(++item, "cpu") == 0){
+                                        gpu = false;
+                                }
+                        }
                         free(tmp);
                 }
         } else {
@@ -389,7 +443,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                 delete s;
                 return &display_init_noerr;
         }
-        s->common = shared_ptr<state_conference_common>(new state_conference_common(width, height, fps));
+        s->common = shared_ptr<state_conference_common>(new state_conference_common(width, height, fps, gpu));
         assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
         free(fmt_copy);
 
@@ -452,11 +506,11 @@ static void display_conference_run(void *state)
                         if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
                                 verbose_msg("Source 0x%08lx timeout. Deleting from conference display.\n", it->first);
 
-                                s->output.removeTile(it->first);
+                                s->output->removeTile(it->first);
                                 it = s->ssrc_list.erase(it);
 
                                 if(!s->ssrc_list.empty()){
-                                        s->output.computeLayout();
+                                        s->output->computeLayout();
                                 }
 
                         } else {
@@ -467,8 +521,8 @@ static void display_conference_run(void *state)
                 it = s->ssrc_list.find(frame->ssrc);
                 if (it == s->ssrc_list.end()) {
                         //Received frame from new source
-                        s->output.addTile(frame->tiles[0].width, frame->tiles[0].height, frame->ssrc);
-                        s->output.computeLayout();
+                        s->output->addTile(frame->tiles[0].width, frame->tiles[0].height, frame->ssrc);
+                        s->output->computeLayout();
                         last_ssrc = frame->ssrc;
                         if(frame->fps > s->fps && s->autofps){
                                 s->fps = frame->fps;
@@ -485,10 +539,10 @@ static void display_conference_run(void *state)
                 //Convert the tile to RGB and then upload to gpu
                 for(unsigned i = 0; i < frame->tiles[0].height; i++){
                         int width = frame->tiles[0].width;
-                        int elemSize = s->output.getMat(frame->ssrc)->elemSize();
-                        vc_copylineUYVYtoRGB_SSE(s->output.getMat(frame->ssrc)->data + i*width*elemSize, (const unsigned char*)frame->tiles[0].data + i*width*2, width*elemSize);
+                        int elemSize = s->output->getMat(frame->ssrc)->elemSize();
+                        vc_copylineUYVYtoRGB_SSE(s->output->getMat(frame->ssrc)->data + i*width*elemSize, (const unsigned char*)frame->tiles[0].data + i*width*2, width*elemSize);
                 }
-                s->output.uploadTile(frame->ssrc);
+                s->output->updateTile(frame->ssrc);
 
                 vf_free(frame);
 
@@ -497,7 +551,7 @@ static void display_conference_run(void *state)
                 //If it's time to send next frame downlaod it from gpu,
                 //convert to UYVY and send
                 if (now >= s->next_frame){
-                        cv::Mat result = s->output.getImg();
+                        cv::Mat result = s->output->getImg();
                         check_reconf(s.get(), get_video_desc(s));
                         struct video_frame *outFrame = display_get_frame(s->real_display);
                         for(int i = 0; i < result.size().height; i++){
@@ -537,7 +591,7 @@ static int display_conference_putf(void *state, struct video_frame *frame, int f
         } else {
                 unique_lock<mutex> lg(s->lock);
                 if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
-                        fprintf(stderr, "Mosaic: queue full!\n");
+                        fprintf(stderr, "Conference: queue full!\n");
                         //vf_free(frame);
                 }
                 if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
