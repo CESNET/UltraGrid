@@ -752,7 +752,7 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_AUDIO_CAPTURE_CHANNELS:
                         log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
-                                        "Use \"--audio-capure-format channels=<count>\" instead.\n");
+                                        "Use \"--audio-capture-format channels=<count>\" instead.\n");
                         audio_capture_channels = atoi(optarg);
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
