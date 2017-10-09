@@ -557,9 +557,18 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         }
         loadSplashscreen(s);	
         
-        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
-                s->play_audio = TRUE;
-                configure_audio(s);
+        if (flags) {
+                if (flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
+                        s->play_audio = TRUE;
+                        configure_audio(s);
+                } else {
+                        if (flags & DISPLAY_FLAG_AUDIO_ANY) {
+                                log_msg(LOG_LEVEL_ERROR, "[SDL] Only accepted audio output for SDL is \"embedded\".\n");
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, "[SDL] Unsupported/unknown flag passed.\n");
+                        }
+                        return NULL;
+                }
         } else {
                 s->play_audio = FALSE;
         }
@@ -690,6 +699,9 @@ static void configure_audio(struct state_sdl *s)
 static int display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_sdl *s = (struct state_sdl *)state;
+        if (!s->play_audio) {
+                return FALSE;
+        }
         SDL_AudioSpec desired, obtained;
         int sample_type;
 
