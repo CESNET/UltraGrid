@@ -899,11 +899,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
                         } else if(strcasecmp(ptr, "single-link") == 0) {
-                                s->link = to_fourcc('l', 'c', 's', 'l');
+                                s->link = bmdLinkConfigurationSingleLink;
                         } else if(strcasecmp(ptr, "dual-link") == 0) {
-                                s->link = to_fourcc('l', 'c', 'd', 'l');
+                                s->link = bmdLinkConfigurationDualLink;
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
-                                s->link = to_fourcc('l', 'c', 'q', 'l');
+                                s->link = bmdLinkConfigurationQuadLink;
                         } else if(strcasecmp(ptr, "LevelA") == 0) {
                                 s->level = 'A';
                         } else if(strcasecmp(ptr, "LevelB") == 0) {
@@ -1117,15 +1117,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
 
                 if(s->link != 0) {
-#if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (5 << 16))
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - dual-/quad-link setting might be incorrect.\n");
-                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
-                                        s->link == to_fourcc('l', 'c', 's', 'l') ? true : false);
-#else
                         HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link);
-#endif
                         if(res != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output SDI standard.\n");
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable set output SDI standard: " << bmd_hresult_to_string(res) << ".\n";
                         }
                 }
 
