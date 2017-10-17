@@ -413,8 +413,8 @@ bool parse_audio_capture_format(const char *optarg)
 
                         }
                         audio_capture_bps = bps / 8;
-                } else if (strncmp(item, "rate=", strlen("bps=")) == 0) {
-                        long long val = unit_evaluate(item + strlen("rate="));
+                } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
+                        long long val = unit_evaluate(item + strlen("sample_rate="));
                         assert(val > 0 && val <= numeric_limits<decltype(audio_capture_sample_rate)>::max());
                         audio_capture_sample_rate = val;
                 } else {
