@@ -188,8 +188,11 @@ void keyboard_control::run()
                 while (kbhit()) {
                         int c = getch();
 #endif
-                        debug_msg("Key %c pressed\n", c);
+                        bool unknown_key_in_first_switch = false;
 
+                        // This switch processes keys that do not modify UltraGrid
+                        // behavior. If some of modifying keys is pressed, warning
+                        // is displayed.
                         switch (c) {
                         case CTRL_X:
                                 m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
@@ -205,7 +208,7 @@ void keyboard_control::run()
                         case 'e':
                         case 'v':
                                 if (m_locked_against_changes) {
-                                        LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help\n";
+                                        LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n";
                                         goto after_protected;
                                 } // else process it in next switch
                                 break;
@@ -219,6 +222,8 @@ void keyboard_control::run()
                         case '\n':
                                 cout << endl;
                                 break;
+                        default:
+                                unknown_key_in_first_switch = true;
                         }
 
                         // these are settings that are protected by Ctrl-X
@@ -267,6 +272,11 @@ void keyboard_control::run()
                                 cout << "Log level: " << log_level << "\n";
                                 break;
                         }
+                        default:
+                                if (unknown_key_in_first_switch) {
+                                        LOG(LOG_LEVEL_WARNING) << "Keyboard control: Unrecognized key " << c << " pressed. Press 'h' to help.\n";
+                                }
+
                         }
                 }
 
@@ -371,7 +381,5 @@ void keyboard_control::usage()
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
-
-        info();
 }
 
