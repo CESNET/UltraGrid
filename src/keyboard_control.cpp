@@ -207,6 +207,7 @@ void keyboard_control::run()
                         case '-':
                         case 'e':
                         case 'v':
+                        case 'V':
                                 if (m_locked_against_changes) {
                                         LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n";
                                         goto after_protected;
@@ -267,8 +268,13 @@ void keyboard_control::run()
                                 break;
                         }
                         case 'v':
+                        case 'V':
                         {
-                                log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                                if (islower(c)) {
+                                        log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                                } else {
+                                        log_level = (log_level - 1 + (LOG_LEVEL_MAX + 1)) % (LOG_LEVEL_MAX + 1);
+                                }
                                 cout << "Log level: " << log_level << "\n";
                                 break;
                         }
@@ -375,6 +381,7 @@ void keyboard_control::usage()
                 "\t   -   - decrease audio delay by 10 ms\n" <<
                 "\t   m   - mute/unmute\n" <<
                 "\t   v   - increase verbosity level\n" <<
+                "\t   V   - decrease verbosity level\n" <<
                 "\t   e   - record captured content (toggle)\n" <<
                 "\t   h   - show help\n" <<
                 "\t   i   - show various information\n" <<
