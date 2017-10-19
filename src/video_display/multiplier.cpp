@@ -60,9 +60,8 @@
 
 using namespace std;
 
-static constexpr int BUFFER_LEN = 5;
-static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
-static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
+static constexpr int BUFFER_LEN = 15;
+static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 15;
 
 struct sub_display {
         struct display *real_display;
@@ -73,13 +72,7 @@ struct state_multiplier_common {
         ~state_multiplier_common() {
 
                 for(auto& disp : displays){
-                        display_done(disp);
-                }
-
-                for (auto && ssrc_map : frames) {
-                        for (auto && frame : ssrc_map.second) {
-                                vf_free(frame);
-                        }
+                        display_done(disp.real_display);
                 }
         }
 
@@ -89,8 +82,6 @@ struct state_multiplier_common {
 
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
-        //map<uint32_t, list<struct video_frame *> > frames;
-        //unordered_map<uint32_t, chrono::system_clock::time_point> disabled_ssrc;
 
         mutex lock;
         condition_variable cv;
@@ -134,21 +125,32 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         return s;
                 } else {
                         fmt_copy = strdup(fmt);
-                        requested_display = fmt_copy;
-                        char *delim = strchr(fmt_copy, ':');
+                }
+        }
+        s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());
+
+        struct sub_display disp;
+
+        if(fmt_copy){
+                char *saveptr;
+                for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
+                        requested_display = token;
+                        printf("%s\n", token);
+                        cfg = NULL;
+                        char *delim = strchr(token, ':');
                         if (delim) {
                                 *delim = '\0';
                                 cfg = delim + 1;
                         }
+                        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &disp.real_display) == 0);
+                        int ret = pthread_create(&disp.thread_id, NULL, (void *(*)(void *)) display_run,
+                                        disp.real_display);
+                        assert (ret == 0);
+
+                        s->common->displays.push_back(std::move(disp));
                 }
         }
-        s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());
-        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
         free(fmt_copy);
-
-        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
-                        s->common->real_display);
-        assert (ret == 0);
 
         s->common->parent = parent;
 
@@ -160,7 +162,7 @@ static void check_reconf(struct state_multiplier_common *s, struct video_desc de
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
                 fprintf(stderr, "RECONFIGURED\n");
-                for(auto& disp : displays){
+                for(auto& disp : s->displays){
                         display_reconfigure(disp.real_display, s->display_desc, VIDEO_NORMAL);
                 }
         }
@@ -181,21 +183,26 @@ static void display_multiplier_run(void *state)
                 }
 
                 if (!frame) {
-                        //TODO poison all displays
-                        display_put_frame(s->real_display, NULL, PUTF_BLOCKING);
+                        for (auto& disp : s->displays) {
+                                display_put_frame(disp.real_display, NULL, PUTF_BLOCKING);
+                        }
                         break;
                 }
 
                 check_reconf(s.get(), video_desc_from_frame(frame));
 
-                struct video_frame *real_display_frame = display_get_frame(s->real_display);
-                memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+                for (auto& disp : s->displays) {
+                        struct video_frame *real_display_frame = display_get_frame(disp.real_display);
+                        memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+                        display_put_frame(disp.real_display, real_display_frame, PUTF_BLOCKING);
+                }
+
                 vf_free(frame);
-                real_display_frame->ssrc = s->current_ssrc;
-                display_put_frame(s->real_display, real_display_frame, PUTF_BLOCKING);
         }
 
-        pthread_join(s->thread_id, NULL);
+        for (auto& disp : s->displays){
+                pthread_join(disp.thread_id, NULL);
+        }
 }
 
 static void display_multiplier_done(void *state)
@@ -220,7 +227,7 @@ static int display_multiplier_putf(void *state, struct video_frame *frame, int f
         } else {
                 unique_lock<mutex> lg(s->lock);
                 if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
-                        fprintf(stderr, "Proxy: queue full!\n");
+                        fprintf(stderr, "Multiplier: queue full!\n");
                 }
                 if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         return 1;
@@ -248,9 +255,8 @@ static int display_multiplier_get_property(void *state, int property, void *val,
 #endif
                 return FALSE;
 
-        } else {
-                return display_get_property(s->real_display, property, val, len);
         }
+        return display_get_property(s->displays[0].real_display, property, val, len);
 }
 
 static int display_multiplier_reconfigure(void *state, struct video_desc desc)
