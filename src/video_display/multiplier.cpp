@@ -35,10 +35,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo
- * Rewrite the code to have more clear state machine!
- */
 
 #include "config.h"
 #include "config_unix.h"
@@ -60,8 +56,9 @@
 
 using namespace std;
 
-static constexpr int BUFFER_LEN = 15;
-static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 15;
+static constexpr int BUFFER_LEN = 5;
+static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
+static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 struct sub_display {
         struct display *real_display;
@@ -108,11 +105,17 @@ static struct display *display_multiplier_fork(void *state)
         return out;
 }
 
+static void show_help(){
+        printf("Multiplier display\n");
+        printf("Usage:\n");
+        printf("\t-d multiplier:<display1>[:<display_config1>][#<display2>[:<display_config2>]]...\n");
+}
+
 static void *display_multiplier_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_multiplier *s;
         char *fmt_copy = NULL;
-        const char *requested_display = "gl";
+        const char *requested_display = NULL;
         const char *cfg = NULL;
 
         s = new state_multiplier();
@@ -126,29 +129,30 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 } else {
                         fmt_copy = strdup(fmt);
                 }
+        } else {
+                show_help();
+                return &display_init_noerr;
         }
         s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());
 
         struct sub_display disp;
 
-        if(fmt_copy){
-                char *saveptr;
-                for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
-                        requested_display = token;
-                        printf("%s\n", token);
-                        cfg = NULL;
-                        char *delim = strchr(token, ':');
-                        if (delim) {
-                                *delim = '\0';
-                                cfg = delim + 1;
-                        }
-                        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &disp.real_display) == 0);
-                        int ret = pthread_create(&disp.thread_id, NULL, (void *(*)(void *)) display_run,
-                                        disp.real_display);
-                        assert (ret == 0);
-
-                        s->common->displays.push_back(std::move(disp));
+        char *saveptr;
+        for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
+                requested_display = token;
+                printf("%s\n", token);
+                cfg = NULL;
+                char *delim = strchr(token, ':');
+                if (delim) {
+                        *delim = '\0';
+                        cfg = delim + 1;
                 }
+                assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &disp.real_display) == 0);
+                int ret = pthread_create(&disp.thread_id, NULL, (void *(*)(void *)) display_run,
+                                disp.real_display);
+                assert (ret == 0);
+
+                s->common->displays.push_back(std::move(disp));
         }
         free(fmt_copy);
 
@@ -171,6 +175,7 @@ static void check_reconf(struct state_multiplier_common *s, struct video_desc de
 static void display_multiplier_run(void *state)
 {
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
+        int skipped = 0;
 
         while (1) {
                 struct video_frame *frame;
@@ -187,6 +192,12 @@ static void display_multiplier_run(void *state)
                                 display_put_frame(disp.real_display, NULL, PUTF_BLOCKING);
                         }
                         break;
+                }
+
+                if (skipped < SKIP_FIRST_N_FRAMES_IN_STREAM){
+                        skipped++;
+                        vf_free(frame);
+                        continue;
                 }
 
                 check_reconf(s.get(), video_desc_from_frame(frame));
@@ -256,6 +267,7 @@ static int display_multiplier_get_property(void *state, int property, void *val,
                 return FALSE;
 
         }
+        //TODO Find common properties, for now just return properties of the first display
         return display_get_property(s->displays[0].real_display, property, val, len);
 }
 
