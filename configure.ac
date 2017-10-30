@@ -2321,6 +2321,15 @@ AC_ARG_ENABLE(qt,
     [qt_req=no]
     )
 
+# Check for Qt libraries
+PKG_CHECK_MODULES(QT, [QtCore], [], [AC_MSG_ERROR([Qt libraries are required.])])
+
+# Retrieve Qt compilation and linker flags
+CXXFLAGS="`$PKG_CONFIG --cflags-only-I QtCore ` $CXXFLAGS"
+LDFLAGS="`$PKG_CONFIG --libs-only-L QtCore ` $LDFLAGS"
+LIBS="`$PKG_CONFIG --libs-only-l QtCore ` $LIBS"
+
+
 if test $qt_req != no
 then
         AC_CHECK_PROGS(QMAKE, [qmake-qt4 qmake])

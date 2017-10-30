@@ -154,6 +154,7 @@ OBJS	      = @OBJS@ \
 		src/video_display/pipe.o \
 		src/video_display/proxy.o \
 		src/video_display/multiplier.o \
+		src/video_display/preview.o \
 		src/video_export.o \
 		src/video_rxtx.o \
 		src/video_rxtx/ihdtv.o \
