@@ -127,7 +127,7 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
         // zero should mean count equal to the number of virtual cores
-        if (s->codec_ctx->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+        if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
                 if(!broken_h264_mt_decoding) {
                         s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
@@ -147,7 +147,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
 #endif
         }
 
-        s->codec_ctx->flags2 |= CODEC_FLAG2_FAST;
+        s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
 
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
