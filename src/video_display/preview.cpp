@@ -43,6 +43,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
+#include "shared_mem_frame.hpp"
 
 #include <condition_variable>
 #include <chrono>
@@ -73,6 +74,8 @@ struct state_preview_common {
 
         mutex lock;
         condition_variable cv;
+
+		QSharedMemory shared_mem;
 
         struct module *parent;
 };
@@ -123,6 +126,13 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
         }
         s->common = shared_ptr<state_preview_common>(new state_preview_common());
         s->common->parent = parent;
+
+		s->common->shared_mem.setKey("ultragrid_preview");
+		s->common->shared_mem.create(4096);
+
+		struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->common->shared_mem.data();
+		sframe->width = 20;
+		sframe->height = 20;
 
         return s;
 }
