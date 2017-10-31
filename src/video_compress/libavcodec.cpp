@@ -1512,14 +1512,14 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         if (!param->thread_mode.empty() && param->thread_mode != "no")  {
                 if (param->thread_mode == "slice") {
                         // zero should mean count equal to the number of virtual cores
-                        if (codec_ctx->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+                        if (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
                                 codec_ctx->thread_count = 0;
                                 codec_ctx->thread_type = FF_THREAD_SLICE;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
                         }
                 } else if (param->thread_mode == "frame") {
-                        if (codec_ctx->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                        if (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
                                 codec_ctx->thread_count = 0;
                                 codec_ctx->thread_type = FF_THREAD_FRAME;
                         } else {

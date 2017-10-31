@@ -304,7 +304,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
         pthread_mutex_unlock(s->libav_global_lock);
 
-        if(s->codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE) {
+        if(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) {
                 s->codec_ctx->frame_size = 1;
         }
 
@@ -465,7 +465,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 }
 #endif
                 offset += chunk_size;
-                if(!(s->codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE))
+                if(!(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE))
                         break;
         }
 
@@ -494,7 +494,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
         int offset = 0;
         // FFMPEG buffer needs to be FF_INPUT_BUFFER_PADDING_SIZE longer than data
-        unique_ptr<unsigned char []> tmp_buffer(new unsigned char[channel->data_len + FF_INPUT_BUFFER_PADDING_SIZE]);
+        unique_ptr<unsigned char []> tmp_buffer(new unsigned char[channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE]);
         memcpy(tmp_buffer.get(), channel->data, channel->data_len);
 
         AVPacket pkt;
