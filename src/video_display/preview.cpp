@@ -44,6 +44,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "shared_mem_frame.hpp"
+#include "video_codec.h"
 
 #include <condition_variable>
 #include <chrono>
@@ -76,6 +77,9 @@ struct state_preview_common {
         condition_variable cv;
 
 		QSharedMemory shared_mem;
+		bool reconfiguring;
+		size_t mem_size;
+		codec_t frame_fmt;
 
         struct module *parent;
 };
@@ -128,11 +132,27 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
         s->common->parent = parent;
 
 		s->common->shared_mem.setKey("ultragrid_preview");
-		s->common->shared_mem.create(4096);
+		s->common->mem_size = 4096;
+		s->common->frame_fmt = RGB;
+		if(s->common->shared_mem.create(s->common->mem_size) == false){
+			/* Creating shared memory could fail because of shared memory
+			 * left over after crash. Here we try to release such memory. */
+			s->common->shared_mem.attach();
+			s->common->shared_mem.detach();
+			if(s->common->shared_mem.create(s->common->mem_size) == false){
+				fprintf(stderr, "Can't create shared memory!\n");
+				return &display_init_noerr;
+			}
+		}
+
+		s->common->reconfiguring = false;
+		s->common->shared_mem.lock();
 
 		struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->common->shared_mem.data();
 		sframe->width = 20;
 		sframe->height = 20;
+
+		s->common->shared_mem.unlock();
 
         return s;
 }
@@ -142,6 +162,12 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
                 fprintf(stderr, "RECONFIGURED\n");
+				/* We need to destroy the shared memory segment
+				 * and recreate it with a new size. To destroy it all processes
+				 * must detach it. We detach here and then wait until the GUI detaches */
+				s->reconfiguring = true;
+				s->shared_mem.detach();
+				s->mem_size = 4 * desc.width * desc.height + sizeof(Shared_mem_frame);
         }
 }
 
@@ -172,8 +198,40 @@ static void display_preview_run(void *state)
 
                 check_reconf(s.get(), video_desc_from_frame(frame));
 
-				//DISPLAY HERE
+				if(s->reconfiguring){
+					if(s->shared_mem.attach()){
+						// Shared mem is still not detached by the GUI
+						s->shared_mem.detach();
+						vf_free(frame);
+						return;
+					} else {
+						if(s->shared_mem.create(s->mem_size) == false){
+							fprintf(stderr, "Can't create shared memory!\n");
+						}
+						s->shared_mem.lock();
+						struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
+						sframe->width = s->display_desc.width;
+						sframe->height = s->display_desc.height;
+						s->reconfiguring = false;
+					}
+				} else {
+					s->shared_mem.lock();
+				}
 
+				struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
+
+				decoder_t dec = get_decoder_from_to(frame->color_spec, s->frame_fmt, true);
+
+				int dst_line_len = vc_get_linesize(s->display_desc.width, s->frame_fmt);
+				int src_line_len = vc_get_linesize(s->display_desc.width, frame->color_spec);
+				for(int i = 0; i < s->display_desc.height; i++){
+					dec(sframe->pixels + dst_line_len * i,
+							(const unsigned char*) frame->tiles[0].data + src_line_len * i,
+							dst_line_len,
+							0, 8, 16);
+				}
+
+				s->shared_mem.unlock();
                 vf_free(frame);
         }
 }
