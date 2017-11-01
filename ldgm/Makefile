@@ -2,7 +2,7 @@ OPTS	  = -Wall -g -pg
 CXXFLAGS += ${OPTS} -std=gnu++0x
 
 NVCC	 ?= nvcc
-NVCCFLAGS += -gencode arch=compute_20,code=sm_20 -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
+NVCCFLAGS += -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
 
 TARGET    = ldgm-encode
 SRC_DIR   = src
