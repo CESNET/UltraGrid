@@ -111,7 +111,7 @@ typedef struct {
         enum AVCodecID av_codec;
         const char *prefered_encoder; ///< can be nullptr
         double avg_bpp;
-        list<pair<regex, string>> default_preset; // key: encoder, value: preset
+        string (*get_preset)(string const & enc_name);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
 
@@ -120,6 +120,7 @@ static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
+static string get_preset_h264_h265_preset(string const & enc_name);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         { H264, codec_params_t{
@@ -128,46 +129,42 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
-                {{regex("libx264"), "veryfast"},
-                        {regex(".*nvenc.*"), DEFAULT_NVENC_PRESET}, // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                        {regex("h264_qsv"), DEFAULT_QSV_PRESET}
-                },
+                get_preset_h264_h265_preset,
                 setparam_h264_h265
         }},
         { H265, codec_params_t{
                 AV_CODEC_ID_HEVC,
                 "libx265", //nullptr,
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
-                {{regex("libx265"), "ultrafast"}, {regex(".*nvenc.*"), DEFAULT_NVENC_PRESET},
-                        {regex("hevc_qsv"), DEFAULT_QSV_PRESET}},
+                get_preset_h264_h265_preset,
                 setparam_h264_h265
         }},
         { MJPG, codec_params_t{
                 AV_CODEC_ID_MJPEG,
                 nullptr,
                 1.2,
-                list<pair<regex, string>>(),
+                nullptr,
                 setparam_default
         }},
         { J2K, codec_params_t{
                 AV_CODEC_ID_JPEG2000,
                 nullptr,
                 1.0,
-                list<pair<regex, string>>(),
+                nullptr,
                 setparam_default
         }},
         { VP8, codec_params_t{
                 AV_CODEC_ID_VP8,
                 nullptr,
                 0.4,
-                list<pair<regex, string>>(),
+                nullptr,
                 setparam_vp8_vp9
         }},
         { VP9, codec_params_t{
                 AV_CODEC_ID_VP9,
                 nullptr,
                 0.4,
-                list<pair<regex, string>>(),
+                nullptr,
                 setparam_vp8_vp9,
         }},
 };
@@ -652,18 +649,16 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
 
         if (!have_preset) {
-                auto & default_preset_map = codec_params[ug_codec].default_preset;
-                auto it = default_preset_map.begin();
-                for (; it != default_preset_map.end(); ++it) {
-                        if (regex_match(s->codec_ctx->codec->name, it->first)) {
-                                break;
-                        }
+                string preset{};
+                if (codec_params[ug_codec].get_preset) {
+                        preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name);
                 }
-                if (it != default_preset_map.end()) {
-                        if (av_opt_set(s->codec_ctx->priv_data, "preset", it->second.c_str(), 0) != 0) {
+
+                if (!preset.empty()) {
+                        if (av_opt_set(s->codec_ctx->priv_data, "preset", preset.c_str(), 0) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
                         } else {
-                                LOG(LOG_LEVEL_VERBOSE) << "[lavc] Setting preset to " << it->second <<  ".\n";
+                                LOG(LOG_LEVEL_VERBOSE) << "[lavc] Setting preset to " << preset <<  ".\n";
                         }
                 } else {
                         LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
@@ -1633,6 +1628,21 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
                 }
+        }
+}
+
+static string get_preset_h264_h265_preset(string const & enc_name)
+{
+        if (enc_name == "libx264") {
+                return string("veryfast");
+        } else if (enc_name == "libx265") {
+                return string("ultrafast");
+        } else if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
+                return string(DEFAULT_NVENC_PRESET);
+        } else if (enc_name == "h264_qsv") {
+                return string(DEFAULT_QSV_PRESET);
+        } else {
+                return {};
         }
 }
 
