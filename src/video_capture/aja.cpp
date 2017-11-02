@@ -404,7 +404,13 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mDevice.SetSDITransmitEnable (mInputChannel, false);
 
                 //      Give the input circuit some time (~10 frames) to lock onto the input signal...
+#if AJA_NTV2_SDK_VERSION_BEFORE(12,5)
+                for (int i = 0; i < 10; i++) {
+                        mDevice.WaitForInputVerticalInterrupt (mInputChannel);
+                }
+#else
                 mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10);
+#endif
         }
 
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
