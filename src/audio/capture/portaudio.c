@@ -68,10 +68,8 @@
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
 
-
 /* default variables for sender */
-#define SAMPLES_PER_FRAME 2048
-#define SECONDS 5
+#define BUF_MS 100
 
 #define MODULE_NAME "[Portaudio capture] "
 
@@ -320,7 +318,7 @@ static void * audio_cap_portaudio_init(const char *cfg)
 	}
 
         s->frame.ch_count = inputParameters.channelCount;
-        s->frame.max_size = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
+        s->frame.max_size = (s->frame.bps * s->frame.ch_count) * s->frame.sample_rate / 1000 * BUF_MS;
         
         s->frame.data = (char*)malloc(s->frame.max_size);
 
