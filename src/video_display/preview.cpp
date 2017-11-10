@@ -81,6 +81,10 @@ struct state_preview_common {
 		size_t mem_size;
 		codec_t frame_fmt;
 
+		int scaledW, scaledH;
+		int scaleF;
+		std::vector<unsigned char> scaled_frame;
+
         struct module *parent;
 };
 
@@ -154,6 +158,8 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
 
 		s->common->shared_mem.unlock();
 
+		s->common->scaleF = 4;
+
         return s;
 }
 
@@ -166,8 +172,13 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 				 * and recreate it with a new size. To destroy it all processes
 				 * must detach it. We detach here and then wait until the GUI detaches */
 				s->reconfiguring = true;
+				s->scaledW = desc.width / s->scaleF;
+				s->scaledH = desc.height / s->scaleF;
+				s->scaled_frame.resize(get_bpp(desc.color_spec) * s->scaledW * s->scaledH);
 				s->shared_mem.detach();
-				s->mem_size = 4 * desc.width * desc.height + sizeof(Shared_mem_frame);
+				s->mem_size = get_bpp(s->frame_fmt) * desc.width * desc.height + sizeof(Shared_mem_frame);
+
+				printf("sw: %d\nsh: %d\nbpp: %d\nblck: %d\n", s->scaledW, s->scaledH, get_bpp(desc.color_spec), get_pf_block_size(desc.color_spec));
         }
 }
 
@@ -210,8 +221,8 @@ static void display_preview_run(void *state)
 						}
 						s->shared_mem.lock();
 						struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
-						sframe->width = s->display_desc.width;
-						sframe->height = s->display_desc.height;
+						sframe->width = s->scaledW;
+						sframe->height = s->scaledH;
 						s->reconfiguring = false;
 					}
 				} else {
@@ -222,11 +233,27 @@ static void display_preview_run(void *state)
 
 				decoder_t dec = get_decoder_from_to(frame->color_spec, s->frame_fmt, true);
 
-				int dst_line_len = vc_get_linesize(s->display_desc.width, s->frame_fmt);
 				int src_line_len = vc_get_linesize(s->display_desc.width, frame->color_spec);
-				for(int i = 0; i < s->display_desc.height; i++){
+				int bpp = get_bpp(frame->color_spec);
+				int block_size = get_pf_block_size(frame->color_spec);
+				int dst = 0;
+				for(int y = 0; y < s->display_desc.height; y += s->scaleF){
+					for(int x = 0; x < src_line_len; x += s->scaleF * block_size){
+#if 0
+						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x];
+						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 1];
+						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 2];
+						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 3];
+#endif
+						memcpy(s->scaled_frame.data() + dst, frame->tiles[0].data + y*src_line_len + x, block_size);
+						dst += block_size;
+					}
+				}
+				int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
+				src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
+				for(int i = 0; i < s->scaledH; i++){
 					dec(sframe->pixels + dst_line_len * i,
-							(const unsigned char*) frame->tiles[0].data + src_line_len * i,
+							s->scaled_frame.data() + src_line_len * i,
 							dst_line_len,
 							0, 8, 16);
 				}
