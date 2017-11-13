@@ -56,6 +56,7 @@
 #include <queue>
 #include <unordered_map>
 #include <QSharedMemory>
+#include <cmath>
 
 using namespace std;
 
@@ -83,6 +84,7 @@ struct state_preview_common {
 
 		int scaledW, scaledH;
 		int scaleF;
+		int scale_test;
 		std::vector<unsigned char> scaled_frame;
 
         struct module *parent;
@@ -172,13 +174,23 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 				 * and recreate it with a new size. To destroy it all processes
 				 * must detach it. We detach here and then wait until the GUI detaches */
 				s->reconfiguring = true;
+
+				float scale = ((desc.width / 480.f) + (desc.height / 270.f)) / 2.f;
+				if(scale < 1)
+					scale = 1;
+				scale = std::round(scale);
+				s->scaleF = (int) scale;
+				
 				s->scaledW = desc.width / s->scaleF;
+				//OpenGL wants the width to be divisable by 4
+				s->scale_test = s->scaledW;
+				s->scaledW = ((s->scaledW + 4 - 1) / 4) * 4;
 				s->scaledH = desc.height / s->scaleF;
 				s->scaled_frame.resize(get_bpp(desc.color_spec) * s->scaledW * s->scaledH);
 				s->shared_mem.detach();
 				s->mem_size = get_bpp(s->frame_fmt) * desc.width * desc.height + sizeof(Shared_mem_frame);
 
-				printf("sw: %d\nsh: %d\nbpp: %d\nblck: %d\n", s->scaledW, s->scaledH, get_bpp(desc.color_spec), get_pf_block_size(desc.color_spec));
+				printf("sw: %d\nsh: %d\nscale: %f -> %d\n", s->scaledW, s->scaledH, scale, s->scaleF);
         }
 }
 
@@ -250,7 +262,7 @@ static void display_preview_run(void *state)
 					}
 				}
 				int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
-				src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
+				src_line_len = vc_get_linesize(s->scale_test, frame->color_spec);
 				for(int i = 0; i < s->scaledH; i++){
 					dec(sframe->pixels + dst_line_len * i,
 							s->scaled_frame.data() + src_line_len * i,
