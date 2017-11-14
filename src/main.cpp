@@ -568,11 +568,6 @@ int main(int argc, char *argv[])
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
-        if (argc == 1) {
-                usage(argv[0]);
-                return EXIT_FAIL_USAGE;
-        }
-
         // First we need to set verbosity level prior to everything else.
         // common_preinit() uses the verbosity level.
         while ((ch =
@@ -887,6 +882,12 @@ int main(int argc, char *argv[])
 
         argc -= optind;
         argv += optind;
+
+        if (argc > 1) {
+                log_msg(LOG_LEVEL_ERROR, "Multiple receivers given!\n");
+                usage(uv_argv[0]);
+                return EXIT_FAIL_USAGE;
+        }
 
         if (argc > 0) {
                 requested_receiver = argv[0];
