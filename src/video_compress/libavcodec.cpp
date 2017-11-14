@@ -520,8 +520,8 @@ static int vaapi_init(struct AVCodecContext *s){
 
         int pool_size = 20; //Default in ffmpeg examples
 
-        AVBufferRef *device_ref;
-        AVBufferRef *hw_frames_ctx;
+        AVBufferRef *device_ref = nullptr;
+        AVBufferRef *hw_frames_ctx = nullptr;
         int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VAAPI, &device_ref);
         if(ret < 0)
                 goto fail;
@@ -848,10 +848,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 		}
 
                 log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-                pthread_mutex_lock(s->lavcd_global_lock);
 #ifdef USE_HWACC
                 if (pix_fmt == AV_PIX_FMT_VAAPI){
-                        vaapi_init(s->codec_ctx);
+                        int ret = vaapi_init(s->codec_ctx);
+                        if (ret != 0) {
+                                continue;
+                        }
                         s->hwenc = true;
                         s->hwframe = av_frame_alloc();
                         av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
@@ -859,6 +861,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
 #endif
                 /* open it */
+                pthread_mutex_lock(s->lavcd_global_lock);
                 if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                         avcodec_free_context(&s->codec_ctx);
                         s->codec_ctx = NULL;
