@@ -136,6 +136,7 @@ OBJS	      = @OBJS@ \
 		src/video_frame.o \
 		src/video_codec.o \
 		src/video_capture.o \
+		src/video_capture_params.o \
 		src/video_capture/aggregate.o \
 		src/video_capture/banner.o \
 		src/video_capture/import.o \

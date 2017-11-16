@@ -211,5 +211,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 #define INVALID_SOCKET -1
 #define CLOSESOCKET close
 
+#define ATTRIBUTE(a) __attribute__((a))
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */

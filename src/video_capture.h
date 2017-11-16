@@ -92,16 +92,6 @@
 extern "C" {
 #endif // __cplusplus
 
-/** @anchor vidcap_flags
- * @name Initialization Flags
- * @{ */
-#define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1) ///< HD-SDI embedded audio
-#define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)   ///< AES/EBU audio
-#define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)   ///< (balanced) analog audio
-
-#define VIDCAP_FLAG_AUDIO_ANY (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)
-/** @} */
-
 struct audio_frame;
 
 /** Defines video capture device */
@@ -135,28 +125,6 @@ struct video_capture_info {
 };
 
 struct module;
-
-/**
- * @name Vidcap Parameters Handling Functions
- * @{ */
-struct vidcap_params *vidcap_params_allocate(void);
-struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
-struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
-void                  vidcap_params_free_struct(struct vidcap_params *params);
-struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
-struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *params, int index);
-const char           *vidcap_params_get_driver(const struct vidcap_params *params);
-unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
-const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
-const char           *vidcap_params_get_name(const struct vidcap_params *params);
-struct module        *vidcap_params_get_parent(const struct vidcap_params *params);
-void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
-void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
-                const char *req_capture_filter);
-void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
-/// @}
-
-struct module;
 struct vidcap;
 
 void                     list_video_capture_devices(void);
@@ -170,6 +138,8 @@ struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio
 #ifdef __cplusplus
 }
 #endif // __cplusplus
+
+#include "video_capture_params.h"
 
 #endif // _VIDEO_CAPTURE_H_
 /**

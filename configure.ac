@@ -897,13 +897,23 @@ then
                         NTV2_13=yes
                 fi
         fi
-else # Mac
+else
+if test $system = Windows
+then
+        if test "$aja_req" = yes
+        then
+                ADD_MODULE("vidcap_aja", "src/video_capture/aja_win32_stub.o", "-laja")
+                aja=yes
+        fi
+else # MacOSX
         AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
         if test "$FOUND_LIBAJA" = yes; then
                 AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
         fi
 fi
+fi
 
+# this is used only for Mac and Linux
 if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
 then
         aja=yes

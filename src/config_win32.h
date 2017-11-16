@@ -123,10 +123,12 @@ typedef unsigned int	in_addr_t;
 
 typedef char	*caddr_t;
 
+#ifndef  _MSC_VER
 typedef struct iovec {
 	caddr_t	iov_base;
 	ssize_t	iov_len;
 } iovec_t;
+#endif
 
 struct msghdr {
 	caddr_t		msg_name;
@@ -243,8 +245,10 @@ void ShowMessage(int level, char *msg);
 #endif
 
 // MinGW has this
+#ifndef _MSC_VER
 #include <pthread.h>
 #include <sys/stat.h>
+#endif
 
 // MinGW-w64 defines some broken macro for strtok_r in pthread.h
 #undef strtok_r
@@ -272,5 +276,11 @@ void ShowMessage(int level, char *msg);
 #define sleep(sec) Sleep(1000 * (sec))
 
 #define CLOSESOCKET closesocket
+
+#ifdef _MSC_VER
+#define ATTRIBUTE(a)
+#else
+#define ATTRIBUTE(a) __attribute__((a))
+#endif
 
 #endif

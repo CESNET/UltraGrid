@@ -74,6 +74,12 @@ struct audio_desc {
 std::ostream& operator<<(std::ostream& os, const audio_desc& desc);
 #endif
 
+#if defined _MSC_VER && _MSC_VER <= 1800
+#define DEFAULTED
+#else
+#define DEFAULTED = default
+#endif
+
 /**
  * @brief struct used to comunicate with audio capture/playback device
  *
@@ -132,9 +138,9 @@ class audio_frame2
 {
 public:
         audio_frame2();
-        audio_frame2(audio_frame2 &&) = default;
+        audio_frame2(audio_frame2 &&) DEFAULTED;
         explicit audio_frame2(const struct audio_frame *);
-        audio_frame2& operator=(audio_frame2 &&) = default;
+        audio_frame2& operator=(audio_frame2 &&) DEFAULTED;
         bool operator!() const;
         void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
         void append(audio_frame2 const &frame);

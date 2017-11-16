@@ -42,6 +42,7 @@
 #include "config_win32.h"
 #include "config_unix.h"
 #endif // HAVE_CONFIG_H
+#include "config_msvc.h"
 
 #include "config_file.h"
 

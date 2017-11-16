@@ -44,6 +44,13 @@
 #define TYPES_H_
 
 #include <stddef.h>
+#include <stdint.h>
+
+#if defined _MSC_VER && _MSC_VER <= 1800
+#define DEFAULTED
+#else
+#define DEFAULTED = default
+#endif
 
 #ifdef __cplusplus
 #include <string>
@@ -143,7 +150,7 @@ struct fec_desc {
         unsigned int seed;
         unsigned int symbol_size;
 #ifdef __cplusplus
-        fec_desc() = default;
+        fec_desc() DEFAULTED;
         inline fec_desc(enum fec_type type_, unsigned int k_ = 0, unsigned int m_ = 0,
                         unsigned int c_ = 0,
                         unsigned int seed_ = 0,

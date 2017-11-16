@@ -59,6 +59,7 @@
 #include "ntv2democommon.h"
 #include "ntv2capture.h"
 #if AJA_NTV2_SDK_VERSION_MAJOR >= 13
+#include "ajabase/common/types.h"
 #include "ajabase/common/videotypes.h"
 #include "ajabase/common/circularbuffer.h"
 #include "ajabase/system/process.h"
@@ -84,6 +85,24 @@
 #include <thread>
 #include <unordered_map>
 
+#ifdef _MSC_VER
+#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+#undef LOG
+#define LOG(...) std::cerr
+extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
+volatile int log_level = 5;
+extern "C" __declspec(dllexport) volatile bool *aja_should_exit = NULL;
+#else
+unsigned int *aja_audio_capture_channels = &audio_capture_channels;
+volatile bool *aja_should_exit = &should_exit;
+#endif
+
+#ifdef _MSC_VER
+#define LINK_SPEC extern "C" __declspec(dllexport)
+#else
+#define LINK_SPEC static
+#endif
+
 using namespace std;
 
 struct aligned_data_allocator {
@@ -95,7 +114,7 @@ struct aligned_data_allocator {
         }
 };
 
-static constexpr ULWord app = AJA_FOURCC ('U','L','G','R');
+static const ULWord app = AJA_FOURCC ('U','L','G','R');
 
 class vidcap_state_aja {
         public:
@@ -166,7 +185,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                 } else if (it.first == "device") {
                         mDeviceIndex = stol(it.second, nullptr, 10);
                 } else if (it.first == "source") {
-                        NTV2InputSource source{};
+                        NTV2InputSource source = NTV2InputSource();
                         while (source != NTV2_INPUTSOURCE_INVALID) {
                                 if (NTV2InputSourceToString(source, true) == it.second) {
                                         mInputSource = source;
@@ -180,7 +199,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                                 throw string("Unknown source " + it.second + "!");
                         }
                 } else if (it.first == "format") {
-                        NTV2VideoFormat format{};
+                        NTV2VideoFormat format = NTV2VideoFormat();
                         while (format != NTV2_MAX_NUM_VIDEO_FORMATS) {
                                 if (NTV2VideoFormatToString(format) == it.second) {
                                         mVideoFormat = format;
@@ -198,9 +217,10 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         Init();
 }
 
-
+#ifndef _MSC_VER
 ADD_TO_PARAM(aja_fourcc, "aja-fourcc", "* aja-fourcc\n"
                 "  Specifies application FourCC for AJA.\n");
+#endif
 void vidcap_state_aja::Init()
 {
         AJAStatus       status  (AJA_STATUS_SUCCESS);
@@ -224,6 +244,7 @@ void vidcap_state_aja::Init()
                 throw string("Unable to open device.");
 
         ULWord fourcc = app;
+#ifndef _MSC_VER
         if (get_commandline_param("aja-fourcc")) {
                 const char *fcc_req  = get_commandline_param("aja-fourcc");
                 char fcc_s[4] = "";
@@ -234,6 +255,7 @@ void vidcap_state_aja::Init()
 
         if (!mDevice.AcquireStreamForApplication (fourcc, static_cast <uint32_t> (getpid())))
                 throw string("Cannot aquire stream.");
+#endif
 
         mDevice.GetEveryFrameServices (&mSavedTaskMode);        //      Save the current state before we change it
         mDevice.SetEveryFrameServices (NTV2_OEM_TASKS);
@@ -262,9 +284,11 @@ vidcap_state_aja::~vidcap_state_aja() {
         mDevice.UnsubscribeInputVerticalEvent (mInputChannel);
 
         mDevice.SetEveryFrameServices (mSavedTaskMode);                                                                                                 //      Restore previous service level
+#ifndef _MSC_VER
         mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (getpid()));     //      Release the device
+#endif
 
-        mOutputFrame = {};
+        mOutputFrame = NULL;
         free(mAudio.data);
 }
 
@@ -293,7 +317,7 @@ static const NTV2InputCrosspointID gFrameBufferInput[] = {
         NTV2_XptFrameBuffer5Input, NTV2_XptFrameBuffer6Input,
         NTV2_XptFrameBuffer7Input, NTV2_XptFrameBuffer8Input };
 
-static const NTV2OutputCrosspointID gCSCVidRGBOutput[]  __attribute__((unused)) = {
+static const NTV2OutputCrosspointID gCSCVidRGBOutput[] ATTRIBUTE(unused) = {
         NTV2_XptCSC1VidRGB, NTV2_XptCSC2VidRGB, NTV2_XptCSC3VidRGB,
         NTV2_XptCSC4VidRGB, NTV2_XptCSC5VidRGB, NTV2_XptCSC6VidRGB,
         NTV2_XptCSC7VidRGB, NTV2_XptCSC8VidRGB };
@@ -524,7 +548,9 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
                 interlacing,
                 1};
+#ifndef _MSC_VER
         cout << "[AJA] Detected input video mode: " << desc << endl;
+#endif
         mPool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec) * desc.height);
 
         return AJA_STATUS_SUCCESS;
@@ -540,9 +566,9 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 #endif
 
         mMaxAudioChannels = ::NTV2BoardGetMaxAudioChannels (mDeviceID);
-        if (mMaxAudioChannels < (int) audio_capture_channels) {
+        if (mMaxAudioChannels < (int) *aja_audio_capture_channels) {
                 LOG(LOG_LEVEL_ERROR) << "[AJA] Invalid number of capture channels requested. Requested " <<
-                        audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
+                        *aja_audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
                 return AJA_STATUS_FAIL;
         }
         if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
@@ -574,10 +600,12 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.bps = 4;
         mAudio.sample_rate = 48000;
         mAudio.data = (char *) malloc(NTV2_AUDIOSIZE_MAX);
-        mAudio.ch_count = audio_capture_channels;
+        mAudio.ch_count = *aja_audio_capture_channels;
         mAudio.max_size = NTV2_AUDIOSIZE_MAX;
 
+#ifndef _MSC_VER
         LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized sucessfully: " << audio_desc_from_frame(&mAudio) << "\n";
+#endif
 
         return AJA_STATUS_SUCCESS;
 }       //      SetupAudio
@@ -662,7 +690,7 @@ void vidcap_state_aja::CaptureFrames (void)
         currentInFrame  ^= 1;
         mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
 
-        while (!should_exit) {
+        while (!*aja_should_exit) {
                 uint32_t *pHostAudioBuffer = NULL;
                 //      Wait until the input has completed capturing a frame...
                 mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
@@ -738,7 +766,7 @@ void vidcap_state_aja::CaptureFrames (void)
 
 struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 {
-        if (should_exit) {
+        if (*aja_should_exit) {
                 return NULL;
         }
 
@@ -760,7 +788,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
                         remux_channel(mAudio.data, (char *) mOutputAudioFrame.get(), mAudio.bps, mOutputAudioFrameSize, mMaxAudioChannels, mAudio.ch_count, i, i);
                 }
                 mAudio.data_len = mOutputAudioFrameSize / mMaxAudioChannels * mAudio.ch_count;
-                mOutputAudioFrame = {};
+                mOutputAudioFrame = NULL;
                 *audio = &mAudio;
         } else {
                 *audio = NULL;
@@ -818,7 +846,7 @@ static void show_help() {
         cout << "\n";
 }
 
-static int vidcap_aja_init(const struct vidcap_params *params, void **state)
+LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));
@@ -827,8 +855,8 @@ static int vidcap_aja_init(const struct vidcap_params *params, void **state)
                 free(tmp);
                 return VIDCAP_INIT_NOERR;
         }
-        char *item, *save_ptr, *cfg = tmp;
-        while ((item = strtok_r(cfg, ":", &save_ptr))) {
+        char *item, *cfg = tmp;
+        while ((item = strtok(cfg, ":"))) {
                 char *key_cstr = item;
                 if (strchr(item, '=')) {
                         char *val_cstr = strchr(item, '=') + 1;
@@ -857,19 +885,19 @@ static int vidcap_aja_init(const struct vidcap_params *params, void **state)
         return VIDCAP_INIT_OK;
 }
 
-static void vidcap_aja_done(void *state)
+LINK_SPEC void vidcap_aja_done(void *state)
 {
         auto s = static_cast<vidcap_state_aja *>(state);
         s->Quit();
         delete s;
 }
 
-static struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio)
+LINK_SPEC struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio)
 {
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-static struct vidcap_type *vidcap_aja_probe(bool)
+LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool)
 {
         struct vidcap_type *vt;
 
@@ -881,12 +909,13 @@ static struct vidcap_type *vidcap_aja_probe(bool)
         return vt;
 }
 
-static void supersede_compiler_warning_workaround() __attribute__((unused));
+static void supersede_compiler_warning_workaround() ATTRIBUTE(unused);
 static void supersede_compiler_warning_workaround()
 {
         UNUSED(__AJA_trigger_link_error_if_incompatible__);
 }
 
+#ifndef _MSC_VER
 static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_probe,
         vidcap_aja_init,
@@ -895,4 +924,5 @@ static const struct video_capture_info vidcap_aja_info = {
 };
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+#endif
 

@@ -68,25 +68,25 @@ typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_
 /// Prints list of suppored codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10);
 /// @returns number of bits per color component
-int              get_bits_per_component(codec_t codec) __attribute__((pure));
+int              get_bits_per_component(codec_t codec) ATTRIBUTE(pure);
 /// @returns number of bytes per pixel
-double           get_bpp(codec_t codec) __attribute__((pure));
-uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
-int              get_halign(codec_t codec) __attribute__((pure));
-const char      *get_codec_name(codec_t codec) __attribute__((pure));
-const char      *get_codec_name_long(codec_t codec) __attribute__((pure));
-int              is_codec_opaque(codec_t codec) __attribute__((pure));
-int              is_codec_interframe(codec_t codec) __attribute__((pure));
-codec_t          get_codec_from_fcc(uint32_t fourcc) __attribute__((pure));
-codec_t          get_codec_from_name(const char *name) __attribute__((pure));
-const char      *get_codec_file_extension(codec_t codec) __attribute__((pure));
-decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) __attribute__((pure));
+double           get_bpp(codec_t codec) ATTRIBUTE(pure);
+uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(pure);
+int              get_halign(codec_t codec) ATTRIBUTE(pure);
+const char      *get_codec_name(codec_t codec) ATTRIBUTE(pure);
+const char      *get_codec_name_long(codec_t codec) ATTRIBUTE(pure);
+int              is_codec_opaque(codec_t codec) ATTRIBUTE(pure);
+int              is_codec_interframe(codec_t codec) ATTRIBUTE(pure);
+codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(pure);
+codec_t          get_codec_from_name(const char *name) ATTRIBUTE(pure);
+const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(pure);
+decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(pure);
 
-int get_aligned_length(int width, codec_t codec) __attribute__((pure));
-int get_pf_block_size(codec_t codec) __attribute__((pure));
-int vc_get_linesize(unsigned int width, codec_t codec) __attribute__((pure));
-int codec_is_a_rgb(codec_t codec) __attribute__((pure));
-bool codec_is_in_set(codec_t codec, codec_t *set) __attribute__((pure));
+int get_aligned_length(int width, codec_t codec) ATTRIBUTE(pure);
+int get_pf_block_size(codec_t codec) ATTRIBUTE(pure);
+int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(pure);
+int codec_is_a_rgb(codec_t codec) ATTRIBUTE(pure);
+bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(pure);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
