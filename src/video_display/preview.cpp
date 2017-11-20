@@ -175,7 +175,7 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 				 * must detach it. We detach here and then wait until the GUI detaches */
 				s->reconfiguring = true;
 
-				float scale = ((desc.width / 480.f) + (desc.height / 270.f)) / 2.f;
+				float scale = ((desc.width / 960.f) + (desc.height / 540.f)) / 2.f;
 				if(scale < 1)
 					scale = 1;
 				scale = std::round(scale);
