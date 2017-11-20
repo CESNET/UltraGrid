@@ -84,7 +84,7 @@ struct state_preview_common {
 
 		int scaledW, scaledH;
 		int scaleF;
-		int scale_test;
+		int scaledW_pad;
 		std::vector<unsigned char> scaled_frame;
 
         struct module *parent;
@@ -183,14 +183,11 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 				
 				s->scaledW = desc.width / s->scaleF;
 				//OpenGL wants the width to be divisable by 4
-				s->scale_test = s->scaledW;
-				s->scaledW = ((s->scaledW + 4 - 1) / 4) * 4;
+				s->scaledW_pad = ((s->scaledW + 4 - 1) / 4) * 4;
 				s->scaledH = desc.height / s->scaleF;
 				s->scaled_frame.resize(get_bpp(desc.color_spec) * s->scaledW * s->scaledH);
 				s->shared_mem.detach();
-				s->mem_size = get_bpp(s->frame_fmt) * desc.width * desc.height + sizeof(Shared_mem_frame);
-
-				printf("sw: %d\nsh: %d\nscale: %f -> %d\n", s->scaledW, s->scaledH, scale, s->scaleF);
+				s->mem_size = get_bpp(s->frame_fmt) * s->scaledW_pad * s->scaledH + sizeof(Shared_mem_frame);
         }
 }
 
@@ -233,7 +230,7 @@ static void display_preview_run(void *state)
 						}
 						s->shared_mem.lock();
 						struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
-						sframe->width = s->scaledW;
+						sframe->width = s->scaledW_pad;
 						sframe->height = s->scaledH;
 						s->reconfiguring = false;
 					}
@@ -250,19 +247,13 @@ static void display_preview_run(void *state)
 				int block_size = get_pf_block_size(frame->color_spec);
 				int dst = 0;
 				for(int y = 0; y < s->display_desc.height; y += s->scaleF){
-					for(int x = 0; x < src_line_len; x += s->scaleF * block_size){
-#if 0
-						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x];
-						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 1];
-						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 2];
-						s->scaled_frame[dst++] = frame->tiles[0].data[y*src_line_len + x + 3];
-#endif
+					for(int x = 0; x + s->scaleF * block_size <= src_line_len; x += s->scaleF * block_size){
 						memcpy(s->scaled_frame.data() + dst, frame->tiles[0].data + y*src_line_len + x, block_size);
 						dst += block_size;
 					}
 				}
-				int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
-				src_line_len = vc_get_linesize(s->scale_test, frame->color_spec);
+				int dst_line_len = vc_get_linesize(s->scaledW_pad, s->frame_fmt);
+				src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
 				for(int i = 0; i < s->scaledH; i++){
 					dec(sframe->pixels + dst_line_len * i,
 							s->scaled_frame.data() + src_line_len * i,
@@ -314,7 +305,7 @@ static int display_preview_putf(void *state, struct video_frame *frame, int flag
 static int display_preview_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
+        codec_t codecs[] = {UYVY, RGBA, RGB};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
