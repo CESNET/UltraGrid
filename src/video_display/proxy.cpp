@@ -345,6 +345,7 @@ static int display_proxy_putf(void *state, struct video_frame *frame, int flags)
                         fprintf(stderr, "Proxy: queue full!\n");
                 }
                 if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                        vf_free(frame);
                         return 1;
                 }
                 s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
