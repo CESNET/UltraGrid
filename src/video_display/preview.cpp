@@ -252,10 +252,11 @@ static void display_preview_run(void *state)
 						dst += block_size;
 					}
 				}
-				int dst_line_len = vc_get_linesize(s->scaledW_pad, s->frame_fmt);
+				int dst_line_len_pad = vc_get_linesize(s->scaledW_pad, s->frame_fmt);
+				int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
 				src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
 				for(int i = 0; i < s->scaledH; i++){
-					dec(sframe->pixels + dst_line_len * i,
+					dec(sframe->pixels + dst_line_len_pad * i,
 							s->scaled_frame.data() + src_line_len * i,
 							dst_line_len,
 							0, 8, 16);
@@ -291,6 +292,7 @@ static int display_preview_putf(void *state, struct video_frame *frame, int flag
                         fprintf(stderr, "Multiplier: queue full!\n");
                 }
                 if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                        vf_free(frame);
                         return 1;
                 }
                 s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
