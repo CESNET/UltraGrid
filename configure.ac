@@ -2325,7 +2325,8 @@ AC_ARG_ENABLE(qt,
     )
 
 # Check for Qt libraries
-PKG_CHECK_MODULES(QT, [QtCore >= 5.4], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+define(qt_gui_dep, Qt5Core Qt5Widgets libv4l2)
+PKG_CHECK_MODULES(QT, [qt_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
@@ -2337,7 +2338,7 @@ then
 
 	ADD_MODULE("display_preview", "src/video_display/preview.o", "$PREVIEW_DISP_LIBS")
 
-	AC_CHECK_PROGS(QMAKE, [qmake-qt4 qmake])
+	AC_CHECK_PROGS(QMAKE, [qmake-qt5 qmake])
 	GUI_TARGET=gui/QT/uv-qt
 
 	qt_gui=yes
