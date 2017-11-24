@@ -135,9 +135,9 @@ then
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
-        NVCCFLAGS="$NVCCFLAGS -I/opt/local/include"
+        CUDA_FLAGS="$CUDA_FLAGS -I/opt/local/include"
         if test $WORD_LEN = 32; then
-                NVCCFLAGS="$NVCCFLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
+                CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
         fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
@@ -170,13 +170,13 @@ if test $system = MacOSX -o $system = Linux
 then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
-        NVCCFLAGS="$NVCCFLAGS -Xcompiler -fPIC"
+        CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -fPIC"
         CU_OBJ_SUFFIX="cu.o"
 else
-        NVCCFLAGS="-m32"
+        CUDA_FLAGS="-m32"
         CU_OBJ_SUFFIX="cu.lib"
 fi
-AC_SUBST(NVCCFLAGS)
+AC_SUBST(CUDA_FLAGS)
 
 if test "$system" = MacOSX; then
         GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
@@ -1095,7 +1095,7 @@ AC_ARG_ENABLE(quicktime,
     )
 
 if test $WORD_LEN = 64 -a $quicktime_req = yes; then
-        AC_MSG_ERROR([QuickTime not supported in 64-bit builds, please build 32-bit UltraGrid (CFLAGS/CXXFLAGS/LDFLAGS/NVCCFLAGS=-m32)]);
+        AC_MSG_ERROR([QuickTime not supported in 64-bit builds, please build 32-bit UltraGrid (CFLAGS/CXXFLAGS/LDFLAGS/CUDA_FLAGS=-m32)]);
 fi
 
 case $host_os in
@@ -1763,11 +1763,16 @@ fi
 # -------------------------------------------------------------------------------------------------
 # CUDA staff
 #
+# CUDA compiler choice - defaults to nvcc
+# 
 # CUDA lookup order:
 # 1) --with-cuda
 # 2) CUDA_DIRECTORY env variable
 # 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
 # 4) default CUDA path
+
+CUDA_COMPUTE_ARGS=""
+CUDA_COMPILER=""
 
 CUDA_INC=
 CUDA_LIB=
@@ -1786,6 +1791,7 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
+# nvcc is intentional here
 AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH/bin$PATH_SEPARATOR$PATH]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
@@ -1811,6 +1817,7 @@ then
 	AC_MSG_RESULT($nvcc_minor)
 
         CUDA_INC="\"-I$CUDA_PATH/include\""
+	CUDA_COMPILER="$NVCC"
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
@@ -1822,14 +1829,33 @@ then
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
 fi
 
-# CUDA host compiler
+# Pick compiler for cuda device code
+AC_ARG_WITH(cuda-compiler,
+              AS_HELP_STRING([--with-cuda-compiler=compiler], [select compiler to compile cuda code with; suported: clang, nvcc; default: nvcc]),
+              [CUDA_COMPILER="$withval"],
+              [])
+
 HOST_CC_REPORT=""
+case "$CUDA_COMPILER" in
+	*nvcc*)
+		CUDA_COMPUTE_ARGS="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35"
+		;;
+	*clang*)
+		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
+		;;
+	*)
+		AC_MSG_ERROR([Unsupported cuda compiler $CUDA_COMPILER])
+		;;
+esac
+HOST_CC_REPORT=" (cuda code compiler: $(basename $CUDA_COMPILER))"
+
+# CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
 	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
 if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
 	if test "x${cuda_host_cc}" = "xyes" ; then
-		NVCCFLAGS+=" -ccbin ${with_cuda_host_compiler}"
+		CUDA_FLAGS+=" -ccbin ${with_cuda_host_compiler}"
 	else
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
 	fi
@@ -1838,14 +1864,15 @@ else
 fi
 
 if test "x$NVCC" != "X" ; then
-	HOST_CC_REPORT=" (host code compiler: ${with_cuda_host_compiler})"
+	HOST_CC_REPORT+=" (host code compiler: ${with_cuda_host_compiler})"
 fi
 
-AC_SUBST(NVCC)
 AC_SUBST(FOUND_CUDA)
 AC_SUBST(CUDA_PATH)
 AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_INC)
+AC_SUBST(CUDA_COMPILER)
+AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # -------------------------------------------------------------------------------------------------
 # JPEG
@@ -2554,7 +2581,7 @@ then
         fi
         ADD_MODULE("ldgm_gpu", "$LDGM_GPU_OBJS", "$LDGM_GPU_LIBS")
         if test $WORD_LEN = 32 -a $system = Linux; then
-                NVCCFLAGS="$NVCCFLAGS -Xcompiler -msse2"
+                CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -msse2"
         fi
         ldgm_gpu=yes
 else

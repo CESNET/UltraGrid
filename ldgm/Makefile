@@ -1,13 +1,13 @@
 OPTS	  = -Wall -g -pg
 CXXFLAGS += ${OPTS} -std=gnu++0x
 
-NVCC	 ?= nvcc
-NVCCFLAGS += -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
+CUDA_COMPILER	 ?= nvcc
+CUDA_FLAGS ?= -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
 
 TARGET    = ldgm-encode
 SRC_DIR   = src
 OBJ_DIR   = obj
-LINKER 	 ?= ${NVCC} ${NVCCFLAGS}
+LINKER 	 ?= ${CUDA_COMPILER} ${CUDA_FLAGS}
 LIBS	 += -lrt
 LDFLAGS  +=
 
@@ -39,7 +39,7 @@ $(TARGET) : $(OBJS)
 	${LINKER} ${LDFLAGS} $? -o $@ ${LIBS}
 
 $(OBJ_DIR)/%.cu.o : $(SRC_DIR)/%.cu
-	${NVCC} ${NVCCFLAGS} -c -o $@ $<
+	${CUDA_COMPILER} ${CUDA_FLAGS} -c -o $@ $<
 
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp
 	${CXX} ${CXXFLAGS} ${OPTS} -c -o $@ $?
