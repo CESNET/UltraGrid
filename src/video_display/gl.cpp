@@ -540,7 +540,11 @@ static void screenshot(struct video_frame *frame)
 
         strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
                                                time_ptr);
-        save_video_frame_as_pnm(frame, name);
+        if (save_video_frame_as_pnm(frame, name)) {
+                log_msg(LOG_LEVEL_NOTICE, "[GL] Generated screenshot \"%s\".\n", name);
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "[GL] Unable to generate screenshot!\n");
+        }
 }
 
 /**
