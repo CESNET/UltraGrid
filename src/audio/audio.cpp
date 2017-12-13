@@ -940,7 +940,7 @@ static void *audio_sender_thread(void *arg)
                         struct timeval timeout;
                         timeout.tv_sec = 0;
                         timeout.tv_usec = 0;
-                        rtp_recv_r(s->audio_network_device, &timeout, ts);
+                        rtcp_recv_r(s->audio_network_device, &timeout, ts);
                 }
 
                 buffer = audio_capture_read(s->audio_capture_device);
