@@ -2396,6 +2396,37 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
         return FALSE;
 }
 
+/**
+ * Similar to rtp_recv_r(), expect that it only receives data from RTCP socket.
+ * This should be used when the socket acts as a sender only, therefore
+ * rtp_recv_r() is not called. Running rtp_recv_r() instead would cause leaks
+ * in this context (because RTP packets are usually pushed into PBUF which is
+ * not processed by sender and thus it will grow indefinitely).
+ */
+int rtcp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
+{
+        struct udp_fd_r fd;
+
+        check_database(session);
+        udp_fd_zero_r(&fd);
+        udp_fd_set_r(session->rtcp_socket, &fd);
+        if (udp_select_r(timeout, &fd) > 0) {
+                if (udp_fd_isset_r(session->rtcp_socket, &fd)) {
+                        uint8_t buffer[RTP_MAX_PACKET_LEN];
+                        int buflen;
+                        session->rtcp_dest_len = sizeof(session->rtcp_dest);
+                        buflen =
+                                udp_recvfrom(session->rtcp_socket, (char *)buffer,
+                                                RTP_MAX_PACKET_LEN,
+                                                (struct sockaddr *) &session->rtcp_dest, &session->rtcp_dest_len);
+                        rtp_process_ctrl(session, buffer, buflen);
+                }
+                check_database(session);
+                return TRUE;
+        }
+        check_database(session);
+        return FALSE;
+}
 
 /**
  * rtp_recv_poll_r:

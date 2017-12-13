@@ -247,6 +247,8 @@ int 		 rtp_recv(struct rtp *session,
 			  struct timeval *timeout, uint32_t curr_rtp_ts) __attribute__((deprecated));
 int 		 rtp_recv_r(struct rtp *session, 
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
+int 		 rtcp_recv_r(struct rtp *session,
+			  struct timeval *timeout, uint32_t curr_rtp_ts);
 int 		 rtp_recv_poll_r(struct rtp **sessions, 
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
 int 		 rtp_send_raw_rtp_data(struct rtp *session, char *buffer, int buffer_len);
