@@ -49,7 +49,7 @@
 
 using namespace std;
 
-unordered_map<HRESULT, string> bmd_hresult_to_string_map = {
+static unordered_map<HRESULT, string> bmd_hresult_to_string_map = {
         {S_OK, "success"},
         {S_FALSE, "false"},
         {E_UNEXPECTED, "unexpected value"},

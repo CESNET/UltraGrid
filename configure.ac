@@ -461,7 +461,7 @@ then
         if test "$system" = "Linux"
         then
                 LIBS="$LIBS -ldl"
-                LDFLAGS="$LDFLAGS -rdynamic -ldl"
+                LDFLAGS="$LDFLAGS -rdynamic"
         else
                 AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
@@ -527,6 +527,7 @@ case "$host_os" in
                 fi
                 X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
+                LIBS="$LIBS -ldl"
                 CFLAGS="$CFLAGS"
                 AC_DEFINE([HAVE_X], [1], [Build with X11 support])
         fi
@@ -708,9 +709,9 @@ if test $decklink_req != no -a $FOUND_DECKLINK = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
-    DECKLINK_CAP_OBJ="src/video_capture/decklink.o"
-    DECKLINK_DISP_OBJ="src/video_display/decklink.o"
-    DECKLINK_SOUND_PLAY_OBJ="src/audio/playback/decklink.o"
+    DECKLINK_CAP_OBJ="src/blackmagic_common.o src/video_capture/decklink.o"
+    DECKLINK_DISP_OBJ="src/blackmagic_common.o src/video_display/decklink.o"
+    DECKLINK_SOUND_PLAY_OBJ="src/blackmagic_common.o src/audio/playback/decklink.o"
     if test $system = "Windows"; then
         OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
     else
@@ -2424,7 +2425,7 @@ AC_ARG_ENABLE(dshow,
 if test $system = Windows -a $dshow_req != no; then
         AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
         ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
-                   "-lstrmiids -luuid -loleaut32") #-lstrmbase -ldxguid -ldmoguids
+                   "-lstrmiids -luuid -lole32 -loleaut32") #-lstrmbase -ldxguid -ldmoguids
         dshow=yes
 fi
 
