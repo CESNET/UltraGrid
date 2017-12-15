@@ -1,0 +1,69 @@
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile	2016-10-28 08:24:00.688000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile	2016-10-28 08:26:00.996000000 +0000
+@@ -17,7 +17,7 @@ else
+ 
+ AJA_LIBNAME = libaja
+ 
+-KERNEL_INCLUDES 	:= /lib/modules/$(shell uname -r)/build
++KERNEL_INCLUDES 	:= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
+ 
+ PYTHON_DEV	:= /usr/include/python2.4
+ 
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 08:24:00.504000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 08:27:53.656000000 +0000
+@@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
+ 
+ dnl Get the operating system and version number...
+ uname=`uname`
+-uversion=`uname -r | sed -e '1,$s/[[^0-9]]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[[^0-9]]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure	2016-10-28 08:24:00.516000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure	2016-10-28 08:30:16.320000000 +0000
+@@ -1461,7 +1461,7 @@ cat <<_ASUNAME
+ 
+ hostname = `(hostname || uname -n) 2>/dev/null | sed 1q`
+ uname -m = `(uname -m) 2>/dev/null || echo unknown`
+-uname -r = `(uname -r) 2>/dev/null || echo unknown`
++uname -r = `(ls -1 /lib/modules | sort | head -n 1) 2>/dev/null || echo unknown`
+ uname -s = `(uname -s) 2>/dev/null || echo unknown`
+ uname -v = `(uname -v) 2>/dev/null || echo unknown`
+ 
+@@ -1813,7 +1813,7 @@ FL_API_VERSION=${FL_MAJOR_VERSION}.${FL_
+ 
+ 
+ uname=`uname`
+-uversion=`uname -r | sed -e '1,$s/[^0-9]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[^0-9]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in	2016-10-28 08:24:00.616000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in	2016-10-28 08:31:15.256000000 +0000
+@@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
+ 
+ dnl Get the operating system and version number...
+ uname=`uname`
+-uversion=`uname -r | sed -e '1,$s/[[^0-9]]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[[^0-9]]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi
+diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile	2016-10-28 08:24:00.508000000 +0000
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile	2016-10-28 08:32:06.072000000 +0000
+@@ -7,7 +7,7 @@
+ PWD		  = $(shell pwd)
+ DRIVERDIR ?= $(PWD)
+ NTV2_ROOT ?= $(DRIVERDIR)/../../
+-KDIR  	  ?= /lib/modules/$(shell uname -r)/build
++KDIR  	  ?= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
+ 
+ include $(NTV2_ROOT)/configure.mk
+ include $(NTV2_ROOT)/sdkversion.mk
