@@ -1,0 +1,86 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_BUILD_ROOT=$(shell realpath . )/debian/tmp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo "no configure here"
+
+
+override_dh_shlibdeps:
+	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:/usr/lib dh_shlibdeps -Xusr/src/ultragrid-externals
+	# -- --ignore-missing-info
+
+override_dh_auto_build:
+#####################################################
+# > aja
+#####################################################
+	cd ntv2sdklinux*/ntv2projects ; make QTDIR=/usr/lib/qt5
+#####################################################
+# < aja
+#####################################################
+#####################################################
+# > bluefish
+#####################################################
+	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make
+	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make
+#####################################################
+# < bluefish
+#####################################################
+	# relativize all symlinks (build phase), variant for old realpath (without --relative-to)
+	find ./ -type l -print0 | xargs -0 -I '{}' sh -c 'mv "{}" "{}.pkgbkp" ; ln -s "$$(realpath "{}.pkgbkp" | sed -r -e "s#^$(shell realpath . )/##g" -e "s#(([^/]{2,})|([^./]))#..#g")/$$(realpath "$$(readlink "{}.pkgbkp")" | sed -r "s#^$(shell realpath . )/##g")" "{}" ; rm "{}.pkgbkp"'
+
+override_dh_auto_install:
+	# zbytek
+	mkdir -p $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+#####################################################
+# > bluefish
+#####################################################
+	cp -r EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+	ln -s EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/bluefish_sdk
+
+	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
+	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
+#####################################################
+# < bluefish
+#####################################################
+#####################################################
+# > dvs
+#####################################################
+	cp -r sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+	ln -s sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk
+
+	rm -r $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk/linux-x86
+#####################################################
+# < dvs
+#####################################################
+#####################################################
+# > aja
+#####################################################
+	cp -r ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+	ln -s ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/aja_sdk
+#####################################################
+# < aja
+#####################################################
+#####################################################
+# > deltacast
+#####################################################
+	cp -r VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+	ln -s VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk
+
+	#deltacast
+	mkdir -p $(DEB_BUILD_ROOT)/usr/lib
+	cd VideoMasterHD_*/Library/ ; for i in $$(ls -d */x64/); do pushd $$i ; echo $$i ; make install libdir=$(DEB_BUILD_ROOT)/usr/lib ; popd ; done
+
+	find $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r '{}' \;
+#####################################################
+# < deltacast
+#####################################################
+
+	for pattern in "*.so" "*.so.*" "*.sh" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod +x "{}" \; ; done
+	for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod -x "{}" \; ; done
+
+

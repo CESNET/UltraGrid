@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-05-19 15:14:28.700837150 +0200
-+++ b/ultragrid/debian.rules	2017-05-19 15:14:28.976838074 +0200
+--- a/ultragrid/debian.rules	2017-12-15 17:07:14.686045796 +0100
++++ b/ultragrid/debian.rules	2017-12-15 17:07:14.850048650 +0100
 @@ -35,7 +35,7 @@ CARDCONF_DECKLINK= --enable-decklink
  #####################################################
  # > deltacast
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < deltacast
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-05-19 15:14:28.700837150 +0200
-+++ b/ultragrid/ultragrid.spec.tpl	2017-05-19 15:14:28.912837859 +0200
+--- a/ultragrid/ultragrid.spec.tpl	2017-12-15 17:07:14.686045796 +0100
++++ b/ultragrid/ultragrid.spec.tpl	2017-12-15 17:07:14.802047814 +0100
 @@ -122,7 +122,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > deltacast
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
  # < deltacast
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-05-19 15:14:28.688837109 +0200
-+++ b/ultragrid-nightly/debian.rules	2017-05-19 15:14:28.884837766 +0200
+--- a/ultragrid-nightly/debian.rules	2017-12-15 17:07:14.682045726 +0100
++++ b/ultragrid-nightly/debian.rules	2017-12-15 17:07:14.774047327 +0100
 @@ -35,7 +35,7 @@ CARDCONF_DECKLINK= --enable-decklink
  #####################################################
  # > deltacast
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < deltacast
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-19 15:14:28.688837109 +0200
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-05-19 15:14:28.820837551 +0200
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:07:14.682045726 +0100
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:07:14.722046422 +0100
 @@ -122,7 +122,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > deltacast
@@ -47,8 +47,8 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
  # < deltacast
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
---- a/ultragrid-proprietary-drivers/debian.rules	2017-05-19 15:14:28.712837189 +0200
-+++ b/ultragrid-proprietary-drivers/debian.rules	2017-05-19 15:14:29.156838676 +0200
+--- a/ultragrid-proprietary-drivers/debian.rules	2017-12-15 17:07:14.690045865 +0100
++++ b/ultragrid-proprietary-drivers/debian.rules	2017-12-15 17:07:14.982050947 +0100
 @@ -68,14 +68,14 @@ override_dh_auto_install:
  #####################################################
  # > deltacast
@@ -73,9 +73,9 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  # < deltacast
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-19 15:14:28.712837189 +0200
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-05-19 15:14:29.012838195 +0200
-@@ -31,8 +31,8 @@ Source1:	ultragrid-proprietary-drivers-r
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:07:14.690045865 +0100
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:07:14.874049069 +0100
+@@ -33,8 +33,8 @@ Source1:	ultragrid-proprietary-drivers-r
  #####################################################
  # > deltacast (videoMasterHD)
  #####################################################
@@ -86,7 +86,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast (videoMasterHD)
  #####################################################
-@@ -79,8 +79,8 @@ VideoMasterHD		--deltacast
+@@ -81,8 +81,8 @@ VideoMasterHD		--deltacast
  #####################################################
  # > deltacast
  #####################################################
@@ -97,7 +97,95 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast
  #####################################################
-@@ -183,21 +183,21 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
+@@ -185,21 +185,21 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
+ #####################################################
+ # > deltacast
+ #####################################################
+-cp -r VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
+-ln -s VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/deltacast_sdk
+-
+-mkdir -p $RPM_BUILD_ROOT%{_libdir}
+-pushd VideoMasterHD_*/Library/
+-for i in $(ls -d */x64/)
+-do
+-    pushd $i
+-    env libdir=%{_libdir} %makeinstall
+-    popd
+-done
+-popd
+-
+-# fix bad arch binaries
+-find ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r {} \;
++#cp -r VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
++#ln -s VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/deltacast_sdk
++#
++#mkdir -p $RPM_BUILD_ROOT%{_libdir}
++#pushd VideoMasterHD_*/Library/
++#for i in $(ls -d */x64/)
++#do
++#    pushd $i
++#    env libdir=%{_libdir} %makeinstall
++#    popd
++#done
++#popd
++#
++## fix bad arch binaries
++#find ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r {} \;
+ #####################################################
+ # < deltacast
+ #####################################################
+diff -rupN a/ultragrid-proprietary-drivers-1.4/debian.rules b/ultragrid-proprietary-drivers-1.4/debian.rules
+--- a/ultragrid-proprietary-drivers-1.4/debian.rules	2017-12-15 17:07:14.694045934 +0100
++++ b/ultragrid-proprietary-drivers-1.4/debian.rules	2017-12-15 17:07:15.106053106 +0100
+@@ -68,14 +68,14 @@ override_dh_auto_install:
+ #####################################################
+ # > deltacast
+ #####################################################
+-	cp -r VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+-	ln -s VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk
+-
+-	#deltacast
+-	mkdir -p $(DEB_BUILD_ROOT)/usr/lib
+-	cd VideoMasterHD_*/Library/ ; for i in $$(ls -d */x64/); do pushd $$i ; echo $$i ; make install libdir=$(DEB_BUILD_ROOT)/usr/lib ; popd ; done
+-
+-	find $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r '{}' \;
++#	cp -r VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
++#	ln -s VideoMasterHD_* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk
++#
++#	#deltacast
++#	mkdir -p $(DEB_BUILD_ROOT)/usr/lib
++#	cd VideoMasterHD_*/Library/ ; for i in $$(ls -d */x64/); do pushd $$i ; echo $$i ; make install libdir=$(DEB_BUILD_ROOT)/usr/lib ; popd ; done
++#
++#	find $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r '{}' \;
+ #####################################################
+ # < deltacast
+ #####################################################
+diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
+--- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:07:14.694045934 +0100
++++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:07:15.006051365 +0100
+@@ -34,8 +34,8 @@ Source1:	ultragrid-proprietary-drivers-1
+ #####################################################
+ # > deltacast (videoMasterHD)
+ #####################################################
+-Patch0:		videoMasterHD-destdir.patch
+-Patch1:		videoMasterHD-linux4.6-get-user-pages.patch
++#Patch0:		videoMasterHD-destdir.patch
++#Patch1:		videoMasterHD-linux4.6-get-user-pages.patch
+ #####################################################
+ # < deltacast (videoMasterHD)
+ #####################################################
+@@ -82,8 +82,8 @@ VideoMasterHD		--deltacast
+ #####################################################
+ # > deltacast
+ #####################################################
+-%patch0 -p1
+-%patch1 -p1
++#%%patch0 -p1
++#%%patch1 -p1
+ #####################################################
+ # < deltacast
+ #####################################################
+@@ -186,21 +186,21 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
  #####################################################
  # > deltacast
  #####################################################
