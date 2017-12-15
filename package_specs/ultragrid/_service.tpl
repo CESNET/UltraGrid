@@ -5,7 +5,7 @@
 		<param name="version">1.4</param>
 		<param name="revision">release/1.4</param>
 		<param name="filename">ultragrid</param>
-		<param name="package-meta">yes</param>
+		<param name="package-meta">no</param>
 		<param name="submodules">enable</param>
 	</service>
 	<service name="extract_file">
