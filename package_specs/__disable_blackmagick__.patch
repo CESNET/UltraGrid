@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-12-15 17:07:14.686045796 +0100
-+++ b/ultragrid/debian.rules	2017-12-15 17:07:15.254055682 +0100
+--- a/ultragrid/debian.rules	2017-12-15 17:09:35.984605917 +0100
++++ b/ultragrid/debian.rules	2017-12-15 17:09:36.532616752 +0100
 @@ -28,7 +28,7 @@ CARDCONF_DVS=--enable-dvs --with-dvs=/us
  #####################################################
  # > blackmagick
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-12-15 17:07:14.686045796 +0100
-+++ b/ultragrid/ultragrid.spec.tpl	2017-12-15 17:07:15.210054916 +0100
+--- a/ultragrid/ultragrid.spec.tpl	2017-12-15 17:09:35.984605917 +0100
++++ b/ultragrid/ultragrid.spec.tpl	2017-12-15 17:09:36.484615803 +0100
 @@ -115,7 +115,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > blackmagick
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-12-15 17:07:14.682045726 +0100
-+++ b/ultragrid-nightly/debian.rules	2017-12-15 17:07:15.186054498 +0100
+--- a/ultragrid-nightly/debian.rules	2017-12-15 17:09:35.984605917 +0100
++++ b/ultragrid-nightly/debian.rules	2017-12-15 17:09:36.464615408 +0100
 @@ -28,7 +28,7 @@ CARDCONF_DVS=--enable-dvs --with-dvs=/us
  #####################################################
  # > blackmagick
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:07:14.682045726 +0100
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:07:15.146053802 +0100
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:09:35.984605917 +0100
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:09:36.424614617 +0100
 @@ -115,7 +115,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > blackmagick
@@ -47,9 +47,9 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
  # < blackmagick
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
---- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:07:14.690045865 +0100
-+++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:07:15.274056030 +0100
-@@ -15,7 +15,7 @@ BuildRequires:	%kernel_module_package_bu
+--- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:09:35.992606075 +0100
++++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec	2017-12-15 17:09:36.556617227 +0100
+@@ -17,7 +17,7 @@ BuildRequires:	%kernel_module_package_bu
  #####################################################
  # > blackmagick (DesktopVideo)
  #####################################################
@@ -59,8 +59,8 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  # < blackmagick (Desktopvideo)
  #####################################################
 diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
---- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:07:14.694045934 +0100
-+++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:07:15.402058258 +0100
+--- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:09:35.996606153 +0100
++++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec	2017-12-15 17:09:36.692619915 +0100
 @@ -16,7 +16,7 @@ BuildRequires:	%kernel_module_package_bu
  #####################################################
  # > blackmagick (DesktopVideo)

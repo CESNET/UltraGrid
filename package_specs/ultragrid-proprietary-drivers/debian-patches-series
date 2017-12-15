@@ -1,5 +1,4 @@
 videoMasterHD-destdir.patch
-videoMasterHD-linux4.6-get-user-pages.patch
 bluefish-uname.patch
 bluefish-g++.patch
 bluefish-destdir.patch
@@ -7,5 +6,4 @@ bluefish-linux4.6-get-user-pages.patch
 AJA-linuxdriver-uname.patch
 AJA-nodemo.patch
 AJA-gcc-explicit-constructors.patch
-AJA-linux4.6-get-user-pages.patch
 dvs-linux4.6-get-user-pages.patch

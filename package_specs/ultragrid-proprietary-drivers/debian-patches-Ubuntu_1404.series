@@ -4,4 +4,3 @@ bluefish-g++.patch
 bluefish-destdir.patch
 AJA-linuxdriver-uname.patch
 AJA-nodemo.patch
-AJA-setStartDragTime.patch

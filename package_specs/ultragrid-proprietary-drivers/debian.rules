@@ -15,10 +15,13 @@ override_dh_shlibdeps:
 	# -- --ignore-missing-info
 
 override_dh_auto_build:
+	find . -type f -iname "*.pri" -exec chmod -x {} \;
+	find . -type f -iname "Makefile" -exec chmod -x {} \;
+	find . -type f -name "*~" -exec rm {} \;
 #####################################################
 # > aja
 #####################################################
-	cd ntv2sdklinux*/ntv2projects ; make QTDIR=/usr/lib/qt5
+	cd ntv2sdk* ; make QTDIR=/usr/lib/qt5 AJA_NO_FLTK=1
 #####################################################
 # < aja
 #####################################################
@@ -27,6 +30,7 @@ override_dh_auto_build:
 #####################################################
 	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make
 	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make
+	rm -rf EpochLinuxDriver_V5*/firmware/x86
 #####################################################
 # < bluefish
 #####################################################
@@ -82,5 +86,7 @@ override_dh_auto_install:
 
 	for pattern in "*.so" "*.so.*" "*.sh" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod +x "{}" \; ; done
 	for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod -x "{}" \; ; done
-
+	# remove all 32 bit binaries
+	find $(DEB_BUILD_ROOT)/ -executable -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $$'\n' filename ; do rm "$$filename" ; done
+	find $(DEB_BUILD_ROOT)/ -iregex '.*\.so\(\.[0-9]+\)*$$' -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $$'\n' filename ; do rm "$filename" ; done
 

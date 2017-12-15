@@ -1,12 +1,19 @@
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/Makefile	2016-10-28 08:24:00.504000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/Makefile	2016-10-28 09:52:23.176000000 +0000
-@@ -26,8 +26,8 @@ include configure.mk
- SUBDIRS =	classes \
- 			$(DRIVER_DIR) \
- 			commonapps \
--			demoapps \
- 			linuxapps
-+#			demoapps \
+diff -rupN a/ntv2sdklinux_13.1.0.1/Makefile b/ntv2sdklinux_13.1.0.1/Makefile
+--- a/ntv2sdklinux_13.1.0.1/Makefile	2017-11-07 16:08:30.000000000 +0100
++++ b/ntv2sdklinux_13.1.0.1/Makefile	2017-11-22 09:00:48.564823480 +0100
+@@ -18,7 +18,7 @@ ifndef AJA_NO_FLTK
+ 	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/watcher")
+ 	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/xenacablesfltk")
+ endif
+-	$(call make_if_dir_exists, $(A_DEMOAPPS_PATH))
++	#$(call make_if_dir_exists, $(A_DEMOAPPS_PATH))
  
- include internal.mk
- include sdkversion.mk
+ .PHONY:	clean
+ 
+@@ -32,5 +32,5 @@ ifndef AJA_NO_FLTK
+ 	$(call clean_if_dir_exists, "$(A_APPS_XPLAT_PATH)/watcher")
+ 	$(call clean_if_dir_exists, "$(A_APPS_XPLAT_PATH)/xenacablesfltk")
+ endif
+-	$(call clean_if_dir_exists, $(A_DEMOAPPS_PATH))
++	#$(call clean_if_dir_exists, $(A_DEMOAPPS_PATH))
+ 

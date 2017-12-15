@@ -1,30 +1,18 @@
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile	2016-10-28 08:24:00.688000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/Makefile	2016-10-28 08:26:00.996000000 +0000
-@@ -17,7 +17,7 @@ else
+diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile b/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile
+--- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile	2017-11-07 16:08:31.000000000 +0100
++++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile	2017-11-07 22:18:52.109413103 +0100
+@@ -7,7 +7,7 @@
+ DIR := $(strip $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST)))))
  
- AJA_LIBNAME = libaja
+ #DRIVERDIR	?= $(DIR)
+-KDIR		?= /lib/modules/$(shell uname -r)/build
++KDIR		?= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
  
--KERNEL_INCLUDES 	:= /lib/modules/$(shell uname -r)/build
-+KERNEL_INCLUDES 	:= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
- 
- PYTHON_DEV	:= /usr/include/python2.4
- 
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 08:24:00.504000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/configure.in.ntv2.fltk	2016-10-28 08:27:53.656000000 +0000
-@@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
- 
- dnl Get the operating system and version number...
- uname=`uname`
--uversion=`uname -r | sed -e '1,$s/[[^0-9]]//g'`
-+uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[[^0-9]]//g'`
- if test "x$uname" = xIRIX64; then
-     uname="IRIX"
- fi
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure	2016-10-28 08:24:00.516000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure	2016-10-28 08:30:16.320000000 +0000
+ include $(DIR)/../../build/configure.mk
+ include $(DIR)/../../build/sdkversion.mk
+diff -rupN a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure
+--- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure	2017-11-07 16:10:02.000000000 +0100
++++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure	2017-11-07 22:16:19.738765013 +0100
 @@ -1461,7 +1461,7 @@ cat <<_ASUNAME
  
  hostname = `(hostname || uname -n) 2>/dev/null | sed 1q`
@@ -43,9 +31,9 @@ diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure b/ntv2sdklinux_12
  if test "x$uname" = xIRIX64; then
      uname="IRIX"
  fi
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in	2016-10-28 08:24:00.616000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in	2016-10-28 08:31:15.256000000 +0000
+diff -rupN a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in
+--- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in	2017-11-07 16:10:33.000000000 +0100
++++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in	2017-11-07 22:16:36.927062591 +0100
 @@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
  
  dnl Get the operating system and version number...
@@ -55,15 +43,3 @@ diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/fltk/configure.in b/ntv2sdklinux
  if test "x$uname" = xIRIX64; then
      uname="IRIX"
  fi
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile	2016-10-28 08:24:00.508000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/driver/linuxdriver/Makefile	2016-10-28 08:32:06.072000000 +0000
-@@ -7,7 +7,7 @@
- PWD		  = $(shell pwd)
- DRIVERDIR ?= $(PWD)
- NTV2_ROOT ?= $(DRIVERDIR)/../../
--KDIR  	  ?= /lib/modules/$(shell uname -r)/build
-+KDIR  	  ?= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
- 
- include $(NTV2_ROOT)/configure.mk
- include $(NTV2_ROOT)/sdkversion.mk

@@ -1,13 +1,13 @@
-diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/ntv2utils.h b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/ntv2utils.h
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/classes/ntv2utils.h	2016-10-29 13:46:43.784790745 +0200
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/classes/ntv2utils.h	2016-10-29 14:37:25.756878939 +0200
-@@ -631,7 +631,8 @@ typedef struct NTV2FormatDescriptor
- 	ULWord	linePitch;			///< @brief	Number of 32-bit words per line
- 	ULWord	firstActiveLine;	///< @brief	First active line of video (0 if vanc not enabled)
- 
--	explicit inline	NTV2FormatDescriptor ()	: numLines (0), numPixels (0), linePitch (0), firstActiveLine (0)	{}	///< @brief	My default constructor
-+	/** gcc-6 does not allow to call explicit default constructor calls in array initializations (see ntv2util.cpp:213 */
-+	inline	NTV2FormatDescriptor ()	: numLines (0), numPixels (0), linePitch (0), firstActiveLine (0)	{}	///< @brief	My default constructor
+diff -rupN a/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h b/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
+--- a/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h	2017-11-07 16:09:17.000000000 +0100
++++ b/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h	2017-11-07 22:43:15.867110725 +0100
+@@ -31,7 +31,8 @@ typedef struct NTV2FormatDescriptor
+ 	/**
+ 		@brief	My default constructor initializes me in an "invalid" state.
+ 	**/
+-	explicit		NTV2FormatDescriptor ();	///< @brief	My default constructor
++	NTV2FormatDescriptor ();	///< @brief	My default constructor
++	/** gcc-6 does not allow to call explicit default constructor calls in array initializations */
  
  	/**
  		@brief	Construct from line and pixel count, plus line pitch.

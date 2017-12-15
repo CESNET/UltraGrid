@@ -1,6 +1,6 @@
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile	2016-07-29 12:52:24.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile	2016-11-10 12:35:45.260626366 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile	2017-11-07 16:16:01.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -1,13 +1,15 @@
  #################################
  # VideoMasterHD
@@ -21,9 +21,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x64/Makefile b/
  
  	
  	
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile	2016-07-29 12:45:18.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile	2016-11-10 12:36:08.509034544 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile	2017-11-07 16:16:02.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -5,18 +5,13 @@
  #################################
  # Setup common variables
@@ -49,9 +49,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD/x86/Makefile b/
 +	cp libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1.0.1
 +	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
 +	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile	2016-07-29 12:52:32.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makefile	2016-11-10 12:36:33.357470804 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile	2017-11-07 16:16:02.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -1,11 +1,13 @@
  #################################
  # VideoMasterHD_Audio
@@ -70,9 +70,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x64/Makef
 +	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
 +	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so 
  
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile	2016-07-29 12:45:28.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makefile	2016-11-10 12:36:53.389822505 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile	2017-11-07 16:16:02.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -5,18 +5,13 @@
  #################################
  # Setup common variables
@@ -98,9 +98,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Audio/x86/Makef
 +	cp libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1.0.1
 +	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
 +	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile	2016-07-29 12:52:32.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefile	2016-11-10 12:37:03.966008184 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile	2017-11-07 16:16:03.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -1,12 +1,15 @@
  #################################
  # VideoMasterHD_Vbi
@@ -120,9 +120,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x64/Makefil
 +	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
  
  	
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile	2016-07-29 12:45:28.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefile	2016-11-10 12:37:22.462332910 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile	2017-11-07 16:16:03.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -5,19 +5,14 @@
  #################################
  # Setup common variables
@@ -149,9 +149,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_Vbi/x86/Makefil
 +	ln -sf libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1
 +	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
  	
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile	2016-07-29 12:52:34.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Makefile	2016-11-10 12:37:34.846550326 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile	2017-11-07 16:16:03.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -1,12 +1,14 @@
  #################################
  # VideoMasterHD_Vbi
@@ -171,9 +171,9 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x64/Mak
 +	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
  
  	
-diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile	2016-07-29 12:45:30.000000000 +0200
-+++ b/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Makefile	2016-11-10 12:37:57.434946882 +0100
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile	2017-11-07 16:16:03.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
 @@ -5,19 +5,14 @@
  #################################
  # Setup common variables
@@ -199,4 +199,34 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v5.21/Library/VideoMasterHD_VbiData/x86/Mak
 +	cp libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1.0.1
 +	ln -sf libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1
 +	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
+ 	
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile	2017-11-07 16:16:02.000000000 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile	2017-11-07 23:00:37.685207012 +0100
+@@ -2,15 +2,19 @@
+ # VideoMasterHD_SP
+ #################################
+ 
++DESTDIR ?= /
++libdir ?= /usr/lib
+ default:
+ 
+ install:
+-	cp libvideomasterhd_sp.so.1.0.1 /usr/lib
+-	cp libFlxComm64.so.2016.03 /usr/lib
+-	cp libFlxCore64.so.2016.03 /usr/lib
+-	/sbin/ldconfig
+-	ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/lib/libvideomasterhd_sp.so 
+-	ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/lib/libFlxComm64.so 
+-	ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/lib/libFlxCore64.so 
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)
++	cp libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)
++	cp libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)
++	#/sbin/ldconfig
++	ln -sf ./libvideomasterhd_sp.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so 
++	ln -sf ./libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1 
++	ln -sf ./libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)/libFlxComm64.so 
++	ln -sf ./libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)/libFlxCore64.so 
+ 
  	

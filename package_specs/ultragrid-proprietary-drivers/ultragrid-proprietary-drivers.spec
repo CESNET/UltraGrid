@@ -1,5 +1,5 @@
 Name:		ultragrid-proprietary-drivers
-Version:	20170103
+Version:	20171107
 Release:	1%{?dist}
 Summary:	Ultragrid drivers pseudometapackage
 Group:		Applications/Multimedia
@@ -8,7 +8,9 @@ License: 	GPL
 URL:		http://ultragrid.cz
 
 # replace this line with generated conflicts
-Provides:	ultragrid-proprietary-drivers-nightly, ultragrid-proprietary-drivers-release-1.5
+Provides:	ultragrid-proprietary-drivers-nightly
+Provides:	ultragrid-proprietary-drivers-release-1.5
+
 BuildRequires:	gcc-c++, make, automake, autoconf, coreutils
 BuildRequires: 	libX11-devel, glew-devel, libXext-devel, glibc, ncurses-devel, qt-devel
 BuildRequires:	%kernel_module_package_buildreqs , kernel
@@ -34,7 +36,12 @@ Source1:	ultragrid-proprietary-drivers-rpmlintrc
 # > deltacast (videoMasterHD)
 #####################################################
 Patch0:		videoMasterHD-destdir.patch
-Patch1:		videoMasterHD-linux4.6-get-user-pages.patch
+#Patch1:		videoMasterHD-linux4.6-get-user-pages.patch
+#Patch9:		videoMasterHD-kernel-backports-opensuse-423.patch
+# somehow, provides detection seems to be broken on Fedora
+%if 0%{?fedora}
+Provides:	libFlxComm64.so()(64bit)
+%endif
 #####################################################
 # < deltacast (videoMasterHD)
 #####################################################
@@ -45,6 +52,7 @@ Patch10:	bluefish-uname.patch
 Patch11:	bluefish-g++.patch
 Patch12:	bluefish-destdir.patch
 Patch13:	bluefish-linux4.6-get-user-pages.patch
+Patch19:	bluefish-kernel-backports-opensuse-423.patch
 #####################################################
 # < bluefish (EpochLinuxDriver)
 #####################################################
@@ -56,7 +64,8 @@ Patch21:	AJA-nodemo.patch
 Patch22:	AJA-qmake.patch
 Patch23:	AJA-qt5.patch
 Patch24:	AJA-gcc-explicit-constructors.patch
-Patch25:	AJA-linux4.6-get-user-pages.patch
+#Patch25:	AJA-linux4.6-get-user-pages.patch
+Patch29:	AJA-kernel-backports-opensuse-423.patch
 #####################################################
 # < aja (ntv2sdklinux)
 #####################################################
@@ -64,6 +73,7 @@ Patch25:	AJA-linux4.6-get-user-pages.patch
 # > dvs (sdk)
 #####################################################
 Patch30:	dvs-linux4.6-get-user-pages.patch
+Patch39:	dvs-kernel-backports-opensuse-423.patch
 #####################################################
 # < dvs (sdk)
 #####################################################
@@ -82,7 +92,10 @@ VideoMasterHD		--deltacast
 # > deltacast
 #####################################################
 %patch0 -p1
-%patch1 -p1
+#%patch1 -p1
+#%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+#%patch9 -p1
+#%endif
 #####################################################
 # < deltacast
 #####################################################
@@ -93,6 +106,9 @@ VideoMasterHD		--deltacast
 %patch11 -p1
 %patch12 -p1
 %patch13 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+%patch19 -p1
+%endif
 #####################################################
 # < bluefish
 #####################################################
@@ -104,7 +120,10 @@ VideoMasterHD		--deltacast
 %patch22 -p1
 %patch23 -p1
 %patch24 -p1
-%patch25 -p1
+#%patch25 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+%patch29 -p1
+%endif
 #####################################################
 # < aja
 #####################################################
@@ -112,19 +131,24 @@ VideoMasterHD		--deltacast
 # > dvs (sdk)
 #####################################################
 %patch30 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} >= 120200
+%patch39 -p1
+%endif
 #####################################################
 # < dvs (sdk)
 #####################################################
 
 %build
 %define debug_package %{nil}
+find . -type f -iname "*.pri" -exec chmod -x {} \;
+find . -type f -name "Makefile" -exec chmod -x {} \;
+find . -type f -name "*~" -exec rm {} \;
 
 #####################################################
 # > aja
 #####################################################
-ls
-pushd ntv2sdklinux_*/ntv2projects
-env libdir=%{_libdir} make QTDIR=/usr/lib/qt5
+pushd ntv2sdk*
+env libdir=%{_libdir} make QTDIR=/usr/lib/qt5 AJA_NO_FLTK=1
 popd
 #####################################################
 # < aja
@@ -139,6 +163,8 @@ popd
 pushd EpochLinuxDriver_V5*/apis/BlueVelvet
 env libdir=%{_libdir} make
 popd
+
+rm -rf EpochLinuxDriver_V5*/firmware/x86
 #####################################################
 # < bluefish
 #####################################################
@@ -200,12 +226,16 @@ popd
 
 # fix bad arch binaries
 find ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r {} \;
+find ${RPM_BUILD_ROOT}/ -executable -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $'\n' filename ; do rm "$filename" ; done
+find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $'\n' filename ; do rm "$filename" ; done
 #####################################################
 # < deltacast
 #####################################################
 
 for pattern in "*.so" "*.so.*" "*.sh" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod +x {} \; ; done
 for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod -x {} \; ; done
+
+export NO_BRP_CHECK_RPATH=true
 
 %post -p /sbin/ldconfig
 
