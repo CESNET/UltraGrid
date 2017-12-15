@@ -1,0 +1,42 @@
+diff -rupN a/sdk4.3.5.21/development/src_lucy/driver/linux.c b/sdk4.3.5.21/development/src_lucy/driver/linux.c
+--- a/sdk4.3.5.21/development/src_lucy/driver/linux.c	2017-12-15 20:45:46.604629865 +0100
++++ b/sdk4.3.5.21/development/src_lucy/driver/linux.c	2017-12-15 20:45:47.040637140 +0100
+@@ -790,7 +790,7 @@ INTERNAL donttag ps_alenlist * hal_LockM
+ 
+   /*** make all pages present */
+   down_read(&current->mm->mmap_sem);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60)
+   result = get_user_pages(current, current->mm, (unsigned long) addr, npages, bcard2host, 0 /* force */, pages, NULL);
+ #elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+   result = get_user_pages((unsigned long) addr, npages, bcard2host, 0 /* force */, pages, NULL);
+@@ -913,7 +913,7 @@ INTERNAL donttag void hal_UnlockMemory(v
+         if (alenlist->flags & PS_ALENLIST_READ) {
+           SetPageDirty(pages[i]);
+         }
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60)
+         page_cache_release(pages[i]);
+ #else
+         put_page(pages[i]);
+diff -rupN a/sdk4.3.5.21/development/src_v4r3/driver/linux.c b/sdk4.3.5.21/development/src_v4r3/driver/linux.c
+--- a/sdk4.3.5.21/development/src_v4r3/driver/linux.c	2017-12-15 20:45:46.604629865 +0100
++++ b/sdk4.3.5.21/development/src_v4r3/driver/linux.c	2017-12-15 20:45:47.192639675 +0100
+@@ -806,7 +806,7 @@ INTERNAL donttag ps_alenlist * hal_LockM
+ 
+   /*** make all pages present */
+   down_read(&current->mm->mmap_sem);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60)
+   result = get_user_pages(current, current->mm, (unsigned long) addr, npages, bcard2host, 0 /* force */, pages, NULL);
+ #elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+   result = get_user_pages((unsigned long) addr, npages, bcard2host, 0 /* force */, pages, NULL);
+@@ -930,7 +930,7 @@ INTERNAL donttag void hal_UnlockMemory(v
+         if (alenlist->flags & PS_ALENLIST_READ) {
+           SetPageDirty(pages[i]);
+         }
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60)
+         page_cache_release(pages[i]);
+ #else
+         put_page(pages[i]);

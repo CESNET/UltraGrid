@@ -46,6 +46,7 @@ Patch10:	bluefish-uname.patch
 Patch11:	bluefish-g++.patch
 Patch12:	bluefish-destdir.patch
 Patch13:	bluefish-linux4.6-get-user-pages.patch
+Patch19:	bluefish-kernel-backports-opensuse-423.patch
 #####################################################
 # < bluefish (EpochLinuxDriver)
 #####################################################
@@ -58,6 +59,7 @@ Patch22:	AJA-qmake.patch
 Patch23:	AJA-qt5.patch
 Patch24:	AJA-gcc-explicit-constructors.patch
 Patch25:	AJA-linux4.6-get-user-pages.patch
+Patch29:	AJA-kernel-backports-opensuse-423.patch
 #####################################################
 # < aja (ntv2sdklinux)
 #####################################################
@@ -65,6 +67,7 @@ Patch25:	AJA-linux4.6-get-user-pages.patch
 # > dvs (sdk)
 #####################################################
 Patch30:	dvs-linux4.6-get-user-pages.patch
+Patch39:	dvs-kernel-backports-opensuse-423.patch
 #####################################################
 # < dvs (sdk)
 #####################################################
@@ -94,6 +97,9 @@ VideoMasterHD		--deltacast
 %patch11 -p1
 %patch12 -p1
 %patch13 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+%patch19 -p1
+%endif
 #####################################################
 # < bluefish
 #####################################################
@@ -106,6 +112,9 @@ VideoMasterHD		--deltacast
 %patch23 -p1
 %patch24 -p1
 %patch25 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+%patch29 -p1
+%endif
 #####################################################
 # < aja
 #####################################################
@@ -113,6 +122,9 @@ VideoMasterHD		--deltacast
 # > dvs (sdk)
 #####################################################
 %patch30 -p1
+%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+%patch39 -p1
+%endif
 #####################################################
 # < dvs (sdk)
 #####################################################
