@@ -3,7 +3,7 @@
 scriptroot="$(dirname "$(realpath "$0")")"
 
 vendors=( deltacast blackmagick dvs aja bluefish cuda )
-subpackages=( ultragrid-nightly ultragrid ultragrid-proprietary-drivers )
+subpackages=( ultragrid-nightly ultragrid $(echo "ultragrid-proprietary-drivers"* ) )
 
 mkdir a
 for pkg in ${subpackages[*]} ; do
