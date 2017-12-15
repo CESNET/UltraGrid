@@ -1,6 +1,6 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
---- a/ultragrid/debian.rules	2017-12-15 17:09:35.984605917 +0100
-+++ b/ultragrid/debian.rules	2017-12-15 17:09:38.176649249 +0100
+--- a/ultragrid/debian.rules	2017-12-15 17:14:35.118354118 +0100
++++ b/ultragrid/debian.rules	2017-12-15 17:14:37.730403105 +0100
 @@ -49,7 +49,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
  #####################################################
  # > cuda
@@ -11,8 +11,8 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
  # < cuda
  #####################################################
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
---- a/ultragrid/ultragrid.spec.tpl	2017-12-15 17:09:35.984605917 +0100
-+++ b/ultragrid/ultragrid.spec.tpl	2017-12-15 17:09:38.136648459 +0100
+--- a/ultragrid/ultragrid.spec.tpl	2017-12-15 17:14:35.118354118 +0100
++++ b/ultragrid/ultragrid.spec.tpl	2017-12-15 17:14:37.682402206 +0100
 @@ -35,7 +35,7 @@ BuildRequires:	glib2-devel, libcurl-deve
  #####################################################
  # > cuda
@@ -23,8 +23,8 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
  # < cuda
  #####################################################
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
---- a/ultragrid-nightly/debian.rules	2017-12-15 17:09:35.984605917 +0100
-+++ b/ultragrid-nightly/debian.rules	2017-12-15 17:09:38.112647985 +0100
+--- a/ultragrid-nightly/debian.rules	2017-12-15 17:14:35.114354044 +0100
++++ b/ultragrid-nightly/debian.rules	2017-12-15 17:14:37.662401829 +0100
 @@ -49,7 +49,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
  #####################################################
  # > cuda
@@ -35,8 +35,8 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
  # < cuda
  #####################################################
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
---- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:09:35.984605917 +0100
-+++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:09:38.068647116 +0100
+--- a/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:14:35.114354044 +0100
++++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl	2017-12-15 17:14:37.558399880 +0100
 @@ -35,7 +35,7 @@ BuildRequires:	glib2-devel, libcurl-deve
  #####################################################
  # > cuda

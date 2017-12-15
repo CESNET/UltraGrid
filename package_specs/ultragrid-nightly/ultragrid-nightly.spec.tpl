@@ -54,6 +54,7 @@ BuildRequires:	libgpujpeg-devel
 %endif
 
 %define build_conference 1
+%define build_gui 1
 # bug OpenCV3 in Fedora 25 does not contain gpu support stuff
 %if 0%{?fedora} > 24
 %define build_conference 0
@@ -63,6 +64,22 @@ BuildRequires:	libgpujpeg-devel
 %define build_conference 0
 %endif
 
+%if 0%{?build_gui} > 0
+%if 0%{?fedora} > 0
+%if 0%{?fedora} > 25
+BuildRequires:	qt5-devel
+%else
+%if 0%{?fedora} > 24
+BuildRequires:	qt5-devel
+%else
+BuildRequires:	qt5-qtbase-devel
+%endif
+%endif
+%endif
+%if 0%{?leap_version} > 0
+BuildRequires:	libQt5Widgets-devel
+%endif
+%endif
 Conflicts:	ultragrid-core, ultragrid
 Provides:	ultragrid
 
@@ -149,7 +166,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 %configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
 	--enable-sdl --enable-gl --enable-rtdxt \
 	--enable-portaudio --disable-jack-transport --enable-jack \
-	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
+	--enable-alsa --enable-scale --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
 	--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 	--disable-rtsp \
@@ -158,6 +175,11 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 		--enable-video-mixer \
 	%else
 		--disable-video-mixer \
+	%endif
+	%if 0%{?build_gui} > 0
+		--enable-qt \
+	%else
+		--disable-qt \
 	%endif
 	%{?cudaconf} \
 	%if 0%{?cuda} > 0
@@ -213,7 +235,10 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_docdir}/ultragrid/*
 %{_bindir}/uv
 %{_bindir}/hd-rum-transcode
+%if 0%{?build_gui} > 0
 %{_bindir}/uv-qt
+%{_libdir}/ultragrid/module_display_preview.so
+%endif
 %dir %{_libdir}/ultragrid
 %if 0%{?build_dvs} > 0
 %{_libdir}/ultragrid/module_vidcap_dvs.so
@@ -237,8 +262,8 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %endif
 %{_libdir}/ultragrid/module_display_sdl.so
 # rtsp is broken with current live555
-#%{_libdir}/ultragrid/module_vidcap_rtsp.so
-#%{_libdir}/ultragrid/module_video_rxtx_h264.so
+#{_libdir}/ultragrid/module_vidcap_rtsp.so
+#{_libdir}/ultragrid/module_video_rxtx_h264.so
 %{_libdir}/ultragrid/module_vcapfilter_resize.so
 %{_libdir}/ultragrid/module_vcapfilter_blank.so
 %{_libdir}/ultragrid/module_vidcap_testcard.so
