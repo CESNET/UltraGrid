@@ -2338,6 +2338,9 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 # QT GUI
+
+qt_gui=no
+
 GUI_TARGET=
 QMAKE=
 #qmake # default for most distributions
@@ -2348,16 +2351,32 @@ AC_ARG_ENABLE(qt,
     [qt_req=no]
     )
 
-if test $qt_req != no
+# Check for Qt libraries
+define(qt_gui_dep, Qt5Core Qt5Widgets libv4l2)
+PKG_CHECK_MODULES(QT, [qt_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+
+if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
-        AC_CHECK_PROGS(QMAKE, [qmake-qt4 qmake])
-        GUI_TARGET=gui/QT/uv-qt
-else
-        GUI_TARGET=
+	# Retrieve Qt compilation and linker flags
+	CXXFLAGS="`$PKG_CONFIG --cflags-only-I QtCore ` $CXXFLAGS"
+	CFLAGS="`$PKG_CONFIG --cflags-only-I QtCore ` $CFLAGS"
+	LDFLAGS="`$PKG_CONFIG --libs-only-L QtCore ` $LDFLAGS"
+	LIBS="`$PKG_CONFIG --libs-only-l QtCore ` $LIBS"
+
+	ADD_MODULE("display_preview", "src/video_display/preview.o", "$PREVIEW_DISP_LIBS")
+
+	AC_CHECK_PROGS(QMAKE, [qmake-qt5 qmake])
+	GUI_TARGET=gui/QT/uv-qt
+
+	qt_gui=yes
 fi
 
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
+
+if test $qt_req = yes -a $qt_gui = no; then
+		AC_MSG_ERROR([Qt libraries are required.])
+fi
 
 # -------------------------------------------------------------------------------------------------
 # V4L2
