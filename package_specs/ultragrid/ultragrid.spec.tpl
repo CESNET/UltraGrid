@@ -21,7 +21,7 @@ BuildRequires:	opencv-devel
 #BuildRequires: live555-devel
 
 BuildRequires: 	cairo >= 1.14.0-2
-BuildRequires: 	ultragrid-proprietary-drivers
+BuildRequires: 	ultragrid-proprietary-drivers-release-1.4
 %if %{defined fedora}
 BuildRequires:	libjpeg-turbo-devel,mesa-libGL-devel
 BuildRequires:	ffmpeg-devel
