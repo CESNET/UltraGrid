@@ -47,7 +47,6 @@ BuildRequires:	cuda-core-8-0, cuda-command-line-tools-8-0, cuda-cudart-dev-8-0, 
 %else
 BuildRequires:	cuda-core-9-0, cuda-command-line-tools-9-0, cuda-cudart-dev-9-0, gcc < 7
 %define cudaconf --with-cuda=$(find /usr/local/ -maxdepth 1 -type d -name 'cuda*' | sort -rn | head -n 1) --with-cuda-host-compiler="$(basename "$(ls -1 /usr/bin/*gcc-6* | sort -rn | head -n 1)")"
-BuildRequires: gcc-gfortran > 6.99
 %endif
 BuildRequires:	libgpujpeg-devel
 %else
