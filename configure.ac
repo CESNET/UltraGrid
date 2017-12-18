@@ -1761,7 +1761,7 @@ if test $uyvy_req = yes -a $uyvy = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# CUDA staff
+# CUDA stuff
 #
 # CUDA compiler choice - defaults to nvcc
 # 
@@ -1844,7 +1844,7 @@ case "$CUDA_COMPILER" in
 		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
 		;;
 	*)
-		AC_MSG_ERROR([Unsupported cuda compiler $CUDA_COMPILER])
+		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
 		;;
 esac
 HOST_CC_REPORT=" (cuda code compiler: $(basename $CUDA_COMPILER))"
