@@ -4,6 +4,7 @@
 #include <QProcess>
 #include <QCoreApplication>
 #include <QMessageBox>
+#include <QSurfaceFormat>
 
 #include "ultragrid_window.hpp"
 
@@ -32,6 +33,13 @@ int main(int argc, char *argv[]){
 		msgBox.exec();
 		return 1;
 	}
+
+	QSurfaceFormat fmt;
+	fmt.setDepthBufferSize(24);
+	fmt.setStencilBufferSize(8);
+	fmt.setVersion(3, 3);
+	fmt.setProfile(QSurfaceFormat::CoreProfile);
+	QSurfaceFormat::setDefaultFormat(fmt);
 
 	UltragridWindow uw;
 	uw.show();

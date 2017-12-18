@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <QOpenGLFunctions_3_3_Core>
 #include "previewWidget.hpp"
 #include "shared_mem_frame.hpp"
 
@@ -37,7 +38,7 @@ void main(){
 }
 )END";
 
-static void compileShader(GLuint shaderId, QOpenGLFunctions *f){
+static void compileShader(GLuint shaderId, QOpenGLFunctions_3_3_Core *f){
 	f->glCompileShader(shaderId);
 
 	GLint ret = GL_FALSE;
@@ -61,8 +62,16 @@ static unsigned char pixels[] = {
 };
 
 void PreviewWidget::initializeGL(){
-	QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+
+	vao.create();
+	vao.bind();
+
 	f->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+	f->glDisable(GL_DEPTH_TEST);
+	f->glDisable(GL_SCISSOR_TEST);
+	f->glDisable(GL_STENCIL_TEST);
 
 	f->glGenBuffers(1, &vertexBuffer);
 	f->glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -80,6 +89,7 @@ void PreviewWidget::initializeGL(){
 	f->glAttachShader(program, vertexShader);
 	f->glAttachShader(program, fragShader);
 	f->glLinkProgram(program);
+	f->glUseProgram(program);
 
 	f->glDetachShader(program, vertexShader);
 	f->glDetachShader(program, fragShader);
@@ -91,6 +101,8 @@ void PreviewWidget::initializeGL(){
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	vao.release();
 
 	scaleVec[0] = 0.75f;
 	scaleVec[1] = 0.5;
@@ -134,7 +146,9 @@ void PreviewWidget::setVidSize(int w, int h){
 }
 
 void PreviewWidget::paintGL(){
-	QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+
+	vao.bind();
 	f->glClear(GL_COLOR_BUFFER_BIT);
 
 	f->glUseProgram(program);
@@ -179,4 +193,6 @@ void PreviewWidget::paintGL(){
 	}
 
 	f->glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	vao.release();
 }

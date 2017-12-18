@@ -4,6 +4,7 @@
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QSharedMemory>
+#include <QOpenGLVertexArrayObject>
 #include <QTimer>
 
 class PreviewWidget : public QOpenGLWidget{
@@ -24,6 +25,8 @@ private:
 	GLuint fragShader;
 	GLuint program;
 	GLuint texture;
+
+	QOpenGLVertexArrayObject vao;
 
 	GLfloat scaleVec[2];
 	int vidW, vidH;
