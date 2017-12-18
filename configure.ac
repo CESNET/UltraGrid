@@ -2434,6 +2434,36 @@ if test $dshow_req = yes -a $dshow = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# libavcodec hw-accelerated encoding/decoding
+# -------------------------------------------------------------------------------------------------
+lavc_hwacc=no
+
+define(lavc_hwacc_dep, libavutil >= 55.22.1 libva vdpau)
+
+AC_ARG_ENABLE(lavc-hw-accel,
+[  --disable-lavc-hw-accel   disable lavc-hw-accel (default is auto)]
+[                          Requires: lavc_hwacc_dep],
+    [lavc_hwacc_req=$enableval],
+    [lavc_hwacc_req=auto]
+    )
+
+PKG_CHECK_MODULES([LAVC_HWACC], [lavc_hwacc_dep], [FOUND_HWACC_DEP=yes], [FOUND_HWACC_DEP=no])
+
+if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
+then
+        LAVC_HWACC_FLAGS="$CFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
+        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS}"
+        lavc_hwacc=yes
+else
+        LAVC_HWACC_FLAGS=
+        LAVC_HWACC_LIBS=
+fi
+
+if test $lavc_hwacc_req = yes -a $lavc_hwacc = no; then
+	AC_MSG_ERROR([Could not find hwacc dependencies!]);
+fi
+
+# -------------------------------------------------------------------------------------------------
 # Libav
 # -------------------------------------------------------------------------------------------------
 libavcodec=no
@@ -2478,9 +2508,9 @@ then
 
         LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
         LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
-        COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
+        COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS $LAVC_HWACC_FLAGS"
         libavcodec=yes
-        LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # append libavutil
+        LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS $LAVC_HWACC_LIBS" # added libavutil explicitly
         ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS")
         ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
         ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
@@ -2677,34 +2707,6 @@ fi
 
 if test $video_mix_req = yes -a $video_mix = no; then
         AC_MSG_ERROR([Could not found OpenCV needed for video mixer!]);
-fi
-
-# -------------------------------------------------------------------------------------------------
-# libavcodec hw-accelerated encoding/decoding
-# -------------------------------------------------------------------------------------------------
-lavc_hwacc=no
-
-define(lavc_hwacc_dep, libavutil >= 55.22.1 libva vdpau)
-
-AC_ARG_ENABLE(lavc-hw-accel,
-[  --disable-lavc-hw-accel   disable lavc-hw-accel (default is auto)]
-[                          Requires: lavc_hwacc_dep],
-    [lavc_hwacc_req=$enableval],
-    [lavc_hwacc_req=auto]
-    )
-
-PKG_CHECK_MODULES([LAVC_HWACC], [lavc_hwacc_dep], [FOUND_HWACC_DEP=yes], [FOUND_HWACC_DEP=no])
-
-if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
-then
-        CFLAGS="$CFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
-        CXXFLAGS="$CXXFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
-		LIBS="$LIBS ${LAVC_HWACC_LIBS}"
-        lavc_hwacc=yes
-fi
-
-if test $lavc_hwacc_req = yes -a $lavc_hwacc = no; then
-	AC_MSG_ERROR([Could not find hwacc dependencies!]);
 fi
 
 # ------------------------------------------------------------------------------------------------
