@@ -2706,6 +2706,23 @@ if test $lavc_hwacc_req = yes -a $lavc_hwacc = no; then
 	AC_MSG_ERROR([Could not find hwacc dependencies!]);
 fi
 
+# ------------------------------------------------------------------------------------------------
+# BitFlow
+# -------------------------------------------------------------------------------------------------
+AC_ARG_ENABLE(bitflow,
+      AS_HELP_STRING([--enable-bitflow], [Compile BitFlow grabber support]),
+    [bitflow_req=$enableval],
+    [bitflow_req=no]
+    )
+
+bitflow=no
+
+if test $bitflow_req = yes
+then
+        LIBS="$LIBS -lBFSOciLib -lBFciLib -lBFML"
+        OBJS="$OBJS src/video_capture/bitflow.o"
+        bitflow=yes
+fi
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
@@ -2753,6 +2770,7 @@ RESULT=\
   AJA ......................... $aja
   AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
+  BitFlow ..................... $bitflow
   DeckLink .................... $decklink
   DirectShow .................. $dshow
   DELTACAST ................... $deltacast
