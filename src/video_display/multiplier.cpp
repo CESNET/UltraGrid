@@ -121,6 +121,12 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
         s = new state_multiplier();
 
         if (fmt && strlen(fmt) > 0) {
+                if (strcmp(fmt, "help") == 0) { 
+                    show_help();
+                    delete s;
+                    return &display_init_noerr;
+                }
+            
                 if (isdigit(fmt[0])) { // fork
                         struct state_multiplier *orig;
                         sscanf(fmt, "%p", &orig);
