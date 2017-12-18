@@ -525,7 +525,6 @@ case "$host_os" in
                                 X_CFLAGS=$SAVED_X_CFLAGS
                         fi
                 fi
-                X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
                 LIBS="$LIBS -ldl"
                 CFLAGS="$CFLAGS"
@@ -534,10 +533,7 @@ case "$host_os" in
         ;;
 esac
 
-LIBS="$LIBS $X_LIBS"
-
 AC_SUBST(X_CFLAGS)
-AC_SUBST(X_LIBS)
 AC_SUBST(X_EXTRA_LIBS)
 AC_SUBST(X_PRE_LIBS)
 AC_SUBST(X_OBJ)
@@ -1739,7 +1735,7 @@ SAVED_LIBS=$LIBS
 if test $uyvy_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
-        UYVY_LIB=" -lGLEW -lGL -lX11 $X_LIBS"
+        UYVY_LIB=" -lGLEW -lGL -lX11"
         uyvy=yes
 fi
 

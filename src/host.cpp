@@ -115,10 +115,11 @@ bool set_output_buffering() {
  * is not correct in multithreaded program.
  */
 static int x11_error_handler(Display *d, XErrorEvent *e) {
-        char msg[1024] = "";
-        XGetErrorText(d, e->error_code, msg, sizeof msg - 1);
-        log_msg(LOG_LEVEL_ERROR, "X11 error - %s, serial: %d, error: %d, request: %d, minor: %d\n",
-                        msg, e->serial, e->error_code, e->request_code, e->minor_code);
+        //char msg[1024] = "";
+        //XGetErrorText(d, e->error_code, msg, sizeof msg - 1);
+        UNUSED(d);
+        log_msg(LOG_LEVEL_ERROR, "X11 error - code: %d, serial: %d, error: %d, request: %d, minor: %d\n",
+                        e->error_code, e->serial, e->error_code, e->request_code, e->minor_code);
 
         return 0;
 }
