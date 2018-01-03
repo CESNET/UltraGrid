@@ -36,11 +36,11 @@ struct item;
 #define REPLICA_MAGIC 0xd2ff3323
 
 struct replica {
-    replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent) {
+    replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, bool use_ipv6) {
         magic = REPLICA_MAGIC;
         host = addr;
         m_tx_port = tx_port;
-        sock = udp_init(addr, rx_port, tx_port, 255, false, false);
+        sock = udp_init(addr, rx_port, tx_port, 255, use_ipv6, false);
         if (!sock) {
             throw string("Cannot initialize output port!\n");
         }
@@ -324,7 +324,7 @@ static void *writer(void *arg)
                 char *compress = strtok_r(NULL, " ", &save_ptr);
                 struct replica *rep;
                 try {
-                    rep = new replica(host, 0, tx_port, 100*1000, &s->mod);
+                    rep = new replica(host, 0, tx_port, 100*1000, &s->mod, false);
                 } catch (string const & s) {
                     fputs(s.c_str(), stderr);
                     const char *err_msg = "cannot create output port (wrong address?)";
@@ -455,6 +455,7 @@ static void usage(const char *progname) {
                 "\t\t-m <mtu> - MTU size\n"
                 "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
+                "\t\t-6 - use IPv6\n"
               );
         printf("\tPlease note that blending and capture filter is used only for host for which\n"
                "\tcompression is specified (transcoding is active). If compression is not\n"
@@ -470,6 +471,7 @@ struct host_opts {
     char *compression;
     char *fec;
     int64_t bitrate;
+    bool use_ipv6;
 };
 
 struct cmdline_parameters {
@@ -595,6 +597,9 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                         parsed->hosts[host_idx].bitrate = unit_evaluate(argv[i + 1]);
                         assert(parsed->hosts[host_idx].bitrate > 0);
                     }
+                    break;
+                case '6':
+                    parsed->hosts[host_idx].use_ipv6 = true;
                     break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
@@ -733,7 +738,7 @@ int main(int argc, char **argv)
         }
 
         try {
-            state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod);
+            state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod, params.hosts[i].use_ipv6);
         } catch (string const &s) {
             fputs(s.c_str(), stderr);
             return EXIT_FAILURE;
