@@ -107,7 +107,7 @@
 #include <thread>
 
 #ifdef HAVE_LIBAVCODEC_AVCODEC_H
-#include <libavcodec/avcodec.h> // FF_INPUT_BUFFER_PADDING_SIZE
+#include <libavcodec/avcodec.h> // AV_INPUT_BUFFER_PADDING_SIZE
 #endif
 
 
@@ -143,7 +143,7 @@ static int sum_map(map<int, int> const & m) {
 namespace {
 
 #ifdef HAVE_LIBAVCODEC_AVCODEC_H
-constexpr int PADDING = FF_INPUT_BUFFER_PADDING_SIZE;
+constexpr int PADDING = AV_INPUT_BUFFER_PADDING_SIZE;
 #else
 constexpr int PADDING = 0;
 #endif
