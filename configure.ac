@@ -131,11 +131,10 @@ AC_MSG_RESULT($os_version_minor);
 
 if test $system = MacOSX
 then
-        COMMON_OSX_FLAGS="-I/opt/local/include -mmacosx-version-min=10.7 -stdlib=libc++"
+        COMMON_OSX_FLAGS="-mmacosx-version-min=10.7 -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
-        CUDA_FLAGS="$CUDA_FLAGS -I/opt/local/include"
         if test $WORD_LEN = 32; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
         fi
@@ -1443,7 +1442,6 @@ case "$system" in
 					)
 			if test "$FOUND_GLUT" = yes
 			then
-				GL_INC="$GL_INC -I/opt/local/include"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
                                 gl=yes
