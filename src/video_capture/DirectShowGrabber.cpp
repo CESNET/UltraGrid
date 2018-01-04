@@ -490,7 +490,7 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 					s->deviceNumber = atoi(token);
 				} else { // device specified by name
 					s->deviceName = (char *) malloc(sizeof(char) * (strlen(token) + 100));
-					if (s->deviceName == false) return false;
+					if (s->deviceName == NULL) return false;
 					strcpy_s(s->deviceName, strlen(token), token);
 					s->deviceNumber = -1;
 				}
