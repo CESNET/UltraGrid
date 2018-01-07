@@ -121,6 +121,10 @@ void UltragridWindow::queryOpts(){
 	setArgs();
 }
 
+void UltragridWindow::closeEvent(QCloseEvent *){
+	log.close();
+}
+
 void UltragridWindow::setAdvanced(bool adv){
 	for(auto &opt : opts){
 		opt->setAdvanced(adv);
