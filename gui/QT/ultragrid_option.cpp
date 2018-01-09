@@ -7,6 +7,26 @@
 #include "ultragrid_option.hpp"
 #include "v4l2.hpp"
 
+#define EXIT_FAIL_DISPLAY 4
+#define EXIT_FAIL_CAPTURE 5
+
+bool testCaptureDisplay(const QString &executable, const QString &cmd){
+	QProcess process;
+
+	QString command = executable + " " + cmd;
+	process.start(command);
+	process.waitForFinished(5000); // wait 5 seconds max in case it hangs
+
+	if(process.exitStatus() != QProcess::NormalExit){
+		//Ultragrid hanged or crashed
+		return false;
+	}
+
+	int exitCode = process.exitCode();
+
+	return exitCode != EXIT_FAIL_DISPLAY && exitCode != EXIT_FAIL_CAPTURE;
+}
+
 QStringList UltragridOption::getAvailOpts(const QString &executable,
 			const QString &helpCommand)
 {
@@ -91,7 +111,10 @@ void SourceOption::queryAvailOpts(){
 	QStringList opts = getAvailOpts(ultragridExecutable, QString("-t help"));
 
 	for(const auto& i : opts){
-		if(whiteList.contains(i) || advanced){
+		if((whiteList.contains(i)
+					&& testCaptureDisplay(ultragridExecutable,
+						QString("-t ") + i + QString(":help")))
+					|| advanced){
 			src->addItem(i, QVariant(i));
 		}
 	}
@@ -210,7 +233,10 @@ void DisplayOption::queryAvailOpts(){
 	QStringList opts = getAvailOpts(ultragridExecutable, QString("-d help"));
 
 	for(const auto& i : opts){
-		if(whiteList.contains(i) || advanced){
+		if((whiteList.contains(i)
+					&& testCaptureDisplay(ultragridExecutable,
+						QString("-d ") + i + QString(":help")))
+					|| advanced){
 			disp->addItem(i);
 		}
 	}
