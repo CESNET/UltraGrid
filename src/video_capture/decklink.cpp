@@ -1052,7 +1052,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 BMD_STR displayModeString = NULL;
                                 result = displayMode->GetName(&displayModeString);
                                 if (result == S_OK) {
-                                        const char *displayModeCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                        const char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
                                         LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
                                         release_bmd_api_str(displayModeString);
                                         free((void *)displayModeCString);
