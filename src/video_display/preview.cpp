@@ -77,15 +77,15 @@ struct state_preview_common {
         mutex lock;
         condition_variable cv;
 
-		QSharedMemory shared_mem;
-		bool reconfiguring;
-		size_t mem_size;
-		codec_t frame_fmt;
+        QSharedMemory shared_mem;
+        bool reconfiguring;
+        size_t mem_size;
+        codec_t frame_fmt;
 
-		int scaledW, scaledH;
-		int scaleF;
-		int scaledW_pad;
-		std::vector<unsigned char> scaled_frame;
+        int scaledW, scaledH;
+        int scaleF;
+        int scaledW_pad;
+        std::vector<unsigned char> scaled_frame;
 
         struct module *parent;
 };
@@ -117,9 +117,6 @@ static void show_help(){
 static void *display_preview_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_preview *s;
-        char *fmt_copy = NULL;
-        const char *requested_display = NULL;
-        const char *cfg = NULL;
 
         s = new state_preview();
 
@@ -130,65 +127,69 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
                         s->common = orig->common;
                         return s;
                 } else {
-						show_help();
-						return &display_init_noerr;
+                        show_help();
+                        return &display_init_noerr;
                 }
         }
         s->common = shared_ptr<state_preview_common>(new state_preview_common());
         s->common->parent = parent;
 
-		s->common->shared_mem.setKey("ultragrid_preview");
-		s->common->mem_size = 4096;
-		s->common->frame_fmt = RGB;
-		if(s->common->shared_mem.create(s->common->mem_size) == false){
-			/* Creating shared memory could fail because of shared memory
-			 * left over after crash. Here we try to release such memory. */
-			s->common->shared_mem.attach();
-			s->common->shared_mem.detach();
-			if(s->common->shared_mem.create(s->common->mem_size) == false){
-				fprintf(stderr, "Can't create shared memory!\n");
-				return &display_init_noerr;
-			}
-		}
+        s->common->shared_mem.setKey("ultragrid_preview");
+        s->common->mem_size = 4096;
+        s->common->frame_fmt = RGB;
+        if(s->common->shared_mem.create(s->common->mem_size) == false){
+                /* Creating shared memory could fail because of shared memory
+                 * left over after crash. Here we try to release such memory. */
+                s->common->shared_mem.attach();
+                s->common->shared_mem.detach();
+                if(s->common->shared_mem.create(s->common->mem_size) == false){
+                        fprintf(stderr, "Can't create shared memory!\n");
+                        return &display_init_noerr;
+                }
+        }
 
-		s->common->reconfiguring = false;
-		s->common->shared_mem.lock();
+        s->common->reconfiguring = false;
+        s->common->shared_mem.lock();
 
-		struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->common->shared_mem.data();
-		sframe->width = 20;
-		sframe->height = 20;
+        struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->common->shared_mem.data();
+        sframe->width = 20;
+        sframe->height = 20;
 
-		s->common->shared_mem.unlock();
+        s->common->shared_mem.unlock();
 
-		s->common->scaleF = 4;
+        s->common->scaleF = 4;
 
         return s;
 }
 
 static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 {
-        if (!video_desc_eq(desc, s->display_desc)) {
-                s->display_desc = desc;
-                fprintf(stderr, "RECONFIGURED\n");
-				/* We need to destroy the shared memory segment
-				 * and recreate it with a new size. To destroy it all processes
-				 * must detach it. We detach here and then wait until the GUI detaches */
-				s->reconfiguring = true;
+        if (video_desc_eq(desc, s->display_desc))
+                return;
 
-				float scale = ((desc.width / 960.f) + (desc.height / 540.f)) / 2.f;
-				if(scale < 1)
-					scale = 1;
-				scale = std::round(scale);
-				s->scaleF = (int) scale;
-				
-				s->scaledW = desc.width / s->scaleF;
-				//OpenGL wants the width to be divisable by 4
-				s->scaledW_pad = ((s->scaledW + 4 - 1) / 4) * 4;
-				s->scaledH = desc.height / s->scaleF;
-				s->scaled_frame.resize(get_bpp(desc.color_spec) * s->scaledW * s->scaledH);
-				s->shared_mem.detach();
-				s->mem_size = get_bpp(s->frame_fmt) * s->scaledW_pad * s->scaledH + sizeof(Shared_mem_frame);
-        }
+        s->display_desc = desc;
+        fprintf(stderr, "RECONFIGURED\n");
+        /* We need to destroy the shared memory segment
+         * and recreate it with a new size. To destroy it all processes
+         * must detach it. We detach here and then wait until the GUI detaches */
+        s->reconfiguring = true;
+
+        const float target_width = 960;
+        const float target_height = 540;
+
+        float scale = ((desc.width / target_width) + (desc.height / target_height)) / 2.f;
+        if(scale < 1)
+                scale = 1;
+        scale = std::round(scale);
+        s->scaleF = (int) scale;
+
+        s->scaledW = desc.width / s->scaleF;
+        //OpenGL wants the width to be divisable by 4
+        s->scaledW_pad = ((s->scaledW + 4 - 1) / 4) * 4;
+        s->scaledH = desc.height / s->scaleF;
+        s->scaled_frame.resize(get_bpp(desc.color_spec) * s->scaledW * s->scaledH);
+        s->shared_mem.detach();
+        s->mem_size = get_bpp(s->frame_fmt) * s->scaledW_pad * s->scaledH + sizeof(Shared_mem_frame);
 }
 
 static void display_preview_run(void *state)
@@ -218,51 +219,50 @@ static void display_preview_run(void *state)
 
                 check_reconf(s.get(), video_desc_from_frame(frame));
 
-				if(s->reconfiguring){
-					if(s->shared_mem.attach()){
-						// Shared mem is still not detached by the GUI
-						s->shared_mem.detach();
-						vf_free(frame);
-						return;
-					} else {
-						if(s->shared_mem.create(s->mem_size) == false){
-							fprintf(stderr, "Can't create shared memory!\n");
-						}
-						s->shared_mem.lock();
-						struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
-						sframe->width = s->scaledW_pad;
-						sframe->height = s->scaledH;
-						s->reconfiguring = false;
-					}
-				} else {
-					s->shared_mem.lock();
-				}
+                if(s->reconfiguring){
+                        if(s->shared_mem.attach()){
+                                // Shared mem is still not detached by the GUI
+                                s->shared_mem.detach();
+                                vf_free(frame);
+                                return;
+                        } else {
+                                if(s->shared_mem.create(s->mem_size) == false){
+                                        fprintf(stderr, "Can't create shared memory!\n");
+                                }
+                                s->shared_mem.lock();
+                                struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
+                                sframe->width = s->scaledW_pad;
+                                sframe->height = s->scaledH;
+                                s->reconfiguring = false;
+                        }
+                } else {
+                        s->shared_mem.lock();
+                }
 
-				struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
+                struct Shared_mem_frame *sframe = (Shared_mem_frame*) s->shared_mem.data();
 
-				decoder_t dec = get_decoder_from_to(frame->color_spec, s->frame_fmt, true);
+                decoder_t dec = get_decoder_from_to(frame->color_spec, s->frame_fmt, true);
 
-				int src_line_len = vc_get_linesize(s->display_desc.width, frame->color_spec);
-				int bpp = get_bpp(frame->color_spec);
-				int block_size = get_pf_block_size(frame->color_spec);
-				int dst = 0;
-				for(int y = 0; y < s->display_desc.height; y += s->scaleF){
-					for(int x = 0; x + s->scaleF * block_size <= src_line_len; x += s->scaleF * block_size){
-						memcpy(s->scaled_frame.data() + dst, frame->tiles[0].data + y*src_line_len + x, block_size);
-						dst += block_size;
-					}
-				}
-				int dst_line_len_pad = vc_get_linesize(s->scaledW_pad, s->frame_fmt);
-				int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
-				src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
-				for(int i = 0; i < s->scaledH; i++){
-					dec(sframe->pixels + dst_line_len_pad * i,
-							s->scaled_frame.data() + src_line_len * i,
-							dst_line_len,
-							0, 8, 16);
-				}
+                int src_line_len = vc_get_linesize(s->display_desc.width, frame->color_spec);
+                int block_size = get_pf_block_size(frame->color_spec);
+                int dst = 0;
+                for(unsigned y = 0; y < s->display_desc.height; y += s->scaleF){
+                        for(int x = 0; x + s->scaleF * block_size <= src_line_len; x += s->scaleF * block_size){
+                                memcpy(s->scaled_frame.data() + dst, frame->tiles[0].data + y*src_line_len + x, block_size);
+                                dst += block_size;
+                        }
+                }
+                int dst_line_len_pad = vc_get_linesize(s->scaledW_pad, s->frame_fmt);
+                int dst_line_len = vc_get_linesize(s->scaledW, s->frame_fmt);
+                src_line_len = vc_get_linesize(s->scaledW, frame->color_spec);
+                for(int i = 0; i < s->scaledH; i++){
+                        dec(sframe->pixels + dst_line_len_pad * i,
+                                        s->scaled_frame.data() + src_line_len * i,
+                                        dst_line_len,
+                                        0, 8, 16);
+                }
 
-				s->shared_mem.unlock();
+                s->shared_mem.unlock();
                 vf_free(frame);
         }
 }
