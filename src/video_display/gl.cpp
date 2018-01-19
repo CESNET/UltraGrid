@@ -434,7 +434,8 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
                         desc.color_spec == UYVY ||
                         desc.color_spec == DXT1 ||
                         desc.color_spec == DXT1_YUV ||
-                        desc.color_spec == DXT5);
+                        desc.color_spec == DXT5 ||
+                        desc.color_spec == HW_VDPAU);
 
         s->current_desc = desc;
 

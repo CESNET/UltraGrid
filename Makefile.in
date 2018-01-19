@@ -173,6 +173,7 @@ OBJS	      = @OBJS@ \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
 		rs/fec.o \
+		src/hwaccel.o \
 
 ULTRAGRID_OBJS = src/main.o \
 

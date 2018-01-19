@@ -57,6 +57,7 @@
 #include <libavutil/hwcontext_vaapi.h>
 #include <libavcodec/vdpau.h>
 #include <libavcodec/vaapi.h>
+#include "hwaccel.h"
 #define DEFAULT_SURFACES 20
 #endif
 
@@ -414,7 +415,10 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
                 (struct state_libavcodec_decompress *) state;
 
         s->pitch = pitch;
-        assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
+        assert(out_codec == UYVY ||
+                        out_codec == RGB ||
+                        out_codec == v210 ||
+                        out_codec == HW_VDPAU);
 
         s->pitch = pitch;
         s->rshift = rshift;
@@ -1112,6 +1116,19 @@ static void not_implemented_conv(char *dst_buffer, AVFrame *in_frame,
         log_msg(LOG_LEVEL_ERROR, "Selected conversion is not implemented!\n");
 }
 
+static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        UNUSED(width);
+        UNUSED(height);
+        UNUSED(pitch);
+
+        hw_vdpau_frame *out = (hw_vdpau_frame *) dst_buffer;
+
+        hw_vdpau_frame_init(out);
+
+        hw_vdpau_frame_from_avframe(out, in_frame);
+}
 
 static const struct {
         int av_codec;
@@ -1156,6 +1173,8 @@ static const struct {
         {AV_PIX_FMT_RGB24, v210, not_implemented_conv},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+        // HW acceleration
+        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau},
 };
 
 #ifdef USE_HWACC
@@ -1227,7 +1246,7 @@ static int vdpau_init(struct AVCodecContext *s){
         s->hw_frames_ctx = hw_frames_ctx;
 
         state->hwaccel.type = HWACCEL_VDPAU;
-        state->hwaccel.copy = true;
+        state->hwaccel.copy = false;
         state->hwaccel.tmp_frame = av_frame_alloc();
         if(!state->hwaccel.tmp_frame){
                 ret = -1;
@@ -1551,7 +1570,10 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch) {
-        assert(out_codec == UYVY || out_codec == RGB || out_codec == v210);
+        assert(out_codec == UYVY ||
+                        out_codec == RGB ||
+                        out_codec == v210 ||
+                        out_codec == HW_VDPAU);
 
         void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch) = NULL;
         for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
