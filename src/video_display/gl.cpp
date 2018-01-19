@@ -1147,7 +1147,7 @@ static void glut_close_callback(void)
 static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
+        codec_t codecs[] = {HW_VDPAU, UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 

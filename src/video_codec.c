@@ -162,6 +162,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('B','G','R','2'), 1, 3.0, 8, 0, TRUE, FALSE, FALSE, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
                 to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, "j2k"},
+        [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
+                to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, "vdpau"}
 };
 
 /**

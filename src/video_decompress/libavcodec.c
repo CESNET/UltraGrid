@@ -1747,6 +1747,7 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 { J2K, RGB, 500 },
                 { VP8, UYVY, 500 },
                 { VP9, UYVY, 500 },
+                { H264, HW_VDPAU, 200 },
         };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
