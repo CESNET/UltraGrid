@@ -45,6 +45,10 @@
 #ifndef HWACCEL_H
 #define HWACCEL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vdpau.h>
 #include <libavutil/hwcontext_vaapi.h>
@@ -65,7 +69,7 @@ typedef struct hw_vdpau_frame{
 
         //Theese are just pointers to the buffer
         uint8_t *data[AV_NUM_DATA_POINTERS];
-        VdpVideoSurface *surface; // Same as data[3]
+        VdpVideoSurface surface; // Same as data[3]
 } hw_vdpau_frame;
 
 void hw_vdpau_ctx_init(hw_vdpau_ctx *ctx);
@@ -78,5 +82,8 @@ hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame);
 
 hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *src);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
