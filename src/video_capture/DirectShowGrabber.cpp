@@ -809,7 +809,7 @@ static int vidcap_dshow_init(const struct vidcap_params *params, void **state) {
 				goto error;
 			}
 			// convert to standard C string
-			_snprintf_s(buf, MAX_STRING_LEN, _TRUNCATE, "%ls", var.bstrVal);
+			snprintf(buf, MAX_STRING_LEN, "%ls", var.bstrVal);
 
 			VariantClear(&var);
 			properties->Release();
