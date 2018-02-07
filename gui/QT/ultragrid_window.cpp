@@ -19,7 +19,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	connect(ui.startButton, SIGNAL(clicked()), this, SLOT(start()));
 	connect(&process, SIGNAL(readyReadStandardOutput()), this, SLOT(outputAvailable()));
 	connect(&process, SIGNAL(readyReadStandardError()), this, SLOT(outputAvailable()));
-	connect(&process, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(setStartBtnText(QProcess::ProcessState)));
+	connect(&process, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(processStateChanged(QProcess::ProcessState)));
 
 	connect(ui.networkDestinationEdit, SIGNAL(textEdited(const QString &)), this, SLOT(setArgs()));
 
@@ -28,9 +28,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(queryOpts()));
 	connect(ui.actionAdvanced, SIGNAL(toggled(bool)), this, SLOT(setAdvanced(bool)));
 	connect(ui.actionShow_Terminal, SIGNAL(triggered()), this, SLOT(showLog()));
+	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));
 
-	opts.emplace_back(new SourceOption(&ui,
-				ultragridExecutable));
+	sourceOption = new SourceOption(&ui, ultragridExecutable);
+	opts.emplace_back(sourceOption);
 
 	opts.emplace_back(new DisplayOption(&ui,
 				ultragridExecutable));
@@ -54,7 +55,11 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 		connect(opt.get(), SIGNAL(changed()), this, SLOT(setArgs()));
 	}
 
+	connect(sourceOption, SIGNAL(changed()), this, SLOT(startPreview()));
+
 	queryOpts();
+
+	startPreview();
 }
 
 void UltragridWindow::about(){
@@ -85,8 +90,12 @@ void UltragridWindow::outputAvailable(){
 void UltragridWindow::start(){
 	if(process.pid() > 0){
 		process.terminate();
+		if(!process.waitForFinished(1000))
+			process.kill();
 		return;
 	}
+
+	stopPreview();
 
 	QString command(ultragridExecutable);
 
@@ -95,6 +104,31 @@ void UltragridWindow::start(){
 	process.setProcessChannelMode(QProcess::MergedChannels);
 	log.write("Command: " + command + "\n\n");
 	process.start(command);
+}
+
+void UltragridWindow::startPreview(){
+	if(process.state() != QProcess::NotRunning || !ui.previewCheckBox->isChecked()){
+		return;
+	}
+
+	if(previewProcess.state() != QProcess::NotRunning)
+		stopPreview();
+
+	QString command(ultragridExecutable);
+	command += " ";
+	command += sourceOption->getLaunchParam();
+	command += "-d preview";
+
+	previewProcess.start(command);
+}
+
+void UltragridWindow::stopPreview(){
+	previewProcess.terminate();
+	/* The shared preview memory must be released before a new one
+	 * can be created. Here we wait 0.5s to allow the preview process
+	 * exit gracefully. If it is still running after that we kill it */
+	if(!previewProcess.waitForFinished(500))
+		previewProcess.kill();
 }
 
 void UltragridWindow::editArgs(const QString &text){
@@ -142,5 +176,20 @@ void UltragridWindow::setStartBtnText(QProcess::ProcessState s){
 		ui.startButton->setText("Stop");
 	} else {
 		ui.startButton->setText("Start");
+	}
+}
+
+void UltragridWindow::enablePreview(bool enable){
+	if(enable)
+		startPreview();
+	else
+		stopPreview();
+}
+
+void UltragridWindow::processStateChanged(QProcess::ProcessState s){
+	setStartBtnText(s);
+
+	if(s == QProcess::NotRunning){
+		startPreview();
 	}
 }
