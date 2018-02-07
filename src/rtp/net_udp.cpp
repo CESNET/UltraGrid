@@ -224,12 +224,13 @@ void socket_error(const char *msg, ...)
         _vsnprintf(buffer, blen, msg, ap);
         va_end(ap);
         if (e != WSAECONNRESET)
-                printf("ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
+                log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
 #else
         va_start(ap, msg);
         vsnprintf(buffer, blen, msg, ap);
         va_end(ap);
-        perror(buffer);
+        char strerror_buf[255];
+        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
 #endif
 }
 
@@ -695,7 +696,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->local->mode = IPv6;
                 ip_family = AF_INET6;
 #else
-                fprintf(stderr, "IPv6 support not compiled in!\n");
+                log_msg(LOG_LEVEL_ERROR, "IPv6 support not compiled in!\n");
                 delete s->local;
                 delete s;
                 return NULL;
@@ -703,7 +704,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 	}
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
-                fprintf(stderr, "Can't resolve IP address for %s: %s\n", addr,
+                log_msg(LOG_LEVEL_ERROR, "Can't resolve IP address for %s: %s\n", addr,
                                 gai_strerror(ret));
                 goto error;
         }
@@ -714,7 +715,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         goto error;
                 }
 #else
-                fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
+                log_msg(LOG_LEVEL_ERROR, "Cannot set interface name, if_nametoindex not supported.\n");
 #endif
         } else {
                 ifindex = 0;
@@ -772,9 +773,9 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         if (bind(s->local->fd, (struct sockaddr *)&s_in, sin_len) != 0) {
                 socket_error("bind");
 #ifdef WIN32
-                fprintf(stderr, "Check if there is no service running on UDP port %d. ", rx_port);
+                log_msg(LOG_LEVEL_ERROR, "Check if there is no service running on UDP port %d. ", rx_port);
                 if (rx_port == 5004 || rx_port == 5005)
-                        fprintf(stderr, "Windows Media Services is usually a good candidate to check and disable.\n");
+                        log_msg(LOG_LEVEL_ERROR, "Windows Media Services is usually a good candidate to check and disable.\n");
 #endif
                 goto error;
         }
