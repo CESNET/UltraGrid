@@ -19,7 +19,8 @@ function launch() {
 	git fetch origin
 
 	# branches need remote prepended
-	if (git branch | grep "^${REF}\$" > /dev/null 2>&1) ; then
+	if (git branch | grep -E "^[[:space:]*]*${REF}\$" > /dev/null 2>&1) ; then
+		git checkout "$REF"
 		git reset --hard origin/"$REF"
 	else
 		git reset --hard "$REF"
@@ -31,7 +32,7 @@ function launch() {
 
 	#check if $PROJECT is up-to-date
 	if [ "$OLDHEAD" = "$NEWHEAD" ]; then
-		return 0
+		return 1
 	fi
 
 	DATE=$(git log --date=short "$REF" | head -n 3 | tail -n 1 | sed 's/[Date: -]//g')
@@ -41,12 +42,12 @@ function launch() {
 	osc update
 	#osc service localrun
 
-	for spec in ${SPECDIR}/*.dsc.tpl ; do
+	for spec in $(echo ${SPECDIR}/*.dsc.tpl) ; do
 		sed "/Version/s/-.*/-${DATE}00/" "$spec" > "${PACKAGE}/$(basename "$spec" | sed -r 's/^([^:]+[:])*([^:]+).tpl$/\2/g')"
 	done
 
-	for spec in ${SPECDIR}/*.spec.tpl ; do
-		sed -r "/Release:/s/[[:space:]][^[:digit:]]+/ ${DATE}.00/" "$spec" > "${PACKAGE}/$(basename "$spec" | sed -r 's/^([^:]+[:])*([^:]+).tpl$/\2/g')"
+	for spec in $(echo ${SPECDIR}/*.spec.tpl) ; do
+		sed -r "/Release:/s/([[:space:]]+)[[:digit:].]+$/\\1${DATE}.00/" "$spec" > "${PACKAGE}/$(basename "$spec" | sed -r 's/^([^:]+[:])*([^:]+).tpl$/\2/g')"
 	done
 
 	sed -r --in-place "s#^.* dummy commit .*\$#<!-- dummy commit $NEWHEAD -->#g" _service
@@ -95,7 +96,7 @@ while [ "x$1" != "x--" ] ; do
 	shift 2
 done
 
-echo $BASE $PACKAGE $REF $PROJECT $SPECDIR
+#echo $BASE $PACKAGE $REF $PROJECT $SPECDIR
 
 # complete with defaults
 [[ -z "$BASE" ]] && BASE="$HOME"
@@ -112,4 +113,11 @@ absolute_path_test_regex="^/.*$"
 [[ "$PROJECT" =~ $absolute_path_test_regex ]] || PROJECT="${BASE}/${PROJECT}"
 [[ "$SPECDIR" =~ $absolute_path_test_regex ]] || SPECDIR="${PROJECT}/${SPECDIR}"
 
-launch "$PACKAGE" "$REF" "$PROJECT" "$SPECDIR"
+if tty -s ; then
+	launch "$PACKAGE" "$REF" "$PROJECT" "$SPECDIR"
+else
+	tmpfile=$(mktemp)
+	launch "$PACKAGE" "$REF" "$PROJECT" "$SPECDIR" >"$tmpfile" 2>&1 || cat "$tmpfile"
+	rm "$tmpfile"
+fi
+
