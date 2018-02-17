@@ -30,7 +30,8 @@ private:
 	LogWindow log;
 
 	std::vector<std::unique_ptr<UltragridOption>> opts;
-	UltragridOption *sourceOption;
+	SourceOption *sourceOption;
+	DisplayOption *displayOption;
 
 
 public slots:

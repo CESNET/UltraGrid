@@ -55,6 +55,7 @@ public:
 
 	QString getLaunchParam() override;
 	void queryAvailOpts() override;
+	QString getCard() const;
 
 private:
 	Ui::UltragridWindow *ui;
@@ -72,6 +73,7 @@ public:
 
 	QString getLaunchParam() override;
 	void queryAvailOpts() override;
+	QString getCard() const;
 
 private:
 	Ui::UltragridWindow *ui;
@@ -102,12 +104,34 @@ class AudioSourceOption : public UltragridOption{
 	Q_OBJECT
 public:
 	AudioSourceOption(Ui::UltragridWindow *ui,
+			const SourceOption *videoSrc,
 			const QString& ultragridExecutable);
 
 	QString getLaunchParam() override;
 	void queryAvailOpts() override;
 private:
 	Ui::UltragridWindow *ui;
+	const SourceOption *videoSource;
+
+private slots:
+	void update();
+};
+
+class AudioPlaybackOption : public UltragridOption{
+	Q_OBJECT
+public:
+	AudioPlaybackOption(Ui::UltragridWindow *ui,
+			const DisplayOption *videoDisplay,
+			const QString& ultragridExecutable);
+
+	QString getLaunchParam() override;
+	void queryAvailOpts() override;
+private:
+	Ui::UltragridWindow *ui;
+	const DisplayOption *videoDisplay;
+
+private slots:
+	void update();
 };
 
 class AudioCompressOption : public UltragridOption{

@@ -33,18 +33,19 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	sourceOption = new SourceOption(&ui, ultragridExecutable);
 	opts.emplace_back(sourceOption);
 
-	opts.emplace_back(new DisplayOption(&ui,
-				ultragridExecutable));
+	displayOption = new DisplayOption(&ui, ultragridExecutable);
+	opts.emplace_back(displayOption);
 
 	opts.emplace_back(new VideoCompressOption(&ui,
 				ultragridExecutable));
 
 	opts.emplace_back(new AudioSourceOption(&ui,
+				sourceOption,
 				ultragridExecutable));
 
-	opts.emplace_back(new GenericOption(ui.audioPlaybackComboBox,
-				ultragridExecutable,
-				QString("-r")));
+	opts.emplace_back(new AudioPlaybackOption(&ui,
+				displayOption,
+				ultragridExecutable));
 
 	opts.emplace_back(new AudioCompressOption(&ui,
 				ultragridExecutable));
