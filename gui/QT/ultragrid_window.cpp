@@ -30,10 +30,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	connect(ui.actionShow_Terminal, SIGNAL(triggered()), this, SLOT(showLog()));
 	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));
 
-	sourceOption = new SourceOption(&ui, ultragridExecutable);
+	sourceOption = new VideoSourceOption(&ui, ultragridExecutable);
 	opts.emplace_back(sourceOption);
 
-	displayOption = new DisplayOption(&ui, ultragridExecutable);
+	displayOption = new VideoDisplayOption(&ui, ultragridExecutable);
 	opts.emplace_back(displayOption);
 
 	opts.emplace_back(new VideoCompressOption(&ui,
