@@ -369,7 +369,8 @@ fi
 # GCC-specific warning flags
 if test "$GCC" = yes
 then
-    CFLAGS="$CFLAGS -pipe -W -Wall -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
+    CFLAGS="$CFLAGS -pipe -W -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
+    CXXFLAGS="$CXXFLAGS -pipe -W -Wcast-qual -Wcast-align -Wmissing-declarations"
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -2446,7 +2447,7 @@ PKG_CHECK_MODULES([LAVC_HWACC], [lavc_hwacc_dep], [FOUND_HWACC_DEP=yes], [FOUND_
 
 if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
 then
-        LAVC_HWACC_FLAGS="$CFLAGS -DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
+        LAVC_HWACC_FLAGS="-DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
         LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS}"
         lavc_hwacc=yes
 else
