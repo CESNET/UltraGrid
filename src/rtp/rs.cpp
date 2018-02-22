@@ -91,7 +91,7 @@ rs::rs(const char *c_cfg)
                 m_n = DEFAULT_N;
         }
         free(cfg);
-        if (m_k > MAX_K || m_n > MAX_N || m_k > m_n) {
+        if (m_k > MAX_K || m_n > MAX_N || m_k >= m_n) {
                 usage();
                 throw 1;
         }
@@ -304,7 +304,7 @@ static void usage() {
                         "\t-f rs[:<k>:<n>]\n"
                         "\n"
                         "\t\t<k> - block length (default %d, max %d)\n"
-                        "\t\t<n> - length of block + parity (default %d, max %d)\n\t\t\tmust be >= <k>\n"
+                        "\t\t<n> - length of block + parity (default %d, max %d)\n\t\t\tmust be > <k>\n"
                         "\n",
                         DEFAULT_K, MAX_K, DEFAULT_N, MAX_N);
 }

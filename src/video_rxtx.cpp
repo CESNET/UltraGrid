@@ -72,7 +72,7 @@ using namespace std;
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_port_id("default"), m_paused(params.at("paused").b),
                 m_report_paused_play(false), m_rxtx_mode(params.at("rxtx_mode").i),
                 m_parent(static_cast<struct module *>(params.at("parent").ptr)),
-                m_compression(nullptr),
+                m_frames_sent(0ull), m_compression(nullptr),
                 m_exporter(static_cast<struct exporter *>(params.at("exporter").ptr)),
                 m_thread_id(), m_poisoned(false), m_joined(true) {
 
@@ -193,6 +193,7 @@ void *video_rxtx::sender_loop() {
                 tx_frame->paused_play = ret == STREAM_PAUSED_PLAY;
 
                 send_frame(tx_frame);
+                m_frames_sent += 1;
         }
 
 exit:

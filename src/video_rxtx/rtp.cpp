@@ -162,8 +162,9 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                         if (!m_fec_state) {
                                                 if (ret != 0) {
                                                         log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
-                                                        m_fec_state = old_fec_state;
-                                                } else { // -f LDGM:help or so
+                                                }
+                                                m_fec_state = old_fec_state;
+                                                if (ret == 0 || m_frames_sent == 0ull) { // -f LDGM:help or so + init
                                                         exit_uv(0);
                                                 }
                                                 return new_response(RESPONSE_INT_SERV_ERR, NULL);
