@@ -19,6 +19,8 @@ protected:
 	void closeEvent(QCloseEvent *);
 
 private:
+	void checkPreview();
+
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;

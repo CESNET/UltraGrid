@@ -60,7 +60,50 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	queryOpts();
 
+	checkPreview();
+
 	startPreview();
+}
+
+void UltragridWindow::checkPreview(){
+	QStringList out;
+
+	QProcess process;
+
+	QString command = ultragridExecutable;
+
+	command += " -d help";
+
+	process.start(command);
+
+	process.waitForFinished();
+	QByteArray output = process.readAllStandardOutput();
+	QList<QByteArray> lines = output.split('\n');
+
+	foreach ( const QByteArray &line, lines ) {
+		if(line.size() > 0 && QChar(line[0]).isSpace()) {
+			QString opt = QString(line).trimmed();
+			if(opt != "none"
+					&& !opt.startsWith("--")
+					&& !opt.contains("unavailable"))
+				out.append(QString(line).trimmed());
+		}
+	}
+
+	if(!out.contains("multiplier") || !out.contains("preview")){
+		ui.previewCheckBox->setChecked(false);
+		ui.previewCheckBox->setEnabled(false);
+
+		QMessageBox warningBox(this);
+		warningBox.setWindowTitle("Preview disabled");
+		warningBox.setText("Preview is disabled, because UltraGrid was compiled" 
+				" without preview and multiplier displays."
+				" Please build UltraGrid configured with the --enable-qt flag"
+				" to enable preview.");
+		warningBox.setStandardButtons(QMessageBox::Ok);
+		warningBox.setIcon(QMessageBox::Warning);
+		warningBox.exec();
+	}
 }
 
 void UltragridWindow::about(){
@@ -108,7 +151,10 @@ void UltragridWindow::start(){
 }
 
 void UltragridWindow::startPreview(){
-	if(process.state() != QProcess::NotRunning || !ui.previewCheckBox->isChecked()){
+	if(!ui.previewCheckBox->isEnabled()
+			|| process.state() != QProcess::NotRunning
+			|| !ui.previewCheckBox->isChecked()
+			){
 		return;
 	}
 
