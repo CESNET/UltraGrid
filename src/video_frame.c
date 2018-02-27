@@ -92,7 +92,11 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
                 memset(&buf->tiles[i], 0, sizeof(buf->tiles[i]));
                 buf->tiles[i].width = desc.width;
                 buf->tiles[i].height = desc.height;
-                buf->tiles[i].data_len = vc_get_linesize(desc.width, desc.color_spec) * desc.height;
+                if(codec_is_const_size(desc.color_spec)){
+                        buf->tiles[i].data_len = get_pf_block_size(desc.color_spec);
+                } else {
+                        buf->tiles[i].data_len = vc_get_linesize(desc.width, desc.color_spec) * desc.height;
+                }
         }
 
         return buf;
@@ -106,15 +110,20 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
 
         if(buf) {
                 for(unsigned int i = 0; i < desc.tile_count; ++i) {
-                        buf->tiles[i].data_len = vc_get_linesize(desc.width,
-                                        desc.color_spec) *
-                                desc.height;
+                        if(codec_is_const_size(desc.color_spec)){
+                                buf->tiles[i].data_len = get_pf_block_size(desc.color_spec);
+                        } else {
+                                buf->tiles[i].data_len = vc_get_linesize(desc.width,
+                                                desc.color_spec) *
+                                        desc.height;
+                        }
                         buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len);
                         assert(buf->tiles[i].data != NULL);
                 }
         }
 
         buf->data_deleter = vf_data_deleter;
+        buf->free_extra_data_fcn = get_free_extra_data_fcn(desc.color_spec);
 
         return buf;
 }
@@ -130,10 +139,21 @@ void vf_free(struct video_frame *buf)
         free(buf);
 }
 
+void vf_free_extra_data(struct video_frame *buf)
+{
+        for(unsigned int i = 0u; i < buf->tile_count; ++i) {
+                if(buf->free_extra_data_fcn)
+                        buf->free_extra_data_fcn(buf->tiles[i].data);
+        }
+
+}
+
 void vf_data_deleter(struct video_frame *buf)
 {
         if(!buf)
                 return;
+
+        vf_free_extra_data(buf);
 
         for(unsigned int i = 0u; i < buf->tile_count; ++i) {
                 free(buf->tiles[i].data);
@@ -353,9 +373,14 @@ struct video_frame *vf_get_copy(struct video_frame *original) {
         frame_copy->tiles = (struct tile *) malloc(sizeof(struct tile) * frame_copy->tile_count);
         memcpy(frame_copy->tiles, original->tiles, sizeof(struct tile) * frame_copy->tile_count);
 
+        void *(*copy_fcn)(void *, const void *, size_t) = memcpy;
+        if(get_copy_data_fcn(original->color_spec)){
+                copy_fcn = get_copy_data_fcn(original->color_spec);
+        }
+
         for(int i = 0; i < (int) frame_copy->tile_count; ++i) {
                 frame_copy->tiles[i].data = (char *) malloc(frame_copy->tiles[i].data_len);
-                memcpy(frame_copy->tiles[i].data, original->tiles[i].data,
+                copy_fcn(frame_copy->tiles[i].data, original->tiles[i].data,
                                 frame_copy->tiles[i].data_len);
         }
 

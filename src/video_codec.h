@@ -82,11 +82,15 @@ codec_t          get_codec_from_name(const char *name) ATTRIBUTE(pure);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(pure);
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(pure);
 
+void (*get_free_extra_data_fcn(codec_t))(void *) ATTRIBUTE(pure);
+void *(*get_copy_data_fcn(codec_t))(void *, const void *, size_t) ATTRIBUTE(pure);
+
 int get_aligned_length(int width, codec_t codec) ATTRIBUTE(pure);
 int get_pf_block_size(codec_t codec) ATTRIBUTE(pure);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(pure);
 int codec_is_a_rgb(codec_t codec) ATTRIBUTE(pure);
 bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(pure);
+int codec_is_const_size(codec_t codec) ATTRIBUTE(pure);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);

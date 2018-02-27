@@ -107,6 +107,15 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc);
  * or fiiled by vf_alloc_desc_data()).
  */
 void vf_free(struct video_frame *buf);
+
+/**
+ * @brief Frees extra data (currently only used with hw surfaces)
+ *
+ * Calls video_frame::free_extra_data_fcn if defined (suplied by user
+ * or fiiled by vf_alloc_desc_data()).
+ */
+void vf_free_extra_data(struct video_frame *buf);
+
 /**
  * Deletes video data members with a free() call.
  * @see video_frame::data_deleter

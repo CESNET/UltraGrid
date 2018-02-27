@@ -90,6 +90,10 @@ void hw_vdpau_frame_unref(hw_vdpau_frame *frame){
         hw_vdpau_frame_init(frame);
 }
 
+void hw_vdpau_free_extra_data(void *frame){
+        hw_vdpau_frame_unref((hw_vdpau_frame *) frame);
+}
+
 hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame){
         hw_vdpau_frame new_frame;
         hw_vdpau_frame_init(&new_frame);
@@ -105,6 +109,16 @@ hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame){
         new_frame.surface = frame->surface;
 
         return new_frame;
+}
+
+void *hw_vdpau_frame_data_cpy(void *dst, const void *src, size_t n){
+        assert(n == sizeof(hw_vdpau_frame));
+
+        hw_vdpau_frame *new = (hw_vdpau_frame *) dst;
+
+        *new = hw_vdpau_frame_copy((const hw_vdpau_frame *) src);
+
+        return new;
 }
 
 hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *src){
