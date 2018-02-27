@@ -374,14 +374,19 @@ QString AudioCompressOption::getExtraParams(){
 	QLineEdit *bitrate = ui->audioBitrateEdit;
 
 	QString param;
-	if(!bitrate->text().isEmpty()){
+	if(!bitrate->text().isEmpty() && bitrate->isEnabled()){
 		param += ":bitrate=" + bitrate->text();
 	}
 	return param;
 }
 
 void AudioCompressOption::compChanged(){
+	const QStringList losslessCodecs = {"FLAC", "u-law", "A-law", "PCM"};
 
+	ui->audioBitrateEdit->setEnabled(!losslessCodecs.contains(getCurrentValue()));
+	ui->audioBitrateLabel->setEnabled(!losslessCodecs.contains(getCurrentValue()));
+
+	emit changed();
 }
 
 FecOption::FecOption(Ui::UltragridWindow *ui) : 
