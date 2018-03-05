@@ -51,6 +51,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 				ultragridExecutable));
 
 	opts.emplace_back(new FecOption(&ui));
+	opts.emplace_back(new ParamOption(&ui));
 
 	for(auto &opt : opts){
 		connect(opt.get(), SIGNAL(changed()), this, SLOT(setArgs()));

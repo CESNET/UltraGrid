@@ -180,4 +180,16 @@ public slots:
 	void update() override;
 };
 
+class ParamOption : public UltragridOption{
+	Q_OBJECT
+public:
+		ParamOption(Ui::UltragridWindow *ui);
+
+		QString getLaunchParam() override;
+		void queryAvailOpts() override {  }
+
+private:
+		Ui::UltragridWindow *ui;
+};
+
 #endif

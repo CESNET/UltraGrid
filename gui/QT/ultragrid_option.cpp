@@ -462,3 +462,15 @@ void FecOption::update(){
 
 	emit changed();
 }
+
+ParamOption::ParamOption(Ui::UltragridWindow *ui): ui(ui){
+	connect(ui->actionUse_hw_acceleration, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
+}
+
+QString ParamOption::getLaunchParam(){
+	QString param = "";
+	if(ui->actionUse_hw_acceleration->isChecked())
+		param += "--param use-hw-accel ";
+
+	return param;
+}

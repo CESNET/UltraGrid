@@ -663,7 +663,7 @@
      <x>0</x>
      <y>0</y>
      <width>1104</width>
-     <height>22</height>
+     <height>24</height>
     </rect>
    </property>
    <property name="contextMenuPolicy">
@@ -681,6 +681,7 @@
     </property>
     <addaction name="actionShow_Terminal"/>
     <addaction name="actionAdvanced"/>
+    <addaction name="actionUse_hw_acceleration"/>
     <addaction name="separator"/>
     <addaction name="actionRefresh"/>
    </widget>
@@ -727,6 +728,14 @@
    </property>
    <property name="text">
     <string>Advanced</string>
+   </property>
+  </action>
+  <action name="actionUse_hw_acceleration">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Use hw. acceleration</string>
    </property>
   </action>
  </widget>
