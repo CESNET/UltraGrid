@@ -238,8 +238,9 @@ struct state_gl {
 
         // Framebuffer
         GLuint fbo_id;
-	GLuint		texture_display;
-	GLuint		texture_uyvy;
+        GLuint texture_display;
+        GLuint texture_uyvy;
+        GLuint pbo_id;
 
         /* For debugging... */
         uint32_t	magic;
@@ -290,7 +291,7 @@ struct state_gl {
 #endif
 
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
-                fbo_id(0), texture_display(0), texture_uyvy(0),
+                fbo_id(0), texture_display(0), texture_uyvy(0), pbo_id(0),
                 magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
@@ -332,6 +333,7 @@ static void glut_close_callback(void);
 static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor);
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
+static void upload_texture(struct state_gl *s, char *data);
 
 static void gl_render_vdpau(struct state_gl *s, char *data);
 
@@ -726,6 +728,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         gl_check_error();
 
+        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id);
+        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, vc_get_linesize(desc.width, desc.color_spec) * desc.height, 0, GL_STREAM_DRAW_ARB);
+        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+
+        gl_check_error();
+
         if (!s->fixed_size || s->first_run) {
                 glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
                 s->first_run = false;
@@ -785,17 +793,9 @@ static void gl_render(struct state_gl *s, char *data)
                 case UYVY:
                         gl_render_uyvy(s, data);
                         break;
-                case RGBA:
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->current_display_desc.width, s->current_display_desc.height,
-                                        GL_RGBA, GL_UNSIGNED_BYTE,
-                                        data);
-                        break;
                 case RGB:
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->current_display_desc.width, s->current_display_desc.height,
-                                        GL_RGB, GL_UNSIGNED_BYTE,
-                                        data);
+                case RGBA:
+                        upload_texture(s, data);
                         break;
                 case DXT5:                        
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -1078,6 +1078,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
                                                // 4 bytes which won't work on row-unaligned RGB
 
+        glGenBuffersARB(1, &s->pbo_id);
+
         return true;
 }
 
@@ -1150,6 +1152,32 @@ static void gl_resize(int width, int height)
         }
 }
 
+static void upload_texture(struct state_gl *s, char *data)
+{
+#if ! defined GL_NO_PBO
+        GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
+        GLint width = s->current_display_desc.width;
+        if (s->current_display_desc.color_spec == UYVY) {
+                width /= 2;
+        }
+        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
+        int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
+        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+        void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+        if (ptr)
+        {
+                // update data directly on the mapped buffer
+                memcpy(ptr, data, data_size);
+                glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+        }
+
+        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+#else
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+#endif
+}
+
 static void gl_render_uyvy(struct state_gl *s, char *data)
 {
         int status;
@@ -1174,7 +1202,8 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
 
         glViewport( 0, 0, s->current_display_desc.width, s->current_display_desc.height);
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->current_display_desc.width / 2, s->current_display_desc.height,  GL_RGBA, GL_UNSIGNED_BYTE, data);
+        upload_texture(s, data);
+
         glUseProgram(s->PHandle_uyvy);
 
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -1579,6 +1608,8 @@ static void display_gl_done(void *state)
                 glDeleteTextures(1, &s->texture_uyvy);
         if (s->fbo_id)
                 glDeleteFramebuffersEXT(1, &s->fbo_id);
+        if (s->pbo_id)
+                glDeleteBuffersARB(1, &s->pbo_id);
 
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
