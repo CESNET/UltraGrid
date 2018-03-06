@@ -165,7 +165,12 @@ void UltragridWindow::startPreview(){
 	QString command(ultragridExecutable);
 	command += " ";
 	command += sourceOption->getLaunchParam();
-	command += "-d preview";
+	command += "-d preview ";
+	if(sourceOption->getCurrentValue() != "none"){
+		//We prevent video from network overriding local sources
+		//by listening on port 0
+		command += "-P 0 ";
+	}
 
 	previewProcess.start(command);
 }

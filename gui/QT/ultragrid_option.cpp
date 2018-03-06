@@ -50,7 +50,7 @@ ComboBoxOption::ComboBoxOption(QComboBox *box,
 QString ComboBoxOption::getLaunchParam(){
 	QString param;
 
-	if(box->currentText() != "none"){
+	if(getCurrentValue() != "none"){
 		param += opt;
 		param += " ";
 		param += box->currentData().toString();
@@ -83,7 +83,7 @@ QString ComboBoxOption::getCurrentValue() const {
 
 void ComboBoxOption::resetComboBox(QComboBox *box){
 	box->clear();
-	box->addItem(QString("none"));
+	box->addItem(QString("none"), QString("none"));
 }
 
 
@@ -224,6 +224,11 @@ void VideoSourceOption::srcChanged(){
 	emit changed();
 }
 
+void VideoSourceOption::resetComboBox(QComboBox *box){
+	box->clear();
+	box->addItem(QString("none / network"), QString("none"));
+}
+
 VideoDisplayOption::VideoDisplayOption(Ui::UltragridWindow *ui,
 		const QString& ultragridExecutable):
 	ComboBoxOption(ui->videoDisplayComboBox, ultragridExecutable, QString("-d")),
@@ -237,7 +242,7 @@ QString VideoDisplayOption::getLaunchParam(){
 	QComboBox *disp = ui->videoDisplayComboBox;
 	QString param;
 
-	if(disp->currentText() != "none"){
+	if(getCurrentValue() != "none"){
 		param += "-d ";
 		if(preview){
 			param += "multiplier:";
