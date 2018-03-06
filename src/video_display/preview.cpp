@@ -224,7 +224,7 @@ static void display_preview_run(void *state)
                                 // Shared mem is still not detached by the GUI
                                 s->shared_mem.detach();
                                 vf_free(frame);
-                                return;
+                                continue;
                         } else {
                                 if(s->shared_mem.create(s->mem_size) == false){
                                         fprintf(stderr, "Can't create shared memory!\n");
