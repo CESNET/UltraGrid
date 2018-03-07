@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2018 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,10 +46,17 @@
 #include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"
+#include "libgpujpeg/gpujpeg_version.h"
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include "lib_common.h"
+
+// compat
+#if LIBGPUJPEG_API_VERSION <= 2
+#define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
+#define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
+#endif
 
 struct state_decompress_jpeg {
         struct gpujpeg_decoder *decoder;
@@ -66,16 +73,20 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
 {
         s->desc = desc;
 
+#if LIBGPUJPEG_API_VERSION <= 2
         s->decoder = gpujpeg_decoder_create();
+#else
+        s->decoder = gpujpeg_decoder_create(NULL);
+#endif
         if(!s->decoder) {
                 return FALSE;
         }
         if(s->out_codec == RGB) {
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
-                                GPUJPEG_4_4_4);
+                                GPUJPEG_444_U8_P012);
         } else {
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
-                                GPUJPEG_4_2_2);
+                                GPUJPEG_422_U8_P1020);
         }
 
         return TRUE;

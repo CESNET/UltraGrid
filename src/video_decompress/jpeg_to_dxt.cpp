@@ -47,6 +47,7 @@
 #include <stdlib.h>
 
 #include "libgpujpeg/gpujpeg_decoder.h"
+#include "libgpujpeg/gpujpeg_version.h"
 
 #include "debug.h"
 #include "lib_common.h"
@@ -289,7 +290,11 @@ static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int
         }
         //gpujpeg_init_device(cuda_device, GPUJPEG_OPENGL_INTEROPERABILITY);
 
+#if LIBGPUJPEG_API_VERSION <= 2
         s->jpeg_decoder = gpujpeg_decoder_create();
+#else
+        s->jpeg_decoder = gpujpeg_decoder_create(NULL);
+#endif
         if(!s->jpeg_decoder) {
                 fprintf(stderr, "Creating JPEG decoder failed.\n");
                 return false;

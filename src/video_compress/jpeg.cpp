@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2018 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 #include "module.h"
 #include "lib_common.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
+#include "libgpujpeg/gpujpeg_version.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
@@ -58,6 +59,12 @@
 #include <vector>
 
 using namespace std;
+
+// compat
+#if LIBGPUJPEG_API_VERSION <= 2
+#define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
+#define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
+#endif
 
 namespace {
 struct state_video_compress_jpeg;
@@ -80,6 +87,9 @@ private:
         bool                                     m_rgb;
         int                                      m_encoder_input_linesize;
         unique_ptr<char []>                      m_decoded;
+
+        struct gpujpeg_parameters                m_encoder_param;
+        struct gpujpeg_image_parameters          m_param_image;
 public:
         encoder_state(struct state_video_compress_jpeg *s, int device_id) :
                 m_parent_state(s), m_device_id(device_id), m_encoder{}, m_saved_desc{},
@@ -215,52 +225,55 @@ bool encoder_state::configure_with(struct video_desc desc)
                 }
         }
 
-        struct gpujpeg_parameters encoder_param;
-        gpujpeg_set_default_parameters(&encoder_param);
+        gpujpeg_set_default_parameters(&m_encoder_param);
         if (m_parent_state->m_quality != -1) {
-                encoder_param.quality = m_parent_state->m_quality;
+                m_encoder_param.quality = m_parent_state->m_quality;
         } else {
                 log_msg(LOG_LEVEL_INFO, "[JPEG] setting default encode parameters (quality: %d)\n",
-                                encoder_param.quality);
+                                m_encoder_param.quality);
         }
 
         if (m_parent_state->m_restart_interval != -1) {
-                encoder_param.restart_interval = m_parent_state->m_restart_interval;
+                m_encoder_param.restart_interval = m_parent_state->m_restart_interval;
         } else {
-                encoder_param.restart_interval = m_rgb ? 8 : 4;
+                m_encoder_param.restart_interval = m_rgb ? 8 : 4;
         }
 
-	encoder_param.verbose = 0;
-	encoder_param.segment_info = 1;
+	m_encoder_param.verbose = 0;
+	m_encoder_param.segment_info = 1;
 
         /* LUMA */
-        encoder_param.sampling_factor[0].vertical = 1;
-        encoder_param.sampling_factor[0].horizontal = m_rgb ? 1 : 2;
+        m_encoder_param.sampling_factor[0].vertical = 1;
+        m_encoder_param.sampling_factor[0].horizontal = m_rgb ? 1 : 2;
         /* Cb and Cr */
-        encoder_param.sampling_factor[1].horizontal = 1;
-        encoder_param.sampling_factor[1].vertical = 1;
-        encoder_param.sampling_factor[2].horizontal = 1;
-        encoder_param.sampling_factor[2].vertical = 1;
+        m_encoder_param.sampling_factor[1].horizontal = 1;
+        m_encoder_param.sampling_factor[1].vertical = 1;
+        m_encoder_param.sampling_factor[2].horizontal = 1;
+        m_encoder_param.sampling_factor[2].vertical = 1;
 
-        encoder_param.interleaved = m_rgb ? 0 : 1;
+        m_encoder_param.interleaved = m_rgb ? 0 : 1;
 
-        struct gpujpeg_image_parameters param_image;
-        gpujpeg_image_set_default_parameters(&param_image);
+        gpujpeg_image_set_default_parameters(&m_param_image);
 
-        param_image.width = desc.width;
-        param_image.height = desc.height;
+        m_param_image.width = desc.width;
+        m_param_image.height = desc.height;
 
-        param_image.comp_count = 3;
-        param_image.color_space = m_rgb ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
-        param_image.sampling_factor = m_rgb ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
+        m_param_image.comp_count = 3;
+        m_param_image.color_space = m_rgb ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
-        m_encoder = gpujpeg_encoder_create(&encoder_param, &param_image);
+#if LIBGPUJPEG_API_VERSION > 2
+        m_param_image.pixel_format = m_rgb ? GPUJPEG_444_U8_P012 : GPUJPEG_422_U8_P1020;
+        m_encoder = gpujpeg_encoder_create(NULL);
+#else
+        m_param_image.sampling_factor = m_rgb ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
+        m_encoder = gpujpeg_encoder_create(&m_encoder_param, &m_param_image);
+#endif
 
         int data_len = desc.width * desc.height * 3;
         m_pool.reconfigure(compressed_desc, data_len);
 
         m_encoder_input_linesize = desc.width *
-                (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
+                (m_param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         if(!m_encoder) {
                 log_msg(LOG_LEVEL_ERROR, "[JPEG] Failed to create GPUJPEG encoder.\n");
@@ -436,15 +449,12 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 int ret;
 
                 struct gpujpeg_encoder_input encoder_input;
-                ret = gpujpeg_encoder_input_copy_image(&encoder_input, m_encoder, jpeg_enc_input_data);
-                if (ret != 0) {
-                        return {};
-                }
-                if (x == out->tile_count - 1) { // optimalization - dispose frame as soon as
-                                                // it is not needed
-                        tx = {};
-                }
+                gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
+#if LIBGPUJPEG_API_VERSION <= 2
                 ret = gpujpeg_encoder_encode(m_encoder, &encoder_input, &compressed, &size);
+#else
+                ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
+#endif
 
                 if(ret != 0) {
                         return {};
