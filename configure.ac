@@ -1938,15 +1938,6 @@ then
         ADD_MODULE("vcompress_jpeg", "$JPEG_COMPRESS_OBJ", "$JPEG_LIB")
         ADD_MODULE("vdecompress_jpeg", "$JPEG_DECOMPRESS_OBJ", "$JPEG_LIB")
 
-        # check if GPUJPEG is new enough
-        SAVED_LIBS=$LIBS
-        SAVED_CFLAGS=$CFLAGS
-        LIBS="$LIBS $JPEG_LIB"
-        CFLAGS="$CFLAGS $JPEG_INC"
-        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_input_copy_image], [], AC_MSG_ERROR([[Please update your GPUJPEG (git submodule update --init; cd gpujpeg; ./autogen.sh && make install)]]))
-        LIBS=$SAVED_LIBS
-        CFLAGS=$SAVED_CFLAGS
-
 	INC="$INC $JPEG_INC"
         CUDA_MESSAGE
 fi
