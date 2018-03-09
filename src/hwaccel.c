@@ -143,3 +143,29 @@ hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *
 
         return dst;
 }
+
+void vdp_funcs_init(vdp_funcs *f){
+        memset(f, 0, sizeof(vdp_funcs));
+}
+
+static void load_func(void **f, VdpFuncId f_id, VdpDevice dev, VdpGetProcAddress *get_proc_address){
+        VdpStatus st;
+
+        st = get_proc_address(dev, f_id, f);
+
+        if(st != VDP_STATUS_OK){
+                error_msg("Error loading vdpau function id: %u\n", f_id);
+        }
+}
+
+void vdp_funcs_load(vdp_funcs *f, VdpDevice device, VdpGetProcAddress *get_proc_address){
+#define LOAD(f_point, f_id) (load_func((void **) (f_point), (f_id), device, get_proc_address))
+        LOAD(&f->videoSurfaceGetParameters, VDP_FUNC_ID_VIDEO_SURFACE_GET_PARAMETERS);
+        LOAD(&f->videoMixerCreate, VDP_FUNC_ID_VIDEO_MIXER_CREATE);
+        LOAD(&f->videoMixerDestroy, VDP_FUNC_ID_VIDEO_MIXER_DESTROY);
+        LOAD(&f->videoMixerRender, VDP_FUNC_ID_VIDEO_MIXER_RENDER);
+        LOAD(&f->outputSurfaceCreate, VDP_FUNC_ID_OUTPUT_SURFACE_CREATE);
+        LOAD(&f->outputSurfaceDestroy, VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY);
+        LOAD(&f->outputSurfaceGetParameters, VDP_FUNC_ID_OUTPUT_SURFACE_GET_PARAMETERS);
+        LOAD(&f->getErrorString, VDP_FUNC_ID_GET_ERROR_STRING);
+}

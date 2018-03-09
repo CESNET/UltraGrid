@@ -213,6 +213,8 @@ struct state_vdpau {
         void uninitInterop();
         void uninit();
 
+        vdp_funcs funcs;
+
 };
 
 struct state_gl {
@@ -1183,6 +1185,11 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
 
         s->vdp.checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
 
+        uint32_t width, height;
+        VdpChromaType ct;
+        VdpStatus st = s->vdp.funcs.videoSurfaceGetParameters(frame->surface, &ct, &width, &height);
+        printf("width: %u height: %u\n", width, height);
+
         s->vdp.VDPAUUnregisterSurfaceNV(s->vdp.surf);
 
         s->vdp.surf = s->vdp.VDPAURegisterVideoSurfaceNV((void *) frame->surface,
@@ -1214,6 +1221,8 @@ void state_vdpau::initInterop(VdpDevice device, VdpGetProcAddress *get_proc_addr
         VDPAUInitNV((void *) device, (void *) get_proc_address);
         this->device = device;
         this->get_proc_address = get_proc_address;
+
+        vdp_funcs_load(&funcs, device, get_proc_address);
         interopInitialized = true;
 }
 
@@ -1235,6 +1244,7 @@ bool state_vdpau::init(){
         initialized = true;
         glGenTextures(4, textures);
         hw_vdpau_frame_init(&lastFrame);
+
 
         return true;
 }
