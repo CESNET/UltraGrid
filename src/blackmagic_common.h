@@ -65,7 +65,7 @@ std::string bmd_hresult_to_string(HRESULT res);
 #else
 #define BMD_STR const char *
 #endif
-const char *get_cstr_from_bmd_api_str(BMD_STR string);
+char *get_cstr_from_bmd_api_str(BMD_STR string);
 void release_bmd_api_str(BMD_STR string);
 
 IDeckLinkIterator *create_decklink_iterator(bool verbose = true, bool coinit = true);

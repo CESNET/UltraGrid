@@ -76,9 +76,9 @@ string bmd_hresult_to_string(HRESULT res)
 /**
  * returned c-sring needs to be freed when not used
  */
-const char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
+char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
 {
-       const char *cstr;
+       char *cstr;
 #ifdef HAVE_MACOSX
        size_t len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(bmd_string), kCFStringEncodingUTF8) + 1;
        cstr = (char *) malloc(len);
@@ -101,7 +101,7 @@ void release_bmd_api_str(BMD_STR string)
 #elif defined WIN32
         SysFreeString(string);
 #else
-        free((void *) string);
+        free(const_cast<char *>(string));
 #endif
 }
 
@@ -242,7 +242,7 @@ void print_decklink_version()
                 const char *currentVersionCString = get_cstr_from_bmd_api_str(current_version);
                 fprintf(stderr, "System version is %s.\n", currentVersionCString);
                 release_bmd_api_str(current_version);
-                free((void *)currentVersionCString);
+                free(const_cast<char *>(currentVersionCString));
         }
 
 cleanup:

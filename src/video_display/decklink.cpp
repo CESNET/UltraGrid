@@ -125,10 +125,10 @@ public:
 			if (completedFrame->GetTimecode ((BMDTimecodeFormat) 0, &timecode) == S_OK) {
 				BMD_STR timecode_str;
 				if (timecode && timecode->GetString(&timecode_str) == S_OK) {
-                                        const char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
+                                        char *timecode_cstr = get_cstr_from_bmd_api_str(timecode_str);
 					LOG(LOG_LEVEL_DEBUG) << "Frame " << timecode_cstr << " output at " <<  time_since_epoch_in_ms() / (double) 1e3 << '\n';
                                         release_bmd_api_str(timecode_str);
-                                        free((void *) timecode_cstr);
+                                        free(timecode_cstr);
 				}
 			}
 		}
@@ -351,10 +351,10 @@ static void show_help(bool full)
                 result = deckLink->GetDisplayName(&deviceNameString);
                 if (result == S_OK)
                 {
-                        const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                         printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
                         release_bmd_api_str(deviceNameString);
-                        free((void *) deviceNameCString);
+                        free(deviceNameCString);
 
                         print_output_modes(deckLink);
                 } else {
@@ -585,7 +585,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                 BMD_STR modeNameString;
                 if (deckLinkDisplayMode->GetName(&modeNameString) == S_OK)
                 {
-                        const char *modeNameCString = get_cstr_from_bmd_api_str(modeNameString);
+                        char *modeNameCString = get_cstr_from_bmd_api_str(modeNameString);
                         if (deckLinkDisplayMode->GetWidth() == (long) desc.width &&
                                         deckLinkDisplayMode->GetHeight() == (long) desc.height)
                         {
@@ -613,7 +613,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                         log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s\n", modeNameCString);
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         release_bmd_api_str(modeNameString);
-                                        free((void *) modeNameCString);
+                                        free(modeNameCString);
                                         break;
                                 }
                         }
@@ -792,11 +792,11 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 
                 if (result == S_OK)
                 {
-                        const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                         strncpy((*available_cards)[*count - 1].name, deviceNameCString,
                                         sizeof (*available_cards)[*count - 1].name - 1);
                         release_bmd_api_str(deviceNameString);
-                        free((void *) deviceNameCString);
+                        free(deviceNameCString);
                 }
 
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
@@ -1001,7 +1001,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 bool found = false;
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         BMD_STR deviceNameString = NULL;
-                        const char* deviceNameCString = NULL;
+                        char* deviceNameCString = NULL;
 
                         result = deckLink->GetDisplayName(&deviceNameString);
                         if (result == S_OK)
@@ -1013,7 +1013,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 }
 
                                 release_bmd_api_str(deviceNameString);
-                                free((void *) deviceNameCString);
+                                free(deviceNameCString);
                         }
 
 
@@ -1639,7 +1639,7 @@ static void print_output_modes (IDeckLink* deckLink)
 
                 if (result == S_OK)
                 {
-                        const char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
                         int                             modeWidth;
                         int                             modeHeight;
                         BMDDisplayModeFlags             flags;
@@ -1655,7 +1655,7 @@ static void print_output_modes (IDeckLink* deckLink)
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);
-                        free((void *) displayModeCString);
+                        free(displayModeCString);
                 }
 
                 // Release the IDeckLinkDisplayMode object to prevent a leak

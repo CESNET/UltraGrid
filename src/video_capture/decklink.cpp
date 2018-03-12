@@ -360,7 +360,7 @@ decklink_help()
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
 		BMD_STR                 deviceNameString = NULL;
-		const char *		deviceNameCString = NULL;
+		char *		deviceNameCString = NULL;
 		
 		// *** Print the model name of the DeckLink card
 		result = deckLink->GetDisplayName((BMD_STR *) &deviceNameString);
@@ -369,7 +369,7 @@ decklink_help()
                         deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
 			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
 			release_bmd_api_str(deviceNameString);
-                        free((void *)deviceNameCString);
+                        free(deviceNameCString);
                 } else {
 			printf("\ndevice: %d.) (unable to get name)\n\n", numDevices);
                 }
@@ -629,7 +629,7 @@ vidcap_decklink_probe(bool verbose)
                                                                 snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
                                                                                 "device=%d:connection=%s", numDevices, it.second.c_str());
                                                                 BMD_STR deviceNameString = NULL;
-                                                                const char *deviceNameCString = NULL;
+                                                                char *deviceNameCString = NULL;
 
                                                                 // *** Print the model name of the DeckLink card
                                                                 result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
@@ -638,7 +638,7 @@ vidcap_decklink_probe(bool verbose)
                                                                         snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                                                                         "%s #%d (%s)", deviceNameCString, numDevices, it.second.c_str());
                                                                         release_bmd_api_str(deviceNameString);
-                                                                        free((void *)deviceNameCString);
+                                                                        free(deviceNameCString);
                                                                 }
                                                         }
                                                 }
@@ -663,7 +663,7 @@ vidcap_decklink_probe(bool verbose)
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
         BMD_STR displayModeString = NULL;
-        const char *displayModeCString;
+        char *displayModeCString;
         HRESULT result;
 
         result = displayMode->GetName(&displayModeString);
@@ -722,7 +722,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                                 tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */
                 printf("Enable video input: %s\n", displayModeCString);
                 release_bmd_api_str(displayModeString);
-                free((void *)displayModeCString);
+                free(displayModeCString);
         }
 
         tile->data_len =
@@ -737,7 +737,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         return result;
 }
 
-bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDisplayMode, int card_idx)
+static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDisplayMode, int card_idx)
 {
         IDeckLinkDisplayMode *displayMode;
         HRESULT result;
@@ -900,7 +900,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         bool found = false;
 
                         BMD_STR deviceNameString = NULL;
-                        const char* deviceNameCString = NULL;
+                        char* deviceNameCString = NULL;
 
                         result = deckLink->GetDisplayName(&deviceNameString);
                         if (result == S_OK) {
@@ -911,7 +911,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 }
 
                                 release_bmd_api_str(deviceNameString);
-                                free((void *) deviceNameCString);
+                                free(deviceNameCString);
                         }
 
                         if (isdigit(s->state[i].device_id.c_str()[0]) && atoi(s->state[i].device_id.c_str()) == dnum) {
@@ -935,10 +935,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         // Print the model name of the DeckLink card
                         result = deckLink->GetDisplayName(&deviceNameString);
                         if (result == S_OK) {
-                                const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                                 LOG(LOG_LEVEL_INFO) << "Using device " << deviceNameCString << "\n";
                                 release_bmd_api_str(deviceNameString);
-                                free((void *) deviceNameCString);
+                                free(deviceNameCString);
                         }
 
                         // Query the DeckLink for its configuration interface
@@ -1052,10 +1052,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 BMD_STR displayModeString = NULL;
                                 result = displayMode->GetName(&displayModeString);
                                 if (result == S_OK) {
-                                        const char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+                                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
                                         LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
                                         release_bmd_api_str(displayModeString);
-                                        free((void *)displayModeCString);
+                                        free(displayModeCString);
                                 }
                         } else {
                                 if (mode_idx == MODE_SPEC_FOURCC) {
@@ -1527,7 +1527,6 @@ static void print_input_modes (IDeckLink* deckLink)
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
 		BMD_STR displayModeString = NULL;
-                const char *displayModeCString;
 		
 		result = displayMode->GetName((BMD_STR *) &displayModeString);
 
@@ -1539,7 +1538,7 @@ static void print_input_modes (IDeckLink* deckLink)
 			BMDTimeValue	frameRateDuration;
 			BMDTimeScale	frameRateScale;
 			
-                        displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 			// Obtain the display mode's properties
                         flags = displayMode->GetFlags();
 			modeWidth = displayMode->GetWidth();
@@ -1550,7 +1549,7 @@ static void print_input_modes (IDeckLink* deckLink)
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);
-			free((void *)displayModeCString);
+			free(displayModeCString);
 		}
 		
 		// Release the IDeckLinkDisplayMode object to prevent a leak
