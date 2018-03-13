@@ -169,9 +169,17 @@ struct state_vdpau {
         hw_vdpau_frame lastFrame;
 
         bool interopInitialized = false;
-        VdpDevice device = 0;
+        bool mixerInitialized = false;
+        VdpDevice device = VDP_INVALID_HANDLE;
         VdpGetProcAddress *get_proc_address = nullptr;
-        vdpauSurfaceNV surf = 0;
+        vdpauSurfaceNV vdpgl_surf = 0;
+
+        VdpOutputSurface out_surf = VDP_INVALID_HANDLE;
+        VdpVideoMixer mixer = VDP_INVALID_HANDLE;
+
+        uint32_t surf_width = 0;
+        uint32_t surf_height = 0;
+        VdpChromaType surf_ct = 0;
 
         void (*VDPAUInitNV)(const void * /*vdpDevice*/,
                         const void * /*getProcAddress*/);
@@ -211,6 +219,11 @@ struct state_vdpau {
         void checkInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
         void initInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
         void uninitInterop();
+
+        void initMixer(uint32_t w, uint32_t h, VdpChromaType ct);
+        void mixerRender(VdpVideoSurface f);
+        void uninitMixer();
+
         void uninit();
 
         vdp_funcs funcs;
@@ -1175,6 +1188,124 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
+void state_vdpau::uninitMixer(){
+        VdpStatus st;
+
+        if (mixer != VDP_INVALID_HANDLE){
+                st = funcs.videoMixerDestroy(mixer);
+                mixer = VDP_INVALID_HANDLE;
+                if(st != VDP_STATUS_OK){
+                        printf("Failed to destroy VdpVideoMixer: %s\n", funcs.getErrorString(st));
+                }
+        } 
+
+        if (out_surf != VDP_INVALID_HANDLE){
+                st = funcs.outputSurfaceDestroy(out_surf);
+                if(st != VDP_STATUS_OK){
+                        printf("Failed to destroy VdpOutputSurface: %s\n", funcs.getErrorString(st));
+                }
+                out_surf = VDP_INVALID_HANDLE;
+                surf_width = 0;
+                surf_height = 0;
+                surf_ct = 0;
+        }
+
+        VDPAUUnregisterSurfaceNV(vdpgl_surf);
+        mixerInitialized = false;
+}
+
+void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
+        uninitMixer();
+
+        surf_ct = ct;
+        surf_width = w;
+        surf_height = h;
+
+        VdpStatus st;
+
+        VdpRGBAFormat rgbaFormat = VDP_RGBA_FORMAT_B8G8R8A8;
+
+        st = funcs.outputSurfaceCreate(device,
+                        rgbaFormat,
+                        surf_width,
+                        surf_height,
+                        &out_surf);
+
+        if(st != VDP_STATUS_OK){
+                printf("Failed to create VdpOutputSurface: %s\n", funcs.getErrorString(st));
+        }
+
+        VdpVideoMixerParameter params[] = {
+                VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE,
+                VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_WIDTH,
+                VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_HEIGHT
+        };
+
+        void *param_vals[] = {
+                &surf_ct,
+                &surf_width,
+                &surf_height
+        };
+
+        st = funcs.videoMixerCreate(device,
+                        0,
+                        NULL,
+                        3,
+                        params,
+                        param_vals,
+                        &mixer);
+
+        if(st != VDP_STATUS_OK){
+                printf("Failed to create VdpVideoMixer: %s\n", funcs.getErrorString(st));
+        }
+
+        vdpgl_surf = VDPAURegisterOutputSurfaceNV((void *) out_surf,
+                        GL_TEXTURE_2D,
+                        1,
+                        textures);
+
+        VDPAUSurfaceAccessNV(vdpgl_surf, GL_WRITE_DISCARD_NV);
+
+        mixerInitialized = true;
+}
+
+void state_vdpau::mixerRender(VdpVideoSurface f){
+        VdpStatus st = funcs.videoMixerRender(mixer,
+                        VDP_INVALID_HANDLE,
+                        NULL,
+                        VDP_VIDEO_MIXER_PICTURE_STRUCTURE_FRAME,
+                        0,
+                        NULL,
+                        f,
+                        0,
+                        NULL,
+                        NULL,
+                        out_surf,
+                        NULL,
+                        NULL,
+                        0,
+                        NULL);
+}
+
+static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
+        uint32_t frame_w;
+        uint32_t frame_h;
+        VdpChromaType ct;
+
+        VdpStatus st = s->vdp.funcs.videoSurfaceGetParameters(frame->surface,
+                        &ct,
+                        &frame_w,
+                        &frame_h);
+
+        if(s->vdp.surf_width != frame_w ||
+                        s->vdp.surf_height != frame_h ||
+                        s->vdp.surf_ct != ct ||
+                        !s->vdp.mixerInitialized)
+        {
+                s->vdp.initMixer(frame_w, frame_h, ct);
+        }
+}
+
 static void gl_render_vdpau(struct state_gl *s, char *data)
 {
         assert(s->vdp.initialized);
@@ -1183,23 +1314,26 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         printf("Surface:%d frame:%p\n", frame->surface, frame);
         glBindTexture(GL_TEXTURE_2D, 0);
 
+        int state = 0;
+        int len = 0;
+        if(s->vdp.vdpgl_surf){
+                s->vdp.VDPAUGetSurfaceivNV(s->vdp.vdpgl_surf,
+                                GL_SURFACE_STATE_NV,
+                                1,
+                                &len,
+                                &state
+                                );
+        }
+
+        if(state == GL_SURFACE_MAPPED_NV)
+                s->vdp.VDPAUUnmapSurfacesNV(1, &s->vdp.vdpgl_surf);
+
         s->vdp.checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
+        check_mixer(s, frame);
 
-        uint32_t width, height;
-        VdpChromaType ct;
-        VdpStatus st = s->vdp.funcs.videoSurfaceGetParameters(frame->surface, &ct, &width, &height);
-        printf("width: %u height: %u\n", width, height);
+        s->vdp.mixerRender(frame->surface);
 
-        s->vdp.VDPAUUnregisterSurfaceNV(s->vdp.surf);
-
-        s->vdp.surf = s->vdp.VDPAURegisterVideoSurfaceNV((void *) frame->surface,
-                        GL_TEXTURE_2D,
-                        4,
-                        s->vdp.textures);
-
-        s->vdp.VDPAUSurfaceAccessNV(s->vdp.surf, GL_WRITE_DISCARD_NV);
-
-        s->vdp.VDPAUMapSurfacesNV(1, &s->vdp.surf);
+        s->vdp.VDPAUMapSurfacesNV(1, &s->vdp.vdpgl_surf);
 
         glBindTexture(GL_TEXTURE_2D, s->vdp.textures[0]);
 
@@ -1234,9 +1368,10 @@ void state_vdpau::uninitInterop(){
         device = 0;
         get_proc_address = nullptr;
         interopInitialized = false;
+        mixerInitialized = false;
 
         //VDPAUFiniNV() unmaps and unregisters all surfaces automatically
-        surf = 0;
+        vdpgl_surf = 0;
 }
 
 bool state_vdpau::init(){

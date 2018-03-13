@@ -89,7 +89,13 @@ typedef struct vdp_funcs{
         VdpVideoSurfaceGetParameters *videoSurfaceGetParameters;
         VdpVideoMixerCreate *videoMixerCreate;
         VdpVideoMixerDestroy *videoMixerDestroy;
-        VdpVideoMixerRender *videoMixerRender;;
+        VdpVideoMixerRender *videoMixerRender;
+
+        VdpOutputSurfaceCreate *outputSurfaceCreate;
+        VdpOutputSurfaceDestroy *outputSurfaceDestroy;
+        VdpOutputSurfaceGetParameters *outputSurfaceGetParameters;
+
+        VdpGetErrorString *getErrorString;
 } vdp_funcs;
 
 void vdp_funcs_init(vdp_funcs *);
