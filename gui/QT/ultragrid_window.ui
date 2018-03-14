@@ -147,7 +147,7 @@
              <bool>false</bool>
             </property>
             <property name="title">
-             <string>Video Capture</string>
+             <string>Video Source</string>
             </property>
             <property name="flat">
              <bool>false</bool>
@@ -663,7 +663,7 @@
      <x>0</x>
      <y>0</y>
      <width>1104</width>
-     <height>24</height>
+     <height>22</height>
     </rect>
    </property>
    <property name="contextMenuPolicy">
