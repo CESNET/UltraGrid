@@ -283,11 +283,11 @@ void print_capabilities(struct module *root, bool use_vidcap)
 
 void print_version()
 {
-        printf("%s", PACKAGE_STRING);
+        printf("%s (", PACKAGE_STRING);
 #ifdef GIT_REV
-        printf(" (rev %s)", GIT_REV);
+        printf("rev %s, ", GIT_REV);
 #endif
-        printf("\n");
+        printf("built " __DATE__ " " __TIME__ ")\n");
 }
 
 void print_configuration()
