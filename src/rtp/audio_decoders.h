@@ -42,13 +42,15 @@ extern "C" {
 #endif
 
 struct coded_data;
+struct module;
 
 typedef bool (*audio_playback_ctl_t)(void *state, int request, void *data, size_t *len);
 
 int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
-                const char *encryption, audio_playback_ctl_t c, void *ap_state);
+                const char *encryption, audio_playback_ctl_t c, void *ap_state,
+                struct module *parent);
 void audio_decoder_destroy(void *state);
 void audio_decoder_set_volume(void *state, double val);
 

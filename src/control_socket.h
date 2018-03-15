@@ -62,6 +62,7 @@ void control_start(struct control_state *state);
 void control_done(struct control_state *s);
 void control_report_stats(struct control_state *state, const std::string & stat_line);
 void control_report_event(struct control_state *state, const std::string & event_line);
+bool control_stats_enabled(struct control_state *state);
 
 
 #endif // control_socket_h_

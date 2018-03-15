@@ -43,9 +43,11 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "module.h"
 #include "perf.h"
 #include "tv.h"
 #include "rtp/rtp.h"
@@ -64,9 +66,12 @@
 #include "utils/worker.h"
 
 #include <algorithm>
-#include <ctype.h>
-#include <time.h>
-#include <string.h>
+#include <cctype>
+#include <cstring>
+#include <ctime>
+#include <sstream>
+
+using std::ostringstream;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 
@@ -113,6 +118,8 @@ struct state_audio_decoder {
 
         audio_playback_ctl_t audio_playback_ctl_func;
         void *audio_playback_state;
+
+        struct control_state *control;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -166,7 +173,7 @@ static void compute_scale(struct scale_data *scale_data, float vol_avg, int samp
         }
 }
 
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state)
+void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state, struct module *parent)
 {
         struct state_audio_decoder *s;
         bool scale_auto = false;
@@ -184,6 +191,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->packet_counter = NULL;
 
         s->audio_decompress = NULL;
+
+        s->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         if (encryption) {
                 s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
@@ -598,6 +607,24 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         s->buffer.data_len = new_data_len;
 
         decoder->decoded.append(decompressed);
+
+        if (control_stats_enabled(decoder->control)) {
+                double rms, peak;
+                rms = calculate_rms(&decompressed, 0, &peak);
+                double rms_dbfs0 = 20 * log(rms) / log(10);
+                double peak_dbfs0 = 20 * log(peak) / log(10);
+                double rms_dbfs1;
+                double peak_dbfs1;
+                if (decompressed.get_channel_count() == 1) {
+                        rms_dbfs1 = rms_dbfs0;
+                        peak_dbfs1 = peak_dbfs0;
+                } else {
+                        rms = calculate_rms(&decompressed, 1, &peak);
+                        rms_dbfs1 = 20 * log(rms) / log(10);
+                        peak_dbfs1 = 20 * log(peak) / log(10);
+                }
+                control_report_stats(decoder->control, static_cast<ostringstream&>(ostringstream() << "ARECV volrms0 " << rms_dbfs0 << " volpeak0 " << peak_dbfs0 << " volrms1 " << rms_dbfs1 << " volpeak1 " << peak_dbfs1).str());
+        }
 
         double seconds;
         struct timeval t;

@@ -899,3 +899,8 @@ void control_report_event(struct control_state *s, const std::string &report_lin
         control_report_stats_event(s, "event " + report_line + "\r\n");
 }
 
+bool control_stats_enabled(struct control_state *s)
+{
+        return s && s->stats_on;
+}
+

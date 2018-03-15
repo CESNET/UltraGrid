@@ -69,6 +69,7 @@
 #include "audio/jack.h" 
 #include "audio/utils.h"
 #include "compat/platform_semaphore.h"
+#include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "../export.h" // not audio/export.h
 #include "host.h"
@@ -669,7 +670,7 @@ static void *audio_receiver_thread(void *arg)
                                         assert(dec_state != NULL);
                                         cp->decoder_state = dec_state;
                                         dec_state->enabled = true;
-                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device);
+                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, &s->audio_receiver_module);
                                         audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted ? 0.0 : s->volume);
                                         assert(dec_state->pbuf_data.decoder != NULL);
                                         cp->decoder_state_deleter = audio_decoder_state_deleter;
