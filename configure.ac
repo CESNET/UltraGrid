@@ -2673,7 +2673,8 @@ AC_ARG_ENABLE(spout,
 if test $spout_req == yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS -lspout_sender"
+        LIBS="$LIBS -lspout_wrapper"
+        OBJS="$OBJS src/video_capture/spout.o"
         spout=yes
 fi
 
