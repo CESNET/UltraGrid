@@ -163,6 +163,7 @@ void main()
 } // main end
 );
 
+#ifdef USE_HWACC
 struct state_vdpau {
         bool initialized = false;
         GLuint textures[4] = {0};
@@ -229,6 +230,7 @@ struct state_vdpau {
         vdp_funcs funcs;
 
 };
+#endif
 
 struct state_gl {
         GLuint          PHandle_uyvy, PHandle_dxt, PHandle_dxt5;
@@ -282,8 +284,9 @@ struct state_gl {
         bool fixed_size, first_run;
         int fixed_w, fixed_h;
 
+#ifdef USE_HWACC
         struct state_vdpau vdp;
-
+#endif
 
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0),
@@ -511,8 +514,11 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
                         desc.color_spec == UYVY ||
                         desc.color_spec == DXT1 ||
                         desc.color_spec == DXT1_YUV ||
-                        desc.color_spec == DXT5 ||
-                        desc.color_spec == HW_VDPAU);
+                        desc.color_spec == DXT5
+#ifdef USE_HWACC
+                        || desc.color_spec == HW_VDPAU
+#endif
+                        );
 
         s->current_desc = desc;
 
@@ -710,9 +716,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 (desc.width + 3) / 4 * 4, s->dxt_height, 0,
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
-        } else if (desc.color_spec == HW_VDPAU) {
+        }
+#ifdef USE_HWACC
+        else if (desc.color_spec == HW_VDPAU) {
                 s->vdp.init();
         }
+#endif
 
         gl_check_error();
 
@@ -794,9 +803,11 @@ static void gl_render(struct state_gl *s, char *data)
                                         (s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height,
                                         data);
                         break;
+#ifdef USE_HWACC
                 case HW_VDPAU:
                         gl_render_vdpau(s, data);
                         break;
+#endif
                 default:
                         fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
                         exit_uv(EXIT_FAILURE);
@@ -1188,6 +1199,7 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
+#ifdef USE_HWACC
 void state_vdpau::uninitMixer(){
         VdpStatus st;
 
@@ -1444,6 +1456,7 @@ bool state_vdpau::loadVdpGlFuncs(){
 
         return true;
 }
+#endif
 
 static void gl_draw(double ratio, double bottom_offset, bool double_buf)
 {
@@ -1489,7 +1502,17 @@ static void glut_close_callback(void)
 static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {HW_VDPAU, UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
+        codec_t codecs[] = {
+#ifdef USE_HWACC
+                HW_VDPAU,
+#endif
+                UYVY,
+                RGBA,
+                RGB,
+                DXT1,
+                DXT1_YUV,
+                DXT5
+        };
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 

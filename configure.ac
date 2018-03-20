@@ -2449,6 +2449,8 @@ if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
 then
         LAVC_HWACC_FLAGS="-DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
         LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS}"
+        HW_ACC_OBJ="src/hwaccel.o"
+        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$HW_ACC_LIBS")
         lavc_hwacc=yes
 else
         LAVC_HWACC_FLAGS=

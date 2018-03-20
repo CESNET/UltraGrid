@@ -86,7 +86,9 @@ using std::min;
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
 
+#ifdef USE_HWACC
 #include "hwaccel.h"
+#endif
 
 #ifdef __SSE2__
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
@@ -169,8 +171,10 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('B','G','R','2'), 1, 3.0, 8, 0, TRUE, FALSE, FALSE, FALSE, "bgr", NULL, NULL},
         [J2K] = {"J2K", "JPEG 2000",
                 to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k", NULL, NULL},
+#if USE_HWACC
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
                 to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, "vdpau", hw_vdpau_free_extra_data, hw_vdpau_frame_data_cpy}
+#endif
 };
 
 /**
@@ -1693,9 +1697,11 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
                         pattern[2] = 0x20000200;
                         pattern[3] = 0x00080000;
                         break;
+#if USE_HWACC
                 case HW_VDPAU:
                         hw_vdpau_frame_init((hw_vdpau_frame *) data);
                         return true;
+#endif
                 default:
                         return false;
         }

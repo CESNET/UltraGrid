@@ -1116,6 +1116,7 @@ static void not_implemented_conv(char *dst_buffer, AVFrame *in_frame,
         log_msg(LOG_LEVEL_ERROR, "Selected conversion is not implemented!\n");
 }
 
+#ifdef USE_HWACC
 static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
@@ -1129,6 +1130,7 @@ static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
 
         hw_vdpau_frame_from_avframe(out, in_frame);
 }
+#endif
 
 static const struct {
         int av_codec;
@@ -1173,8 +1175,10 @@ static const struct {
         {AV_PIX_FMT_RGB24, v210, not_implemented_conv},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+#ifdef USE_HWACC
         // HW acceleration
         {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau},
+#endif
 };
 
 #ifdef USE_HWACC
@@ -1685,6 +1689,8 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }
 #endif
+                                printf("interlaced: %d", s->frame->interlaced_frame);
+                                printf("Display num: %d, coded num: %d, top_first: %d\n", s->frame->display_picture_number, s->frame->coded_picture_number, s->frame->top_field_first);
                                 res = change_pixfmt(s->frame, dst, s->frame->format,
                                                 s->out_codec, s->width, s->height, s->pitch);
                                 if(res == TRUE) {
