@@ -1693,6 +1693,9 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
                         pattern[2] = 0x20000200;
                         pattern[3] = 0x00080000;
                         break;
+                case HW_VDPAU:
+                        hw_vdpau_frame_init((hw_vdpau_frame *) data);
+                        return true;
                 default:
                         return false;
         }
