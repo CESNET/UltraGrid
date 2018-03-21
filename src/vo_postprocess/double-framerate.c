@@ -64,28 +64,39 @@ struct state_df {
         struct video_frame *in;
         char *buffers[2];
         int buffer_current;
+        bool deinterlace;
 };
 
 static void usage()
 {
-        printf("-p double_framerate\n");
+        printf("Usage:\n");
+        printf("\t-p double_framerate[:d]\n");
+        printf("\t\td - deinterlace\n");
 }
 
 static void * df_init(const char *config) {
         struct state_df *s;
+        bool deinterlace = false;
 
-        if(config && strcmp(config, "help") == 0) {
-                usage();
-                return NULL;
+        if (config) {
+                if (strcmp(config, "help") == 0) {
+                        usage();
+                        return NULL;
+                } else if (strcmp(config, "d") == 0) {
+                        deinterlace = true;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
+                        return NULL;
+                }
         }
 
-        s = (struct state_df *) 
-                        malloc(sizeof(struct state_df));
+        s = (struct state_df *) calloc(1, sizeof(struct state_df));
 
         assert(s != NULL);
         s->in = vf_alloc(1);
         s->buffers[0] = s->buffers[1] = NULL;
         s->buffer_current = 0;
+        s->deinterlace = deinterlace;
         
         return s;
 }
@@ -168,6 +179,10 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
                         dst += req_pitch;
                         src += vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
                 }
+        }
+
+        if (s->deinterlace) {
+                vc_deinterlace((unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec), out->tiles[0].height);
         }
 
         return true;
