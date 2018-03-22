@@ -66,6 +66,7 @@ struct state_df {
         char *buffers[2];
         int buffer_current;
         bool deinterlace;
+        bool nodelay;
 
         std::chrono::steady_clock::time_point frame_received;
 };
@@ -73,13 +74,15 @@ struct state_df {
 static void usage()
 {
         printf("Usage:\n");
-        printf("\t-p double_framerate[:d]\n");
-        printf("\t\td - deinterlace\n");
+        printf("\t-p double_framerate[:d][:nodelay]\n");
+        printf("\t\td       - deinterlace\n");
+        printf("\t\tnodelay - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
 }
 
 static void * df_init(const char *config) {
         struct state_df *s;
         bool deinterlace = false;
+        bool nodelay = false;
 
         if (config) {
                 if (strcmp(config, "help") == 0) {
@@ -87,6 +90,8 @@ static void * df_init(const char *config) {
                         return NULL;
                 } else if (strcmp(config, "d") == 0) {
                         deinterlace = true;
+                } else if (strcmp(config, "nodelay") == 0) {
+                        nodelay = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
                         return NULL;
@@ -100,6 +105,7 @@ static void * df_init(const char *config) {
         s->buffers[0] = s->buffers[1] = NULL;
         s->buffer_current = 0;
         s->deinterlace = deinterlace;
+        s->nodelay = nodelay;
         
         return s;
 }
@@ -188,15 +194,17 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
                 vc_deinterlace((unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec), out->tiles[0].height);
         }
 
-        // In following code we fix timing in order not to pass both frames
-        // in bulk but rather we busy-wait half of the frame time.
-        if (in) {
-                s->frame_received = std::chrono::steady_clock::now();
-        } else {
-                decltype(s->frame_received) t;
-                do {
-                        t = std::chrono::steady_clock::now();
-                } while (std::chrono::duration_cast<std::chrono::duration<double>>(t - s->frame_received).count() <= 0.5 / out->fps);
+        if (!s->nodelay) {
+                // In following code we fix timing in order not to pass both frames
+                // in bulk but rather we busy-wait half of the frame time.
+                if (in) {
+                        s->frame_received = std::chrono::steady_clock::now();
+                } else {
+                        decltype(s->frame_received) t;
+                        do {
+                                t = std::chrono::steady_clock::now();
+                        } while (std::chrono::duration_cast<std::chrono::duration<double>>(t - s->frame_received).count() <= 0.5 / out->fps);
+                }
         }
 
         return true;
