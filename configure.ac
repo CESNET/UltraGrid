@@ -1853,7 +1853,7 @@ case "$CUDA_COMPILER" in
 		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
 		;;
 esac
-HOST_CC_REPORT=" (cuda code compiler: $(basename $CUDA_COMPILER))"
+HOST_CC_REPORT=" (cuda code compiler: "$(basename "$CUDA_COMPILER")")"
 
 # CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
