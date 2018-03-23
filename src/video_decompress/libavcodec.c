@@ -1250,7 +1250,13 @@ static int vdpau_init(struct AVCodecContext *s){
         s->hw_frames_ctx = hw_frames_ctx;
 
         state->hwaccel.type = HWACCEL_VDPAU;
-        state->hwaccel.copy = false;
+        state->hwaccel.copy = state->out_codec != HW_VDPAU;
+        if(state->hwaccel.copy){
+                log_msg(LOG_LEVEL_WARNING, "[lavd] Vdpau copy mode enabled"
+                                " because the decoder wasn't configured to output HW_VDPAU"
+                                " (maybe the display doesn't support it)"
+                                " This may be slower than sw decoding.\n");
+        }
         state->hwaccel.tmp_frame = av_frame_alloc();
         if(!state->hwaccel.tmp_frame){
                 ret = -1;
