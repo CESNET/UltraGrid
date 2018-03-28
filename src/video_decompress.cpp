@@ -207,7 +207,7 @@ int decompress_reconfigure(struct state_decompress *s, struct video_desc desc, i
 }
 
 /** @copydoc decompress_decompress_t */
-int decompress_frame(struct state_decompress *s, unsigned char *dst,
+decompress_status decompress_frame(struct state_decompress *s, unsigned char *dst,
                 unsigned char *compressed, unsigned int compressed_len, int frame_seq)
 {
         assert(s->magic == DECOMPRESS_MAGIC);

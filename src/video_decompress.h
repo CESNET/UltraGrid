@@ -91,24 +91,31 @@ typedef  void *(*decompress_init_t)();
 typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc, 
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
 
+typedef enum {
+        DECODER_NO_FRAME = 0, //Frame not decoded yet 
+        DECODER_GOT_FRAME,    //Frame decoded and written to destination
+        DECODER_CANT_DECODE   //Decoder can't decode to selected out_codec
+} decompress_status;
+
 /**
  * @brief Decompresses video frame
- * @param[in]  s             decompress state
+ * @param[in]  state         decompress state
  * @param[out] dst           buffer where uncompressed frame will be written
  * @note
  * Length of the result isn't returned because is known from the informations
  * passed with decompress_reconfigure.
- * @param[in] compressed     buffer where uncompressed frame will be written
- * @param[in] compressed_len length of the compressed buffer
+ * @param[in] buffer         buffer where uncompressed frame will be written
+ * @param[in] src_len        length of the compressed buffer
  * @param[in] frame_seq      sequential number of frame. Subsequent frames
  *                           has sequential number +1. The point is to signalize
  *                           decompressor when one or more frames got lost (interframe compress).
  * @note
  * Currently used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
- * @retval    TRUE           if decompressed successfully
- * @retval    FALSE          if decompressing failed
+ * @retval    DECODER_GOT_FRAME        if decompressed successfully
+ * @retval    DECODER_NO_FRAME         if the frame wasn't decoded yet
+ * @retval    DECODER_CANT_DECODE      if decoding to selected out_codec failed
  */
-typedef int (*decompress_decompress_t)(void *state, unsigned char *dst,
+typedef decompress_status (*decompress_decompress_t)(void *state, unsigned char *dst,
                 unsigned char *buffer, unsigned int src_len, int frame_seq);
 
 /**
@@ -152,7 +159,7 @@ struct video_decompress_info {
 
 bool decompress_init_multi(codec_t from, codec_t to, struct state_decompress **out, int count);
 int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-int decompress_frame(struct state_decompress *, unsigned char *dst,
+decompress_status decompress_frame(struct state_decompress *, unsigned char *dst,
                 unsigned char *src, unsigned int src_len, int frame_seq);
 int decompress_get_property(struct state_decompress *state, int property, void *val, size_t *len);
 void decompress_done(struct state_decompress *);

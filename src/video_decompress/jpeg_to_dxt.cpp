@@ -298,7 +298,7 @@ static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int
         return true;
 }
 
-int jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
         struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
@@ -324,7 +324,7 @@ int jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffe
                 delete completed;
         }
 
-        return TRUE;
+        return DECODER_GOT_FRAME;
 }
 
 int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)

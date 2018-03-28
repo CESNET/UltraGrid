@@ -1630,12 +1630,12 @@ static void transfer_frame(struct hw_accel_state *s, AVFrame *frame){
 }
 #endif
 
-static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
+static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int len, got_frame = 0;
-        int res = FALSE;
+        decompress_status res = DECODER_NO_FRAME;
 
         s->pkt.size = src_len;
         s->pkt.data = src;
@@ -1675,11 +1675,11 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                         } else if (s->in_codec == MJPG) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
 #if LIBAVCODEC_VERSION_MAJOR <= 54 // Libav with libavcodec 54 will crash otherwise
-                                return FALSE;
+                                return DECODER_NO_FRAME;
 #endif
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
-                                return FALSE;
+                                return DECODER_NO_FRAME;
                         }
                 }
 
@@ -1695,20 +1695,21 @@ static int libavcodec_decompress(void *state, unsigned char *dst, unsigned char 
                                                 "(last valid %d, this %u).\n",
                                                 s->last_frame_seq_initialized ?
                                                 s->last_frame_seq : -1, (unsigned) frame_seq);
-                                res = FALSE;
+                                res = DECODER_NO_FRAME;
                         } else {
 #ifdef USE_HWACC
                                 if(s->hwaccel.copy){
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }
 #endif
-                                printf("interlaced: %d", s->frame->interlaced_frame);
-                                printf("Display num: %d, coded num: %d, top_first: %d\n", s->frame->display_picture_number, s->frame->coded_picture_number, s->frame->top_field_first);
-                                res = change_pixfmt(s->frame, dst, s->frame->format,
+                                bool ret = change_pixfmt(s->frame, dst, s->frame->format,
                                                 s->out_codec, s->width, s->height, s->pitch);
-                                if(res == TRUE) {
+                                if(ret == TRUE) {
                                         s->last_frame_seq_initialized = true;
                                         s->last_frame_seq = frame_seq;
+                                        res = DECODER_GOT_FRAME;
+                                } else {
+                                        res = DECODER_CANT_DECODE;
                                 }
                         }
                 }

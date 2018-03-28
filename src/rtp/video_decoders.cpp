@@ -252,9 +252,16 @@ struct frame_msg {
 };
 
 struct main_msg_reconfigure {
-        inline main_msg_reconfigure(struct video_desc d, unique_ptr<frame_msg> &&f) : desc(d), last_frame(move(f)) {}
+        inline main_msg_reconfigure(struct video_desc d,
+                        unique_ptr<frame_msg> &&f,
+                        bool force = false) :
+                desc(d),
+                last_frame(move(f)),
+                force(force) {}
+
         struct video_desc desc;
         unique_ptr<frame_msg> last_frame;
+        bool force;
 };
 }
 
@@ -329,7 +336,6 @@ struct state_video_decoder
         std::future<bool> reconfiguration_future;
         bool             reconfiguration_in_progress = false;
 #endif
-
         struct reported_statistics_cumul stats = {}; ///< stats to be reported through control socket
 };
 
@@ -499,6 +505,21 @@ cleanup:
         return NULL;
 }
 
+static bool blacklist_current_out_codec(struct state_video_decoder *decoder){
+        if(decoder->out_codec == VIDEO_CODEC_NONE)
+                return false;
+
+        for(size_t i = 0; i < decoder->native_count; i++){
+                if(decoder->native_codecs[i] == decoder->out_codec){
+                        log_msg(LOG_LEVEL_DEBUG, "Blacklisting codec %s\n", get_codec_name(decoder->out_codec));
+                        decoder->native_codecs[i] = VIDEO_CODEC_NONE;
+                        decoder->out_codec = VIDEO_CODEC_NONE;
+                }
+        }
+
+        return true;
+}
+
 static void *decompress_thread(void *args) {
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
@@ -529,12 +550,16 @@ static void *decompress_thread(void *args) {
                                         }
                                         if(!msg->nofec_frame->tiles[pos].data)
                                                 continue;
-                                        int ret = decompress_frame(decoder->decompress_state[pos],
+                                        decompress_status ret = decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
                                                         (unsigned char *) msg->nofec_frame->tiles[pos].data,
                                                         msg->nofec_frame->tiles[pos].data_len,
                                                         msg->buffer_num[pos]);
-                                        if (ret == FALSE) {
+                                        if (ret != DECODER_GOT_FRAME) {
+                                                if(ret == DECODER_CANT_DECODE){
+                                                        if(blacklist_current_out_codec(decoder))
+                                                                decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true));
+                                                }
                                                 goto skip_frame;
                                         }
                                 }
@@ -1178,29 +1203,37 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
 }
 
 static int reconfigure_if_needed(struct state_video_decoder *decoder,
-                struct video_desc network_desc)
+                struct video_desc network_desc,
+                bool force = false)
 {
-        if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
+        bool desc_changed = !video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT);
+        if(!desc_changed && !force)
+                return FALSE;
+
+        if (desc_changed) {
                 LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
                 control_report_event(decoder->control, string("RECV received video changed - ") +
                                 (string) network_desc);
 
                 decoder->received_vid_desc = network_desc;
+        }
+
+        if(force){
+                log_msg(LOG_LEVEL_VERBOSE, "forced reconf\n");
+        }
 
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
-                decoder->reconfiguration_in_progress = true;
-                decoder->reconfiguration_future = std::async(std::launch::async,
-                                [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
+        decoder->reconfiguration_in_progress = true;
+        decoder->reconfiguration_future = std::async(std::launch::async,
+                        [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 #else
-                int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
-                if (!ret) {
-                        log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
-                        decoder->frame = NULL;
-                }
-#endif
-                return TRUE;
+        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
+        if (!ret) {
+                log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
+                decoder->frame = NULL;
         }
-        return FALSE;
+#endif
+        return TRUE;
 }
 /**
  * Checks if network format has changed.
@@ -1289,7 +1322,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
-                if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
+                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force)) {
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
                         vf_free(frame);
                         return FALSE;

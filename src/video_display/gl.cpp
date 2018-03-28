@@ -1207,14 +1207,14 @@ void state_vdpau::uninitMixer(){
                 st = funcs.videoMixerDestroy(mixer);
                 mixer = VDP_INVALID_HANDLE;
                 if(st != VDP_STATUS_OK){
-                        printf("Failed to destroy VdpVideoMixer: %s\n", funcs.getErrorString(st));
+                        log_msg(LOG_LEVEL_ERROR, "Failed to destroy VdpVideoMixer: %s\n", funcs.getErrorString(st));
                 }
         } 
 
         if (out_surf != VDP_INVALID_HANDLE){
                 st = funcs.outputSurfaceDestroy(out_surf);
                 if(st != VDP_STATUS_OK){
-                        printf("Failed to destroy VdpOutputSurface: %s\n", funcs.getErrorString(st));
+                        log_msg(LOG_LEVEL_ERROR, "Failed to destroy VdpOutputSurface: %s\n", funcs.getErrorString(st));
                 }
                 out_surf = VDP_INVALID_HANDLE;
                 surf_width = 0;
@@ -1244,7 +1244,7 @@ void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
                         &out_surf);
 
         if(st != VDP_STATUS_OK){
-                printf("Failed to create VdpOutputSurface: %s\n", funcs.getErrorString(st));
+                log_msg(LOG_LEVEL_ERROR, "Failed to create VdpOutputSurface: %s\n", funcs.getErrorString(st));
         }
 
         VdpVideoMixerParameter params[] = {
@@ -1268,7 +1268,7 @@ void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
                         &mixer);
 
         if(st != VDP_STATUS_OK){
-                printf("Failed to create VdpVideoMixer: %s\n", funcs.getErrorString(st));
+                log_msg(LOG_LEVEL_ERROR, "Failed to create VdpVideoMixer: %s\n", funcs.getErrorString(st));
         }
 
         vdpgl_surf = VDPAURegisterOutputSurfaceNV((void *) out_surf,
@@ -1323,7 +1323,6 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         assert(s->vdp.initialized);
         hw_vdpau_frame * frame = (hw_vdpau_frame *) data;
 
-        printf("Surface:%d frame:%p\n", frame->surface, frame);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         int state = 0;
@@ -1407,12 +1406,10 @@ bool state_vdpau::loadVdpGlFuncs(){
         if (!strstr((const char *) glGetString(GL_EXTENSIONS),
                                 "GL_NV_vdpau_interop"))
         {
-                printf("VDPAU interop NOT supported!\n");
-                printf("Available extensions:%s\n", glGetString(GL_EXTENSIONS));
+                log_msg(LOG_LEVEL_ERROR, "VDPAU interop NOT supported!\n");
+                log_msg(LOG_LEVEL_DEBUG, "Available extensions:%s\n", glGetString(GL_EXTENSIONS));
                 return false;
         }
-
-        printf("VDPAU interop is supported!\n");
 
         VDPAUInitNV = (void (*)(const void *, const void *))
                 glXGetProcAddressARB( (const GLubyte *) "glVDPAUInitNV");

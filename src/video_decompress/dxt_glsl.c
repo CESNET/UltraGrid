@@ -146,7 +146,7 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
         return TRUE;
 }
 
-static int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
@@ -155,7 +155,7 @@ static int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *b
 
         if (!s->configured) {
                 fprintf(stderr, "DXT decoder not configured!\n");
-                return FALSE;
+                return DECODER_NO_FRAME;
         }
 
         gl_context_make_current(&s->context);
@@ -195,7 +195,7 @@ static int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *b
         }
 
         gl_context_make_current(NULL);
-        return TRUE;
+        return DECODER_GOT_FRAME;
 }
 
 static int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len)
