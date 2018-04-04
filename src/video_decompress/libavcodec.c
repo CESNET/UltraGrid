@@ -51,6 +51,10 @@
 #include "video.h"
 #include "video_decompress.h"
 
+#ifndef AV_PIX_FMT_FLAG_HWACCEL
+#define AV_PIX_FMT_FLAG_HWACCEL PIX_FMT_HWACCEL
+#endif
+
 #ifdef USE_HWACC
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vdpau.h>
