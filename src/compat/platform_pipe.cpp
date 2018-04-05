@@ -37,11 +37,9 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif // HAVE_CONFIG_H
 #include "config_unix.h"
 #include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "debug.h"
 
 #include "compat/platform_pipe.h"
 
