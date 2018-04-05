@@ -95,6 +95,7 @@
 #ifdef USE_HWACC
 #include "hwaccel.h"
 typedef GLintptr vdpauSurfaceNV;
+#define NV_CAST(x) ((void *)(uintptr_t)(x))
 #endif
 
 using namespace std;
@@ -1271,7 +1272,7 @@ void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
                 log_msg(LOG_LEVEL_ERROR, "Failed to create VdpVideoMixer: %s\n", funcs.getErrorString(st));
         }
 
-        vdpgl_surf = VDPAURegisterOutputSurfaceNV((void *) out_surf,
+        vdpgl_surf = VDPAURegisterOutputSurfaceNV(NV_CAST(out_surf),
                         GL_TEXTURE_2D,
                         1,
                         textures);
@@ -1297,6 +1298,10 @@ void state_vdpau::mixerRender(VdpVideoSurface f){
                         NULL,
                         0,
                         NULL);
+
+        if(st != VDP_STATUS_OK){
+                log_msg(LOG_LEVEL_ERROR, "Failed to render: %s\n", funcs.getErrorString(st));
+        }
 }
 
 static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
@@ -1308,6 +1313,10 @@ static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
                         &ct,
                         &frame_w,
                         &frame_h);
+
+        if(st != VDP_STATUS_OK){
+                log_msg(LOG_LEVEL_ERROR, "Failed to get surface parameters: %s\n", s->vdp.funcs.getErrorString(st));
+        }
 
         if(s->vdp.surf_width != frame_w ||
                         s->vdp.surf_height != frame_h ||
@@ -1363,7 +1372,7 @@ void state_vdpau::initInterop(VdpDevice device, VdpGetProcAddress *get_proc_addr
         if(interopInitialized)
                 uninitInterop();
 
-        VDPAUInitNV((void *) device, (void *) get_proc_address);
+        VDPAUInitNV(NV_CAST(device), (void *) get_proc_address);
         this->device = device;
         this->get_proc_address = get_proc_address;
 
