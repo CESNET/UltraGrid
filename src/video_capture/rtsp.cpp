@@ -684,8 +684,8 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     memset(control, 0, 150 * sizeof(char *));
     char Atransport[256];
     char Vtransport[256];
-    bzero(Atransport, 256);
-    bzero(Vtransport, 256);
+    memset(Atransport, 0, 256);
+    memset(Vtransport, 0, 256);
     int port = rtsp_port;
 
     get_sdp_filename(url, sdp_filename);
@@ -931,9 +931,9 @@ rtsp_options(CURL *curl, const char *uri) {
     char control[1500], *user, *pass, *strtoken;
     user = (char *) malloc(1500);
     pass = (char *) malloc(1500);
-    bzero(control, 1500);
-    bzero(user, 1500);
-    bzero(pass, 1500);
+    memset(control, 0, 1500);
+    memset(user, 0, 1500);
+    memset(pass, 0, 1500);
 
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] OPTIONS %s\n", uri);
@@ -1123,7 +1123,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
     int max_len = 1500, len_nals = 0;
     char *s = (char *) malloc(max_len);
     char *sprop;
-    bzero(s, max_len);
+    memset(s, 0, max_len);
     FILE *sdp_fp = fopen(sdp_filename, "rt");
     nals[0] = '\0';
     if (sdp_fp != NULL) {
