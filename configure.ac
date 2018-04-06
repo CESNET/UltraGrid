@@ -2441,35 +2441,80 @@ if test $dshow_req = yes -a $dshow = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# libavcodec hw-accelerated encoding/decoding
+# libavcodec hw-accelerated decoding support
 # -------------------------------------------------------------------------------------------------
-lavc_hwacc=no
+lavc_hwacc_common=no
+lavc_hwacc_vdpau=no
+lavc_hwacc_vaapi=no
 
-define(lavc_hwacc_dep, libavutil >= 55.22.1 libva vdpau)
+define(lavc_hwacc_common_dep, libavutil >= 55.22.1)
+define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
+define(lavc_hwacc_vaapi_dep, lavc_hwacc_common_dep libva)
 
-AC_ARG_ENABLE(lavc-hw-accel,
-[  --disable-lavc-hw-accel   disable lavc-hw-accel (default is auto)]
-[                          Requires: lavc_hwacc_dep],
-    [lavc_hwacc_req=$enableval],
-    [lavc_hwacc_req=auto]
+AC_ARG_ENABLE(lavc-hw-accel-vdpau,
+[  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
+[                          Requires: lavc_hwacc_vdpau_dep],
+    [lavc_hwacc_vdpau_req=$enableval],
+    [lavc_hwacc_vdpau_req=auto]
     )
 
-PKG_CHECK_MODULES([LAVC_HWACC], [lavc_hwacc_dep], [FOUND_HWACC_DEP=yes], [FOUND_HWACC_DEP=no])
+AC_ARG_ENABLE(lavc-hw-accel-vaapi,
+[  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
+[                          Requires: lavc_hwacc_vaapi_dep],
+    [lavc_hwacc_vaapi_req=$enableval],
+    [lavc_hwacc_vaapi_req=auto]
+    )
 
-if test $lavc_hwacc_req != no -a $FOUND_HWACC_DEP = yes
+PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
+PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
+PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
+
+LAVC_HWACC_FLAGS=
+LAVC_HWACC_LIBS=
+HW_ACC_OBJ=
+
+if test $lavc_hwacc_vdpau_req != no -o $lavc_hwacc_vaapi_req != no
 then
-        LAVC_HWACC_FLAGS="-DUSE_HWACC ${LAVC_HWACC_CFLAGS}"
-        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS}"
-        HW_ACC_OBJ="src/hwaccel.o"
-        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$HW_ACC_LIBS")
-        lavc_hwacc=yes
-else
-        LAVC_HWACC_FLAGS=
-        LAVC_HWACC_LIBS=
+        if test $FOUND_HWACC_VDPAU_DEP = yes
+        then
+                lavc_hwacc_vdpau=yes
+                lavc_hwacc_common=yes
+        fi
+        if test $FOUND_HWACC_VAAPI_DEP = yes
+        then
+                lavc_hwacc_vaapi=yes
+                lavc_hwacc_common=yes
+        fi
 fi
 
-if test $lavc_hwacc_req = yes -a $lavc_hwacc = no; then
-	AC_MSG_ERROR([Could not find hwacc dependencies!]);
+if test $lavc_hwacc_common = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_libav_common.o"
+fi
+
+if test $lavc_hwacc_vdpau = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VDPAU ${LAVC_HWACC_VDPAU_CFLAGS}"
+        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
+fi
+
+if test $lavc_hwacc_vaapi = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
+        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
+fi
+
+ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$HW_ACC_LIBS")
+
+if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
+	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
+fi
+
+if test $lavc_hwacc_vaapi_req = yes -a $lavc_hwacc_vaapi = no; then
+	AC_MSG_ERROR([Could not find hwacc vaapi dependencies!]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -2808,7 +2853,7 @@ RESULT=\
   JPEG to DXT ................. $jpeg_to_dxt
   CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec (HW accel: $lavc_hwacc)
+  Libavcodec .................. $libavcodec (HW accel: vdpau: $lavc_hwacc_vdpau vaapi: $lavc_hwacc_vaapi)
 
   blank capture filter ........ $blank
   resize capture filter ....... $resize

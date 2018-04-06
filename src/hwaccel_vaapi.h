@@ -1,5 +1,5 @@
 /**
- * @file   hwaccel.h
+ * @file   hwaccel_vaapi.h
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  * @brief This file contains functions related to hw acceleration
@@ -42,67 +42,47 @@
  *
  */
 
-#ifndef HWACCEL_H
-#define HWACCEL_H
+#ifndef HWACCEL_VAAPI_H
+#define HWACCEL_VAAPI_H
+
+#ifdef HWACC_VAAPI
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <libavutil/hwcontext.h>
-#include <libavutil/hwcontext_vdpau.h>
+#include "hwaccel_libav_common.h"
 #include <libavutil/hwcontext_vaapi.h>
-#include <libavcodec/vdpau.h>
 #include <libavcodec/vaapi.h>
 
-typedef struct hw_vdpau_ctx{
-        AVBufferRef *device_ref; //Av codec buffer reference
+struct vaapi_ctx{
+        AVBufferRef *device_ref;
+        AVHWDeviceContext *device_ctx;
+        AVVAAPIDeviceContext *device_vaapi_ctx;
 
-        //These are just pointers to the device_ref buffer
-        VdpDevice device;
-        VdpGetProcAddress *get_proc_address;
-} hw_vdpau_ctx;
+        AVBufferRef *hw_frames_ctx;
+        AVHWFramesContext *frame_ctx;
 
-typedef struct hw_vdpau_frame{
-        hw_vdpau_ctx hwctx;
-        AVBufferRef *buf[AV_NUM_DATA_POINTERS];
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
+        VAProfile va_profile;
+        VAEntrypoint va_entrypoint;
+        VAConfigID va_config;
+        VAContextID va_context;
 
-        //These are just pointers to the buffer
-        uint8_t *data[AV_NUM_DATA_POINTERS];
-        VdpVideoSurface surface; // Same as data[3]
-} hw_vdpau_frame;
+        struct vaapi_context decoder_context;
+#endif
+};
 
-void hw_vdpau_ctx_init(hw_vdpau_ctx *ctx);
-void hw_vdpau_ctx_unref(hw_vdpau_ctx *ctx);
-hw_vdpau_ctx hw_vdpau_ctx_copy(const hw_vdpau_ctx *ctx);
-
-void hw_vdpau_frame_init(hw_vdpau_frame *frame);
-void hw_vdpau_frame_unref(hw_vdpau_frame *frame);
-void hw_vdpau_free_extra_data(void *frame);
-hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame);
-
-void *hw_vdpau_frame_data_cpy(void *dst, const void *src, size_t n);
-
-hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *src);
-
-typedef struct vdp_funcs{
-        VdpVideoSurfaceGetParameters *videoSurfaceGetParameters;
-        VdpVideoMixerCreate *videoMixerCreate;
-        VdpVideoMixerDestroy *videoMixerDestroy;
-        VdpVideoMixerRender *videoMixerRender;
-
-        VdpOutputSurfaceCreate *outputSurfaceCreate;
-        VdpOutputSurfaceDestroy *outputSurfaceDestroy;
-        VdpOutputSurfaceGetParameters *outputSurfaceGetParameters;
-
-        VdpGetErrorString *getErrorString;
-} vdp_funcs;
-
-void vdp_funcs_init(vdp_funcs *);
-void vdp_funcs_load(vdp_funcs *, VdpDevice, VdpGetProcAddress *);
+void vaapi_uninit(struct hw_accel_state *s);
+int vaapi_create_context(struct vaapi_ctx *ctx, AVCodecContext *codec_ctx);
+int vaapi_init(struct AVCodecContext *s,
+                struct hw_accel_state *state,
+                codec_t out_codec);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif //HWACC_VAAPI
 
 #endif

@@ -64,13 +64,11 @@
 #include <thread>
 #include <unordered_map>
 
-#ifdef USE_HWACC
+#ifdef HWACC_VAAPI
 extern "C"
 {
 #include <libavutil/hwcontext.h>
-#include <libavutil/hwcontext_vdpau.h>
 #include <libavutil/hwcontext_vaapi.h>
-#include <libavcodec/vdpau.h>
 #include <libavcodec/vaapi.h>
 }
 #endif
@@ -472,7 +470,7 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         return &s->module_data;
 }
 
-#ifdef USE_HWACC
+#ifdef HWACC_VAAPI
 static int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
         int ret;
         ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
@@ -763,7 +761,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
-#ifdef USE_HWACC
+#ifdef HWACC_VAAPI
         if (regex_match(codec->name, regex(".*vaapi.*"))) {
                 requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_VAAPI;
         }
@@ -848,7 +846,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 		}
 
                 log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-#ifdef USE_HWACC
+#ifdef HWACC_VAAPI
                 if (pix_fmt == AV_PIX_FMT_VAAPI){
                         int ret = vaapi_init(s->codec_ctx);
                         if (ret != 0) {
@@ -1376,7 +1374,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 
         AVFrame *frame = s->in_frame;
-#ifdef USE_HWACC
+#ifdef HWACC_VAAPI
         if(s->hwenc){
                 av_hwframe_transfer_data(s->hwframe, s->in_frame, 0);
                 frame = s->hwframe;

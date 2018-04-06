@@ -92,8 +92,8 @@
 #define SYSTEM_VSYNC 0xFE
 #define SINGLE_BUF 0xFF // use single buffering instead of double
 
-#ifdef USE_HWACC
-#include "hwaccel.h"
+#ifdef HWACC_VDPAU
+#include "hwaccel_vdpau.h"
 typedef GLintptr vdpauSurfaceNV;
 #define NV_CAST(x) ((void *)(uintptr_t)(x))
 #endif
@@ -164,7 +164,7 @@ void main()
 } // main end
 );
 
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
 struct state_vdpau {
         bool initialized = false;
         GLuint textures[4] = {0};
@@ -286,7 +286,7 @@ struct state_gl {
         bool fixed_size, first_run;
         int fixed_w, fixed_h;
 
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
 
@@ -518,7 +518,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
                         desc.color_spec == DXT1 ||
                         desc.color_spec == DXT1_YUV ||
                         desc.color_spec == DXT5
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
                         || desc.color_spec == HW_VDPAU
 #endif
                         );
@@ -720,7 +720,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
         }
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
         else if (desc.color_spec == HW_VDPAU) {
                 s->vdp.init();
         }
@@ -804,7 +804,7 @@ static void gl_render(struct state_gl *s, char *data)
                                         (s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height,
                                         data);
                         break;
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
                 case HW_VDPAU:
                         gl_render_vdpau(s, data);
                         break;
@@ -1229,7 +1229,7 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
 void state_vdpau::uninitMixer(){
         VdpStatus st;
 
@@ -1538,7 +1538,7 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
 {
         UNUSED(state);
         codec_t codecs[] = {
-#ifdef USE_HWACC
+#ifdef HWACC_VDPAU
                 HW_VDPAU,
 #endif
                 UYVY,

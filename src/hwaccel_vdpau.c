@@ -1,5 +1,5 @@
 /**
- * @file   hwaccel.c
+ * @file   hwaccel_vdpau.c
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  * @brief This file contains functions related to hw acceleration
@@ -44,7 +44,63 @@
 
 #include <assert.h>
 #include "debug.h"
-#include "hwaccel.h"
+#include "hwaccel_vdpau.h"
+
+int vdpau_init(struct AVCodecContext *s,
+		struct hw_accel_state *state,
+		codec_t out_codec)
+{
+        AVBufferRef *device_ref = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VDPAU, &device_ref);
+        if(ret < 0)
+                return ret;
+
+        AVHWDeviceContext *device_ctx = (AVHWDeviceContext*)device_ref->data;
+        AVVDPAUDeviceContext *device_vdpau_ctx = device_ctx->hwctx;
+
+        AVBufferRef *hw_frames_ctx = NULL;
+        ret = create_hw_frame_ctx(device_ref,
+                        s,
+                        AV_PIX_FMT_VDPAU,
+                        s->sw_pix_fmt,
+                        DEFAULT_SURFACES,
+                        &hw_frames_ctx);
+        if(ret < 0)
+                goto fail;
+
+        s->hw_frames_ctx = hw_frames_ctx;
+
+        state->type = HWACCEL_VDPAU;
+        state->copy = out_codec != HW_VDPAU;
+        if(state->copy){
+                log_msg(LOG_LEVEL_WARNING, "[lavd] Vdpau copy mode enabled"
+                                " because the decoder wasn't configured to output HW_VDPAU"
+                                " (maybe the display doesn't support it)"
+                                " This may be slower than sw decoding.\n");
+        }
+        state->tmp_frame = av_frame_alloc();
+        if(!state->tmp_frame){
+                ret = -1;
+                goto fail;
+        }
+
+        if(av_vdpau_bind_context(s, device_vdpau_ctx->device, device_vdpau_ctx->get_proc_address,
+                                AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH |
+                                AV_HWACCEL_FLAG_IGNORE_LEVEL)){
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to bind vdpau context!\n");
+                ret = -1;
+                goto fail;
+        }
+
+        av_buffer_unref(&device_ref);
+        return 0;
+
+fail:
+        av_frame_free(&state->tmp_frame);
+        av_buffer_unref(&hw_frames_ctx);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
 
 void hw_vdpau_ctx_init(hw_vdpau_ctx *ctx){
         ctx->device_ref = NULL;
@@ -169,3 +225,4 @@ void vdp_funcs_load(vdp_funcs *f, VdpDevice device, VdpGetProcAddress *get_proc_
         LOAD(&f->outputSurfaceGetParameters, VDP_FUNC_ID_OUTPUT_SURFACE_GET_PARAMETERS);
         LOAD(&f->getErrorString, VDP_FUNC_ID_GET_ERROR_STRING);
 }
+
