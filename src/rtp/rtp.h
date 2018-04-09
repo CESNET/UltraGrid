@@ -46,12 +46,13 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <stddef.h> // offsetof
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define RTP_VERSION 2
-#define RTP_PACKET_HEADER_SIZE ((int)((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int))))
 #define RTP_MAX_MTU 9000
 #define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE)
 
@@ -109,6 +110,8 @@ typedef struct __attribute__((packed)) {
 	uint32_t	  send_ts;
         uint32_t          rtt;
 } rtp_packet;
+
+#define RTP_PACKET_HEADER_SIZE ((int) (offsetof(rtp_packet, extn_type) - offsetof(rtp_packet, csrc) + sizeof(uint16_t)))
 
 typedef struct {
 	uint32_t         ssrc;
