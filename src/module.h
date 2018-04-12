@@ -99,6 +99,7 @@ struct module {
         module_deleter_t deleter;
         notify_t new_message; ///< if set, notifies module that new message is in queue, receiver lock is hold during the call
 
+        pthread_mutex_t msg_queue_lock; // protects msg_queue
         struct simple_linked_list *msg_queue;
 
         struct simple_linked_list *msg_queue_childs; ///< messages for childern that were not delivered

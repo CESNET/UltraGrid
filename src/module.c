@@ -64,6 +64,7 @@ void module_init_default(struct module *module_data)
         assert(pthread_mutexattr_init(&attr) == 0);
         assert(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) == 0);
         assert(pthread_mutex_init(&module_data->lock, &attr) == 0);
+        assert(pthread_mutex_init(&module_data->msg_queue_lock, &attr) == 0);
         pthread_mutexattr_destroy(&attr);
 
         module_data->childs = simple_linked_list_init();

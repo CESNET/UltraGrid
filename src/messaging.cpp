@@ -138,13 +138,17 @@ static struct response *send_message_common(struct module *root, const char *con
 
         //pthread_mutex_guard guard(receiver->lock, lock_guard_retain_ownership_t());
 
-        if (simple_linked_list_size(receiver->msg_queue) >= MAX_MESSAGES) {
+        pthread_mutex_lock(&receiver->msg_queue_lock);
+        int size = simple_linked_list_size(receiver->msg_queue);
+        pthread_mutex_unlock(&receiver->msg_queue_lock);
+        if (size >= MAX_MESSAGES) {
                 struct message *m = (struct message *) simple_linked_list_pop(receiver->msg_queue);
                 free_message(m, new_response(RESPONSE_INT_SERV_ERR, "Too much unprocessed messages"));
                 printf("Dropping some messages for %s - queue full.\n", const_path);
         }
-
+        pthread_mutex_lock(&receiver->msg_queue_lock);
         simple_linked_list_append(receiver->msg_queue, msg);
+        pthread_mutex_unlock(&receiver->msg_queue_lock);
 
         if (receiver->new_message) {
                 receiver->new_message(receiver);
@@ -197,8 +201,11 @@ void module_check_undelivered_messages(struct module *node)
 
 struct response *send_message_to_receiver(struct module *receiver, struct message *msg)
 {
-        pthread_mutex_guard guard(receiver->lock);
+        pthread_mutex_lock(&receiver->msg_queue_lock);
         simple_linked_list_append(receiver->msg_queue, msg);
+        pthread_mutex_unlock(&receiver->msg_queue_lock);
+
+        pthread_mutex_guard guard(receiver->lock);
         if (receiver->new_message) {
                 receiver->new_message(receiver);
         }
@@ -299,7 +306,7 @@ const char *response_status_to_text(int status)
 
 struct message *check_message(struct module *mod)
 {
-        pthread_mutex_guard guard(mod->lock);
+        pthread_mutex_guard guard(mod->msg_queue_lock);
 
         if(simple_linked_list_size(mod->msg_queue) > 0) {
                 return (struct message *) simple_linked_list_pop(mod->msg_queue);
