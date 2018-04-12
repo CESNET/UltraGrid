@@ -93,10 +93,8 @@ EXTERN_C const CLSID CLSID_NullRenderer;
 EXTERN_C const CLSID CLSID_SampleGrabber;
 
 typedef int		ttl_t;
-typedef unsigned	fd_t;
 typedef unsigned char	byte;
-typedef int             ttl_t;
-typedef unsigned int    fd_t;
+typedef SOCKET          fd_t;
 
 
 /*
