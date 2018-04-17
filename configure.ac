@@ -171,8 +171,10 @@ then
         CXXFLAGS="$CXXFLAGS -fPIC"
         CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -fPIC"
         CU_OBJ_SUFFIX="cu.o"
-else
-        CUDA_FLAGS="-m32"
+else # Windows
+        if test $WORD_LEN = 32; then
+                CUDA_FLAGS="-m32"
+        fi
         CU_OBJ_SUFFIX="cu.lib"
 fi
 AC_SUBST(CUDA_FLAGS)
@@ -1830,6 +1832,15 @@ then
                 CUDA_LIB_PATH="$CUDA_PATH/lib64"
         else
                 CUDA_LIB_PATH="$CUDA_PATH/lib"
+        fi
+
+        if test $system = Windows -a $nvcc_major -ge 9;
+        then
+                if test $WORD_LEN = 64; then
+                        CUDA_LIB_PATH="$CUDA_LIB_PATH/x64"
+                else
+                        CUDA_LIB_PATH="$CUDA_LIB_PATH/Win32"
+                fi
         fi
 
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
