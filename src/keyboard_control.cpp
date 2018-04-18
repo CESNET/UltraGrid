@@ -221,6 +221,7 @@ void keyboard_control::run()
                                 info();
                                 break;
                         case '\n':
+                        case '\r':
                                 cout << endl;
                                 break;
                         default:
