@@ -10,12 +10,23 @@ QT += widgets
 
 CONFIG += c++11
 
+LIBS += astat.a
+
+astat.target = astat_lib
+astat.commands = make -f Makefile.astat lib
+
+QMAKE_EXTRA_TARGETS += astat
+PRE_TARGETDEPS += astat_lib
+
+
 # Input
 HEADERS += ultragrid_window.hpp \
 ultragrid_option.hpp \
 v4l2.hpp \
 previewWidget.hpp \
 log_window.hpp \
+astat.h \
+vuMeterWidget.hpp \
 
 FORMS += ultragrid_window.ui \
 log_window.ui
@@ -25,4 +36,5 @@ SOURCES += ultragrid_window.cpp \
 	v4l2.cpp \
 	previewWidget.cpp \
 	log_window.cpp \
+	vuMeterWidget.cpp \
 	main.cpp

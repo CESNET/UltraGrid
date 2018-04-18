@@ -194,4 +194,16 @@ private:
 		Ui::UltragridWindow *ui;
 };
 
+class ControlPortOption : public UltragridOption{
+	Q_OBJECT
+public:
+		ControlPortOption(Ui::UltragridWindow *ui);
+
+		QString getLaunchParam() override;
+		void queryAvailOpts() override {  }
+
+private:
+		Ui::UltragridWindow *ui;
+};
+
 #endif

@@ -35,6 +35,8 @@ private:
 	VideoSourceOption *sourceOption;
 	VideoDisplayOption *displayOption;
 
+	AudioSourceOption *audioSrcOption;
+
 
 public slots:
 	void about();

@@ -4,7 +4,7 @@
 
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
-	ui.terminal->setVisible(false);
+	//ui.terminal->setVisible(false);
 
 	QStringList args = QCoreApplication::arguments();
 	int index = args.indexOf("--with-uv");
@@ -39,9 +39,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	opts.emplace_back(new VideoCompressOption(&ui,
 				ultragridExecutable));
 
-	opts.emplace_back(new AudioSourceOption(&ui,
+	audioSrcOption = new AudioSourceOption(&ui,
 				sourceOption,
-				ultragridExecutable));
+				ultragridExecutable);
+	opts.emplace_back(audioSrcOption);
 
 	opts.emplace_back(new AudioPlaybackOption(&ui,
 				displayOption,
@@ -52,12 +53,14 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	opts.emplace_back(new FecOption(&ui));
 	opts.emplace_back(new ParamOption(&ui));
+	opts.emplace_back(new ControlPortOption(&ui));
 
 	for(auto &opt : opts){
 		connect(opt.get(), SIGNAL(changed()), this, SLOT(setArgs()));
 	}
 
 	connect(sourceOption, SIGNAL(changed()), this, SLOT(startPreview()));
+	connect(audioSrcOption, SIGNAL(changed()), this, SLOT(startPreview()));
 
 	queryOpts();
 
@@ -124,7 +127,7 @@ void UltragridWindow::outputAvailable(){
 	//ui.terminal->append(process.readAll());
 	
 	QString str = process.readAll();
-#if 1
+#if 0
 	ui.terminal->moveCursor(QTextCursor::End);
 	ui.terminal->insertPlainText(str);
 	ui.terminal->moveCursor(QTextCursor::End);
@@ -165,7 +168,9 @@ void UltragridWindow::startPreview(){
 	QString command(ultragridExecutable);
 	command += " ";
 	command += sourceOption->getLaunchParam();
-	command += "-d preview ";
+	command += audioSrcOption->getLaunchParam();
+	//TODO better control port handling
+	command += "-d preview -r dummy --control-port 8888";
 	if(sourceOption->getCurrentValue() != "none"){
 		//We prevent video from network overriding local sources
 		//by listening on port 0

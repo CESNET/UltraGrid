@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QMessageBox>
 #include <QSurfaceFormat>
+#include <clocale>
 
 #include "ultragrid_window.hpp"
 
@@ -13,6 +14,9 @@ int main(int argc, char *argv[]){
 	QStringList args = QCoreApplication::arguments();
 	QString ultragridExecutable;
 	QProcess process;
+
+	//important: If this line is removed parsing float numbers for vu meter fails
+	std::setlocale(LC_NUMERIC, "C");
 
 	int index = args.indexOf("--with-uv");
 	if(index != -1 && args.size() >= index + 1) {

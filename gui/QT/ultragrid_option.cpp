@@ -479,3 +479,15 @@ QString ParamOption::getLaunchParam(){
 
 	return param;
 }
+
+ControlPortOption::ControlPortOption(Ui::UltragridWindow *ui): ui(ui){
+	connect(ui->actionVuMeter, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
+}
+
+QString ControlPortOption::getLaunchParam(){
+	QString param = "";
+	if(ui->actionVuMeter->isChecked())
+		param += "--control-port 8888 ";
+
+	return param;
+}
