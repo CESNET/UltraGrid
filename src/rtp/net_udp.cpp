@@ -54,6 +54,7 @@
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
+#include "utils/net.h"
 
 #ifdef NEED_ADDRINFO_H
 #include "addrinfo.h"
@@ -139,6 +140,10 @@ struct socket_udp_local {
         int mode;               /* IPv4 or IPv6 */
         fd_t fd;
         bool multithreaded;
+#ifdef WIN32
+        bool is_wsa_overlapped;
+#endif
+
 
         // for multithreaded receiving
         pthread_t thread_id;
@@ -721,7 +726,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 ifindex = 0;
         }
 #ifdef WIN32
-        s->local->fd = WSASocket(ip_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        if (!is_host_loopback(addr)) {
+                s->local->is_wsa_overlapped = true;
+        }
+
+        s->local->fd = WSASocket(ip_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
 #else
         s->local->fd = socket(ip_family, SOCK_DGRAM, 0);
 #endif
@@ -1391,6 +1400,10 @@ void udp_flush_recv_buf(socket_udp *s)
 void udp_async_start(socket_udp *s, int nr_packets)
 {
 #ifdef WIN32
+        if (!s->local->is_wsa_overlapped) {
+                return;
+        }
+
         if (nr_packets > s->overlapped_max) {
                 s->overlapped = (OVERLAPPED *) realloc(s->overlapped, nr_packets * sizeof(WSAOVERLAPPED));
                 s->overlapped_events = (void **) realloc(s->overlapped_events, nr_packets * sizeof(WSAEVENT));
