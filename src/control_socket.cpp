@@ -129,7 +129,7 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
     size_t rest = count;
     ssize_t w = 0;
 
-    while (rest > 0 && (w = send(fd, p, rest, MSG_NOSIGNAL)) >= 0) {
+    while (rest > 0 && (w = send(fd, p, rest, MSG_NOSIGNAL)) > 0) {
         p += w;
         rest -= w;
     }
@@ -668,6 +668,15 @@ static void process_messages(struct control_state *s)
         }
 }
 
+static void set_socket_nonblock(fd_t fd) {
+#ifdef _WIN32
+    unsigned long ul;
+    ioctlsocket(fd, FIONBIO, &ul);
+#else
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+#endif
+}
+
 ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-global\n"
                 "  Open control socket to public network.\n");
 static void * control_thread(void *args)
@@ -728,17 +737,25 @@ static void * control_thread(void *args)
                                 fd_t fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
                                 if (fd == INVALID_SOCKET) {
                                         socket_error("[control socket] accept");
-                                } else {
-                                        if (get_commandline_param("control-accept-global") ||
-                                                        is_addr_loopback(&client_addr)) {
-                                                clients = add_client(clients, fd);
-                                        } else {
-                                                log_msg(LOG_LEVEL_WARNING, "[control socket] Refusing remote connection. Use \"--param control-accept-global\" to allow UG control from a remote host.\n");
-                                                const char *msg = "unauthorized\r\n";
-                                                write_all(fd, msg, strlen(msg));
-                                                CLOSESOCKET(fd);
-                                        }
+                                        continue;
                                 }
+
+                                // all remote sockets are written sequentially so
+                                // we don't want to block if one gets stuck
+                                set_socket_nonblock(fd);
+
+                                // refuse remote connections by default
+                                if (!get_commandline_param("control-accept-global") &&
+                                                !is_addr_loopback(&client_addr)) {
+                                        log_msg(LOG_LEVEL_WARNING, "[control socket] Refusing remote connection. Use \"--param control-accept-global\" to allow UG control from a remote host.\n");
+                                        const char *msg = "unauthorized\r\n";
+                                        write_all(fd, msg, strlen(msg));
+                                        CLOSESOCKET(fd);
+                                        continue;
+                                }
+
+                                // add to list
+                                clients = add_client(clients, fd);
                         }
 
                         struct client *cur = clients;
@@ -796,6 +813,7 @@ static void * control_thread(void *args)
                 }
         }
 
+        // notify clients about exit
         struct client *cur = clients;
         while(cur) {
                 struct client *tmp = cur;
