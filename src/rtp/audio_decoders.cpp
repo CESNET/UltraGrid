@@ -623,7 +623,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         rms_dbfs1 = 20 * log(rms) / log(10);
                         peak_dbfs1 = 20 * log(peak) / log(10);
                 }
-                control_report_stats(decoder->control, static_cast<ostringstream&>(ostringstream() << "ARECV volrms0 " << rms_dbfs0 << " volpeak0 " << peak_dbfs0 << " volrms1 " << rms_dbfs1 << " volpeak1 " << peak_dbfs1).str());
+                control_report_stats(decoder->control, static_cast<ostringstream&&>(ostringstream() << "ARECV volrms0 " << rms_dbfs0 << " volpeak0 " << peak_dbfs0 << " volrms1 " << rms_dbfs1 << " volpeak1 " << peak_dbfs1).str());
         }
 
         double seconds;
