@@ -119,7 +119,7 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
                 // Initialize COM on this thread
                 HRESULT result = CoInitialize(NULL);
                 if(FAILED(result)) {
-                        fprintf(stderr, "Initialize of COM failed - result = "
+                        log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
                                         "%08lx.\n", result);
                         if (result == S_FALSE) {
                                 CoUninitialize();
@@ -138,8 +138,8 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
 #endif
 
         if (!deckLinkIterator && verbose) {
-                fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
-                fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                log_msg(LOG_LEVEL_ERROR, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+                log_msg(LOG_LEVEL_INFO, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
                                 BLACKMAGIC_DECKLINK_API_VERSION_STRING);
 
         }
@@ -164,7 +164,7 @@ bool blackmagic_api_version_check()
         // Initialize COM on this thread
         result = CoInitialize(NULL);
         if(FAILED(result)) {
-                fprintf(stderr, "Initialize of COM failed - result = "
+                log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
                                 "%08lx.\n", result);
                 goto cleanup;
         }
@@ -176,20 +176,20 @@ bool blackmagic_api_version_check()
         APIInformation = CreateDeckLinkAPIInformationInstance();
         if(APIInformation == NULL) {
 #endif
-                fprintf(stderr, "Cannot get API information! Perhaps drivers not installed.\n");
+                log_msg(LOG_LEVEL_ERROR, "Cannot get API information! Perhaps drivers not installed.\n");
                 goto cleanup;
         }
         int64_t value;
         result = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
         if(result != S_OK) {
-                fprintf(stderr, "Cannot get API version!\n");
+                log_msg(LOG_LEVEL_ERROR, "Cannot get API version!\n");
                 goto cleanup;
         }
 
         if (BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
-                fprintf(stderr, "The DeckLink drivers may not be installed or are outdated.\n");
-                fprintf(stderr, "You should have at least the version UltraGrid has been linked with.\n");
-                fprintf(stderr, "Vendor download page is http://http://www.blackmagic-design.com/support\n");
+                log_msg(LOG_LEVEL_ERROR, "The DeckLink drivers may not be installed or are outdated.\n");
+                log_msg(LOG_LEVEL_ERROR, "You should have at least the version UltraGrid has been linked with.\n");
+                log_msg(LOG_LEVEL_ERROR, "Vendor download page is http://http://www.blackmagic-design.com/support\n");
                 print_decklink_version();
                 ret = false;
         } else {

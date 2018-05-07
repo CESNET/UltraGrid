@@ -115,6 +115,7 @@ struct vidcap_decklink_state {
         BMDVideoConnection      connection;
         int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
         BMDVideoInputConversionMode conversion_mode;
+        BMDDeckLinkCapturePassthroughMode passthrough; // 0 means don't set
 
         struct timeval          t0;
 
@@ -347,6 +348,8 @@ decklink_help()
         printf("\tSource interface still has to be given, eg. \"-t decklink:connection=HDMI:detect-format\".\n");
         printf("p_not_i\n");
         printf("\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n");
+        printf("[no]passthrough\n");
+        printf("\tEnable/disable capture passthrough.\n");
 	printf("\n");
 
 
@@ -507,6 +510,9 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->detect_format = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
+        } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
+                s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
+                        : bmdDeckLinkCapturePassthroughModeCleanSwitch;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -544,11 +550,6 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
                 printf("[DeckLink] Auto-choosen device 0.\n");
 
                 return 1;
-        }
-
-        if(strcmp(tmp, "help") == 0) {
-                decklink_help();
-                return -1;
         }
 
         // options are in format <device>:<mode>:<codec>[:other_opts]
@@ -799,6 +800,11 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
+        if(strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                decklink_help();
+                return VIDCAP_INIT_NOERR;
+        }
+
         if (!blackmagic_api_version_check()) {
                 return VIDCAP_INIT_FAIL;
         }
@@ -822,13 +828,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
         int ret = settings_init(s, tmp_fmt);
         free(tmp_fmt);
-	if(ret == 0) {
+	if (!ret) {
                 delete s;
 		return VIDCAP_INIT_FAIL;
-	}
-	if(ret == -1) {
-                delete s;
-		return VIDCAP_INIT_NOERR;
 	}
 
         s->is_10b = get_bits_per_component(s->codec) == 10;
@@ -973,6 +975,15 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                         }
+
+                        if (s->passthrough) {
+                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
+                                if(result != S_OK) {
+                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set pasthroug mode.\n");
+                                        goto error;
+                                }
+                        }
+
 
                         // set Callback which returns frames
                         s->state[i].delegate = new VideoDelegate(s, i);
