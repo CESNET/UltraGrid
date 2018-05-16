@@ -1230,6 +1230,9 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
 }    
 
 #ifdef HWACC_VDPAU
+/**
+ * @brief Uninitializes VdpMixer
+ */
 void state_vdpau::uninitMixer(){
         VdpStatus st;
 
@@ -1256,6 +1259,9 @@ void state_vdpau::uninitMixer(){
         mixerInitialized = false;
 }
 
+/**
+ * @brief Initializes VdpMixer
+ */
 void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
         uninitMixer();
 
@@ -1311,6 +1317,9 @@ void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
         mixerInitialized = true;
 }
 
+/**
+ * @brief Renders VdpVideoSurface into a VdpOutputSurface
+ */
 void state_vdpau::mixerRender(VdpVideoSurface f){
         VdpStatus st = funcs.videoMixerRender(mixer,
                         VDP_INVALID_HANDLE,
@@ -1333,6 +1342,9 @@ void state_vdpau::mixerRender(VdpVideoSurface f){
         }
 }
 
+/**
+ * @brief Checks VdpMixer parameters and reinitializes it if they don't match the video parameters
+ */
 static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
         uint32_t frame_w;
         uint32_t frame_h;
@@ -1356,6 +1368,9 @@ static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
         }
 }
 
+/**
+ * @brief Renders a vdpau frame
+ */
 static void gl_render_vdpau(struct state_gl *s, char *data)
 {
         assert(s->vdp.initialized);
@@ -1390,6 +1405,10 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         s->vdp.lastFrame = hw_vdpau_frame_copy(frame);
 }
 
+/**
+ * @brief Checks if the vdpau-GL interoperability is initialized with the same hw contexts
+ * and reinitializes it if needed
+ */
 void state_vdpau::checkInterop(VdpDevice device, VdpGetProcAddress *get_proc_address){
         if(this->device != device || this->get_proc_address != get_proc_address){
                 uninitInterop();
@@ -1397,6 +1416,9 @@ void state_vdpau::checkInterop(VdpDevice device, VdpGetProcAddress *get_proc_add
         }
 }
 
+/**
+ * @brief Initializes vdpau-GL interoperability
+ */
 void state_vdpau::initInterop(VdpDevice device, VdpGetProcAddress *get_proc_address){
         if(interopInitialized)
                 uninitInterop();
@@ -1409,6 +1431,9 @@ void state_vdpau::initInterop(VdpDevice device, VdpGetProcAddress *get_proc_addr
         interopInitialized = true;
 }
 
+/**
+ * @brief Uninitializes vdpau-GL interoperability
+ */
 void state_vdpau::uninitInterop(){
         if(!interopInitialized)
                 return;
@@ -1423,6 +1448,9 @@ void state_vdpau::uninitInterop(){
         vdpgl_surf = 0;
 }
 
+/**
+ * @brief Initializes state_vdpau
+ */
 bool state_vdpau::init(){
         loadVdpGlFuncs();
         initialized = true;
@@ -1433,6 +1461,9 @@ bool state_vdpau::init(){
         return true;
 }
 
+/**
+ * @brief Uninitializes state_vdpau
+ */
 void state_vdpau::uninit(){
         glDeleteTextures(4, textures);
         for(int i = 0; i < 4; i++){
@@ -1440,6 +1471,9 @@ void state_vdpau::uninit(){
         }
 }
 
+/**
+ * @brief Loads GL functions for the GL_NV_vdpau_interop extension
+ */
 bool state_vdpau::loadVdpGlFuncs(){
         if (!strstr((const char *) glGetString(GL_EXTENSIONS),
                                 "GL_NV_vdpau_interop"))
