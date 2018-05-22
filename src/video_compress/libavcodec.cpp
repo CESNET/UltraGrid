@@ -102,8 +102,8 @@ struct setparam_param {
 };
 
 static constexpr const char *DEFAULT_NVENC_PRESET = "llhq";
+static constexpr const char *DEFAULT_NVENC_RC = "cbr_hq"; // cbr_ld_hq for equally sized frames
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
-static constexpr const char *DEFAULT_NVENC_RC = "ll_2pass_size";
 
 typedef struct {
         enum AVCodecID av_codec;
