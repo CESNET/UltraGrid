@@ -33,16 +33,16 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 struct ug_connection {
         fd_t fd;
         ug_connection(int f, fd_t sef[]) : fd(f), should_exit_fd{sef[0], sef[1]}, t(worker, ref(*this)) {}
-        double volpeak[2];
-        double volrms[2];
-        int sample_count;
+        double volpeak[2] = {};
+        double volrms[2] = {};
+        int sample_count = 0;
         mutex lock;
 
-        volatile bool should_exit;
+        volatile bool should_exit = false;
         int should_exit_fd[2];
         thread t;
 
-        bool connection_lost;
+        bool connection_lost = false;
 };
 
 // Line format example:
