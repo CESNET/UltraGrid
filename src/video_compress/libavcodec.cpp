@@ -294,7 +294,7 @@ static void usage() {
                 }
 
         }
-        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (libx264/libx265)\n");
+        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (H.264/H.265)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
         printf("\t\t<crf> specifies CRF factor (only for libx264/libx265)\n");
@@ -1565,12 +1565,24 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         }
 }
 
-static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
         ret = av_opt_set(codec_ctx->priv_data, "look_ahead", "0", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set unset look-ahead.\n");
+        }
+        if (!param->no_periodic_intra) {
+                ret = av_opt_set(codec_ctx->priv_data, "int_ref_type", "vertical", 0);
+                if (ret != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh.\n");
+                }
+#if 0
+                ret = av_opt_set(codec_ctx->priv_data, "int_ref_cycle_size", "100", 0);
+                if (ret != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh size.\n");
+                }
+#endif
         }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
