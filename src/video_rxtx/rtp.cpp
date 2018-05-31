@@ -326,10 +326,16 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 if (send_port == send_port_base + 2)
                         send_port += 2;
 
+#if !defined WIN32
+                const bool multithreaded = true;
+#else
+                const bool multithreaded = false;
+#endif
+
                 devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
                                 rtp_recv_callback, (uint8_t *)participants,
-                                use_ipv6, true);
+                                use_ipv6, multithreaded);
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
                                 TRUE);
