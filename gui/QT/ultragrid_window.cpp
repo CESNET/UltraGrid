@@ -1,4 +1,5 @@
 #include <QMessageBox>
+#include <QCloseEvent>
 
 #include "ultragrid_window.hpp"
 
@@ -213,8 +214,27 @@ void UltragridWindow::queryOpts(){
 	setArgs();
 }
 
-void UltragridWindow::closeEvent(QCloseEvent *){
-	disconnect(&process, 0, 0, 0);
+void UltragridWindow::closeEvent(QCloseEvent *e){
+
+	if(process.pid() > 0){
+		QMessageBox sureMsg;
+		sureMsg.setIcon(QMessageBox::Question);
+		sureMsg.setText(tr("Are you sure?"));
+		sureMsg.setInformativeText(tr("UltraGrid is still running. Are you sure you want to exit?\n"));
+		sureMsg.setStandardButtons(QMessageBox::Cancel | QMessageBox::No | QMessageBox::Yes);
+		sureMsg.setDefaultButton(QMessageBox::No);
+
+		if(sureMsg.exec() != QMessageBox::Yes){
+			e->ignore();
+			return;
+		}
+
+		disconnect(&process, 0, 0, 0);
+		process.terminate();
+		if(!process.waitForFinished(1000))
+			process.kill();
+	}
+
 	log.close();
 }
 
