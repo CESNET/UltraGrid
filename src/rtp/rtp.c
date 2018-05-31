@@ -1553,7 +1553,7 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                 buflen =
                         udp_recvfrom(session->rtp_socket, (char *)buffer,
                                         RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
-                                        (struct sockaddr *) sin, &addrlen);
+                                        (struct sockaddr *) sin, sin ? &addrlen : 0);
                 if (buflen <= 0) {
                         free(packet);
                 }
