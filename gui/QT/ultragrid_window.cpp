@@ -214,6 +214,7 @@ void UltragridWindow::queryOpts(){
 }
 
 void UltragridWindow::closeEvent(QCloseEvent *){
+	disconnect(&process, 0, 0, 0);
 	log.close();
 }
 
