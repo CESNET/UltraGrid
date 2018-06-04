@@ -2455,14 +2455,14 @@ AC_ARG_ENABLE(lavc-hw-accel-vdpau,
 [  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
 [                          Requires: lavc_hwacc_vdpau_dep],
     [lavc_hwacc_vdpau_req=$enableval],
-    [lavc_hwacc_vdpau_req=auto]
+    [lavc_hwacc_vdpau_req=no]
     )
 
 AC_ARG_ENABLE(lavc-hw-accel-vaapi,
 [  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
 [                          Requires: lavc_hwacc_vaapi_dep],
     [lavc_hwacc_vaapi_req=$enableval],
-    [lavc_hwacc_vaapi_req=auto]
+    [lavc_hwacc_vaapi_req=no]
     )
 
 PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
