@@ -3,6 +3,7 @@
 
 #include <QString>
 #include <QObject>
+#include <QMap>
 #include "ui_ultragrid_window.h"
 
 class QComboBox;
@@ -182,28 +183,55 @@ public slots:
 	void update() override;
 };
 
-class ParamOption : public UltragridOption{
+class ArgumentOption : public UltragridOption{
 	Q_OBJECT
 public:
-		ParamOption(Ui::UltragridWindow *ui);
+		ArgumentOption(Ui::UltragridWindow *ui);
 
 		QString getLaunchParam() override;
 		void queryAvailOpts() override {  }
 
+		void setArg(QString name, QString value);
+		void unsetArg(QString name);
+
+		void setParam(QString name, QString value);
+		void unsetParam(QString name);
+
+protected:
+		struct Argument {
+			bool enabled = false;
+			QString name = "";
+			QString value = "";
+
+			QString getArg() const {
+				return name + " " + value;
+			}
+
+			QString getParam() const {
+				if(value != "")
+					return name + "=" + value;
+
+				return name;
+			}
+
+			void setArg(QString name, QString value){
+				this->name = name;
+				this->value = value;
+				enabled = true;
+			}
+
+			void unsetArg(){
+				enabled = false;
+			}
+		};
+
+		QMap<QString, Argument> args;
+		QMap<QString, Argument> params;
+
 private:
 		Ui::UltragridWindow *ui;
+
+public slots:
+	void update() override;
 };
-
-class ControlPortOption : public UltragridOption{
-	Q_OBJECT
-public:
-		ControlPortOption(Ui::UltragridWindow *ui);
-
-		QString getLaunchParam() override;
-		void queryAvailOpts() override {  }
-
-private:
-		Ui::UltragridWindow *ui;
-};
-
 #endif

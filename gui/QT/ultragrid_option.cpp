@@ -468,26 +468,61 @@ void FecOption::update(){
 	emit changed();
 }
 
-ParamOption::ParamOption(Ui::UltragridWindow *ui): ui(ui){
-	connect(ui->actionUse_hw_acceleration, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
+ArgumentOption::ArgumentOption(Ui::UltragridWindow *ui): ui(ui){
+	connect(ui->actionUse_hw_acceleration, SIGNAL(toggled(bool)), this, SLOT(update()));
+	connect(ui->actionVuMeter, SIGNAL(toggled(bool)), this, SLOT(update()));
+	update();
 }
 
-QString ParamOption::getLaunchParam(){
+QString ArgumentOption::getLaunchParam(){
 	QString param = "";
-	if(ui->actionUse_hw_acceleration->isChecked())
-		param += "--param use-hw-accel ";
+
+	for(const auto& a: args){
+		if(a.enabled){
+			param += a.getArg() + " ";
+		}
+	}
+
+	if(!params.empty()){
+		param += "--param ";
+		for(const auto& a: params){
+			if(a.enabled){
+				param += a.getParam() + " ";
+			}
+		}
+	}
 
 	return param;
 }
 
-ControlPortOption::ControlPortOption(Ui::UltragridWindow *ui): ui(ui){
-	connect(ui->actionVuMeter, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
+void ArgumentOption::setArg(QString name, QString value){
+	args[name].setArg(name, value);
 }
 
-QString ControlPortOption::getLaunchParam(){
-	QString param = "";
-	if(ui->actionVuMeter->isChecked())
-		param += "--control-port 8888 ";
+void ArgumentOption::unsetArg(QString name){
+	args[name].unsetArg();
+}
 
-	return param;
+void ArgumentOption::setParam(QString name, QString value){
+	params[name].setArg(name, value);
+}
+
+void ArgumentOption::unsetParam(QString name){
+	params.remove(name);
+}
+
+void ArgumentOption::update(){
+	if(ui->actionUse_hw_acceleration->isChecked()){
+		setParam("use-hw-accel", "");
+	} else {
+		unsetParam("use-hw-accel");
+	}
+
+	if(ui->actionVuMeter->isChecked()){
+		setArg("--control-port", "8888");
+	} else {
+		unsetArg("--control-port");
+	}
+
+	emit changed();
 }

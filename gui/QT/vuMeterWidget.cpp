@@ -5,7 +5,7 @@
 void VuMeterWidget::updateVal(){
 	updateVolumes();
 
-	const double zeroLevel = 40.0;
+	const double zeroLevel = 30.0;
 	const double fallSpeed = 200.0;
 
 	barLevel = std::max(barLevel - fallSpeed / updatesPerSecond, 0.0);
