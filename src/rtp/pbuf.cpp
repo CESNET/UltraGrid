@@ -177,13 +177,20 @@ struct pbuf *pbuf_init(volatile int *delay_ms)
 
 void pbuf_destroy(struct pbuf *playout_buf) {
         if (playout_buf) {
-                struct pbuf_node *curr, *temp;
-
                 pbuf_validate(playout_buf);
 
-                curr = playout_buf->frst;
+                if (playout_buf->received_pkts_cum) { // print only if relevant
+                        log_msg(LOG_LEVEL_INFO, "Pbuf: total %lld/%lld packets received "
+                                        "(%.5lf%%).\n",
+                                        playout_buf->received_pkts_cum,
+                                        playout_buf->expected_pkts_cum,
+                                        (double) playout_buf->received_pkts_cum /
+                                        playout_buf->expected_pkts_cum * 100.0);
+                }
+
+                struct pbuf_node *curr = playout_buf->frst;
                 while (curr != NULL) {
-                        temp = curr->nxt;
+                        struct pbuf_node *temp = curr->nxt;
                         if (curr == playout_buf->frst) {
                                 playout_buf->frst = curr->nxt;
                         }
