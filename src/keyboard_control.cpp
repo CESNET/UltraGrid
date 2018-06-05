@@ -203,6 +203,7 @@ void keyboard_control::run()
                         case '9':
                         case '0':
                         case 'm':
+                        case 'M':
                         case '+':
                         case '-':
                         case 'e':
@@ -245,6 +246,16 @@ void keyboard_control::run()
                                 case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
                                 case 'm': m->type = RECEIVER_MSG_MUTE; break;
                                 }
+
+                                auto resp = send_message(m_root, path, (struct message *) m);
+                                free_response(resp);
+                                break;
+                        }
+                        case 'M':
+                        {
+                                char path[] = "audio.sender";
+                                auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+                                m->type = SENDER_MSG_MUTE;
 
                                 auto resp = send_message(m_root, path, (struct message *) m);
                                 free_response(resp);
@@ -322,6 +333,19 @@ void keyboard_control::info()
                 free_response(resp);
         }
 
+        {
+                char path[] = "audio.sender";
+                auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+                m->type = SENDER_MSG_GET_STATUS;
+                auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(resp) == 200) {
+                        int muted;
+                        sscanf(response_get_text(resp), "%d", &muted);
+                        cout << "Sended audio status - muted: " << (bool) muted << "\n";
+                }
+                free_response(resp);
+        }
+
 	{
 		struct video_desc desc{};
                 struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
@@ -380,7 +404,8 @@ void keyboard_control::usage()
                 "\t  / 9  - decrease volume\n" <<
                 "\t   +   - increase audio delay by 10 ms\n" <<
                 "\t   -   - decrease audio delay by 10 ms\n" <<
-                "\t   m   - mute/unmute\n" <<
+                "\t   m   - mute/unmute receiver\n" <<
+                "\t   M   - mute/unmute sender\n" <<
                 "\t   v   - increase verbosity level\n" <<
                 "\t   V   - decrease verbosity level\n" <<
                 "\t   e   - record captured content (toggle)\n" <<

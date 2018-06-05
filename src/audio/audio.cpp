@@ -149,7 +149,8 @@ struct state_audio {
         int audio_tx_mode;
 
         double volume;
-        bool muted;
+        bool muted_receiver;
+        bool muted_sender;
 };
 
 /** 
@@ -560,13 +561,13 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
         case RECEIVER_MSG_MUTE:
                 {
                         if (msg->type == RECEIVER_MSG_MUTE) {
-                                s->muted = !s->muted;
+                                s->muted_receiver = !s->muted_receiver;
                         } else if (msg->type == RECEIVER_MSG_INCREASE_VOLUME) {
                                 s->volume *= 1.1;
                         } else {
                                 s->volume /= 1.1;
                         }
-                        double new_volume = s->muted ? 0.0 : s->volume;
+                        double new_volume = s->muted_receiver ? 0.0 : s->volume;
                         double db = 20.0 * log10(new_volume);
                         log_msg(LOG_LEVEL_INFO, "Playback volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
                         struct pdb_e *cp;
@@ -671,7 +672,7 @@ static void *audio_receiver_thread(void *arg)
                                         cp->decoder_state = dec_state;
                                         dec_state->enabled = true;
                                         dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, &s->audio_receiver_module);
-                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted ? 0.0 : s->volume);
+                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
                                         assert(dec_state->pbuf_data.decoder != NULL);
                                         cp->decoder_state_deleter = audio_decoder_state_deleter;
                                 }
@@ -809,8 +810,19 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 break;
                         }
                         break;
+                case SENDER_MSG_GET_STATUS:
+                        {
+                                char status[128] = "";
+                                snprintf(status, sizeof status, "%d", (int) s->muted_sender);
+                                return new_response(RESPONSE_OK, status);
+                                break;
+                        }
                 case SENDER_MSG_PAUSE:
                         s->paused = true;
+                        break;
+                case SENDER_MSG_MUTE:
+                        s->muted_sender = !s->muted_sender;
+                        log_msg(LOG_LEVEL_NOTICE, "Audio sender %smuted.\n", s->muted_sender ? "" : "un");
                         break;
                 case SENDER_MSG_PLAY:
                         s->paused = false;
@@ -924,7 +936,7 @@ static void *audio_sender_thread(void *arg)
         printf("Audio sending started.\n");
         while (!should_exit) {
                 struct message *msg;
-                while((msg= check_message(&s->audio_sender_module))) {
+                while((msg = check_message(&s->audio_sender_module))) {
                         struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
                         free_message(msg, r);
                 }
@@ -946,6 +958,9 @@ static void *audio_sender_thread(void *arg)
 
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
+                        if (s->muted_sender) {
+                                memset(buffer->data, 0, buffer->data_len);
+                        }
                         export_audio(s->exporter, buffer);
                         if(s->echo_state) {
 #ifdef HAVE_SPEEX
