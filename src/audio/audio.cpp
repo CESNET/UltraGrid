@@ -144,11 +144,11 @@ struct state_audio {
 
         char *requested_encryption;
 
-        volatile bool paused;
+        volatile bool paused; // for CoUniverse...
 
         int audio_tx_mode;
 
-        double volume;
+        double volume; // receiver volume scale
         bool muted_receiver;
         bool muted_sender;
 };
