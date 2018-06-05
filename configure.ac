@@ -2366,17 +2366,21 @@ PKG_CHECK_MODULES(QT, [qt_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
 	# Retrieve Qt compilation and linker flags
-	CXXFLAGS="`$PKG_CONFIG --cflags-only-I QtCore ` $CXXFLAGS"
-	CFLAGS="`$PKG_CONFIG --cflags-only-I QtCore ` $CFLAGS"
-	LDFLAGS="`$PKG_CONFIG --libs-only-L QtCore ` $LDFLAGS"
-	LIBS="`$PKG_CONFIG --libs-only-l QtCore ` $LIBS"
+	CXXFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CXXFLAGS"
+	CFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CFLAGS"
+	LDFLAGS="`$PKG_CONFIG --libs-only-L Qt5Gui ` $LDFLAGS"
+	LIBS="`$PKG_CONFIG --libs-only-l Qt5Gui ` $LIBS"
 
 	ADD_MODULE("display_preview", "src/video_display/preview.o", "$PREVIEW_DISP_LIBS")
 
-	AC_CHECK_PROGS(QMAKE, [qmake-qt5 qmake])
+	AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
 	GUI_TARGET=gui/QT/uv-qt
 
-	qt_gui=yes
+	if test ":" = "$QMAKE"; then
+		qt_gui=no
+	else
+		qt_gui=yes
+	fi
 fi
 
 AC_SUBST(GUI_TARGET)
