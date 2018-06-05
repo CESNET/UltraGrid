@@ -192,6 +192,11 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name);
 void vf_store_metadata(struct video_frame *f, void *);
 void vf_restore_metadata(struct video_frame *f, void *);
 
+/**
+ * Returns sum of lengths of all tiles.
+ */
+unsigned int vf_get_data_len(struct video_frame *f);
+
 /** @name Video Flags
  * @deprecated use rather video_frame or video_desc members
  * @{ */

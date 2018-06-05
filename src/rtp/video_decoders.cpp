@@ -176,7 +176,7 @@ struct reported_statistics_cumul {
         unsigned long long int     received_bytes_total = 0;
         unsigned long long int     expected_bytes_total = 0;
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
-        unsigned long int fec_ok = 0, fec_nok = 0;
+        unsigned long int fec_ok = 0, fec_corrected = 0, fec_nok = 0;
         unsigned long long int     nano_per_frame_decompress = 0;
         unsigned long long int     nano_per_frame_error_correction = 0;
         unsigned long long int     nano_per_frame_expected = 0;
@@ -188,8 +188,8 @@ struct reported_statistics_cumul {
                                 displayed + dropped + missing,
                                 displayed, dropped, corrupted,
                                 missing);
-                if (fec_ok + fec_nok > 0)
-                        sprintf(buff + bytes, " FEC OK/NOK: %ld/%ld\n", fec_ok, fec_nok);
+                if (fec_ok + fec_nok + fec_corrected > 0)
+                        sprintf(buff + bytes, " FEC noerr/OK/NOK: %ld/%ld/%ld\n", fec_ok, fec_corrected, fec_nok);
                 else
                         sprintf(buff + bytes, "\n");
                 log_msg(LOG_LEVEL_INFO, buff);
@@ -206,19 +206,27 @@ struct frame_msg {
         inline ~frame_msg() {
                 if (recv_frame) {
                         lock_guard<mutex> lk(stats.lock);
+                        int received_bytes = 0;
+                        for (unsigned int i = 0; i < recv_frame->tile_count; ++i) {
+                                received_bytes += sum_map(pckt_list[i]);
+                        }
+                        int expected_bytes = vf_get_data_len(recv_frame);
                         if (recv_frame->fec_params.type != FEC_NONE) {
                                 if (is_corrupted) {
                                         stats.fec_nok += 1;
                                 } else {
-                                        stats.fec_ok += 1;
+                                        if (received_bytes == expected_bytes) {
+                                                stats.fec_ok += 1;
+                                        } else {
+                                                stats.fec_corrected += 1;
+                                        }
                                 }
                         }
-                        int received_bytes = sum_map(pckt_list[0]);
                         ostringstream oss;
                         oss << "RECV " << "bufferId " << buffer_num[0] << " expectedPackets " <<
                                 expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
                                 // droppedPackets
-                                " expectedBytes " << (stats.expected_bytes_total += recv_frame->tiles[0].data_len) <<
+                                " expectedBytes " << (stats.expected_bytes_total += expected_bytes) <<
                                 " receivedBytes " << (stats.received_bytes_total += received_bytes) <<
                                 " isCorrupted " << (stats.corrupted += (is_corrupted ? 1 : 0)) <<
                                 " isDisplayed " << (stats.displayed += (is_displayed ? 1 : 0)) <<

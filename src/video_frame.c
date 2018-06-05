@@ -437,3 +437,13 @@ void vf_restore_metadata(struct video_frame *f, void *s)
         memcpy((char *) f + offsetof(struct video_frame, fec_params), s, VF_METADATA_SIZE);
 }
 
+unsigned int vf_get_data_len(struct video_frame *f)
+{
+        unsigned int ret = 0;
+        for (unsigned int i = 0u; i < f->tile_count; ++i) {
+                ret += f->tiles[i].data_len;
+        }
+
+        return ret;
+}
+
