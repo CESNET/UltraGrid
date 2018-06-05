@@ -1191,6 +1191,26 @@ fi
 fi
 
 # -------------------------------------------------------------------------------------------------
+# OpenCV version detection
+# -------------------------------------------------------------------------------------------------
+
+OPENCV_MAJOR=
+
+PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
+		AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
+		OPENCV_MAJOR=3
+	], [
+		PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
+			AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
+			OPENCV_MAJOR=2
+			], [
+			]
+		)
+	],[
+	]
+)
+
+# -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
 RTSP_INC=
@@ -2800,6 +2820,21 @@ AC_ARG_ENABLE(video-mixer,
     )
 
 PKG_CHECK_MODULES([VIDEO_MIX], [video_mix_dep], FOUND_VIDEO_MIX_DEP=yes, FOUND_VIDEO_MIX_DEP=no)
+
+if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes -a x$OPENCV_MAJOR = x3
+then
+	AC_CHECK_LIB([opencv_cudawarping], [main], [
+		VIDEO_MIX_LIBS="$VIDEO_MIX_LIBS -lopencv_cudawarping "
+		AC_DEFINE([HAVE_OPENCV_CUDA], [1], [Whether the opencv installation supports cuda modules])
+	], [
+		AC_MSG_WARN([Video mixer will be compiled as CPU-only])
+	], [
+		$VIDEO_MIX_LIBS
+	])
+elif test x$OPENCV_MAJOR != x3
+then
+	AC_DEFINE([HAVE_OPENCV_CUDA], [1], [Whether the opencv installation supports cuda modules])
+fi
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
 then

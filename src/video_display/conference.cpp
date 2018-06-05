@@ -57,14 +57,31 @@
 #include <mutex>
 #include <queue>
 #include <unordered_map>
-#include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
 
 #include <sys/time.h>
 
+#include <opencv2/opencv.hpp>
+
+#ifdef HAVE_OPENCV_CUDA
+#ifdef HAVE_OPENCV_2
+#include <opencv2/gpu/gpu.hpp>
+using GpuMat = cv::gpu::GpuMat;
+using Stream = cv::gpu::Stream;
+#define gpu_resize(...) cv::gpu::resize(__VA_ARGS__)
+#elif defined HAVE_OPENCV_3
+#include <opencv2/cudawarping.hpp>
+using GpuMat = cv::cuda::GpuMat;
+using Stream = cv::cuda::Stream;
+#define gpu_resize(...) cv::cuda::resize(__VA_ARGS__)
+#endif
+#endif
+
+
 struct Tile{
         cv::Mat img;
-        cv::gpu::GpuMat gpuImg;
+#ifdef HAVE_OPENCV_CUDA
+        GpuMat gpuImg;
+#endif
         int width, height;
         int posX, posY;
 
@@ -107,6 +124,7 @@ class TiledImage{
                 std::vector<struct Tile> imgs;
 };
 
+#ifdef HAVE_OPENCV_CUDA
 class TiledImageGpu : public TiledImage{
         public:
                 TiledImageGpu(int width, int height) : TiledImage(width, height){
@@ -116,9 +134,10 @@ class TiledImageGpu : public TiledImage{
                 void processTile(struct Tile *) override;
                 void resetImg() override { image.setTo(cv::Scalar::all(0)); }
         private:
-                cv::gpu::GpuMat image;
-                cv::gpu::Stream stream;
+                GpuMat image;
+                Stream stream;
 };
+#endif
 
 class TiledImageCpu : public TiledImage{
         public:
@@ -162,13 +181,19 @@ void TiledImage::removeTile(uint32_t ssrc){
         }
 }
 
+#ifdef HAVE_OPENCV_CUDA
 //Uploads the tile to the gpu, resizes it and puts it in the correct position
 void TiledImageGpu::processTile(struct Tile *t){
+#ifdef HAVE_OPENCV_2
         stream.enqueueUpload(t->img, t->gpuImg);
-        cv::gpu::GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-        cv::gpu::resize(t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
+#elif defined HAVE_OPENCV_3
+        t->gpuImg.upload(t->img, stream);
+#endif
+        GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
+        gpu_resize(t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
         t->dirty = 0;
 }
+#endif
 
 void TiledImageCpu::processTile(struct Tile *t){
         cv::Mat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
@@ -271,6 +296,7 @@ void TiledImage::computeLayout(){
         resetImg();
 }
 
+#ifdef HAVE_OPENCV_CUDA
 cv::Mat TiledImageGpu::getImg(){
         stream.waitForCompletion();
 
@@ -285,6 +311,7 @@ cv::Mat TiledImageGpu::getImg(){
         image.download(result);
         return result;
 }
+#endif
 
 cv::Mat TiledImageCpu::getImg(){
         for(struct Tile& t: imgs){
@@ -308,11 +335,15 @@ struct state_conference_common {
                                                               gpu(gpu)
         {
                 autofps = fps <= 0;
+#ifdef HAVE_OPENCV_CUDA
                 if(gpu){
                         output = std::unique_ptr<TiledImage>(new TiledImageGpu(width, height));
                 }else{
                         output = std::unique_ptr<TiledImage>(new TiledImageCpu(width, height));
                 }
+#else
+                output = std::unique_ptr<TiledImage>(new TiledImageCpu(width, height));
+#endif
         }
 
         ~state_conference_common() {
@@ -364,7 +395,11 @@ static struct display *display_conference_fork(void *state)
 static void show_help(){
         printf("Conference display\n");
         printf("Usage:\n");
+#ifdef HAVE_OPENCV_CUDA
         printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[{CPU|GPU}]\n");
+#else 
+        printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[{CPU}]\n");
+#endif
 }
 
 static void *display_conference_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -380,7 +415,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
 
         int width, height;
         double fps = 0;
+#ifdef HAVE_OPENCV_CUDA
         bool gpu = true;
+#else
+        bool gpu = false;
+#endif
 
 
         if (fmt && strlen(fmt) > 0) {
@@ -432,8 +471,14 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                                 fps = atoi(++item);
                         }
                         if((item && (item = strchr(item, ':')))){
-                                if(strcasecmp(++item, "cpu") == 0){
+                                ++item;
+                                if(strcasecmp(item, "cpu") == 0){
                                         gpu = false;
+#ifndef HAVE_OPENCV_CUDA
+                                } else if(strcasecmp(item, "gpu") == 0){
+                                        gpu = false;
+                                        fprintf(stderr, "GPU videomixing requested, but ultragrid was built without CUDA support for OpenCV; CPU implementation in service\n");
+#endif
                                 }
                         }
                         free(tmp);
