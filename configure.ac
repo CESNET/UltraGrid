@@ -2577,7 +2577,10 @@ then
         HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
 fi
 
-ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$LAVC_HWACC_LIBS")
+if test -n "$HW_ACC_OBJ"
+then
+        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$LAVC_HWACC_LIBS")
+fi
 
 if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
 	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
