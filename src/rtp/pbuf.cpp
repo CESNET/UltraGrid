@@ -88,13 +88,15 @@ struct pbuf {
 
         // for statistics
         /// @todo figure out packet duplication
-        int pkt_count[2]; // first buffer is for last_rtp_seq + STATS_INTERVAL
-                          // second for last_rtp_seq + 2 * STATS_INTERVAL
-        int last_rtp_seq;
+        int pkt_count[2]; // first buffer is for last_report_seq + STATS_INTERVAL
+                          // second for last_report_seq + 2 * STATS_INTERVAL
+        int last_report_seq;
         int received_pkts, expected_pkts; // currently computed values
         int received_pkts_last, expected_pkts_last; // values for last interval
         long long int received_pkts_cum, expected_pkts_cum; // cumulative values
+        int last_rtp_seq;
         uint32_t last_display_ts;
+        int longest_gap; // longest loss
 };
 
 static void free_cdata(struct coded_data *head);
@@ -169,6 +171,7 @@ struct pbuf *pbuf_init(volatile int *delay_ms)
                 playout_buf->offset_ms = delay_ms;
                 playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
                 playout_buf->last_rtp_seq = -1;
+                playout_buf->last_report_seq = -1;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }
@@ -308,14 +311,23 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         pbuf_validate(playout_buf);
 
         // collect statistics
-        if (playout_buf->last_rtp_seq == -1) {
+        if (playout_buf->last_report_seq == -1) {
+                playout_buf->last_report_seq = pkt->seq;
                 playout_buf->last_rtp_seq = pkt->seq;
                 playout_buf->pkt_count[0] += 1;
         } else {
-                if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16)) %
+                int gap = (uint16_t) pkt->seq - playout_buf->last_rtp_seq;
+                gap -= 1;
+                if (gap > playout_buf->longest_gap &&
+                                gap < 1<<16 / 2) { // to eliminate errors, misordered pckts etc.
+                        playout_buf->longest_gap = gap;
+                }
+                playout_buf->last_rtp_seq = pkt->seq;
+
+                if ((((int) pkt->seq - playout_buf->last_report_seq + (1<<16)) %
                                         (1<<16)) < STATS_INTERVAL * 2) {
 
-                        if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16))
+                        if ((((int) pkt->seq - playout_buf->last_report_seq + (1<<16))
                                                 % (1<<16)) < STATS_INTERVAL) {
                                 playout_buf->pkt_count[0] += 1;
                         } else {
@@ -326,7 +338,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         playout_buf->expected_pkts += STATS_INTERVAL;
                         playout_buf->received_pkts_cum += playout_buf->received_pkts;
                         playout_buf->expected_pkts_cum += playout_buf->expected_pkts;
-                        playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
+                        playout_buf->last_report_seq = (playout_buf->last_report_seq +
                                         STATS_INTERVAL) % (1<<16);
                         playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
                         playout_buf->pkt_count[1] = 1;
@@ -338,16 +350,18 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         playout_buf->expected_pkts > 0) {
                 // print stats
                 log_msg(LOG_LEVEL_INFO, "SSRC %08x: %d/%d packets received "
-                                "(%.5f%%).\n",
+                                "(%.5f%%), max loss %d.\n",
                                 pkt->ssrc,
                                 playout_buf->received_pkts,
                                 playout_buf->expected_pkts,
                                 (double) playout_buf->received_pkts /
-                                playout_buf->expected_pkts * 100.0);
+                                playout_buf->expected_pkts * 100.0,
+                                playout_buf->longest_gap);
                 playout_buf->received_pkts_last = playout_buf->received_pkts;
                 playout_buf->expected_pkts_last = playout_buf->expected_pkts;
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
                 playout_buf->last_display_ts = pkt->ts;
+                playout_buf->longest_gap = 0;
         }
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
