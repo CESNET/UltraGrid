@@ -292,7 +292,11 @@ void print_version()
 
 void print_configuration()
 {
-        printf("configuration flags: " CONFIG_FLAGS);
+        const char *config_flags = CONFIG_FLAGS;
+        if (strlen(config_flags) == 0) {
+                config_flags = "(none)";
+        }
+        printf("configuration flags: %s", config_flags);
         printf("\n\n");
         printf(PACKAGE_NAME " was compiled with following features:\n");
         printf(AUTOCONF_RESULT);
