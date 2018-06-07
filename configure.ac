@@ -375,6 +375,27 @@ then
     CXXFLAGS="$CXXFLAGS -pipe -W -Wcast-qual -Wcast-align -Wmissing-declarations"
 fi
 
+# ------------------------------------------------------------------------------------------------
+# Dynamic libraries stuff
+#
+build_libraries=no
+AC_ARG_ENABLE(plugins, AS_HELP_STRING([--enable-plugins], [build modules as libraries (default is off)]),
+	[build_libraries=$enableval])
+
+if test "$build_libraries" = yes
+then
+        if test "$system" = "Linux"
+        then
+                LIBS="$LIBS -ldl"
+                LDFLAGS="$LDFLAGS -rdynamic"
+        else
+                AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
+                build_libraries=no
+        fi
+        AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
+fi
+
+
 # -------------------------------------------------------------------------------------------------
 # Check for libraries
 
@@ -449,26 +470,6 @@ AC_ARG_ENABLE(ipv6,
 if test "$ipv6" != no
 then
         AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
-fi
-
-# ------------------------------------------------------------------------------------------------
-# Dynamic libraries stuff
-#
-build_libraries=no
-AC_ARG_ENABLE(plugins, AS_HELP_STRING([--enable-plugins], [build modules as libraries (default is off)]),
-	[build_libraries=$enableval])
-
-if test "$build_libraries" = yes
-then
-        if test "$system" = "Linux"
-        then
-                LIBS="$LIBS -ldl"
-                LDFLAGS="$LDFLAGS -rdynamic"
-        else
-                AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
-                build_libraries=no
-        fi
-        AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
 # ------------------------------------------------------------------------------------------------
@@ -2459,15 +2460,25 @@ AC_ARG_ENABLE(lavc-hw-accel-vdpau,
 [  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
 [                          Requires: lavc_hwacc_vdpau_dep],
     [lavc_hwacc_vdpau_req=$enableval],
-    [lavc_hwacc_vdpau_req=no]
+    [lavc_hwacc_vdpau_req=auto]
     )
 
 AC_ARG_ENABLE(lavc-hw-accel-vaapi,
 [  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
 [                          Requires: lavc_hwacc_vaapi_dep],
     [lavc_hwacc_vaapi_req=$enableval],
-    [lavc_hwacc_vaapi_req=no]
+    [lavc_hwacc_vaapi_req=auto]
     )
+
+if test "$build_libraries" = yes
+then
+        if test $lavc_hwacc_vdpau_req = yes -o $lavc_hwacc_vaapi_req = yes; then
+                AC_MSG_ERROR([Hwacc is incompatible with modular build!]);
+        fi
+
+        lavc_hwacc_vdpau_req=no
+        lavc_hwacc_vaapi_req=no
+fi
 
 PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
 PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
