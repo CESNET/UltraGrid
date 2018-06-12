@@ -113,9 +113,16 @@ static void *decompress_j2k_worker(void *args)
         return NULL;
 }
 
+ADD_TO_PARAM(j2k_dec_mem_limit, "j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
+                                "  J2K max memory usage in bytes.\n");
 static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
+        long long int mem_limit = 0;
+
+        if (get_commandline_param("j2k-dec-mem-limit")) {
+                mem_limit = strtoll(get_commandline_param("j2k-dec-mem-limit"), NULL, 10);
+        }
 
         s = (struct state_decompress_j2k *)
                 calloc(1, sizeof(struct state_decompress_j2k));
@@ -123,7 +130,10 @@ static void * j2k_decompress_init(void)
 
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
-        CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[0], 0, 0), "Error setting CUDA device", goto error);
+        for (unsigned int i; i < cuda_devices_count; ++i) {
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, 0),
+                                "Error setting CUDA device", goto error);
+        }
 
         CHECK_OK(cmpto_j2k_dec_ctx_create(ctx_cfg, &s->decoder), "Error initializing context",
                         goto error);

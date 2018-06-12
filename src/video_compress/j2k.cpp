@@ -123,11 +123,13 @@ start:
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu]\n");
+        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<l>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate\n");
         printf("\t\t<q> - quality\n");
+        printf("\t\t<l> - CUDA device memory limit (in bytes)\n");
         printf("\t\tmcu - use MCU\n");
+        printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
 }
 
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
@@ -136,6 +138,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         int rate = 1100000;
         double quality = 0.7;
         bool mct = false;
+        long long int mem_limit = 0;
 
         s = (struct state_video_compress_j2k *) calloc(1, sizeof(struct state_video_compress_j2k));
 
@@ -150,6 +153,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         quality = atof(item + strlen("quality="));
                 } else if (strcasecmp("mct", item) == 0) {
                         mct = true;
+                } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
+                        mem_limit = strtoll(item + strlen("mem_limit="), NULL, 10);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
                         free(s);
@@ -162,8 +167,10 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
                         goto error);
-        CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[0], 0, 0),
-                        "Setting CUDA device", goto error);
+        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
+                CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, 0),
+                                "Setting CUDA device", goto error);
+        }
 
         CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &s->context), "Context create",
                         goto error);
