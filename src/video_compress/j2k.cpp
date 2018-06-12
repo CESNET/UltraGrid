@@ -122,6 +122,15 @@ static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
         return shared_ptr<video_frame>(out, out->dispose);
 }
 
+static void usage() {
+        printf("J2K compress usage:\n");
+        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu]\n");
+        printf("\twhere:\n");
+        printf("\t\t<bitrate> - target bitrate\n");
+        printf("\t\t<q> - quality\n");
+        printf("\t\tmcu - use MCU\n");
+}
+
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
         struct state_video_compress_j2k *s;
@@ -142,6 +151,11 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         quality = atof(item + strlen("quality="));
                 } else if (strcasecmp("mct", item) == 0) {
                         mct = true;
+                } else if (strcasecmp("help", item) == 0) {
+                        usage();
+                        free(s);
+                        free(cfg);
+                        return &compress_init_noerr;
                 }
         }
         free(cfg);
