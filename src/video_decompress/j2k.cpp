@@ -98,7 +98,7 @@ static void *decompress_j2k_worker(void *args)
                 void *dec_data;
                 size_t len;
                 CHECK_OK(cmpto_j2k_dec_img_get_samples(img, &dec_data, &len),
-                                "Error getting samples", continue);
+                                "Error getting samples", cmpto_j2k_dec_img_destroy(img); continue);
 
                 char *buffer = (char *) malloc(len);
                 memcpy(buffer, dec_data, len);
@@ -107,7 +107,7 @@ static void *decompress_j2k_worker(void *args)
                 s->decompressed_frames->push(buffer);
                 pthread_mutex_unlock(&s->lock);
                 CHECK_OK(cmpto_j2k_dec_img_destroy(img),
-                                "Unable to to return processed image", /* noop */);
+                                "Unable to to return processed image", NOOP);
         }
 
         return NULL;
@@ -130,7 +130,7 @@ static void * j2k_decompress_init(void)
 
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
-        for (unsigned int i; i < cuda_devices_count; ++i) {
+        for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, 0),
                                 "Error setting CUDA device", goto error);
         }
@@ -223,10 +223,10 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         tmp = malloc(src_len);
         memcpy(tmp, buffer, src_len);
         CHECK_OK(cmpto_j2k_dec_img_set_cstream(img, tmp, src_len, &release_cstream),
-                        "Error setting cstream", goto return_previous);
+                        "Error setting cstream", cmpto_j2k_dec_img_destroy(img); goto return_previous);
 
         CHECK_OK(cmpto_j2k_dec_img_decode(img, s->settings), "Decode image",
-                        goto return_previous);
+                        cmpto_j2k_dec_img_destroy(img); goto return_previous);
 
 return_previous:
         pthread_mutex_lock(&s->lock);

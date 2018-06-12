@@ -232,11 +232,12 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         delete *(shared_ptr<video_frame> **) ((char *) custom_data + sizeof(struct video_desc));
 }
 
+#define HANDLE_ERROR_COMPRESS_PUSH if (img) cmpto_j2k_enc_img_destroy(img); return
 static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame> tx)
 {
         struct state_video_compress_j2k *s =
                 (struct state_video_compress_j2k *) state;
-        struct cmpto_j2k_enc_img *img;
+        struct cmpto_j2k_enc_img *img = NULL;
         struct video_desc desc;
         void *udata;
         shared_ptr<video_frame> **ref;
@@ -275,7 +276,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         "Image create", return);
 
         CHECK_OK(cmpto_j2k_enc_img_set_samples(img, tx->tiles[0].data, tx->tiles[0].data_len, release_cstream),
-                        "Setting image samples", return);
+                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         desc = video_desc_from_frame(tx.get());
 
@@ -284,7 +285,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                                 sizeof(struct video_desc) + sizeof(shared_ptr<video_frame> *),
                                 &udata),
                         "Allocate custom image data",
-                        return);
+                        HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(udata, &desc, sizeof(desc));
         ref = (shared_ptr<video_frame> **)((char *) udata + sizeof(struct video_desc));
         *ref = new shared_ptr<video_frame>(tx);
