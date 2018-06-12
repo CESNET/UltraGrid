@@ -2797,6 +2797,25 @@ then
         bitflow=yes
 fi
 
+# ------------------------------------------------------------------------------
+# Comprimato J2K
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE(cmpto-j2k,
+[  --enable-cmpto-j2k      enables Comprimato J2K support (default is disabled)]
+[                          Requires: cmpto_j2k],
+    [cmpto_j2k_req=$enableval],
+    [cmpto_j2k_req=no]
+    )
+
+cmpto_j2k=no
+if test $cmpto_j2k_req = yes
+then
+        ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/j2k.o", "-lcmpto_j2k_enc")
+        ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/j2k.o", "-lcmpto_j2k_dec")
+        cmpto_j2k=yes
+fi
+
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
@@ -2869,6 +2888,7 @@ RESULT=\
   CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec (HW accel: vdpau: $lavc_hwacc_vdpau vaapi: $lavc_hwacc_vaapi)
+  Comprimato J2K .............. $cmpto_j2k
 
   blank capture filter ........ $blank
   resize capture filter ....... $resize

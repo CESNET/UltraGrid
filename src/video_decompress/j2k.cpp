@@ -282,7 +282,7 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
         return ret;
 }
 
-static const struct video_decompress_info j2k_info = {
+static const struct video_decompress_info j2k_decompress_info = {
         j2k_decompress_init,
         j2k_decompress_reconfigure,
         j2k_decompress,
@@ -291,5 +291,5 @@ static const struct video_decompress_info j2k_info = {
         j2k_decompress_get_decoders,
 };
 
-REGISTER_MODULE(j2k, &j2k_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
+REGISTER_MODULE(j2k, &j2k_decompress_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
