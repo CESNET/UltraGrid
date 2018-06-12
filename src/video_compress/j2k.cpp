@@ -124,7 +124,6 @@ static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
         struct state_video_compress_j2k *s;
-        int j2k_error;
         int rate = 1100000;
         double quality = 0.7;
         bool mct = false;
@@ -147,39 +146,43 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         free(cfg);
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
-        cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg);
-        cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[0], 0, 0);
+        CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
+                        goto error);
+        CHECK_OK(cmpto_j2k_enc_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[0], 0, 0),
+                        "Setting CUDA device", goto error);
 
-        j2k_error = cmpto_j2k_enc_ctx_create(ctx_cfg,
-                        &s->context);
-        cmpto_j2k_enc_ctx_cfg_destroy(ctx_cfg);
-        if (j2k_error != CMPTO_OK) {
-                fprintf(stderr, "enc_ctx_create: %s\n", cmpto_j2k_enc_get_last_error());
-                goto error;
-        }
+        CHECK_OK(cmpto_j2k_enc_ctx_create(ctx_cfg, &s->context), "Context create",
+                        goto error);
+        CHECK_OK(cmpto_j2k_enc_ctx_cfg_destroy(ctx_cfg), "Context configuration destroy",
+                        NOOP);
 
-        j2k_error = cmpto_j2k_enc_cfg_create(
-                        s->context,
-                        &s->enc_settings);
-        if (j2k_error != CMPTO_OK) {
-                fprintf(stderr, "enc_cfg_create: %s\n", cmpto_j2k_enc_get_last_error());
-                goto error;
-        }
-        cmpto_j2k_enc_cfg_set_quantization(
-                        s->enc_settings,
-                        quality /* 0.0 = poor quality, 1.0 = full quality */
-                        );
+        CHECK_OK(cmpto_j2k_enc_cfg_create(
+                                s->context,
+                                &s->enc_settings),
+                        "Creating context configuration:",
+                        goto error);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_quantization(
+                                s->enc_settings,
+                                quality /* 0.0 = poor quality, 1.0 = full quality */
+                                ),
+                        "Setting quantization",
+                        NOOP);
 
-        cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings, CMPTO_J2K_ENC_COMP_MASK_ALL, CMPTO_J2K_ENC_RES_MASK_ALL, rate);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings,
+                                CMPTO_J2K_ENC_COMP_MASK_ALL,
+                                CMPTO_J2K_ENC_RES_MASK_ALL, rate),
+                        "Setting rate limit",
+                        NOOP);
         //CMPTO_J2K_Enc_Settings_Enable(s->enc_settings, CMPTO_J2K_Rate_Control);
         if (mct) {
-                cmpto_j2k_enc_cfg_set_mct(s->enc_settings, 1); // only for RGB
+                CHECK_OK(cmpto_j2k_enc_cfg_set_mct(s->enc_settings, 1), // only for RGB
+                                "Setting MCT",
+                                NOOP);
         }
 
-        j2k_error = cmpto_j2k_enc_cfg_set_resolutions( s->enc_settings, 6);
-        if (j2k_error != CMPTO_OK) {
-                goto error;
-        }
+        CHECK_OK(cmpto_j2k_enc_cfg_set_resolutions( s->enc_settings, 6),
+                        "Setting DWT levels",
+                        NOOP);
 
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
@@ -213,7 +216,6 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         struct state_video_compress_j2k *s =
                 (struct state_video_compress_j2k *) state;
         struct cmpto_j2k_enc_img *img;
-        int j2k_error;
         struct video_desc desc;
         void *udata;
         shared_ptr<video_frame> **ref;
@@ -243,37 +245,31 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Unsupported codec!\n");
                         abort();
         }
-        cmpto_j2k_enc_cfg_set_samples_format_type(s->enc_settings, cmpto_sf);
-        cmpto_j2k_enc_cfg_set_size(s->enc_settings, tx->tiles[0].width, tx->tiles[0].height);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_samples_format_type(s->enc_settings, cmpto_sf),
+                        "Setting sample format", return);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_size(s->enc_settings, tx->tiles[0].width, tx->tiles[0].height),
+                        "Setting image size", return);
 
-        j2k_error = cmpto_j2k_enc_img_create(s->context, &img);
-        if (j2k_error != CMPTO_OK) {
-                return;
-        }
+        CHECK_OK(cmpto_j2k_enc_img_create(s->context, &img),
+                        "Image create", return);
 
-        j2k_error = cmpto_j2k_enc_img_set_samples(img, tx->tiles[0].data, tx->tiles[0].data_len, release_cstream);
-
-        if (j2k_error != CMPTO_OK) {
-                return;
-        }
+        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, tx->tiles[0].data, tx->tiles[0].data_len, release_cstream),
+                        "Setting image samples", return);
 
         desc = video_desc_from_frame(tx.get());
 
-        j2k_error = cmpto_j2k_enc_img_allocate_custom_data(
-                        img,
-                        sizeof(struct video_desc) + sizeof(shared_ptr<video_frame> *),
-                        &udata);
-        if (j2k_error != CMPTO_OK) {
-                return;
-        }
+        CHECK_OK(cmpto_j2k_enc_img_allocate_custom_data(
+                                img,
+                                sizeof(struct video_desc) + sizeof(shared_ptr<video_frame> *),
+                                &udata),
+                        "Allocate custom image data",
+                        return);
         memcpy(udata, &desc, sizeof(desc));
         ref = (shared_ptr<video_frame> **)((char *) udata + sizeof(struct video_desc));
         *ref = new shared_ptr<video_frame>(tx);
 
-        j2k_error = cmpto_j2k_enc_img_encode(img, s->enc_settings);
-        if (j2k_error != CMPTO_OK) {
-                return;
-        }
+        CHECK_OK(cmpto_j2k_enc_img_encode(img, s->enc_settings),
+                        "Encode image", return);
 }
 
 static void j2k_compress_done(struct module *mod)
