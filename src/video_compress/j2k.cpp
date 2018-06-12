@@ -76,10 +76,10 @@ struct state_video_compress_j2k {
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
 static void j2k_compress_done(struct module *mod);
 
-/// @todo
-/// "return {}" below means that UG quits (it is poison pill) - is it ok?
+#define HANDLE_ERROR_COMPRESS_POP do { cmpto_j2k_enc_img_destroy(img); goto start; } while (0)
 static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
 {
+start:
         struct state_video_compress_j2k *s =
                 (struct state_video_compress_j2k *) state;
 
@@ -89,14 +89,13 @@ static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
                                 s->context,
                                 1,
                                 &img /* Set to NULL if encoder stopped */,
-                                &status), "Encode image", continue);
+                                &status), "Encode image", HANDLE_ERROR_COMPRESS_POP);
         if (status != CMPTO_J2K_ENC_IMG_OK) {
                 const char * encoding_error = "";
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
                                 encoding_error = "(failed)");
                 log_msg(LOG_LEVEL_ERROR, "Image encoding failed: %s\n", encoding_error);
-                // some better solution?
-                return {};
+                goto start;
         }
 
         if (!img) {
@@ -106,11 +105,11 @@ static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
         struct video_desc *desc;
         size_t len;
         CHECK_OK(cmpto_j2k_enc_img_get_custom_data(img, (void **) &desc, &len),
-                        "get custom data", return {});
+                        "get custom data", HANDLE_ERROR_COMPRESS_POP);
         size_t size;
         void * ptr;
         CHECK_OK(cmpto_j2k_enc_img_get_cstream(img, &ptr, &size),
-                        "get cstream", return {});
+                        "get cstream", HANDLE_ERROR_COMPRESS_POP);
 
         struct video_frame *out = vf_alloc_desc(*desc);
         out->tiles[0].data_len = size;
