@@ -651,6 +651,8 @@
     <property name="title">
      <string>&amp;UltraGrid</string>
     </property>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menu_Tools">
@@ -726,6 +728,11 @@
    </property>
    <property name="text">
     <string>vuMeter</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>

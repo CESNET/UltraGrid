@@ -8,6 +8,7 @@
 #include "ui_ultragrid_window.h"
 #include "ultragrid_option.hpp"
 #include "log_window.hpp"
+#include "settings_window.hpp"
 
 class UltragridWindow : public QMainWindow{
 	Q_OBJECT
@@ -30,6 +31,7 @@ private:
 	QString launchArgs;
 	QStringList getOptionsForParam(QString param);
 	LogWindow log;
+	SettingsWindow settings;
 
 	std::vector<std::unique_ptr<UltragridOption>> opts;
 	VideoSourceOption *sourceOption;
@@ -47,6 +49,7 @@ public slots:
 	void setArgs();
 
 	void showLog();
+	void showSettings();
 
 	void startPreview();
 	void stopPreview();

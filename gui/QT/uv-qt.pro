@@ -27,9 +27,11 @@ previewWidget.hpp \
 log_window.hpp \
 astat.h \
 vuMeterWidget.hpp \
+settings_window.hpp \
 
 FORMS += ultragrid_window.ui \
-log_window.ui
+log_window.ui \
+settings.ui
 
 SOURCES += ultragrid_window.cpp \
 	ultragrid_option.cpp \
@@ -37,4 +39,5 @@ SOURCES += ultragrid_window.cpp \
 	previewWidget.cpp \
 	log_window.cpp \
 	vuMeterWidget.cpp \
+	settings_window.cpp \
 	main.cpp

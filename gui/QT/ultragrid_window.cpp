@@ -29,6 +29,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(queryOpts()));
 	connect(ui.actionAdvanced, SIGNAL(toggled(bool)), this, SLOT(setAdvanced(bool)));
 	connect(ui.actionShow_Terminal, SIGNAL(triggered()), this, SLOT(showLog()));
+	connect(ui.actionSettings, SIGNAL(triggered()), this, SLOT(showSettings()));
 	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));
 
 	sourceOption = new VideoSourceOption(&ui, ultragridExecutable);
@@ -58,6 +59,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	for(auto &opt : opts){
 		connect(opt.get(), SIGNAL(changed()), this, SLOT(setArgs()));
 	}
+
+	connect(&settings, SIGNAL(changed()), this, SLOT(setArgs()));
 
 	connect(sourceOption, SIGNAL(changed()), this, SLOT(startPreview()));
 	connect(audioSrcOption, SIGNAL(changed()), this, SLOT(startPreview()));
@@ -200,6 +203,8 @@ void UltragridWindow::setArgs(){
 		launchArgs += opt->getLaunchParam();
 	}
 
+	launchArgs += settings.getPortArgs();
+
 	launchArgs += ui.networkDestinationEdit->text();
 
 	ui.arguments->setText(launchArgs);
@@ -247,6 +252,11 @@ void UltragridWindow::setAdvanced(bool adv){
 void UltragridWindow::showLog(){
 	log.show();
 	log.raise();
+}
+
+void UltragridWindow::showSettings(){
+	settings.show();
+	settings.raise();
 }
 
 void UltragridWindow::setStartBtnText(QProcess::ProcessState s){
