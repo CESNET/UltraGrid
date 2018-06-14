@@ -1853,7 +1853,7 @@ AC_ARG_WITH(cuda-compiler,
               [CUDA_COMPILER="$withval"],
               [])
 
-HOST_CC_REPORT=""
+HOST_CC_REPORT=" ("
 case "$CUDA_COMPILER" in
 	*nvcc*)
 		CUDA_COMPUTE_ARGS="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35"
@@ -1865,7 +1865,7 @@ case "$CUDA_COMPILER" in
 		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
 		;;
 esac
-HOST_CC_REPORT=" (cuda code compiler: "$(basename "$CUDA_COMPILER")")"
+HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
 
 # CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
@@ -1882,7 +1882,9 @@ else
 fi
 
 if test "x$NVCC" != "X" ; then
-	HOST_CC_REPORT+=" (host code compiler: ${with_cuda_host_compiler})"
+	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
+else
+	HOST_CC_REPORT=""
 fi
 
 AC_SUBST(FOUND_CUDA)
@@ -2833,52 +2835,81 @@ RESULT=\
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
   License ..................... $license
-  iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
-  Syphon ...................... $syphon
-  Spout ....................... $spout
+"
 
-  AJA ......................... $aja
-  AV Foundation ............... $avfoundation
-  Bluefish444 ................. $bluefish444 (audio: $blue_audio)
-  BitFlow ..................... $bitflow
-  DeckLink .................... $decklink
-  DirectShow .................. $dshow
-  DELTACAST ................... $deltacast
-  DVS ......................... $dvs
-  OpenGL ...................... $gl
-  Quicktime ................... $quicktime
-  SAGE ........................ $sage
-  SDL ......................... $sdl
-  Screen Capture .............. $screen_cap
-  V4L2 ........................ $v4l2
-  RTSP Capturer Client ........ $rtsp
-  SW Video Mix ................ $swmix
+# params: <result> <feature> <bool> 0|1
+# 0 - print left column; 1 - print right column
+add_column() {
+        # left column
+        if [ test $4 = 0 ]; then
+        printf "$1
+  $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)"
+  return 1
+else
+        # right column
+        printf "$1   $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)
+"
+  return 0
+fi
+}
 
-  Portaudio ................... $portaudio
-  ALSA ........................ $alsa
-  CoreAudio ................... $coreaudio
-  JACK  ....................... $jack
-  JACK transport .............. $jack_trans
+true # set $? to zero
+RESULT=`add_column "$RESULT" "AJA" $aja $?`
+RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
+RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
+RESULT=`add_column "$RESULT" "Bluefish444 (audio: $blue_audio)" $bluefish444 $?`
+RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
+RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
+RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
+RESULT=`add_column "$RESULT" "DVS" $dvs $?`
+RESULT=`add_column "$RESULT" "OpenGL" $gl $?`
+RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`
+RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
+RESULT=`add_column "$RESULT" "SAGE" $sage $?`
+RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
+RESULT=`add_column "$RESULT" "SDL" $sdl $?`
+RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
+RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 
-  Realtime DXT (OpenGL) ....... $rtdxt
-  JPEG ........................ $jpeg
-  JPEG to DXT ................. $jpeg_to_dxt
-  CUDA DXT .................... $cuda_dxt
-  UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec (HW accel: vdpau: $lavc_hwacc_vdpau vaapi: $lavc_hwacc_vaapi)
+RESULT="$RESULT
+"
+true # set $? to zero
+RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
+RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
+RESULT=`add_column "$RESULT" "JACK" $jack $?`
+RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
+RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 
-  blank capture filter ........ $blank
-  resize capture filter ....... $resize
-  text postprocess and filter . $text
-  RTSP Server ................. $rtsp_server
-  scale postprocessor ......... $scale
-  testcard extras ............. $testcard_extras_req
-  GPU accelerated LDGM ........ $ldgm_gpu
-  MCU-like video mixer ........ $video_mix
-  "
+RESULT="$RESULT
+"
+true # set $? to zero
+RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
+RESULT=`add_column "$RESULT" "JPEG" $jpeg $?`
+RESULT=`add_column "$RESULT" "JPEG to DXT" $jpeg_to_dxt $?`
+RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
+RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
+RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
+
+RESULT="$RESULT
+"
+true # set $? to zero
+RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
+RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
+RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
+RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
+RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
+RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`
+RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
+RESULT=`add_column "$RESULT" "Spout" $spout $?`
+RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
+RESULT=`add_column "$RESULT" "Testcard extras" $testcard_extras $?`
+RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
+
+RESULT="$RESULT
+"
 
 AC_MSG_RESULT(
 [
