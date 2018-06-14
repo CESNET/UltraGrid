@@ -56,10 +56,11 @@
 
 #define BUF_LAST_UNDERRUN_MAX 1000000000
 #define BUF_LAST_UNDERRUN_THRESHOLD 10000
-#define AGGRESIVITY_MAX 4
-#define AGGRESIVITY_STEP 100
+#define BUF_LAST_OVERRUN_THRESHOLD 10000
+#define AGGRESSIVITY_MAX 4
+#define AGGRESSIVITY_STEP 100
 
-static const int occupacy_windows[3] = { 50, 200 };
+static const int occupacy_windows[] = { 50, 200 };
 
 struct audio_buffer {
         struct audio_desc desc;
@@ -71,8 +72,9 @@ struct audio_buffer {
         int out_pkt_size;
         int avg_occupancy[2]; // at read time
         int last_underrun; // last underrun n output frames ago
-        int aggresivity;
-        int last_aggresivity_change;
+        int last_overrun; // last overrun n output frames ago
+        int aggressivity;
+        int last_aggressivity_change;
 };
 
 struct audio_buffer *audio_buffer_init(int sample_rate, int bps, int ch_count, int suggested_latency_ms)
@@ -88,8 +90,8 @@ struct audio_buffer *audio_buffer_init(int sample_rate, int bps, int ch_count, i
 
         buf->suggested_latency_ms = suggested_latency_ms;
 
-        buf->aggresivity = 1;
-        buf->last_aggresivity_change = AGGRESIVITY_STEP;
+        buf->aggressivity = 1;
+        buf->last_aggressivity_change = AGGRESSIVITY_STEP;
 
         return buf;
 }
@@ -111,7 +113,7 @@ int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
 
         int ring_size = ring_get_current_size(buf->ring);
 
-        for (unsigned int i = 0; i < sizeof buf->avg_occupancy / sizeof buf->avg_occupancy; ++i) {
+        for (unsigned int i = 0; i < sizeof buf->avg_occupancy / sizeof buf->avg_occupancy[0]; ++i) {
                 if (buf->avg_occupancy[i] > 0) {
                         buf->avg_occupancy[i] = (ring_size + (buf->avg_occupancy[i] * (occupacy_windows[i] -1))) / occupacy_windows[i];
                 } else {
@@ -119,6 +121,7 @@ int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
                 }
         }
 
+        // handle underruns
         if (ring_size < max_len) {
                 buf->last_underrun = 0;
         } else {
@@ -132,28 +135,33 @@ int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
 
         int ret = ring_buffer_read(buf->ring, out, max_len);
 
-        int remaining_bytes = ring_size - ret;
-
-        if (buf->last_aggresivity_change >= AGGRESIVITY_STEP) {
-                buf->last_aggresivity_change = 0;
-                if ((buf->avg_occupancy[0] > buf->avg_occupancy[1] && buf->last_underrun > BUF_LAST_UNDERRUN_THRESHOLD / 10)) {
-                        buf->aggresivity = min(buf->aggresivity + 1, AGGRESIVITY_MAX);
-                } else if (buf->avg_occupancy[0] < buf->avg_occupancy[1] || buf->last_underrun < BUF_LAST_UNDERRUN_THRESHOLD / 100) {
-                        buf->aggresivity = max(buf->aggresivity - 1, 1);
+        // fiddle aggressivity
+        if (buf->last_aggressivity_change >= AGGRESSIVITY_STEP) {
+                buf->last_aggressivity_change = 0;
+                if ((buf->avg_occupancy[0] > buf->avg_occupancy[1] && buf->last_underrun > BUF_LAST_UNDERRUN_THRESHOLD / 10) && buf->last_overrun <= BUF_LAST_OVERRUN_THRESHOLD) {
+                        buf->aggressivity = min(buf->aggressivity + 1, AGGRESSIVITY_MAX);
+                } else if (buf->avg_occupancy[0] < buf->avg_occupancy[1] || buf->last_underrun < BUF_LAST_UNDERRUN_THRESHOLD / 100 || buf->last_overrun > BUF_LAST_OVERRUN_THRESHOLD) {
+                        buf->aggressivity = max(buf->aggressivity - 1, 1);
                 }
         } else {
-                buf->last_aggresivity_change += 1;
+                buf->last_aggressivity_change += 1;
         }
 
+        // handle overruns
+        int remaining_bytes = ring_size - ret;
         if (requested_latency_bytes < remaining_bytes) {
-                int len_drop = (1<<buf->aggresivity) * buf->desc.bps * buf->desc.ch_count;
+                int len_drop = (1<<buf->aggressivity) * buf->desc.bps * buf->desc.ch_count * 128;
                 len_drop = min(len_drop, remaining_bytes / 2);
 
                 char *tmp = alloca(len_drop);
                 ring_buffer_read(buf->ring, tmp, len_drop);
+                buf->last_overrun = 0;
+                log_msg(LOG_LEVEL_VERBOSE, "Droped audio samples: req latency %d remaining %d dropped %d!\n", requested_latency_bytes, suggested_latency_bytes, remaining_bytes, len_drop);
+        } else {
+                buf->last_overrun += 1;
         }
 
-        log_msg(LOG_LEVEL_DEBUG, "buf - in avg %d, out avg %d, occupancy avg %d, last underrun %d, aggresivity %d\n", buf->in_pkt_size, buf->out_pkt_size, buf->avg_occupancy[0], buf->last_underrun, buf->aggresivity);
+        log_msg(LOG_LEVEL_DEBUG, "buf - in a. %d, out a. %d, occ. a. [%d,%d] last under/overrun %d, %d aggressivity %d\n", buf->in_pkt_size, buf->out_pkt_size, buf->avg_occupancy[0],buf->avg_occupancy[1], buf->last_underrun, buf->last_overrun, buf->aggressivity);
 
         return ret;
 }
