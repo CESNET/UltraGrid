@@ -175,11 +175,13 @@ static void portaudio_print_available_devices(enum audio_device_kind kind)
 	if( numDevices < 0)
 	{
 		printf("Error getting portaudio devices number\n");
+                Pa_Terminate();
 		return;
 	}
 	if( numDevices == 0)
 	{
 		printf("There are NO available audio devices!\n");
+                Pa_Terminate();
 		return;
 	}
         
@@ -196,14 +198,13 @@ static void portaudio_print_available_devices(enum audio_device_kind kind)
 		printf("\n");
 	}
 
-	return;
+        Pa_Terminate();
 }
 
 static void portaudio_close(PaStream * stream) // closes and frees all audio resources
 {
 	Pa_StopStream(stream);	// may not be necessary
         Pa_CloseStream(stream);
-	Pa_Terminate();
 }
 
 /*
@@ -248,8 +249,8 @@ static void * audio_play_portaudio_init(const char *cfg)
                 fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
                                 MODULE_NAME "Follows list of available Portaudio devices.\n");
                 audio_play_portaudio_help(NULL);
-                delete s;
                 Pa_Terminate();
+                delete s;
                 return NULL;
         }
 	s->max_output_channels = device_info->maxOutputChannels;
@@ -257,6 +258,8 @@ static void * audio_play_portaudio_init(const char *cfg)
         s->quiet = true;
         
         if (!audio_play_portaudio_reconfigure(s, audio_desc{2, 48000, 2, AC_PCM})) {
+                Pa_Terminate();
+                delete s;
                 return NULL;
         }
 
@@ -267,15 +270,16 @@ static void audio_play_portaudio_done(void *state)
 {
         auto s = (state_portaudio_playback *) state;
         cleanup(s);
+	Pa_Terminate();
         delete s;
 }
 
 static void cleanup(struct state_portaudio_playback * s)
 {
         portaudio_close(s->stream);
-
-        ring_buffer_destroy(s->data);
-        free(s->tmp_buffer);
+        s->stream = NULL;
+        audio_buffer_destroy(s->data);
+        s->data = NULL;
 }
 
 static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_t *len)
