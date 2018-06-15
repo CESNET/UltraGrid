@@ -65,7 +65,7 @@
 #include "audio/audio_playback.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "utils/ring_buffer.h"
+#include "utils/audio_buffer.h"
 
 #define MODULE_NAME "[Portaudio playback] "
 #define BUFFER_LEN_SEC 1
@@ -82,8 +82,7 @@ struct state_portaudio_playback {
         PaStream *stream;
         int max_output_channels;
 
-        struct ring_buffer *data;
-        char *tmp_buffer;
+        struct audio_buffer *data;
 
         steady_clock::time_point last_audio_read;
         bool quiet;
@@ -238,7 +237,6 @@ static void * audio_play_portaudio_init(const char *cfg)
         assert(output_device >= -1);
         s->device = output_device;
         s->data = NULL;
-        s->tmp_buffer = NULL;
         const	PaDeviceInfo *device_info;
         if(output_device >= 0) {
                 device_info = Pa_GetDeviceInfo(output_device);
@@ -315,11 +313,7 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
                 cleanup(s);
         }
 
-        int size = BUFFER_LEN_SEC * desc.ch_count * desc.bps *
-                        desc.sample_rate;
-        s->data = ring_buffer_init(size);
-        s->tmp_buffer = (char *) malloc(size);
-        
+        s->data = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, 50);
         s->desc = desc;
         
 	printf("(Re)initializing portaudio playback.\n");
@@ -405,7 +399,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         UNUSED(statusFlags);
 
         ssize_t req_bytes = framesPerBuffer * s->desc.ch_count * s->desc.bps;
-        ssize_t bytes_read = ring_buffer_read(s->data, (char *) outputBuffer, req_bytes);
+        ssize_t bytes_read = audio_buffer_read(s->data, (char *) outputBuffer, req_bytes);
 
         if (bytes_read < req_bytes) {
                 if (!s->quiet)
@@ -450,12 +444,8 @@ static void audio_play_portaudio_put_frame(void *state, struct audio_frame *buff
                 out_channels = s->max_output_channels;
         }
         
-        ring_buffer_write(s->data, buffer->data, samples_count * buffer->bps * out_channels);
-
-        if (ring_get_current_size(s->data) > buffer->bps * out_channels * buffer->sample_rate * BUFFER_LEN_SEC / 2) {
-                fprintf(stderr, MODULE_NAME "Warning: more than 0.5 sec in playout buffer!\n");
+        audio_buffer_write(s->data, buffer->data, samples_count * buffer->bps * out_channels);
         }
-}
 
 static const struct audio_playback_info aplay_portaudio_info = {
         audio_play_portaudio_probe,
