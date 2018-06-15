@@ -313,7 +313,14 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
                 cleanup(s);
         }
 
-        s->data = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, 50);
+        int audio_buf_len_ms = 50;
+        if (get_commandline_param("low-latency-audio")) {
+                audio_buf_len_ms = 5;
+        }
+        if (get_commandline_param("audio-buffer-len")) {
+                audio_buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
+        }
+        s->data = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, audio_buf_len_ms);
         s->desc = desc;
         
 	printf("(Re)initializing portaudio playback.\n");
