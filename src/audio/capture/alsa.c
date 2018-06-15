@@ -394,7 +394,7 @@ static void audio_cap_alsa_done(void *state)
         printf("[ALSA cap.] Captured %lld samples in %f seconds (%f samples per second).\n",
                         s->captured_samples, tv_diff(t, s->start_time),
                         s->captured_samples / tv_diff(t, s->start_time));
-        snd_pcm_drain(s->handle);
+        snd_pcm_drop(s->handle);
         snd_pcm_close(s->handle);
         free(s->frame.data);
         free(s->tmp_data);
