@@ -356,9 +356,6 @@ static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *le
 
 ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=[<min>-]<max>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
-
-ADD_TO_PARAM(alsa_internal_buffer, "alsa-internal-buffer", "* alsa-internal-buffer=<ms>\n"
-                                "  ALSA internal buffer.\n");
 /**
  * @todo
  * Consider using snd_pcm_hw_params_set_buffer_time_first() by default, it works fine
@@ -549,8 +546,8 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 audio_buffer_destroy(s->buf);
                 s->audio_buf_len_ms = get_commandline_param("low-latency-audio") ? 5 : s->sched_latency_ms * 2;
                 log_msg(LOG_LEVEL_INFO, "[ALSA play.] Setting audio buffer length: %d ms\n", s->audio_buf_len_ms);
-                if (get_commandline_param("alsa-internal-buffer")) {
-                        s->audio_buf_len_ms = atoi(get_commandline_param("alsa-internal-buffer"));
+                if (get_commandline_param("audio-buffer-len")) {
+                        s->audio_buf_len_ms = atoi(get_commandline_param("alsa-buffer-len"));
                 }
                 s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, s->audio_buf_len_ms);
 #endif
