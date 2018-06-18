@@ -266,7 +266,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                 struct wav_metadata metadata;
                 int ret = read_wav_header(wav, &metadata);
                 if(ret != WAV_HDR_PARSE_OK) {
-                        print_wav_error(ret);
+                        log_msg(LOG_LEVEL_ERROR, "%s\n", get_wav_error(ret));
                         fclose(wav);
                         delete s;
                         return NULL;

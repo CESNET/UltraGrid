@@ -238,18 +238,9 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
         struct wav_metadata metadata;
 
         int ret = read_wav_header(audio_file, &metadata);
-        switch(ret) {
-                case WAV_HDR_PARSE_READ_ERROR:
-                        fprintf(stderr, "Error reading WAV header!\n");
+        if (ret != WAV_HDR_PARSE_OK) {
+                        log_msg(LOG_LEVEL_ERROR, "%s!\n", get_wav_error(ret));
                         goto error_format;
-                case WAV_HDR_PARSE_WRONG_FORMAT:
-                        fprintf(stderr, "Unsupported WAV format!\n");
-                        goto error_format;
-                case WAV_HDR_PARSE_NOT_PCM:
-                        fprintf(stderr, "Only supported audio format is PCM.\n");
-                        goto error_format;
-                case WAV_HDR_PARSE_OK:
-                        break;
         }
 
         s->audio_frame.ch_count = metadata.ch_count;

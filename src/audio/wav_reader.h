@@ -31,7 +31,7 @@ extern "C" {
  */
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata);
 
-void print_wav_error(int errcode);
+const char *get_wav_error(int errcode);
 
 #ifdef __cplusplus
 }
