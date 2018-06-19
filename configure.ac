@@ -1282,9 +1282,9 @@ if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
 
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Blank stuff
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 BLANK_LIBS=
 BLANK_OBJ=
 blank=no
@@ -1299,6 +1299,13 @@ AC_ARG_ENABLE(blank,
     )
 
 PKG_CHECK_MODULES([BLANK], [blank_dep], FOUND_BLANK_DEP=yes, FOUND_BLANK_DEP=no)
+
+if test $FOUND_BLANK_DEP = no; then
+        AC_CHECK_HEADERS([libswscale/swscale.h], AC_CHECK_LIB(swscale, sws_scale, FOUND_BLANK_DEP=yes))
+        if test $FOUND_BLANK_DEP = yes; then
+                BLANK_LIBS='-lswscale'
+        fi
+fi
 
 if test $blank_req != no -a $FOUND_BLANK_DEP = yes
 then
