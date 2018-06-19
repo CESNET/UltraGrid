@@ -13,40 +13,8 @@
                 return WAV_HDR_PARSE_READ_ERROR;\
         }
 
-int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
+static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 {
-        char buffer[16];
-        uint32_t chunk_size;
-        rewind(wav_file);
-
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "RIFF", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF chunk, %4s given.\n", buffer);
-                return WAV_HDR_PARSE_WRONG_FORMAT;
-        }
-
-        // this is the length of the rest of the file, we may ignore
-        READ_N(&chunk_size, 4);
-
-        READ_N(buffer, 4);
-        if (strncmp(buffer, "WAVE", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected WAVE chunk, %4s given.\n", buffer);
-                return WAV_HDR_PARSE_WRONG_FORMAT;
-        }
-
-        // format chunk
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "fmt ", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk, %4s given.\n", buffer);
-                return WAV_HDR_PARSE_WRONG_FORMAT;
-        }
-
-        READ_N(&chunk_size, 4);
-        if (chunk_size != 16) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk size 16, %d given.\n", chunk_size);
-                return WAV_HDR_PARSE_WRONG_FORMAT;
-        }
-
         uint16_t format;
         READ_N(&format, 2);
         if (format != 0x0001) {
@@ -72,32 +40,74 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         READ_N(&bits_per_sample, sizeof(bits_per_sample));
         metadata->bits_per_sample = bits_per_sample;
 
-        // find DATA chunk and skip LIST chunks (may contain metadata eg. by FFMPEG)
+        return WAV_HDR_PARSE_OK;
+}
+
+int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
+{
+        char buffer[16];
+        uint32_t chunk_size;
+        rewind(wav_file);
+
+        READ_N(buffer, 4);
+        if(strncmp(buffer, "RIFF", 4) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF chunk, %4s given.\n", buffer);
+                return WAV_HDR_PARSE_WRONG_FORMAT;
+        }
+
+        // this is the length of the rest of the file, we may ignore
+        READ_N(&chunk_size, 4);
+
+        READ_N(buffer, 4);
+        if (strncmp(buffer, "WAVE", 4) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected WAVE chunk, %4s given.\n", buffer);
+                return WAV_HDR_PARSE_WRONG_FORMAT;
+        }
+
         bool found_data_chunk = false;
-        do {
-                READ_N(buffer, 4);
+        bool found_fmt_chunk = false;
+        while (fread(buffer, 4, 1, wav_file) == 1) {
+                READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
                         found_data_chunk = true;
+                        metadata->data_size = chunk_size;
+                        metadata->data_offset = ftell(wav_file);
+                        fseek(wav_file, chunk_size, SEEK_CUR);
+                } else if (strncmp(buffer, "fmt ", 4) == 0) {
+                        found_fmt_chunk = true;
+                        if (chunk_size != 16) {
+                                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk size 16, %d given.\n", chunk_size);
+                                return WAV_HDR_PARSE_WRONG_FORMAT;
+                        }
+                        int rc = read_fmt_chunk(wav_file, metadata);
+                        if (rc != WAV_HDR_PARSE_OK) {
+                                return rc;
+                        }
                 } else if (strncmp(buffer, "LIST", 4) == 0) {
                         log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping LIST chunk.\n");
-                        READ_N(&chunk_size, 4);
                         fseek(wav_file, chunk_size, SEEK_CUR);
                 } else if (strncmp(buffer, "JUNK", 4) == 0) {
                         log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping JUNK chunk.\n");
-                        READ_N(&chunk_size, 4);
                         fseek(wav_file, chunk_size, SEEK_CUR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[WAV] Unknown chunk \"%4s\" found!\n", buffer);
                         return WAV_HDR_PARSE_WRONG_FORMAT;
                 }
-        } while (!found_data_chunk);
+        }
 
-        READ_N(&chunk_size, 4);
-        metadata->data_size = chunk_size;
+        if (!found_data_chunk) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Data chunk not found!\n");
+                return WAV_HDR_PARSE_READ_ERROR;
+        }
 
-        metadata->data_offset = ftell(wav_file);
+        if (!found_fmt_chunk) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Fmt chunk not found!\n");
+                return WAV_HDR_PARSE_READ_ERROR;
+        }
+
         log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %u bytes, offset %u.\n",
                         metadata->data_size, metadata->data_offset);
+        fseek(wav_file, metadata->data_offset, SEEK_SET);
 
         return WAV_HDR_PARSE_OK;
 }
