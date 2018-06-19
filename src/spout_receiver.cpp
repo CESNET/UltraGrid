@@ -5,6 +5,14 @@
 void *spout_create_receiver(char *name, unsigned int *width, unsigned int *height) {
 	SpoutReceiver *receiver = new SpoutReceiver;
 	receiver->CreateReceiver(name, *width, *height);
+        bool connected;
+        receiver->CheckReceiver(name, *width, *height, connected);
+        if (!connected) {
+                fprintf(stderr, "[SPOUT] Not connected to server '%s'. Is it running?\n", name);
+                receiver->ReleaseReceiver();
+                delete receiver;
+                return NULL;
+        }
 
 	return receiver;
 }
