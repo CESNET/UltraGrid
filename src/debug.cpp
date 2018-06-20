@@ -158,7 +158,8 @@ void log_msg(int level, const char *format, ...)
 #ifdef WIN32
         if (color_win != 0u) {
                 con = GetStdHandle(STD_ERROR_HANDLE);
-                no_color = con == INVALID_HANDLE_VALUE || getenv("NO_COLOR");
+                no_color = con == INVALID_HANDLE_VALUE || getenv("NO_COLOR")
+                        || (getenv("TERM") && strcmp(getenv("TERM"), "xterm") == 0); // MSYS2 pseudoterminal
                 if (!no_color) {
                         GetConsoleScreenBufferInfo(con, &con_info);
                         SetConsoleTextAttribute(con, ((con_info.wAttributes) & 0xF0) | color_win);
