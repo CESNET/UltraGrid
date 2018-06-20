@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "ldpc-matrix.h"
+#include "matrix-generator.h"
  #include "rand_pmms.h"
 
 int generate_ldgm_matrix(char *fname, unsigned int k, unsigned int m, unsigned int column_weight,

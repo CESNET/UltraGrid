@@ -386,7 +386,7 @@ static void *capture_thread(void *arg)
         return NULL;
 }
 
-bool parse_audio_capture_format(const char *optarg)
+static bool parse_audio_capture_format(const char *optarg)
 {
         if (strcmp(optarg, "help") == 0) {
                 printf("Usage:\n");

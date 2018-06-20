@@ -204,6 +204,10 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 }
                         }
                         break;
+                case SENDER_MSG_GET_STATUS:
+                case SENDER_MSG_MUTE:
+                        log_msg(LOG_LEVEL_ERROR, "Unexpected message!\n");
+                        break;
         }
 
         return new_response(RESPONSE_OK, NULL);

@@ -148,10 +148,10 @@ static void audio_play_decklink_help(const char *driver_name)
                 result = deckLink->GetModelName(&deviceNameString);
                 if (result == S_OK)
                 {
-                        const char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                         printf("\tdecklink:%d :      Blackmagic %s\n",numDevices, deviceNameCString);
                         release_bmd_api_str(deviceNameString);
-                        free((void *)deviceNameCString);
+                        free(deviceNameCString);
                 }
                 
                 // Increment the total number of DeckLink cards found

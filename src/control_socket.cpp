@@ -125,7 +125,7 @@ static void send_response(fd_t fd, struct response *resp);
 
 static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 {
-    char *p = (char *) buf;
+    const char *p = (const char *) buf;
     size_t rest = count;
     ssize_t w = 0;
 

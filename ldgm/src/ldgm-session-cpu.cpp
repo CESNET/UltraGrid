@@ -53,7 +53,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 #endif
 
 
-char*
+static char*
 xor_using_sse (char* source, char* dest, int packet_size)
 {
     // int a = 0;

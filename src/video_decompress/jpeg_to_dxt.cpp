@@ -178,7 +178,7 @@ static void *worker_thread(void *arg)
         return NULL;
 }
 
-void * jpeg_to_dxt_decompress_init(void)
+static void * jpeg_to_dxt_decompress_init(void)
 {
         struct state_decompress_jpeg_to_dxt *s;
 
@@ -226,7 +226,7 @@ static void flush(struct state_decompress_jpeg_to_dxt *s)
  * @return 0 to indicate error
  *         otherwise maximal buffer size which ins needed for image of given codec, width, and height
  */
-int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
+static int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
@@ -303,7 +303,7 @@ static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int
         return true;
 }
 
-decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
         struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
@@ -332,7 +332,7 @@ decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsign
         return DECODER_GOT_FRAME;
 }
 
-int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -342,7 +342,7 @@ int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, si
         return FALSE;
 }
 
-void jpeg_to_dxt_decompress_done(void *state)
+static void jpeg_to_dxt_decompress_done(void *state)
 {
         struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
 

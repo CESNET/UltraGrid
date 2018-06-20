@@ -64,7 +64,7 @@ static double get_normalized(const int8_t *in, int bps) {
         bool negative = false;
 
         for (int j = 0; j < bps; ++j) {
-                sample = (sample | ((((uint8_t *)in)[j]) << (8ull * j)));
+                sample = (sample | ((((const uint8_t *)in)[j]) << (8ull * j)));
         }
         if ((int8_t)(in[bps - 1] < 0))
                 negative = true;
@@ -92,7 +92,7 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
         int sample_count = frame->get_data_len(channel) / frame->get_bps();
         const char *channel_data = frame->get_data(channel);
         for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
-                double val = get_normalized((int8_t *) channel_data + i, frame->get_bps());
+                double val = get_normalized((const int8_t *) channel_data + i, frame->get_bps());
                 sum += val;
                 if (fabs(val) > *peak) {
                         *peak = fabs(val);
@@ -104,7 +104,7 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
         double sumMeanSquare = 0.0;
 
         for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
-                sumMeanSquare += pow(get_normalized((int8_t *) channel_data + i, frame->get_bps())
+                sumMeanSquare += pow(get_normalized((const int8_t *) channel_data + i, frame->get_bps())
                                 - average, 2.0);
         }
 
