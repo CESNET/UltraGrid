@@ -83,16 +83,19 @@ static void *decompress_j2k_worker(void *args)
         while (true) {
                 struct cmpto_j2k_dec_img *img;
                 int decoded_img_status;
-                int j2k_error = cmpto_j2k_dec_ctx_get_decoded_img(s->decoder, 1, &img, &decoded_img_status);
-                if (j2k_error != CMPTO_OK || decoded_img_status != CMPTO_J2K_DEC_IMG_OK) {
-                        log_msg(LOG_LEVEL_ERROR, "[J2K] Image decoding failed: %s\n",
-                                        cmpto_j2k_dec_get_last_error());
-                        continue;
-                }
-
+                CHECK_OK(cmpto_j2k_dec_ctx_get_decoded_img(s->decoder, 1, &img, &decoded_img_status),
+				"Decode image", continue);
                 if (img == NULL) {
                         /// @todo what about reconfiguration
                         break;
+                }
+
+                if (decoded_img_status != CMPTO_J2K_DEC_IMG_OK) {
+			const char * decoding_error = "";
+			CHECK_OK(cmpto_j2k_dec_img_get_error(img, &decoding_error), "get error status",
+					decoding_error = "(failed)");
+			log_msg(LOG_LEVEL_ERROR, "Image decoding failed: %s\n", decoding_error);
+                        continue;
                 }
 
                 void *dec_data;
@@ -270,11 +273,20 @@ static void j2k_decompress_done(void *state)
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
+        cmpto_j2k_dec_ctx_stop(s->decoder);
+        pthread_join(s->thread_id, NULL);
+        log_msg(LOG_LEVEL_VERBOSE, "[J2K dec.] Decoder stopped.\n");
+
         cmpto_j2k_dec_cfg_destroy(s->settings);
         cmpto_j2k_dec_ctx_destroy(s->decoder);
 
         pthread_mutex_destroy(&s->lock);
 
+        while (s->decompressed_frames->size() > 0) {
+                char *decoded = s->decompressed_frames->front();
+                s->decompressed_frames->pop();
+                free(decoded);
+        }
         delete s->decompressed_frames;
 
         free(s);
