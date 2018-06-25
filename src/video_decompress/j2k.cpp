@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/misc.h"
 #include "video.h"
 #include "video_decompress.h"
 
@@ -118,13 +119,20 @@ static void *decompress_j2k_worker(void *args)
 
 ADD_TO_PARAM(j2k_dec_mem_limit, "j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
                                 "  J2K max memory usage in bytes.\n");
+ADD_TO_PARAM(j2k_dec_tile_limit, "j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
+                                "  number of tiles decoded at moment (less to reduce latency, more to increase performance)\n");
 static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
         long long int mem_limit = 0;
+        unsigned int tile_limit = 0u;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
-                mem_limit = strtoll(get_commandline_param("j2k-dec-mem-limit"), NULL, 10);
+                mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
+        }
+
+        if (get_commandline_param("j2k-dec-tile-limit")) {
+                tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
         }
 
         s = (struct state_decompress_j2k *)
@@ -134,7 +142,7 @@ static void * j2k_decompress_init(void)
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
-                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, 0),
+                CHECK_OK(cmpto_j2k_dec_ctx_cfg_add_cuda_device(ctx_cfg, cuda_devices[i], mem_limit, tile_limit),
                                 "Error setting CUDA device", goto error);
         }
 
