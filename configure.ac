@@ -1144,31 +1144,70 @@ then
 	avfoundation=yes
 fi
 
-# -------------------------------------------------------------------------------------------------
-# SDL Stuff
-SDL_OBJ=
-SDL_LIBS=
+# ------------------------------------------------------------------------------
+# SDL1/2 Stuff
+# ------------------------------------------------------------------------------
 sdl=no
-
+sdl_version=1
 AC_ARG_ENABLE(sdl,
-[  --disable-sdl           enable SDL (default is enable)]
+              [],
+              AC_MSG_ERROR([Use either "--enable-sdl1" or "--enable-sdl2" option.])
+              )
+
+AC_ARG_ENABLE(sdl1,
+[  --enable-sdl1           enable SDL1 (default is auto)]
 [                          Requires: sdl >= 1.2.14 ],
-    [sdl_req=$enableval],
-    [sdl_req=auto]
+    [sdl1_req=$enableval],
+    [sdl1_req=auto]
     )
 
-PKG_CHECK_MODULES([SDL], [sdl], [found_sdl=yes], [found_sdl=no])
+AC_ARG_ENABLE(sdl2,
+[  --enable-sdl2           enable SDL2 (disabled if SDL1 is enabled, auto otherwise)]
+[                          Requires: sdl2 ],
+    [sdl2_req=$enableval],
+    [sdl2_req=auto]
+    )
 
-if test $sdl_req != no -a $found_sdl = yes
-then
-        SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
-        AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
-        ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
-        sdl=yes
+if test $sdl1_req = yes -a $sdl2_req = yes; then
+        AC_MSG_ERROR([Only one version of SDL (either 1 or 2) can be selected]);
 fi
 
-if test $sdl_req = yes -a $sdl = no; then
+# if either of SDL versions was required, disable the other
+if test $sdl1_req = yes; then
+        sdl2_req=no
+fi
+if test $sdl2_req = yes; then
+        sdl1_req=no
+fi
+
+PKG_CHECK_MODULES([SDL1], [sdl], [found_sdl1=yes], [found_sdl1=no])
+PKG_CHECK_MODULES([SDL2], [sdl2], [found_sdl2=yes], [found_sdl2=no])
+if test $sdl1_req = yes -a $found_sdl1 = no; then
         AC_MSG_ERROR([SDL not found]);
+fi
+if test $sdl2_req = yes -a $found_sdl2 = no; then
+        AC_MSG_ERROR([SDL2 not found]);
+fi
+
+# prefer SDL1
+if test $sdl1_req != no -a $found_sdl1 = yes
+then
+        SDL1_OBJ="src/video_display/sdl.o"
+        AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
+        ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
+        SDL_LIB=$SDL1_LIB
+        sdl_version=1
+        sdl=yes
+else
+if test $sdl2_req != no -a $found_sdl2 = yes
+then
+        SDL2_OBJ="src/video_display/sdl2.o"
+        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
+        ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
+        SDL_LIB=$SDL2_LIB
+        sdl_version=2
+        sdl=yes
+fi
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -1338,12 +1377,15 @@ TESTCARD_COMMON="src/video_capture/testcard_common.o"
 
 if test $testcard_extras_req != no
 then
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
-        LIBS=$SAVED_LIBS
-        if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
+        if test $sdl_version -eq 1; then
+                PKG_CHECK_MODULES([SDL_MIXER], [SDL_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
+        else
+                PKG_CHECK_MODULES([SDL_MIXER], [SDL2_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
+        fi
+
+        if test "$FOUND_SDL_MIXER" = yes
         then
-                TESTCARD_LIB="-lSDL_mixer"
+                TESTCARD_LIB="$SDL_MIXER_LIBS"
         fi
 
         TESTCARD2_OBJ=
@@ -1351,12 +1393,14 @@ then
         then
                 TESTCARD2_OBJ="$TESTCARD_COMMON src/video_capture/testcard2.o"
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
-                SAVED_LIBS=$LIBS
-                AC_CHECK_LIB(SDL_ttf, TTF_Init)
-                LIBS=$SAVED_LIBS
-                if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
+                if test $sdl_version -eq 1; then
+                        PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+                else
+                        PKG_CHECK_MODULES([SDL_TTF], [SDL2_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+                fi
+                if test "$FOUND_SDL_TTF" = yes
                 then
-                        TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
+                        TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
                         AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
                 AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
@@ -2869,6 +2913,7 @@ RESULT=\
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
   License ..................... $license
+  iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
@@ -2904,7 +2949,7 @@ RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
-RESULT=`add_column "$RESULT" "SDL" $sdl $?`
+RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 
