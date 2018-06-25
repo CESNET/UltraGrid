@@ -45,6 +45,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "utils/misc.h"
 #include "video_compress.h"
 #include "video.h"
 
@@ -71,6 +72,7 @@ struct state_video_compress_j2k {
 
         struct cmpto_j2k_enc_ctx *context;
         struct cmpto_j2k_enc_cfg *enc_settings;
+        long long int rate;
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
@@ -135,7 +137,6 @@ static void usage() {
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
         struct state_video_compress_j2k *s;
-        int rate = 1100000;
         double quality = 0.7;
         bool mct = false;
         long long int mem_limit = 0;
@@ -148,7 +149,13 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
-                        rate = atoi(item + strlen("rate="));
+                        s->rate = unit_evaluate(item + strlen("rate="));
+                        if (s->rate <= 0) {
+                                log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong bitrate!\n");
+                                free(s);
+                                free(cfg);
+                                return NULL;
+                        }
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
                         quality = atof(item + strlen("quality="));
                 } else if (strcasecmp("mct", item) == 0) {
@@ -189,12 +196,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         "Setting quantization",
                         NOOP);
 
-        CHECK_OK(cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings,
-                                CMPTO_J2K_ENC_COMP_MASK_ALL,
-                                CMPTO_J2K_ENC_RES_MASK_ALL, rate),
-                        "Setting rate limit",
-                        NOOP);
-        //CMPTO_J2K_Enc_Settings_Enable(s->enc_settings, CMPTO_J2K_Rate_Control);
         if (mct) {
                 CHECK_OK(cmpto_j2k_enc_cfg_set_mct(s->enc_settings, 1), // only for RGB
                                 "Setting MCT",
@@ -271,7 +272,14 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         "Setting sample format", return);
         CHECK_OK(cmpto_j2k_enc_cfg_set_size(s->enc_settings, tx->tiles[0].width, tx->tiles[0].height),
                         "Setting image size", return);
-
+        if (s->rate) {
+                CHECK_OK(cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings,
+                                        CMPTO_J2K_ENC_COMP_MASK_ALL,
+                                        CMPTO_J2K_ENC_RES_MASK_ALL, s->rate / 8 / tx->fps),
+                                "Setting rate limit",
+                                NOOP);
+                //CMPTO_J2K_Enc_Settings_Enable(s->enc_settings, CMPTO_J2K_Rate_Control);
+        }
         CHECK_OK(cmpto_j2k_enc_img_create(s->context, &img),
                         "Image create", return);
 
