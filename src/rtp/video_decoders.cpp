@@ -1428,9 +1428,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         goto cleanup;
                 }
 
-                buffer_num[substream] = buffer_number;
-                frame->tiles[substream].data_len = buffer_length;
-
                 char plaintext[len]; // will be actually shorter
                 if(pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
                         int data_len;
@@ -1467,6 +1464,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         }
                 }
 
+                buffer_num[substream] = buffer_number;
+                frame->tiles[substream].data_len = buffer_length;
                 pckt_list[substream][data_pos] = len;
 
                 if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == LINE_DECODER) {
@@ -1582,7 +1581,6 @@ next_packet:
                 ret = FALSE;
                 goto cleanup;
         }
-
 
         assert(ret == TRUE);
 
