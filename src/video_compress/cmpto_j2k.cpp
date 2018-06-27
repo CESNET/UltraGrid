@@ -171,7 +171,13 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         free(s);
                         free(cfg);
                         return &compress_init_noerr;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
+                        free(s);
+                        free(cfg);
+                        return NULL;
                 }
+
         }
         free(cfg);
 
