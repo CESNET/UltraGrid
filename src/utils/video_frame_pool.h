@@ -68,14 +68,19 @@ struct default_data_allocator {
 template <typename allocator>
 struct video_frame_pool {
         public:
-                video_frame_pool() : m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0) {
+                /**
+                 * @param max_used_frames maximal frames that are allocated.
+                 *                        0 means unlimited. If get_frames()
+                 *                        is called and that number of frames
+                 *                        is unreturned, get_frames() will block.
+                 */
+                video_frame_pool(unsigned int max_used_frames = 0) : m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0), m_max_used_frames(max_used_frames) {
                 }
 
                 virtual ~video_frame_pool() {
                         std::unique_lock<std::mutex> lk(m_lock);
                         remove_free_frames();
                         // wait also for all frames we gave out to return us
-                        assert(m_unreturned_frames >= 0);
                         m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
                 }
 
@@ -87,11 +92,22 @@ struct video_frame_pool {
                         m_generation++;
                 }
 
+                /**
+                 * Returns free frame
+                 *
+                 * If the pool size is exhausted (see constructor param),
+                 * the call will block until there is some available.
+                 */
                 std::shared_ptr<video_frame> get_frame() {
                         assert(m_generation != 0);
                         struct video_frame *ret = NULL;
                         std::unique_lock<std::mutex> lk(m_lock);
                         if (!m_free_frames.empty()) {
+                                ret = m_free_frames.front();
+                                m_free_frames.pop();
+                        } else if (m_max_used_frames > 0 && m_max_used_frames == m_unreturned_frames) {
+                                m_frame_returned.wait(lk, [this] {return m_unreturned_frames < m_max_used_frames;});
+                                assert(!m_free_frames.empty());
                                 ret = m_free_frames.front();
                                 m_free_frames.pop();
                         } else {
@@ -115,6 +131,7 @@ struct video_frame_pool {
                         return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
                                         std::unique_lock<std::mutex> lk(m_lock);
 
+                                        assert(m_unreturned_frames > 0);
                                         m_unreturned_frames -= 1;
                                         m_frame_returned.notify_one();
 
@@ -154,8 +171,9 @@ struct video_frame_pool {
                 int               m_generation;
                 struct video_desc m_desc;
                 size_t            m_max_data_len;
-                int               m_unreturned_frames;
+                unsigned int      m_unreturned_frames;
                 allocator         m_allocator;
+                unsigned int      m_max_used_frames;
 };
 #endif //  __cplusplus
 
