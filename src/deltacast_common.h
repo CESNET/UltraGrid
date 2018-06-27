@@ -43,12 +43,20 @@
 #include <unordered_map>
 #ifdef HAVE_MACOSX
 #include <VideoMasterHD/VideoMasterHD_Core.h>
+#ifdef ENUMBASE_DV
+#include <VideoMasterHD/VideoMasterHD_Dv.h>
+#else
 #include <VideoMasterHD/VideoMasterHD_Dvi.h>
+#endif
 #include <VideoMasterHD/VideoMasterHD_Sdi.h>
 #include <VideoMasterHD_Audio/VideoMasterHD_Sdi_Audio.h>
 #else
 #include <VideoMasterHD_Core.h>
+#ifdef ENUMBASE_DV
+#include <VideoMasterHD_Dv.h>
+#else
 #include <VideoMasterHD_Dvi.h>
+#endif
 #include <VideoMasterHD_Sdi.h>
 #include <VideoMasterHD_Sdi_Audio.h>
 #endif
@@ -133,9 +141,9 @@ static void print_available_delta_boards() {
 
 	if (IsBiDir && NbChanOnBoard >= (RequestedRx + RequestedTx)) {
                 std::map<std::pair<ULONG, ULONG>, ULONG> mapping = { // key - (NbChanOnBoard, RequestedRX), value - member of VHD_BIDIRCFG_2C, VHD_BIDIRCFG_4C or VHD_BIDIRCFG_8C
-                        {{2, 0}, VHD_BIDIR_02},
-                        {{2, 1}, VHD_BIDIR_11},
-                        {{2, 2}, VHD_BIDIR_20},
+                        //{{2, 0}, VHD_BIDIR_02},
+                        //{{2, 1}, VHD_BIDIR_11},
+                        //{{2, 2}, VHD_BIDIR_20},
 
                         {{4, 0}, VHD_BIDIR_04},
                         {{4, 1}, VHD_BIDIR_13},

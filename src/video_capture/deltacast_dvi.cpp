@@ -95,6 +95,35 @@ struct vidcap_deltacast_dvi_state {
 #define EEDDIDOK 0
 #define BADEEDID 1
 
+// compat
+#ifndef ENUMBASE_DV
+#define VHD_DV_MODE VHD_DVI_MODE
+#define VHD_DV_SP_MODE VHD_DVI_SP_MODE
+#define VHD_DV_MODE_DVI_A VHD_DVI_MODE_DVI_A
+#define VHD_DV_MODE_DVI_D VHD_DVI_MODE_DVI_D
+#define VHD_DV_MODE_ANALOG_COMPONENT_VIDEO VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO
+#define VHD_DV_MODE_HDMI VHD_DVI_MODE_HDMI
+#define VHD_DV_SP_DISABLE_EDID_AUTO_LOAD VHD_DVI_SP_DISABLE_EDID_AUTO_LOAD
+#define VHD_DV_DVI_A_STANDARD VHD_DVI_A_STANDARD
+#define VHD_DV_DVIA_STD_DMT VHD_DVIA_STD_DMT
+#define VHD_DV_SP_ACTIVE_WIDTH VHD_DVI_SP_ACTIVE_WIDTH
+#define VHD_DV_SP_ACTIVE_HEIGHT VHD_DVI_SP_ACTIVE_HEIGHT
+#define VHD_DV_SP_ACTIVE_INTERLACED VHD_DVI_SP_ACTIVE_INTERLACED
+#define VHD_DV_SP_ACTIVE_REFRESH_RATE VHD_DVI_SP_ACTIVE_REFRESH_RATE
+#define VHD_DV_SP_ACTIVE_DUAL_LINK VHD_DVI_SP_ACTIVE_DUAL_LINK
+#define VHD_DV_MODE_ANALOG_COMPONENT_VIDEO VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO
+#define VHD_DV_CS VHD_HDMI_CS
+#define VHD_DV_SP_PIXEL_CLOCK VHD_DVI_SP_PIXEL_CLOCK
+#define VHD_DV_SP_INPUT_CS VHD_DVI_SP_INPUT_CS
+#define NB_VHD_DV_MODES NB_VHD_DVI_MODES
+#define VHD_DV_STPROC_JOINED VHD_DVI_STPROC_JOINED
+#define VHD_DV_STPROC_DEFAULT VHD_DVI_STPROC_DEFAULT
+#define VHD_DV_EEDID_DVID VHD_EEDID_DVID
+#define VHD_DV_EEDID_DVIA VHD_EEDID_DVIA
+#define VHD_DV_EEDID_HDMI VHD_EEDID_HDMI
+#define VHD_DV_BT_VIDEO VHD_DVI_BT_VIDEO
+#endif
+
 static void usage(void);
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused));
@@ -237,7 +266,7 @@ vidcap_deltacast_dvi_probe(bool verbose)
 }
 
 static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool have_preset,
-        VHD_DVI_MODE DviMode,
+        VHD_DV_MODE DviMode,
         ULONG Width, ULONG Height, ULONG RefreshRate)
 {
         BOOL32 Interlaced_B = FALSE;
@@ -252,7 +281,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 printf("Waiting for incoming signal...\n");
                 do
                 {
-                        Result = VHD_GetStreamProperty(s->StreamHandle, VHD_DVI_SP_MODE, (ULONG *) &DviMode);
+                        Result = VHD_GetStreamProperty(s->StreamHandle, VHD_DV_SP_MODE, (ULONG *) &DviMode);
                         gettimeofday(&t, NULL);
                         if(tv_diff(t, t0) > 1.0) break;
                 } while (Result != VHDERR_NOERROR);
@@ -264,26 +293,26 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         printf("\nIncoming Dvi mode detected: ");
         switch(DviMode)
         {
-                case VHD_DVI_MODE_DVI_D                   : printf("DVI-D\n");break;
-                case VHD_DVI_MODE_DVI_A                   : printf("DVI-A\n");break;
-                case VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO  : printf("Analog component video\n");break;
-                case VHD_DVI_MODE_HDMI                    : printf("HDMI\n");break;
+                case VHD_DV_MODE_DVI_D                   : printf("DVI-D\n");break;
+                case VHD_DV_MODE_DVI_A                   : printf("DVI-A\n");break;
+                case VHD_DV_MODE_ANALOG_COMPONENT_VIDEO  : printf("Analog component video\n");break;
+                case VHD_DV_MODE_HDMI                    : printf("HDMI\n");break;
                 default                                   : break;
         }
 
         /* Disable EDID auto load */
-        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
+        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
         if(Result != VHDERR_NOERROR)
                 return false;
 
         /* Set the DVI mode of this channel to the detected one */
-        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_MODE, DviMode);
+        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_MODE, DviMode);
         if(Result != VHDERR_NOERROR)
                 return false;
 
-        if(DviMode == VHD_DVI_MODE_DVI_A)
+        if(DviMode == VHD_DV_MODE_DVI_A)
         {
-                VHD_DVI_A_STANDARD DviAStd = VHD_DVIA_STD_DMT;
+                VHD_DV_DVI_A_STANDARD DviAStd = VHD_DV_DVIA_STD_DMT;
                 if(!have_preset) {
                         /* Auto-detection is now available for DVI-A.
                            VHD_DVI_SP_ACTIVE_HEIGHT, VHD_DVI_SP_INTERLACED, VHD_DVI_SP_REFRESH_RATE,
@@ -312,28 +341,28 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         return false;
                 }
         }
-        else if(DviMode == VHD_DVI_MODE_DVI_D)
+        else if(DviMode == VHD_DV_MODE_DVI_D)
         {
                 int Dual_B = FALSE;
                 /* Get auto-detected resolution */
-                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,&Width);
+                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_HEIGHT,&Height);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
                 else
                         printf("ERROR : Cannot detect incoming active width from RX0. "
                                         "Result = 0x%08lX\n", Result);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_INTERLACED,(ULONG*)&Interlaced_B);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
                 else
                         printf("ERROR : Cannot detect incoming active height from RX0. "
                                         "Result = 0x%08lX\n", Result);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE,&RefreshRate);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                 else
                         printf("ERROR : Cannot detect if incoming stream from RX0 is "
                                         "interlaced or progressive. Result = 0x%08lX\n", Result);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_DUAL_LINK,(ULONG*)&Dual_B);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,(ULONG*)&Dual_B);
                 else
                         printf("ERROR : Cannot detect incoming refresh rate from RX0. "
                                         "Result = 0x%08lX\n", Result);
@@ -354,38 +383,38 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                    VHD_DVI_SP_H_SYNC, VHD_DVI_SP_H_FRONT_PORCH, VHD_DVI_SP_V_SYNC and
                    VHD_DVI_SP_V_FRONT_PORCH properties are not applicable for DVI-D */
 
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,Width);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_HEIGHT,Height);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_INTERLACED,Interlaced_B);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE,RefreshRate);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_DUAL_LINK,Dual_B);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,Width);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,Height);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,Interlaced_B);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,RefreshRate);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,Dual_B);
         }
-        else if(DviMode == VHD_DVI_MODE_HDMI || DviMode == VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO)
+        else if(DviMode == VHD_DV_MODE_HDMI || DviMode == VHD_DV_MODE_ANALOG_COMPONENT_VIDEO)
         {
-                VHD_HDMI_CS       InputCS;
+                VHD_DV_CS       InputCS;
                 ULONG             PxlClk = 0;
                 /* Get auto-detected resolution */
-                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,&Width);
+                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,&Width);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_HEIGHT,&Height);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
                 else
                         printf("ERROR : Cannot detect incoming active width from RX0. "
                                         "Result = 0x%08lX\n", Result);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_INTERLACED,(ULONG*)&Interlaced_B);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
                 else
                         printf("ERROR : Cannot detect incoming active height from RX0. "
                                         "Result = 0x%08lX\n", Result);
                 if(Result == VHDERR_NOERROR)
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE,&RefreshRate);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                 else
                         printf("ERROR : Cannot detect if incoming stream from RX0 is "
                                         "interlaced or progressive. Result = 0x%08lX\n", Result);
 
                 if (Result == VHDERR_NOERROR) {
-                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE,&RefreshRate);
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                         if(s->BoardType == VHD_BOARDTYPE_HDMI)
-                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_INPUT_CS,(ULONG*)&InputCS);
+                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS);
                         else
                                 printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08lX (%s)\n", Result,
                                                 GetErrorDescription(Result));
@@ -393,7 +422,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
 
                 if (Result == VHDERR_NOERROR) {
                         if (s->BoardType == VHD_BOARDTYPE_HDMI)
-                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_PIXEL_CLOCK,&PxlClk);
+                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk);
                         else
                                 printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08lX (%s)\n", Result,
                                                 GetErrorDescription(Result));
@@ -415,13 +444,13 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                    VHD_DVI_SP_H_SYNC, VHD_DVI_SP_H_FRONT_PORCH, VHD_DVI_SP_V_SYNC and
                    VHD_DVI_SP_V_FRONT_PORCH properties are not applicable for DVI-D, HDMI and Component */
 
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,Width);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_HEIGHT,Height);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_INTERLACED,Interlaced_B);
-                VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE, RefreshRate);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_WIDTH,Width);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,Height);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,Interlaced_B);
+                VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE, RefreshRate);
                 if (s->BoardType == VHD_BOARDTYPE_HDMI) {
-                        VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_INPUT_CS, InputCS);
-                        VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_PIXEL_CLOCK, PxlClk);
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS, InputCS);
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK, PxlClk);
                 }
         }
 
@@ -463,7 +492,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         int               channel = 0;
         ULONG             ChannelId;
         bool              have_preset = false;
-        VHD_DVI_MODE      DviMode = NB_VHD_DVI_MODES;
+        VHD_DV_MODE       DviMode = NB_VHD_DV_MODES;
 
 	printf("vidcap_deltacast_dvi_init\n");
 
@@ -598,7 +627,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                         goto no_stream;
         }
         Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId,
-                        s->BoardType == VHD_BOARDTYPE_HDMI ? VHD_DVI_STPROC_JOINED : VHD_DVI_STPROC_DEFAULT,
+                        s->BoardType == VHD_BOARDTYPE_HDMI ? VHD_DV_STPROC_JOINED : VHD_DV_STPROC_DEFAULT,
                         NULL, &s->StreamHandle, NULL);
         if (Result != VHDERR_NOERROR)
         {
@@ -631,17 +660,17 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         }
 
         if(have_preset) {
-                DviMode = VHD_DVI_MODE_DVI_A;
+                DviMode = VHD_DV_MODE_DVI_A;
         } else {
                 switch(edid)
                 {
-                        case 0 : VHD_PresetEEDID(VHD_EEDID_DVID,pEEDIDBuffer,256);
+                        case 0 : VHD_PresetEEDID(VHD_DV_EEDID_DVID,pEEDIDBuffer,256);
                                  VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                                  break;
-                        case 1 : VHD_PresetEEDID(VHD_EEDID_DVIA,pEEDIDBuffer,256);
+                        case 1 : VHD_PresetEEDID(VHD_DV_EEDID_DVIA,pEEDIDBuffer,256);
                                  VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                                  break;
-                        case 2 : VHD_PresetEEDID(VHD_EEDID_HDMI,pEEDIDBuffer,256);
+                        case 2 : VHD_PresetEEDID(VHD_DV_EEDID_HDMI,pEEDIDBuffer,256);
                                  VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                                  break;
                         default : break;
@@ -719,7 +748,7 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         HANDLE            SlotHandle;
 
         if(!s->configured) {
-                s->configured = wait_for_channel_locked(s, false, NB_VHD_DVI_MODES, 0, 0, 0);
+                s->configured = wait_for_channel_locked(s, false, NB_VHD_DV_MODES, 0, 0, 0);
         }
         if(!s->configured) {
                 return NULL;
@@ -738,7 +767,7 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
                 return NULL;
         }
 
-         Result = VHD_GetSlotBuffer(SlotHandle, VHD_DVI_BT_VIDEO, &pBuffer, &BufferSize);
+         Result = VHD_GetSlotBuffer(SlotHandle, VHD_DV_BT_VIDEO, &pBuffer, &BufferSize);
          
          if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "\nERROR : Cannot get slot buffer. Result = 0x%08lX\n",Result);
