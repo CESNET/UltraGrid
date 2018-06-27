@@ -65,17 +65,21 @@
 } while(0)
 
 #define NOOP ((void) 0)
+#define DEFAULT_POOL_SIZE 4
+#define DEFAULT_TILE_LIMIT 1
 
 using namespace std;
 
 struct state_video_compress_j2k {
-        struct module module_data;
+        state_video_compress_j2k(long long int bitrate, unsigned int pool_size)
+                : rate{bitrate}, pool{pool_size} {}
+        struct module module_data{};
 
-        struct cmpto_j2k_enc_ctx *context;
-        struct cmpto_j2k_enc_cfg *enc_settings;
+        struct cmpto_j2k_enc_ctx *context{};
+        struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate;
-        video_frame_pool<default_data_allocator> pool{4};
-        video_desc saved_desc;
+        video_frame_pool<default_data_allocator> pool;
+        video_desc saved_desc{};
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
@@ -128,12 +132,13 @@ start:
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<m>][:tile_limit=<t>] [--cuda-device <c_index>]\n");
+        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate\n");
         printf("\t\t<q> - quality\n");
         printf("\t\t<m> - CUDA device memory limit (in bytes)\n");
-        printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance)\n");
+        printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default %d\n", DEFAULT_TILE_LIMIT);
+        printf("\t\t<p> - total number of tiles encoder can hold at moment (same meaning as above), default %d, should be greater than <t>\n", DEFAULT_POOL_SIZE);
         printf("\t\tmcu - use MCU\n");
         printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
 }
@@ -143,10 +148,10 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         struct state_video_compress_j2k *s;
         double quality = 0.7;
         bool mct = false;
+        long long int bitrate = 0;
         long long int mem_limit = 0;
-        unsigned int tile_limit = 0;
-
-        s = new state_video_compress_j2k();
+        unsigned int tile_limit = DEFAULT_TILE_LIMIT;
+        unsigned int pool_size = DEFAULT_POOL_SIZE;
 
         char *cfg = strdup(c_cfg);
         char *save_ptr, *item, *tmp;
@@ -154,10 +159,9 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
-                        s->rate = unit_evaluate(item + strlen("rate="));
-                        if (s->rate <= 0) {
+                        bitrate = unit_evaluate(item + strlen("rate="));
+                        if (bitrate <= 0) {
                                 log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong bitrate!\n");
-                                delete s;
                                 free(cfg);
                                 return NULL;
                         }
@@ -169,20 +173,22 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         mem_limit = unit_evaluate(item + strlen("mem_limit="));
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
                         tile_limit = atoi(item + strlen("tile_limit="));
+                } else if (strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
+                        pool_size = atoi(item + strlen("pool_size="));
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
-                        delete s;
                         free(cfg);
                         return &compress_init_noerr;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        delete s;
                         free(cfg);
                         return NULL;
                 }
 
         }
         free(cfg);
+
+        s = new state_video_compress_j2k(bitrate, pool_size);
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
