@@ -318,7 +318,7 @@ static void j2k_compress_done(struct module *mod)
 }
 
 static struct video_compress_info j2k_compress_info = {
-        "j2k",
+        "cmpto_j2k",
         j2k_compress_init,
         NULL,
         NULL,
@@ -327,5 +327,5 @@ static struct video_compress_info j2k_compress_info = {
         [] { return list<compress_preset>{}; }
 };
 
-REGISTER_MODULE(j2k, &j2k_compress_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+REGISTER_MODULE(cmpto_j2k, &j2k_compress_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 

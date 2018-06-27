@@ -2810,8 +2810,8 @@ AC_ARG_ENABLE(cmpto-j2k,
 cmpto_j2k=no
 if test $cmpto_j2k_req = yes
 then
-        ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/j2k.o", "-lcmpto_j2k_enc")
-        ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/j2k.o", "-lcmpto_j2k_dec")
+        ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/cmpto_j2k.o", "-lcmpto_j2k_enc")
+        ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/cmpto_j2k.o", "-lcmpto_j2k_dec")
         cmpto_j2k=yes
 fi
 
