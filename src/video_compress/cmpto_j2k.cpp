@@ -153,16 +153,15 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int pool_size = DEFAULT_POOL_SIZE;
 
-        char *cfg = strdup(c_cfg);
-        char *save_ptr, *item, *tmp;
-        tmp = cfg;
+        char *tmp = (char *) alloca(strlen(c_cfg) + 1);
+        strcpy(tmp, c_cfg);
+        char *save_ptr, *item;
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
                         bitrate = unit_evaluate(item + strlen("rate="));
                         if (bitrate <= 0) {
                                 log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong bitrate!\n");
-                                free(cfg);
                                 return NULL;
                         }
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
@@ -177,16 +176,13 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         pool_size = atoi(item + strlen("pool_size="));
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
-                        free(cfg);
                         return &compress_init_noerr;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        free(cfg);
                         return NULL;
                 }
 
         }
-        free(cfg);
 
         s = new state_video_compress_j2k(bitrate, pool_size);
 
