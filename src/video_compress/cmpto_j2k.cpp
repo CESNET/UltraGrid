@@ -46,6 +46,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "utils/misc.h"
+#include "utils/video_frame_pool.h"
 #include "video_compress.h"
 #include "video.h"
 
@@ -73,6 +74,8 @@ struct state_video_compress_j2k {
         struct cmpto_j2k_enc_ctx *context;
         struct cmpto_j2k_enc_cfg *enc_settings;
         long long int rate;
+        video_frame_pool<default_data_allocator> pool{4};
+        video_desc saved_desc;
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
@@ -143,7 +146,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         long long int mem_limit = 0;
         unsigned int tile_limit = 0;
 
-        s = (struct state_video_compress_j2k *) calloc(1, sizeof(struct state_video_compress_j2k));
+        s = new state_video_compress_j2k();
 
         char *cfg = strdup(c_cfg);
         char *save_ptr, *item, *tmp;
@@ -154,7 +157,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         s->rate = unit_evaluate(item + strlen("rate="));
                         if (s->rate <= 0) {
                                 log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong bitrate!\n");
-                                free(s);
+                                delete s;
                                 free(cfg);
                                 return NULL;
                         }
@@ -168,12 +171,12 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         tile_limit = atoi(item + strlen("tile_limit="));
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
-                        free(s);
+                        delete s;
                         free(cfg);
                         return &compress_init_noerr;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
-                        free(s);
+                        delete s;
                         free(cfg);
                         return NULL;
                 }
@@ -226,7 +229,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 
 error:
         if (s) {
-                free(s);
+                delete s;
         }
         return NULL;
 }
@@ -256,6 +259,13 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         if (tx == NULL) {
                 CHECK_OK(cmpto_j2k_enc_ctx_stop(s->context), "stop", NOOP);
                 return;
+        }
+
+        desc = video_desc_from_frame(tx.get());
+        if (!video_desc_eq(s->saved_desc, desc)) {
+                s->pool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec)
+                                * desc.height);
+                s->saved_desc = desc;
         }
 
         assert(tx->tile_count == 1); // TODO
@@ -293,11 +303,6 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         CHECK_OK(cmpto_j2k_enc_img_create(s->context, &img),
                         "Image create", return);
 
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, tx->tiles[0].data, tx->tiles[0].data_len, release_cstream),
-                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
-
-        desc = video_desc_from_frame(tx.get());
-
         CHECK_OK(cmpto_j2k_enc_img_allocate_custom_data(
                                 img,
                                 sizeof(struct video_desc) + sizeof(shared_ptr<video_frame> *),
@@ -305,8 +310,13 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         "Allocate custom image data",
                         HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(udata, &desc, sizeof(desc));
+
         ref = (shared_ptr<video_frame> **)((char *) udata + sizeof(struct video_desc));
-        *ref = new shared_ptr<video_frame>(tx);
+        *ref = new shared_ptr<video_frame>(s->pool.get_frame());
+
+        memcpy((*ref)->get()->tiles[0].data, tx->tiles[0].data, tx->tiles[0].data_len);
+        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, (*ref)->get()->tiles[0].data, tx->tiles[0].data_len, release_cstream),
+                        "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         CHECK_OK(cmpto_j2k_enc_img_encode(img, s->enc_settings),
                         "Encode image", return);
@@ -320,7 +330,7 @@ static void j2k_compress_done(struct module *mod)
         cmpto_j2k_enc_cfg_destroy(s->enc_settings);
         cmpto_j2k_enc_ctx_destroy(s->context);
 
-        free(s);
+        delete s;
 }
 
 static struct video_compress_info j2k_compress_info = {
