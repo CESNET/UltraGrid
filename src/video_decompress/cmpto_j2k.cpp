@@ -98,10 +98,6 @@ static void *decompress_j2k_worker(void *args)
                 int decoded_img_status;
                 CHECK_OK(cmpto_j2k_dec_ctx_get_decoded_img(s->decoder, 1, &img, &decoded_img_status),
 				"Decode image", continue);
-                if (img == NULL) {
-                        /// @todo what about reconfiguration
-                        break;
-                }
 
                 {
                         lock_guard<mutex> lk(s->lock);
@@ -114,6 +110,10 @@ static void *decompress_j2k_worker(void *args)
 					decoding_error = "(failed)");
 			log_msg(LOG_LEVEL_ERROR, "Image decoding failed: %s\n", decoding_error);
                         continue;
+                }
+
+                if (img == NULL) { // decoder stopped
+                        break;
                 }
 
                 void *dec_data;
