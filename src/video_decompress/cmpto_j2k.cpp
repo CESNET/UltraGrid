@@ -49,20 +49,26 @@
 
 #include <cmpto_j2k_dec.h>
 
+#include <mutex>
 #include <queue>
 
-using std::queue;
+#define DEFAULT_TILE_LIMIT 1
+#define MAX_QUEUE_SIZE 2
+#define MAX_IN_FRAMES 4
+
+using namespace std;
 
 struct state_decompress_j2k {
-        cmpto_j2k_dec_ctx *decoder;
-        cmpto_j2k_dec_cfg *settings;
+        cmpto_j2k_dec_ctx *decoder{};
+        cmpto_j2k_dec_cfg *settings{};
 
-        struct video_desc desc;
-        codec_t out_codec;
+        struct video_desc desc{};
+        codec_t out_codec{};
 
-        pthread_mutex_t lock;
-        queue<char *> *decompressed_frames;
-        pthread_t thread_id;
+        mutex lock;
+        queue<char *> decompressed_frames;
+        pthread_t thread_id{};
+        unsigned int in_frames;
 };
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -91,6 +97,11 @@ static void *decompress_j2k_worker(void *args)
                         break;
                 }
 
+                {
+                        lock_guard<mutex> lk(s->lock);
+                        if (s->in_frames) s->in_frames--;
+                }
+
                 if (decoded_img_status != CMPTO_J2K_DEC_IMG_OK) {
 			const char * decoding_error = "";
 			CHECK_OK(cmpto_j2k_dec_img_get_error(img, &decoding_error), "get error status",
@@ -107,11 +118,15 @@ static void *decompress_j2k_worker(void *args)
                 char *buffer = (char *) malloc(len);
                 memcpy(buffer, dec_data, len);
 
-                pthread_mutex_lock(&s->lock);
-                s->decompressed_frames->push(buffer);
-                pthread_mutex_unlock(&s->lock);
                 CHECK_OK(cmpto_j2k_dec_img_destroy(img),
                                 "Unable to to return processed image", NOOP);
+                lock_guard<mutex> lk(s->lock);
+                while (s->decompressed_frames.size() >= MAX_QUEUE_SIZE) {
+                        char *decoded = s->decompressed_frames.front();
+                        s->decompressed_frames.pop();
+                        free(decoded);
+                }
+                s->decompressed_frames.push(buffer);
         }
 
         return NULL;
@@ -125,7 +140,7 @@ static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
         long long int mem_limit = 0;
-        unsigned int tile_limit = 0u;
+        unsigned int tile_limit = DEFAULT_TILE_LIMIT;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
                 mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
@@ -135,9 +150,7 @@ static void * j2k_decompress_init(void)
                 tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
         }
 
-        s = (struct state_decompress_j2k *)
-                calloc(1, sizeof(struct state_decompress_j2k));
-        assert(pthread_mutex_init(&s->lock, NULL) == 0);
+        s = new state_decompress_j2k();
 
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
@@ -154,15 +167,12 @@ static void * j2k_decompress_init(void)
         CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings), "Error creating configuration",
                         goto error);
 
-        s->decompressed_frames = new queue<char *>();
-
         assert(pthread_create(&s->thread_id, NULL, decompress_j2k_worker,
                                 (void *) s) == 0);
 
         return s;
 
 error:
-        delete s->decompressed_frames;
         if (s->settings) {
                 cmpto_j2k_dec_cfg_destroy(s->settings);
         }
@@ -170,8 +180,7 @@ error:
                 cmpto_j2k_dec_ctx_destroy(s->decoder);
         }
         if (s) {
-                pthread_mutex_destroy(&s->lock);
-                free(s);
+                delete s;
         }
         return NULL;
 }
@@ -228,6 +237,10 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         char *decoded;
         void *tmp;
 
+        if (s->in_frames >= MAX_IN_FRAMES + 1) {
+                goto return_previous;
+        }
+
         CHECK_OK(cmpto_j2k_dec_img_create(s->decoder, &img),
                         "Could not create frame", goto return_previous);
 
@@ -238,16 +251,19 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
 
         CHECK_OK(cmpto_j2k_dec_img_decode(img, s->settings), "Decode image",
                         cmpto_j2k_dec_img_destroy(img); goto return_previous);
+        {
+                lock_guard<mutex> lk(s->lock);
+                s->in_frames++;
+        }
 
 return_previous:
-        pthread_mutex_lock(&s->lock);
-        if (s->decompressed_frames->size() == 0) {
-                pthread_mutex_unlock(&s->lock);
+        unique_lock<mutex> lk(s->lock);
+        if (s->decompressed_frames.size() == 0) {
                 return DECODER_NO_FRAME;
         }
-        decoded = s->decompressed_frames->front();
-        s->decompressed_frames->pop();
-        pthread_mutex_unlock(&s->lock);
+        decoded = s->decompressed_frames.front();
+        s->decompressed_frames.pop();
+        lk.unlock();
 
         memcpy(dst, decoded, s->desc.height *
                         vc_get_linesize(s->desc.width, s->out_codec));
@@ -288,16 +304,13 @@ static void j2k_decompress_done(void *state)
         cmpto_j2k_dec_cfg_destroy(s->settings);
         cmpto_j2k_dec_ctx_destroy(s->decoder);
 
-        pthread_mutex_destroy(&s->lock);
-
-        while (s->decompressed_frames->size() > 0) {
-                char *decoded = s->decompressed_frames->front();
-                s->decompressed_frames->pop();
+        while (s->decompressed_frames.size() > 0) {
+                char *decoded = s->decompressed_frames.front();
+                s->decompressed_frames.pop();
                 free(decoded);
         }
-        delete s->decompressed_frames;
 
-        free(s);
+        delete s;
 }
 
 static const struct decode_from_to *j2k_decompress_get_decoders() {
