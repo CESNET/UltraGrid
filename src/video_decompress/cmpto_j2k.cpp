@@ -53,12 +53,14 @@
 #include <queue>
 
 #define DEFAULT_TILE_LIMIT 1
-#define MAX_QUEUE_SIZE 2
-#define MAX_IN_FRAMES 4
+#define DEFAULT_MAX_QUEUE_SIZE 2
+#define DEFAULT_MAX_IN_FRAMES 4
 
 using namespace std;
 
 struct state_decompress_j2k {
+        state_decompress_j2k(unsigned int mqs, unsigned int mif)
+                : max_queue_size(mqs), max_in_frames(mif) {}
         cmpto_j2k_dec_ctx *decoder{};
         cmpto_j2k_dec_cfg *settings{};
 
@@ -68,7 +70,11 @@ struct state_decompress_j2k {
         mutex lock;
         queue<char *> decompressed_frames;
         pthread_t thread_id{};
-        unsigned int in_frames;
+        unsigned int max_queue_size;
+        unsigned int max_in_frames;
+        unsigned int in_frames{};
+
+        unsigned long long int dropped{};
 };
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -121,7 +127,11 @@ static void *decompress_j2k_worker(void *args)
                 CHECK_OK(cmpto_j2k_dec_img_destroy(img),
                                 "Unable to to return processed image", NOOP);
                 lock_guard<mutex> lk(s->lock);
-                while (s->decompressed_frames.size() >= MAX_QUEUE_SIZE) {
+                while (s->decompressed_frames.size() >= s->max_queue_size) {
+                        if (s->dropped++ % 10 == 0) {
+                                log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", s->dropped);
+
+                        }
                         char *decoded = s->decompressed_frames.front();
                         s->decompressed_frames.pop();
                         free(decoded);
@@ -135,12 +145,18 @@ static void *decompress_j2k_worker(void *args)
 ADD_TO_PARAM(j2k_dec_mem_limit, "j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
                                 "  J2K max memory usage in bytes.\n");
 ADD_TO_PARAM(j2k_dec_tile_limit, "j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
-                                "  number of tiles decoded at moment (less to reduce latency, more to increase performance)\n");
+                                "  number of tiles decoded at moment (less to reduce latency, more to increase performance, 0 unlimited)\n");
+ADD_TO_PARAM(j2k_dec_queue_len, "j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
+                                "  max queue len\n");
+ADD_TO_PARAM(j2k_dec_encoder_queue, "j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
+                                "  max number of frames hold by encoder\n");
 static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
         long long int mem_limit = 0;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
+        unsigned int queue_len = DEFAULT_MAX_QUEUE_SIZE;
+        unsigned int encoder_in_frames = DEFAULT_MAX_IN_FRAMES;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
                 mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
@@ -150,7 +166,16 @@ static void * j2k_decompress_init(void)
                 tile_limit = atoi(get_commandline_param("j2k-dec-tile-limit"));
         }
 
-        s = new state_decompress_j2k();
+        if (get_commandline_param("j2k-dec-queue-len")) {
+                queue_len = atoi(get_commandline_param("j2k-dec-queue-len"));
+        }
+
+        if (get_commandline_param("j2k-dec-encoder-queue")) {
+                encoder_in_frames = atoi(get_commandline_param("j2k-dec-encoder-queue"));
+        }
+
+
+        s = new state_decompress_j2k(queue_len, encoder_in_frames);
 
         struct cmpto_j2k_dec_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_dec_ctx_cfg_create(&ctx_cfg), "Error creating dec cfg", goto error);
@@ -237,7 +262,11 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         char *decoded;
         void *tmp;
 
-        if (s->in_frames >= MAX_IN_FRAMES + 1) {
+        if (s->in_frames >= s->max_in_frames + 1) {
+                if (s->dropped++ % 10 == 0) {
+                        log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", s->dropped);
+
+                }
                 goto return_previous;
         }
 
