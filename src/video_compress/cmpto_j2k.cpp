@@ -52,6 +52,8 @@
 
 #include <cmpto_j2k_enc.h>
 
+#include <condition_variable>
+#include <mutex>
 #include <queue>
 #include <utility>
 
@@ -72,13 +74,17 @@ using namespace std;
 
 struct state_video_compress_j2k {
         state_video_compress_j2k(long long int bitrate, unsigned int pool_size)
-                : rate{bitrate}, pool{pool_size} {}
+                : rate{bitrate}, pool{pool_size}, max_in_frames{pool_size} {}
         struct module module_data{};
 
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate;
         video_frame_pool<default_data_allocator> pool;
+        unsigned int max_in_frames;
+        unsigned int in_frames{};
+        mutex lock;
+        condition_variable frame_popped;
         video_desc saved_desc{};
 };
 
@@ -99,6 +105,11 @@ start:
                                 1,
                                 &img /* Set to NULL if encoder stopped */,
                                 &status), "Encode image", HANDLE_ERROR_COMPRESS_POP);
+        {
+                unique_lock<mutex> lk(s->lock);
+                s->in_frames--;
+                s->frame_popped.notify_one();
+        }
         if (status != CMPTO_J2K_ENC_IMG_OK) {
                 const char * encoding_error = "";
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
@@ -320,8 +331,15 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         CHECK_OK(cmpto_j2k_enc_img_set_samples(img, (*ref)->get()->tiles[0].data, tx->tiles[0].data_len, release_cstream),
                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
+        unique_lock<mutex> lk(s->lock);
+        s->frame_popped.wait(lk, [s]{return s->in_frames < s->max_in_frames;});
+        lk.unlock();
         CHECK_OK(cmpto_j2k_enc_img_encode(img, s->enc_settings),
                         "Encode image", return);
+        lk.lock();
+        s->in_frames++;
+        lk.unlock();
+
 }
 
 static void j2k_compress_done(struct module *mod)
