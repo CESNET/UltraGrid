@@ -256,7 +256,7 @@ static void j2k_compressed_frame_dispose(struct video_frame *frame)
 static void release_cstream(void * custom_data, size_t custom_data_size, const void * codestream, size_t codestream_size)
 {
         (void) codestream; (void) custom_data_size; (void) codestream_size;
-        delete *(shared_ptr<video_frame> **) ((char *) custom_data + sizeof(struct video_desc));
+        ((shared_ptr<video_frame> *) ((char *) custom_data + sizeof(struct video_desc)))->~shared_ptr<video_frame>();
 }
 
 #define HANDLE_ERROR_COMPRESS_PUSH if (img) cmpto_j2k_enc_img_destroy(img); return
@@ -267,7 +267,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         struct cmpto_j2k_enc_img *img = NULL;
         struct video_desc desc;
         void *udata;
-        shared_ptr<video_frame> **ref;
+        shared_ptr<video_frame> *ref;
 
         if (tx == NULL) {
                 CHECK_OK(cmpto_j2k_enc_ctx_stop(s->context), "stop", NOOP);
@@ -318,17 +318,17 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
         CHECK_OK(cmpto_j2k_enc_img_allocate_custom_data(
                                 img,
-                                sizeof(struct video_desc) + sizeof(shared_ptr<video_frame> *),
+                                sizeof(struct video_desc) + sizeof(shared_ptr<video_frame>),
                                 &udata),
                         "Allocate custom image data",
                         HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(udata, &desc, sizeof(desc));
 
-        ref = (shared_ptr<video_frame> **)((char *) udata + sizeof(struct video_desc));
-        *ref = new shared_ptr<video_frame>(s->pool.get_frame());
+        ref = (shared_ptr<video_frame> *)((char *) udata + sizeof(struct video_desc));
+        new (ref) shared_ptr<video_frame>(s->pool.get_frame());
 
-        memcpy((*ref)->get()->tiles[0].data, tx->tiles[0].data, tx->tiles[0].data_len);
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, (*ref)->get()->tiles[0].data, tx->tiles[0].data_len, release_cstream),
+        memcpy(ref->get()->tiles[0].data, tx->tiles[0].data, tx->tiles[0].data_len);
+        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, ref->get()->tiles[0].data, tx->tiles[0].data_len, release_cstream),
                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         unique_lock<mutex> lk(s->lock);
