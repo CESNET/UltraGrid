@@ -55,6 +55,7 @@
 #define DEFAULT_TILE_LIMIT 1
 #define DEFAULT_MAX_QUEUE_SIZE 2
 #define DEFAULT_MAX_IN_FRAMES 4
+#define DEFAULT_MEM_LIMIT 1000000000ll
 
 using namespace std;
 
@@ -153,7 +154,7 @@ ADD_TO_PARAM(j2k_dec_encoder_queue, "j2k-dec-encoder-queue", "* j2k-encoder-queu
 static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
-        long long int mem_limit = 0;
+        long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int queue_len = DEFAULT_MAX_QUEUE_SIZE;
         unsigned int encoder_in_frames = DEFAULT_MAX_IN_FRAMES;

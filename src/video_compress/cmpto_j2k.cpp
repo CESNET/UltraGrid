@@ -69,6 +69,7 @@
 #define NOOP ((void) 0)
 #define DEFAULT_POOL_SIZE 4
 #define DEFAULT_TILE_LIMIT 1
+#define DEFAULT_MEM_LIMIT 1000000000llu
 
 using namespace std;
 
@@ -147,7 +148,7 @@ static void usage() {
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate\n");
         printf("\t\t<q> - quality\n");
-        printf("\t\t<m> - CUDA device memory limit (in bytes)\n");
+        printf("\t\t<m> - CUDA device memory limit (in bytes), default %llu\n", DEFAULT_MEM_LIMIT);
         printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default %d\n", DEFAULT_TILE_LIMIT);
         printf("\t\t<p> - total number of tiles encoder can hold at moment (same meaning as above), default %d, should be greater than <t>\n", DEFAULT_POOL_SIZE);
         printf("\t\tmcu - use MCU\n");
@@ -160,7 +161,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         double quality = 0.7;
         bool mct = false;
         long long int bitrate = 0;
-        long long int mem_limit = 0;
+        long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int pool_size = DEFAULT_POOL_SIZE;
 
