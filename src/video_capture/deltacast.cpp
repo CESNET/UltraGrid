@@ -136,8 +136,8 @@ vidcap_deltacast_probe(bool verbose)
                                 vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
                                 vt->card_count = NbBoards;
                                 for (ULONG i = 0; i < NbBoards; ++i) {
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%lu", i);
-                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %lu", i);
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu32, i);
                                 }
                         }
                 }
@@ -152,7 +152,7 @@ class delta_init_exception {
         do {\
                 Result = cmd;\
                 if (Result != VHDERR_NOERROR) {\
-                        fprintf(stderr, "[DELTACAST] " msg " Result = 0x%08lX\n", Result);\
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] " msg " Result = 0x%08" PRIX32 "\n", Result);\
                         throw delta_init_exception();\
                 }\
         } while(0)
@@ -174,7 +174,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         Result = VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_STATUS, &Status);
 
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot get channel status. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot get channel status. Result = 0x%08" PRIX32 "\n",Result);
                 throw delta_init_exception();
         }
 
@@ -187,7 +187,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         Result = VHD_GetBoardProperty(s->BoardHandle,VHD_SDI_BP_RX0_CLOCK_DIV,&s->ClockSystem);
 
         if(Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot detect incoming clock system from RX0. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot detect incoming clock system from RX0. Result = 0x%08" PRIX32 "\n",Result);
                 throw delta_init_exception();
         } else {
                 printf("\nIncoming clock system : %s\n",(s->ClockSystem==VHD_CLOCKDIV_1)?"European":"American");
@@ -208,7 +208,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "ERROR : Cannot open RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot open RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08" PRIX32 "\n",Result);
                 throw delta_init_exception();
         }
 
@@ -218,7 +218,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 
                 if ((Result == VHDERR_NOERROR) && (s->VideoStandard != NB_VHD_VIDEOSTANDARDS)) {
                 } else {
-                        fprintf(stderr, "[DELTACAST] Cannot detect incoming video standard from RX0. Result = 0x%08lX\n",Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Cannot detect incoming video standard from RX0. Result = 0x%08" PRIX32 "\n",Result);
                         throw delta_init_exception();
                 }
         }
@@ -237,7 +237,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 }
         }
         if(i == deltacast_frame_modes_count) {
-                fprintf(stderr, "[DELTACAST] Failed to obtain information about video format %lu.\n", s->VideoStandard);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to obtain information about video format %" PRIu32 ".\n", s->VideoStandard);
                 throw delta_init_exception();
         }
 
@@ -253,7 +253,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         if(s->autodetect_format) {
                 Result = VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, &Packing);
                 if (Result != VHDERR_NOERROR) {
-                        fprintf(stderr, "[DELTACAST] Unable to get pixel format\n");
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to get pixel format\n");
                         throw delta_init_exception();
                 }
                 if(Packing == VHD_BUFPACK_VIDEO_YUV422_10) {
@@ -261,7 +261,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 } else if(Packing == VHD_BUFPACK_VIDEO_YUV422_8) {
                         s->frame->color_spec = UYVY;
                 } else {
-                        fprintf(stderr, "[DELTACAST] Detected unknown pixel format!\n");
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Detected unknown pixel format!\n");
                         throw delta_init_exception();
                 }
         }
@@ -270,20 +270,20 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         } else if(s->frame->color_spec == UYVY) {
                 Packing = VHD_BUFPACK_VIDEO_YUV422_8;
         } else {
-                fprintf(stderr, "[DELTACAST] Unsupported pixel format\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unsupported pixel format\n");
                 throw delta_init_exception();
         }
         printf("[DELTACAST] Pixel format '%s' selected.\n", get_codec_name(s->frame->color_spec));
         Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, Packing);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Unable to set pixel format\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to set pixel format\n");
                 throw delta_init_exception();
         }
 
         if(s->initialize_flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 if(audio_capture_channels != 1 &&
                                 audio_capture_channels != 2) {
-                        fprintf(stderr, "[DELTACAST capture] Unable to handle channel count other than 1 or 2.\n");
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST capture] Unable to handle channel count other than 1 or 2.\n");
                         throw delta_init_exception();
                 }
                 s->audio_frame.bps = 3;
@@ -316,7 +316,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         if (Result == VHDERR_NOERROR){
                 printf("[DELTACAST] Stream started.\n");
         } else {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot start RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot start RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08" PRIX32 "\n",Result);
                 throw delta_init_exception();
         }
 
@@ -383,13 +383,13 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
                                 else if(strcmp(tok, "v210") == 0)
                                         s->frame->color_spec = v210;
                                 else {
-                                        fprintf(stderr, "Wrong "
+                                        log_msg(LOG_LEVEL_ERROR, "Wrong "
                                         "codec entered.\n");
                                         usage();
                                         goto error;
                                 }
                         } else {
-                                fprintf(stderr, "[DELTACAST] Wrong config option '%s'!\n", tok);
+                                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong config option '%s'!\n", tok);
                                 goto error;
                         }
                         tmp = NULL;
@@ -398,7 +398,7 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
         free(init_fmt);
         init_fmt = NULL;
 
-        printf("[DELTACAST] Selected device %lu\n", BrdId);
+        printf("[DELTACAST] Selected device %" PRIu32 "\n", BrdId);
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
@@ -407,18 +407,18 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08lX\n",
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
+                                " information. Result = 0x%08" PRIX32 "\n",
                                 Result);
                 goto error;
         }
         if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
                 goto error;
         }
 
         if(BrdId >= NbBoards) {
-                fprintf(stderr, "[DELTACAST] Wrong index %lu. Found %lu cards.\n", BrdId, NbBoards);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu32 ". Found %" PRIu32 " cards.\n", BrdId, NbBoards);
                 goto error;
         }
 
@@ -426,7 +426,7 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %lu handle. Result = 0x%08lX\n",BrdId,Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu32 " handle. Result = 0x%08" PRIX32 "\n",BrdId,Result);
                 goto error;
         }
 
@@ -436,7 +436,7 @@ vidcap_deltacast_init(const struct vidcap_params *params, void **state)
 
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_TYPE, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
-                fprintf(stderr, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
                 goto error;
         }
 
@@ -526,10 +526,10 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
         Result = VHD_LockSlotHandle(s->StreamHandle,&s->SlotHandle);
         if (Result != VHDERR_NOERROR) {
                 if (Result != VHDERR_TIMEOUT) {
-                        fprintf(stderr, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08lX\n", Result);
+                        log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08" PRIX32 "\n", Result);
                 }
                 else {
-                        fprintf(stderr, "Timeout \n");
+                        log_msg(LOG_LEVEL_ERROR, "Timeout \n");
                 }
                 return NULL;
         }
@@ -547,7 +547,7 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
                         /* Do audio processing here */
                         *audio = &s->audio_frame;
                 } else {
-                        fprintf(stderr, "[DELTACAST] Audio grabbing error. Result = 0x%08lX\n",Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Audio grabbing error. Result = 0x%08" PRIX32 "\n",Result);
                 }
         }
 
@@ -555,7 +555,7 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
          Result = VHD_GetSlotBuffer(s->SlotHandle, VHD_SDI_BT_VIDEO, &pBuffer, &BufferSize);
          
          if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "\nERROR : Cannot get slot buffer. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "\nERROR : Cannot get slot buffer. Result = 0x%08" PRIX32 "\n",Result);
                 return NULL;
          }
          

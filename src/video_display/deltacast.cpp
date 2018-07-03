@@ -177,12 +177,12 @@ display_deltacast_getf(void *state)
         
         Result = VHD_LockSlotHandle(s->StreamHandle, &s->SlotHandle);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Unable to lock slot.\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to lock slot.\n");
                 return NULL;
         }
         Result = VHD_GetSlotBuffer(s->SlotHandle,VHD_SDI_BT_VIDEO,&pBuffer,&BufferSize);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Unable to get buffer.\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to get buffer.\n");
                 return NULL;
         }
         
@@ -213,13 +213,13 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_BUFFERTOOSMALL)
                 {
-                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08lX\n", Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX32 "\n", Result);
                 } else {
                         for(i = 0; i < s->audio_desc.ch_count; ++i) {
                                 int ret;
                                 ret = ring_buffer_read(s->audio_channels[i], (char *) s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].pData, s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].DataSize);
                                 if(!ret) {
-                                        fprintf(stderr, "[DELTACAST] Buffer underflow for channel %d.\n", i);
+                                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Buffer underflow for channel %d.\n", i);
                                 }
                                 s->AudioInfo.pAudioGroups[0].pAudioChannels[0].DataSize = ret;
                         }
@@ -228,7 +228,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_NOERROR)
                 {
-                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08lX\n",Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX32 "\n",Result);
                 }
         }
         pthread_mutex_unlock(&s->lock);
@@ -240,7 +240,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[DELTACAST display] %lu frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[DELTACAST display] %" PRIu32 " frames in %g seconds = %g FPS\n",
                         s->frames, seconds, fps);
                 s->tv = tv;
                 s->frames = 0;
@@ -280,12 +280,12 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                                 desc.width == deltacast_frame_modes[i].width &&
                                 desc.height == deltacast_frame_modes[i].height) {
                         VideoStandard = deltacast_frame_modes[i].mode;
-                        fprintf(stderr, "[DELTACAST] %s mode selected.\n", deltacast_frame_modes[i].name);
+                        log_msg(LOG_LEVEL_NOTICE, "[DELTACAST] %s mode selected.\n", deltacast_frame_modes[i].name);
                         break;
                 }
         }
         if(i == deltacast_frame_modes_count) {
-                fprintf(stderr, "[DELTACAST] Failed to obtain video format for incoming video: %dx%d @ %2.2f %s\n", desc.width, desc.height,
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to obtain video format for incoming video: %dx%d @ %2.2f %s\n", desc.width, desc.height,
                                                                         (double) desc.fps, get_interlacing_description(desc.interlacing));
 
                 goto error;
@@ -300,7 +300,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         }
         
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Failed to open stream handle.\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Failed to open stream handle.\n");
                 goto error;
         }
         
@@ -310,7 +310,7 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
 
         Result = VHD_StartStream(s->StreamHandle);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Unable to start stream.\n");  
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unable to start stream.\n");  
                 goto error;
         }
         
@@ -415,7 +415,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
                 if (strncasecmp(tok, "device=", strlen("device=")) == 0) {
                         BrdId = atoi(tok + strlen("device="));
                 } else {
-                        fprintf(stderr, "Unknown option: %s\n\n", tok);
+                        log_msg(LOG_LEVEL_ERROR, "Unknown option: %s\n\n", tok);
                         free(tmp);
                         show_help();
                         goto error;
@@ -426,18 +426,18 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08lX\n",
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
+                                " information. Result = 0x%08" PRIX32 "\n",
                                 Result);
                 goto error;
         }
         if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
                 goto error;
         }
         
         if(BrdId >= NbBoards) {
-                fprintf(stderr, "[DELTACAST] Wrong index %lu. Found %lu cards.\n", BrdId, NbBoards);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu32 ". Found %" PRIu32 " cards.\n", BrdId, NbBoards);
                 goto error;
         }
 
@@ -445,7 +445,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %lu handle. Result = 0x%08lX\n", BrdId, Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu32 " handle. Result = 0x%08" PRIX32 "\n", BrdId, Result);
                 goto error;
         }
 
@@ -455,7 +455,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
 
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_TX0_TYPE, &ChnType);
         if((ChnType!=VHD_CHNTYPE_SDSDI)&&(ChnType!=VHD_CHNTYPE_HDSDI)&&(ChnType!=VHD_CHNTYPE_3GSDI)) {
-                fprintf(stderr, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected channel is not an SDI one\n");
                 goto bad_channel;
         }
         
@@ -593,7 +593,7 @@ static int display_deltacast_reconfigure_audio(void *state, int quant_samples, i
                                 pAudioChn->BufferFormat = VHD_AF_24; 
                                 break;
                         default:
-                                fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
+                                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
                                 pthread_mutex_unlock(&s->lock);
                                 return FALSE;
                 }

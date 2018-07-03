@@ -38,6 +38,7 @@
 #ifndef DELTACAST_COMMON_H
 #define DELTACAST_COMMON_H
 
+#include <cinttypes>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -77,13 +78,13 @@ static void print_available_delta_boards() {
         ULONG             Result,DllVersion,NbBoards;
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08lX\n",
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
+                                " information. Result = 0x%08" PRIX32 "\n",
                                 Result);
                 return;
         }
         if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
                 return;
         }
 
@@ -102,7 +103,7 @@ static void print_available_delta_boards() {
                         if (it != board_type_map.end()) {
                                 board = it->second;
                         }
-                        printf("\t\tBoard %lu: %s\n", i, board.c_str());
+                        printf("\t\tBoard %" PRIu32 ": %s\n", i, board.c_str());
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }
@@ -117,13 +118,13 @@ static void print_available_delta_boards() {
 
         Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_RXCHANNELS, &NbRxOnBoard);
         if (Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot get number of RX channels. Result = 0x%08X\n", Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot get number of RX channels. Result = 0x%08" PRIX32 "\n", Result);
                 return false;
         }
 
         Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_NB_TXCHANNELS, &NbTxOnBoard);
         if (Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot get number of TX channels. Result = 0x%08X\n", Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot get number of TX channels. Result = 0x%08" PRIX32 "\n", Result);
                 return false;
         }
 
@@ -133,7 +134,7 @@ static void print_available_delta_boards() {
 
         Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_IS_BIDIR, (ULONG*)&IsBiDir);
         if (Result != VHDERR_NOERROR) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot check whether board channels are bidirectional. Result = 0x%08X\n", Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot check whether board channels are bidirectional. Result = 0x08" PRIX32 "\n", Result);
                 return false;
         }
 
@@ -165,7 +166,7 @@ static void print_available_delta_boards() {
                 if (it != mapping.end()) {
                         Result = VHD_SetBiDirCfg(BrdId, it->second);
                         if (Result != VHDERR_NOERROR) {
-                                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot bidirectional set bidirectional channels. Result = 0x%08X\n", Result);
+                                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Cannot bidirectional set bidirectional channels. Result = 0x%08" PRIX32 "\n", Result);
                                 return false;
                         } else {
                                 log_msg(LOG_LEVEL_VERBOSE, "[DELTACAST] Successfully bidirectional channels.\n");
@@ -174,7 +175,7 @@ static void print_available_delta_boards() {
                 }
         }
 
-        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Insufficient number of channels - requested %ld RX + %ld TX, got %ld RX + %ld TX. %s. Result = 0x%08X\n", RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard, IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
+        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR: Insufficient number of channels - requested %" PRId32 " RX + %" PRId32 " TX, got %" PRId32 " RX + %" PRId32 " TX. %s. Result = 0x%08" PRIX32 "\n", RequestedRx, RequestedTx, NbRxOnBoard, NbTxOnBoard, IsBiDir ? "Bidirectional" : "Non-bidirectional", Result);
         return false;
 }
 

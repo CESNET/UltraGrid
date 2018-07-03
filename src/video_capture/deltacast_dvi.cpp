@@ -255,8 +255,8 @@ vidcap_deltacast_dvi_probe(bool verbose)
                                         }
                                         VHD_CloseBoardHandle(BoardHandle);
 
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%lu", i);
-                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%lu",
+                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
+                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%" PRIu32,
                                                         board.c_str(), i);
                                 }
                         }
@@ -329,15 +329,15 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 }
                 if(Result == VHDERR_NOERROR)
                 {
-                        printf("\nDVI-A format detected: %lux%lu @%luHz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
+                        printf("\nDVI-A format detected: %" PRIu32 "x%" PRIu32 " @%" PRIu32 "Hz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
                         Result = VHD_PresetDviAStreamProperties(s->StreamHandle, DviAStd,Width,Height,
                                         RefreshRate,Interlaced_B);
                         if(Result != VHDERR_NOERROR) {
-                                printf("ERROR : Cannot set incoming DVI-A format. Result = 0x%08lX\n", Result);
+                                printf("ERROR : Cannot set incoming DVI-A format. Result = 0x%08" PRIX32 "\n", Result);
                         }
                 }
                 else {
-                        printf("ERROR : Cannot detect incoming DVI-A format. Result = 0x%08lX\n", Result);
+                        printf("ERROR : Cannot detect incoming DVI-A format. Result = 0x%08" PRIX32 "\n", Result);
                         return false;
                 }
         }
@@ -350,27 +350,27 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
                 else
                         printf("ERROR : Cannot detect incoming active width from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
                 if(Result == VHDERR_NOERROR)
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
                 else
                         printf("ERROR : Cannot detect incoming active height from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
                 if(Result == VHDERR_NOERROR)
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                 else
                         printf("ERROR : Cannot detect if incoming stream from RX0 is "
-                                        "interlaced or progressive. Result = 0x%08lX\n", Result);
+                                        "interlaced or progressive. Result = 0x%08" PRIX32 "\n", Result);
                 if(Result == VHDERR_NOERROR)
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_DUAL_LINK,(ULONG*)&Dual_B);
                 else
                         printf("ERROR : Cannot detect incoming refresh rate from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
 
                 if(Result == VHDERR_NOERROR)
-                        printf("\nIncoming graphic resolution : %lux%lu @%luHz (%s) %s link\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive", Dual_B ? "Dual" : "Single");
+                        printf("\nIncoming graphic resolution : %" PRIu32 "x%" PRIu32 " @%" PRIu32 "Hz (%s) %s link\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive", Dual_B ? "Dual" : "Single");
                 else
-                        printf("ERROR : Cannot detect if incoming stream from RX0 is dual or simple link. Result = 0x%08lX\n", Result);
+                        printf("ERROR : Cannot detect if incoming stream from RX0 is dual or simple link. Result = 0x%08" PRIX32 "\n", Result);
 
                 if(Result != VHDERR_NOERROR) {
                         return false;
@@ -399,24 +399,24 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_ACTIVE_HEIGHT,&Height);
                 else
                         printf("ERROR : Cannot detect incoming active width from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
                 if(Result == VHDERR_NOERROR)
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INTERLACED,(ULONG*)&Interlaced_B);
                 else
                         printf("ERROR : Cannot detect incoming active height from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
                 if(Result == VHDERR_NOERROR)
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                 else
                         printf("ERROR : Cannot detect if incoming stream from RX0 is "
-                                        "interlaced or progressive. Result = 0x%08lX\n", Result);
+                                        "interlaced or progressive. Result = 0x%08" PRIX32 "\n", Result);
 
                 if (Result == VHDERR_NOERROR) {
                         Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_REFRESH_RATE,&RefreshRate);
                         if(s->BoardType == VHD_BOARDTYPE_HDMI)
                                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS);
                         else
-                                printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08lX (%s)\n", Result,
+                                printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08" PRIX32 " (%s)\n", Result,
                                                 GetErrorDescription(Result));
                 }
 
@@ -424,15 +424,15 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                         if (s->BoardType == VHD_BOARDTYPE_HDMI)
                                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk);
                         else
-                                printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08lX (%s)\n", Result,
+                                printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08" PRIX32 " (%s)\n", Result,
                                                 GetErrorDescription(Result));
                 }
 
                 if(Result == VHDERR_NOERROR)
-                        printf("\nIncoming graphic resolution : %lux%lu @%luHz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
+                        printf("\nIncoming graphic resolution : %" PRIu32 "x%" PRIu32 " @%" PRIu32 "Hz (%s)\n", Width, Height, RefreshRate, Interlaced_B ? "Interlaced" : "Progressive");
                 else
                         printf("ERROR : Cannot detect incoming refresh rate from RX0. "
-                                        "Result = 0x%08lX\n", Result);
+                                        "Result = 0x%08" PRIX32 "\n", Result);
 
                 if(Result != VHDERR_NOERROR) {
                         return false;
@@ -457,7 +457,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         Result = VHD_StartStream(s->StreamHandle);
 
         if(Result != VHDERR_NOERROR) {
-                fprintf(stderr, "Cannot start stream!\n");
+                log_msg(LOG_LEVEL_ERROR, "Cannot start stream!\n");
                 return false;
         }
 
@@ -536,14 +536,14 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
 
                                 s->codec = get_codec_from_name(codec_str);
                                 if (s->codec == VIDEO_CODEC_NONE) {
-                                        fprintf(stderr, "Unable to find codec: %s\n",
+                                        log_msg(LOG_LEVEL_ERROR, "Unable to find codec: %s\n",
                                                         codec_str);
                                         goto error;
                                 }
                         } else if(strncasecmp(tok, "edid=", strlen("edid=")) == 0) {
                                         edid = atoi(tok + strlen("edid="));
                                         if(edid < 0 || edid > 3) {
-                                                fprintf(stderr, "[DELTA] Error: Wrong "
+                                                log_msg(LOG_LEVEL_ERROR, "[DELTA] Error: Wrong "
                                                                 "EDID entered on commandline. "
                                                                 "Expected 0-3, got %d.\n", edid);
                                                 goto error;
@@ -565,7 +565,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                                         RefreshRate = atof(item);
                                 }
                         } else {
-                                fprintf(stderr, "[DELTA] Error: Unrecongnized "
+                                log_msg(LOG_LEVEL_ERROR, "[DELTA] Error: Unrecongnized "
                                                 "trailing parameter %s\n", tok);
                                 goto error;
                         }
@@ -581,18 +581,18 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08lX\n",
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
+                                " information. Result = 0x%08" PRIX32 "\n",
                                 Result);
                 goto error;
         }
         if (NbBoards == 0) {
-                fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
                 goto error;
         }
         
         if(BrdId >= NbBoards) {
-                fprintf(stderr, "[DELTACAST] Wrong index %lu. Found %lu cards.\n", BrdId, NbBoards);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu32 ". Found %" PRIu32 " cards.\n", BrdId, NbBoards);
                 goto error;
         }
 
@@ -600,12 +600,12 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %lu handle. Result = 0x%08lX\n", BrdId, Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu32 " handle. Result = 0x%08" PRIX32 "\n", BrdId, Result);
                 goto error;
         }
         VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_BOARD_TYPE, &s->BoardType);
         if (s->BoardType != VHD_BOARDTYPE_DVI && s->BoardType != VHD_BOARDTYPE_HDMI) {
-                fprintf(stderr, "[DELTACAST] ERROR : The selected board is not an DVI or HDMI one\n");
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : The selected board is not an DVI or HDMI one\n");
                 goto bad_channel;
         }
         
@@ -623,7 +623,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                         ChannelId = VHD_ST_RX3;
                         break;
                 default:
-                        fprintf(stderr, "[DELTACAST] Bad channel index!\n");
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Bad channel index!\n");
                         goto no_stream;
         }
         Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId,
@@ -631,8 +631,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                         NULL, &s->StreamHandle, NULL);
         if (Result != VHDERR_NOERROR)
         {
-                fprintf(stderr, "ERROR : Cannot open RX0 stream on DELTA-DVI board handle. "
-                                "Result = 0x%08lX\n", Result);
+                log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot open RX0 stream on DELTA-DVI board handle. "
+                                "Result = 0x%08" PRIX32 "\n", Result);
                 goto no_stream;
         }
 
@@ -647,7 +647,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         Result = VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFER_PACKING,
                         Packing);
         if(Result != VHDERR_NOERROR) {
-                fprintf(stderr, "Unable to set packing format.\n");
+                log_msg(LOG_LEVEL_ERROR, "Unable to set packing format.\n");
                 goto no_format;
         }
         VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,
@@ -656,7 +656,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFERQUEUE_DEPTH,
                         DEFAULT_BUFFERQUEUE_DEPTH);
         if(Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[Delta-dvi] Warning: Unable to set buffer queue length.\n");
+                log_msg(LOG_LEVEL_ERROR, "[Delta-dvi] Warning: Unable to set buffer queue length.\n");
         }
 
         if(have_preset) {
@@ -680,8 +680,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                 if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
                 {
                         /* Propose edid preset to user and load */
-                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
-                        fprintf(stderr, "Please set it as a command-line option.\n");
+                        log_msg(LOG_LEVEL_ERROR, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
+                        log_msg(LOG_LEVEL_ERROR, "Please set it as a command-line option.\n");
                         goto no_format;
                 }
         }
@@ -689,7 +689,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
         s->configured = wait_for_channel_locked(s, have_preset, DviMode, Width, Height, RefreshRate);
         if(!s->configured &&
                         have_preset) {
-                fprintf(stderr, "Unable to set preset format!\n");
+                log_msg(LOG_LEVEL_ERROR, "Unable to set preset format!\n");
                 goto no_format;
         }
 
@@ -759,10 +759,10 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         Result = VHD_LockSlotHandle(s->StreamHandle, &SlotHandle);
         if (Result != VHDERR_NOERROR) {
                 if (Result != VHDERR_TIMEOUT) {
-                        fprintf(stderr, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08lX\n", Result);
+                        log_msg(LOG_LEVEL_ERROR, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08" PRIX32 "\n", Result);
                 }
                 else {
-                        fprintf(stderr, "Timeout \n");
+                        log_msg(LOG_LEVEL_WARNING, "Timeout \n");
                 }
                 return NULL;
         }
@@ -770,7 +770,7 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
          Result = VHD_GetSlotBuffer(SlotHandle, VHD_DV_BT_VIDEO, &pBuffer, &BufferSize);
          
          if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "\nERROR : Cannot get slot buffer. Result = 0x%08lX\n",Result);
+                log_msg(LOG_LEVEL_ERROR, "\nERROR : Cannot get slot buffer. Result = 0x%08" PRIX32 "\n",Result);
                 return NULL;
          }
 
