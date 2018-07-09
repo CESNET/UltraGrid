@@ -778,8 +778,8 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         }
 
         ret = mOutputFrame.get();
-        ret->dispose_udata = new shared_ptr<video_frame>(mOutputFrame);
-        ret->dispose = [](video_frame *f) { delete static_cast<shared_ptr<video_frame> *>(f->dispose_udata); };
+        ret->callbacks.dispose_udata = new shared_ptr<video_frame>(mOutputFrame);
+        ret->callbacks.dispose = [](video_frame *f) { delete static_cast<shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
 
         mOutputFrame = NULL;
 

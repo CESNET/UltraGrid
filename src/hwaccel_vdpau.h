@@ -117,12 +117,14 @@ void hw_vdpau_frame_unref(hw_vdpau_frame *frame);
 /**
  * @brief Calls @ref hw_vdpau_frame_unref
  */
-void hw_vdpau_free_extra_data(void *frame);
+void hw_vdpau_recycle_callback(struct video_frame *frame);
 
 /**
  * @brief Copies hw_vdpau_frame and makes new references to reference counted resources
  */
 hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame);
+
+void hw_vdpau_copy_callback(struct video_frame *frame);
 
 /**
  * @brief Copies hw_vdpau_frame. Internally calls @ref hw_vdpau_frame_copy

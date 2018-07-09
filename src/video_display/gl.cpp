@@ -881,14 +881,14 @@ static void glut_idle_callback(void)
         if (s->paused) {
                 pop_frame(s);
                 unique_lock<mutex> lk(s->lock);
-                vf_free_extra_data(frame);
+                vf_recycle(frame);
                 s->free_frame_queue.push(frame);
                 return;
         }
 
         if (s->current_frame) {
                 s->lock.lock();
-                vf_free_extra_data(s->current_frame);
+                vf_recycle(s->current_frame);
                 s->free_frame_queue.push(s->current_frame);
                 s->lock.unlock();
         }
@@ -1713,12 +1713,12 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         }
 
         if (nonblock == PUTF_DISCARD) {
-                vf_free_extra_data(frame);
+                vf_recycle(frame);
                 s->free_frame_queue.push(frame);
                 return 0;
         }
         if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
-                vf_free_extra_data(frame);
+                vf_recycle(frame);
                 s->free_frame_queue.push(frame);
                 return 1;
         }

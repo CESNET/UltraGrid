@@ -412,10 +412,10 @@ fromConnection:(AVCaptureConnection *)connection
 		// Lock the base address of the pixel buffer
 		CVPixelBufferLockBaseAddress(imageBuffer, 0);
 		ret->tiles[0].data = (char *) CVPixelBufferGetBaseAddress(imageBuffer);
-		ret->dispose_udata = imageBuffer;
-		ret->dispose = static_cast<void (*)(struct video_frame *)>([](struct video_frame *frame)
+		ret->callbacks.dispose_udata = imageBuffer;
+		ret->callbacks.dispose = static_cast<void (*)(struct video_frame *)>([](struct video_frame *frame)
 				{
-				CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->dispose_udata;
+				CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->callbacks.dispose_udata;
 				// Unlock the pixel buffer
 				CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
 				[(id) imageBuffer release];
@@ -425,7 +425,7 @@ fromConnection:(AVCaptureConnection *)connection
 	} else {
 		ret = vf_alloc_desc_data(desc);
 		CMBlockBufferCopyDataBytes(blockBuffer, 0, ret->tiles[0].data_len, ret->tiles[0].data);
-		ret->dispose = vf_free;
+		ret->callbacks.dispose = vf_free;
 	}
 
 	if (desc.color_spec == RGBA && (get<1>(codec_it->second) != 0 || get<2>(codec_it->second) != 8 ||

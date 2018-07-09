@@ -1338,7 +1338,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         auto dispose = [](struct video_frame *frame) {
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-                AVPacket *pkt = (AVPacket *) frame->dispose_udata;
+                AVPacket *pkt = (AVPacket *) frame->callbacks.dispose_udata;
                 av_packet_unref(pkt);
                 free(pkt);
 #else
@@ -1354,7 +1354,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         av_init_packet(pkt);
         pkt->data = NULL;
         pkt->size = 0;
-        out->dispose_udata = pkt;
+        out->callbacks.dispose_udata = pkt;
 #else
         out->tiles[0].data = (char *) malloc(s->compressed_desc.width *
                         s->compressed_desc.height * 4);

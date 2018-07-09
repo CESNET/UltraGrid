@@ -93,7 +93,7 @@ static struct video_frame *display_pipe_getf(void *state)
         struct video_frame *out = vf_alloc_desc_data(s->desc);
         // explicit dispose is needed because we do not process the frame
         // by ourselves but it is passed to further processing
-        out->dispose = vf_free;
+        out->callbacks.dispose = vf_free;
         return out;
 }
 

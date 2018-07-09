@@ -562,7 +562,8 @@ static void *decompress_thread(void *args) {
                                                         (unsigned char *) out,
                                                         (unsigned char *) msg->nofec_frame->tiles[pos].data,
                                                         msg->nofec_frame->tiles[pos].data_len,
-                                                        msg->buffer_num[pos]);
+                                                        msg->buffer_num[pos],
+														&decoder->frame->callbacks);
                                         if (ret != DECODER_GOT_FRAME) {
                                                 if(ret == DECODER_CANT_DECODE){
                                                         if(blacklist_current_out_codec(decoder))
@@ -1289,7 +1290,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         // allocated buffers when we have compressed data. But in case of FEC, there
         // is just the FEC buffer present, so we point to it instead to copying
         struct video_frame *frame = vf_alloc(max_substreams);
-        frame->data_deleter = vf_data_deleter;
+        frame->callbacks.data_deleter = vf_data_deleter;
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
         int k = 0, m = 0, c = 0, seed = 0; // LDGM

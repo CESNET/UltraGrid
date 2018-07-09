@@ -146,8 +146,20 @@ void hw_vdpau_frame_unref(hw_vdpau_frame *frame){
         hw_vdpau_frame_init(frame);
 }
 
-void hw_vdpau_free_extra_data(void *frame){
-        hw_vdpau_frame_unref((hw_vdpau_frame *) frame);
+void hw_vdpau_recycle_callback(struct video_frame *frame){
+        for(int i = 0; i < frame->tile_count; i++){
+                struct hw_vdpau_frame *vdp_frame = frame->tiles[i].data;
+                hw_vdpau_frame_unref(vdp_frame);
+        }
+
+        frame->callbacks.recycle = NULL;
+}
+
+void hw_vdpau_copy_callback(struct video_frame *frame){
+        for(int i = 0; i < frame->tile_count; i++){
+                struct hw_vdpau_frame *vdp_frame = frame->tiles[i].data;
+                *vdp_frame = hw_vdpau_frame_copy(vdp_frame);
+        }
 }
 
 hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame){
@@ -159,6 +171,7 @@ hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame){
         for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
                 if(frame->buf[i])
                         new_frame.buf[i] = av_buffer_ref(frame->buf[i]);
+
                 new_frame.data[i] = frame->data[i];
         }
 

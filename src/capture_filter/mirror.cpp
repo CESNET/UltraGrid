@@ -91,7 +91,7 @@ static struct video_frame *filter(void *, struct video_frame *in)
         }
 
         struct video_frame *out = vf_alloc_desc_data(video_desc_from_frame(in));
-        out->dispose = vf_free;
+        out->callbacks.dispose = vf_free;
 
         unsigned char *in_data = (unsigned char *) in->tiles[0].data;
         unsigned char *out_data = (unsigned char *) out->tiles[0].data;

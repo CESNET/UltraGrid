@@ -357,7 +357,7 @@ static void *capture_thread(void *arg)
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
                         shared_ptr<video_frame> frame;
-                        if (!tx_frame->dispose) {
+                        if (!tx_frame->callbacks.dispose) {
                                 wait_obj_reset(wait_obj);
                                 wait_for_cur_uncompressed_frame = true;
                                 frame = shared_ptr<video_frame>(tx_frame, [wait_obj](struct video_frame *) {
@@ -365,7 +365,7 @@ static void *capture_thread(void *arg)
                                                 });
                         } else {
                                 wait_for_cur_uncompressed_frame = false;
-                                frame = shared_ptr<video_frame>(tx_frame, tx_frame->dispose);
+                                frame = shared_ptr<video_frame>(tx_frame, tx_frame->callbacks.dispose);
                         }
 
                         uv->state_video_rxtx->send(move(frame)); // std::move really important here (!)
@@ -375,8 +375,8 @@ static void *capture_thread(void *arg)
                         // (if not defined dispose function).
                         if (wait_for_cur_uncompressed_frame) {
                                 wait_obj_wait(wait_obj);
-                                tx_frame->dispose = NULL;
-                                tx_frame->dispose_udata = NULL;
+                                tx_frame->callbacks.dispose = NULL;
+                                tx_frame->callbacks.dispose_udata = NULL;
                         }
                 }
         }

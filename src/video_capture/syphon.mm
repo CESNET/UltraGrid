@@ -396,7 +396,7 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
         if (s->q.size() > 0) {
                 ret = s->q.front();
                 s->q.pop();
-                ret->dispose = vf_free;
+                ret->callbacks.dispose = vf_free;
 
                 // statistics
                 s->frames++;

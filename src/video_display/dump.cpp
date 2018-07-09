@@ -158,7 +158,7 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
                 s->f->tiles[i].data_len = s->max_tile_data_len;
                 s->f->tiles[i].data = (char *) malloc(s->f->tiles[i].data_len);
         }
-        s->f->data_deleter = vf_data_deleter;
+        s->f->callbacks.data_deleter = vf_data_deleter;
 
         return TRUE;
 }

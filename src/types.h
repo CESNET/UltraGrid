@@ -160,6 +160,54 @@ struct fec_desc {
 #endif
 };
 
+struct video_frame;
+/**
+ * @brief Struct containing callbacks of a vide frame
+ */
+struct video_frame_callbacks {
+        /** @note
+         * Can be changed only by frame originator.
+         * @deprecated
+         * This is currently used only by video_capture and capture_filter modules
+         * and should not be used elsewhere!
+         * @{
+         */
+        /**
+         * This function (if defined) is called when frame is no longer needed
+         * by processing queue.
+         * @note
+         * Currently, this is only used in sending workflow, not the receiving one!
+         * Can be called from arbitrary thread.
+         */
+        void               (*dispose)(struct video_frame *);
+        /**
+         * Additional data needed to dispose the frame
+         */
+        void                *dispose_udata;
+        /// @}
+
+        /**
+         * This function (if defined) is called by vf_free() to destruct video data
+         * (@ref tile::data members).
+         */
+        void               (*data_deleter)(struct video_frame *);
+
+        /**
+         * This function is used to free extra data held by the frame and should
+         * be called before returning the frame to frame pool. 
+         * This function is currently used to free references to hw surfaces.
+         */
+        void               (*recycle)(struct video_frame *);
+
+        /**
+         * This function is used to copy extra data held by the frame and is
+         * automatically called by the vf_get_copy function.
+         * This function is currently used to make new references to hw surfaces
+         * when creating copies of hw frames.
+         */
+        void               (*copy)(struct video_frame *);
+};
+
 /**
  * @brief Struct video_frame represents a video frame and contains video description.
  */
@@ -186,39 +234,7 @@ struct video_frame {
 
         unsigned int         decoder_overrides_data_len:1;
 
-        /** @note
-         * Can be changed only by frame originator.
-         * @deprecated
-         * This is currently used only by video_capture and capture_filter modules
-         * and should not be used elsewhere!
-         * @{
-         */
-        /**
-         * This function (if defined) is called when frame is no longer needed
-         * by processing queue.
-         * @note
-         * Currently, this is only used in sending workflow, not the receiving one!
-         * Can be called from arbitrary thread.
-         */
-        void               (*dispose)(struct video_frame *);
-        /**
-         * Additional data needed to dispose the frame
-        */
-        void                *dispose_udata;
-        /// @}
-
-        /**
-         * This function (if defined) is called by vf_free() to destruct video data
-         * (@ref tile::data members).
-         */
-        void               (*data_deleter)(struct video_frame *);
-
-        /**
-         * This function is currently used to free references to hw surfaces.
-         *
-         * If defined it is called by also by data_deleter before destructing video data
-         */
-        void               (*free_extra_data_fcn)(void *data);
+        struct video_frame_callbacks callbacks;
 
         // metadata follow
         struct fec_desc fec_params;

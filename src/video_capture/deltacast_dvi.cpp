@@ -733,7 +733,7 @@ vidcap_deltacast_dvi_done(void *state)
 
 static void vidcap_deltacast_dvi_dispose(struct video_frame *f)
 {
-       VHD_UnlockSlotHandle((HANDLE) f->dispose_udata);
+       VHD_UnlockSlotHandle((HANDLE) f->callbacks.dispose_udata);
        vf_free(f);
 }
 
@@ -781,8 +781,8 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
 	 struct video_frame *out = vf_alloc_desc(s->desc);
          out->tiles[0].data = (char*) pBuffer;
          out->tiles[0].data_len = BufferSize;
-         out->dispose_udata = SlotHandle;
-         out->dispose = vidcap_deltacast_dvi_dispose;
+         out->callbacks.dispose_udata = SlotHandle;
+         out->callbacks.dispose = vidcap_deltacast_dvi_dispose;
 
          /* Print some statistics */
          /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);

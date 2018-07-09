@@ -404,9 +404,9 @@ display_decklink_getf(void *state)
 
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
         auto deckLinkFrames =  new vector<IDeckLinkMutableVideoFrame *>(s->devices_cnt);
-        out->dispose_udata = (void *) deckLinkFrames;
-        out->dispose = [](struct video_frame *frame) {
-                delete (vector<IDeckLinkMutableVideoFrame *> *) frame->dispose_udata;
+        out->callbacks.dispose_udata = (void *) deckLinkFrames;
+        out->callbacks.dispose = [](struct video_frame *frame) {
+                delete (vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata;
                 vf_free(frame);
         };
 
@@ -531,7 +531,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         else {
                 for (int j = 0; j < s->devices_cnt; ++j) {
                         IDeckLinkMutableVideoFrame *deckLinkFrame =
-                                (*((vector<IDeckLinkMutableVideoFrame *> *) frame->dispose_udata))[j];
+                                (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
                         if(s->emit_timecode) {
                                 deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
                         }
@@ -550,7 +550,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                 }
         }
 
-        frame->dispose(frame);
+        frame->callbacks.dispose(frame);
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
 

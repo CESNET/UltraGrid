@@ -835,12 +835,12 @@ static void *slave_worker(void *arg)
                 frame = vidcap_grab(device, &audio);
                 if (frame) {
                         struct video_frame *frame_local;
-                        if (frame->dispose) {
+                        if (frame->callbacks.dispose) {
                                 frame_local = frame;
                         } else {
                                 frame_local = vf_get_copy(frame);
-                                frame_local->dispose = vf_free;
-                                frame_local->dispose_udata = NULL; // not needed
+                                frame_local->callbacks.dispose = vf_free;
+                                frame_local->callbacks.dispose_udata = NULL; // not needed
                         }
                         if (frame_local->interlacing == INTERLACED_MERGED) {
                                 vc_deinterlace((unsigned char *) frame_local->tiles[0].data,

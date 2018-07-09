@@ -1161,7 +1161,7 @@ static void reset_import(struct vidcap_import_state *s)
 }
 
 static void vidcap_import_dispose_video_frame(struct video_frame *frame) {
-        free_entry((struct processed_entry *) frame->dispose_udata);
+        free_entry((struct processed_entry *) frame->callbacks.dispose_udata);
         vf_free(frame);
 }
 
@@ -1203,8 +1203,8 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                 s->worker_cv.notify_one();
 
                 ret = vf_alloc_desc(s->video_desc);
-                ret->dispose = vidcap_import_dispose_video_frame;
-                ret->dispose_udata = current;
+                ret->callbacks.dispose = vidcap_import_dispose_video_frame;
+                ret->callbacks.dispose_udata = current;
                 for (unsigned int i = 0; i < s->video_desc.tile_count; ++i) {
                         ret->tiles[i].data_len =
                                 current->tiles[i].data_len;

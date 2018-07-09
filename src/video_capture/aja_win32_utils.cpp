@@ -138,8 +138,8 @@ void vf_free(struct video_frame *buf)
 {
         if(!buf)
                 return;
-        if (buf->data_deleter) {
-                buf->data_deleter(buf);
+        if (buf->callbacks.data_deleter) {
+                buf->callbacks.data_deleter(buf);
         }
         free(buf->tiles);
         free(buf);

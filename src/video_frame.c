@@ -123,8 +123,8 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
                 assert(buf->tiles[i].data != NULL);
         }
 
-        buf->data_deleter = vf_data_deleter;
-        buf->free_extra_data_fcn = get_free_extra_data_fcn(desc.color_spec);
+        buf->callbacks.data_deleter = vf_data_deleter;
+        buf->callbacks.recycle = NULL;
 
         return buf;
 }
@@ -133,28 +133,26 @@ void vf_free(struct video_frame *buf)
 {
         if(!buf)
                 return;
-        if (buf->data_deleter) {
-                buf->data_deleter(buf);
+
+        vf_recycle(buf);
+
+        if (buf->callbacks.data_deleter) {
+                buf->callbacks.data_deleter(buf);
         }
         free(buf->tiles);
         free(buf);
 }
 
-void vf_free_extra_data(struct video_frame *buf)
+void vf_recycle(struct video_frame *buf)
 {
-        for(unsigned int i = 0u; i < buf->tile_count; ++i) {
-                if(buf->free_extra_data_fcn)
-                        buf->free_extra_data_fcn(buf->tiles[i].data);
-        }
-
+        if(buf->callbacks.recycle)
+                buf->callbacks.recycle(buf);
 }
 
 void vf_data_deleter(struct video_frame *buf)
 {
         if(!buf)
                 return;
-
-        vf_free_extra_data(buf);
 
         for(unsigned int i = 0u; i < buf->tile_count; ++i) {
                 free(buf->tiles[i].data);
@@ -374,18 +372,17 @@ struct video_frame *vf_get_copy(struct video_frame *original) {
         frame_copy->tiles = (struct tile *) malloc(sizeof(struct tile) * frame_copy->tile_count);
         memcpy(frame_copy->tiles, original->tiles, sizeof(struct tile) * frame_copy->tile_count);
 
-        void *(*copy_fcn)(void *, const void *, size_t) = memcpy;
-        if(get_copy_data_fcn(original->color_spec)){
-                copy_fcn = get_copy_data_fcn(original->color_spec);
-        }
-
         for(int i = 0; i < (int) frame_copy->tile_count; ++i) {
                 frame_copy->tiles[i].data = (char *) malloc(frame_copy->tiles[i].data_len);
-                copy_fcn(frame_copy->tiles[i].data, original->tiles[i].data,
+                memcpy(frame_copy->tiles[i].data, original->tiles[i].data,
                                 frame_copy->tiles[i].data_len);
         }
 
-        frame_copy->data_deleter = vf_data_deleter;
+        if(frame_copy->callbacks.copy){
+                frame_copy->callbacks.copy(frame_copy);
+        }
+
+        frame_copy->callbacks.data_deleter = vf_data_deleter;
 
         return frame_copy;
 }

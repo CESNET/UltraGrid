@@ -207,12 +207,22 @@ int decompress_reconfigure(struct state_decompress *s, struct video_desc desc, i
 }
 
 /** @copydoc decompress_decompress_t */
-decompress_status decompress_frame(struct state_decompress *s, unsigned char *dst,
-                unsigned char *compressed, unsigned int compressed_len, int frame_seq)
+decompress_status decompress_frame(
+                struct state_decompress *s,
+                unsigned char *dst,
+                unsigned char *compressed,
+                unsigned int compressed_len,
+                int frame_seq,
+                struct video_frame_callbacks *callbacks)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
 
-        return s->functions->decompress(s->state, dst, compressed, compressed_len, frame_seq);
+        return s->functions->decompress(s->state,
+                        dst,
+                        compressed,
+                        compressed_len,
+                        frame_seq,
+                        callbacks);
 }
 
 /** @copydoc decompress_get_property_t */

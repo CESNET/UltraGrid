@@ -69,8 +69,8 @@ extern "C" {
  *
  * @see video_frame::dispose
  */
-#define VIDEO_FRAME_DISPOSE(frame) if ((frame) && (frame)->dispose) \
-        (frame)->dispose(frame)
+#define VIDEO_FRAME_DISPOSE(frame) if ((frame) && (frame)->callbacks.dispose) \
+        (frame)->callbacks.dispose(frame)
 
 /**
  * @brief Allocates blank video frame
@@ -109,12 +109,13 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc);
 void vf_free(struct video_frame *buf);
 
 /**
- * @brief Frees extra data (currently only used with hw surfaces)
+ * @brief This function should be called before returning a frame back to
+ * a frame pool. Currently this is used to free hw surfaces when decoding
+ * using hw acceleration
  *
- * Calls video_frame::free_extra_data_fcn if defined (suplied by user
- * or fiiled by vf_alloc_desc_data()).
+ * Calls video_frame.callbacks.recycle if defined.
  */
-void vf_free_extra_data(struct video_frame *buf);
+void vf_recycle(struct video_frame *buf);
 
 /**
  * Deletes video data members with a free() call.

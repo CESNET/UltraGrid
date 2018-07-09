@@ -115,8 +115,13 @@ typedef enum {
  * @retval    DECODER_NO_FRAME         if the frame wasn't decoded yet
  * @retval    DECODER_CANT_DECODE      if decoding to selected out_codec failed
  */
-typedef decompress_status (*decompress_decompress_t)(void *state, unsigned char *dst,
-                unsigned char *buffer, unsigned int src_len, int frame_seq);
+typedef decompress_status (*decompress_decompress_t)(
+                void *state,
+                unsigned char *dst,
+                unsigned char *buffer,
+                unsigned int src_len,
+                int frame_seq,
+                struct video_frame_callbacks *callbacks);
 
 /**
  * @param state decoder state
@@ -157,11 +162,31 @@ struct video_decompress_info {
         decompress_get_available_decoders_t get_available_decoders;
 };
 
-bool decompress_init_multi(codec_t from, codec_t to, struct state_decompress **out, int count);
-int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-decompress_status decompress_frame(struct state_decompress *, unsigned char *dst,
-                unsigned char *src, unsigned int src_len, int frame_seq);
-int decompress_get_property(struct state_decompress *state, int property, void *val, size_t *len);
+bool decompress_init_multi(codec_t from,
+                codec_t to,
+                struct state_decompress **out,
+                int count);
+
+int decompress_reconfigure(struct state_decompress *,
+                struct video_desc,
+                int rshift,
+                int gshift,
+                int bshift,
+                int pitch,
+                codec_t out_codec);
+
+decompress_status decompress_frame(struct state_decompress *,
+                unsigned char *dst,
+                unsigned char *src,
+                unsigned int src_len,
+                int frame_seq,
+                struct video_frame_callbacks *callbacks);
+
+int decompress_get_property(struct state_decompress *state,
+                int property,
+                void *val,
+                size_t *len);
+
 void decompress_done(struct state_decompress *);
 
 #ifdef __cplusplus

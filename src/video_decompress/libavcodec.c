@@ -1084,11 +1084,16 @@ static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
         UNUSED(height);
         UNUSED(pitch);
 
+        struct video_frame_callbacks *callbacks = in_frame->opaque;
+
         hw_vdpau_frame *out = (hw_vdpau_frame *) dst_buffer;
 
         hw_vdpau_frame_init(out);
 
         hw_vdpau_frame_from_avframe(out, in_frame);
+
+        callbacks->recycle = hw_vdpau_recycle_callback; 
+        callbacks->copy = hw_vdpau_copy_callback; 
 }
 #endif
 
@@ -1261,7 +1266,7 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
 }
 
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
-                unsigned int src_len, int frame_seq)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int len, got_frame = 0;
@@ -1315,6 +1320,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
                 if(got_frame) {
                         log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0));
+
+                        s->frame->opaque = callbacks;
                         /* Skip the frame if this is not an I-frame
                          * and we have missed some of previous frames for VP8 because the
                          * decoder makes ugly artifacts. We rather wait for next I-frame. */

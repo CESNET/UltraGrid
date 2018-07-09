@@ -402,7 +402,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
                 decompress_frame(s->vrtsp_state->sd, (unsigned char *) s->vrtsp_state->out_frame,
                     (unsigned char *) s->vrtsp_state->frame->tiles[0].data,
-                    s->vrtsp_state->tile->data_len, 0);
+                    s->vrtsp_state->tile->data_len, 0, nullptr);
                 s->vrtsp_state->frame->tiles[0].data = s->vrtsp_state->out_frame;               //TODO memcpy?
                 s->vrtsp_state->frame->tiles[0].data_len = vc_get_linesize(s->vrtsp_state->des.width, UYVY)
                             * s->vrtsp_state->des.height;                           //TODO reconfigurable?

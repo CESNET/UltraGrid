@@ -179,7 +179,7 @@ static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame 
         } else {
                 auto frame = s->frame_queue.front();
                 s->frame_queue.pop();
-                frame->dispose = vf_free;
+                frame->callbacks.dispose = vf_free;
 
                 s->frames++;
                 auto curr_time = steady_clock::now();
