@@ -730,8 +730,10 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
 
                 // we do not need the driver buffer any more
                 if (ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
-                        perror("Unable to enqueue buffer");
-                };
+                        log_msg(LOG_LEVEL_ERROR, "[V4L2 capture] Unable to enqueue buffer: %s\n", strerror(errno));
+                } else {
+                        s->dequeued_buffers -= 1;
+                }
 
                 if(ret == -1) {
                         fprintf(stderr, "Error converting video.\n");
