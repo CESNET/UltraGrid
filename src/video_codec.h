@@ -93,6 +93,7 @@ bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(pure);
 int codec_is_const_size(codec_t codec) ATTRIBUTE(pure);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
+void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len);

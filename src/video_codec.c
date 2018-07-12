@@ -613,6 +613,24 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 #endif
 
 /**
+ * Extended version of vc_deinterlace(). The former version was in-place only.
+ * This allows to output to different buffer.
+ */
+void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
+{
+        for (size_t y = 0; y < lines; y += 2) {
+                for (size_t x = 0; x < src_linesize; ++x) {
+                        int val = (*src + src[src_linesize] + 1) >> 1;
+                        *dst = dst[dst_pitch] = val;
+                        src++;
+                        dst++;
+                }
+                src += src_linesize;
+                dst += dst_pitch;
+        }
+}
+
+/**
  * @brief Converts v210 to UYVY
  * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
  * @param[in]  src     4-byte aligned input buffer containing v210 (by definition of v210
