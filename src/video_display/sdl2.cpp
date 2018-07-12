@@ -199,7 +199,8 @@ static void display_sdl_run(void *arg)
                                 }
                                 break;
                         case SDL_WINDOWEVENT:
-                                if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                                if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED
+                                                || sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED) {
                                         // clear both buffers
                                         SDL_RenderClear(s->renderer);
                                         display_frame(s, s->last_frame);
