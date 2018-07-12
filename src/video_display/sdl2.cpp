@@ -84,6 +84,7 @@ struct state_sdl2 {
         chrono::steady_clock::time_point tv{chrono::steady_clock::now()};
         unsigned long long int  frames{0};
 
+        int                     display_idx{0};
         SDL_Window             *window{nullptr};
         SDL_Renderer           *renderer{nullptr};
         SDL_Texture            *texture{nullptr};
@@ -217,9 +218,11 @@ static void display_sdl_run(void *arg)
 static void show_help(void)
 {
         printf("SDL2 options:\n");
-        printf("\t-d sdl2[:fs][:d]* | help\n");
-        printf("\tfs - fullscreen\n");
-        printf("\td - deinterlace\n");
+        printf("\t-d sdl2[:fs|:d|:display=<idx>]*|:help\n");
+        printf("\twhere:\n");
+        printf("\t\t  d   - deinterlace\n");
+        printf("\t\t fs   - fullscreen\n");
+        printf("\t\t<idx> - display index\n");
 }
 
 static int display_sdl_reconfigure(void *state, struct video_desc desc)
@@ -260,7 +263,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                 if (get_commandline_param("window-title")) {
                         window_title = get_commandline_param("window-title");
                 }
-                s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, desc.width, desc.height, flags);
+                s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), desc.width, desc.height, flags);
                 if (!s->window) {
                         log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
                         return FALSE;
@@ -357,6 +360,8 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                         s->deinterlace = true;
                 } else if (strcmp(tok, "fs") == 0) {
                         s->fs = true;
+                } else if (strncmp(tok, "display=", strlen("display=")) == 0) {
+                        s->display_idx = atoi(tok + strlen("display="));
                 } else if (strcmp(tok, "help") == 0) {
                         show_help();
                         delete s;
