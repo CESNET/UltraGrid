@@ -242,32 +242,6 @@ $TARGET: "$2"
           ])
 
 # -------------------------------------------------------------------------------------------------
-# Licensing
-# -------------------------------------------------------------------------------------------------
-bsd=no
-AC_ARG_ENABLE(bsd-build,
-              AS_HELP_STRING([--enable-bsd-build], [build UltraGrid as a BSD binary (default is GPL)]),
-	[bsd=$enableval],
-        )
-
-AC_ARG_ENABLE(gpl-build,
-              AS_HELP_STRING([--enable-gpl-build], [build UltraGrid as a GPL binary (default)]),
-	[bsd=`test $enableval = yes && echo no || echo yes`],
-        )
-
-if test $bsd = no
-then
-        AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
-        license="GPLv2"
-        COPYRIGHT="COPYRIGHT.GPL-2"
-else
-        license="BSD License"
-        COPYRIGHT="COPYRIGHT.BSD"
-fi
-
-AC_SUBST(COPYRIGHT)
-
-# -------------------------------------------------------------------------------------------------
 # Additional macros
 # -------------------------------------------------------------------------------------------------
 AC_DEFUN([CUDA_MESSAGE], [
@@ -2914,7 +2888,6 @@ RESULT=\
   IPv6 support ................ $ipv6
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
-  License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT

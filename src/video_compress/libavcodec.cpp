@@ -748,16 +748,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 get_codec_name(ug_codec), codec->name);
         }
 
-#ifndef HAVE_GPL
-        if (strcmp(codec->name, "libx264") == 0 || strcmp(codec->name, "libx265") == 0) {
-                log_msg(LOG_LEVEL_ERROR, "Encoder %s is not available in UltraGrid BSD build. "
-                                "Reconfigure UltraGrid without '--enable-bsd' to enable GPL build "
-                                "or select a different codec or encoder.\n", codec->name);
-                exit_uv(1);
-                return false;
-        }
-#endif
-
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
