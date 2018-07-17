@@ -217,7 +217,8 @@ void socket_error(const char *msg, ...)
                     WSERR(WSAECONNRESET),
                 WSERR(WSAEADDRNOTAVAIL), WSERR(WSAEAFNOSUPPORT),
                     WSERR(WSAEDESTADDRREQ),
-                WSERR(WSAENETUNREACH), WSERR(WSAETIMEDOUT), WSERR(0)
+                WSERR(WSAENETUNREACH), WSERR(WSAETIMEDOUT), WSERR(WSAENOPROTOOPT),
+                WSERR(0)
         };
 
         int i, e = WSAGetLastError();
