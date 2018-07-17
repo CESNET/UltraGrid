@@ -1098,6 +1098,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 }
                 if (rx_port == 0) {
                         fprintf(stderr, "Unable to find empty RTP port pair!\n");
+                } else {
+                        verbose_msg("Found empty UDP port pair %d/%d\n", rx_port, rx_port + 1);
                 }
         }
         if (tx_port == 0) {

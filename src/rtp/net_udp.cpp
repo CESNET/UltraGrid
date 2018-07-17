@@ -654,12 +654,6 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
         return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 }
 
-// we assume that only colon-separated address are IPv6
-static bool address_is_ipv6(const char *addr)
-{
-        return strchr(addr, ':') != NULL;
-}
-
 ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
@@ -683,7 +677,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded)
 {
         int ret;
-        int ip_family;
         int reuse = 1;
         int ipv6only = 0;
         struct sockaddr_storage s_in{};
@@ -693,20 +686,9 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         s->local = new socket_udp_local();
         s->local->fd = INVALID_SOCKET;
 
-	if (!address_is_ipv6(addr) && !use_ipv6) {
-                s->local->mode = IPv4;
-                ip_family = AF_INET;
-	} else {
-#ifdef HAVE_IPv6
+        if (use_ipv6) {
                 s->local->mode = IPv6;
-                ip_family = AF_INET6;
-#else
-                log_msg(LOG_LEVEL_ERROR, "IPv6 support not compiled in!\n");
-                delete s->local;
-                delete s;
-                return NULL;
-#endif
-	}
+        }
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Can't resolve IP address for %s: %s\n", addr,
@@ -730,9 +712,9 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->local->is_wsa_overlapped = true;
         }
 
-        s->local->fd = WSASocket(ip_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+        s->local->fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
 #else
-        s->local->fd = socket(ip_family, SOCK_DGRAM, 0);
+        s->local->fd = socket(s->sock.ss_family, SOCK_DGRAM, 0);
 #endif
         if (s->local->fd == INVALID_SOCKET) {
                 socket_error("Unable to initialize socket");
@@ -794,7 +776,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 struct sockaddr_storage sin;
                 socklen_t addrlen = sizeof(sin);
                 if (getsockname(s->local->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
-                                sin.ss_family == ip_family) {
+                                sin.ss_family == s->sock.ss_family) {
                         if (s->local->mode == IPv4) {
                                 struct sockaddr_in *s_in4 = (struct sockaddr_in *) &sin;
                                 tx_port = ntohs(s_in4->sin_port);
@@ -1283,9 +1265,11 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
 {
         struct addrinfo hints, *res0;
         int err;
-
         memset(&hints, 0, sizeof(hints));
         switch (s->local->mode) {
+        case 0:
+                hints.ai_family = AF_UNSPEC;
+                break;
         case IPv4:
                 hints.ai_family = AF_INET;
                 break;
@@ -1302,10 +1286,13 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
+                log_msg(LOG_LEVEL_ERROR, "getaddrinfo: %s\n", gai_strerror(err));
                 return err;
         } else {
                 memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
                 s->sock_len = res0->ai_addrlen;
+                s->local->mode = (res0->ai_family == AF_INET ? IPv4 : IPv6);
+                verbose_msg("Connected IP version %d\n", s->local->mode);
         }
         freeaddrinfo(res0);
 
@@ -1470,31 +1457,33 @@ bool udp_is_ipv6(socket_udp *s)
         return s->local->mode == IPv6;
 }
 
-bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
+bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
 {
-        bool ipv6;
-	if (!address_is_ipv6(addr) && !use_ipv6) {
-                ipv6 = false;
+        struct sockaddr *sin;
+        struct addrinfo hints, *res0;
+        int err;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = force_ip_version ? (force_ip_version == 6 ? AF_INET6 : AF_INET) : AF_UNSPEC;
+        hints.ai_socktype = SOCK_DGRAM;
+        char tx_port_str[7];
+        sprintf(tx_port_str, "%u", 5004);
+        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
+                /* We should probably try to do a DNS lookup on the name */
+                /* here, but I'm trying to get the basics going first... */
+                log_msg(LOG_LEVEL_ERROR, "getaddrinfo: %s\n", gai_strerror(err));
+                return false;
         } else {
-                ipv6 = true;
+                sin = res0->ai_addr;
         }
 
         for (int i = 0; i < 2; ++i) {
                 fd_t fd;
 
-                struct sockaddr_storage s_st = {};
-                socklen_t len;
-
-                if (ipv6) {
-                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_st;
+                if (sin->sa_family == AF_INET6) {
+                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) sin;
                         int ipv6only = 0;
-                        s_in6->sin6_family = AF_INET6;
                         s_in6->sin6_port = htons(even_port + i);
-#ifdef HAVE_SIN6_LEN
-                        s_in6->sin6_len = sizeof(s_in);
-#endif
                         s_in6->sin6_addr = in6addr_any;
-                        len = sizeof(struct sockaddr_in6);
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
                         if (fd != INVALID_SOCKET) {
                                 if (SETSOCKOPT
@@ -1502,30 +1491,34 @@ bool udp_port_pair_is_free(const char *addr, bool use_ipv6, int even_port)
                                                  sizeof(ipv6only)) != 0) {
                                         socket_error("setsockopt IPV6_V6ONLY");
                                         CLOSESOCKET(fd);
+                                        freeaddrinfo(res0);
                                         return false;
                                 }
                         }
                 } else {
-                        struct sockaddr_in *s_in = (struct sockaddr_in *) &s_st;
-                        s_in->sin_family = AF_INET;
+                        struct sockaddr_in *s_in = (struct sockaddr_in *) sin;
                         s_in->sin_addr.s_addr = INADDR_ANY;
                         s_in->sin_port = htons(even_port + i);
-                        len = sizeof(struct sockaddr_in);
                         fd = socket(AF_INET, SOCK_DGRAM, 0);
                 }
 
                 if (fd == INVALID_SOCKET) {
                         socket_error("Unable to initialize socket");
+                        freeaddrinfo(res0);
                         return false;
                 }
 
-                if (bind(fd, (struct sockaddr *)&s_st, len) != 0) {
+                if (bind(fd, (struct sockaddr *) sin, res0->ai_addrlen) != 0) {
+                        freeaddrinfo(res0);
                         CLOSESOCKET(fd);
                         return false;
                 }
 
                 CLOSESOCKET(fd);
         }
+
+        freeaddrinfo(res0);
+
         return true;
 }
 
