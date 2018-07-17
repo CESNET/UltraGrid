@@ -230,14 +230,14 @@ rtp_t		rtp_init(const char *addr,
 			 int tfrc_on,
 			 rtp_callback callback,
 			 uint8_t *userdata,
-                         bool use_ipv6, bool multithreaded);
+                         int force_ip_version, bool multithreaded);
 rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    uint16_t rx_port, uint16_t tx_port, 
 			    int ttl, double rtcp_bw, 
 			    int tfrc_on,
 			    rtp_callback callback,
 			    uint8_t *userdata,
-                            bool use_ipv6, bool multithreaded);
+                            int force_ip_version, bool multithreaded);
 rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len, rtp_callback callback);
 
 void		 rtp_send_bye(struct rtp *session);

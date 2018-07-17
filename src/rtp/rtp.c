@@ -1026,10 +1026,10 @@ struct rtp *rtp_init(const char *addr,
                      uint16_t rx_port, uint16_t tx_port,
                      int ttl, double rtcp_bw,
                      int tfrc_on, rtp_callback callback, uint8_t * userdata,
-                     bool use_ipv6, bool multithreaded)
+                     int force_ip_version, bool multithreaded)
 {
         return rtp_init_if(addr, NULL, rx_port, tx_port, ttl, rtcp_bw, tfrc_on,
-                           callback, userdata, use_ipv6, multithreaded);
+                           callback, userdata, force_ip_version, multithreaded);
 }
 
 /**
@@ -1049,7 +1049,7 @@ struct rtp *rtp_init(const char *addr,
  * @callback: See section on #rtp_callback.
  * @userdata: Opaque data associated with the session.  See
  * rtp_get_userdata().
- * @use_ipv6 whether or not use IP version 6
+ * @force_ip_version if IPv4 or IPv4 is requested, pass 4 or 6 respectively, otherwise 0
  * @multithreaded if set to true uses separate thread to receive data (performance optimization)
  *
  * Creates and initializes an RTP session.
@@ -1061,15 +1061,19 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                         uint16_t rx_port, uint16_t tx_port,
                         int ttl, double rtcp_bw,
                         int tfrc_on, rtp_callback callback, uint8_t * userdata,
-                        bool use_ipv6, bool multithreaded)
+                        int force_ip_version, bool multithreaded)
 {
         struct rtp *session;
         int i, j;
         char *cname;
         char *hname;
 
+        if (force_ip_version != 0 && force_ip_version != 4 && force_ip_version != 6) {
+                log_msg(LOG_LEVEL_ERROR, "IP version must be either 4 or 6 (or 0)\n");
+                return NULL;
+        }
         if (ttl < 0 || ttl > 255) {
-                fprintf(stderr, "ttl must be in range [0..255]\n");
+                log_msg(LOG_LEVEL_ERROR, "ttl must be in range [0..255]\n");
                 return NULL;
         }
         if (rx_port % 2) {
@@ -1091,7 +1095,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         if (rx_port == 0) {
                 for (int i = 1<<15; i < 1<<16; i += 2) {
                         // this stuff is not atomic. but... it cannot be done in this way, either
-                        if (udp_port_pair_is_free(addr, use_ipv6, i)) {
+                        if (udp_port_pair_is_free(addr, force_ip_version, i)) {
                                 rx_port = i;
                                 break;
                         }
@@ -1105,11 +1109,11 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         if (tx_port == 0) {
                 tx_port = rx_port;
         }
-        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6, multithreaded);
+        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, force_ip_version, multithreaded);
 
         session->rtcp_socket =
             udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
-                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, use_ipv6, false);
+                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, force_ip_version, false);
 
         init_opt(session);
 

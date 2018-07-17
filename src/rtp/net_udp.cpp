@@ -649,9 +649,9 @@ int udp_addr_valid(const char *addr)
  * Returns: a pointer to a valid socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
-                     int ttl, bool use_ipv6, bool multithreaded)
+                     int ttl, int force_ip_version, bool multithreaded)
 {
-        return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6, multithreaded);
+        return udp_init_if(addr, NULL, rx_port, tx_port, ttl, force_ip_version, multithreaded);
 }
 
 ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
@@ -668,13 +668,13 @@ ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
  * @param rx_port receive port.
  * @param tx_port transmit port.
  * @param ttl     time-to-live value for transmitted packets.
- * @param use_ipv6     whether to use IPv6 for hostname
+ * @param force_ip_version     force specific IP version
  * @param multithreaded receiving in a separate thread than processing
  *
  * @returns a pointer to a socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
-                        uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded)
+                        uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded)
 {
         int ret;
         int reuse = 1;
@@ -686,9 +686,8 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         s->local = new socket_udp_local();
         s->local->fd = INVALID_SOCKET;
 
-        if (use_ipv6) {
-                s->local->mode = IPv6;
-        }
+        assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
+        s->local->mode = force_ip_version;
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Can't resolve IP address for %s: %s\n", addr,
