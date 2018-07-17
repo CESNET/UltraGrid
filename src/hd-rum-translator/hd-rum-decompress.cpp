@@ -189,7 +189,7 @@ void state_transcoder_decompress::worker()
 void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter)
 {
         struct state_transcoder_decompress *s;
-        bool use_ipv6 = false;
+        int force_ip_version = 0;
 
         s = new state_transcoder_decompress();
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
@@ -226,7 +226,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["receiver"].ptr = (void *) "localhost";
         params["rx_port"].i = 0;
         params["tx_port"].i = 0;
-        params["use_ipv6"].b = use_ipv6;
+        params["force_ip_version"].b = force_ip_version;
         params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;

@@ -36,11 +36,11 @@ struct item;
 #define REPLICA_MAGIC 0xd2ff3323
 
 struct replica {
-    replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, bool use_ipv6) {
+    replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, int force_ip_version) {
         magic = REPLICA_MAGIC;
         host = addr;
         m_tx_port = tx_port;
-        sock = udp_init(addr, rx_port, tx_port, 255, use_ipv6, false);
+        sock = udp_init(addr, rx_port, tx_port, 255, force_ip_version, false);
         if (!sock) {
             throw string("Cannot initialize output port!\n");
         }
@@ -471,7 +471,7 @@ struct host_opts {
     char *compression;
     char *fec;
     int64_t bitrate;
-    bool use_ipv6;
+    int force_ip_version;
 };
 
 struct cmdline_parameters {
@@ -598,8 +598,11 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                         assert(parsed->hosts[host_idx].bitrate > 0);
                     }
                     break;
+                case '4':
+                    parsed->hosts[host_idx].force_ip_version = 4;
+                    break;
                 case '6':
-                    parsed->hosts[host_idx].use_ipv6 = true;
+                    parsed->hosts[host_idx].force_ip_version = 6;
                     break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
@@ -738,7 +741,7 @@ int main(int argc, char **argv)
         }
 
         try {
-            state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod, params.hosts[i].use_ipv6);
+            state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod, params.hosts[i].force_ip_version);
         } catch (string const &s) {
             fputs(s.c_str(), stderr);
             return EXIT_FAILURE;

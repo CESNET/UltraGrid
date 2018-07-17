@@ -35,7 +35,7 @@ void *recompress_init(struct module *parent,
                 const char *host, const char *compress, unsigned short rx_port,
                 unsigned short tx_port, int mtu, char *fec, long long bitrate)
 {
-        bool use_ipv6 = false;
+        int force_ip_version = 0;
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
         map<string, param_u> params;
@@ -52,7 +52,7 @@ void *recompress_init(struct module *parent,
         params["receiver"].ptr = (void *) host;
         params["rx_port"].i = rx_port;
         params["tx_port"].i = tx_port;
-        params["use_ipv6"].b = use_ipv6;
+        params["force_ip_version"].i = force_ip_version;
         params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) fec;
         params["encryption"].ptr = (void *) NULL;

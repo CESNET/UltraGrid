@@ -65,7 +65,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 const char *proto, const char *proto_cfg,
                 const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, const char *mcast_iface, const char *audio_codec_cfg,
+                bool echo_cancellation, int force_ip_version, const char *mcast_iface, const char *audio_codec_cfg,
                 long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu, struct exporter *exporter);
 #endif
 

@@ -102,7 +102,7 @@ struct audio_network_parameters {
         int recv_port;
         int send_port;
         struct pdb *participants;
-        bool use_ipv6;
+        int force_ip_version;
         char *mcast_if;
 };
 
@@ -204,7 +204,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 const char *proto, const char *proto_cfg,
                 const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, const char *mcast_if,
+                bool echo_cancellation, int force_ip_version, const char *mcast_if,
                 const char *audio_codec_cfg,
                 long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu, struct exporter *exporter)
 {
@@ -304,7 +304,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.recv_port = recv_port;
         s->audio_network_parameters.send_port = send_port;
         s->audio_network_parameters.participants = s->audio_participants;
-        s->audio_network_parameters.use_ipv6 = use_ipv6;
+        s->audio_network_parameters.force_ip_version = force_ip_version;
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
 
@@ -503,7 +503,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
                         params->send_port, 255, rtcp_bw,
                         FALSE, rtp_recv_callback,
                         (uint8_t *) params->participants,
-                        params->use_ipv6, false);
+                        params->force_ip_version, false);
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);

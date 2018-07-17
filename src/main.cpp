@@ -272,7 +272,7 @@ static void usage(const char *exec_path)
         printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
         printf("\n");
 #ifdef HAVE_IPv6
-        printf("\t-6                       \tUse IPv6\n");
+        printf("\t-4/-6                    \tForce IPv4/IPv6 resolving\n");
         printf("\n");
 #endif //  HAVE_IPv6
         printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
@@ -488,7 +488,7 @@ int main(int argc, char *argv[])
         enum video_mode decoder_mode = VIDEO_NORMAL;
         const char *requested_compression = nullptr;
 
-        bool ipv6 = false;
+        int force_ip_version = 0;
         struct state_uv uv{};
         int ch;
 
@@ -524,7 +524,6 @@ int main(int argc, char *argv[])
                 {"display", required_argument, 0, 'd'},
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
-                {"ipv6", no_argument, 0, '6'},
                 {"mode", required_argument, 0, 'M'},
                 {"version", no_argument, 0, 'v'},
                 {"compress", required_argument, 0, 'c'},
@@ -560,7 +559,7 @@ int main(int argc, char *argv[])
                 {"param", required_argument, 0, OPT_PARAM},
                 {0, 0, 0, 0}
         };
-        const char optstring[] = "d:t:m:r:s:v6c:hM:p:f:P:l:A:";
+        const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -737,8 +736,11 @@ int main(int argc, char *argv[])
                                 }
                         }
                         break;
+                case '4':
+                        force_ip_version = 4;
+                        break;
                 case '6':
-                        ipv6 = true;
+                        force_ip_version = 6;
                         break;
                 case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
@@ -1018,7 +1020,7 @@ int main(int argc, char *argv[])
                         audio_protocol, audio_protocol_opts,
                         requested_audio_fec, requested_encryption,
                         audio_channel_map,
-                        audio_scale, echo_cancellation, ipv6, requested_mcast_if,
+                        audio_scale, echo_cancellation, force_ip_version, requested_mcast_if,
                         audio_codec, bitrate, &audio_offset, &start_time,
                         requested_mtu, exporter);
         if(!uv.audio) {
@@ -1121,7 +1123,7 @@ int main(int argc, char *argv[])
                 params["receiver"].ptr = (void *) requested_receiver;
                 params["rx_port"].i = video_rx_port;
                 params["tx_port"].i = video_tx_port;
-                params["use_ipv6"].b = ipv6;
+                params["force_ip_version"].i = force_ip_version;
                 params["mcast_if"].ptr = (void *) requested_mcast_if;
                 params["mtu"].i = requested_mtu;
                 params["fec"].ptr = (void *) requested_video_fec;

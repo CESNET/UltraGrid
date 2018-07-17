@@ -62,7 +62,7 @@ public:
         virtual ~rtp_video_rxtx();
 
         static struct rtp **initialize_network(const char *addrs, int recv_port_base,
-                        int send_port_base, struct pdb *participants, bool use_ipv6,
+                        int send_port_base, struct pdb *participants, int force_ip_version,
                         const char *mcast_if);
         void destroy_rtp_devices(struct rtp ** network_devices);
         static void display_buf_increase_warning(int size);
@@ -76,7 +76,7 @@ protected:
         std::string      m_requested_receiver;
         int              m_recv_port_number;
         int              m_send_port_number;
-        bool             m_ipv6;
+        int              m_force_ip_version;
         const char      *m_requested_mcast_if;
         fec             *m_fec_state;
         const std::chrono::steady_clock::time_point m_start_time;

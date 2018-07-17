@@ -122,7 +122,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         else
                 params["rx_port"].i = 5004; // default
         params["tx_port"].i = 0;
-        params["use_ipv6"].b = false;
+        params["force_ip_version"].i = 0;
         params["mcast_if"].ptr = (void *) NULL;
         params["fec"].ptr = (void *) "none";
         params["encryption"].ptr = (void *) NULL;
