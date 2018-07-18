@@ -222,12 +222,17 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
 ])
 
+# @param $1 name of the module
+function MODULE_NAME() {
+        echo "lib/ultragrid/ultragrid_"$1".so"
+}
+
 # Adds the module to UltraGrid build system.
 # @param $1 name of the module
 # @param $2 object files
 # @param $3 libraries
 AC_DEFUN([ADD_MODULE], [
-          TARGET="lib/ultragrid/ultragrid_"$1".so"
+          TARGET=$(MODULE_NAME "$1")
           LIB_OBJS=$LIB_OBJS" "$2
           LIB_MODULES=$LIB_MODULES" "$3
 	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
@@ -235,8 +240,8 @@ AC_DEFUN([ADD_MODULE], [
 		                [
 				 MODULES="$MODULES $TARGET"
 				 TARGETS="$TARGETS
-$TARGET: "$2"
-	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3"
+$TARGET: "$2" $4
+	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3" $4
 "
 				 ])
           ])
@@ -1321,9 +1326,9 @@ if test $resize_req = yes -a $resize = no; then
         AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
 fi
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 # Blank stuff
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 BLANK_LIBS=
 BLANK_OBJ=
 blank=no
@@ -1416,6 +1421,147 @@ ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
 if test $testcard_extras_req = yes -a $testcard_extras = no; then
         AC_MSG_ERROR([Testcard2 not found]);
+fi
+
+
+# -------------------------------------------------------------------------------------------------
+# libavcodec hw-accelerated decoding support
+# -------------------------------------------------------------------------------------------------
+lavc_hwacc_common=no
+lavc_hwacc_vdpau=no
+lavc_hwacc_vaapi=no
+
+define(lavc_hwacc_common_dep, libavutil >= 55.22.1)
+define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
+define(lavc_hwacc_vaapi_dep, lavc_hwacc_common_dep libva)
+
+AC_ARG_ENABLE(lavc-hw-accel-vdpau,
+[  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
+[                          Requires: lavc_hwacc_vdpau_dep],
+    [lavc_hwacc_vdpau_req=$enableval],
+    [lavc_hwacc_vdpau_req=auto]
+    )
+
+AC_ARG_ENABLE(lavc-hw-accel-vaapi,
+[  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
+[                          Requires: lavc_hwacc_vaapi_dep],
+    [lavc_hwacc_vaapi_req=$enableval],
+    [lavc_hwacc_vaapi_req=auto]
+    )
+
+PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
+PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
+PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
+
+LAVC_HWACC_FLAGS=
+LAVC_HWACC_LIBS=
+HW_ACC_OBJ=
+HW_ACC_DISPLAY_OBJ=
+
+if test $lavc_hwacc_vdpau_req != no -a $FOUND_HWACC_VDPAU_DEP = yes
+then
+        lavc_hwacc_vdpau=yes
+        lavc_hwacc_common=yes
+fi
+if test $lavc_hwacc_vaapi_req != no -a $FOUND_HWACC_VAAPI_DEP = yes
+then
+        lavc_hwacc_vaapi=yes
+        lavc_hwacc_common=yes
+fi
+
+if test $lavc_hwacc_common = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_libav_common.o"
+        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_libav_common.o"
+fi
+
+if test $lavc_hwacc_vdpau = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VDPAU ${LAVC_HWACC_VDPAU_CFLAGS}"
+        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
+        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_vdpau.o"
+fi
+
+if test $lavc_hwacc_vaapi = yes
+then
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
+        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
+        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
+        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_vaapi.o"
+fi
+
+COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
+
+if test -n "$HW_ACC_OBJ"
+then
+        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$LAVC_HWACC_LIBS")
+fi
+
+if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
+	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
+fi
+
+if test $lavc_hwacc_vaapi_req = yes -a $lavc_hwacc_vaapi = no; then
+	AC_MSG_ERROR([Could not find hwacc vaapi dependencies!]);
+fi
+
+# -------------------------------------------------------------------------------------------------
+# Libav
+# -------------------------------------------------------------------------------------------------
+libavcodec=no
+libavcodec_audio=no
+AC_ARG_ENABLE(libavcodec,
+[  --disable-libavcodec    disable libavcodec support (default is auto)]
+[                          Requires: libavcodec libavutil],
+[libavcodec_req=$enableval],
+[libavcodec_req=auto]
+)
+
+if test $system = Windows; then
+AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
+AC_CHECK_LIB(avcodec, avcodec_open2)
+AC_CHECK_LIB(avutil, av_free)
+if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
+        $ac_cv_header_libavutil_imgutils_h = yes -a \
+        $ac_cv_header_libavutil_opt_h = yes -a \
+        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
+        $ac_cv_lib_avutil_av_free = yes
+then
+        found_libavcodec=yes
+        found_libavutil=yes
+        libavcodec_ge_55=yes # TODO
+        LIBAVCODEC_LIBS="-lavcodec"
+        LIBAVUTIL_LIBS="-lavutil"
+else
+        found_libavcodec=no
+        found_libavutil=no
+fi
+else # Linux, OS X
+PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
+PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
+fi
+
+if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
+then
+        LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
+        AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
+        AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
+        LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
+
+        LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
+        LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
+        COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
+        libavcodec=yes
+        LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
+        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS")
+        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
+        ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
+fi
+
+if test $libavcodec_req = yes -a $libavcodec = no; then
+        AC_MSG_ERROR([Libavcodec not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -1587,7 +1733,7 @@ esac
 if test $gl = yes
 then
 	INC="$INC $GL_INC"
-        ADD_MODULE("display_gl", "$GL_OBJ", "$GL_LIB")
+	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB")
 fi
 
 if test $gl_req = yes -a $gl = no; then
@@ -2425,6 +2571,8 @@ then
 	# Retrieve Qt compilation and linker flags
 	CXXFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CXXFLAGS"
 	CFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CFLAGS"
+	LDFLAGS="`$PKG_CONFIG --libs-only-L Qt5Gui ` $LDFLAGS"
+	LIBS="`$PKG_CONFIG --libs-only-l Qt5Gui ` $LIBS"
 
 	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS")
@@ -2498,153 +2646,6 @@ fi
 
 if test $dshow_req = yes -a $dshow = no; then
         AC_MSG_ERROR([DirectShow not found]);
-fi
-
-# -------------------------------------------------------------------------------------------------
-# libavcodec hw-accelerated decoding support
-# -------------------------------------------------------------------------------------------------
-lavc_hwacc_common=no
-lavc_hwacc_vdpau=no
-lavc_hwacc_vaapi=no
-
-define(lavc_hwacc_common_dep, libavutil >= 55.22.1)
-define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
-define(lavc_hwacc_vaapi_dep, lavc_hwacc_common_dep libva)
-
-AC_ARG_ENABLE(lavc-hw-accel-vdpau,
-[  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
-[                          Requires: lavc_hwacc_vdpau_dep],
-    [lavc_hwacc_vdpau_req=$enableval],
-    [lavc_hwacc_vdpau_req=auto]
-    )
-
-AC_ARG_ENABLE(lavc-hw-accel-vaapi,
-[  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
-[                          Requires: lavc_hwacc_vaapi_dep],
-    [lavc_hwacc_vaapi_req=$enableval],
-    [lavc_hwacc_vaapi_req=auto]
-    )
-
-if test "$build_libraries" = yes
-then
-        if test $lavc_hwacc_vdpau_req = yes -o $lavc_hwacc_vaapi_req = yes; then
-                AC_MSG_ERROR([Hwacc is incompatible with modular build!]);
-        fi
-
-        lavc_hwacc_vdpau_req=no
-        lavc_hwacc_vaapi_req=no
-fi
-
-PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
-PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
-PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
-
-LAVC_HWACC_FLAGS=
-LAVC_HWACC_LIBS=
-HW_ACC_OBJ=
-
-if test $lavc_hwacc_vdpau_req != no -o $lavc_hwacc_vaapi_req != no
-then
-        if test $FOUND_HWACC_VDPAU_DEP = yes
-        then
-                lavc_hwacc_vdpau=yes
-                lavc_hwacc_common=yes
-        fi
-        if test $FOUND_HWACC_VAAPI_DEP = yes
-        then
-                lavc_hwacc_vaapi=yes
-                lavc_hwacc_common=yes
-        fi
-fi
-
-if test $lavc_hwacc_common = yes
-then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_libav_common.o"
-fi
-
-if test $lavc_hwacc_vdpau = yes
-then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VDPAU ${LAVC_HWACC_VDPAU_CFLAGS}"
-        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
-fi
-
-if test $lavc_hwacc_vaapi = yes
-then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
-        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
-fi
-
-if test -n "$HW_ACC_OBJ"
-then
-        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$LAVC_HWACC_LIBS")
-fi
-
-if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
-	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
-fi
-
-if test $lavc_hwacc_vaapi_req = yes -a $lavc_hwacc_vaapi = no; then
-	AC_MSG_ERROR([Could not find hwacc vaapi dependencies!]);
-fi
-
-# -------------------------------------------------------------------------------------------------
-# Libav
-# -------------------------------------------------------------------------------------------------
-libavcodec=no
-libavcodec_audio=no
-AC_ARG_ENABLE(libavcodec,
-[  --disable-libavcodec    disable libavcodec support (default is auto)]
-[                          Requires: libavcodec libavutil],
-[libavcodec_req=$enableval],
-[libavcodec_req=auto]
-)
-
-if test $system = Windows; then
-AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
-AC_CHECK_LIB(avcodec, avcodec_open2)
-AC_CHECK_LIB(avutil, av_free)
-if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
-        $ac_cv_header_libavutil_imgutils_h = yes -a \
-        $ac_cv_header_libavutil_opt_h = yes -a \
-        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
-        $ac_cv_lib_avutil_av_free = yes
-then
-        found_libavcodec=yes
-        found_libavutil=yes
-        libavcodec_ge_55=yes # TODO
-        LIBAVCODEC_LIBS="-lavcodec"
-        LIBAVUTIL_LIBS="-lavutil"
-else
-        found_libavcodec=no
-        found_libavutil=no
-fi
-else # Linux, OS X
-PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
-PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
-fi
-
-if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
-then
-        LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
-        AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
-        AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
-        LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
-
-        LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
-        LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
-        COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS $LAVC_HWACC_FLAGS"
-        libavcodec=yes
-        LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS $LAVC_HWACC_LIBS" # added libavutil explicitly
-        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS")
-        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
-        ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
-fi
-
-if test $libavcodec_req = yes -a $libavcodec = no; then
-        AC_MSG_ERROR([Libavcodec not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
