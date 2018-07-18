@@ -2800,6 +2800,7 @@ fi
 # ------------------------------------------------------------------------------
 # Comprimato J2K
 # ------------------------------------------------------------------------------
+cmpto_j2k=no
 AC_ARG_ENABLE(cmpto-j2k,
 [  --enable-cmpto-j2k      enables Comprimato J2K support (default is disabled)]
 [                          Requires: cmpto_j2k],
@@ -2807,14 +2808,21 @@ AC_ARG_ENABLE(cmpto-j2k,
     [cmpto_j2k_req=no]
     )
 
-cmpto_j2k=no
-if test $cmpto_j2k_req = yes
+AC_CHECK_HEADER(cmpto_j2k_enc.h, FOUND_CMPTO_J2K_ENC_H=yes, FOUND_CMPTO_J2K_ENC_H=no)
+AC_CHECK_HEADER(cmpto_j2k_dec.h, FOUND_CMPTO_J2K_DEC_H=yes, FOUND_CMPTO_J2K_DEC_H=no)
+AC_CHECK_LIB(cmpto_j2k_enc, cmpto_j2k_enc_ctx_cfg_create, FOUND_CMPTO_J2K_ENC_L=yes, FOUND_CMPTO_J2K_ENC_L=no)
+AC_CHECK_LIB(cmpto_j2k_dec, cmpto_j2k_dec_ctx_cfg_create, FOUND_CMPTO_J2K_DEC_L=yes, FOUND_CMPTO_J2K_DEC_L=no)
+
+if test $cmpto_j2k_req != no -a "$FOUND_CMPTO_J2K_ENC_H" = yes -a "$FOUND_CMPTO_J2K_DEC_H" = yes -a "$FOUND_CMPTO_J2K_ENC_L" = yes -a "$FOUND_CMPTO_J2K_DEC_L" = yes
 then
         ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/cmpto_j2k.o", "-lcmpto_j2k_enc")
         ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/cmpto_j2k.o", "-lcmpto_j2k_dec")
         cmpto_j2k=yes
 fi
 
+if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
+        AC_MSG_ERROR([Comprimato J2K not found!)]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
