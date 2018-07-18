@@ -85,12 +85,14 @@ struct state_sdl2 {
         unsigned long long int  frames{0};
 
         int                     display_idx{0};
+        int                     renderer_idx{-1};
         SDL_Window             *window{nullptr};
         SDL_Renderer           *renderer{nullptr};
         SDL_Texture            *texture{nullptr};
 
         bool                    fs{false};
         bool                    deinterlace{false};
+        bool                    vsync{true};
 
         mutex                   lock;
         condition_variable      frame_consumed_cv;
@@ -218,12 +220,28 @@ static void display_sdl_run(void *arg)
 
 static void show_help(void)
 {
-        printf("SDL2 options:\n");
-        printf("\t-d sdl2[:fs|:d|:display=<idx>]*|:help\n");
+        SDL_Init(0);
+        printf("SDL options:\n");
+        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>]*|:help]\n");
         printf("\twhere:\n");
-        printf("\t\t  d   - deinterlace\n");
-        printf("\t\t fs   - fullscreen\n");
-        printf("\t\t<idx> - display index\n");
+        printf("\t\t   d   - deinterlace\n");
+        printf("\t\t  fs   - fullscreen\n");
+        printf("\t\t<didx> - display index\n");
+        printf("\t\t<drv>  - one of following: ");
+        for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
+                printf("%s%s", i == 0 ? "" : ", ", SDL_GetVideoDriver(i));
+        }
+        printf("\n");
+        printf("\t\tnovsync- disable sync on VBlank\n");
+        printf("\t\t<ridx> - renderer index: ");
+        for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
+                SDL_RendererInfo renderer_info;
+                if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
+                        printf("%s%d - %s", i == 0 ? "" : ", ", i, renderer_info.name);
+                }
+        }
+        printf("\n");
+        SDL_Quit();
 }
 
 static int display_sdl_reconfigure(void *state, struct video_desc desc)
@@ -278,10 +296,14 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
         }
-        s->renderer = SDL_CreateRenderer(s->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        s->renderer = SDL_CreateRenderer(s->window, s->renderer_idx, SDL_RENDERER_ACCELERATED | (s->vsync ? SDL_RENDERER_PRESENTVSYNC : 0));
         if (!s->renderer) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create renderer: %s\n", SDL_GetError());
                 return FALSE;
+        }
+        SDL_RendererInfo renderer_info;
+        if (SDL_GetRendererInfo(s->renderer, &renderer_info) == 0) {
+                log_msg(LOG_LEVEL_NOTICE, "[SDL] Using renderer: %s\n", renderer_info.name);
         }
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -347,6 +369,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid SDL2 module currently doesn't support audio!\n");
                 return NULL;
         }
+        const char *driver = NULL;
         struct state_sdl2 *s = new state_sdl2{};
 
         if (fmt == NULL) {
@@ -359,14 +382,20 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         {
                 if (strcmp(tok, "d") == 0) {
                         s->deinterlace = true;
-                } else if (strcmp(tok, "fs") == 0) {
-                        s->fs = true;
                 } else if (strncmp(tok, "display=", strlen("display=")) == 0) {
                         s->display_idx = atoi(tok + strlen("display="));
+                } else if (strncmp(tok, "driver=", strlen("driver=")) == 0) {
+                        driver = tok + strlen("driver=");
+                } else if (strcmp(tok, "fs") == 0) {
+                        s->fs = true;
                 } else if (strcmp(tok, "help") == 0) {
                         show_help();
                         delete s;
                         return &display_init_noerr;
+                } else if (strcmp(tok, "novsync") == 0) {
+                        s->vsync = false;
+                } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
+                        s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[SDL] Wrong option: %s\n", tok);
                         delete s;
@@ -375,12 +404,19 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 tmp = NULL;
         }
 
-        int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+        int ret = SDL_Init(SDL_INIT_EVENTS);
         if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2.\n");
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
                 delete s;
                 return NULL;
         }
+        ret = SDL_VideoInit(driver);
+        if (ret < 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2 video: %s\n", SDL_GetError());
+                delete s;
+                return NULL;
+        }
+        log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         SDL_ShowCursor(SDL_DISABLE);
 
@@ -419,7 +455,8 @@ static void display_sdl_done(void *state)
 
         SDL_ShowCursor(SDL_ENABLE);
 
-        SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+        SDL_VideoQuit();
+        SDL_QuitSubSystem(SDL_INIT_EVENTS);
         SDL_Quit();
 
         delete s;
