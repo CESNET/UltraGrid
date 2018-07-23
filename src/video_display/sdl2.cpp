@@ -273,24 +273,21 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 
         s->current_display_desc = desc;
 
+        if (s->window) {
+                SDL_DestroyWindow(s->window);
+        }
+        int flags = SDL_WINDOW_RESIZABLE;
+        if (s->fs) {
+                flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+        }
+        const char *window_title = "UltraGrid - SDL2 Display";
+        if (get_commandline_param("window-title")) {
+                window_title = get_commandline_param("window-title");
+        }
+        s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), desc.width, desc.height, flags);
         if (!s->window) {
-                int flags = SDL_WINDOW_RESIZABLE;
-                if (s->fs) {
-                        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-                }
-                const char *window_title = "UltraGrid - SDL2 Display";
-                if (get_commandline_param("window-title")) {
-                        window_title = get_commandline_param("window-title");
-                }
-                s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), desc.width, desc.height, flags);
-                if (!s->window) {
-                        log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
-                        return FALSE;
-                }
-        } else {
-                if (!s->fs) {
-                        SDL_SetWindowSize(s->window, desc.width, desc.height);
-                }
+                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
+                return FALSE;
         }
 
         if (s->renderer) {
