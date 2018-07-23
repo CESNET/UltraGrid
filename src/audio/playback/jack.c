@@ -247,7 +247,7 @@ error:
 static bool audio_play_jack_query_format(struct state_jack_playback *s, void *data, size_t *len)
 {
         struct audio_desc desc;
-        if (*len <= sizeof desc) {
+        if (*len < sizeof desc) {
                 return false;
         } else {
                 memcpy(&desc, data, sizeof desc);
