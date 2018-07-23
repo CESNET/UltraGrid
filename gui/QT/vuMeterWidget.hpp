@@ -2,28 +2,35 @@
 #define VUMETERWIDGET_HPP
 
 #include <QTimer>
-#include <QProgressBar>
+#include <QWidget>
+#include <QPaintEvent>
 #include <memory>
 
 #include <chrono>
 
 #include "astat.h"
 
-class VuMeterWidget : public QProgressBar{
+class VuMeterWidget : public QWidget{
 	Q_OBJECT
 public:
 	VuMeterWidget(QWidget *parent) :
-		QProgressBar(parent),
+		QWidget(parent),
 		connection(nullptr, ug_control_connection_done),
 		port(8888),
-		barLevel(0.0),
+		peak {0.0},
+		rms {0.0},
+		barLevel {0.0},
+		rmsLevel {0.0},
 		updatesPerSecond(24)
    	{
 		connect(&timer, SIGNAL(timeout()), this, SLOT(updateVal()));
 		timer.start(1000/updatesPerSecond);
-		setValue(50);
+		//setValue(50);
 		connect_ug();
   	}
+
+protected:
+	void paintEvent(QPaintEvent *paintEvent);
 
 private:
 	QTimer timer;
@@ -31,11 +38,14 @@ private:
 
 	int port;
 
-	double peak[2];
-	double rms[2];
+	static const int num_channels = 2;
+
+	double peak[num_channels];
+	double rms[num_channels];
 	int count;
 
-	double barLevel;
+	double barLevel[num_channels];
+	double rmsLevel[num_channels];
 	int updatesPerSecond;
 
 	void updateVolumes();
@@ -43,6 +53,13 @@ private:
 	void disconnect_ug();
 
 	std::chrono::system_clock::time_point last_connect;
+
+	static const int meterVerticalPad = 5;
+	static const int meterBarPad = 2;
+	static constexpr double zeroLevel = -40.0;
+
+	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms);
+	void paintScale(QPainter&, int x, int y, int width, int height);
 
 public slots:
 	void updateVal();

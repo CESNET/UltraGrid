@@ -62,22 +62,19 @@
         </property>
        </widget>
       </item>
-      <item alignment="Qt::AlignRight">
-       <widget class="VuMeterWidget" name="vuMeter">
+      <item>
+       <widget class="VuMeterWidget" name="vuMeter" native="true">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="textDirection">
-         <enum>QProgressBar::TopToBottom</enum>
+        <property name="minimumSize">
+         <size>
+          <width>50</width>
+          <height>100</height>
+         </size>
         </property>
        </widget>
       </item>
@@ -744,8 +741,9 @@
   </customwidget>
   <customwidget>
    <class>VuMeterWidget</class>
-   <extends>QProgressBar</extends>
+   <extends>QWidget</extends>
    <header>vuMeterWidget.hpp</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
@@ -939,22 +937,6 @@
     <hint type="destinationlabel">
      <x>282</x>
      <y>215</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionVuMeter</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>vuMeter</receiver>
-   <slot>setVisible(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>995</x>
-     <y>220</y>
     </hint>
    </hints>
   </connection>

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 #include "astat.h"
 
@@ -33,7 +34,7 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 struct ug_connection {
         fd_t fd;
         ug_connection(int f, fd_t sef[]) : fd(f), should_exit_fd{sef[0], sef[1]}, t(worker, ref(*this)) {}
-        double volpeak[2] = {0, 0};
+        double volpeak[2] = {-INFINITY, -INFINITY};
         double volrms[2] = {0, 0};
         int sample_count = 0;
         mutex lock;
@@ -62,7 +63,7 @@ static void parse_and_store(ug_connection &c, const char *str)
 
         lock_guard<mutex> lk(c.lock);
         for (int i = 0; i < 2; i++) {
-                c.volpeak[i] = (volpeak[i] * c.sample_count + volpeak[i]) / (c.sample_count + 1);
+                c.volpeak[i] = std::max(c.volpeak[i], volpeak[i]);
                 c.volrms[i] = (volrms[i] * c.sample_count + volrms[i]) / (c.sample_count + 1);
         }
         c.sample_count += 1;
@@ -184,7 +185,7 @@ bool ug_control_get_volumes(struct ug_connection *c, double peak[], double rms[]
         memcpy(rms, c->volrms, sizeof c->volrms);
         *count = c->sample_count;
 
-        memset(c->volpeak, 0, sizeof c->volpeak);
+        std::fill_n(c->volpeak, sizeof(c->volpeak)/sizeof(*c->volpeak), -INFINITY);
         memset(c->volrms, 0, sizeof c->volrms);
         c->sample_count = 0;
 
