@@ -346,9 +346,11 @@ static void * libavcodec_decompress_init(void)
                 av_log_set_level(AV_LOG_VERBOSE);
         }
 
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*   register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
         avcodec_register_all();
+#endif
 
         s->width = s->height = s->pitch = 0;
         s->codec_ctx = NULL;

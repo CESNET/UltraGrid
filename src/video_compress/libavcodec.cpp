@@ -235,7 +235,40 @@ static void cleanup(struct state_video_compress_libav *s);
 
 static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 {
-#if LIBAVCODEC_VERSION_MAJOR >= 54
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 9, 100)
+        assert(buflen > 0);
+        buf[0] = '\0';
+        const AVCodec *codec = nullptr;
+        void *i = 0;
+        char *enc = (char *) alloca(buflen);
+        char *dec = (char *) alloca(buflen);
+        dec[0] = enc[0] = '\0';
+        while ((codec = av_codec_iterate(&i))) {
+                if (av_codec_is_encoder(codec) && codec->id == id) {
+                        strncat(enc, " ", buflen - strlen(enc) - 1);
+                        strncat(enc, codec->name, buflen - strlen(enc) - 1);
+                }
+                if (av_codec_is_decoder(codec) && codec->id == id) {
+                        strncat(dec, " ", buflen - strlen(dec) - 1);
+                        strncat(dec, codec->name, buflen - strlen(dec) - 1);
+                }
+        }
+        if (strlen(enc) || strlen(dec)) {
+                strncat(buf, " (", buflen - strlen(buf) - 1);
+                if (strlen(enc)) {
+                        strncat(buf, "enc:", buflen - strlen(buf) - 1);
+                        strncat(buf, enc, buflen - strlen(buf) - 1);
+                }
+                if (strlen(dec)) {
+                        if (strlen(enc)) {
+                                strncat(buf, ", ", buflen - strlen(buf) - 1);
+                        }
+                        strncat(buf, "dec:", buflen - strlen(buf) - 1);
+                        strncat(buf, dec, buflen - strlen(buf) - 1);
+                }
+                strncat(buf, ")", buflen - strlen(buf) - 1);
+        }
+#elif LIBAVCODEC_VERSION_MAJOR >= 54
         const AVCodec *codec;
         if ((codec = avcodec_find_encoder(id))) {
                 strncpy(buf, " (enc:", buflen - 1);
@@ -372,7 +405,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
 
 static list<compress_preset> get_libavcodec_presets() {
         list<compress_preset> ret;
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         avcodec_register_all();
+#endif
 
         pthread_mutex_t *lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         pthread_mutex_lock(lavcd_global_lock);
@@ -420,9 +455,11 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 av_log_set_level(AV_LOG_VERBOSE);
         }
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*  register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
         avcodec_register_all();
+#endif
 
         s->codec_ctx = NULL;
         s->in_frame = NULL;

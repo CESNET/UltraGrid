@@ -155,7 +155,9 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 preferred_encoder = it->second.preferred_encoder;
         }
 
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         avcodec_register_all();
+#endif
 
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *)
                 calloc(1, sizeof(struct libavcodec_codec_state));
