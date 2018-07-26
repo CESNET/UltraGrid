@@ -10,8 +10,8 @@ Source0:	ultragrid-nightly-%{version}.tar.bz2
 
 BuildRequires:	gcc-c++,make,automake,autoconf,git,libtool
 BuildRequires:	ImageMagick-devel,freeglut-devel,glew-devel
-BuildRequires:	SDL-devel,SDL_mixer-devel,SDL_ttf-devel
-BuildRequires:	qt-x11,qt-devel,libX11-devel
+BuildRequires:	SDL2-devel,SDL2_mixer-devel,SDL2_ttf-devel
+BuildRequires:	libX11-devel
 BuildRequires:	portaudio-devel,jack-audio-connection-kit-devel,alsa-lib-devel,libv4l-devel
 BuildRequires:	zip,kernel-headers
 BuildRequires:	openssl-devel
@@ -23,12 +23,14 @@ BuildRequires:	opencv-devel
 BuildRequires: 	cairo >= 1.14.0-2
 BuildRequires: 	ultragrid-proprietary-drivers-nightly
 %if %{defined fedora}
-BuildRequires:	libjpeg-turbo-devel,mesa-libGL-devel
+BuildRequires:	libjpeg-turbo-devel, mesa-libGL-devel
 BuildRequires:	ffmpeg-devel
+BuildRequires:	qt-devel
 %else
 # suse_version
 BuildRequires:	libavcodec-devel, libswscale-devel
-BuildRequires:	libjpeg62-devel,Mesa-libGL-devel
+BuildRequires:	libjpeg62-devel, Mesa-libGL-devel
+BuildRequires:	libqt5-qtbase-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
 
@@ -41,45 +43,50 @@ BuildRequires:	glib2-devel, libcurl-devel
 #####################################################
 
 %if 0%{?cuda} > 0
-%if 0%{?fedora} > 1 && 0%{?fedora} < 24
-BuildRequires:	cuda-core-8-0, cuda-command-line-tools-8-0, cuda-cudart-dev-8-0, clang
-%define cudaconf --with-cuda=$(find /usr/local/ -maxdepth 1 -type d -name 'cuda*' | sort -rn | head -n 1) --with-cuda-host-compiler=clang
-%else
-BuildRequires:	cuda-core-9-0, cuda-command-line-tools-9-0, cuda-cudart-dev-9-0, gcc < 7
-%define cudaconf --with-cuda=$(find /usr/local/ -maxdepth 1 -type d -name 'cuda*' | sort -rn | head -n 1) --with-cuda-host-compiler="$(basename "$(ls -1 /usr/bin/*gcc-6* | sort -rn | head -n 1)")"
-%endif
+	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
+BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
+		%define cudaconf --with-cuda=/usr/local/cuda-6.5
+	%endif
+	%if 0%{?fedora} >= 21 && 0%{?fedora} <= 25
+BuildRequires:	cuda-core-9-1,cuda-command-line-tools-9-1,cuda-cudart-dev-9-1,clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.1 --with-cuda-host-compiler=clang
+	%endif
+	%if 0%{?fedora} >= 26
+BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2,clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
+	%endif
+	%if 0%{?sle_version} >= 150000
+BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2
+		%define cudaconf --with-cuda=/usr/local/cuda-9.2
+	%endif
+	%if 0%{?leap_version} >= 420000 && 0%{?leap_version} < 430000
+BuildRequires:	cuda-core-9-2, cuda-command-line-tools-9-2, cuda-cudart-dev-9-2, clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
+	%endif
 BuildRequires:	libgpujpeg-devel
 %else
-%define cudaconf --disable-cuda
+	%define cudaconf --disable-cuda
 %endif
 
 %define build_conference 1
 %define build_gui 1
-# bug OpenCV3 in Fedora 25 does not contain gpu support stuff
-%if 0%{?fedora} > 24
-%define build_conference 0
+
+
+%define hwaccel 1
+
+%if 0%{?hwaccel} > 0
+#BuildRequires: libvdpau-devel, vaapi-intel-driver, libva-devel 
+BuildRequires: libva-devel, libvdpau-devel
+%if 0%{?fedora} > 1
 %endif
-# nor Leap 42.2
 %if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
-%define build_conference 0
+%define vaapi 1
+%define vdpau 1
+BuildRequires: libva-vdpau-driver, vaapi-intel-driver
+%endif
 %endif
 
-%if 0%{?build_gui} > 0
-%if 0%{?fedora} > 0
-%if 0%{?fedora} > 25
-BuildRequires:	qt5-devel
-%else
-%if 0%{?fedora} > 24
-BuildRequires:	qt5-devel
-%else
-BuildRequires:	qt5-qtbase-devel
-%endif
-%endif
-%endif
-%if 0%{?leap_version} > 0
-BuildRequires:	libQt5Widgets-devel
-%endif
-%endif
+
 Conflicts:	ultragrid-core, ultragrid
 Provides:	ultragrid
 
@@ -164,9 +171,9 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # jack-transport is broken since 1.2 release
 # rstp is broken with current live555
 %configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
-	--enable-sdl --enable-gl --enable-rtdxt \
+	--enable-sdl2 --enable-gl --enable-rtdxt \
 	--enable-portaudio --disable-jack-transport --enable-jack \
-	--enable-alsa --enable-scale --disable-quicktime \
+	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
 	--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 	--disable-rtsp \
@@ -175,11 +182,6 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 		--enable-video-mixer \
 	%else
 		--disable-video-mixer \
-	%endif
-	%if 0%{?build_gui} > 0
-		--enable-qt \
-	%else
-		--disable-qt \
 	%endif
 	%{?cudaconf} \
 	%if 0%{?cuda} > 0
@@ -212,6 +214,12 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%else
 		--disable-aja \
 	%endif
+	%if 0%{?vdpau} > 0
+		--enable-lavc-hw-accel-vdpau \
+	%endif
+	%if 0%{?vaapi} > 0
+		--enable-lavc-hw-accel-vaapi \
+	%endif
 	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
 
@@ -235,10 +243,7 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_docdir}/ultragrid/*
 %{_bindir}/uv
 %{_bindir}/hd-rum-transcode
-%if 0%{?build_gui} > 0
 %{_bindir}/uv-qt
-%{_libdir}/ultragrid/ultragrid_display_preview.so
-%endif
 %dir %{_libdir}/ultragrid
 %if 0%{?build_dvs} > 0
 %{_libdir}/ultragrid/ultragrid_vidcap_dvs.so
@@ -268,6 +273,7 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/ultragrid_vcapfilter_blank.so
 %{_libdir}/ultragrid/ultragrid_vidcap_testcard.so
 %{_libdir}/ultragrid/ultragrid_display_gl.so
+%{_libdir}/ultragrid/ultragrid_display_preview.so
 %{_libdir}/ultragrid/ultragrid_vidcap_swmix.so
 # Fedora 25 OpenCV3
 %if 0%{?build_conference} > 0
@@ -298,6 +304,9 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/ultragrid_ldgm_gpu.so
 # cudart
 %{_libdir}/ultragrid/*cudart*
+%endif
+%if ( 0%{?vaapi} + 0%{?vdpau} ) > 0
+%{_libdir}/ultragrid/ultragrid_hw_accel.so
 %endif
 
 %changelog

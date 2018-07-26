@@ -10,6 +10,8 @@ CARDCONF_DECKLINK=--disable-decklink
 CARDCONF_DECKLINK=--disable-deltacast
 CARDCONF_AJA=--disable-aja
 CUDA=--disable-cuda
+VAAPI=--disable-lavc-hw-accel-vaapi
+VDPAU=--disable-lavc-hw-accel-vdpau
 
 #####################################################
 # > bluefish
@@ -53,6 +55,20 @@ CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
 #####################################################
 # < cuda
 #####################################################
+#####################################################
+# > vaapi
+#####################################################
+VAAPI=--enable-lavc-hw-accel-vaapi
+#####################################################
+# < vaapi
+#####################################################
+#####################################################
+# > vdpau
+#####################################################
+VDPAU=--enable-lavc-hw-accel-vdpau
+#####################################################
+# < vdpau
+#####################################################
 
 CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DECKLINK) $(CARDCONF_AJA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
@@ -64,13 +80,15 @@ UGLIBDIR=$(LIBDIR)/ultragrid
 override_dh_auto_configure:
 	./autogen.sh || true
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
-		--enable-sdl --enable-gl --enable-rtdxt \
+		--enable-sdl2 --enable-gl --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\
 		--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 		--disable-rtsp \
 		--enable-video-mixer --enable-swmix --enable-ihdtv \
+		$(VDPAU) \
+		$(VAAPI) \
 		$(CUDA) \
 		$(CARDCONF)
 

@@ -1,8 +1,8 @@
---- a/debian/rules	2017-11-24 10:58:10.000000000 +0100
-+++ b/debian/rules	2017-12-02 02:03:09.291676525 +0100
-@@ -66,7 +66,7 @@ override_dh_auto_configure:
+--- a/debian/rules
++++ b/debian/rules
+@@ -82,7 +82,7 @@ override_dh_auto_configure:
  	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
- 		--enable-sdl --enable-gl --enable-rtdxt \
+ 		--enable-sdl2 --enable-gl --enable-rtdxt \
  		--enable-portaudio --disable-jack-transport --enable-jack \
 -		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 +		--enable-alsa --enable-scale --disable-qt --disable-quicktime \
