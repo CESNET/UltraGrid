@@ -87,6 +87,7 @@ typedef enum {
         VP9,      ///< VP9 frame
         BGR,      ///< 8-bit BGR
         J2K,      ///< JPEG 2000
+        J2KR,     ///< JPEG 2000 RGB
         HW_VDPAU, ///< VDPAU hardware surface
         VIDEO_CODEC_COUNT ///< count of known video codecs (including VIDEO_CODEC_NONE)
 } codec_t;
