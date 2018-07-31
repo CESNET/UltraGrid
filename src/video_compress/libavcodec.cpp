@@ -665,6 +665,13 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0);
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
                 }
+        } else {
+                if (s->requested_crf >= 0.0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CRF! Not supported for this encoder, ignored.\n");
+                }
+                if (s->requested_cqp >= 0.0) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set CQP! Not supported for this encoder, ignored.\n");
+                }
         }
 
         /* resolution must be a multiple of two */
