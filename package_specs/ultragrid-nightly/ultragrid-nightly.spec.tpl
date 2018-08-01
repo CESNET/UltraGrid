@@ -237,65 +237,65 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_bindir}/hd-rum-transcode
 %if 0%{?build_gui} > 0
 %{_bindir}/uv-qt
-%{_libdir}/ultragrid/module_display_preview.so
+%{_libdir}/ultragrid/ultragrid_display_preview.so
 %endif
 %dir %{_libdir}/ultragrid
 %if 0%{?build_dvs} > 0
-%{_libdir}/ultragrid/module_vidcap_dvs.so
-%{_libdir}/ultragrid/module_display_dvs.so
+%{_libdir}/ultragrid/ultragrid_vidcap_dvs.so
+%{_libdir}/ultragrid/ultragrid_display_dvs.so
 %endif
 %if 0%{?build_blackmagick} > 0
-%{_libdir}/ultragrid/module_vidcap_decklink.so
-%{_libdir}/ultragrid/module_display_decklink.so
-%{_libdir}/ultragrid/module_aplay_decklink.so
+%{_libdir}/ultragrid/ultragrid_vidcap_decklink.so
+%{_libdir}/ultragrid/ultragrid_display_decklink.so
+%{_libdir}/ultragrid/ultragrid_aplay_decklink.so
 %endif
 %if 0%{?build_bluefish} > 0
-%{_libdir}/ultragrid/module_vidcap_bluefish444.so
-%{_libdir}/ultragrid/module_display_bluefish444.so
+%{_libdir}/ultragrid/ultragrid_vidcap_bluefish444.so
+%{_libdir}/ultragrid/ultragrid_display_bluefish444.so
 %endif
 %if 0%{?build_aja} > 0
-%{_libdir}/ultragrid/module_vidcap_aja.so
+%{_libdir}/ultragrid/ultragrid_vidcap_aja.so
 %endif
 %if 0%{?build_deltacast} > 0
-%{_libdir}/ultragrid/module_vidcap_deltacast.so
-%{_libdir}/ultragrid/module_display_deltacast.so
+%{_libdir}/ultragrid/ultragrid_vidcap_deltacast.so
+%{_libdir}/ultragrid/ultragrid_display_deltacast.so
 %endif
-%{_libdir}/ultragrid/module_display_sdl.so
+%{_libdir}/ultragrid/ultragrid_display_sdl.so
 # rtsp is broken with current live555
-#{_libdir}/ultragrid/module_vidcap_rtsp.so
-#{_libdir}/ultragrid/module_video_rxtx_h264.so
-%{_libdir}/ultragrid/module_vcapfilter_resize.so
-%{_libdir}/ultragrid/module_vcapfilter_blank.so
-%{_libdir}/ultragrid/module_vidcap_testcard.so
-%{_libdir}/ultragrid/module_display_gl.so
-%{_libdir}/ultragrid/module_vidcap_swmix.so
+#{_libdir}/ultragrid/ultragrid_vidcap_rtsp.so
+#{_libdir}/ultragrid/ultragrid_video_rxtx_h264.so
+%{_libdir}/ultragrid/ultragrid_vcapfilter_resize.so
+%{_libdir}/ultragrid/ultragrid_vcapfilter_blank.so
+%{_libdir}/ultragrid/ultragrid_vidcap_testcard.so
+%{_libdir}/ultragrid/ultragrid_display_gl.so
+%{_libdir}/ultragrid/ultragrid_vidcap_swmix.so
 # Fedora 25 OpenCV3
 %if 0%{?build_conference} > 0
-%{_libdir}/ultragrid/module_display_video_mix.so
+%{_libdir}/ultragrid/ultragrid_display_video_mix.so
 %endif
-%{_libdir}/ultragrid/module_vidcap_screen.so
-%{_libdir}/ultragrid/module_vcompress_rtdxt.so
-%{_libdir}/ultragrid/module_vdecompress_rtdxt.so
-%{_libdir}/ultragrid/module_vcompress_uyvy.so
-%{_libdir}/ultragrid/module_acap_portaudio.so
-%{_libdir}/ultragrid/module_aplay_portaudio.so
-%{_libdir}/ultragrid/module_acap_jack.so
-%{_libdir}/ultragrid/module_aplay_jack.so
-%{_libdir}/ultragrid/module_acap_alsa.so
-%{_libdir}/ultragrid/module_aplay_alsa.so
-%{_libdir}/ultragrid/module_vo_pp_scale.so
-%{_libdir}/ultragrid/module_vo_pp_text.so
-%{_libdir}/ultragrid/module_vidcap_v4l2.so
-%{_libdir}/ultragrid/module_vcompress_libavcodec.so
-%{_libdir}/ultragrid/module_vdecompress_libavcodec.so
-%{_libdir}/ultragrid/module_acompress_libavcodec.so
-%{_libdir}/ultragrid/module_openssl.so
+%{_libdir}/ultragrid/ultragrid_vidcap_screen.so
+%{_libdir}/ultragrid/ultragrid_vcompress_rtdxt.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_rtdxt.so
+%{_libdir}/ultragrid/ultragrid_vcompress_uyvy.so
+%{_libdir}/ultragrid/ultragrid_acap_portaudio.so
+%{_libdir}/ultragrid/ultragrid_aplay_portaudio.so
+%{_libdir}/ultragrid/ultragrid_acap_jack.so
+%{_libdir}/ultragrid/ultragrid_aplay_jack.so
+%{_libdir}/ultragrid/ultragrid_acap_alsa.so
+%{_libdir}/ultragrid/ultragrid_aplay_alsa.so
+%{_libdir}/ultragrid/ultragrid_vo_pp_scale.so
+%{_libdir}/ultragrid/ultragrid_vo_pp_text.so
+%{_libdir}/ultragrid/ultragrid_vidcap_v4l2.so
+%{_libdir}/ultragrid/ultragrid_vcompress_libavcodec.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_libavcodec.so
+%{_libdir}/ultragrid/ultragrid_acompress_libavcodec.so
+%{_libdir}/ultragrid/ultragrid_openssl.so
 %if 0%{?cuda} > 0
-%{_libdir}/ultragrid/module_vcompress_jpeg.so
-%{_libdir}/ultragrid/module_vdecompress_jpeg.so
-%{_libdir}/ultragrid/module_vcompress_cuda_dxt.so
-%{_libdir}/ultragrid/module_vdecompress_jpeg_to_dxt.so
-%{_libdir}/ultragrid/module_ldgm_gpu.so
+%{_libdir}/ultragrid/ultragrid_vcompress_jpeg.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg.so
+%{_libdir}/ultragrid/ultragrid_vcompress_cuda_dxt.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg_to_dxt.so
+%{_libdir}/ultragrid/ultragrid_ldgm_gpu.so
 # cudart
 %{_libdir}/ultragrid/*cudart*
 %endif

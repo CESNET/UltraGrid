@@ -227,7 +227,7 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 # @param $2 object files
 # @param $3 libraries
 AC_DEFUN([ADD_MODULE], [
-          TARGET="lib/ultragrid/module_"$1".so"
+          TARGET="lib/ultragrid/ultragrid_"$1".so"
           LIB_OBJS=$LIB_OBJS" "$2
           LIB_MODULES=$LIB_MODULES" "$3
 	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
@@ -236,7 +236,7 @@ AC_DEFUN([ADD_MODULE], [
 				 MODULES="$MODULES $TARGET"
 				 TARGETS="$TARGETS
 $TARGET: "$2"
-	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,module_"$1.so" "$2" -o lib/ultragrid/module_"$1".so "$3"
+	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3"
 "
 				 ])
           ])

@@ -272,7 +272,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
         // Library was not found or was not loaded due to unsatisfied
         // dependencies. If the latter one, display reason why dlopen() failed.
         if (library_class_info.find(cls) != library_class_info.end()) {
-                string filename = "module_";
+                string filename = "ultragrid_";
                 if (strlen(library_class_info.at(cls).file_prefix) > 0) {
                         filename += library_class_info.at(cls).file_prefix;
                         filename += "_";

@@ -173,7 +173,7 @@ bool common_preinit(int argc, char *argv[])
         }
 #endif
 
-        open_all("module_*.so"); // load modules
+        open_all("ultragrid_*.so"); // load modules
 
 #ifdef USE_MTRACE
         mtrace();
