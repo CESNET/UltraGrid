@@ -72,7 +72,7 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 --- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 +++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
-@@ -59,13 +59,13 @@ Patch19:	bluefish-kernel-backports-opens
+@@ -60,13 +60,13 @@ Patch19:	bluefish-kernel-backports-opens
  #####################################################
  # > aja (ntv2sdklinux)
  #####################################################
@@ -93,7 +93,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < aja (ntv2sdklinux)
  #####################################################
-@@ -115,16 +115,16 @@ VideoMasterHD		--deltacast
+@@ -116,16 +116,16 @@ VideoMasterHD		--deltacast
  #####################################################
  # > aja
  #####################################################
@@ -120,7 +120,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < aja
  #####################################################
-@@ -148,9 +148,9 @@ find . -type f -name "*~" -exec rm {} \;
+@@ -149,9 +149,9 @@ find . -type f -name "*~" -exec rm {} \;
  #####################################################
  # > aja
  #####################################################
@@ -133,7 +133,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < aja
  #####################################################
-@@ -204,8 +204,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
+@@ -205,8 +205,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
  #####################################################
  # > aja
  #####################################################

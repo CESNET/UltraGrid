@@ -67,7 +67,7 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 --- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 +++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
-@@ -72,8 +72,8 @@ Patch29:	AJA-kernel-backports-opensuse-4
+@@ -73,8 +73,8 @@ Patch29:	AJA-kernel-backports-opensuse-4
  #####################################################
  # > dvs (sdk)
  #####################################################
@@ -78,7 +78,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < dvs (sdk)
  #####################################################
-@@ -131,10 +131,10 @@ VideoMasterHD		--deltacast
+@@ -132,10 +132,10 @@ VideoMasterHD		--deltacast
  #####################################################
  # > dvs (sdk)
  #####################################################
@@ -93,7 +93,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < dvs (sdk)
  #####################################################
-@@ -194,10 +194,10 @@ popd
+@@ -195,10 +195,10 @@ popd
  #####################################################
  # > dvs
  #####################################################

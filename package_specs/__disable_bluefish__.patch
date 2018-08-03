@@ -82,7 +82,7 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 --- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 +++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
-@@ -48,11 +48,11 @@ Provides:	libFlxComm64.so()(64bit)
+@@ -49,11 +49,11 @@ Provides:	libFlxComm64.so()(64bit)
  #####################################################
  # > bluefish (EpochLinuxDriver)
  #####################################################
@@ -99,7 +99,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < bluefish (EpochLinuxDriver)
  #####################################################
-@@ -102,13 +102,13 @@ VideoMasterHD		--deltacast
+@@ -103,13 +103,13 @@ VideoMasterHD		--deltacast
  #####################################################
  # > bluefish
  #####################################################
@@ -120,7 +120,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < bluefish
  #####################################################
-@@ -158,14 +158,14 @@ popd
+@@ -159,14 +159,14 @@ popd
  #####################################################
  # > bluefish
  #####################################################
@@ -143,7 +143,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < bluefish
  #####################################################
-@@ -179,15 +179,15 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragr
+@@ -180,15 +180,15 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragr
  #####################################################
  # > bluefish
  #####################################################

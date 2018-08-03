@@ -75,7 +75,7 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 --- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 +++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
-@@ -35,13 +35,13 @@ Source1:	ultragrid-proprietary-drivers-r
+@@ -36,13 +36,13 @@ Source1:	ultragrid-proprietary-drivers-r
  #####################################################
  # > deltacast (videoMasterHD)
  #####################################################
@@ -96,7 +96,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast (videoMasterHD)
  #####################################################
-@@ -91,11 +91,11 @@ VideoMasterHD		--deltacast
+@@ -92,11 +92,11 @@ VideoMasterHD		--deltacast
  #####################################################
  # > deltacast
  #####################################################
@@ -113,7 +113,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast
  #####################################################
-@@ -212,23 +212,23 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
+@@ -213,23 +213,23 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
  #####################################################
  # > deltacast
  #####################################################

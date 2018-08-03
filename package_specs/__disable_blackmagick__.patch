@@ -49,7 +49,7 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
 diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 --- a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
 +++ b/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec
-@@ -17,7 +17,7 @@ BuildRequires:	%kernel_module_package_bu
+@@ -18,7 +18,7 @@ BuildRequires:	%kernel_module_package_bu
  #####################################################
  # > blackmagick (DesktopVideo)
  #####################################################

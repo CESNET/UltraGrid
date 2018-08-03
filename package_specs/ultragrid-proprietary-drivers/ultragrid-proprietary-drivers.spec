@@ -10,6 +10,7 @@ URL:		http://ultragrid.cz
 # replace this line with generated conflicts
 Provides:	ultragrid-proprietary-drivers-nightly
 Provides:	ultragrid-proprietary-drivers-release-1.5
+Provides:	ultragrid-proprietary-drivers-release-1.6
 
 BuildRequires:	gcc-c++, make, automake, autoconf, coreutils
 BuildRequires: 	libX11-devel, glew-devel, libXext-devel, glibc, ncurses-devel, qt-devel
