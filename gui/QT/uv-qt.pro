@@ -5,15 +5,16 @@
 TEMPLATE = app
 TARGET = uv-qt
 INCLUDEPATH += .
+INCLUDEPATH += ../../tools/
 
 QT += widgets
 
 CONFIG += c++11
 
-LIBS += astat.a
+LIBS += ../../tools/astat.a
 
 astat.target = astat_lib
-astat.commands = make -f Makefile.astat lib
+astat.commands = cd ../../tools && make -f Makefile.astat lib
 
 QMAKE_EXTRA_TARGETS += astat
 PRE_TARGETDEPS += astat_lib
@@ -25,7 +26,7 @@ ultragrid_option.hpp \
 v4l2.hpp \
 previewWidget.hpp \
 log_window.hpp \
-astat.h \
+../../tools/astat.h \
 vuMeterWidget.hpp \
 settings_window.hpp \
 

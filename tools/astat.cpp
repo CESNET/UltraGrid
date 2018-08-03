@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 #include "astat.h"
 
@@ -33,8 +34,8 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 struct ug_connection {
         fd_t fd;
         ug_connection(int f, fd_t sef[]) : fd(f), should_exit_fd{sef[0], sef[1]}, t(worker, ref(*this)) {}
-        double volpeak[2] = {};
-        double volrms[2] = {};
+        double volpeak[2] = {-INFINITY, -INFINITY};
+        double volrms[2] = {0, 0};
         int sample_count = 0;
         mutex lock;
 
@@ -62,7 +63,7 @@ static void parse_and_store(ug_connection &c, const char *str)
 
         lock_guard<mutex> lk(c.lock);
         for (int i = 0; i < 2; i++) {
-                c.volpeak[i] = (volpeak[i] * c.sample_count + volpeak[i]) / (c.sample_count + 1);
+                c.volpeak[i] = std::max(c.volpeak[i], volpeak[i]);
                 c.volrms[i] = (volrms[i] * c.sample_count + volrms[i]) / (c.sample_count + 1);
         }
         c.sample_count += 1;
@@ -137,6 +138,7 @@ struct ug_connection *ug_control_connection_init(int local_port) {
         sin.sin6_addr = in6addr_loopback;
 
         if (connect(fd, (const sockaddr*) &sin, sizeof sin) == -1) {
+                close(fd);
                 return NULL;
         }
 
@@ -151,12 +153,16 @@ struct ug_connection *ug_control_connection_init(int local_port) {
 }
 
 void ug_control_connection_done(struct ug_connection *c) {
+        if(!c){
+                return;
+        }
         c->should_exit = true;
         char ch = 0;
         int ret = send(c->should_exit_fd[1], &ch, 1, MSG_DONTWAIT);
         c->t.join();
         platform_pipe_close(c->should_exit_fd[0]);
         platform_pipe_close(c->should_exit_fd[1]);
+        close(c->fd);
         delete c;
 }
 
@@ -166,6 +172,9 @@ void ug_control_connection_done(struct ug_connection *c) {
  * @retval false if connection was closed
  */
 bool ug_control_get_volumes(struct ug_connection *c, double peak[], double rms[], int *count) {
+        if (!c)
+                return false;
+
         lock_guard<mutex> lk(c->lock);
 
         if (c->connection_lost) {
@@ -176,7 +185,7 @@ bool ug_control_get_volumes(struct ug_connection *c, double peak[], double rms[]
         memcpy(rms, c->volrms, sizeof c->volrms);
         *count = c->sample_count;
 
-        memset(c->volpeak, 0, sizeof c->volpeak);
+        std::fill_n(c->volpeak, sizeof(c->volpeak)/sizeof(*c->volpeak), -INFINITY);
         memset(c->volrms, 0, sizeof c->volrms);
         c->sample_count = 0;
 
@@ -194,9 +203,10 @@ static void signal_handler(int signal) {
 
 int main() {
         auto connection = ug_control_connection_init(8888);
-        if (!connection) {
+        while (!connection) {
+			sleep(1);
+			connection = ug_control_connection_init(8888);
                 fprintf(stderr, "Unable to initialize!\n");
-                return 1;
         }
         int reconnect_attempt = 0;
 
@@ -215,8 +225,9 @@ int main() {
                 } else {
                         fprintf(stderr, "Connection was closed!\n");
                         // try to reinit
-                        auto new_connection = ug_control_connection_init(8888);
-                        if (!new_connection) {
+                        ug_control_connection_done(connection);
+                        connection = ug_control_connection_init(8888);
+                        if (!connection) {
                                 fprintf(stderr, "Unable to initialize!\n");
                                 if (reconnect_attempt < MAX_RECONNECTS) {
                                         continue;
@@ -225,8 +236,6 @@ int main() {
                                 }
                         }
                         fprintf(stderr, "Successfully reconnected.\n");
-                        ug_control_connection_done(connection);
-                        connection = new_connection;
                 }
         }
 
