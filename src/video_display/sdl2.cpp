@@ -235,7 +235,11 @@ static const unordered_map<codec_t, uint32_t, hash<int>> pf_mapping = {
         { YUYV, SDL_PIXELFORMAT_YUY2 },
         { RGB, SDL_PIXELFORMAT_RGB24 },
         { BGR, SDL_PIXELFORMAT_BGR24 },
+#if SDL_COMPILEDVERSION >= SDL_VERSIONNUM(2, 0, 5)
         { RGBA, SDL_PIXELFORMAT_RGBA32 },
+#else
+        { RGBA, SDL_PIXELFORMAT_ABGR8888 },
+#endif
 };
 
 static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
