@@ -31,7 +31,7 @@ for vendor in ${vendors[*]} ; do
 		done
 	done
 
-	diff -rupN a b.$vendor | sed "s#b.$vendor/#b/#g" > __disable_${vendor}__.patch
+	diff -rupN a b.$vendor | sed "s#b.$vendor/#b/#g" | filterdiff --remove-timestamps > __disable_${vendor}__.patch
 
 	rm -r b.$vendor
 done
