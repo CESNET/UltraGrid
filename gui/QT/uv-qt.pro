@@ -6,6 +6,9 @@ TEMPLATE = app
 TARGET = uv-qt
 INCLUDEPATH += .
 INCLUDEPATH += ../../tools/
+INCLUDEPATH += ../../src
+
+DEFINES += GUI_BUILD
 
 QT += widgets
 
@@ -30,6 +33,7 @@ v4l2.hpp \
 previewWidget.hpp \
 log_window.hpp \
 ../../tools/astat.h \
+../../src/shared_mem_frame.hpp \
 vuMeterWidget.hpp \
 settings_window.hpp \
 
@@ -44,4 +48,5 @@ SOURCES += ultragrid_window.cpp \
 	log_window.cpp \
 	vuMeterWidget.cpp \
 	settings_window.cpp \
+	../../src/shared_mem_frame.cpp \
 	main.cpp

@@ -109,9 +109,6 @@ void PreviewWidget::initializeGL(){
 
 	vidW = 1280;
 	vidH = 720;
-
-	shared_mem.setKey("ultragrid_preview");
-
 }
 
 void PreviewWidget::calculateScale(){
@@ -179,9 +176,8 @@ void PreviewWidget::paintGL(){
 	f->glUniform2fv(loc, 1, scaleVec);
 
 	f->glBindTexture(GL_TEXTURE_2D, texture);
-	if(shared_mem.attach()){
-		shared_mem.lock();
-		struct Shared_mem_frame *sframe = (Shared_mem_frame*) shared_mem.data();
+	struct Shared_mem_frame *sframe = shared_mem.get_frame_and_lock();
+	if(sframe){
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, sframe->width, sframe->height, 0, GL_RGB, GL_UNSIGNED_BYTE, sframe->pixels);
 		setVidSize(sframe->width, sframe->height);
 		shared_mem.unlock();

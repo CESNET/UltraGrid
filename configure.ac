@@ -2426,7 +2426,8 @@ then
 	CXXFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CXXFLAGS"
 	CFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CFLAGS"
 
-	ADD_MODULE("display_preview", "src/video_display/preview.o", "$QT_LIBS")
+	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
+	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 
 	AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
 	GUI_TARGET=gui/QT/uv-qt
