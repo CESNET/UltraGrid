@@ -1161,7 +1161,11 @@ int main(int argc, char *argv[])
 
                 uv.state_video_rxtx = video_rxtx::create(video_protocol, params);
                 if (!uv.state_video_rxtx) {
-                        throw string("Requested RX/TX cannot be created (missing library?)");
+                        if (strcmp(video_protocol, "help") != 0) {
+                                throw string("Requested RX/TX cannot be created (missing library?)");
+                        } else {
+                                throw 0;
+                        }
                 }
 
                 if (video_rxtx_mode & MODE_RECEIVER) {
