@@ -389,7 +389,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         if (strcasecmp(proto, "ultragrid_rtp") == 0) {
                 s->sender = NET_NATIVE;
                 s->receiver = NET_NATIVE;
-        } else if (strcasecmp(proto, "rtsp") == 0) {
+        } else if (strcasecmp(proto, "rtsp") == 0 || strcasecmp(proto, "sdp") == 0) {
                 s->receiver = NET_STANDARD;
                 s->sender = NET_STANDARD;
         } else if (strcasecmp(proto, "JACK") == 0) {

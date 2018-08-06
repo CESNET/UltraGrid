@@ -944,12 +944,15 @@ int main(int argc, char *argv[])
         }
 
         // default values for different RXTX protocols
-        if (strcmp(video_protocol, "rtsp") == 0) {
+        if (strcmp(video_protocol, "rtsp") == 0 || strcmp(video_protocol, "sdp") == 0) {
                 if (audio_codec == nullptr) {
                         audio_codec = "u-law:sample_rate=44100";
                 }
                 if (requested_compression == nullptr) {
-                        requested_compression = "libavcodec:codec=H.264:subsampling=420";
+                        requested_compression = "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh";
+                }
+                if (force_ip_version == 0) {
+                        force_ip_version = 4;
                 }
         } else {
                 if (requested_compression == nullptr) {
@@ -1182,12 +1185,13 @@ int main(int argc, char *argv[])
                 // SAGE + RTSP
                 params["opts"].ptr = (void *) video_protocol_opts;
 
-                // RTSP
+                // RTSP/SDP
                 params["audio_codec"].l = get_audio_codec(audio_codec);
                 params["audio_sample_rate"].i = get_audio_codec_sample_rate(audio_codec) ? get_audio_codec_sample_rate(audio_codec) : 48000;
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
                 params["a_rx_port"].i = audio_rx_port;
+                params["a_tx_port"].i = audio_tx_port;
 
                 if (strcmp(video_protocol, "rtsp") == 0) {
                         rtps_types_t avType;

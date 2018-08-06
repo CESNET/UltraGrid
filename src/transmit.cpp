@@ -146,9 +146,7 @@ struct tx {
         struct openssl_encrypt *encryption;
         long long int bitrate;
 		
-#ifdef HAVE_RTSP_SERVER
         struct rtpenc_h264_state *rtpenc_h264_state;
-#endif
 };
 
 // Mulaw audio memory reservation
@@ -244,9 +242,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 }
 
                 tx->bitrate = bitrate;
-#ifdef HAVE_RTSP_SERVER
                 tx->rtpenc_h264_state = rtpenc_h264_init_state();
-#endif
         }
 		return tx;
 }
@@ -962,15 +958,6 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 		struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec,
 		double input_fps, enum interlacing_t interlacing,
 		unsigned int substream, int fragment_offset) {
-
-	UNUSED(color_spec);
-	UNUSED(input_fps);
-	UNUSED(interlacing);
-	UNUSED(fragment_offset);
-	UNUSED(send_m);
-	assert(tx->magic == TRANSMIT_MAGIC);
-
-#ifdef HAVE_RTSP_SERVER
 	struct tile *tile = &frame->tiles[substream];
 
 	char pt = RTPENC_H264_PT;
@@ -1073,12 +1060,6 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 			return;
 		}
 	}
-#else
-       UNUSED(frame);
-       UNUSED(rtp_session);
-       UNUSED(substream);
-       UNUSED(ts);
-#endif
 }
 
 /*

@@ -129,6 +129,7 @@ OBJS	      = @OBJS@ \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
+		src/utils/sdp.o \
 		src/utils/synchronized_queue.o \
 		src/utils/vf_split.o \
 		src/utils/wait_obj.o \
@@ -157,6 +158,7 @@ OBJS	      = @OBJS@ \
 		src/video_display/multiplier.o \
 		src/video_export.o \
 		src/video_rxtx.o \
+		src/video_rxtx/h264_sdp.o \
 		src/video_rxtx/ihdtv.o \
 		src/video_rxtx/rtp.o \
 		src/video_rxtx/sage.o \
