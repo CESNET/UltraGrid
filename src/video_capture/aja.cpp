@@ -132,7 +132,7 @@ class vidcap_state_aja {
                 NTV2Channel            mInputChannel;                 ///     My input channel
                 NTV2VideoFormat        mVideoFormat;                  ///     My video format
                 NTV2FrameBufferFormat  mPixelFormat;                  ///     My pixel format
-                bool                   mVancEnabled;                  ///     VANC enabled?
+                NTV2VANCMode           mVancMode;                     ///     VANC enabled?
                 bool                   mWideVanc;                     ///     Wide VANC?
                 NTV2InputSource        mInputSource;                  ///     The input source I'm using
                 NTV2AudioSystem        mAudioSystem;                  ///     The audio system I'm using
@@ -405,7 +405,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
 {
         //      Set the video format to match the incomming video format.
         //      Does the device support the desired input source?
-        if (!::NTV2BoardCanDoInputSource (mDeviceID, mInputSource))
+        if (!::NTV2DeviceCanDoInputSource (mDeviceID, mInputSource))
                 return AJA_STATUS_BAD_PARAM;    //      Nope
 
         mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
@@ -466,7 +466,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
 
         //      Set the frame buffer pixel format for all the channels on the device
         //      (assuming it supports that pixel format -- otherwise default to 8-bit YCbCr)...
-        if (!::NTV2BoardCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
+        if (!::NTV2DeviceCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
                 mPixelFormat = NTV2_FBF_8BIT_YCBCR;
 
         //      Set the pixel format for both device frame buffers...
@@ -494,11 +494,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
                 }
-        } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG) {
+        } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG1) {
                 router.AddConnection (gFrameBufferInput [NTV2_CHANNEL1], NTV2_XptAnalogIn);
                 mDevice.SetFrameBufferFormat (NTV2_CHANNEL1, mPixelFormat);
                 mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
-        } else if (mInputSource == NTV2_INPUTSOURCE_HDMI) {
+        } else if (mInputSource == NTV2_INPUTSOURCE_HDMI1) {
                 NTV2LHIHDMIColorSpace   hdmiColor       (NTV2_LHIHDMIColorSpaceRGB);
                 mDevice.GetHDMIInputColor (hdmiColor);
                 mDevice.SetReference (NTV2_REFERENCE_HDMI_INPUT);
@@ -565,7 +565,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mDevice.SetAudioSystemInputSource (mAudioSystem, ::NTV2InputSourceToAudioSource(mInputSource), ::NTV2InputSourceToEmbeddedAudioInput(mInputSource));
 #endif
 
-        mMaxAudioChannels = ::NTV2BoardGetMaxAudioChannels (mDeviceID);
+        mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
         if (mMaxAudioChannels < (int) *aja_audio_capture_channels) {
                 LOG(LOG_LEVEL_ERROR) << "[AJA] Invalid number of capture channels requested. Requested " <<
                         *aja_audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
@@ -612,10 +612,10 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 
 void vidcap_state_aja::SetupHostBuffers (void)
 {
-        mVancEnabled = false;
+        mVancMode = NTV2_VANCMODE_OFF;
         mWideVanc = false;
-        mDevice.GetEnableVANCData (&mVancEnabled, &mWideVanc);
-        mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancEnabled, mWideVanc);
+        mDevice.GetVANCMode (mVancMode);
+        mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancMode);
         mAudioBufferSize = NTV2_AUDIOSIZE_MAX;
 }       //      SetupHostBuffers
 
