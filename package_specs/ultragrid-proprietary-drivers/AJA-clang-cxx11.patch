@@ -1,0 +1,16 @@
+--- a/ntv2sdklinux_14.2.0.6/build/common.mk
++++ b/ntv2sdklinux_14.2.0.6/build/common.mk
+@@ -4,11 +4,11 @@
+ # All righs reserved
+ #
+ 
+-CXX ?= g++
++CXX ?= clang++
+ CPP = $(CXX)
+ 
+ CPPFLAGS += -DAJALinux -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 \
+-			-pedantic -Wall -Wno-long-long  -Wwrite-strings -c -pipe -fPIC $(DBG)
++			-pedantic -Wall -Wno-long-long  -Wwrite-strings -c -pipe -fPIC -std=c++11 $(DBG)
+ 
+ LD = $(CXX)
+ LDFLAGS = 

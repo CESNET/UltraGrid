@@ -1,5 +1,5 @@
 Name:		ultragrid-proprietary-drivers
-Version:	20180511
+Version:	20180803
 Release:	1%{?dist}
 Summary:	Ultragrid drivers pseudometapackage
 Group:		Applications/Multimedia
@@ -64,7 +64,7 @@ Patch21:	AJA-nodemo.patch
 Patch22:	AJA-qmake.patch
 Patch23:	AJA-qt5.patch
 Patch24:	AJA-gcc-explicit-constructors.patch
-#Patch25:	AJA-linux4.6-get-user-pages.patch
+Patch25:	AJA-linux4.16-flush-write-buffers.patch
 Patch29:	AJA-kernel-backports-opensuse-423.patch
 #####################################################
 # < aja (ntv2sdklinux)
@@ -120,10 +120,11 @@ VideoMasterHD		--deltacast
 %patch22 -p1
 %patch23 -p1
 %patch24 -p1
-#%patch25 -p1
 %if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
 %patch29 -p1
 %endif
+#on intention
+%patch25 -p1
 #####################################################
 # < aja
 #####################################################
@@ -234,6 +235,10 @@ find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -type f -exec file {} \; 
 
 for pattern in "*.so" "*.so.*" "*.sh" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod +x {} \; ; done
 for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod -x {} \; ; done
+# new AJA installs broken symlinks
+rm -rf ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/ntv*/bin/qtlibs
+# remove messed diffs if patches otherwise patched successfuly
+find ${RPM_BUILD_ROOT}/ -name "*.orig" -exec rm {} \;
 
 export NO_BRP_CHECK_RPATH=true
 
@@ -247,7 +252,11 @@ export NO_BRP_CHECK_RPATH=true
 %{_prefix}/src/ultragrid-externals
 
 %changelog
-* Fri May 5 2018 Lukas Rucka <ultragrid-dev@cesnet.cz>
+* Fri Aug 3 2018 Lukas Rucka <ultragrid-dev@cesnet.cz>
+- 20180803
+- Upgrade Aja drivers to compensate for kernel api changes
+
+* Sat May 5 2018 Lukas Rucka <ultragrid-dev@cesnet.cz>
 - 20180511
 - Upgrade Bluefish drivers to compensate for kernel api changes
 

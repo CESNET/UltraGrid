@@ -1,7 +1,7 @@
-diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
---- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
-+++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
-@@ -2826,13 +2826,13 @@ ntv2_sgl_map_user_pages(struct page **pa
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+--- a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
++++ b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+@@ -3308,13 +3308,13 @@ ntv2_sgl_map_user_pages(struct page **pa
  	down_read(&current->mm->mmap_sem);
  	/* rw==READ means read from drive, write into memory area */
  	res = get_user_pages(
@@ -17,7 +17,7 @@ diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinu
  		rw == READ, // DMA engines ignore permissions
  		0, /* don't force */
  #else
-@@ -2945,7 +2945,7 @@ ntv2_sgl_map_user_pages(struct page **pa
+@@ -3427,7 +3427,7 @@ ntv2_sgl_map_user_pages(struct page **pa
   out_unmap:
  	if (res > 0) {
  		for (j=0; j < res; j++)
@@ -26,7 +26,7 @@ diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinu
  			put_page(pages[j]);
  #else
  			page_cache_release(pages[j]);
-@@ -2967,7 +2967,7 @@ static int ntv2_sgl_unmap_user_pages(str
+@@ -3449,7 +3449,7 @@ static int ntv2_sgl_unmap_user_pages(str
  		/* FIXME: cache flush missing for rw==READ
  		 * FIXME: call the correct reference counting function
  		 */

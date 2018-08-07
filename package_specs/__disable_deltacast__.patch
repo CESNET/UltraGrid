@@ -113,7 +113,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast
  #####################################################
-@@ -211,23 +211,23 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
+@@ -212,23 +212,23 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
  #####################################################
  # > deltacast
  #####################################################

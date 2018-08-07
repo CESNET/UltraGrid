@@ -81,19 +81,19 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
 -Patch22:	AJA-qmake.patch
 -Patch23:	AJA-qt5.patch
 -Patch24:	AJA-gcc-explicit-constructors.patch
--#Patch25:	AJA-linux4.6-get-user-pages.patch
+-Patch25:	AJA-linux4.16-flush-write-buffers.patch
 -Patch29:	AJA-kernel-backports-opensuse-423.patch
 +#Patch20:	AJA-linuxdriver-uname.patch
 +#Patch21:	AJA-nodemo.patch
 +#Patch22:	AJA-qmake.patch
 +#Patch23:	AJA-qt5.patch
 +#Patch24:	AJA-gcc-explicit-constructors.patch
-+##Patch25:	AJA-linux4.6-get-user-pages.patch
++#Patch25:	AJA-linux4.16-flush-write-buffers.patch
 +#Patch29:	AJA-kernel-backports-opensuse-423.patch
  #####################################################
  # < aja (ntv2sdklinux)
  #####################################################
-@@ -115,15 +115,15 @@ VideoMasterHD		--deltacast
+@@ -115,16 +115,16 @@ VideoMasterHD		--deltacast
  #####################################################
  # > aja
  #####################################################
@@ -102,23 +102,25 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
 -%patch22 -p1
 -%patch23 -p1
 -%patch24 -p1
--#%patch25 -p1
 -%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
 -%patch29 -p1
 -%endif
+-#on intention
+-%patch25 -p1
 +#%%patch20 -p1
 +#%%patch21 -p1
 +#%%patch22 -p1
 +#%%patch23 -p1
 +#%%patch24 -p1
-+##%patch25 -p1
 +#%%if 0%%{?is_opensuse} >= 1 && 0%%{?sle_version} == 120300
 +#%%patch29 -p1
 +#%%endif
++##on intention
++#%%patch25 -p1
  #####################################################
  # < aja
  #####################################################
-@@ -147,9 +147,9 @@ find . -type f -name "*~" -exec rm {} \;
+@@ -148,9 +148,9 @@ find . -type f -name "*~" -exec rm {} \;
  #####################################################
  # > aja
  #####################################################
@@ -131,7 +133,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < aja
  #####################################################
-@@ -203,8 +203,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
+@@ -204,8 +204,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
  #####################################################
  # > aja
  #####################################################
