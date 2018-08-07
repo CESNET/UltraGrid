@@ -18,15 +18,7 @@ int main(int argc, char *argv[]){
 	//important: If this line is removed parsing float numbers for vu meter fails
 	std::setlocale(LC_NUMERIC, "C");
 
-	int index = args.indexOf("--with-uv");
-	if(index != -1 && args.size() >= index + 1) {
-		//found
-		ultragridExecutable = args.at(index + 1);
-	} else {
-		ultragridExecutable = "uv";
-	}
-
-	process.start(ultragridExecutable);
+	process.start(UltragridWindow::findUltragridExecutable());
 	if(process.waitForStarted(1000) == false) {
 		QMessageBox msgBox;
 		msgBox.setText(ultragridExecutable + " doesn't seem to be executable.");

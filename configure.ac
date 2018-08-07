@@ -2414,18 +2414,19 @@ AC_ARG_ENABLE(qt,
     )
 
 # Check for Qt libraries
-define(qt_gui_dep, Qt5Core Qt5Widgets libv4l2)
-PKG_CHECK_MODULES(QT, [qt_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+QT_GUI_DEP="Qt5Core Qt5Widgets"
+if test $system = Linux; then
+	QT_GUI_DEP="$QT_GUI_DEP libv4l2"
+fi
+PKG_CHECK_MODULES(QT, [$QT_GUI_DEP], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
 	# Retrieve Qt compilation and linker flags
 	CXXFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CXXFLAGS"
 	CFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CFLAGS"
-	LDFLAGS="`$PKG_CONFIG --libs-only-L Qt5Gui ` $LDFLAGS"
-	LIBS="`$PKG_CONFIG --libs-only-l Qt5Gui ` $LIBS"
 
-	ADD_MODULE("display_preview", "src/video_display/preview.o", "$PREVIEW_DISP_LIBS")
+	ADD_MODULE("display_preview", "src/video_display/preview.o", "$QT_LIBS")
 
 	AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
 	GUI_TARGET=gui/QT/uv-qt

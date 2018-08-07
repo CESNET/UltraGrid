@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -105,3 +106,4 @@ std::vector<Mode> getModes(const std::string& path){
 	close(fd);
 	return result;
 }
+#endif

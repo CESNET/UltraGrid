@@ -3,18 +3,15 @@
 
 #include "ultragrid_window.hpp"
 
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
 	//ui.terminal->setVisible(false);
 
-	QStringList args = QCoreApplication::arguments();
-	int index = args.indexOf("--with-uv");
-	if(index != -1 && args.size() >= index + 1) {
-		//found
-		ultragridExecutable = args.at(index + 1);
-	} else {
-		ultragridExecutable = "uv";
-	}
+	ultragridExecutable = UltragridWindow::findUltragridExecutable();
 
 	connect(ui.actionAbout_UltraGrid, SIGNAL(triggered()), this, SLOT(about()));
 	connect(ui.startButton, SIGNAL(clicked()), this, SLOT(start()));
@@ -279,5 +276,27 @@ void UltragridWindow::processStateChanged(QProcess::ProcessState s){
 
 	if(s == QProcess::NotRunning){
 		startPreview();
+	}
+}
+
+QString UltragridWindow::findUltragridExecutable() {
+	QStringList args = QCoreApplication::arguments();
+	int index = args.indexOf("--with-uv");
+	if(index != -1 && args.size() >= index + 1) {
+		//found
+		return args.at(index + 1);
+	} else {
+#ifdef __APPLE__
+		CFBundleRef mainBundle = CFBundleGetMainBundle();
+		CFURLRef cfURL = CFBundleCopyBundleURL(mainBundle);
+		CFStringRef cfPath = CFURLCopyFileSystemPath(cfURL, kCFURLPOSIXPathStyle);
+		CFStringEncoding encodingMethod = CFStringGetSystemEncoding();
+		QString bundlePath(CFStringGetCStringPtr(cfPath, encodingMethod));
+		CFRelease(cfURL);
+		CFRelease(cfPath);
+		return bundlePath + "/Contents/MacOS/uv";
+#else
+		return QString("uv");
+#endif
 	}
 }

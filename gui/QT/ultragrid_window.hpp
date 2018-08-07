@@ -15,6 +15,7 @@ class UltragridWindow : public QMainWindow{
 
 public:
 	UltragridWindow(QWidget *parent = 0);
+	static QString findUltragridExecutable();
 
 protected:
 	void closeEvent(QCloseEvent *);

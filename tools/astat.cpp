@@ -10,6 +10,10 @@
 
 #include "astat.h"
 
+#ifndef __linux__
+#define MSG_NOSIGNAL 0
+#endif
+
 using namespace std;
 
 static void worker(ug_connection &);

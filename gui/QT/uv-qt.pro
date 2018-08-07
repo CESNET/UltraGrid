@@ -12,6 +12,9 @@ QT += widgets
 CONFIG += c++11
 
 LIBS += ../../tools/astat.a
+macx {
+	LIBS += -framework CoreFoundation
+}
 
 astat.target = astat_lib
 astat.commands = cd ../../tools && make -f Makefile.astat lib

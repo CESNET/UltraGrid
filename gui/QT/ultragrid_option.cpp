@@ -149,6 +149,7 @@ bool VideoSourceOption::filter(const QString &item){
 }
 
 void VideoSourceOption::queryExtraOpts(const QStringList &opts){
+#ifdef __linux__
 	if(opts.contains(QString("v4l2"))){
 		std::vector<Camera> cams = getCameras();
 		for(const auto& cam : cams){
@@ -157,6 +158,7 @@ void VideoSourceOption::queryExtraOpts(const QStringList &opts){
 			box->addItem(name, QVariant(opt));
 		}
 	}
+#endif
 }
 
 void VideoSourceOption::srcChanged(){
@@ -186,6 +188,7 @@ void VideoSourceOption::srcChanged(){
 		mode->addItem(QString("30 fps"), QVariant(QString(":fps=30")));
 		mode->addItem(QString("24 fps"), QVariant(QString(":fps=24")));
 	} else if(src->currentData().toString().contains("v4l2")){
+#ifdef __linux__
 		std::string path = src->currentData().toString().split("device=")[1].toStdString();
 		std::vector<Mode> modes = getModes(path);
 
@@ -219,6 +222,7 @@ void VideoSourceOption::srcChanged(){
 
 			mode->addItem(name, param);
 		}
+#endif
 	}
 
 	emit changed();
