@@ -514,20 +514,19 @@ bundle: bundle-nolib
 	done
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
-osx-gui-dmg: bundle
-	cd 'gui/UltraGrid GUI'; \
-		xcodebuild -alltargets -arch x86_64; \
-		cp ../../uv.app/Contents/MacOS/* build/Release/UltraGrid\ GUI.app/Contents/MacOS/; \
-		mkdir build/Release/UltraGrid\ GUI.app/Contents/libs; \
-		cp ../../uv.app/Contents/libs/* build/Release/UltraGrid\ GUI.app/Contents/libs; \
-		mkdir build/Release/UltraGrid\ GUI.app/Contents/Frameworks; \
-		cp -r ../../uv.app/Contents/Frameworks/* build/Release/UltraGrid\ GUI.app/Contents/Frameworks; \
-		MBYTES=`du -mc build/Release/UltraGrid\ GUI.app | tail -n1 | cut -f1`; \
+osx-gui-dmg: bundle gui/QT/uv-qt
+	cd 'gui/QT'; \
+		cp ../../uv.app/Contents/MacOS/* uv-qt.app/Contents/MacOS/; \
+		mkdir uv-qt.app/Contents/libs; \
+		cp ../../uv.app/Contents/libs/* uv-qt.app/Contents/libs; \
+		mkdir uv-qt.app/Contents/Frameworks; \
+		cp -r ../../uv.app/Contents/Frameworks/* uv-qt.app/Contents/Frameworks; \
+		MBYTES=`du -mc uv-qt.app | tail -n1 | cut -f1`; \
 		MBYTES=$$(($$MBYTES+2)); \
 		[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg; \
 		hdiutil create -megabytes $$MBYTES -fs MS-DOS -volname ULTRAGRID UltraGrid.dmg; \
 		MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
-		mv "build/Release/UltraGrid GUI.app" "$$MOUNT_PT"; \
+		mv "uv-qt.app" "$$MOUNT_PT"; \
 		hdiutil eject "$$MOUNT_PT"; \
 		hdiutil convert UltraGrid.dmg -format UDRO -o UltraGrid-ro.dmg; \
 		rm UltraGrid.dmg; \
