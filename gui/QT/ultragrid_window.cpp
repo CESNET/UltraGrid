@@ -11,7 +11,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
 	//ui.terminal->setVisible(false);
 
-	ultragridExecutable = UltragridWindow::findUltragridExecutable();
+	ultragridExecutable = "\"" + UltragridWindow::findUltragridExecutable() + "\"";
 
 	connect(ui.actionAbout_UltraGrid, SIGNAL(triggered()), this, SLOT(about()));
 	connect(ui.startButton, SIGNAL(clicked()), this, SLOT(start()));
