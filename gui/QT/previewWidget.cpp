@@ -181,9 +181,6 @@ void PreviewWidget::paintGL(){
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, sframe->width, sframe->height, 0, GL_RGB, GL_UNSIGNED_BYTE, sframe->pixels);
 		setVidSize(sframe->width, sframe->height);
 		shared_mem.unlock();
-		if(shared_mem.detach() == false){
-			printf("Unable to detach\n");
-		}
 	} else {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	}

@@ -1,3 +1,40 @@
+/**
+ * @file   shared_mem_frame.cpp
+ * @author Martin Piatka    <piatka@cesnet.cz>
+ */
+/*
+ * Copyright (c) 2018 CESNET, z. s. p. o.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, is permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "shared_mem_frame.hpp"
 
 #ifndef GUI_BUILD
@@ -6,9 +43,13 @@
 #include "config_win32.h"
 #include "video_codec.h"
 #include "video_frame.h"
-#endif // GUI_BUILD
+#include "debug.h"
+
+#else
 
 #include <stdio.h>
+#define error_msg(...) fprintf(stderr, __VA_ARGS__)
+#endif // GUI_BUILD
 
 Shared_mem::Shared_mem(const char *key) :
         key(key),
@@ -20,6 +61,10 @@ Shared_mem::Shared_mem(const char *key) :
 
 Shared_mem::Shared_mem() : Shared_mem("ultragrid_preview") {  }
 
+Shared_mem::~Shared_mem(){
+        destroy();
+}
+
 bool Shared_mem::create(){
         if(shared_mem.create(mem_size) == false){
                 /* Creating shared memory could fail because of shared memory
@@ -27,7 +72,7 @@ bool Shared_mem::create(){
                 shared_mem.attach();
                 shared_mem.detach();
                 if(shared_mem.create(mem_size) == false){
-                        fprintf(stderr, "Can't create shared memory!\n");
+                        error_msg("[Shared mem] Can't create shared memory!\n");
                         return false;
                 }
         }
@@ -53,16 +98,26 @@ bool Shared_mem::detach(){
         return shared_mem.detach();
 }
 
-bool Shared_mem::isAttached(){
+void Shared_mem::destroy(){
+        Shared_mem_frame *sframe = get_frame_and_lock();
+        if(sframe){
+                sframe->should_detach = true;
+        }
+        detach();
+}
+
+bool Shared_mem::is_attached(){
         return shared_mem.isAttached();
 }
 
 bool Shared_mem::lock(){
-        if(locked){
-                printf("LOCKED\n");
-                printf("LOCKED\n");
-                printf("LOCKED\n");
-        }
+        /* Locking should fail when the shared memory is not attached,
+         * but for some reason QT sometimes succeeds in locking unattached
+         * memory (bug in QT maybe?)
+         */
+        if(!is_attached())
+                return false;
+
         if(shared_mem.lock()){
                 locked = true;
                 return true;
@@ -87,7 +142,7 @@ Shared_mem_frame *Shared_mem::get_frame_and_lock(){
                         return nullptr;
                 } else {
                         if(shared_mem.create(mem_size) == false){
-                                fprintf(stderr, "Can't create shared memory!\n");
+                                error_msg("[Shared mem] Can't create shared memory (get_frame)!\n");
                         }
                         lock();
                         struct Shared_mem_frame *sframe = (Shared_mem_frame*) shared_mem.data();
@@ -97,11 +152,11 @@ Shared_mem_frame *Shared_mem::get_frame_and_lock(){
                         reconfiguring = false;
                 }
         } else {
-                if(!isAttached()) attach();
+                if(!is_attached()) attach();
                 lock();
         }
 #else
-        if(!isAttached()) attach();
+        if(!is_attached()) attach();
         lock();
 #endif // GUI_BUILD
 
@@ -111,7 +166,7 @@ Shared_mem_frame *Shared_mem::get_frame_and_lock(){
                 return nullptr;
         }
 
-        return (Shared_mem_frame *) shared_mem.data();
+        return sframe;
 }
 
 #ifndef GUI_BUILD
@@ -125,12 +180,7 @@ void Shared_mem::check_reconf(struct video_desc in_desc){
         /* We need to destroy the shared memory segment
          * and recreate it with a new size. To destroy it all processes
          * must detach it. We detach here and then wait until the GUI detaches */
-        reconfiguring = true;
-        Shared_mem_frame *sframe = get_frame_and_lock();
-        if(sframe){
-                sframe->should_detach = true;
-        }
-        detach();
+        destroy();
 
         const float target_width = 960;
         const float target_height = 540;
@@ -147,15 +197,12 @@ void Shared_mem::check_reconf(struct video_desc in_desc){
         scaledH = in_desc.height / scaleF;
         scaled_frame.resize(get_bpp(in_desc.color_spec) * scaledW * scaledH);
         mem_size = get_bpp(preview_codec) * scaledW_pad * scaledH + sizeof(Shared_mem_frame);
+
+        reconfiguring = true;
 }
 
 void Shared_mem::put_frame(struct video_frame *frame){
         check_reconf(video_desc_from_frame(frame));
-
-        struct Shared_mem_frame *sframe = get_frame_and_lock();
-
-        if(!sframe)
-                return;
 
         decoder_t dec = get_decoder_from_to(frame->color_spec, preview_codec, true);
 
@@ -168,6 +215,12 @@ void Shared_mem::put_frame(struct video_frame *frame){
                         dst += block_size;
                 }
         }
+
+        struct Shared_mem_frame *sframe = get_frame_and_lock();
+
+        if(!sframe)
+                return;
+
         int dst_line_len_pad = vc_get_linesize(scaledW_pad, preview_codec);
         int dst_line_len = vc_get_linesize(scaledW, preview_codec);
         src_line_len = vc_get_linesize(scaledW, frame->color_spec);
