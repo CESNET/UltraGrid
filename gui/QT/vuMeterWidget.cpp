@@ -7,7 +7,7 @@
 #include <QString>
 #include "vuMeterWidget.hpp"
 
-const double VuMeterWidget::zeroLevel;
+constexpr double VuMeterWidget::zeroLevel;
 
 void VuMeterWidget::updateVal(){
 	updateVolumes();
