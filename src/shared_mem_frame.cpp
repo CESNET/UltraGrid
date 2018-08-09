@@ -52,17 +52,20 @@
 #endif // GUI_BUILD
 
 Shared_mem::Shared_mem(const char *key) :
-        key(key),
         mem_size(4096),
         locked(false)
 {
-        shared_mem.setKey(key);
+        setKey(key);
 }
 
 Shared_mem::Shared_mem() : Shared_mem("ultragrid_preview") {  }
 
 Shared_mem::~Shared_mem(){
         destroy();
+}
+
+void Shared_mem::setKey(const char *key){
+        shared_mem.setKey(key);
 }
 
 bool Shared_mem::create(){

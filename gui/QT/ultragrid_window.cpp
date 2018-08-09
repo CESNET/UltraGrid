@@ -39,8 +39,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 				ultragridExecutable));
 
 	audioSrcOption = new AudioSourceOption(&ui,
-				sourceOption,
-				ultragridExecutable);
+			sourceOption,
+			ultragridExecutable);
 	opts.emplace_back(audioSrcOption);
 
 	opts.emplace_back(new AudioPlaybackOption(&ui,
@@ -67,6 +67,11 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	checkPreview();
 
 	startPreview();
+
+	ui.displayPreview->setKey("ultragrid_preview_display");
+	ui.displayPreview->start();
+	ui.capturePreview->setKey("ultragrid_preview_capture");
+	ui.capturePreview->start();
 }
 
 void UltragridWindow::checkPreview(){
@@ -115,17 +120,17 @@ void UltragridWindow::about(){
 	aboutBox.setWindowTitle("About UltraGrid");
 	aboutBox.setTextFormat(Qt::RichText);
 	aboutBox.setText( "UltraGrid from CESNET is a software "
-		"implementation of high-quality low-latency video and audio transmissions using commodity PC and Mac hardware.<br><br>"
-		"More information can be found at <a href='http://www.ultragrid.cz'>http://www.ultragrid.cz</a><br><br>"
-		"Please read documents distributed with the product to find out current and former developers."
-		);
+			"implementation of high-quality low-latency video and audio transmissions using commodity PC and Mac hardware.<br><br>"
+			"More information can be found at <a href='http://www.ultragrid.cz'>http://www.ultragrid.cz</a><br><br>"
+			"Please read documents distributed with the product to find out current and former developers."
+			);
 	aboutBox.setStandardButtons(QMessageBox::Ok);
 	aboutBox.exec();
 }
 
 void UltragridWindow::outputAvailable(){
 	//ui.terminal->append(process.readAll());
-	
+
 	QString str = process.readAll();
 #if 0
 	ui.terminal->moveCursor(QTextCursor::End);
@@ -157,8 +162,8 @@ void UltragridWindow::start(){
 void UltragridWindow::startPreview(){
 	if(!ui.previewCheckBox->isEnabled()
 			|| process.state() != QProcess::NotRunning
-			|| !ui.previewCheckBox->isChecked()
-			){
+			|| !ui.previewCheckBox->isChecked())
+	{
 		return;
 	}
 
@@ -167,7 +172,9 @@ void UltragridWindow::startPreview(){
 
 	QString command(ultragridExecutable);
 	command += " ";
-	command += sourceOption->getLaunchParam();
+	QString source = sourceOption->getLaunchParam();
+	command += "--capture-filter preview ";
+	command += source;
 	command += audioSrcOption->getLaunchParam();
 	//TODO better control port handling
 	command += "-d preview -r dummy --control-port 8888";
@@ -195,6 +202,10 @@ void UltragridWindow::editArgs(const QString &text){
 
 void UltragridWindow::setArgs(){
 	launchArgs = "";
+
+	if(ui.previewCheckBox->isChecked()){
+		launchArgs += "--capture-filter preview ";
+	}
 
 	for(auto &opt : opts){
 		launchArgs += opt->getLaunchParam();

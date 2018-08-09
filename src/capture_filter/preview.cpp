@@ -67,6 +67,7 @@ static int init(struct module *parent, const char *cfg, void **state){
         UNUSED(cfg);
 
         struct state_preview *s = new state_preview();
+        s->shared_mem.setKey("ultragrid_preview_capture");
         s->shared_mem.create();
 
         *state = s;

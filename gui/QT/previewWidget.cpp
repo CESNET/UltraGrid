@@ -189,3 +189,16 @@ void PreviewWidget::paintGL(){
 
 	vao.release();
 }
+
+void PreviewWidget::setKey(const char *key){
+	shared_mem.detach();
+	shared_mem.setKey(key);
+}
+
+void PreviewWidget::start(){
+	timer.start(1000/24);
+}
+
+void PreviewWidget::stop(){
+	timer.stop();
+}

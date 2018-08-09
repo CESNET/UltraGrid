@@ -134,6 +134,7 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
         s->common = shared_ptr<state_preview_common>(new state_preview_common());
         s->common->parent = parent;
 
+        s->common->shared_mem.setKey("ultragrid_preview_display");
         s->common->shared_mem.create();
         return s;
 }
