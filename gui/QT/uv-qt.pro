@@ -5,8 +5,12 @@
 TEMPLATE = app
 TARGET = uv-qt
 INCLUDEPATH += .
-INCLUDEPATH += ../../tools/
-INCLUDEPATH += ../../src
+INCLUDEPATH += $$PWD/../../tools/
+INCLUDEPATH += $$PWD/../../src
+INCLUDEPATH += window/
+INCLUDEPATH += util/
+INCLUDEPATH += widget/
+INCLUDEPATH += options/
 RC_FILE = uv-qt.rc
 
 DEFINES += GUI_BUILD
@@ -15,7 +19,7 @@ QT += widgets
 
 CONFIG += c++11
 
-LIBS += ../../tools/astat.a
+LIBS += $$PWD/../../tools/astat.a
 macx {
 	LIBS += -framework CoreFoundation
 } win32 {
@@ -23,33 +27,33 @@ macx {
 }
 
 astat.target = astat_lib
-astat.commands = cd ../../tools && make -f Makefile.astat lib
+astat.commands = cd $$PWD/../../tools && make -f Makefile.astat lib
 
 QMAKE_EXTRA_TARGETS += astat
 PRE_TARGETDEPS += astat_lib
 
 
 # Input
-HEADERS += ultragrid_window.hpp \
-ultragrid_option.hpp \
-v4l2.hpp \
-previewWidget.hpp \
-log_window.hpp \
-../../tools/astat.h \
-../../src/shared_mem_frame.hpp \
-vuMeterWidget.hpp \
-settings_window.hpp \
+HEADERS += window/ultragrid_window.hpp \
+	options/ultragrid_option.hpp \
+	util/v4l2.hpp \
+	widget/previewWidget.hpp \
+	window/log_window.hpp \
+	../../tools/astat.h \
+	../../src/shared_mem_frame.hpp \
+	widget/vuMeterWidget.hpp \
+	window/settings_window.hpp \
 
-FORMS += ultragrid_window.ui \
-log_window.ui \
-settings.ui
+FORMS += ui/ultragrid_window.ui \
+	ui/log_window.ui \
+	ui/settings.ui
 
-SOURCES += ultragrid_window.cpp \
-	ultragrid_option.cpp \
-	v4l2.cpp \
-	previewWidget.cpp \
-	log_window.cpp \
-	vuMeterWidget.cpp \
-	settings_window.cpp \
+SOURCES += window/ultragrid_window.cpp \
+	options/ultragrid_option.cpp \
+	util/v4l2.cpp \
+	widget/previewWidget.cpp \
+	window/log_window.cpp \
+	widget/vuMeterWidget.cpp \
+	window/settings_window.cpp \
 	../../src/shared_mem_frame.cpp \
 	main.cpp
