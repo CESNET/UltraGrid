@@ -85,11 +85,16 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
                                 params.at("audio_sample_rate").i, params.at("audio_channels").i);
         }
         if (m_sdp == NULL) {
+                throw string("[SDP] SDP creation failed\n");
+        }
+        if (!gen_sdp(m_sdp)){
                 throw string("[SDP] File creation failed\n");
         }
-        if (!get_sdp(m_sdp)){
-                throw string("[SDP] File creation failed\n");
+#ifdef SDP_HTTP
+        if (!sdp_run_http_server(m_sdp)){
+                throw string("[SDP] Server run failed!\n");
         }
+#endif
 }
 
 void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)

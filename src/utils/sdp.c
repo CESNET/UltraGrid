@@ -38,7 +38,17 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ */
+/**
+ * @todo
+ * * this file structure is now a bit messy
+ * * exit correctly HTTP thread (but it is a bit tricky because it waits on accept())
+ * * allow use of different HTTP ports than 8080
+ * * IPv6 support (?)
+ * * createResponseForRequest() should be probably static (in case that other
+ *   modules want also to use EmbeddableWebServer
+ * * HTTP server should work even if the SDP file cannot be written
+ * * MSW support (HTTP server)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -48,17 +58,21 @@
 #endif
 
 #include "debug.h"
+#include "utils/net.h"
 #include "utils/sdp.h"
+#ifdef SDP_HTTP
+#include "EmbeddableWebServer.h"
+#endif // SDP_HTTP
 
 #define SDP_FILE "ug.sdp"
 
 //TODO could be a vector of many streams
-//struct sdp *sdp;
+static struct sdp *sdp_global;
 
 struct sdp *new_sdp(enum rtp_standard std, int port){
     struct sdp *sdp;
     sdp = NULL;
-    sdp = malloc(sizeof(struct sdp));
+    sdp = calloc(1, sizeof(struct sdp));
     sdp->stream_count = 0;
     sdp->std_rtp = std;
     sdp->port = port;
@@ -78,54 +92,44 @@ struct sdp *new_sdp(enum rtp_standard std, int port){
     }
 }
 
-bool get_sdp(struct sdp *sdp){
-    bool rc = 0;
+static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
+{
+    if (*dst_alloc_len < strlen(*dst) + strlen(src) + 1) {
+        *dst_alloc_len = strlen(*dst) + strlen(src) + 1;
+        *dst = realloc(*dst, *dst_alloc_len);
+    }
+    strcat(*dst, src);
+}
 
-    if(sdp!=NULL){
-        FILE *fOut = fopen (SDP_FILE, "w+");
-        if (fOut != NULL) {
-            if (fprintf (fOut,sdp->version) >= 0) {
-                rc = 1;
-            }
-            if (fprintf (fOut,sdp->origin) >= 0) {
-                rc = 1;
-            }
-            if (fprintf (fOut,sdp->session_name) >= 0) {
-                rc = 1;
-            }
-            if (fprintf (fOut,sdp->connection) >= 0) {
-                rc = 1;
-            }
-            if (fprintf (fOut,sdp->times) >= 0) {
-                rc = 1;
-            }
-            for (int i = 0; i < sdp->stream_count; ++i) {
-                if (fprintf (fOut,sdp->stream[i].media_info) >= 0) {
-                    rc = 1;
-                }
-                if (fprintf (fOut,sdp->stream[i].rtpmap) >= 0) {
-                    rc = 1;
-                }
-            }
-            fclose (fOut); // or for the paranoid: if (fclose (fOut) == EOF) rc = 0;
-        }else rc=0;
-    }else rc = 0;
+bool gen_sdp(struct sdp *sdp){
+    size_t len = 1;
+    char *buf = calloc(1, 1);
+    strappend(&buf, &len, sdp->version);
+    strappend(&buf, &len, sdp->origin);
+    strappend(&buf, &len, sdp->session_name);
+    strappend(&buf, &len, sdp->connection);
+    strappend(&buf, &len, sdp->times);
+    for (int i = 0; i < sdp->stream_count; ++i) {
+        strappend(&buf, &len, sdp->stream[i].media_info);
+        strappend(&buf, &len, sdp->stream[i].rtpmap);
+    }
+    strappend(&buf, &len, "\n\n");
+    sdp->sdp_dump = buf;
 
-    if(rc){
-        printf("\n[SDP] File " SDP_FILE " created.\nPrinted version:\n");
-        printf("%s",sdp->version);
-        printf("%s",sdp->origin);
-        printf("%s",sdp->session_name);
-        printf("%s",sdp->connection);
-        printf("%s",sdp->times);
-        for (int i = 0; i < sdp->stream_count; ++i) {
-            printf("%s",sdp->stream[i].media_info);
-            printf("%s",sdp->stream[i].rtpmap);
+    FILE *fOut = fopen (SDP_FILE, "w+");
+    if (fOut == NULL) {
+        log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
+    } else {
+        if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
+            perror("fprintf");
+        } else {
+            printf("[SDP] File " SDP_FILE " created.\n");
         }
-        printf("\n\n");
+        fclose(fOut);
     }
 
-    return rc;
+    printf("Printed version:\n%s", buf);
+    return true;
 }
 
 void set_version(struct sdp *sdp){
@@ -197,6 +201,60 @@ char *set_stream_rtpmap(struct sdp *sdp, int index){
 }
 
 void clean_sdp(struct sdp *sdp){
+    if (!sdp) {
+            return;
+    }
+    free(sdp->sdp_dump);
     free(sdp);
 }
 
+
+// --------------------------------------------------------------------
+// HTTP server stuff
+// --------------------------------------------------------------------
+#ifdef SDP_HTTP
+struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
+    UNUSED(connection);
+    if (strlen(request->pathDecoded) > 1 && request->pathDecoded[0] == '/' && strcmp(request->pathDecoded + 1, SDP_FILE) == 0) {
+	return responseAllocWithFile(SDP_FILE, "application/sdp");
+    }
+    return responseAlloc404NotFoundHTML(request->pathDecoded);
+}
+
+static const uint16_t portInHostOrder = 8080;
+
+static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
+    acceptConnectionsUntilStoppedFromEverywhereIPv4(param, portInHostOrder);
+    log_msg(LOG_LEVEL_WARNING, "Warning: HTTP/SDP thread has exited.\n");
+    return (THREAD_RETURN_TYPE) 0;
+}
+
+static void print_http_path() {
+    struct sockaddr_in addrs[20];
+    size_t len = sizeof addrs;
+    if (get_local_ipv4_addresses(addrs, &len)) {
+        for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
+            if (!is_addr_loopback((struct sockaddr *) &addrs[i])) {
+                char hostname[256];
+                getnameinfo((struct sockaddr *) &addrs[i], sizeof(struct sockaddr_in), hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
+                log_msg(LOG_LEVEL_NOTICE, "Receiver can play SDP with URL http://%s:%u/%s\n", hostname, portInHostOrder, SDP_FILE);
+            }
+        }
+    }
+}
+
+bool sdp_run_http_server(struct sdp *sdp)
+{
+    struct Server *http_server = calloc(1, sizeof(struct Server));
+    sdp_global = sdp;
+    serverInit(http_server);
+    pthread_t http_server_thr;
+    pthread_create(&http_server_thr, NULL, &acceptConnectionsThread, http_server);
+    pthread_detach(http_server_thr);
+    // some resource will definitely leak but it shouldn't be a problem
+    print_http_path();
+    return true;
+}
+#endif // SDP_HTTP
+
+/* vim: set expandtab sw=4 : */

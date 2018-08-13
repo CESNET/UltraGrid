@@ -1296,6 +1296,26 @@ if test $rtsp_server_req = yes -a $rtsp_server = no; then
         AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
 fi
 
+# ----------------------------------------------------------------------
+# SDP over HTTP
+# ----------------------------------------------------------------------
+sdp_http=no
+AC_ARG_ENABLE(sdp-http,
+[  --enable-sdp-http       enables SDP/HTTP transport (default is auto)],
+    [sdp_http_req=$enableval],
+    [sdp_http_req=auto]
+    )
+
+if test $sdp_http_req != no -a $system != Windows
+then
+        AC_DEFINE([SDP_HTTP], 1, [Add support for SDP over HTTP])
+        sdp_http=yes
+fi
+
+if test $sdp_http_req = yes -a $sdp_http = no; then
+        AC_MSG_ERROR([SDP over HTTP is currently not supported under MSW]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Resize stuff
 # -------------------------------------------------------------------------------------------------
@@ -3048,6 +3068,7 @@ RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
 RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
 RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`
 RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
+RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
 RESULT=`add_column "$RESULT" "Spout" $spout $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
 RESULT=`add_column "$RESULT" "Testcard extras" $testcard_extras $?`

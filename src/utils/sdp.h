@@ -43,12 +43,6 @@
 #ifndef __sdp_h
 #define __sdp_h
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -77,13 +71,14 @@ struct sdp {
     char *times;
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
+    char *sdp_dump;
 };
 
 /*
  * External API
  */
 struct sdp *new_sdp(enum rtp_standard std, int port);
-bool get_sdp(struct sdp *sdp);
+bool gen_sdp(struct sdp *sdp);
 
 void set_version(struct sdp *sdp);
 void get_version(struct sdp *sdp);
@@ -102,6 +97,8 @@ void get_times(struct sdp *sdp);
 
 void set_stream(struct sdp *sdp);
 void get_stream(struct sdp *sdp, int index);
+
+bool sdp_run_http_server(struct sdp *sdp);
 
 /*
  * Internal API
