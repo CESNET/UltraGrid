@@ -34,6 +34,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * Main idea behind the code below is to control how many frames the encoder
+ * holds. The codec itself doesn't have a limit, thus without that it is
+ * possible to run out of memory. This is possible even in the case when
+ * the GPU is powerful enough due to the fact that CUDA registers the new
+ * buffers which is very slow and because of that the frames cumulate before
+ * the GPU encoder.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -67,7 +75,10 @@
 } while(0)
 
 #define NOOP ((void) 0)
+/// default max size of state_video_compress_j2k::pool and also value
+/// for state_video_compress_j2k::max_in_frames
 #define DEFAULT_POOL_SIZE 4
+/// number of frames that encoder encodes at moment
 #define DEFAULT_TILE_LIMIT 1
 #define DEFAULT_MEM_LIMIT 1000000000llu
 
@@ -80,18 +91,25 @@ struct state_video_compress_j2k {
 
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
-        long long int rate;
-        video_frame_pool<default_data_allocator> pool;
-        unsigned int max_in_frames;
-        unsigned int in_frames{};
+        long long int rate; ///< bitrate in bits per second
+        video_frame_pool<default_data_allocator> pool; ///< pool for frames allocated by us but not yet consumed by encoder
+        unsigned int max_in_frames; ///< max number of frames between push and pop
+        unsigned int in_frames{};   ///< number of currently encoding frames
         mutex lock;
         condition_variable frame_popped;
-        video_desc saved_desc{};
+        video_desc saved_desc{}; ///< for pool reconfiguration
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
 static void j2k_compress_done(struct module *mod);
 
+/**
+ * @fn j2k_compress_pop
+ * @note
+ * Do not return empty frame in case of error - that would be interpreted
+ * as a poison pill (see below) and would stop the further processing
+ * pipeline. Because of that goto + start label is used.
+ */
 #define HANDLE_ERROR_COMPRESS_POP do { cmpto_j2k_enc_img_destroy(img); goto start; } while (0)
 static std::shared_ptr<video_frame> j2k_compress_pop(struct module *state)
 {
@@ -120,7 +138,8 @@ start:
         }
 
         if (!img) {
-                // pass poison pill
+                // this happens cmpto_j2k_enc_ctx_stop() is called
+                // pass poison pill further
                 return {};
         }
         struct video_desc *desc;
@@ -270,7 +289,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         void *udata;
         shared_ptr<video_frame> *ref;
 
-        if (tx == NULL) {
+        if (tx == NULL) { // pass poison pill through encoder
                 CHECK_OK(cmpto_j2k_enc_ctx_stop(s->context), "stop", NOOP);
                 return;
         }
@@ -317,6 +336,12 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
         CHECK_OK(cmpto_j2k_enc_img_create(s->context, &img),
                         "Image create", return);
 
+        /*
+         * Copy video desc to udata (to be able to reconstruct in j2k_compress_pop().
+         * Further make a place for a shared pointer of allocated data, deleter
+         * returns frame to pool in call of release_cstream() callback (called when
+         * encoder no longer needs the input data).
+         */
         CHECK_OK(cmpto_j2k_enc_img_allocate_custom_data(
                                 img,
                                 sizeof(struct video_desc) + sizeof(shared_ptr<video_frame>),

@@ -34,6 +34,26 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * Some of the concepts are similar to encoder (eg. keeping limited number of
+ * frames in decoder) so please refer to that file.
+ *
+ * Problematic part of following code is that UltraGrid decompress API is
+ * synchronous only while the CMPTO J2K decoder is inherently asynchronous.
+ * Threrefore the integration works in following fashion:
+ * - there is a thread that waits for completed (decompressed) frames,
+ *   if there is any, it put it in queue (or drop if full)
+ * - when a new frame arives, j2k_decompress() passes it to decoder
+ *   (which is asynchronous, thus non-blocking)
+ * - then queue (filled by thread in first point) is checked - if it is
+ *   non-empty, frame is copied to framebufffer. If not false is returned.
+ *
+ * @todo
+ * Reconfiguration isn't entirely correct - on reconfigure, all frames
+ * should be dropped and not copied to framebuffer. However this is usually
+ * not an issue because dynamic video change is rare (except switching to
+ * another stream, which, however, creates a new decoder).
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -54,7 +74,9 @@
 #include <utility>
 
 #define DEFAULT_TILE_LIMIT 1
+/// maximal size of queue for decompressed frames
 #define DEFAULT_MAX_QUEUE_SIZE 2
+/// maximal number of concurrently decompressed frames
 #define DEFAULT_MAX_IN_FRAMES 4
 #define DEFAULT_MEM_LIMIT 1000000000ll
 
@@ -72,11 +94,11 @@ struct state_decompress_j2k {
         mutex lock;
         queue<pair<char *, size_t>> decompressed_frames; ///< buffer, length
         pthread_t thread_id{};
-        unsigned int max_queue_size;
-        unsigned int max_in_frames;
-        unsigned int in_frames{};
+        unsigned int max_queue_size; ///< maximal length of @ref decompressed_frames
+        unsigned int max_in_frames; ///< maximal frames that can be "in progress"
+        unsigned int in_frames{}; ///< actual number of decompressed frames
 
-        unsigned long long int dropped{};
+        unsigned long long int dropped{}; ///< number of dropped frames because queue was full
 };
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -90,6 +112,10 @@ struct state_decompress_j2k {
 
 #define NOOP ((void) 0)
 
+/**
+ * This function just runs in thread and gets decompressed images from decoder
+ * putting them to queue (or dropping if full).
+ */
 static void *decompress_j2k_worker(void *args)
 {
         struct state_decompress_j2k *s =
@@ -114,7 +140,7 @@ static void *decompress_j2k_worker(void *args)
                         continue;
                 }
 
-                if (img == NULL) { // decoder stopped
+                if (img == NULL) { // decoder stopped (poison pill)
                         break;
                 }
 
@@ -249,12 +275,20 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         return TRUE;
 }
 
+/**
+ * Callback called by the codec when codestream is no longer required.
+ */
 static void release_cstream(void * custom_data, size_t custom_data_size, const void * codestream, size_t codestream_size)
 {
         (void) custom_data; (void) custom_data_size; (void) codestream_size;
         free(const_cast<void *>(codestream));
 }
 
+/**
+ * Main decompress function - passes frame to the codec and checks if there are
+ * some decoded frames. If so, copies that to framebuffer. In the opposite case
+ * it just returns false.
+ */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int /* frame_seq */)
 {
