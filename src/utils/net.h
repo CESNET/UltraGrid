@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 struct sockaddr_storage;
-bool is_addr_loopback(struct sockaddr_storage *ss);
+bool is_addr_loopback(struct sockaddr *sa);
 bool is_host_loopback(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 

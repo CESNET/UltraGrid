@@ -50,14 +50,14 @@
 #define IN_LOOPBACKNET 127
 #endif
 
-bool is_addr_loopback(struct sockaddr_storage *ss)
+bool is_addr_loopback(struct sockaddr *sa)
 {
-        switch (ss->ss_family) {
+        switch (sa->sa_family) {
         case AF_UNIX:
                 return true;
         case AF_INET:
         {
-                struct sockaddr_in *sin = (struct sockaddr_in *) ss;
+                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
                 if ((addr >> 24) == IN_LOOPBACKNET) {
                         return true;
@@ -67,7 +67,7 @@ bool is_addr_loopback(struct sockaddr_storage *ss)
         }
         case AF_INET6:
         {
-                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) ss;
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
                 if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
                         uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
                         if ((v4_addr >> 24) == IN_LOOPBACKNET) {
@@ -100,7 +100,7 @@ bool is_host_loopback(const char *hostname)
 		return false;
 	}
 
-        ret = is_addr_loopback((struct sockaddr_storage *) ai->ai_addr);
+        ret = is_addr_loopback(ai->ai_addr);
         freeaddrinfo(ai);
 
         return ret;

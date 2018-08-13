@@ -746,7 +746,7 @@ static void * control_thread(void *args)
 
                                 // refuse remote connections by default
                                 if (!get_commandline_param("control-accept-global") &&
-                                                !is_addr_loopback(&client_addr)) {
+                                                !is_addr_loopback((struct sockaddr *) &client_addr)) {
                                         log_msg(LOG_LEVEL_WARNING, "[control socket] Refusing remote connection. Use \"--param control-accept-global\" to allow UG control from a remote host.\n");
                                         const char *msg = "unauthorized\r\n";
                                         write_all(fd, msg, strlen(msg));
