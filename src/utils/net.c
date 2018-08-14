@@ -41,6 +41,12 @@
 #include "config_win32.h"
 #endif
 
+#ifndef WIN32
+#include <netinet/ip.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
+#endif
+
 #include "utils/net.h"
 
 #include "debug.h"
@@ -123,5 +129,128 @@ uint16_t socket_get_recv_port(int fd)
                         return 0;
                 }
         }
+}
+
+bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len)
+{
+#ifdef WIN32
+#define WORKING_BUFFER_SIZE 15000
+#define MAX_TRIES 3
+	/* Declare and initialize variables */
+	DWORD dwSize = 0;
+	DWORD dwRetVal = 0;
+	unsigned int i = 0;
+	size_t len_remaining = *len;
+	*len = 0;
+
+	LPVOID lpMsgBuf = NULL;
+
+	PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+	ULONG outBufLen = 0;
+	ULONG Iterations = 0;
+
+	PIP_ADAPTER_ADDRESSES pCurrAddresses = NULL;
+	PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
+	PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
+	PIP_ADAPTER_MULTICAST_ADDRESS pMulticast = NULL;
+	IP_ADAPTER_DNS_SERVER_ADDRESS *pDnServer = NULL;
+	IP_ADAPTER_PREFIX *pPrefix = NULL;
+
+	// Allocate a 15 KB buffer to start with.
+	outBufLen = WORKING_BUFFER_SIZE;
+
+	do {
+		pAddresses = (IP_ADAPTER_ADDRESSES *) malloc(outBufLen);
+		if (pAddresses == NULL) {
+			printf
+				("Memory allocation failed for IP_ADAPTER_ADDRESSES struct\n");
+			return false;
+		}
+
+		dwRetVal =
+			GetAdaptersAddresses(AF_INET, 0, NULL, pAddresses, &outBufLen);
+
+		if (dwRetVal == ERROR_BUFFER_OVERFLOW) {
+			free(pAddresses);
+			pAddresses = NULL;
+		} else {
+			break;
+		}
+		Iterations++;
+	} while ((dwRetVal == ERROR_BUFFER_OVERFLOW) && (Iterations < MAX_TRIES));
+
+	if (dwRetVal == NO_ERROR) {
+		// If successful, output some information from the data we received
+		pCurrAddresses = pAddresses;
+		while (pCurrAddresses) {
+
+			pUnicast = pCurrAddresses->FirstUnicastAddress;
+			if (pUnicast != NULL) {
+				for (i = 0; pUnicast != NULL; i++) {
+					if (len_remaining >= sizeof(addrs[0])) {
+						*addrs = *(struct sockaddr_in *) pUnicast->Address.lpSockaddr;
+						addrs += 1;
+						*len += sizeof(addrs[0]);
+						len_remaining -= sizeof(addrs[0]);
+					} else {
+						printf("Warning: insufficient space for all addresses.\n");
+						return true;
+					}
+					pUnicast = pUnicast->Next;
+				}
+			}
+
+			pCurrAddresses = pCurrAddresses->Next;
+		}
+	} else {
+		printf("Call to GetAdaptersAddresses failed with error: %d\n",
+				dwRetVal);
+		if (dwRetVal == ERROR_NO_DATA)
+			printf("\tNo addresses were found for the requested parameters\n");
+		else {
+			if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+						FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+						NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+						// Default language
+						(LPTSTR) & lpMsgBuf, 0, NULL)) {
+				printf("\tError: %s", lpMsgBuf);
+				LocalFree(lpMsgBuf);
+				if (pAddresses)
+					free(pAddresses);
+				return false;
+			}
+		}
+	}
+
+	if (pAddresses) {
+		free(pAddresses);
+	}
+
+	return true;
+#else // ! defined WIN32
+	size_t available_len = *len;
+	*len = 0;
+	struct ifaddrs* a = NULL;
+	getifaddrs(&a);
+	struct ifaddrs* p = a;
+	while (NULL != p) {
+		if (p->ifa_addr->sa_family == AF_INET) {
+			if (available_len >= sizeof addrs[0]) {
+				*addrs = *(struct sockaddr_in *) p->ifa_addr;
+				addrs += 1;
+				*len += sizeof(addrs[0]);
+				available_len -= sizeof(addrs[0]);
+			} else {
+				printf("Warning: insufficient space for all addresses.\n");
+				return true;
+			}
+		}
+		p = p->ifa_next;
+	}
+	if (NULL != a) {
+		freeifaddrs(a);
+	}
+	return true;
+#endif
 }
 

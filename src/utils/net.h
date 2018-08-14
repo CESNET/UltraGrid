@@ -46,6 +46,7 @@ struct sockaddr_storage;
 bool is_addr_loopback(struct sockaddr *sa);
 bool is_host_loopback(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
+bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len);
 
 #ifdef WIN32
 #define CLOSESOCKET closesocket
