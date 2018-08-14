@@ -1068,6 +1068,12 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         char *cname;
         char *hname;
 
+#ifdef WIN32
+        if (multithreaded) {
+                log_msg(LOG_LEVEL_WARNING, "Multithreaded RTP is not recommended for MSW due to internal locking within Winsock implementation.\n");
+        }
+#endif
+
         if (force_ip_version != 0 && force_ip_version != 4 && force_ip_version != 6) {
                 log_msg(LOG_LEVEL_ERROR, "IP version must be either 4 or 6 (or 0)\n");
                 return NULL;
