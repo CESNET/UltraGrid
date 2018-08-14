@@ -51,6 +51,7 @@
 
 #include <mutex>
 #include <queue>
+#include <utility>
 
 #define DEFAULT_TILE_LIMIT 1
 #define DEFAULT_MAX_QUEUE_SIZE 2
@@ -69,7 +70,7 @@ struct state_decompress_j2k {
         codec_t out_codec{};
 
         mutex lock;
-        queue<char *> decompressed_frames;
+        queue<pair<char *, size_t>> decompressed_frames; ///< buffer, length
         pthread_t thread_id{};
         unsigned int max_queue_size;
         unsigned int max_in_frames;
@@ -133,11 +134,11 @@ static void *decompress_j2k_worker(void *args)
                                 log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", s->dropped);
 
                         }
-                        char *decoded = s->decompressed_frames.front();
+                        auto decoded = s->decompressed_frames.front();
                         s->decompressed_frames.pop();
-                        free(decoded);
+                        free(decoded.first);
                 }
-                s->decompressed_frames.push(buffer);
+                s->decompressed_frames.push({buffer,len});
         }
 
         return NULL;
@@ -260,7 +261,7 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;
         struct cmpto_j2k_dec_img *img;
-        char *decoded;
+        pair<char *, size_t> decoded;
         void *tmp;
 
         if (s->in_frames >= s->max_in_frames + 1) {
@@ -295,10 +296,10 @@ return_previous:
         s->decompressed_frames.pop();
         lk.unlock();
 
-        memcpy(dst, decoded, s->desc.height *
-                        vc_get_linesize(s->desc.width, s->out_codec));
+        memcpy(dst, decoded.first, max<size_t>(s->desc.height *
+                        vc_get_linesize(s->desc.width, s->out_codec), decoded.second));
 
-        free(decoded);
+        free(decoded.first);
 
         return DECODER_GOT_FRAME;
 }
@@ -335,9 +336,9 @@ static void j2k_decompress_done(void *state)
         cmpto_j2k_dec_ctx_destroy(s->decoder);
 
         while (s->decompressed_frames.size() > 0) {
-                char *decoded = s->decompressed_frames.front();
+                auto decoded = s->decompressed_frames.front();
                 s->decompressed_frames.pop();
-                free(decoded);
+                free(decoded.first);
         }
 
         delete s;
