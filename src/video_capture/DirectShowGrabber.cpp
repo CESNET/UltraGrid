@@ -441,6 +441,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose)
 		return vt;
 	}
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) calloc(1, sizeof(struct vidcap_dshow_state));
+
 	if (!common_init(s)) return vt;
 	HRESULT res;
 	int n = 0;

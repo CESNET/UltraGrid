@@ -3,23 +3,23 @@
 
 #include <QString>
 #include "ui_settings.h"
+#include "settings_ui.hpp"
 
 class SettingsWindow : public QDialog{
 	Q_OBJECT
 
 public:
 	SettingsWindow(QWidget *parent = 0);
-	QString getVideoPort() const;
-	QString getAudioPort() const;
-	bool isDefault() const;
-	QString getPortArgs() const;
 
-signals:
-	void changed();
-
+	void init(SettingsUi *settingsUi, Settings *s);
 
 private:
 	Ui::Settings ui;
+	Settings *settings;
+
+private slots:
+	void changeFecPage();
+	void fecTab();
 
 };
 #endif

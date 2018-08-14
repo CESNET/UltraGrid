@@ -323,7 +323,7 @@ static void write_mode(struct mode *m,
                         width, height, fps, codec);
 
         snprintf(m->id, sizeof(m->id), "{"
-                        "\"codec\":\"%4s\", "
+                        "\"codec\":\"%.4s\", "
                         "\"size\":\"%dx%d\", "
                         "\"tpf\":\"%u/%u\" }",
                         codec,

@@ -6,9 +6,11 @@
 #include <memory>
 
 #include "ui_ultragrid_window.h"
-#include "ultragrid_option.hpp"
 #include "log_window.hpp"
 #include "settings_window.hpp"
+#include "available_settings.hpp"
+#include "settings.hpp"
+#include "settings_ui.hpp"
 
 class UltragridWindow : public QMainWindow{
 	Q_OBJECT
@@ -22,6 +24,9 @@ protected:
 
 private:
 	void checkPreview();
+	void setupPreviewCallbacks();
+
+	void connectSignals();
 
 	Ui::UltragridWindow ui;
 
@@ -29,18 +34,16 @@ private:
 	QProcess process;
 	QProcess previewProcess;
 
+	AvailableSettings availableSettings;
+
 	QString launchArgs;
 	QStringList getOptionsForParam(QString param);
 	LogWindow log;
-	SettingsWindow settings;
-
-	std::vector<std::unique_ptr<UltragridOption>> opts;
-	VideoSourceOption *sourceOption;
-	VideoDisplayOption *displayOption;
-
-	AudioSourceOption *audioSrcOption;
+	SettingsWindow settingsWindow;
 
 	QTimer previewTimer;
+	Settings settings;
+	SettingsUi settingsUi;
 
 
 public slots:
@@ -58,12 +61,12 @@ public slots:
 	void stopPreview();
 
 private slots:
-	void queryOpts();
-	void setAdvanced(bool);
 	void setStartBtnText(QProcess::ProcessState);
 	void processStateChanged(QProcess::ProcessState);
 	void enablePreview(bool);
+
 	void schedulePreview();
+	void refresh();
 };
 
 

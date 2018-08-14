@@ -3,37 +3,32 @@
 
 SettingsWindow::SettingsWindow(QWidget *parent): QDialog(parent){
 	ui.setupUi(this);
-	ui.videoPort->setValidator(new QIntValidator(0, 65535, this));
-	ui.audioPort->setValidator(new QIntValidator(0, 65535, this));
-
-	connect(ui.videoPort, SIGNAL(textEdited(const QString&)), this, SIGNAL(changed()));
-	connect(ui.audioPort, SIGNAL(textEdited(const QString&)), this, SIGNAL(changed()));
+	ui.basePort->setValidator(new QIntValidator(0, 65535, this));
+	ui.controlPort->setValidator(new QIntValidator(0, 65535, this));
 }
 
-QString SettingsWindow::getVideoPort() const {
-	QString s = ui.videoPort->text();
-	if(s == "")
-		return "5004";
+void SettingsWindow::init(SettingsUi *settingsUi, Settings *s){
+	settingsUi->initSettingsWin(&ui);
+	settings = s;
 
-	return s;
+	connect(ui.fecNoneRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));
+	connect(ui.fecMultRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));
+	connect(ui.fecLdgmRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));
+	connect(ui.fecRsRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));
+
 }
 
-QString SettingsWindow::getAudioPort() const {
-	QString s = ui.audioPort->text();
-	if(s.isEmpty())
-		return "5006";
-
-	return s;
+void SettingsWindow::changeFecPage(){
+	if(ui.fecMultRadio->isChecked()){
+		ui.stackedWidget->setCurrentIndex(0);
+	} else if(ui.fecLdgmRadio->isChecked()){
+		ui.stackedWidget->setCurrentIndex(2);
+	} else if(ui.fecRsRadio->isChecked()){
+		ui.stackedWidget->setCurrentIndex(3);
+	}
 }
 
-QString SettingsWindow::getPortArgs() const {
-	if(isDefault())
-		return "";
-
-	return "-P " + getVideoPort() + ":" + getVideoPort()
-		+ ":" + getAudioPort() + ":" + getAudioPort() + " ";
+void SettingsWindow::fecTab(){
+	ui.tabWidget->setCurrentIndex(0);
 }
 
-bool SettingsWindow::isDefault() const {
-	return ui.videoPort->text().isEmpty() && ui.audioPort->text().isEmpty();
-}
