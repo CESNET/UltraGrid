@@ -51,11 +51,7 @@
 #ifndef __host_h
 #define __host_h
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#include <stdbool.h>
 
 #define EXIT_FAIL_USAGE        2
 #define EXIT_FAIL_UI           3

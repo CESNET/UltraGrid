@@ -46,21 +46,30 @@
  * * allow use of different HTTP ports than 8080
  * * IPv6 support (?)
  * * createResponseForRequest() should be probably static (in case that other
- *   modules want also to use EmbeddableWebServer
+ *   modules want also to use EmbeddableWebServer)
  * * HTTP server should work even if the SDP file cannot be written
- * * MSW support (HTTP server)
+ * * at least some Windows compatibility functions should be perhaps deleted from
+ *   EmbeddableWebServer, eg. pthread_* which we have from winpthreads, either.
+ *   This can also be potentially dangerous.
  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
-#include "config_win32.h"
+// config_win32.h must not be included if using EWS because EWS has
+// some incomatible implementations of POSIX functions
+#endif
+
+#ifdef WIN32
+#include <stdint.h>
+#include <winsock2.h>
 #endif
 
 #include "debug.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
 #ifdef SDP_HTTP
+#define EWS_DISABLE_SNPRINTF_COMPAT
 #include "EmbeddableWebServer.h"
 #endif // SDP_HTTP
 

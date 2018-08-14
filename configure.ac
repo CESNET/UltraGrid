@@ -1301,12 +1301,12 @@ fi
 # ----------------------------------------------------------------------
 sdp_http=no
 AC_ARG_ENABLE(sdp-http,
-[  --enable-sdp-http       enables SDP/HTTP transport (default is auto)],
+[  --enable-sdp-http       enables SDP/HTTP transport (default is enabled)],
     [sdp_http_req=$enableval],
-    [sdp_http_req=auto]
+    [sdp_http_req=yes]
     )
 
-if test $sdp_http_req != no -a $system != Windows
+if test $sdp_http_req != no
 then
         AC_DEFINE([SDP_HTTP], 1, [Add support for SDP over HTTP])
         sdp_http=yes
