@@ -319,6 +319,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
 
         devices = (struct rtp **)
                 malloc((required_connections + 1) * sizeof(struct rtp *));
+        assert(devices != nullptr);
 
         for(index = 0, addr = strtok_r(tmp, ",", &saveptr);
                 index < required_connections;
@@ -365,7 +366,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 rtp_done(devices[index_nest]);
                         }
                         free(devices);
-                        devices = NULL;
+                        return NULL;
                 }
         }
         if(devices != NULL) devices[index] = NULL;

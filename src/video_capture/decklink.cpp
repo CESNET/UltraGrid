@@ -684,7 +684,8 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         *pf = bmdFormat10BitYUV;
                         break;
                   default:
-                        printf("Unsupported codec! %s\n", get_codec_name(s->codec));
+                        LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
+                        return E_FAIL;
                 }
                 // get avarage time between frames
                 BMDTimeValue	frameRateDuration;

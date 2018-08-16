@@ -649,7 +649,7 @@ int main(int argc, char **argv)
 
     if (argc == 1) {
         usage(argv[0]);
-        return false;
+        return EXIT_FAILURE;
     }
 
 #ifndef WIN32

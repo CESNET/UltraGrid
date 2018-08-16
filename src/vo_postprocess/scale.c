@@ -165,7 +165,7 @@ static int scale_reconfigure(void *state, struct video_desc desc)
         if(s->in) {
                 int i;
                 for(i = 0; i < (int) s->in->tile_count; ++i) {
-                        free(s->in->tiles[0].data);
+                        free(s->in->tiles[i].data);
                 }
                 vf_free(s->in);
         }

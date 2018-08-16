@@ -192,6 +192,7 @@ static struct response *process_message(struct capture_filter *s, struct msg_uni
                 if (create_filter(s, fmt) != 0) {
                         fprintf(stderr, "Cannot create capture filter: %s.\n",
                                         msg->text);
+                        free(fmt);
                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
                 } else {
                         printf("Capture filter \"%s\" created successfully.\n",

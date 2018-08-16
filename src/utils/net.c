@@ -42,9 +42,9 @@
 #endif
 
 #ifndef WIN32
+#include <ifaddrs.h>
 #include <netinet/ip.h>
 #include <sys/types.h>
-#include <ifaddrs.h>
 #endif
 
 #include "utils/net.h"
@@ -65,25 +65,22 @@ bool is_addr_loopback(struct sockaddr *sa)
         {
                 struct sockaddr_in *sin = (struct sockaddr_in *) sa;
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
-                if ((addr >> 24) == IN_LOOPBACKNET) {
+                if ((addr >> 24u) == IN_LOOPBACKNET) {
                         return true;
-                } else {
-                        return false;
                 }
+                return false;
         }
         case AF_INET6:
         {
                 struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
                 if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
                         uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
-                        if ((v4_addr >> 24) == IN_LOOPBACKNET) {
+                        if ((v4_addr >> 24u) == IN_LOOPBACKNET) {
                                 return true;
-                        } else {
-                                return false;
                         }
-                } else {
-                        return IN6_IS_ADDR_LOOPBACK(&sin->sin6_addr);
+                        return false;
                 }
+                return IN6_IS_ADDR_LOOPBACK(&sin->sin6_addr);
         }
         default:
                 return false;
@@ -119,15 +116,14 @@ uint16_t socket_get_recv_port(int fd)
         if (getsockname(fd, (struct sockaddr *)&ss, &len) == -1) {
                 perror("getsockname");
                 return 0;
-        } else {
-                switch (ss.ss_family) {
-                case AF_INET:
-                        return ntohs(((struct sockaddr_in *) &ss)->sin_port);
-                case AF_INET6:
-                        return ntohs(((struct sockaddr_in6 *) &ss)->sin6_port);
-                default:
-                        return 0;
-                }
+        }
+        switch (ss.ss_family) {
+        case AF_INET:
+                return ntohs(((struct sockaddr_in *) &ss)->sin_port);
+        case AF_INET6:
+                return ntohs(((struct sockaddr_in6 *) &ss)->sin6_port);
+        default:
+                return 0;
         }
 }
 

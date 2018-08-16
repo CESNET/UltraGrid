@@ -561,8 +561,6 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                         }
                 }
 
-                tmp = filename;
-
                 vf_get_tile(s->frame, 0)->data = (char *) malloc(2 * s->size);
 
                 memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
