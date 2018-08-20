@@ -483,9 +483,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 } else {
                         resp = new_response(RESPONSE_NOT_FOUND, "unknown media type");
                         free(msg);
+                        msg = nullptr;
                 }
 
-                if(!resp) {
+                if (msg) {
                         if(msg->media_type == TX_MEDIA_VIDEO) {
                                 enum module_class path_tx[] = { MODULE_CLASS_SENDER, MODULE_CLASS_TX, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
@@ -631,6 +632,9 @@ static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int
         return ret;
 }
 
+/**
+ * prepends itself at the head of the list
+ */
 static struct client *add_client(struct client *clients, fd_t fd) {
         struct client *new_client = (struct client *)
                 malloc(sizeof(struct client));
@@ -684,6 +688,9 @@ static void * control_thread(void *args)
         struct control_state *s = (struct control_state *) args;
         struct client *clients = NULL;
 
+        assert(s->socket_fd != INVALID_SOCKET);
+        assert(s->internal_fd[0] != INVALID_SOCKET);
+
         if(s->connection_type == CLIENT) {
                 clients = add_client(clients, s->socket_fd);
         }
@@ -706,7 +713,7 @@ static void * control_thread(void *args)
                 fd_t max_fd = 0;
                 fd_set fds;
                 FD_ZERO(&fds);
-                if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {
+                if (s->connection_type == SERVER) {
                         FD_SET(s->socket_fd, &fds);
                         max_fd = s->socket_fd + 1;
                 }
