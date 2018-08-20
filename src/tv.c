@@ -148,7 +148,11 @@ typedef struct { //shared struct for audio and video streams (sync.)
 
 std_time_struct standard_time = { true, 0, { 0, 0 }, 25, { 0, 0 }, { 0, 0 } };
 
-uint32_t get_std_audio_local_mediatime(double samples)
+/**
+ * @param samples       number of samples in unit of seconds
+ * @param rate          RTP timestamp scale (usually sample rate, but for OPUS always 48000)
+ */
+uint32_t get_std_audio_local_mediatime(double samples, int rate)
 {
         if (standard_time.init) {
 			gettimeofday(&standard_time.start_time, NULL);
@@ -164,7 +168,7 @@ uint32_t get_std_audio_local_mediatime(double samples)
             tv_add(&standard_time.atime, samples);
         }
 
-        return (double)standard_time.atime.tv_sec + (((double)standard_time.atime.tv_usec) / 1000000.0);
+        return ((double)standard_time.atime.tv_sec + (((double)standard_time.atime.tv_usec) / 1000000.0)) * rate;
 }
 
 uint32_t get_std_video_local_mediatime(void)

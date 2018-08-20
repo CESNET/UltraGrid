@@ -435,6 +435,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 				s->output_channel.data_len += pkt.size;
 				av_packet_unref(&pkt);
 				ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                                s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
 			}
 			if (ret != AVERROR(EAGAIN) && ret != 0) {
 				char errbuf[1024];
@@ -460,10 +461,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 }
                 if(got_packet) {
                         s->output_channel.data_len += pkt.size;
-                        ///@ todo
-                        /// well, this is wrong, denominator should be actually AVStream::time_base. Where do
-                        /// we get this?? Anyway, seems like it equals sample rate.
-                        s->output_channel.duration += pkt.duration / (double) s->output_channel.sample_rate;
+                        s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
                 }
 #endif
                 offset += chunk_size;
@@ -671,3 +669,4 @@ static const struct audio_compress_info libavcodec_audio_codec = {
 
 REGISTER_MODULE(libavcodec,  &libavcodec_audio_codec, LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
 
+/* vim: set expandtab sw=8 : */

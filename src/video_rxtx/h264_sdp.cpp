@@ -50,6 +50,7 @@
 #include "lib_common.h"
 #include "transmit.h"
 #include "rtp/rtp.h"
+#include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
 #include "utils/sdp.h"
 #include "video_rxtx.h"
@@ -65,24 +66,28 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         m_sdp = new_sdp(std_H264, params.at("tx_port").i);
         if (params.at("a_tx_port").i) {
                 new_stream(m_sdp);
-                sprintf(m_sdp->stream[1].media_info, "m=audio %d RTP/AVP 97\n", params.at("a_tx_port").i);
-                const char *audio_codec = NULL;
-                switch (params.at("audio_codec").l) {
-                        case AC_ALAW:
-                                audio_codec = "PCMA";
-                                break;
-                        case AC_MULAW:
-                                audio_codec = "PCMU";
-                                break;
-                        case AC_OPUS:
-                                audio_codec = "OPUS";
-                                break;
+                if (params.at("audio_sample_rate").i == 8000 && params.at("audio_channels").i == 1 && (params.at("audio_codec").l ==  AC_ALAW || params.at("audio_codec").l == AC_MULAW)) {
+                        sprintf(m_sdp->stream[1].media_info, "m=audio %d RTP/AVP %d\n", params.at("a_tx_port").i, params.at("audio_codec").l ==  AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA);
+                } else {
+                        sprintf(m_sdp->stream[1].media_info, "m=audio %d RTP/AVP 97\n", params.at("a_tx_port").i);
+                        const char *audio_codec = NULL;
+                        switch (params.at("audio_codec").l) {
+                                case AC_ALAW:
+                                        audio_codec = "PCMA";
+                                        break;
+                                case AC_MULAW:
+                                        audio_codec = "PCMU";
+                                        break;
+                                case AC_OPUS:
+                                        audio_codec = "OPUS";
+                                        break;
+                        }
+
+                        assert(audio_codec);
+
+                        sprintf(m_sdp->stream[1].rtpmap, "a=rtpmap:97 %s/%i/%i", audio_codec,
+                                        params.at("audio_codec").l == AC_OPUS ? 48000 : params.at("audio_sample_rate").i, params.at("audio_channels").i);
                 }
-
-                assert(audio_codec);
-
-                sprintf(m_sdp->stream[1].rtpmap, "a=rtpmap:97 %s/%i/%i", audio_codec,
-                                params.at("audio_sample_rate").i, params.at("audio_channels").i);
         }
         if (m_sdp == NULL) {
                 throw string("[SDP] SDP creation failed\n");

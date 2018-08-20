@@ -89,7 +89,7 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
  */
 void mux_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
-void remux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream);
+void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream);
 
 void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len /* bytes */, int channel_count);
 

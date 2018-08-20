@@ -185,7 +185,7 @@ private:
         int sample_rate;
         std::vector<channel> channels; /* data should be at least 4B aligned */
         audio_codec_t codec;
-        double duration; /// @note currently unused
+        double duration; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
 };
 #endif // __cplusplus
 

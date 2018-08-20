@@ -62,13 +62,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "audio/audio.h"
+#include "audio/codec.h"
+#include "audio/utils.h"
 #include "crypto/random.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "perf.h"
-#include "audio/audio.h"
-#include "audio/codec.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
 #include "rtp/fec.h"
@@ -101,11 +102,6 @@
 #endif
 
 #define DEFAULT_CIPHER_MODE MODE_AES128_CFB
-
-// Mulaw audio memory reservation
-#define BUFFER_MTU_SIZE 1500
-static char *data_buffer_mulaw;
-static int buffer_mulaw_init = 0;
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static void tx_done(struct module *tx);
@@ -147,15 +143,8 @@ struct tx {
         long long int bitrate;
 		
         struct rtpenc_h264_state *rtpenc_h264_state;
+        char tmp_packet[RTP_MAX_MTU];
 };
-
-// Mulaw audio memory reservation
-static void init_tx_mulaw_buffer() {
-    if (!buffer_mulaw_init) {
-        data_buffer_mulaw = (char *) malloc(BUFFER_MTU_SIZE*20);
-        buffer_mulaw_init = 1;
-    }
-}
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
 {
@@ -876,7 +865,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         tx->buffer ++;
 }
 
-/*
+/**
  * audio_tx_send_standard - Send interleaved channels from the audio_frame2,
  *                       	as the mulaw and A-law standards (dynamic or std PT).
  */
@@ -908,47 +897,50 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 		assert(buffer->get_data_len(0) == buffer->get_data_len(i));
 
 	int data_len = buffer->get_data_len(0) * buffer->get_channel_count(); 	/* Number of samples to send 			*/
-	int payload_size = tx->mtu - 40; 						/* Max size of an RTP payload field 	*/
+	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
-	init_tx_mulaw_buffer();
-	char *curr_sample = data_buffer_mulaw;
-	int ch, pos = 0, count = 0, pointerToSend = 0;
+        if (buffer->get_codec() == AC_OPUS) { // OPUS needs to fit one package
+                if (payload_size < data_len) {
+                        log_msg(LOG_LEVEL_ERROR, "Transmit: OPUS frame larger than packet! Discarding...\n");
+                        return;
+                }
+        } else { // we may split the data into more packets, compute chunk size
+                int frame_size = buffer->get_channel_count() * buffer->get_bps();
+                payload_size = payload_size / frame_size * frame_size; // align to frame size
+        }
 
+	int pos = 0;
 	do {
-		for (ch = 0; ch < buffer->get_channel_count(); ch++) {
-			memcpy(curr_sample, buffer->get_data(ch) + pos,
-					buffer->get_bps() * sizeof(char));
-			curr_sample += buffer->get_bps() * sizeof(char);
-			count += buffer->get_bps() * sizeof(char);
-		}
-		pos += buffer->get_bps() * sizeof(char);
+                int pkt_len = std::min(payload_size, data_len - pos);
 
-		if ((pos * buffer->get_channel_count()) % payload_size == 0) {
-			// Update first sample timestamp
-			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->get_channel_count());
-			gettimeofday(&curr_time, NULL);
-			rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
-			ts_prev = ts;
-			// Send the packet
-			rtp_send_data(rtp_session, ts, pt, 0, 0, /* contributing sources 		*/
-			0, 												/* contributing sources length 	*/
-			data_buffer_mulaw + pointerToSend, payload_size, 0, 0, 0);
-			pointerToSend += payload_size;
-		}
-	} while (count < data_len);
+                // interleave
+                if (buffer->get_codec() == AC_OPUS) {
+                        assert(buffer->get_channel_count() == 1); // we cannot interleave OPUS here
+                        memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
+                } else {
+                        for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
+                                remux_channel(tx->tmp_packet, buffer->get_data(ch) + pos / buffer->get_channel_count(), buffer->get_bps(), pkt_len / buffer->get_channel_count(), 1, buffer->get_channel_count(), 0, ch);
+                        }
+                }
 
-	if ((pos * buffer->get_channel_count()) % payload_size != 0) {
-		// Update first sample timestamp
-		ts =	get_std_audio_local_mediatime((double)((pos * buffer->get_channel_count()) % payload_size) / (double)buffer->get_channel_count());
-		gettimeofday(&curr_time, NULL);
-		rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
-		ts_prev = ts;
-		// Send the packet
-		rtp_send_data(rtp_session, ts, pt, 0, 0, 	/* contributing sources 		*/
-		0, 													/* contributing sources length 	*/
-		data_buffer_mulaw + pointerToSend,
-				(pos * buffer->get_channel_count()) % payload_size, 0, 0, 0);
-	}
+                // Update first sample timestamp
+                if (buffer->get_codec() == AC_OPUS) {
+                        /* OPUS packet will be the whole contained in one packet
+                         * according to RFC 7587. For PCMA/PCMU there may be more
+                         * packets so we cannot use the whole frame duration. */
+                        ts = get_std_audio_local_mediatime(buffer->get_duration(), 48000);
+                } else {
+                        ts = get_std_audio_local_mediatime((double) pkt_len / (double) buffer->get_channel_count() / (double) buffer->get_sample_rate(), buffer->get_sample_rate());
+                }
+                gettimeofday(&curr_time, NULL);
+                rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
+                ts_prev = ts;
+                // Send the packet
+                rtp_send_data(rtp_session, ts, pt, 0, 0, /* contributing sources 		*/
+                                0, 												/* contributing sources length 	*/
+                                tx->tmp_packet, pkt_len, 0, 0, 0);
+                pos += pkt_len;
+	} while (pos < data_len);
 }
 
 /**
