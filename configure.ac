@@ -109,7 +109,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi"
+	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi -lOleAut32"
 	LIBS="$LIBS $NET_LIBS"
 else
         system=Linux
