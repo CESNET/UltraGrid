@@ -51,7 +51,7 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
-void remux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream)
+void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream)
 {
         int samples = in_len / (in_stream_channels * bps);
         int i;
