@@ -48,49 +48,30 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "transmit.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
+#include "transmit.h"
 #include "utils/sdp.h"
+#include "video.h"
 #include "video_rxtx.h"
 #include "video_rxtx/h264_sdp.h"
-#include "video.h"
 
-using namespace std;
+using std::shared_ptr;
+using std::string;
 
 h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &params)
         : rtp_video_rxtx(params)
 {
-        log_msg(LOG_LEVEL_WARNING, "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n");
-        m_sdp = new_sdp(std_H264, params.at("tx_port").i);
-        if (params.at("a_tx_port").i) {
-                new_stream(m_sdp);
-                if (params.at("audio_sample_rate").i == 8000 && params.at("audio_channels").i == 1 && (params.at("audio_codec").l ==  AC_ALAW || params.at("audio_codec").l == AC_MULAW)) {
-                        sprintf(m_sdp->stream[1].media_info, "m=audio %d RTP/AVP %d\n", params.at("a_tx_port").i, params.at("audio_codec").l ==  AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA);
-                } else {
-                        sprintf(m_sdp->stream[1].media_info, "m=audio %d RTP/AVP 97\n", params.at("a_tx_port").i);
-                        const char *audio_codec = NULL;
-                        switch (params.at("audio_codec").l) {
-                                case AC_ALAW:
-                                        audio_codec = "PCMA";
-                                        break;
-                                case AC_MULAW:
-                                        audio_codec = "PCMU";
-                                        break;
-                                case AC_OPUS:
-                                        audio_codec = "OPUS";
-                                        break;
-                        }
-
-                        assert(audio_codec);
-
-                        sprintf(m_sdp->stream[1].rtpmap, "a=rtpmap:97 %s/%i/%i", audio_codec,
-                                        params.at("audio_codec").l == AC_OPUS ? 48000 : params.at("audio_sample_rate").i, params.at("audio_channels").i);
-                }
-        }
-        if (m_sdp == NULL) {
+        LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
+        m_sdp = new_sdp();
+        if (m_sdp == nullptr) {
                 throw string("[SDP] SDP creation failed\n");
+        }
+        sdp_add_video(m_sdp, params.at("tx_port").i, H264);
+        /// @todo this should be done in audio module
+        if (params.at("a_tx_port").i != 0) {
+                sdp_add_audio(m_sdp, params.at("a_tx_port").i, params.at("audio_sample_rate").i, params.at("audio_channels").i, static_cast<audio_codec_t>(params.at("audio_codec").l));
         }
         if (!gen_sdp(m_sdp)){
                 throw string("[SDP] File creation failed\n");

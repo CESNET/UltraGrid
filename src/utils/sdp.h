@@ -47,65 +47,11 @@
 extern "C" {
 #endif
 
-#define MAX_STREAMS 2
-#define strLength 2048
-
-enum rtp_standard {
-        std_H264,
-        std_PCM
-};
-
-struct stream_info {
-    char media_info[strLength];
-    char rtpmap[strLength];
-    char fmtp[strLength];
-};
-
-struct sdp {
-    enum rtp_standard std_rtp;
-    int port;
-    char *version;
-    char *origin;
-    char *session_name;
-    char *connection;
-    char *times;
-    struct stream_info stream[MAX_STREAMS];
-    int stream_count; //between 1 and MAX_STREAMS
-    char *sdp_dump;
-};
-
-/*
- * External API
- */
-struct sdp *new_sdp(enum rtp_standard std, int port);
+struct sdp *new_sdp();
+void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec);
+void sdp_add_video(struct sdp *sdp, int port, codec_t codec);
 bool gen_sdp(struct sdp *sdp);
-
-void set_version(struct sdp *sdp);
-void get_version(struct sdp *sdp);
-
-void set_origin(struct sdp *sdp);
-void get_origin(struct sdp *sdp);
-
-void set_session_name(struct sdp *sdp);
-void get_session_name(struct sdp *sdp);
-
-void set_connection(struct sdp *sdp);
-void get_connection(struct sdp *sdp);
-
-void set_times(struct sdp *sdp);
-void get_times(struct sdp *sdp);
-
-void set_stream(struct sdp *sdp);
-void get_stream(struct sdp *sdp, int index);
-
 bool sdp_run_http_server(struct sdp *sdp);
-
-/*
- * Internal API
- */
-bool new_stream(struct sdp *sdp);
-char *set_stream_media_info(struct sdp *sdp, int index);
-char *set_stream_rtpmap(struct sdp *sdp, int index);
 void clean_sdp(struct sdp *sdp);
 
 #ifdef __cplusplus

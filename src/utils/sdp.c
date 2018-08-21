@@ -65,7 +65,10 @@
 #include <winsock2.h>
 #endif
 
+#include "audio/types.h"
 #include "debug.h"
+#include "rtp/rtp_callback.h"
+#include "types.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
 #ifdef SDP_HTTP
@@ -75,30 +78,89 @@
 
 #define SDP_FILE "ug.sdp"
 
-//TODO could be a vector of many streams
+#define MAX_STREAMS 2
+#define STR_LENGTH 2048
+
+struct stream_info {
+    char media_info[STR_LENGTH];
+    char rtpmap[STR_LENGTH];
+    char fmtp[STR_LENGTH];
+};
+
+struct sdp {
+    char version[STR_LENGTH];
+    char origin[STR_LENGTH];
+    char session_name[STR_LENGTH];
+    char connection[STR_LENGTH];
+    char times[STR_LENGTH];
+    struct stream_info stream[MAX_STREAMS];
+    int stream_count; //between 1 and MAX_STREAMS
+    char *sdp_dump;
+};
+
+// this is needed for HTTP server
 static struct sdp *sdp_global;
 
-struct sdp *new_sdp(enum rtp_standard std, int port){
+struct sdp *new_sdp() {
     struct sdp *sdp;
-    sdp = NULL;
     sdp = calloc(1, sizeof(struct sdp));
-    sdp->stream_count = 0;
-    sdp->std_rtp = std;
-    sdp->port = port;
-    switch (std){
-        case 0: //H264
-            set_version(sdp);
-            set_origin(sdp);
-            set_session_name(sdp);
-            set_connection(sdp);
-            set_times(sdp);
-            set_stream(sdp);
-            return sdp;
-            break;
-        default://UNKNOWN
-            free(sdp);
-            return NULL;
+    assert(sdp != NULL);
+    strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
+    strncpy(sdp->origin, "o=- 0 0 IN IP4 127.0.0.1\n", STR_LENGTH - 1);
+    strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
+    strncpy(sdp->connection, "c=IN IP4 127.0.0.1\n", STR_LENGTH - 1);
+    strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
+
+    return sdp;
+}
+
+static int new_stream(struct sdp *sdp){
+    if (sdp->stream_count < MAX_STREAMS){
+        sdp->stream_count++;
+        return sdp->stream_count - 1;
     }
+    return -1;
+}
+
+void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
+{
+    int index = new_stream(sdp);
+    assert(index >= 0);
+    int pt = PT_DynRTP_Type97; // default
+
+    if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
+	pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
+    }
+    sprintf(sdp->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
+    if (pt == PT_DynRTP_Type97) { // we need rtpmap for our dynamic packet type
+	const char *audio_codec = NULL;
+        int ts_rate = sample_rate; // equals for PCMA/PCMU
+	switch (codec) {
+	    case AC_ALAW:
+		audio_codec = "PCMA";
+		break;
+	    case AC_MULAW:
+		audio_codec = "PCMU";
+		break;
+	    case AC_OPUS:
+		audio_codec = "OPUS";
+                ts_rate = 48000; // RFC 7587 specifies always 48 kHz for OPUS
+		break;
+            default:
+                abort();
+	}
+
+	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
+    }
+}
+
+void sdp_add_video(struct sdp *sdp, int port, codec_t codec)
+{
+    assert(codec == H264);
+    int index = new_stream(sdp);
+    assert(index >= 0);
+    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, PT_H264);
+    snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_H264);
 }
 
 static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
@@ -107,7 +169,7 @@ static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
         *dst_alloc_len = strlen(*dst) + strlen(src) + 1;
         *dst = realloc(*dst, *dst_alloc_len);
     }
-    strcat(*dst, src);
+    strncat(*dst, src, *dst_alloc_len - strlen(*dst) - 1);
 }
 
 bool gen_sdp(struct sdp *sdp){
@@ -125,7 +187,7 @@ bool gen_sdp(struct sdp *sdp){
     strappend(&buf, &len, "\n\n");
     sdp->sdp_dump = buf;
 
-    FILE *fOut = fopen (SDP_FILE, "w+");
+    FILE *fOut = fopen(SDP_FILE, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
     } else {
@@ -139,74 +201,6 @@ bool gen_sdp(struct sdp *sdp){
 
     printf("Printed version:\n%s", buf);
     return true;
-}
-
-void set_version(struct sdp *sdp){
-    sdp->version = malloc(strLength);
-    sdp->version = "v=0\n";
-}
-void get_version(struct sdp *sdp);
-
-void set_origin(struct sdp *sdp){
-    sdp->origin = malloc(strLength);
-    sdp->origin = "o=- 0 0 IN IP4 127.0.0.1\n";
-}
-void get_origin(struct sdp *sdp);
-
-void set_session_name(struct sdp *sdp){
-    sdp->session_name = malloc(strLength);
-    sdp->session_name = "s=Ultragrid streams\n";
-}
-void get_session_name(struct sdp *sdp);
-
-void set_connection(struct sdp *sdp){
-    sdp->connection =malloc(strLength);
-    sdp->connection = "c=IN IP4 127.0.0.1\n";
-}
-void get_connection(struct sdp *sdp);
-
-void set_times(struct sdp *sdp){
-    sdp->times = malloc(strLength);
-    sdp->times = "t=0 0\n";
-}
-void get_times(struct sdp *sdp);
-
-void set_stream(struct sdp *sdp){
-    if(new_stream(sdp)){
-    }
-    else{
-        printf("[SDP] stream NOT added -> error: maximum stream definition reached\n");
-    }
-
-}
-void get_stream(struct sdp *sdp, int index);
-
-
-bool new_stream(struct sdp *sdp){
-    //struct stream_info *stream;
-    if(sdp->stream_count < MAX_STREAMS){
-        sdp->stream_count++;
-        set_stream_media_info(sdp, sdp->stream_count - 1);
-        set_stream_rtpmap(sdp, sdp->stream_count - 1);
-
-        return true;
-    }
-    return true;
-}
-
-char *set_stream_media_info(struct sdp *sdp, int index){
-    debug_msg("[SDP] SETTING MEDIA INFO    \n\n");
-
-    sprintf(sdp->stream[index].media_info,"m=video %d RTP/AVP 96\n",sdp->port);
-
-    return sdp->stream[index].media_info;
-}
-
-char *set_stream_rtpmap(struct sdp *sdp, int index){
-    debug_msg("[SDP] SETTING RTPMAP INFO    \n\n");
-    strcpy(sdp->stream[index].rtpmap, "a=rtpmap:96 H264/90000\n");
-
-    return sdp->stream[index].rtpmap;
 }
 
 void clean_sdp(struct sdp *sdp){
