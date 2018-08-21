@@ -41,108 +41,11 @@
  */
 
 #include "rtp/rtp.h"
+#include "rtp/rtp_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** @page av_pkt_description UltraGrid packet format
- * Packet formats are described in papers referenced here:<br/>
- * https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation#packet-formats
- */
-#define PT_ITU_T_G711_PCMU  0 /* mU-law std */
-#define PT_ITU_T_G711_PCMA  8 /* A-law std */
-#define PT_VIDEO        20
-#define PT_AUDIO        21
-#define PT_VIDEO_LDGM   22
-#define PT_ENCRYPT_VIDEO 24
-#define PT_ENCRYPT_AUDIO 25
-#define PT_ENCRYPT_VIDEO_LDGM 26
-#define PT_VIDEO_RS     27
-#define PT_H264 96
-#define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
-/*
- * Video payload
- *
- * 1st word
- * bits 0 - 9 substream
- * bits 10 - 31 buffer
- *
- * 2nd word
- * bits 0 - 31 offset
- *
- * 3rd word
- * bits 0 - 31 length
- *
- * 4rd word
- * bits 0-15 horizontal resolution
- * bits 16-31 vertical resolution
- *
- * 5th word
- * bits 0 - 31 FourCC
- *
- * 6th word
- * bits 0 - 2 interlace flag
- * bits 3 - 12 FPS
- * bits 13 - 16 FPSd
- * bit 17 Fd
- * bit 18 Fi
- */
-typedef uint32_t video_payload_hdr_t[6];
-
-/*
- * Audio payload
- *
- * 1st word
- * bits 0 - 9 substream
- * bits 10 - 31 buffer
- *
- * 2nd word
- * bits 0 - 31 offset
- *
- * 3rd word
- * bits 0 - 31 length
- *
- * 4rd word
- * bits 0-5 audio quantization
- * bits 6-31 audio sample rate
- *
- * 5th word
- * bits 0 - 31 AudioTag
- */
-typedef uint32_t audio_payload_hdr_t[5];
-
-/*
- * FEC video payload
- *
- * 1st word
- * bits 0 - 9 substream
- * bits 10 - 31 buffer
- *
- * 2nd word
- * bits 0 - 31 offset
- *
- * 3rd word
- * bits 0 - 31 length
- *
- * 4rd word
- * bits 0-12 K
- * bits 13-25 M
- * bits 26-31 C
- *
- * 5th word
- * bits 0 - 31 LDGM random generator seed
- */
-typedef uint32_t fec_video_payload_hdr_t[5];
-
-/*
- * Crypto video payload
- *
- * 1st word
- * bits 0 - 8 crypto type, value of @ref openssl_mode
- * bits 9 - 31 currently unused
- */
-typedef uint32_t crypto_payload_hdr_t[1];
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);

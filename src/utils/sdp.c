@@ -67,7 +67,7 @@
 
 #include "audio/types.h"
 #include "debug.h"
-#include "rtp/rtp_callback.h"
+#include "rtp/rtp_types.h"
 #include "types.h"
 #include "utils/net.h"
 #include "utils/sdp.h"

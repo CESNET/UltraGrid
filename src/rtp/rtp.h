@@ -40,12 +40,7 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
-#ifdef HAVE_CONFIG_H
-#include "config.h" // bool
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
+#include <stdbool.h>
 #include <stddef.h> // offsetof
 
 #ifdef __cplusplus
