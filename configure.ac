@@ -1168,6 +1168,12 @@ if test $sdl2_req != no -a $found_sdl2 = yes
 then
         SDL2_OBJ="src/video_display/sdl2.o"
         AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
+        # on Win override libs from pkg-config because those contain
+        # "-mwindows" which causes output to be scratched by cmd.exe
+        # (but not MSYS2!)
+        if test $system = Windows; then
+                SDL2_LIBS="-lSDL2"
+        fi
         ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
         SDL_LIB=$SDL2_LIB
         sdl_version=2
