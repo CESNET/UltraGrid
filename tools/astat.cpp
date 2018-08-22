@@ -88,7 +88,7 @@ static void worker(ug_connection &c)
                 FD_ZERO(&fds);
                 FD_SET(c.fd, &fds);
                 FD_SET(c.should_exit_fd[0], &fds);
-                int nfds = std::max(c.fd, c.should_exit_fd[0]) + 1;
+                int nfds = std::max<int>(c.fd, c.should_exit_fd[0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
