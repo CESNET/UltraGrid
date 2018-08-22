@@ -17,6 +17,8 @@ CONFIG += c++11
 LIBS += ../../tools/astat.a
 macx {
 	LIBS += -framework CoreFoundation
+} win32 {
+	LIBS += -lWs2_32
 }
 
 astat.target = astat_lib

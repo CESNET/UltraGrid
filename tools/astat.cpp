@@ -1,3 +1,4 @@
+#include "../src/config.h"
 #include "../src/config_unix.h"
 #include "../src/config_win32.h"
 #include "../src/compat/platform_pipe.h"
@@ -10,8 +11,12 @@
 
 #include "astat.h"
 
-#ifndef __linux__
+#ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
+#endif
+
+#ifndef MSG_DONTWAIT
+#define MSG_DONTWAIT 0
 #endif
 
 using namespace std;
@@ -83,7 +88,7 @@ static void worker(ug_connection &c)
                 FD_ZERO(&fds);
                 FD_SET(c.fd, &fds);
                 FD_SET(c.should_exit_fd[0], &fds);
-                int nfds = max(c.fd, c.should_exit_fd[0]) + 1;
+                int nfds = std::max(c.fd, c.should_exit_fd[0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
