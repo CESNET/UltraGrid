@@ -7,6 +7,7 @@ TARGET = uv-qt
 INCLUDEPATH += .
 INCLUDEPATH += ../../tools/
 INCLUDEPATH += ../../src
+RC_FILE = uv-qt.rc
 
 DEFINES += GUI_BUILD
 
