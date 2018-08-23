@@ -512,6 +512,10 @@ bundle: bundle-nolib
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
 		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
 	done
+	test -d $(BUNDLE)/Contents/Resources || mkdir $(BUNDLE)/Contents/Resources
+	cp data/icon.icns $(BUNDLE)/Contents/Resources
+	defaults write `pwd`/$(BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
+	plutil -convert xml1 $(BUNDLE)/Contents/Info.plist
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 osx-gui-dmg: bundle gui/QT/uv-qt
