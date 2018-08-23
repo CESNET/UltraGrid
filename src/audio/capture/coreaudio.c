@@ -35,26 +35,30 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "host.h"
+#include "config_unix.h"
+#endif // HAVE_CONFIG_H
 
 #ifdef HAVE_COREAUDIO
 
-#include "audio/audio.h"
-#include "audio/audio_capture.h"
-#include "audio/utils.h"
-#include "utils/ring_buffer.h"
-#include "debug.h"
-#include "lib_common.h"
-#include <stdlib.h>
-#include <string.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef HAVE_SPEEX
 #include <speex/speex_resampler.h> 
 #endif
+
+#include "audio/audio.h"
+#include "audio/audio_capture.h"
+#include "audio/utils.h"
+#include "debug.h"
+#include "host.h"
+#include "lib_common.h"
+#include "utils/ring_buffer.h"
 
 #define DISABLE_SPPEX_RESAMPLER 1
 
