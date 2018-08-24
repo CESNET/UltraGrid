@@ -64,6 +64,9 @@ static unsigned char pixels[] = {
 void PreviewWidget::initializeGL(){
 	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
 
+	if(!f)
+		return;
+
 	vao.create();
 	vao.bind();
 
@@ -144,6 +147,9 @@ void PreviewWidget::setVidSize(int w, int h){
 
 void PreviewWidget::paintGL(){
 	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+
+	if(!f)
+		return;
 
 	vao.bind();
 	f->glClear(GL_COLOR_BUFFER_BIT);
