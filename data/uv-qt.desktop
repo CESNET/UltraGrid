@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=UltraGrid
+Type=Application
+Exec=uv-qt
+Icon=ultragrid
+StartupNotify=true
+Terminal=false
+Categories=AudioVideo;Network;
+
