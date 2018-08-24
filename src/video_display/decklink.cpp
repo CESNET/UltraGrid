@@ -1309,17 +1309,17 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                                 assert(*len == sizeof(struct audio_desc));
                                 struct audio_desc *desc = (struct audio_desc *) val;
                                 desc->sample_rate = 48000;
-                                desc->ch_count = 2;
-                                if (desc->ch_count > 2) {
+                                if (desc->ch_count <= 2) {
+                                        desc->ch_count = 2;
+                                } else if (desc->ch_count > 2 && desc->ch_count <= 8) {
                                         desc->ch_count = 8;
-                                }
-                                if (desc->ch_count > 8) {
+                                } else {
                                         desc->ch_count = 16;
                                 }
                                 desc->codec = AC_PCM;
                                 desc->bps = desc->bps < 3 ? 2 : 4;
                         }
-                                break;
+                        break;
                 default:
                         return FALSE;
         }
