@@ -101,10 +101,15 @@ QStringList ComboBoxOption::getAvailOpts() {
 	process.start(command);
 
 	process.waitForFinished();
-	QByteArray output = process.readAllStandardOutput();
-	QList<QByteArray> lines = output.split('\n');
+	QString output = QString(process.readAllStandardOutput());
+#ifdef WIN32
+	QString lineSeparator = "\r\n";
+#else
+	QString lineSeparator = "\n";
+#endif
+	QStringList lines = output.split(lineSeparator);
 
-	foreach ( const QByteArray &line, lines ) {
+	foreach ( const QString &line, lines ) {
 		if(line.size() > 0 && QChar(line[0]).isSpace()) {
 			QString opt = QString(line).trimmed();
 			if(opt != "none"
