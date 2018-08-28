@@ -51,10 +51,41 @@
 
 #include "debug.h"
 
+#define IPV4_LL_PREFIX ((169u<<8u) | 254u)
+
 // MSW does not have the macro defined
 #ifndef IN_LOOPBACKNET
 #define IN_LOOPBACKNET 127
 #endif
+
+bool is_addr_linklocal(struct sockaddr *sa)
+{
+        switch (sa->sa_family) {
+        case AF_INET:
+        {
+                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+                uint32_t addr = ntohl(sin->sin_addr.s_addr);
+                if ((addr >> 16u) == IPV4_LL_PREFIX) {
+                        return true;
+                }
+                return false;
+        }
+        case AF_INET6:
+        {
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
+                if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
+                        uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
+                        if ((v4_addr >> 16u) == IPV4_LL_PREFIX) {
+                                return true;
+                        }
+                        return false;
+                }
+                return IN6_IS_ADDR_LINKLOCAL(&sin->sin6_addr);
+        }
+        default:
+                return false;
+        }
+}
 
 bool is_addr_loopback(struct sockaddr *sa)
 {
