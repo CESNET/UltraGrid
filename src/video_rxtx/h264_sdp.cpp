@@ -64,7 +64,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         : rtp_video_rxtx(params)
 {
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
-        m_sdp = new_sdp();
+        m_sdp = new_sdp(rtp_is_ipv6(m_network_devices[0]) ? 6 : 4);
         if (m_sdp == nullptr) {
                 throw string("[SDP] SDP creation failed\n");
         }

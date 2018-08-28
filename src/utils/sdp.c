@@ -44,7 +44,6 @@
  * * this file structure is now a bit messy
  * * exit correctly HTTP thread (but it is a bit tricky because it waits on accept())
  * * allow use of different HTTP ports than 8080
- * * IPv6 support (?)
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
  * * HTTP server should work even if the SDP file cannot be written
@@ -88,6 +87,7 @@ struct stream_info {
 };
 
 struct sdp {
+    int ip_version;
     char version[STR_LENGTH];
     char origin[STR_LENGTH];
     char session_name[STR_LENGTH];
@@ -101,14 +101,22 @@ struct sdp {
 // this is needed for HTTP server
 static struct sdp *sdp_global;
 
-struct sdp *new_sdp() {
+struct sdp *new_sdp(int ip_version) {
+    assert(ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
     assert(sdp != NULL);
+    sdp->ip_version = ip_version;
+    const char *ip_loopback;
+    if (ip_version == 4) {
+        ip_loopback = "127.0.0.1";
+    } else {
+        ip_loopback = "::1";
+    }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    strncpy(sdp->origin, "o=- 0 0 IN IP4 127.0.0.1\n", STR_LENGTH - 1);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, ip_loopback);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    strncpy(sdp->connection, "c=IN IP4 127.0.0.1\n", STR_LENGTH - 1);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, ip_loopback);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
     return sdp;
@@ -227,20 +235,34 @@ struct Response* createResponseForRequest(const struct Request* request, struct 
 static const uint16_t portInHostOrder = 8080;
 
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
-    acceptConnectionsUntilStoppedFromEverywhereIPv4(param, portInHostOrder);
+    struct sockaddr_storage ss = { 0 };
+    ss.ss_family = sdp_global->ip_version == 4 ? AF_INET : AF_INET6;
+    size_t sa_len = sdp_global->ip_version == 6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    if (sdp_global->ip_version == 4) {
+        struct sockaddr_in *sin = (struct sockaddr_in *) &ss;
+        sin->sin_addr.s_addr = htonl(INADDR_ANY);
+        sin->sin_port = htons(portInHostOrder);
+    } else {
+        struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) &ss;
+        sin6->sin6_addr = in6addr_any;
+        sin6->sin6_port = htons(portInHostOrder);
+    }
+    acceptConnectionsUntilStopped(param, &ss, sa_len);
     log_msg(LOG_LEVEL_WARNING, "Warning: HTTP/SDP thread has exited.\n");
     return (THREAD_RETURN_TYPE) 0;
 }
 
 static void print_http_path() {
-    struct sockaddr_in addrs[20];
+    struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
-    if (get_local_ipv4_addresses(addrs, &len)) {
+    if (get_local_addresses(addrs, &len, sdp_global->ip_version)) {
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
-            if (!is_addr_loopback((struct sockaddr *) &addrs[i])) {
+            if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
                 char hostname[256];
-                getnameinfo((struct sockaddr *) &addrs[i], sizeof(struct sockaddr_in), hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
-                log_msg(LOG_LEVEL_NOTICE, "Receiver can play SDP with URL http://%s:%u/%s\n", hostname, portInHostOrder, SDP_FILE);
+                bool ipv6 = addrs[i].ss_family == AF_INET6;
+                size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+                getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
+                log_msg(LOG_LEVEL_NOTICE, "Receiver can play SDP with URL http://%s%s%s:%u/%s\n", ipv6 ? "[" : "", hostname, ipv6 ? "]" : "", portInHostOrder, SDP_FILE);
             }
         }
     }

@@ -1530,7 +1530,7 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
         strcpy(addressHost, "Unknown");
         strcpy(addressPort, "Unknown");
     }
-    server->listenerfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    server->listenerfd = socket(address->sa_family, SOCK_STREAM, IPPROTO_TCP);
     if (server->listenerfd  <= 0) {
         ews_printf("Could not create listener socket: %s = %d\n", strerror(errno), errno);
         return 1;
