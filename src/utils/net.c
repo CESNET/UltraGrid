@@ -127,8 +127,17 @@ uint16_t socket_get_recv_port(int fd)
         }
 }
 
-bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len)
+/**
+ * Returns (in output parameter) list of local public IP addresses
+ *
+ * @param[out] addrs      storage allocate to copy the addresses
+ * @param[in]  len        length of allocated space (in bytes)
+ * @param[out] len        length of returned addresses (in parameter addrs, in bytes)
+ * @param      ip_version 6 for IPv6, 4 for IPv6, 0 both
+ */
+bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version)
 {
+        assert(ip_version == 0 || ip_version == 4 || ip_version == 6);
 #ifdef WIN32
 #define WORKING_BUFFER_SIZE 15000
 #define MAX_TRIES 3
@@ -163,8 +172,11 @@ bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len)
 			return false;
 		}
 
+                ULONG family = ip_version == 4 ? AF_INET
+                        : ip_version == 6 ? AF_INET6
+                        : AF_UNSPEC; // both
 		dwRetVal =
-			GetAdaptersAddresses(AF_INET, 0, NULL, pAddresses, &outBufLen);
+			GetAdaptersAddresses(family, 0, NULL, pAddresses, &outBufLen);
 
 		if (dwRetVal == ERROR_BUFFER_OVERFLOW) {
 			free(pAddresses);
@@ -184,7 +196,8 @@ bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len)
 			if (pUnicast != NULL) {
 				for (i = 0; pUnicast != NULL; i++) {
 					if (len_remaining >= sizeof(addrs[0])) {
-						*addrs = *(struct sockaddr_in *) pUnicast->Address.lpSockaddr;
+                                                size_t sa_len = pUnicast->Address.lpSockaddr->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+						memcpy(addrs, pUnicast->Address.lpSockaddr, sa_len);
 						addrs += 1;
 						*len += sizeof(addrs[0]);
 						len_remaining -= sizeof(addrs[0]);
@@ -230,9 +243,12 @@ bool get_local_ipv4_addresses(struct sockaddr_in *addrs, size_t *len)
 	getifaddrs(&a);
 	struct ifaddrs* p = a;
 	while (NULL != p) {
-		if (p->ifa_addr->sa_family == AF_INET) {
+		if (ip_version == 0 ||
+                                (ip_version == 4 && p->ifa_addr->sa_family == AF_INET) ||
+                                (ip_version == 6 && p->ifa_addr->sa_family == AF_INET6)) {
 			if (available_len >= sizeof addrs[0]) {
-				*addrs = *(struct sockaddr_in *) p->ifa_addr;
+                                size_t sa_len = p->ifa_addr->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+				memcpy(addrs, p->ifa_addr, sa_len);
 				addrs += 1;
 				*len += sizeof(addrs[0]);
 				available_len -= sizeof(addrs[0]);
