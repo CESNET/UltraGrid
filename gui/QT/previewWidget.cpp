@@ -64,8 +64,12 @@ static unsigned char pixels[] = {
 void PreviewWidget::initializeGL(){
 	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
 
-	if(!f)
-		return;
+	if(!f) {
+		QMessageBox warningBox(this);
+		warningBox.setText("OpenGL 3.3 is required!");
+		warningBox.exec();
+		exit(1);
+	}
 
 	vao.create();
 	vao.bind();
