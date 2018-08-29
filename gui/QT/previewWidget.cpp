@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <QMessageBox>
 #include <QOpenGLFunctions_3_3_Core>
 #include "previewWidget.hpp"
 #include "shared_mem_frame.hpp"
