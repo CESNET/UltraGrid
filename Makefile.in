@@ -24,6 +24,7 @@ IMPORT_C_TARGET = bin/import_control_keyboard$(EXEEXT)
 SWITCHER_TARGET = bin/switcher_control_keyboard$(EXEEXT)
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
+GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 DOCS 	      = README REPORTING-BUGS coding_standards.html
@@ -469,6 +470,7 @@ clean:
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
+	-rm -rf $(GUI_BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@ @X_OBJ@
@@ -512,29 +514,29 @@ bundle: bundle-nolib
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
 		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
 	done
-	test -d $(BUNDLE)/Contents/Resources || mkdir $(BUNDLE)/Contents/Resources
-	cp data/icon.icns $(BUNDLE)/Contents/Resources
-	defaults write `pwd`/$(BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
-	plutil -convert xml1 $(BUNDLE)/Contents/Info.plist
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
+# target gui/QT/uv-qt will become actually $(GUI_BUNDLE) (gui/QT/uv-qt.app)
 osx-gui-dmg: bundle gui/QT/uv-qt
-	cd 'gui/QT'; \
-		cp ../../uv.app/Contents/MacOS/* uv-qt.app/Contents/MacOS/; \
-		mkdir uv-qt.app/Contents/libs; \
-		cp ../../uv.app/Contents/libs/* uv-qt.app/Contents/libs; \
-		mkdir uv-qt.app/Contents/Frameworks; \
-		cp -r ../../uv.app/Contents/Frameworks/* uv-qt.app/Contents/Frameworks; \
-		MBYTES=`du -mc uv-qt.app | tail -n1 | cut -f1`; \
-		MBYTES=$$(($$MBYTES+2)); \
-		[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg; \
-		hdiutil create -megabytes $$MBYTES -fs MS-DOS -volname ULTRAGRID UltraGrid.dmg; \
-		MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
-		mv "uv-qt.app" "$$MOUNT_PT"; \
-		hdiutil eject "$$MOUNT_PT"; \
-		hdiutil convert UltraGrid.dmg -format UDRO -o UltraGrid-ro.dmg; \
-		rm UltraGrid.dmg; \
-		mv UltraGrid-ro.dmg UltraGrid.dmg; \
+	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
+	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
+	cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
+	test -d $(GUI_BUNDLE)/Contents/Frameworks || mkdir $(GUI_BUNDLE)/Contents/Frameworks
+	cp -r $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
+	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
+	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
+	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
+	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
+	MBYTES=`du -mc $(GUI_BUNDLE) | tail -n1 | cut -f1`; \
+	       MBYTES=$$(($$MBYTES+2)); \
+	       hdiutil create -megabytes $$MBYTES -fs MS-DOS -volname ULTRAGRID UltraGrid.dmg
+	MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
+		 mv "$(GUI_BUNDLE)" "$$MOUNT_PT"; \
+		 hdiutil eject "$$MOUNT_PT"
+	hdiutil convert UltraGrid.dmg -format UDRO -o UltraGrid-ro.dmg
+	rm UltraGrid.dmg
+	mv UltraGrid-ro.dmg UltraGrid.dmg
 
 
 perf: src/tv.o src/crypto/random.o
