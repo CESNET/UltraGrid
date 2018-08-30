@@ -612,7 +612,7 @@ vidcap_rtsp_init(const struct vidcap_params *params, void **state) {
 
     s->should_exit = FALSE;
 
-    s->vrtsp_state->device = rtp_init_if("::1", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
+    s->vrtsp_state->device = rtp_init_if("localhost", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, 0, true);
 
     if (s->vrtsp_state->device != NULL) {

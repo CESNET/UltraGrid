@@ -706,7 +706,7 @@ int main(int argc, char **argv)
     state.qhead = state.qtail = state.queue = qinit(qsize);
 
     /* input socket */
-    if ((sock_in = udp_init_if("::1", NULL, params.port, 0, 255, false, false)) == NULL) {
+    if ((sock_in = udp_init_if("localhost", NULL, params.port, 0, 255, false, false)) == NULL) {
         perror("input socket");
         return 2;
     }

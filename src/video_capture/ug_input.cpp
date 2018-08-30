@@ -116,7 +116,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
-        params["receiver"].ptr = (void *) "::1";
+        params["receiver"].ptr = (void *) "localhost";
         if (isdigit(vidcap_params_get_fmt(cap_params)[0]))
                 params["rx_port"].i = atoi(vidcap_params_get_fmt(cap_params));
         else

@@ -1268,7 +1268,8 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         memset(&hints, 0, sizeof(hints));
         switch (s->local->mode) {
         case 0:
-                hints.ai_family = AF_UNSPEC;
+                hints.ai_family = AF_INET6;
+                hints.ai_flags = AI_V4MAPPED | AI_ALL;
                 break;
         case IPv4:
                 hints.ai_family = AF_INET;
@@ -1454,7 +1455,7 @@ static void udp_clean_async_state(socket_udp *s)
 
 bool udp_is_ipv6(socket_udp *s)
 {
-        return s->local->mode == IPv6;
+        return s->local->mode == IPv6 && !IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *) &s->sock)->sin6_addr);
 }
 
 bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
