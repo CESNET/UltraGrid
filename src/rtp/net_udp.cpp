@@ -1303,7 +1303,7 @@ int udp_set_recv_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if(SETSOCKOPT (s->local->fd, SOL_SOCKET, SO_RCVBUF, (const sockopt_t)&size,
+        if (SETSOCKOPT(s->local->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;
@@ -1329,7 +1329,7 @@ int udp_set_send_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if(SETSOCKOPT (s->local->fd, SOL_SOCKET, SO_SNDBUF, (const sockopt_t)&size,
+        if (SETSOCKOPT(s->local->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;

@@ -208,7 +208,7 @@ static void qdestroy(struct item *queue)
     free(queue);
 }
 
-struct response *change_replica_type(struct hd_rum_translator_state *s,
+static struct response *change_replica_type(struct hd_rum_translator_state *s,
         struct module *mod, struct message *msg, int index)
 {
     struct replica *r = (struct replica *) mod->priv_data;
