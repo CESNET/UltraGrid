@@ -269,7 +269,15 @@ QString VideoDisplayOption::getLaunchParam(){
 }
 
 bool VideoDisplayOption::filter(const QString &item){
-	const QStringList whiteList = {"gl", "sdl", "decklink", "aja", "dvs"};
+	const QStringList whiteList = {
+#ifndef __APPLE__
+		"gl",
+		"sdl",
+#endif
+		"decklink",
+		"aja",
+		"dvs"
+	};
 
 	return whiteList.contains(item)
 					&& testCaptureDisplay(ultragridExecutable,
