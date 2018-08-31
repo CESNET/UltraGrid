@@ -26,8 +26,13 @@ public:
 		connect(&timer, SIGNAL(timeout()), this, SLOT(updateVal()));
 		timer.start(1000/updatesPerSecond);
 		//setValue(50);
+		ug_control_init();
 		connect_ug();
   	}
+
+	~VuMeterWidget(){
+		ug_control_cleanup();
+	}
 
 protected:
 	void paintEvent(QPaintEvent *paintEvent);

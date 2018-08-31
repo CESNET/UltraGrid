@@ -146,18 +146,18 @@ void VuMeterWidget::paintEvent(QPaintEvent *paintEvent){
 void VuMeterWidget::connect_ug(){
 	disconnect_ug();
 
-	const std::chrono::duration<double> timeout = std::chrono::seconds(1);
+	const std::chrono::duration<double> timeout = std::chrono::seconds(2);
 
 	if(std::chrono::system_clock::now() - last_connect < timeout){
 		return;
 	}
 
+	last_connect = std::chrono::system_clock::now();
 	ug_connection *c = ug_control_connection_init(port);
 	if(!c)
 		return;
 
 	connection = std::unique_ptr<ug_connection, void(*)(ug_connection *)>(c, ug_control_connection_done);
-	last_connect = std::chrono::system_clock::now();
 }
 
 void VuMeterWidget::disconnect_ug(){
