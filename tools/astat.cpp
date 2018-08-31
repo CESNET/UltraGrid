@@ -110,7 +110,20 @@ static void worker(ug_connection &c)
                 }
 
                 if (ret < 0) {
+#ifdef _WIN32
+                        int err = WSAGetLastError();
+                        if(err == WSAECONNRESET){
+                                lock_guard<mutex> lk(c.lock);
+                                c.connection_lost = true;
+#ifdef ASTAT_DEBUG
+                                fprintf(stderr, "Connection lost!\n");
+#endif
+                                break;
+                        }
+                        printf("recv: %d \n", WSAGetLastError());
+#else
                         perror("recv");
+#endif
                         continue;
                 }
 
@@ -138,6 +151,10 @@ static void worker(ug_connection &c)
  * @param local_port UltraGrid control port to connect to
  */
 struct ug_connection *ug_control_connection_init(int local_port) {
+#ifdef _WIN32	
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(2,2), &wsa);
+#endif
         int fd = socket(AF_INET6, SOCK_STREAM, 0);
         fd_t should_exit_fd[2];
         struct sockaddr_in6 sin;
@@ -148,6 +165,9 @@ struct ug_connection *ug_control_connection_init(int local_port) {
 
         if (connect(fd, (const sockaddr*) &sin, sizeof sin) == -1) {
                 close(fd);
+#ifdef _WIN32
+                WSACleanup();
+#endif
                 return NULL;
         }
 
@@ -173,6 +193,9 @@ void ug_control_connection_done(struct ug_connection *c) {
         platform_pipe_close(c->should_exit_fd[1]);
         close(c->fd);
         delete c;
+#ifdef _WIN32
+        WSACleanup();
+#endif
 }
 
 /**
