@@ -59,8 +59,11 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	connect(&settings, SIGNAL(changed()), this, SLOT(setArgs()));
 
-	connect(sourceOption, SIGNAL(changed()), this, SLOT(startPreview()));
-	connect(audioSrcOption, SIGNAL(changed()), this, SLOT(startPreview()));
+	previewTimer.setSingleShot(true);
+	connect(&previewTimer, SIGNAL(timeout()), this, SLOT(startPreview()));
+
+	connect(sourceOption, SIGNAL(changed()), this, SLOT(schedulePreview()));
+	connect(audioSrcOption, SIGNAL(changed()), this, SLOT(schedulePreview()));
 
 	queryOpts();
 
@@ -159,6 +162,10 @@ void UltragridWindow::start(){
 	process.start(command);
 }
 
+void UltragridWindow::schedulePreview(){
+	previewTimer.start(1000);
+}
+
 void UltragridWindow::startPreview(){
 	if(!ui.previewCheckBox->isEnabled()
 			|| process.state() != QProcess::NotRunning
@@ -181,7 +188,7 @@ void UltragridWindow::startPreview(){
 	if(sourceOption->getCurrentValue() != "none"){
 		//We prevent video from network overriding local sources
 		//by listening on port 0
-		command += " -P 0 ";
+		command += " -P 0:0:0:0 ";
 	}
 
 	previewProcess.start(command);

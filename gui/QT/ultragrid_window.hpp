@@ -40,6 +40,8 @@ private:
 
 	AudioSourceOption *audioSrcOption;
 
+	QTimer previewTimer;
+
 
 public slots:
 	void about();
@@ -61,6 +63,7 @@ private slots:
 	void setStartBtnText(QProcess::ProcessState);
 	void processStateChanged(QProcess::ProcessState);
 	void enablePreview(bool);
+	void schedulePreview();
 };
 
 
