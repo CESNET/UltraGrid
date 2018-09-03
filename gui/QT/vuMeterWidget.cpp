@@ -143,17 +143,33 @@ void VuMeterWidget::paintEvent(QPaintEvent *paintEvent){
 
 }
 
+ug_connection *connectLoop(int port){
+	ug_connection *connection = nullptr;
+
+	connection = ug_control_connection_init(port);
+	while(!connection){
+		std::this_thread::sleep_for (std::chrono::seconds(2));
+		connection = ug_control_connection_init(port);
+	}
+
+	return connection;
+}
+
 void VuMeterWidget::connect_ug(){
 	disconnect_ug();
 
-	const std::chrono::duration<double> timeout = std::chrono::seconds(2);
+	ug_connection *c = nullptr;
 
-	if(std::chrono::system_clock::now() - last_connect < timeout){
-		return;
+	if(future_connection.valid()){
+		std::future_status status;
+		status = future_connection.wait_for(std::chrono::seconds(0));
+		if(status == std::future_status::ready){
+			c = future_connection.get();
+		}
+	} else {
+		future_connection = std::async(connectLoop, port);
 	}
 
-	last_connect = std::chrono::system_clock::now();
-	ug_connection *c = ug_control_connection_init(port);
 	if(!c)
 		return;
 

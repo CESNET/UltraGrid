@@ -7,6 +7,8 @@
 #include <memory>
 
 #include <chrono>
+#include <future>
+#include <thread>
 
 #include "astat.h"
 
@@ -40,6 +42,7 @@ protected:
 private:
 	QTimer timer;
 	std::unique_ptr<ug_connection, void(*)(ug_connection *)> connection;
+	std::future<ug_connection *> future_connection;
 
 	int port;
 
