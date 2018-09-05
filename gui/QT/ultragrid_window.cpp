@@ -174,7 +174,7 @@ void UltragridWindow::startPreview(){
 		return;
 	}
 
-	if(previewProcess.state() != QProcess::NotRunning)
+	while(previewProcess.state() != QProcess::NotRunning)
 		stopPreview();
 
 	QString command(ultragridExecutable);
@@ -199,8 +199,9 @@ void UltragridWindow::stopPreview(){
 	/* The shared preview memory must be released before a new one
 	 * can be created. Here we wait 0.5s to allow the preview process
 	 * exit gracefully. If it is still running after that we kill it */
-	if(!previewProcess.waitForFinished(500))
+	if(!previewProcess.waitForFinished(500)){
 		previewProcess.kill();
+	}
 }
 
 void UltragridWindow::editArgs(const QString &text){
