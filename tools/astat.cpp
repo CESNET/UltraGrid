@@ -160,7 +160,7 @@ struct ug_connection *ug_control_connection_init(int local_port) {
         sin.sin6_addr = in6addr_loopback;
 
         if (connect(fd, (const sockaddr*) &sin, sizeof sin) == -1) {
-                close(fd);
+                CLOSESOCKET(fd);
                 return NULL;
         }
 
@@ -184,7 +184,7 @@ void ug_control_connection_done(struct ug_connection *c) {
         c->t.join();
         platform_pipe_close(c->should_exit_fd[0]);
         platform_pipe_close(c->should_exit_fd[1]);
-        close(c->fd);
+        CLOSESOCKET(c->fd);
         delete c;
 }
 
