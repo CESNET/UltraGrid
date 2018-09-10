@@ -1,6 +1,6 @@
 diff -rupN a/sdk4.3.5.21/development/src_lucy/driver/linux.c b/sdk4.3.5.21/development/src_lucy/driver/linux.c
---- a/sdk4.3.5.21/development/src_lucy/driver/linux.c	2016-05-13 02:25:39.000000000 +0200
-+++ b/sdk4.3.5.21/development/src_lucy/driver/linux.c	2017-03-03 09:47:00.253642795 +0100
+--- a/sdk4.3.5.21/development/src_lucy/driver/linux.c
++++ b/sdk4.3.5.21/development/src_lucy/driver/linux.c
 @@ -790,7 +790,13 @@ INTERNAL donttag ps_alenlist * hal_LockM
  
    /*** make all pages present */
@@ -28,8 +28,8 @@ diff -rupN a/sdk4.3.5.21/development/src_lucy/driver/linux.c b/sdk4.3.5.21/devel
      }
  
 diff -rupN a/sdk4.3.5.21/development/src_v4r3/driver/linux.c b/sdk4.3.5.21/development/src_v4r3/driver/linux.c
---- a/sdk4.3.5.21/development/src_v4r3/driver/linux.c	2016-05-13 02:25:39.000000000 +0200
-+++ b/sdk4.3.5.21/development/src_v4r3/driver/linux.c	2017-03-03 09:47:51.082554472 +0100
+--- a/sdk4.3.5.21/development/src_v4r3/driver/linux.c
++++ b/sdk4.3.5.21/development/src_v4r3/driver/linux.c
 @@ -806,7 +806,13 @@ INTERNAL donttag ps_alenlist * hal_LockM
  
    /*** make all pages present */

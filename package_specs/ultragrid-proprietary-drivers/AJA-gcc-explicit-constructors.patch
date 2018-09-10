@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h b/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
---- a/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h	2017-11-07 16:09:17.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h	2017-11-07 22:43:15.867110725 +0100
+--- a/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
++++ b/ntv2sdklinux_13.1.0.1/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
 @@ -31,7 +31,8 @@ typedef struct NTV2FormatDescriptor
  	/**
  		@brief	My default constructor initializes me in an "invalid" state.

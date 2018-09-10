@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile b/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile
---- a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile	2016-10-28 10:10:47.888000000 +0000
-+++ b/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile	2016-10-28 09:59:37.824000000 +0000
+--- a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile
++++ b/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile
 @@ -12,7 +12,7 @@ TARGET 	 := ntv2watcher
  
  QT_PRO_FILE = $(TARGET).pro
@@ -9,5 +9,4 @@ diff -rupN a/ntv2sdklinux_12.4.2.1/ntv2projects/commonapps/ntv2watcher/Makefile 
 +QMAKE ?= qmake-qt5
  
  .PHONY: clean
- 
  

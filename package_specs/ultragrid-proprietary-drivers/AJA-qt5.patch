@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_13.1.0.1/build/qt.mk b/ntv2sdklinux_13.1.0.1/build/qt.mk
---- a/ntv2sdklinux_13.1.0.1/build/qt.mk	2017-11-07 16:09:33.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/build/qt.mk	2017-11-07 22:32:51.204185924 +0100
+--- a/ntv2sdklinux_13.1.0.1/build/qt.mk
++++ b/ntv2sdklinux_13.1.0.1/build/qt.mk
 @@ -15,7 +15,7 @@ ifeq (,$(QMAKE))
      QMAKE = $(shell command -v qmake-qt5 2>&1)
  endif

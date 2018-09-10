@@ -1,6 +1,6 @@
 diff -rupN a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c
---- a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c	2015-03-25 13:34:04.000000000 +0100
-+++ b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c	2016-04-27 21:50:41.034105019 +0200
+--- a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c
++++ b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c
 @@ -25,7 +25,7 @@
  #include <asm/semaphore.h>
  #endif
@@ -11,8 +11,8 @@ diff -rupN a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driverdma.c b/ntv2
  #include <linux/bootmem.h>
  #include <linux/sched.h>
 diff -rupN a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h
---- a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h	2015-03-25 13:34:04.000000000 +0100
-+++ b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h	2016-04-27 16:07:24.406906932 +0200
+--- a/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h
++++ b/ntv2linux-12.3.7.34/ntv2projects/linuxdriver/ntv2driver.h
 @@ -17,7 +17,7 @@
  #ifndef NTV2_DRIVER_HEADER
  #define NTV2_DRIVER_HEADER

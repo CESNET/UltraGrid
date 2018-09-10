@@ -1,6 +1,6 @@
 diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c
---- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c	2017-12-15 16:17:52.994884227 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c	2017-12-15 16:17:53.790897699 +0100
+--- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c
++++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c
 @@ -17,7 +17,7 @@
  #include "OSDrvData.h"
  #include <linux/pagemap.h>
@@ -20,8 +20,8 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Drivers/DVI/USBufMngr_Linux.c b/Video
  #elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
           RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
 diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c
---- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c	2017-12-15 16:17:52.998884294 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c	2017-12-15 16:17:53.854898781 +0100
+--- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c
++++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c
 @@ -17,7 +17,7 @@
  #include "OSDrvData.h"
  #include <linux/pagemap.h>
@@ -41,8 +41,8 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Drivers/HD/USBufMngr_Linux.c b/VideoM
  #elif LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
           RetVal_i = get_user_pages(((unsigned long) pUSBufAddr), NbPages_UL, 1, 0, ppPage_X, NULL);
 diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c b/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c
---- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c	2017-12-15 16:17:53.046885106 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c	2017-12-15 16:17:53.922899933 +0100
+--- a/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c
++++ b/VideoMasterHD_SDK_Linux_v6.04/Drivers/X300/USBufMngr_Linux.c
 @@ -17,7 +17,7 @@
  #include "OSDrvData.h"
  #include <linux/pagemap.h>

@@ -1,6 +1,6 @@
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile	2017-11-07 21:53:44.887344342 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile	2017-11-07 22:08:04.322191961 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
 @@ -5,20 +5,16 @@ BLUE_RELEASE_DIR=../../release/driver
  CPP=g++
  SRC = CC_EIA708B_Parser.cpp EmbAudioUtil.cpp HDVancUtil.cpp BlueHancFrame.cpp
@@ -41,8 +41,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile b/EpochLinu
  clean:
  	rm -f *.o
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile	2017-11-07 21:53:44.887344342 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile	2017-11-07 22:08:04.322191961 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
 @@ -5,6 +5,8 @@ OBJS = $(TARGET)
  SRC = BlueVelvet_i.cpp BlueVelvet_Audio.cpp BlueVelvet_VideoOut.cpp BlueVelvet_Dma.cpp BlueVelvet_VideoIn.cpp BlueVelvet4_i.cpp BlueAudioConvert.cpp CardIORouting.cpp DeviceInterface.cpp AudioPlaybackDevice.cpp
  #CFLAGS = -Wall -fpic -g -I/usr/include -I. -I../Inc
@@ -79,8 +79,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile b/EpochLinuxDr
  		cp -f BlueVelvet_c.h $(BLUE_RELEASE_DIR)/inc
  		cp -f BlueVelvet.h $(BLUE_RELEASE_DIR)/inc
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile	2017-11-07 21:53:44.891344412 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile	2017-11-07 22:08:04.322191961 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
 @@ -5,20 +5,16 @@ BLUE_RELEASE_DIR=../../../release/driver
  CPP=g++
  SRC = BlueVelvetC_i.cpp ../BlueUtils.cpp ../BlueVelvetCUtils.cpp ../BlueVelvetCHancUtils.cpp
@@ -121,8 +121,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile b/EpochLi
  clean:
  	rm -f *.o
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile	2017-11-07 22:08:04.322191961 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makefile
 @@ -6,16 +6,16 @@ OBJS = $(TARGET)
  SRC = BlueUtils.cpp BlueAVSource.cpp BlueVideoSourceFifo.cpp BlueFishCard.cpp AppMain.cpp
  SDK_DIR=../../../release/driver
@@ -154,8 +154,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/AVCaptureApp/Makef
  $(TARGET_APP):	$(SRC:.cpp=.o)
  		$(CPP) -o $(TARGET_APP) $^ $(BLUE_VELVET_LIB)  -L$(SDK_DIR)/lib/ $(Cpp) $(CFLAGS) -I$(SDK_DIR)/inc -L$(SDK_DIR)/lib/  -L/usr/local/lib -L/usr/lib/nvidia-current/  -lpthread $(BLUE_HANC_LIB) -lGL -lGLU -lglut -lGLEW
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile	2017-11-07 21:53:44.891344412 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile	2017-11-07 22:08:04.322191961 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
 @@ -6,6 +6,8 @@ CC = g++
  CFLAGS = -g 
  OPENGLLIB=-lGL -lGLU -lglut -lGLEW

@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
---- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c	2017-12-15 16:17:56.822949015 +0100
-+++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c	2017-12-15 16:17:57.642962895 +0100
+--- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
++++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/ntv2driverdma.c
 @@ -2826,13 +2826,13 @@ ntv2_sgl_map_user_pages(struct page **pa
  	down_read(&current->mm->mmap_sem);
  	/* rw==READ means read from drive, write into memory area */

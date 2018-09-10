@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile b/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile
---- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile	2017-11-07 16:08:31.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile	2017-11-07 22:18:52.109413103 +0100
+--- a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile
++++ b/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile
 @@ -7,7 +7,7 @@
  DIR := $(strip $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST)))))
  
@@ -11,8 +11,8 @@ diff -rupN a/ntv2sdklinux_13.1.0.1/ajadriver/linux/Makefile b/ntv2sdklinux_13.1.
  include $(DIR)/../../build/configure.mk
  include $(DIR)/../../build/sdkversion.mk
 diff -rupN a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure
---- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure	2017-11-07 16:10:02.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure	2017-11-07 22:16:19.738765013 +0100
+--- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure
++++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure
 @@ -1461,7 +1461,7 @@ cat <<_ASUNAME
  
  hostname = `(hostname || uname -n) 2>/dev/null | sed 1q`
@@ -32,8 +32,8 @@ diff -rupN a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure b/ntv2sdklinux_13.1
      uname="IRIX"
  fi
 diff -rupN a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in
---- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in	2017-11-07 16:10:33.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in	2017-11-07 22:16:36.927062591 +0100
+--- a/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in
++++ b/ntv2sdklinux_13.1.0.1/non-aja/fltk1.3/configure.in
 @@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
  
  dnl Get the operating system and version number...

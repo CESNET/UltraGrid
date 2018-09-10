@@ -1,6 +1,6 @@
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile	2017-11-07 21:52:32.994095654 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile
 @@ -2,7 +2,7 @@
  
  BLUE_RELEASE_DIR=../../release/driver
@@ -11,8 +11,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueHancUtils/Makefile b/EpochLinu
  CFLAGS = -Wall -fpic -g -I/usr/include -I. -I$(BLUE_RELEASE_DIR)/inc
  
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile	2017-11-07 21:52:32.994095654 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile
 @@ -1,6 +1,6 @@
  #!/bin/sh -x 
  BLUE_RELEASE_DIR=../../release/driver
@@ -22,8 +22,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvet/Makefile b/EpochLinuxDr
  SRC = BlueVelvet_i.cpp BlueVelvet_Audio.cpp BlueVelvet_VideoOut.cpp BlueVelvet_Dma.cpp BlueVelvet_VideoIn.cpp BlueVelvet4_i.cpp BlueAudioConvert.cpp CardIORouting.cpp DeviceInterface.cpp AudioPlaybackDevice.cpp
  #CFLAGS = -Wall -fpic -g -I/usr/include -I. -I../Inc
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile	2017-11-07 21:52:32.994095654 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile
 @@ -2,7 +2,7 @@
  
  BLUE_RELEASE_DIR=../../../release/driver
@@ -34,8 +34,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/apis/BlueVelvetC/lin/Makefile b/EpochLi
  CFLAGS = -Wall -fpic -g -I/usr/include -I. -I$(BLUE_RELEASE_DIR)/inc -DBLUE_LINUX_CODE
  
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile	2017-11-07 21:52:32.994095654 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
 @@ -1,5 +1,5 @@
  TARGET=BlueTeaPotGenerator
 -CPP=gcc
@@ -44,8 +44,8 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/GLTeapot/Makefile
  
  CC = g++
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile	2017-11-07 16:08:26.000000000 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile	2017-11-07 21:52:32.994095654 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile
++++ b/EpochLinuxDriver_V5_11_0_21/samples/PlaybackVideo/Playback4K_FS/Makefile
 @@ -1,5 +1,5 @@
  TARGET=Playback4K_FS
 -CPP=gcc

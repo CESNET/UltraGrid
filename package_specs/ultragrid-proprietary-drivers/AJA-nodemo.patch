@@ -1,6 +1,6 @@
 diff -rupN a/ntv2sdklinux_13.1.0.1/Makefile b/ntv2sdklinux_13.1.0.1/Makefile
---- a/ntv2sdklinux_13.1.0.1/Makefile	2017-11-07 16:08:30.000000000 +0100
-+++ b/ntv2sdklinux_13.1.0.1/Makefile	2017-11-22 09:00:48.564823480 +0100
+--- a/ntv2sdklinux_13.1.0.1/Makefile
++++ b/ntv2sdklinux_13.1.0.1/Makefile
 @@ -18,7 +18,7 @@ ifndef AJA_NO_FLTK
  	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/watcher")
  	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/xenacablesfltk")

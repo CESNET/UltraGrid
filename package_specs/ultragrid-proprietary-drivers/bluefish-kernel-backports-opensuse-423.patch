@@ -1,6 +1,6 @@
 diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
---- a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c	2017-12-15 16:17:58.950985035 +0100
-+++ b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c	2017-12-15 16:17:59.502994377 +0100
+--- a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
++++ b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
 @@ -258,7 +258,7 @@ void bluedma_unmap_userbuffer(struct blu
  			(dma_buffer->dmaDirection == DMA_WRITE)?PCI_DMA_TODEVICE:PCI_DMA_FROMDEVICE);
  
