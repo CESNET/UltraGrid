@@ -2596,7 +2596,16 @@ then
 	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS $GL_LIB")
 
-	AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
+	AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser], 
+		[AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
+			[QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
+
+	#AC_MSG_NOTICE("Qmake: $QMAKE")
+	if test "x$QMAKE" = "x"; then
+		AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
+	fi
+
+	#AC_MSG_NOTICE("Qmake: $QMAKE")
 	GUI_TARGET=gui/QT/uv-qt
 
 	if test ":" = "$QMAKE"; then
