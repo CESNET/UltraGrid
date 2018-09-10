@@ -2579,7 +2579,7 @@ AC_ARG_ENABLE(qt,
     )
 
 # Check for Qt libraries
-QT_GUI_DEP="Qt5Core Qt5Widgets"
+QT_GUI_DEP="Qt5Core >= 5.4 Qt5Widgets"
 if test $system = Linux; then
 	QT_GUI_DEP="$QT_GUI_DEP libv4l2"
 fi
