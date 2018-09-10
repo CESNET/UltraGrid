@@ -202,7 +202,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/debian.rules b/ultragrid-propriet
 diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 --- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 +++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
-@@ -42,10 +42,10 @@ Patch1:		videoMasterHD-linux4.6-get-user
+@@ -42,11 +42,11 @@ Patch1:		videoMasterHD-linux4.6-get-user
  #####################################################
  # > bluefish (EpochLinuxDriver)
  #####################################################
@@ -210,14 +210,16 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
 -Patch11:	bluefish-g++.patch
 -Patch12:	bluefish-destdir.patch
 -Patch13:	bluefish-linux4.6-get-user-pages.patch
+-Patch19:	bluefish-kernel-backports-opensuse-423.patch
 +#Patch10:	bluefish-uname.patch
 +#Patch11:	bluefish-g++.patch
 +#Patch12:	bluefish-destdir.patch
 +#Patch13:	bluefish-linux4.6-get-user-pages.patch
++#Patch19:	bluefish-kernel-backports-opensuse-423.patch
  #####################################################
  # < bluefish (EpochLinuxDriver)
  #####################################################
-@@ -90,10 +90,10 @@ VideoMasterHD		--deltacast
+@@ -93,13 +93,13 @@ VideoMasterHD		--deltacast
  #####################################################
  # > bluefish
  #####################################################
@@ -225,14 +227,20 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
 -%patch11 -p1
 -%patch12 -p1
 -%patch13 -p1
+-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+-%patch19 -p1
+-%endif
 +#%%patch10 -p1
 +#%%patch11 -p1
 +#%%patch12 -p1
 +#%%patch13 -p1
++#%%if 0%%{?is_opensuse} >= 1 && 0%%{?sle_version} == 120300
++#%%patch19 -p1
++#%%endif
  #####################################################
  # < bluefish
  #####################################################
-@@ -134,12 +134,12 @@ popd
+@@ -146,12 +146,12 @@ popd
  #####################################################
  # > bluefish
  #####################################################
@@ -251,7 +259,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
  #####################################################
  # < bluefish
  #####################################################
-@@ -153,15 +153,15 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragr
+@@ -165,15 +165,15 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragr
  #####################################################
  # > bluefish
  #####################################################

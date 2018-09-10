@@ -168,7 +168,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/debian.rules b/ultragrid-propriet
 diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 --- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 +++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
-@@ -52,12 +52,12 @@ Patch13:	bluefish-linux4.6-get-user-page
+@@ -53,13 +53,13 @@ Patch19:	bluefish-kernel-backports-opens
  #####################################################
  # > aja (ntv2sdklinux)
  #####################################################
@@ -178,16 +178,18 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
 -Patch23:	AJA-qt5.patch
 -Patch24:	AJA-gcc-explicit-constructors.patch
 -Patch25:	AJA-linux4.6-get-user-pages.patch
+-Patch29:	AJA-kernel-backports-opensuse-423.patch
 +#Patch20:	AJA-linuxdriver-uname.patch
 +#Patch21:	AJA-nodemo.patch
 +#Patch22:	AJA-qmake.patch
 +#Patch23:	AJA-qt5.patch
 +#Patch24:	AJA-gcc-explicit-constructors.patch
 +#Patch25:	AJA-linux4.6-get-user-pages.patch
++#Patch29:	AJA-kernel-backports-opensuse-423.patch
  #####################################################
  # < aja (ntv2sdklinux)
  #####################################################
-@@ -100,12 +100,12 @@ VideoMasterHD		--deltacast
+@@ -106,15 +106,15 @@ VideoMasterHD		--deltacast
  #####################################################
  # > aja
  #####################################################
@@ -197,16 +199,22 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
 -%patch23 -p1
 -%patch24 -p1
 -%patch25 -p1
+-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+-%patch29 -p1
+-%endif
 +#%%patch20 -p1
 +#%%patch21 -p1
 +#%%patch22 -p1
 +#%%patch23 -p1
 +#%%patch24 -p1
 +#%%patch25 -p1
++#%%if 0%%{?is_opensuse} >= 1 && 0%%{?sle_version} == 120300
++#%%patch29 -p1
++#%%endif
  #####################################################
  # < aja
  #####################################################
-@@ -123,10 +123,10 @@ VideoMasterHD		--deltacast
+@@ -135,10 +135,10 @@ VideoMasterHD		--deltacast
  #####################################################
  # > aja
  #####################################################
@@ -221,7 +229,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
  #####################################################
  # < aja
  #####################################################
-@@ -178,8 +178,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
+@@ -190,8 +190,8 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-
  #####################################################
  # > aja
  #####################################################

@@ -129,25 +129,33 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/debian.rules b/ultragrid-propriet
 diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 --- a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
 +++ b/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4.spec
-@@ -64,7 +64,7 @@ Patch25:	AJA-linux4.6-get-user-pages.pat
+@@ -66,8 +66,8 @@ Patch29:	AJA-kernel-backports-opensuse-4
  #####################################################
  # > dvs (sdk)
  #####################################################
 -Patch30:	dvs-linux4.6-get-user-pages.patch
+-Patch39:	dvs-kernel-backports-opensuse-423.patch
 +#Patch30:	dvs-linux4.6-get-user-pages.patch
++#Patch39:	dvs-kernel-backports-opensuse-423.patch
  #####################################################
  # < dvs (sdk)
  #####################################################
-@@ -112,7 +112,7 @@ VideoMasterHD		--deltacast
+@@ -121,10 +121,10 @@ VideoMasterHD		--deltacast
  #####################################################
  # > dvs (sdk)
  #####################################################
 -%patch30 -p1
+-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+-%patch39 -p1
+-%endif
 +#%%patch30 -p1
++#%%if 0%%{?is_opensuse} >= 1 && 0%%{?sle_version} == 120300
++#%%patch39 -p1
++#%%endif
  #####################################################
  # < dvs (sdk)
  #####################################################
-@@ -168,10 +168,10 @@ popd
+@@ -180,10 +180,10 @@ popd
  #####################################################
  # > dvs
  #####################################################

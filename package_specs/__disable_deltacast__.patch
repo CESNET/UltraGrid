@@ -194,7 +194,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
  #####################################################
  # < deltacast (videoMasterHD)
  #####################################################
-@@ -82,8 +82,8 @@ VideoMasterHD		--deltacast
+@@ -85,8 +85,8 @@ VideoMasterHD		--deltacast
  #####################################################
  # > deltacast
  #####################################################
@@ -205,7 +205,7 @@ diff -rupN a/ultragrid-proprietary-drivers-1.4/ultragrid-proprietary-drivers-1.4
  #####################################################
  # < deltacast
  #####################################################
-@@ -186,21 +186,21 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
+@@ -198,21 +198,21 @@ ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr
  #####################################################
  # > deltacast
  #####################################################
