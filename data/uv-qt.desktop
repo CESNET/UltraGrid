@@ -1,10 +1,11 @@
 [Desktop Entry]
 Version=1.0
 Name=UltraGrid
+GenericName=RTP Streamer
 Type=Application
 Exec=uv-qt
 Icon=ultragrid
 StartupNotify=true
 Terminal=false
-Categories=AudioVideo;Network;
+Categories=AudioVideo;Recorder;Network;VideoConference
 
