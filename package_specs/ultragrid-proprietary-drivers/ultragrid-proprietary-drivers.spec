@@ -1,5 +1,5 @@
 Name:		ultragrid-proprietary-drivers
-Version:	20171107
+Version:	20180511
 Release:	1%{?dist}
 Summary:	Ultragrid drivers pseudometapackage
 Group:		Applications/Multimedia
@@ -73,7 +73,7 @@ Patch29:	AJA-kernel-backports-opensuse-423.patch
 # > dvs (sdk)
 #####################################################
 Patch30:	dvs-linux4.6-get-user-pages.patch
-Patch39:	dvs-kernel-backports-opensuse-423.patch
+#Patch39:	dvs-kernel-backports-opensuse-423.patch
 #####################################################
 # < dvs (sdk)
 #####################################################
@@ -131,9 +131,9 @@ VideoMasterHD		--deltacast
 # > dvs (sdk)
 #####################################################
 %patch30 -p1
-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} >= 120200
-%patch39 -p1
-%endif
+#%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} >= 120200
+#%patch39 -p1
+#%endif
 #####################################################
 # < dvs (sdk)
 #####################################################
@@ -247,6 +247,10 @@ export NO_BRP_CHECK_RPATH=true
 %{_prefix}/src/ultragrid-externals
 
 %changelog
+* Fri May 5 2018 Lukas Rucka <ultragrid-dev@cesnet.cz>
+- 20180511
+- Upgrade Bluefish drivers to compensate for kernel api changes
+
 * Tue Jan 3 2017 Lukas Rucka <xrucka@fi.muni.cz>
 - 20170103
 - Marked up sections to enable public specification release available

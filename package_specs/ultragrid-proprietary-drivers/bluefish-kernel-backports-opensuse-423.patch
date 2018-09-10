@@ -1,12 +1,12 @@
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
---- a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
-+++ b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
-@@ -258,7 +258,7 @@ void bluedma_unmap_userbuffer(struct blu
- 			(dma_buffer->dmaDirection == DMA_WRITE)?PCI_DMA_TODEVICE:PCI_DMA_FROMDEVICE);
- 
- 	for (i=0; i < dma_buffer->nr_pages; i++)
--#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60)
- 		page_cache_release(dma_buffer->pages[i]);
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracAlsa.c b/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracAlsa.c
+--- a/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracAlsa.c
++++ b/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracAlsa.c
+@@ -441,7 +441,7 @@ static struct snd_pcm_ops orac_alsa_capt
+ 	.prepare =		orac_alsa_pcm_capture_prepare,
+ 	.trigger =		orac_alsa_pcm_capture_trigger,
+ 	.pointer =		orac_alsa_pcm_capture_pointer,
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,2)
+ 	.silence =      orac_alsa_pcm_capture_silence,
  #else
- 		put_page(dma_buffer->pages[i]);
+ 	.fill_silence = orac_alsa_pcm_capture_silence,

@@ -1,18 +1,18 @@
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/applications/Makefile b/EpochLinuxDriver_V5_11_0_21/applications/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/applications/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/applications/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/applications/Makefile b/EpochLinuxDriver_V5_11_0_26/applications/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/applications/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/applications/Makefile
 @@ -2,7 +2,7 @@ OBJS = $(TARGET).o
  CC = g++
  SDK_DIR =../release/driver
- 
+
 -LINUX_KERNEL_VERSION := $(shell uname -r)
 +LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/Makefile b/EpochLinuxDriver_V5_11_0_21/drivers/orac/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/drivers/orac/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/drivers/orac/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile b/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile
 @@ -35,7 +35,7 @@ obj ?= .
  
  PWD := $(shell pwd)
@@ -22,9 +22,9 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/Makefile b/EpochLinuxDrive
  KERNEL_SOURCES := /lib/modules/$(KERNEL_UNAME)/build/
  
  EXTRA_CFLAGS += -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE  -DNTRM -D_GNU_SOURCE -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE -DUSE_NEW_VIDEO_FIFO
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureAncillary/ReadClosedCaptions/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/CaptureAncillary/ReadClosedCaptions/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/CaptureAncillary/ReadClosedCaptions/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/CaptureAncillary/ReadClosedCaptions/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile
 @@ -2,7 +2,7 @@ OBJS = $(TARGET).o
  CC = g++
  SDK_DIR =../../../release/driver
@@ -34,9 +34,9 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureAncillary/ReadClosedCapt
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
 @@ -1,7 +1,7 @@
  OBJS = $(TARGET).o
  CC = gcc
@@ -46,9 +46,9 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoDevi
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
 @@ -1,7 +1,7 @@
  OBJS = $(TARGET).o
  CC = gcc
@@ -58,9 +58,9 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/CaptureVideo/V4L2/EnumVideoMode
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/Duplex/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/Duplex/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/Duplex/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/Duplex/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile
 @@ -2,7 +2,7 @@ OBJS = $(TARGET).o
  CC = g++
  SDK_DIR=../../release/driver
@@ -70,9 +70,9 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/Duplex/Makefile b/EpochLinuxDri
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/samples/misc/Makefile b/EpochLinuxDriver_V5_11_0_21/samples/misc/Makefile
---- a/EpochLinuxDriver_V5_11_0_21/samples/misc/Makefile
-+++ b/EpochLinuxDriver_V5_11_0_21/samples/misc/Makefile
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile
++++ b/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile
 @@ -2,7 +2,7 @@ OBJS = $(TARGET).o
  CC = g++
  SDK_DIR =../../release/driver

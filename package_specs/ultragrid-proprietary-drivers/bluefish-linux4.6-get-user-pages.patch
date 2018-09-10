@@ -1,6 +1,6 @@
-diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
---- a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
-+++ b/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracDMABufferMap.c b/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracDMABufferMap.c
+--- a/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracDMABufferMap.c
++++ b/EpochLinuxDriver_V5_11_0_26/drivers/orac/OracDMABufferMap.c
 @@ -1,5 +1,6 @@
  #include "OracDriver.h"
  #include <linux/pagemap.h>
@@ -8,15 +8,15 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_21/drivers/orac/OracDMABufferMap.c b/Epoch
  #include "OracDMAUtil.h"
  #include <linux/time.h>
  #define DMA_DEBUG 
-@@ -257,7 +258,11 @@ void bluedma_unmap_userbuffer(struct blu
- 			(dma_buffer->dmaDirection == DMA_WRITE)?PCI_DMA_TODEVICE:PCI_DMA_FROMDEVICE);
+@@ -252,7 +253,11 @@ void bluedma_unmap_userbuffer(struct blu
+ 	pci_unmap_sg(devExt->pci_dev_p, dma_buffer->pOSScatterGatherList, pagesMapped, (dma_buffer->dmaDirection == DMA_WRITE)?PCI_DMA_TODEVICE:PCI_DMA_FROMDEVICE);
  
- 	for (i=0; i < dma_buffer->nr_pages; i++)
+ 	for(i=0; i < dma_buffer->nr_pages; i++)
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
- 		page_cache_release(dma_buffer->pages[i]);
++		page_cache_release(dma_buffer->pages[i]);
 +#else
-+		put_page(dma_buffer->pages[i]);
+ 		put_page(dma_buffer->pages[i]);
 +#endif
+ 
  	blue_clear_User_DMA_Request(&dma_buffer->userIrp);
  	dma_buffer->buf = NULL;
- 	dma_buffer->buffer_map_type= BlueFishDMA_PermMapped;
