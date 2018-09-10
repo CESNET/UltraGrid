@@ -189,7 +189,7 @@ bool blackmagic_api_version_check()
         if (BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
                 log_msg(LOG_LEVEL_ERROR, "The DeckLink drivers may not be installed or are outdated.\n");
                 log_msg(LOG_LEVEL_ERROR, "You should have at least the version UltraGrid has been linked with.\n");
-                log_msg(LOG_LEVEL_ERROR, "Vendor download page is http://http://www.blackmagic-design.com/support\n");
+                log_msg(LOG_LEVEL_ERROR, "Vendor download page is http://www.blackmagic-design.com/support\n");
                 print_decklink_version();
                 ret = false;
         } else {
