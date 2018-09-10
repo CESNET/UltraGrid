@@ -1581,28 +1581,28 @@ AC_ARG_ENABLE(gl,
 
 # this variable is shared multiple times in code, so make sure that change in this
 # lines does not inferre with something below
-SAVED_LIBS=$LIBS
-if test $system = Windows; then
-	AC_MSG_CHECKING([GLEW presence (library and headers)])
-	SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglew32"
-	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
-#define _STDCALL_SUPPORTED 1
-#include <GL/glew.h>
-], [
-glewInit();
-		])],
-		[FOUND_GLEW=yes],[FOUND_GLEW=no])
-	LIBS=$SAVED_LIBS
-	AC_MSG_RESULT([$FOUND_GLEW])
-        #AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
-else
-        AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
-        #PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
-fi
-AC_SUBST(FOUND_GLEW)
-LIBS=$SAVED_LIBS
-
+#SAVED_LIBS=$LIBS
+#if test $system = Windows; then
+#	AC_MSG_CHECKING([GLEW presence (library and headers)])
+#	SAVED_LIBS=$LIBS
+#	LIBS="$LIBS -lglew32"
+#	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
+##define _STDCALL_SUPPORTED 1
+##include <GL/glew.h>
+#], [
+#glewInit();
+#		])],
+#		[FOUND_GLEW=yes],[FOUND_GLEW=no])
+#	LIBS=$SAVED_LIBS
+#	AC_MSG_RESULT([$FOUND_GLEW])
+#        #AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+#else
+#        AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+#        #PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+#fi
+#LIBS=$SAVED_LIBS
+#AC_SUBST(FOUND_GLEW)
+#
 case "$system" in
 	MacOSX)
 	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
@@ -1637,6 +1637,9 @@ case "$system" in
 			#		 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
 			#		 [echo "GL/glew.h not found."]
 			#		)
+
+			AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+
 			AC_CHECK_HEADERS([GLUT/glut.h],
 					 [AC_CHECK_FILE(/System/Library/Frameworks/GLUT.framework/GLUT, FOUND_GLUT=yes, echo "GLUT framework not found.")],
 					 [echo "GLUT/glut.h not found."]
@@ -1661,6 +1664,18 @@ case "$system" in
 	Windows)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
+
+	#AC_MSG_CHECKING([GLEW presence (library and headers)])
+	#SAVED_LIBS=$LIBS
+	LIBS="$LIBS -lglew32"
+	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
+#define _STDCALL_SUPPORTED 1
+#include <GL/glew.h>
+], [
+glewInit();
+		])],
+		[FOUND_GLEW=yes],[FOUND_GLEW=no])
+
 	LIBS="$LIBS -lfreeglut -lglew32 -lopengl32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
@@ -1699,8 +1714,11 @@ glBindTexture(GL_TEXTURE_2D, 0);
 		then
 			GL_LIB="$GL_LIB -lGL"
 
+			AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no, $GL_LIB), FOUND_GLEW=no)
+
+
 			AC_CHECK_HEADERS([GL/glut.h],
-					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
+					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.", $GL_LIB)],
 					 [echo "GL/glut.h not found."]
 					)
 			if test "$FOUND_GLUT" = yes -a $FOUND_GLEW = yes
@@ -1729,6 +1747,7 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	fi
 	;;
 esac
+AC_SUBST(FOUND_GLEW)
 
 if test $gl = yes
 then
