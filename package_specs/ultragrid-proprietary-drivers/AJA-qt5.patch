@@ -1,0 +1,12 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/build/qt.mk b/ntv2sdklinux_14.2.0.6/build/qt.mk
+--- a/ntv2sdklinux_14.2.0.6/build/qt.mk
++++ b/ntv2sdklinux_14.2.0.6/build/qt.mk
+@@ -15,7 +15,7 @@ ifeq (,$(QMAKE))
+     QMAKE = $(shell command -v qmake-qt5 2>&1)
+ endif
+ # WTF?  qmake -v outputs to stderr??
+-QMAKE_V := $(shell $(QMAKE) -v 2>&1)
++QMAKE_V := $(shell qmake-qt5 -v 2>&1)
+ QMAKE_4 := $(findstring 4.,$(QMAKE_V))
+ QMAKE_5 := $(findstring 5.,$(QMAKE_V))
+ 

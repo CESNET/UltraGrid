@@ -1,0 +1,13 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+--- a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
++++ b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+@@ -3284,7 +3284,9 @@ ntv2_sgl_map_user_pages(struct page **pa
+ 	unsigned int nr_pages;
+ 	unsigned long page_offset;
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,16,0))
+ 	flush_write_buffers();
++#endif
+ 
+ 	nr_pages = ((uaddr & ~PAGE_MASK) + count + ~PAGE_MASK) >> PAGE_SHIFT;
+ //	printk("%s: number of pages %d\n", __FUNCTION__, nr_pages);

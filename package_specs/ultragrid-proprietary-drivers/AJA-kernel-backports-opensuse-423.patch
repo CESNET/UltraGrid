@@ -1,0 +1,37 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+--- a/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
++++ b/ntv2sdklinux_14.2.0.6/ajadriver/linux/ntv2driverdma.c
+@@ -3308,13 +3308,13 @@ ntv2_sgl_map_user_pages(struct page **pa
+ 	down_read(&current->mm->mmap_sem);
+ 	/* rw==READ means read from drive, write into memory area */
+ 	res = get_user_pages(
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60))
+ 		current,
+ 		current->mm,
+ #endif
+ 		uaddr,
+ 		nr_pages,
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0))
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,4,60))
+ 		rw == READ, // DMA engines ignore permissions
+ 		0, /* don't force */
+ #else
+@@ -3427,7 +3427,7 @@ ntv2_sgl_map_user_pages(struct page **pa
+  out_unmap:
+ 	if (res > 0) {
+ 		for (j=0; j < res; j++)
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,60))
+ 			put_page(pages[j]);
+ #else
+ 			page_cache_release(pages[j]);
+@@ -3449,7 +3449,7 @@ static int ntv2_sgl_unmap_user_pages(str
+ 		/* FIXME: cache flush missing for rw==READ
+ 		 * FIXME: call the correct reference counting function
+ 		 */
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,60))
+ 		put_page(pages[i]);
+ #else
+ 		page_cache_release(pages[i]);
