@@ -500,6 +500,7 @@ bundle-nolib: all
 # adds libraries to the bundle
 bundle: bundle-nolib
 	@if `which dylibbundler`; then \
+		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
 		for n in $(BUNDLE)/Contents/MacOS/*; \
 			do dylibbundler -of -p @executable_path/../libs/ -od -b -x $$n -d $(BUNDLE)/Contents/libs/; \
 		done; \
