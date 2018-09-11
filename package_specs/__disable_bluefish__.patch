@@ -62,17 +62,17 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  #####################################################
  # < bluefish
  #####################################################
-@@ -43,11 +43,11 @@ override_dh_auto_install:
+@@ -44,11 +44,11 @@ override_dh_auto_install:
  #####################################################
  # > bluefish
  #####################################################
--	cp -r EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
--	ln -s EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/bluefish_sdk
+-	ln -s EpochLinuxDriver_V5* bluefish_sdk
+-	tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
 -
 -	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
 -	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
-+#	cp -r EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
-+#	ln -s EpochLinuxDriver_V5* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/bluefish_sdk
++#	ln -s EpochLinuxDriver_V5* bluefish_sdk
++#	tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
 +#
 +#	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
 +#	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
@@ -147,8 +147,8 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # > bluefish
  #####################################################
--cp -r EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
--ln -s EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/bluefish_sdk
+-ln -s EpochLinuxDriver_V5* bluefish_sdk
+-tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 -
 -pushd EpochLinuxDriver_V5*/drivers/orac
 -env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
@@ -156,8 +156,8 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
 -pushd EpochLinuxDriver_V5*/apis/BlueVelvet
 -env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
 -popd
-+#cp -r EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-+#ln -s EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/bluefish_sdk
++#ln -s EpochLinuxDriver_V5* bluefish_sdk
++#tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 +#
 +#pushd EpochLinuxDriver_V5*/drivers/orac
 +#env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT

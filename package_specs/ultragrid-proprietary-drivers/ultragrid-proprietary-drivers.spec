@@ -172,7 +172,7 @@ rm -rf EpochLinuxDriver_V5*/firmware/x86
 #####################################################
 
 # relativize all symlinks (build phase)
-find ./ -type l -print0 | xargs -0 -I '{}' sh -c 'mv "{}" "{}.pkgbkp" ; ln -s "$(realpath --relative-to="{}.pkgbkp" "$(readlink "{}.pkgbkp")")" "{}" ; rm "{}.pkgbkp"'
+find ./ -type l -print0 | xargs -0 -I '{}' sh -c 'mv "{}" "{}.pkgbkp" ; pushd "$(dirname "{}")" > /dev/null ; echo ln -s "$(realpath --relative-to=. "$(readlink "$(basename "{}").pkgbkp")")" "$(basename "{}")" ; ln -s "$(realpath --relative-to=. "$(readlink "$(basename "{}").pkgbkp")")" "$(basename "{}")" ; popd > /dev/null ; rm "{}.pkgbkp"'
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
@@ -180,8 +180,8 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
 #####################################################
 # > bluefish
 #####################################################
-cp -r EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-ln -s EpochLinuxDriver_V5* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/bluefish_sdk
+ln -s EpochLinuxDriver_V5* bluefish_sdk
+tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 
 pushd EpochLinuxDriver_V5*/drivers/orac
 env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
@@ -195,8 +195,8 @@ popd
 #####################################################
 # > dvs
 #####################################################
-cp -r sdk4.3.* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-ln -s sdk4.3* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk
+ln -s sdk4.3* dvs_sdk
+tar -c dvs_sdk sdk4.3.* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 
 rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk/linux-x86
 #####################################################
@@ -205,16 +205,16 @@ rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk/linux-x86
 #####################################################
 # > aja
 #####################################################
-cp -r ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/aja_sdk
+ln -s ntv2sdklinux_* aja_sdk
+tar -c aja_sdk ntv2sdklinux_* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 #####################################################
 # < aja
 #####################################################
 #####################################################
 # > deltacast
 #####################################################
-cp -r VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-ln -s VideoMasterHD* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/deltacast_sdk
+ln -s VideoMasterHD* deltacast_sdk
+tar -c deltacast_sdk VideoMasterHD* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 
 mkdir -p $RPM_BUILD_ROOT%{_libdir}
 pushd VideoMasterHD_*/Library/
@@ -237,7 +237,7 @@ find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -type f -exec file {} \; 
 for pattern in "*.so" "*.so.*" "*.sh" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod +x {} \; ; done
 for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod -x {} \; ; done
 # new AJA installs broken symlinks
-rm -rf ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/ntv*/bin/qtlibs
+#rm -rf ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/ntv*/bin/qtlibs
 # remove messed diffs if patches otherwise patched successfuly
 find ${RPM_BUILD_ROOT}/ -name "*.orig" -exec rm {} \;
 

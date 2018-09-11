@@ -49,16 +49,16 @@ diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ul
 diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-drivers/debian.rules
 --- a/ultragrid-proprietary-drivers/debian.rules
 +++ b/ultragrid-proprietary-drivers/debian.rules
-@@ -54,10 +54,10 @@ override_dh_auto_install:
+@@ -55,10 +55,10 @@ override_dh_auto_install:
  #####################################################
  # > dvs
  #####################################################
--	cp -r sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
--	ln -s sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk
+-	ln -s sdk4.3* dvs_sdk
+-	tar -c dvs_sdk sdk4.3* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
 -
 -	rm -r $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk/linux-x86
-+#	cp -r sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
-+#	ln -s sdk4.3* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk
++#	ln -s sdk4.3* dvs_sdk
++#	tar -c dvs_sdk sdk4.3* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
 +#
 +#	rm -r $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk/linux-x86
  #####################################################
@@ -97,12 +97,12 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # > dvs
  #####################################################
--cp -r sdk4.3.* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
--ln -s sdk4.3* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk
+-ln -s sdk4.3* dvs_sdk
+-tar -c dvs_sdk sdk4.3.* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 -
 -rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk/linux-x86
-+#cp -r sdk4.3.* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-+#ln -s sdk4.3* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk
++#ln -s sdk4.3* dvs_sdk
++#tar -c dvs_sdk sdk4.3.* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 +#
 +#rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk/linux-x86
  #####################################################

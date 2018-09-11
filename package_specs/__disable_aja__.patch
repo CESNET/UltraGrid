@@ -58,14 +58,14 @@ diff -rupN a/ultragrid-proprietary-drivers/debian.rules b/ultragrid-proprietary-
  #####################################################
  # < aja
  #####################################################
-@@ -64,8 +64,8 @@ override_dh_auto_install:
+@@ -65,8 +65,8 @@ override_dh_auto_install:
  #####################################################
  # > aja
  #####################################################
--	cp -r ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
--	ln -s ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/aja_sdk
-+#	cp -r ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
-+#	ln -s ntv2sdklinux* $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/aja_sdk
+-	ln -s ntv2sdklinux* aja_sdk
+-	tar -c aja_sdk ntv2sdklinux* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
++#	ln -s ntv2sdklinux* aja_sdk
++#	tar -c aja_sdk ntv2sdklinux* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
  #####################################################
  # < aja
  #####################################################
@@ -137,10 +137,10 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # > aja
  #####################################################
--cp -r ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
--ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/aja_sdk
-+#cp -r ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
-+#ln -s ntv2sdklinux_* $RPM_BUILD_ROOT/usr/src/ultragrid-externals/aja_sdk
+-ln -s ntv2sdklinux_* aja_sdk
+-tar -c aja_sdk ntv2sdklinux_* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
++#ln -s ntv2sdklinux_* aja_sdk
++#tar -c aja_sdk ntv2sdklinux_* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
  #####################################################
  # < aja
  #####################################################
