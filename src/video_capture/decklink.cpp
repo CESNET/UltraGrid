@@ -980,7 +980,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         if (s->passthrough) {
                                 result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
                                 if(result != S_OK) {
-                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set pasthroug mode.\n");
+                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set passthrough mode.\n");
                                         goto error;
                                 }
                         }

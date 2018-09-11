@@ -86,7 +86,7 @@ static void mirror_line_UYVY(unsigned char *dst, const unsigned char *src, int l
 static struct video_frame *filter(void *, struct video_frame *in)
 {
         if (in->color_spec != UYVY) {
-                log_msg(LOG_LEVEL_WARNING, "Only supporte colorspace for mirror is currently UYVY!\n");
+                log_msg(LOG_LEVEL_WARNING, "Only supported colorspace for mirror is currently UYVY!\n");
                 return in;
         }
 

@@ -298,7 +298,7 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
                                 return NULL;
                         }
                 case kCIEaqAbortedErr:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acqistion aborted\n");
+                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acquistion aborted\n");
                         return NULL;
                 case kCIEdataHWerr:
                         log_msg(LOG_LEVEL_ERROR, "CiWaitNextUndeliveredFrame gave '%s'\n",CiErrStr(circ));
@@ -323,7 +323,7 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
                         log_msg(LOG_LEVEL_ERROR, "CiGetUndeliveredCount error\n");
                         return NULL;
                 case kCIEaqAbortedErr:
-                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acqistion aborted\n");
+                        log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame: acquistion aborted\n");
                         return NULL;
                 default:
                         log_msg(LOG_LEVEL_ERROR, "CiGetOldestNotDeliveredFrame gave '%s'\n",CiErrStr(circ));

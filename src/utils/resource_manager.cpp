@@ -214,7 +214,7 @@ class resource_manager_t {
                         obj_map_t::iterator it = m_objs.find(item_name);
                         if(it == m_objs.end()) {
                                 // create
-                                throw logic_error("Not such object.");
+                                throw logic_error("No such object.");
                         } else {
                                 it->second.second -= 1;
                                 if(it->second.second == 0) { // ref count == 0

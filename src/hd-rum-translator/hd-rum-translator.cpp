@@ -546,7 +546,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->host_count += 1;
         } else {
             if(strlen(argv[i]) != 2) {
-                fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
+                fprintf(stderr, "Error: invalid option '%s'\n", argv[i]);
                 exit(EXIT_FAIL_USAGE);
             }
 
@@ -605,7 +605,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                     parsed->hosts[host_idx].force_ip_version = 6;
                     break;
                 default:
-                    fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
+                    fprintf(stderr, "Error: invalid option '%s'\n", argv[i]);
                     exit(EXIT_FAIL_USAGE);
             }
             i += 1;
