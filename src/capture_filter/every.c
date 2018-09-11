@@ -99,7 +99,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 }
                 if (denom > n) {
                         log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
-                               "(or equal, which, however, has a little use) then denominator.\n");
+                               "(or equal, which, however, has a little use) than denominator.\n");
                         return -1;
                 }
         } else {

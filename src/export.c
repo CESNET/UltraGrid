@@ -210,7 +210,7 @@ static void process_messages(struct exporter *s) {
                         } else {
                                 enable_export(s);
                         }
-                        log_msg(LOG_LEVEL_NOTICE, "Exporing: %s\n", s->exporting ? "ON" : "OFF");
+                        log_msg(LOG_LEVEL_NOTICE, "Exporting: %s\n", s->exporting ? "ON" : "OFF");
                         r = new_response(RESPONSE_OK, NULL);
                 } else if (strcmp(msg->text, "status") == 0) {
                         r = new_response(RESPONSE_OK, s->exporting ? "true" : "false");

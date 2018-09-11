@@ -424,7 +424,7 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_1;
                         break;
                 default:
-                        cerr << "To much outpt channels requested." << endl;
+                        cerr << "Too many output channels requested." << endl;
                         return false;
         }
         s->objHancDecode.type_of_sample_required = (AUDIO_CHANNEL_16BIT|AUDIO_CHANNEL_LITTLEENDIAN);

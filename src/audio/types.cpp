@@ -309,7 +309,7 @@ void audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
         /// @todo
         /// speex supports also floats so there could be possibility also to add support for more bps
         if (bps != 2) {
-                throw logic_error("Only 16 bits per sample are currently for resamling supported!");
+                throw logic_error("Only 16 bits per sample are currently for resampling supported!");
         }
 
         std::vector<channel> new_channels(channels.size());

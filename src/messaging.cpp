@@ -143,7 +143,7 @@ static struct response *send_message_common(struct module *root, const char *con
         pthread_mutex_unlock(&receiver->msg_queue_lock);
         if (size >= MAX_MESSAGES) {
                 struct message *m = (struct message *) simple_linked_list_pop(receiver->msg_queue);
-                free_message(m, new_response(RESPONSE_INT_SERV_ERR, "Too much unprocessed messages"));
+                free_message(m, new_response(RESPONSE_INT_SERV_ERR, "Too many unprocessed messages"));
                 printf("Dropping some messages for %s - queue full.\n", const_path);
         }
         pthread_mutex_lock(&receiver->msg_queue_lock);
