@@ -405,6 +405,10 @@ static bool parse_audio_capture_format(const char *optarg)
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 if (strncmp(item, "channels=", strlen("channels=")) == 0) {
                         audio_capture_channels = atoi(item + strlen("channels="));
+                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
+                                return false;
+                        }
                 } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
                         int bps = atoi(item + strlen("bps="));
                         if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32)) {
@@ -752,6 +756,10 @@ int main(int argc, char *argv[])
                         log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
                                         "Use \"--audio-capture-format channels=<count>\" instead.\n");
                         audio_capture_channels = atoi(optarg);
+                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
+                                return EXIT_FAIL_USAGE;
+                        }
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
                         if (!parse_audio_capture_format(optarg)) {
