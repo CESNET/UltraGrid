@@ -41,9 +41,7 @@
  */
 /**
  * @todo
- * * this file structure is now a bit messy
  * * exit correctly HTTP thread (but it is a bit tricky because it waits on accept())
- * * allow use of different HTTP ports than 8080
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
  * * HTTP server should work even if the SDP file cannot be written
@@ -232,7 +230,7 @@ struct Response* createResponseForRequest(const struct Request* request, struct 
     return responseAlloc404NotFoundHTML(request->pathDecoded);
 }
 
-static const uint16_t portInHostOrder = 8080;
+static uint16_t portInHostOrder;
 
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
     struct sockaddr_storage ss = { 0 };
@@ -247,7 +245,7 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
         sin6->sin6_addr = in6addr_any;
         sin6->sin6_port = htons(portInHostOrder);
     }
-    acceptConnectionsUntilStopped(param, &ss, sa_len);
+    acceptConnectionsUntilStopped(param, (struct sockaddr *) &ss, sa_len);
     log_msg(LOG_LEVEL_WARNING, "Warning: HTTP/SDP thread has exited.\n");
     return (THREAD_RETURN_TYPE) 0;
 }
@@ -268,8 +266,10 @@ static void print_http_path() {
     }
 }
 
-bool sdp_run_http_server(struct sdp *sdp)
+bool sdp_run_http_server(struct sdp *sdp, int port)
 {
+    assert(port >= 0 && port < 65536);
+    portInHostOrder = port;
     struct Server *http_server = calloc(1, sizeof(struct Server));
     sdp_global = sdp;
     serverInit(http_server);

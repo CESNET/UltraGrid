@@ -47,11 +47,13 @@
 extern "C" {
 #endif
 
+#define DEFAULT_SDP_HTTP_PORT 8554
+
 struct sdp *new_sdp(int ip_version);
 void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec);
 void sdp_add_video(struct sdp *sdp, int port, codec_t codec);
 bool gen_sdp(struct sdp *sdp);
-bool sdp_run_http_server(struct sdp *sdp);
+bool sdp_run_http_server(struct sdp *sdp, int port);
 void clean_sdp(struct sdp *sdp);
 
 #ifdef __cplusplus

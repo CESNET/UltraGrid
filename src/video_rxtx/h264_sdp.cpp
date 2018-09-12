@@ -45,6 +45,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <iostream>
+
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -57,12 +59,19 @@
 #include "video_rxtx.h"
 #include "video_rxtx/h264_sdp.h"
 
+using std::cout;
 using std::shared_ptr;
 using std::string;
 
 h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &params)
         : rtp_video_rxtx(params)
 {
+        auto opts = static_cast<const char *>(params.at("opts").ptr);
+        if (strcmp(opts, "help") == 0) {
+                cout << "Usage:\n\tuv --protocol sdp[:port=<http_port>]\n";
+                throw 0;
+        }
+
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
         m_sdp = new_sdp(rtp_is_ipv6(m_network_devices[0]) ? 6 : 4);
         if (m_sdp == nullptr) {
@@ -77,7 +86,11 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
                 throw string("[SDP] File creation failed\n");
         }
 #ifdef SDP_HTTP
-        if (!sdp_run_http_server(m_sdp)){
+        int port = DEFAULT_SDP_HTTP_PORT;
+        if (strstr(opts, "port=") == opts) {
+                port = atoi(strchr(opts, '=') + 1);
+        }
+        if (!sdp_run_http_server(m_sdp, port)){
                 throw string("[SDP] Server run failed!\n");
         }
 #endif
