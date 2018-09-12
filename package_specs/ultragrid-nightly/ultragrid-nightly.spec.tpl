@@ -1,3 +1,6 @@
+# for embedding cuda
+%undefine _missing_build_ids_terminate_build
+
 Name:		ultragrid-nightly
 Version:	1.4
 Release:	20170401.00
@@ -25,7 +28,7 @@ BuildRequires: 	ultragrid-proprietary-drivers-nightly
 %if %{defined fedora}
 BuildRequires:	libjpeg-turbo-devel, mesa-libGL-devel
 BuildRequires:	ffmpeg-devel
-BuildRequires:	qt-devel
+BuildRequires:	qt5-devel
 %else
 # suse_version
 BuildRequires:	libavcodec-devel, libswscale-devel
@@ -71,13 +74,26 @@ BuildRequires:	libgpujpeg-devel
 %define build_conference 1
 %define build_gui 1
 
+%if 0%{build_gui} > 0
+	%if 0%{?leap_version} > 1
+BuildRequires:  update-desktop-files
+Requires(post): update-desktop-files
+Requires(postun): update-desktop-files
+	%else
+BuildRequires:	desktop-file-utils
+	%endif
+	
+%endif
+
 
 %define hwaccel 1
 
 %if 0%{?hwaccel} > 0
 #BuildRequires: libvdpau-devel, vaapi-intel-driver, libva-devel 
 BuildRequires: libva-devel, libvdpau-devel
-%if 0%{?fedora} > 1
+%if 0%{?fedora} >= 26
+%define vaapi 1
+%define vdpau 1
 %endif
 %if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
 %define vaapi 1
@@ -104,23 +120,8 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 
 # hack over the way fedora ignores dependences in /usr/lib/dir/*.so
 %define _use_internal_dependency_generator 0
-%define __find_requires	/bin/bash -c "/usr/lib/rpm/find-requires | sed -e '\
-/^libvideomasterhd/d; \
-/^libBlueVelvet/d; \
-/^libBlueANCUtils64/d; \
-/^libsail\.so/d; \
-/^libquanta\.so/d; \
-/^libcudart\.so.*/d; \
-'"
-
-%define __find_provides	/bin/bash -c "/usr/lib/rpm/find-provides | sed -e '\
-/^libvideomasterhd/d; \
-/^libBlueVelvet/d; \
-/^libBlueANCUtils64/d; \
-/^libsail\.so/d; \
-/^libquanta\.so/d; \
-/^libcudart\.so.*/d; \
-'"
+%define __find_requires bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-requires | (grep -v -F -f install-provides || true) | (grep -v -f norequires || true)'
+%define __find_provides bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-provides | (grep -v -f noprovides || true)'
 
 #####################################################
 # > bluefish
@@ -216,9 +217,13 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%endif
 	%if 0%{?vdpau} > 0
 		--enable-lavc-hw-accel-vdpau \
+	%else
+		--disable-lavc-hw-accel-vdpau \
 	%endif
 	%if 0%{?vaapi} > 0
 		--enable-lavc-hw-accel-vaapi \
+	%else
+		--disable-lavc-hw-accel-vaapi \
 	%endif
 	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
@@ -235,15 +240,51 @@ echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-n
 sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
 %endif
 
+# dependencies
+find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-provides > install-provides
+find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-requires > install-requires
+
+echo '^libsail\.so.*$' >> norequires
+echo '^libquanta\.so.*$' >> norequires
+echo '^libcudart\.so.*$' >> norequires
+echo '^libcudart\.so.*$' >> noprovides
+rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g' -e 's#^(.*)$#^\1$#g' >> norequires
+
+#grep -v -F -f install-provides install-requires > install-requires-noself || true
+#grep -v -f noprovides install-provides > install-provides-result || true
+#grep -v -f norequires install-requires-noself > install-requires-result || true
+
+# postinstalls
+
+%post
+%if 0%{?fedora} > 0
+/usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
+/usr/bin/gtk-update-icon-cache -qf %{_datadir}/pixmaps &> /dev/null || :
+%endif
+
+%postun
+%if 0%{?fedora} > 0
+/usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
+/usr/bin/gtk-update-icon-cache -qf %{_datadir}/pixmaps &> /dev/null || :
+%endif
+
 %files
 %defattr(-,root,root,-)
 %dir %{_datadir}/ultragrid
 %{_datadir}/ultragrid/*
+%if 0%{?build_gui} > 0
+%dir %{_datadir}/applications
+%{_datadir}/applications/uv-qt.desktop
+%dir %{_datadir}/pixmaps
+%{_datadir}/pixmaps/*ultragrid*
+%endif
 %dir %{_docdir}/ultragrid
 %{_docdir}/ultragrid/*
 %{_bindir}/uv
 %{_bindir}/hd-rum-transcode
+%if 0%{?build_gui} > 0
 %{_bindir}/uv-qt
+%endif
 %dir %{_libdir}/ultragrid
 %if 0%{?build_dvs} > 0
 %{_libdir}/ultragrid/ultragrid_vidcap_dvs.so
@@ -265,7 +306,7 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/ultragrid_vidcap_deltacast.so
 %{_libdir}/ultragrid/ultragrid_display_deltacast.so
 %endif
-%{_libdir}/ultragrid/ultragrid_display_sdl.so
+%{_libdir}/ultragrid/ultragrid_display_sdl*.so
 # rtsp is broken with current live555
 #{_libdir}/ultragrid/ultragrid_vidcap_rtsp.so
 #{_libdir}/ultragrid/ultragrid_video_rxtx_h264.so
@@ -274,6 +315,7 @@ sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E 
 %{_libdir}/ultragrid/ultragrid_vidcap_testcard.so
 %{_libdir}/ultragrid/ultragrid_display_gl.so
 %{_libdir}/ultragrid/ultragrid_display_preview.so
+%{_libdir}/ultragrid/ultragrid_capture_filter_preview.so
 %{_libdir}/ultragrid/ultragrid_vidcap_swmix.so
 # Fedora 25 OpenCV3
 %if 0%{?build_conference} > 0
