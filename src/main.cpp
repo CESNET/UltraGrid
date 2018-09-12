@@ -946,7 +946,7 @@ int main(int argc, char *argv[])
         // default values for different RXTX protocols
         if (strcmp(video_protocol, "rtsp") == 0 || strcmp(video_protocol, "sdp") == 0) {
                 if (audio_codec == nullptr) {
-                        audio_codec = "u-law:sample_rate=44100";
+                        audio_codec = "OPUS:sample_rate=48000";
                 }
                 if (requested_compression == nullptr) {
                         requested_compression = "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh";
