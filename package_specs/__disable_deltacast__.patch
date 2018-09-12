@@ -96,7 +96,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast (videoMasterHD)
  #####################################################
-@@ -92,11 +92,11 @@ VideoMasterHD		--deltacast
+@@ -97,11 +97,11 @@ VideoMasterHD		--deltacast
  #####################################################
  # > deltacast
  #####################################################
@@ -113,7 +113,7 @@ diff -rupN a/ultragrid-proprietary-drivers/ultragrid-proprietary-drivers.spec b/
  #####################################################
  # < deltacast
  #####################################################
-@@ -213,23 +213,23 @@ tar -c aja_sdk ntv2sdklinux_* -f - | tar
+@@ -218,23 +218,23 @@ tar -c aja_sdk ntv2sdklinux_* -f - | tar
  #####################################################
  # > deltacast
  #####################################################

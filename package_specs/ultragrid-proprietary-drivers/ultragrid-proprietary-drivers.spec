@@ -87,6 +87,11 @@ ntv2sdklinux_12.4.2.1	--aja
 sdk4.3.5.21 		--dvs
 VideoMasterHD		--deltacast
 
+# hack over the way fedora ignores dependences in /usr/lib/dir/*.so
+%define _use_internal_dependency_generator 0
+%define __find_requires bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-requires | (grep -v -F -f install-provides || true) | (grep -v -f norequires || true)'
+%define __find_provides bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-provides | (grep -v -f noprovides || true)'
+
 %prep
 %setup -q
 #####################################################
@@ -239,7 +244,19 @@ for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT
 # new AJA installs broken symlinks
 #rm -rf ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/ntv*/bin/qtlibs
 # remove messed diffs if patches otherwise patched successfuly
+
+echo '^libQt.*$' >> noprovides
+echo '^libQt.*$' >> norequires
+
+
 find ${RPM_BUILD_ROOT}/ -name "*.orig" -exec rm {} \;
+
+find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -o -type f -executable | /usr/lib/rpm/find-provides > install-provides
+find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -o -type f -executable | /usr/lib/rpm/find-requires > install-requires
+
+#grep -v -F -f install-provides install-requires > install-requires-noself || true
+#grep -v -f noprovides install-provides > install-provides-result || true
+#grep -v -f norequires install-requires-noself > install-requires-result || true
 
 export NO_BRP_CHECK_RPATH=true
 
