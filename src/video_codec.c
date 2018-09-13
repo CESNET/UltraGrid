@@ -177,6 +177,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('H','F','Y','U'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "hfyu"},
         [FFV1] = {"FFV1", "FFV1",
                 to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
+        [CFHD] = {"CFHD", "Cineform",
+                to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "cfhd"},
 };
 
 /**

@@ -479,6 +479,7 @@ AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltaca
 AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
+AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -2994,6 +2995,53 @@ if test $ndi_req = yes -a $ndi = no; then
         AC_MSG_ERROR([NDI not found!]);
 fi
 
+# ------------------------------------------------------------------------------
+# Cineform 
+# ------------------------------------------------------------------------------
+CINEFORM_PATH=cineform-sdk
+CINEFORM_INC=
+CINEFORM_LIB=
+cineform=no
+
+AC_ARG_ENABLE(cineform,
+              [  --disable-cineform     disable cineform suppport (default is auto)]
+              [                          Requires: CINEFORM_SDK],
+              [cineform_req=$enableval],
+              [cineform_req=auto]
+              )
+
+if test -n "$CINEFORM_DIRECTORY"; then
+        CINEFORM_PATH=$CINEFORM_DIRECTORY
+fi
+
+AC_ARG_WITH(cineform,
+            [  --with-cineform=DIR         specify location of NTV2],
+            [CINEFORM_PATH=$withval
+             ])
+
+if test -n "$CINEFORM_PATH"
+then
+        AC_CHECK_FILES(${CINEFORM_PATH}/libCFHDCodec.a, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
+fi
+
+if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
+then
+        cineform=yes
+        CINEFORM_INC="$CINEFORM_INC -I${CINEFORM_PATH}/Common/"
+        CINEFORM_LIB="${CINEFORM_PATH}/libCFHDCodec.a -luuid"
+
+        CINEFORM_COMPRESS_OBJ="src/video_compress/cineform.o"
+        CINEFORM_DECOMPRESS_OBJ="src/video_decompress/cineform.o"
+
+        INC="$INC $CINEFORM_INC"
+        
+        ADD_MODULE("vcompress_cineform", "$CINEFORM_COMPRESS_OBJ", "$CINEFORM_LIB")
+        ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIB")
+fi
+
+if test $cineform_req = yes -a $cineform = no; then
+        AC_MSG_ERROR([CINEFORM not found]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
@@ -3089,6 +3137,7 @@ RESULT=`add_column "$RESULT" "JPEG to DXT" $jpeg_to_dxt $?`
 RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
+RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
 
 RESULT="$RESULT
 "
