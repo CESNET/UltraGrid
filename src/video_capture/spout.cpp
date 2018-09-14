@@ -173,7 +173,7 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
         struct video_frame *out = vf_alloc_desc_data(s->desc);
-        out->dispose = vf_free;
+        out->callbacks.dispose = vf_free;
 
         bool ret;
         unsigned int width, height;
