@@ -553,7 +553,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
         }
 
         // options are in format <device>:<mode>:<codec>[:other_opts]
-        if (isdigit(tmp[0])) {
+        if (isdigit(tmp[0]) && strcasecmp(tmp, "3D") != 0) {
                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Deprecated syntax used, please use options in format \"key=value\"\n";
                 // choose device
                 parse_devices(s, tmp);
