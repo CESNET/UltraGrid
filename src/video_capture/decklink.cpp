@@ -110,7 +110,7 @@ struct vidcap_decklink_state {
 
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
-        unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
+        bool                    stereo; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         unsigned int            sync_timecode:1; /* use timecode when grabbing from multiple inputs */
         BMDVideoConnection      connection;
         int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
@@ -164,23 +164,27 @@ public:
 		}
         	return newRefValue;
 	}
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(BMDVideoInputFormatChangedEvents, IDeckLinkDisplayMode* mode, BMDDetectedVideoInputFormatFlags flags) {
+	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
+                        BMDVideoInputFormatChangedEvents /*notificationEvents*/,
+                        IDeckLinkDisplayMode* mode,
+                        BMDDetectedVideoInputFormatFlags flags) override {
                 BMDPixelFormat pf;
                 HRESULT result;
 
                 log_msg(LOG_LEVEL_NOTICE, "[DeckLink] Format change detected.\n");
 
                 unique_lock<mutex> lk(s->lock);
-                switch(flags) {
-                        case bmdDetectedVideoInputYCbCr422:
-                                s->codec = s->is_10b ? v210 : UYVY;
-                                break;
-                        case bmdDetectedVideoInputRGB444:
-                                s->codec = s->is_10b ? R10k : RGBA;
-                                break;
-                        default:
-                                fprintf(stderr, "[Decklink] Unhandled color spec!\n");
-                                abort();
+		if ((flags & bmdDisplayModeSupports3D) != 0u && !s->stereo) {
+			LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D detected but not enabled! Please supply a \"3D\" parameter.\n";
+			return E_FAIL;
+		}
+                if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
+                        s->codec = s->is_10b ? v210 : UYVY;
+                } else if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
+                        s->codec = s->is_10b ? R10k : RGBA;
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
+                        abort();
                 }
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->DisableVideoInput();
@@ -457,7 +461,7 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
 {
         if(strcasecmp(opt, "3D") == 0) {
-                s->stereo = TRUE;
+                s->stereo = true;
         } else if(strcasecmp(opt, "timecode") == 0) {
                 s->sync_timecode = TRUE;
         } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
@@ -818,7 +822,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 
         gettimeofday(&s->t0, NULL);
 
-        s->stereo = FALSE;
+        s->stereo = false;
         s->sync_timecode = FALSE;
         s->connection = (BMDVideoConnection) 0;
         s->flags = 0;
@@ -1031,8 +1035,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         } else {
                                                 displayMode->Release();
                                         }
-                                } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first mode and let device autodetect
-                                        break;
+                                } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first eligible mode and let device autodetect
+
+                                        if (!s->stereo || (displayMode->GetFlags() & bmdDisplayModeSupports3D) != 0u) {
+						break;
+					} else {
+						continue;
+					}
                                 } else if (mode_idx != MODE_SPEC_FOURCC) { // manually given idx
                                         if (mode_idx != mnum) {
                                                 mnum++;
@@ -1120,6 +1129,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                                         break;
                                         }
                                         string err_msg = bmd_hresult_to_string(result);
+
                                         fprintf(stderr, "Could not enable video input: %s\n",
                                                         err_msg.c_str());
                                         goto error;
@@ -1588,3 +1598,4 @@ static const struct video_capture_info vidcap_decklink_info = {
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
+/* vim: set expandtab: sw=8 */
