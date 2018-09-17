@@ -334,6 +334,8 @@ static void show_help(bool full)
                                 "\t\t\tu41i - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n"
                                 "\t\t\tup7p - simultaneous output of SD and up-converted pollarbox 720p\n"
                                 "\t\t\tup1i - simultaneous output of SD and up-converted pollarbox 1080i\n");
+                printf("\t\tHDMI3DPacking can be:\n"
+				"\t\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly");
         }
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
