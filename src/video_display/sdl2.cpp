@@ -416,6 +416,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         log_msg(LOG_LEVEL_NOTICE, "[SDL] Using driver: %s\n", SDL_GetCurrentVideoDriver());
 
         SDL_ShowCursor(SDL_DISABLE);
+        SDL_DisableScreenSaver();
 
         loadSplashscreen(s);
 
