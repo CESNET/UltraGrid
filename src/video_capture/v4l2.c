@@ -189,11 +189,12 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>]\n");
+        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:RGB]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
+        printf("\t\tRGB - forces conversion to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
@@ -342,6 +343,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         uint32_t numerator = 0,
                  denominator = 0;
         bool conversion_needed = false;
+        bool force_convert = false;
 
         printf("vidcap_v4l2_init\n");
 
@@ -413,6 +415,8 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                                         strlen("buffers=")) == 0) {
                                 s->buffer_count = atoi(item + strlen("buffers="));
                                 assert (s->buffer_count <= MAX_BUF_COUNT);
+                        } else if (strcasecmp(item, "RGB") == 0) {
+                                force_convert = true;
                         } else {
                                 fprintf(stderr, "[V4L2] Invalid configuration argument: %s\n",
                                                 item);
@@ -542,6 +546,12 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                         s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
                         s->desc.color_spec = RGB;
                         break;
+        }
+
+        if (force_convert) {
+                conversion_needed = true;
+                s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
+                s->desc.color_spec = RGB;
         }
 
         switch(fmt.fmt.pix.field) {
