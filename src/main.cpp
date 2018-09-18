@@ -826,9 +826,7 @@ int main(int argc, char *argv[])
                                 return EXIT_SUCCESS;
                         }
                         audio_codec = optarg;
-                        if(get_audio_codec(optarg) == AC_NONE) {
-                                fprintf(stderr, "Unknown audio codec entered: \"%s\"\n",
-                                                optarg);
+                        if (!check_audio_codec(optarg)) {
                                 return EXIT_FAIL_USAGE;
                         }
                         break;

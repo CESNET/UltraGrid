@@ -401,3 +401,30 @@ audio_codec_t get_audio_codec_to_tag(uint32_t tag)
         return AC_NONE;
 }
 
+bool check_audio_codec(const char *audio_codec_cfg)
+{
+        if (get_audio_codec(audio_codec_cfg) == AC_NONE) {
+                LOG(LOG_LEVEL_ERROR) << "Unknown audio codec given!\n";
+                return false;
+        }
+
+        auto tmp = static_cast<char *>(alloca(strlen(audio_codec_cfg) + 1));
+        strcpy(tmp, audio_codec_cfg);
+        char *item, *save_ptr;
+        while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
+                if (tmp != nullptr) { // skip first && set tmp to nullptr
+                        tmp = nullptr;
+                        continue;
+                }
+                if (strstr(item, "bitrate=") == item) {
+                        continue;
+                }
+                if (strstr(item, "sample_rate=") == item) {
+                        continue;
+                }
+                LOG(LOG_LEVEL_ERROR) << "Unknown audio option: " << item << "\n";
+                return false;
+        }
+        return true;
+}
+

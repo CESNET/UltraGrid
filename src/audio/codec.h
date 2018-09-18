@@ -95,6 +95,7 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg);
 const char *get_name_to_audio_codec(audio_codec_t codec);
 uint32_t get_audio_tag(audio_codec_t codec);
 audio_codec_t get_audio_codec_to_tag(uint32_t audio_tag);
+bool check_audio_codec(const char *audio_codec_cfg);
 #endif
 
 #endif /* AUDIO_CODEC_H */
