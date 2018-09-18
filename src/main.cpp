@@ -15,7 +15,7 @@
  *          Martin Pulec     <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2017 CESNET z.s.p.o.
+ * Copyright (c) 2005-2018 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -114,6 +114,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_CUDA_DEVICE (('C' << 8) | 'D')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
 #define OPT_ENCRYPTION (('E' << 8) | 'N')
+#define OPT_FULLHELP (('F' << 8u) | 'H')
 #define OPT_EXPORT (('E' << 8) | 'X')
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
@@ -240,10 +241,13 @@ void exit_uv(int status) {
         should_exit = true;
 }
 
-static void usage(const char *exec_path)
+static void usage(const char *exec_path, bool full = false)
 {
         printf("\nUsage: %s [options] address\n\n", exec_path ? exec_path : "<executable_path>");
         printf("Options:\n\n");
+        printf
+            ("\t-h|--fullhelp              \tshow usage (basic/full)\n");
+        printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -258,30 +262,32 @@ static void usage(const char *exec_path)
         printf("\n");
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
         printf("\n");
-        printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
-        printf("\n");
-        printf("\t--list-modules           \tprints list of modules\n");
-        printf("\n");
-        printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-        printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
-        printf("\n");
-        printf("\t--video-protocol <proto> \ttransmission protocol, see '--video-protocol help'\n");
-        printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
-        printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
-        printf("\n");
-        printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
-        printf("\n");
+        if (full) {
+                printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
+                printf("\n");
+                printf("\t--list-modules           \tprints list of modules\n");
+                printf("\n");
+                printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
+                printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
+                printf("\n");
+                printf("\t--video-protocol <proto> \ttransmission protocol, see '--video-protocol help'\n");
+                printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
+                printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
+                printf("\n");
+                printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
+                printf("\n");
 #ifdef HAVE_IPv6
-        printf("\t-4/-6                    \tForce IPv4/IPv6 resolving\n");
-        printf("\n");
+                printf("\t-4/-6                    \tForce IPv4/IPv6 resolving\n");
+                printf("\n");
 #endif //  HAVE_IPv6
-        printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
-        printf("\n");
-        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
-        printf("\t                         \tdual-link)\n");
-        printf("\n");
-        printf("\t-p <postprocess>         \tpostprocess module\n");
-        printf("\n");
+                printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
+                printf("\n");
+                printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
+                printf("\t                         \tdual-link)\n");
+                printf("\n");
+                printf("\t-p <postprocess>         \tpostprocess module\n");
+                printf("\n");
+        }
         printf("\t-f [A:|V:]<settings>     \tFEC settings (audio or video) - use \"none\"\n"
                "\t                         \t\"mult:<nr>\",\n");
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
@@ -297,36 +303,46 @@ static void usage(const char *exec_path)
         printf("\t-l <limit_bitrate> | unlimited | auto\tlimit sending bitrate\n");
         printf("\t                         \tto <limit_bitrate> (with optional k/M/G suffix)\n");
         printf("\n");
-        printf("\t-A <address>             \taudio destination address\n");
-        printf("\t                         \tIf not specified, will use same as for video\n");
+        if (full) {
+                printf("\t-A <address>             \taudio destination address\n");
+                printf("\t                         \tIf not specified, will use same as for video\n");
+        }
         printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
         printf("\n");
-        printf("\t--audio-channel-map      <mapping> | help\n");
-        printf("\n");
+        if (full) {
+                printf("\t--audio-channel-map      <mapping> | help\n");
+                printf("\n");
+        }
         printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
         printf("\n");
-        printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
-        printf("\t                         \t(may be also negative to delayed video)\n");
-        printf("\n");
-        printf("\t--audio-scale <factor> | <method> | help\n");
-        printf("\t                         \tscales received audio\n");
-        printf("\n");
+        if (full) {
+                printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
+                printf("\t                         \t(may be also negative to delayed video)\n");
+                printf("\n");
+                printf("\t--audio-scale <factor> | <method> | help\n");
+                printf("\t                         \tscales received audio\n");
+                printf("\n");
+        }
 #if 0
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
 #endif
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
         printf("\n");
+        printf("\t--encryption <passphrase>\tKey material for encryption\n");
+        printf("\n");
         printf("\t--playback <directory>   \treplays captured recorded\n");
         printf("\n");
         printf("\t--record[=<directory>]   \trecord captured audio and video\n");
         printf("\n");
-        printf("\t--capture-filter <filter>\tCapture filter(s), must be given before capture device\n");
-        printf("\n");
-        printf("\t--encryption <passphrase>\tKey material for encryption\n");
-        printf("\n");
-        printf("\t--param <params>|help    \tAdditional advanced parameters, use help for list\n");
-        printf("\n");
+        if (full) {
+                printf("\t--capture-filter <filter>\tCapture filter(s), must be given before capture device\n");
+                printf("\n");
+        }
+        if (full) {
+                printf("\t--param <params>|help    \tAdditional advanced parameters, use help for list\n");
+                printf("\n");
+        }
         printf("\taddress                  \tdestination address\n");
         printf("\n");
         printf("\n");
@@ -542,6 +558,7 @@ int main(int argc, char *argv[])
                 {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
                 {"audio-capture-format", required_argument, 0, OPT_AUDIO_CAPTURE_FORMAT},
                 {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
+                {"fullhelp", no_argument, 0, OPT_FULLHELP},
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
                 {"record", optional_argument, 0, OPT_EXPORT},
@@ -697,7 +714,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'h':
-                        usage(uv_argv[0]);
+                        usage(uv_argv[0], false);
                         return 0;
                 case 'P':
                         if(strchr(optarg, ':')) {
@@ -769,6 +786,9 @@ int main(int argc, char *argv[])
                 case OPT_ECHO_CANCELLATION:
                         echo_cancellation = true;
                         break;
+                case OPT_FULLHELP:
+                        usage(uv_argv[0], true);
+                        return EXIT_SUCCESS;
                 case OPT_CUDA_DEVICE:
 #ifdef HAVE_JPEG
                         if(strcmp("help", optarg) == 0) {
