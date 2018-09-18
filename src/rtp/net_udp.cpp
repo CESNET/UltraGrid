@@ -7,7 +7,7 @@
  *           Martin Pulec    <pulec@cesnet.cz>
  * 
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2015 CESNET z.s.p.o.
+ * Copyright (c) 2005-2018 CESNET z.s.p.o.
  * Copyright (c) 1998-2000 University College London
  * All rights reserved.
  *
@@ -1471,7 +1471,7 @@ bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                log_msg(LOG_LEVEL_ERROR, "getaddrinfo: %s\n", gai_strerror(err));
+                log_msg(LOG_LEVEL_VERBOSE, "getaddrinfo: %s\n", gai_strerror(err));
                 return false;
         } else {
                 sin = res0->ai_addr;
