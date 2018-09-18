@@ -15,6 +15,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "perf.h"
+#include "rang.hpp"
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"
@@ -282,11 +283,12 @@ void print_capabilities(struct module *root, bool use_vidcap)
 
 void print_version()
 {
-        printf("%s (", PACKAGE_STRING);
+        cout << rang::fg::cyan << rang::style::bold << PACKAGE_STRING <<
+                rang::fg::reset << rang::style::reset << " (" <<
 #ifdef GIT_REV
-        printf("rev %s, ", GIT_REV);
+                "rev " GIT_REV " " <<
 #endif
-        printf("built " __DATE__ " " __TIME__ ")\n");
+                "built " __DATE__ " " __TIME__ ")\n";
 }
 
 void print_configuration()
