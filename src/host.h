@@ -105,7 +105,6 @@ extern unsigned int cuda_devices_count;
 #define LOG_LEVEL_DEBUG   7
 #define LOG_LEVEL_MAX LOG_LEVEL_DEBUG
 extern volatile int log_level;
-extern bool color_nix_term;
 
 #define MODE_SENDER   (1<<0)
 #define MODE_RECEIVER (1<<1)
