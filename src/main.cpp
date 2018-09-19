@@ -120,6 +120,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PARAM (('O' << 8) | 'P')
+#define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
@@ -275,6 +276,8 @@ static void usage(const char *exec_path, bool full = false)
                 printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
                 printf("\n");
                 printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
+                printf("\n");
+                printf("\t--protocol <proto>       \t<proto> shortcut for '--audio-protocol <proto> --video-protocol <proto>'\n");
                 printf("\n");
 #ifdef HAVE_IPv6
                 printf("\t-4/-6                    \tForce IPv4/IPv6 resolving\n");
@@ -576,6 +579,7 @@ int main(int argc, char *argv[])
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
                 {"audio-protocol", required_argument, 0, OPT_AUDIO_PROTOCOL},
                 {"video-protocol", required_argument, 0, OPT_VIDEO_PROTOCOL},
+                {"protocol", required_argument, 0, OPT_PROTOCOL},
                 {"rtsp-server", optional_argument, 0, 'H'},
                 {"param", required_argument, 0, OPT_PARAM},
                 {0, 0, 0, 0}
@@ -689,6 +693,14 @@ int main(int argc, char *argv[])
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
                                 video_protocol_opts = delim + 1;
+                        }
+                        break;
+                case OPT_PROTOCOL:
+                        audio_protocol = video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                audio_protocol_opts = video_protocol_opts = delim + 1;
                         }
                         break;
                 case 'r':
@@ -1306,3 +1318,4 @@ cleanup:
         return exit_status;
 }
 
+/* vim: set expandtab: sw=8 */
