@@ -157,8 +157,8 @@ start:
         memcpy(out->tiles[0].data, ptr, size);
         out->color_spec = codec_is_a_rgb(desc->color_spec) ? J2KR : J2K;
         CHECK_OK(cmpto_j2k_enc_img_destroy(img), "Destroy image", NOOP);
-        out->dispose = j2k_compressed_frame_dispose;
-        return shared_ptr<video_frame>(out, out->dispose);
+        out->callbacks.dispose = j2k_compressed_frame_dispose;
+        return shared_ptr<video_frame>(out, out->callbacks.dispose);
 }
 
 static void usage() {
