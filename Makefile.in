@@ -28,7 +28,7 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 DOCS 	      = README REPORTING-BUGS coding_standards.html
-
+SYSTEM	      = @system@
 
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
@@ -403,8 +403,13 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
+MAKE_GUI_TARGET=
+ifeq ($(SYSTEM),Windows)
+	MAKE_GUI_TARGET=release
+endif
+
 gui/QT/uv-qt:
-	cd gui/QT && $(QMAKE) && make -j 4
+	cd gui/QT && $(QMAKE) && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \

@@ -118,6 +118,7 @@ else
 fi
 fi
 
+AC_SUBST(system)
 AC_SUBST(NET_LIBS)
 
 AC_MSG_RESULT($system);
