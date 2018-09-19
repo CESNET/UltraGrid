@@ -1458,7 +1458,12 @@ bool udp_is_ipv6(socket_udp *s)
         return s->local->mode == IPv6 && !IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *) &s->sock)->sin6_addr);
 }
 
-bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
+/**
+ * @retval  0 success
+ * @retval -1 failed
+ * @retval -2 incorrect service or hostname (not a port number)
+ */
+int udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
 {
         struct sockaddr *sin;
         struct addrinfo hints, *res0;
@@ -1472,7 +1477,7 @@ bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
                 log_msg(LOG_LEVEL_VERBOSE, "getaddrinfo: %s\n", gai_strerror(err));
-                return false;
+                return err == EAI_NONAME ? -2 : -1;
         } else {
                 sin = res0->ai_addr;
         }
@@ -1493,7 +1498,7 @@ bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port
                                         socket_error("setsockopt IPV6_V6ONLY");
                                         CLOSESOCKET(fd);
                                         freeaddrinfo(res0);
-                                        return false;
+                                        return -1;
                                 }
                         }
                 } else {
@@ -1506,13 +1511,13 @@ bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port
                 if (fd == INVALID_SOCKET) {
                         socket_error("Unable to initialize socket");
                         freeaddrinfo(res0);
-                        return false;
+                        return -1;
                 }
 
                 if (bind(fd, (struct sockaddr *) sin, res0->ai_addrlen) != 0) {
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
-                        return false;
+                        return -1;
                 }
 
                 CLOSESOCKET(fd);
@@ -1520,7 +1525,7 @@ bool udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port
 
         freeaddrinfo(res0);
 
-        return true;
+        return 0;
 }
 
 #ifdef WIN32
