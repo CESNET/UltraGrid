@@ -290,7 +290,7 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
  * it just returns false.
  */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int /* frame_seq */)
+                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */)
 {
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;

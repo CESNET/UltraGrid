@@ -142,9 +142,10 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
 {
         UNUSED(frame_seq);
+        UNUSED(callbacks);
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         int ret;
         struct gpujpeg_decoder_output decoder_output;
