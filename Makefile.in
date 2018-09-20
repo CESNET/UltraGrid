@@ -545,7 +545,7 @@ osx-gui-dmg: gui-bundle
 	MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
 		 cp -r "$(GUI_BUNDLE)" "$$MOUNT_PT"; \
 		 hdiutil eject "$$MOUNT_PT"
-	hdiutil convert UltraGrid.dmg -format UDRO -o UltraGrid-ro.dmg
+	hdiutil convert UltraGrid.dmg -format UDZO -imagekey zlib-level=9 -o UltraGrid-ro.dmg
 	rm UltraGrid.dmg
 	mv UltraGrid-ro.dmg UltraGrid.dmg
 
