@@ -240,6 +240,11 @@ echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-n
 sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
 %endif
 
+cp speex-*/COPYING ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/COPYING-speex
+cp dxt_compress/LICENSE ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/LICENSE-dxt_compress
+cp dxt_compress/LICENSE-rtdxt ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/
+
+
 # dependencies
 find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-provides > install-provides
 find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-requires > install-requires

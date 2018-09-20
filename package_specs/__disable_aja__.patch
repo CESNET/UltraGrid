@@ -37,7 +37,7 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
 --- a/ultragrid-nightly/ultragrid-nightly.spec.tpl
 +++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl
-@@ -153,7 +153,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -154,7 +154,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
  #####################################################

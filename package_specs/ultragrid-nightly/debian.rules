@@ -98,8 +98,8 @@ override_dh_auto_configure:
 override_dh_auto_install:
 	mkdir -p debian/ultragrid-nightly/usr/share/doc/ultragrid
 	mkdir -p debian/ultragrid-nightly/$(UGLIBDIR)
-	echo 1.4-20170401 > debian/ultragrid-nightly/usr/share/doc/ultragrid/ultragrid.version
-	cp speex-1.2rc1/COPYING debian/ultragrid-nightly/usr/share/doc/ultragrid/COPYING-speex
+	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/ultragrid-nightly/usr/share/doc/ultragrid/ultragrid-nightly.version
+	cp speex-*/COPYING debian/ultragrid-nightly/usr/share/doc/ultragrid/COPYING-speex
 	cp dxt_compress/LICENSE debian/ultragrid-nightly/usr/share/doc/ultragrid/LICENSE-dxt_compress
 	cp dxt_compress/LICENSE-rtdxt debian/ultragrid-nightly/usr/share/doc/ultragrid/
 	dh_auto_install

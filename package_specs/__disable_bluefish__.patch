@@ -37,7 +37,7 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
 --- a/ultragrid-nightly/ultragrid-nightly.spec.tpl
 +++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl
-@@ -125,7 +125,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -126,7 +126,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################

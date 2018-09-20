@@ -37,7 +37,7 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
 --- a/ultragrid-nightly/ultragrid-nightly.spec.tpl
 +++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl
-@@ -37,7 +37,7 @@ BuildRequires:	glib2-devel, libcurl-deve
+@@ -40,7 +40,7 @@ BuildRequires:	glib2-devel, libcurl-deve
  #####################################################
  # > cuda
  #####################################################
