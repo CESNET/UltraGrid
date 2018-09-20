@@ -232,6 +232,7 @@ function MODULE_NAME() {
 # @param $1 name of the module
 # @param $2 object files
 # @param $3 libraries
+# @param $4 static libraries (?)
 AC_DEFUN([ADD_MODULE], [
           TARGET=$(MODULE_NAME "$1")
           LIB_OBJS=$LIB_OBJS" "$2
@@ -2580,7 +2581,7 @@ AC_ARG_ENABLE(qt,
     )
 
 # Check for Qt libraries
-QT_GUI_DEP="Qt5Core >= 5.4 Qt5Widgets"
+QT_GUI_DEP="Qt5Core >= 5.4 Qt5Widgets Qt5Gui"
 if test $system = Linux; then
 	QT_GUI_DEP="$QT_GUI_DEP libv4l2"
 fi
@@ -2588,11 +2589,9 @@ PKG_CHECK_MODULES(QT, [$QT_GUI_DEP], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
-	# Retrieve Qt compilation and linker flags
-	CXXFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CXXFLAGS"
-	CFLAGS="`$PKG_CONFIG --cflags-only-I Qt5Gui ` $CFLAGS"
-	LDFLAGS="`$PKG_CONFIG --libs-only-L Qt5Gui ` $LDFLAGS"
-	LIBS="`$PKG_CONFIG --libs-only-l Qt5Gui ` $LIBS"
+	# Retrieve Qt compilation flags
+	CXXFLAGS="$QT_CFLAGS $CXXFLAGS"
+	CFLAGS="$QT_CFLAGS $CFLAGS"
 
 	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS $GL_LIB")
