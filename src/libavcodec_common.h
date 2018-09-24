@@ -6,6 +6,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "types.h"
 
 #ifndef LIBAVCODEC_COMMON_H_
 #define LIBAVCODEC_COMMON_H_
@@ -184,6 +185,12 @@ static void print_libav_error(int verbosity, const char *msg, int rc) {
         log_msg(verbosity, "%s: %s\n", msg, errbuf);
 }
 
+static bool libav_codec_has_extradata(codec_t codec) {
+        if (codec == HFYU || codec == FFV1) {
+                return true;
+        }
+        return false;
+}
 
 #endif // LIBAVCODEC_COMMON_H_
 

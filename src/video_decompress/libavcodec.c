@@ -89,11 +89,10 @@ struct state_libavcodec_decompress {
         AVFrame         *frame;
         AVPacket         pkt;
 
-        int              width, height;
+        struct video_desc desc;
         int              pitch;
         int              rshift, gshift, bshift;
         int              max_compressed_len;
-        codec_t          in_codec;
         codec_t          out_codec;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
@@ -214,6 +213,8 @@ static const struct decoder_info decoders[] = {
         { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
         { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
+        { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
+        { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
 };
 
 ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
@@ -224,7 +225,7 @@ ADD_TO_PARAM(force_hw_accel, "use-hw-accel", "* use-hw-accel\n"
                 "  Tries to use hardware acceleration. \n");
 #endif
 static bool configure_with(struct state_libavcodec_decompress *s,
-                struct video_desc desc)
+                struct video_desc desc, void *extradata, int extradata_size)
 {
         const struct decoder_info *dec = NULL;
 
@@ -299,6 +300,13 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to allocate codec context.\n");
                         return false;
                 }
+                if (extradata) {
+                        s->codec_ctx->extradata = malloc(extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+                        memcpy(s->codec_ctx->extradata, extradata, extradata_size);
+                        s->codec_ctx->extradata_size = extradata_size;
+                }
+                s->codec_ctx->width = desc.width;
+                s->codec_ctx->height = desc.height;
                 set_codec_context_params(s);
                 pthread_mutex_lock(s->global_lavcd_lock);
                 if (avcodec_open2(s->codec_ctx, *codec_it, NULL) < 0) {
@@ -352,7 +360,6 @@ static void * libavcodec_decompress_init(void)
         avcodec_register_all();
 #endif
 
-        s->width = s->height = s->pitch = 0;
         s->codec_ctx = NULL;
         s->frame = NULL;
         av_init_packet(&s->pkt);
@@ -384,13 +391,17 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
-        s->in_codec = desc.color_spec;
         s->out_codec = out_codec;
-        s->width = desc.width;
-        s->height = desc.height;
+        s->desc = desc;
 
         deconfigure(s);
-        return configure_with(s, desc);
+        if (libav_codec_has_extradata(desc.color_spec)) {
+                // for codecs that have metadata we have to defer initialization
+                // because we don't have the data right now
+                return TRUE;
+        } else {
+                return configure_with(s, desc, NULL, 0);
+        }
 }
 
 static void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
@@ -1272,6 +1283,15 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         int len, got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
 
+        if (libav_codec_has_extradata(s->desc.color_spec)) {
+                int extradata_size = *(uint32_t *) src;
+                if (s->codec_ctx == NULL) {
+                        configure_with(s, s->desc, src + sizeof(uint32_t), extradata_size);
+                }
+                src += extradata_size + sizeof(uint32_t);
+                src_len -= extradata_size + sizeof(uint32_t);
+        }
+
         s->pkt.size = src_len;
         s->pkt.data = src;
 
@@ -1305,9 +1325,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                  * decompression went good even with the reported error.
                  */
                 if (len < 0) {
-                        if (s->in_codec == JPEG) {
+                        if (s->desc.color_spec == JPEG) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
-                        } else if (s->in_codec == MJPG) {
+                        } else if (s->desc.color_spec == MJPG) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
 #if LIBAVCODEC_VERSION_MAJOR <= 54 // Libav with libavcodec 54 will crash otherwise
                                 return DECODER_NO_FRAME;
@@ -1325,7 +1345,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         /* Skip the frame if this is not an I-frame
                          * and we have missed some of previous frames for VP8 because the
                          * decoder makes ugly artifacts. We rather wait for next I-frame. */
-                        if (s->in_codec == VP8 &&
+                        if (s->desc.color_spec == VP8 &&
                                         (s->frame->pict_type != AV_PICTURE_TYPE_I &&
                                          (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
@@ -1340,7 +1360,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                 }
 #endif
                                 bool ret = change_pixfmt(s->frame, dst, s->frame->format,
-                                                s->out_codec, s->width, s->height, s->pitch);
+                                                s->out_codec, s->desc.width, s->desc.height, s->pitch);
                                 if(ret == TRUE) {
                                         s->last_frame_seq_initialized = true;
                                         s->last_frame_seq = frame_seq;
@@ -1426,6 +1446,8 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 { J2K, RGB, 500 },
                 { VP8, UYVY, 500 },
                 { VP9, UYVY, 500 },
+                { HFYU, UYVY, 500 },
+                { FFV1, UYVY, 500 },
         };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;

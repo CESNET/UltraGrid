@@ -165,6 +165,20 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 nullptr,
                 setparam_vp8_vp9,
         }},
+        { HFYU, codec_params_t{
+                AV_CODEC_ID_HUFFYUV,
+                nullptr,
+                0,
+                nullptr,
+                setparam_default
+        }},
+        { FFV1, codec_params_t{
+                AV_CODEC_ID_FFV1,
+                nullptr,
+                0,
+                nullptr,
+                setparam_default
+        }},
 };
 
 codec_t get_ug_for_av_codec(AVCodecID id) {
@@ -1418,6 +1432,12 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         /* encode the image */
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
+        if (libav_codec_has_extradata(s->out_codec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
+                out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
+                *(uint32_t *) out->tiles[0].data = s->codec_ctx->extradata_size;
+                memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
+        }
+
         ret = avcodec_send_frame(s->codec_ctx, frame);
         if (ret == 0) {
                 AVPacket pkt;

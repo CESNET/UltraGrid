@@ -170,8 +170,12 @@ static const struct codec_info_t codec_info[] = {
 
 #ifdef HWACC_VDPAU
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
-                to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, "vdpau"}
+                to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, "vdpau"},
 #endif
+        [HFYU] = {"HFYU", "HuffYUV",
+                to_fourcc('H','F','Y','U'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "hfyu"},
+        [FFV1] = {"FFV1", "FFV1",
+                to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
 };
 
 /**
