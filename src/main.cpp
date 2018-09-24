@@ -66,6 +66,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <rang.hpp>
+
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
@@ -1030,17 +1032,20 @@ int main(int argc, char *argv[])
 
         print_version();
         printf("\n");
-        printf("Display device   : %s\n", requested_display);
-        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
-        printf("Audio capture    : %s\n", audio_send);
-        printf("Audio playback   : %s\n", audio_recv);
-        printf("MTU              : %d B\n", requested_mtu);
-        printf("Video compression: %s\n", requested_compression);
-        printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
-        printf("Network protocol : %s\n", video_rxtx::get_long_name(video_protocol));
-        printf("Audio FEC        : %s\n", requested_audio_fec);
-        printf("Video FEC        : %s\n", requested_video_fec);
-        printf("\n");
+
+        auto fmt = rang::style::bold;
+        auto fmt_rst = rang::style::reset;
+        cout << fmt << "Display device   : " << fmt_rst << requested_display << "\n";
+        cout << fmt << "Capture device   : " << fmt_rst << vidcap_params_get_driver(vidcap_params_head) << "\n";
+        cout << fmt << "Audio capture    : " << fmt_rst << audio_send << "\n";
+        cout << fmt << "Audio playback   : " << fmt_rst << audio_recv << "\n";
+        cout << fmt << "MTU              : " << fmt_rst << requested_mtu << " B\n";
+        cout << fmt << "Video compression: " << fmt_rst << requested_compression << "\n";
+        cout << fmt << "Audio codec      : " << fmt_rst << get_name_to_audio_codec(get_audio_codec(audio_codec)) << "\n";
+        cout << fmt << "Network protocol : " << fmt_rst << video_rxtx::get_long_name(video_protocol) << "\n";
+        cout << fmt << "Audio FEC        : " << fmt_rst << requested_audio_fec << "\n";
+        cout << fmt << "Video FEC        : " << fmt_rst << requested_video_fec << "\n";
+        cout << "\n";
 
         exporter = export_init(&uv.root_module, export_opts, should_export);
         if (!exporter) {
