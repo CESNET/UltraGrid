@@ -29,6 +29,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	connect(ui.actionSettings, SIGNAL(triggered()), this, SLOT(showSettings()));
 	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));
 
+#ifndef __linux
+	ui.actionUse_hw_acceleration->setVisible(false);
+#endif
+
 	sourceOption = new VideoSourceOption(&ui, ultragridExecutable);
 	opts.emplace_back(sourceOption);
 
