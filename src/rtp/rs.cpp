@@ -147,8 +147,8 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
                 dst_idx[m] = m_k + m;
         }
 
-        fec_encode((const fec_t *)state, (const gf *const *const) src,
-                        (gf *const *const) dst, dst_idx, m_n-m_k, ss);
+        fec_encode((const fec_t *)state, (gf **) src,
+                        (gf **) dst, dst_idx, m_n-m_k, ss);
 #endif
 
         out->tiles[0].data_len = buffer_len;
@@ -166,7 +166,7 @@ int rs::get_ss(int hdr_len, int len) {
         return ((sizeof(uint32_t) + hdr_len + len) + m_k - 1) / m_k;
 }
 
-void rs::decode(const char *in, int in_len, char **out, int *len,
+void rs::decode(char *in, int in_len, char **out, int *len,
                 std::map<int, int> const & c_m)
 {
         std::map<int, int> m = c_m; // make private copy
@@ -239,14 +239,14 @@ void rs::decode(const char *in, int in_len, char **out, int *len,
                 unsigned int last_symbol_end = (start + size) / ss * ss;
                 for (unsigned int j = first_symbol_start; j < last_symbol_end; j += ss) {
                         if (j/ss < m_k) {
-                                pkt[j/ss] = (void *) (in + j);
+                                pkt[j/ss] = in + j;
                                 index[j/ss] = j/ss;
                                 empty_slots.set(j/ss);
                                 //fprintf(stderr, "%d\n", j/ss);
                         } else {
                                 for (unsigned int k = 0; k < m_k; ++k) {
                                         if (!empty_slots.test(k)) {
-                                                pkt[k] = (void *) (in + j);
+                                                pkt[k] = in + j;
                                                 index[k] = j/ss;
                                                 //fprintf(stderr, "%d\n", j/ss);
                                                 empty_slots.set(k);
@@ -275,8 +275,8 @@ void rs::decode(const char *in, int in_len, char **out, int *len,
                 output[i] = (char *) malloc(ss);
         }
 
-        fec_decode((const fec_t *) state, (const gf *const *const) pkt,
-                        (gf *const *const) output, index, ss);
+        fec_decode((const fec_t *) state, (const gf *const *) pkt,
+                        (gf *const *) output, index, ss);
 
         i = 0;
         for (unsigned int j = 0; j < m_k; ++j) {

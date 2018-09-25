@@ -48,7 +48,7 @@ struct video_frame;
 
 struct fec {
         virtual std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>) = 0;
-        virtual void decode(const char *in, int in_len, char **out, int *len,
+        virtual void decode(char *in, int in_len, char **out, int *len,
                         const std::map<int, int> &) = 0;
         virtual ~fec() {}
 

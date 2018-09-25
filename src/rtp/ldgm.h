@@ -57,7 +57,7 @@ struct ldgm : public fec{
         ldgm(const char *cfg);
         void set_params(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
         std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>);
-        void decode(const char *in, int in_len, char **out, int *len,
+        void decode(char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &);
 
 private:
