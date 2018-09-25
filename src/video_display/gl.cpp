@@ -898,9 +898,6 @@ static void glut_idle_callback(void)
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
 
-        if (s->vsync > 0) { // latency optimalization
-                glFinish();
-        }
         gl_render(s, frame->tiles[0].data);
         gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
 
