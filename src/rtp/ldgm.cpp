@@ -386,7 +386,7 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
         if(difference_from_frame_size > 0.2) {
                 fprintf(stderr, "LDGM: Chosen frame size setting is %.2f percent %s than your frame size.\n",
                                 difference_from_frame_size * 100.0, (nearest - frame_size > 0 ? "higher" : "lower"));
-                fprintf(stderr, "LDGM: This is the most approching one to your values.\n");
+                fprintf(stderr, "LDGM: This is the approaching one to your values.\n");
                 fprintf(stderr, "You may wish to set the parameters manually.\n");
         }
 
