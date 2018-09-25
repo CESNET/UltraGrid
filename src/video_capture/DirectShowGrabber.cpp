@@ -68,7 +68,7 @@ struct vidcap_dshow_state {
 	int height;
 	double fps;
 	codec_t color_spec;
-	bool convert_YUYV_RGB;
+	bool convert_YUYV_RGB; ///< @todo check - currently newer set
 
 	struct video_frame *frame;
 	struct tile *tile;
@@ -299,7 +299,7 @@ error:
 
 static void show_help(struct vidcap_dshow_state *s) {
 	printf("dshow grabber options:\n");
-	printf("\t-t dshow[:device=<DeviceNumber>][:mode=<ModeNumber>][:codec=RGB]\n");
+	printf("\t-t dshow[:device=<DeviceNumber>][:mode=<ModeNumber>][:RGB]\n");
 	printf("\t    Flag RGB forces use of RGB codec, otherwise native is used if possible.\n");
 	printf("\tor\n");
 	printf("\t-t dshow:[Device]<DeviceNumber>:RGB:<width>:<height>:<fps>\n\n");
