@@ -68,8 +68,8 @@
 
 #include <limits>
 
+#include "debug.h"
 #include "host.h"
-
 #include "ldgm.h"
 #include "lib_common.h"
 
@@ -384,10 +384,8 @@ ldgm::ldgm(int packet_size, int frame_size, double max_expected_loss)
 
         double difference_from_frame_size = abs(nearest - frame_size) / (double) frame_size;
         if(difference_from_frame_size > 0.2) {
-                fprintf(stderr, "LDGM: Chosen frame size setting is %.2f percent %s than your frame size.\n",
-                                difference_from_frame_size * 100.0, (nearest - frame_size > 0 ? "higher" : "lower"));
-                fprintf(stderr, "LDGM: This is the approaching one to your values.\n");
-                fprintf(stderr, "You may wish to set the parameters manually.\n");
+                LOG(LOG_LEVEL_WARNING) << "LDGM: Chosen LDGM setting for frame size that is " << difference_from_frame_size * 100.0 << "% " << (nearest - frame_size > 0 ? "higher" : "lower") << " than your frame size.\n";
+                LOG(LOG_LEVEL_WARNING) << "You may wish to set the parameters manually.\n";
         }
 
         if(difference_from_frame_size > 0.5) {
