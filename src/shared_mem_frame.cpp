@@ -53,7 +53,8 @@
 
 Shared_mem::Shared_mem(const char *key) :
         mem_size(4096),
-        locked(false)
+        locked(false),
+        owner(false)
 {
         setKey(key);
 }
@@ -87,6 +88,7 @@ bool Shared_mem::create(){
         frame->height = 20;
         frame->should_detach = false;
         unlock();
+        owner = true;
         return true;
 }
 
@@ -98,10 +100,14 @@ bool Shared_mem::detach(){
         if(locked)
                 unlock();
 
+        owner = false;
         return shared_mem.detach();
 }
 
 void Shared_mem::destroy(){
+        if(!owner)
+                return;
+
         Shared_mem_frame *sframe = get_frame_and_lock();
         if(sframe){
                 sframe->should_detach = true;
@@ -146,6 +152,8 @@ Shared_mem_frame *Shared_mem::get_frame_and_lock(){
                 } else {
                         if(shared_mem.create(mem_size) == false){
                                 error_msg("[Shared mem] Can't create shared memory (get_frame)!\n");
+                        } else {
+                                owner = true;
                         }
                         lock();
                         struct Shared_mem_frame *sframe = (Shared_mem_frame*) shared_mem.data();
@@ -205,6 +213,11 @@ void Shared_mem::check_reconf(struct video_desc in_desc){
 }
 
 void Shared_mem::put_frame(struct video_frame *frame){
+        // Only he instance that created the shared frame can write to it
+        if(!owner){
+                return;
+        }
+
         check_reconf(video_desc_from_frame(frame));
 
         decoder_t dec = get_decoder_from_to(frame->color_spec, preview_codec, true);

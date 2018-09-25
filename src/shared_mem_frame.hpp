@@ -76,6 +76,7 @@ public:
 private:
         size_t mem_size;
         bool locked;
+        bool owner;
         QSharedMemory shared_mem;
 
 #ifndef GUI_BUILD
