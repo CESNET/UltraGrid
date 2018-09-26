@@ -7,5 +7,5 @@ Exec=uv-qt
 Icon=ultragrid
 StartupNotify=true
 Terminal=false
-Categories=AudioVideo;Recorder;Network;VideoConference
+Categories=AudioVideo;Recorder;Network;VideoConference;
 
