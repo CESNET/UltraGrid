@@ -1,0 +1,11 @@
+--- a/debian/rules
++++ b/debian/rules
+@@ -82,7 +82,7 @@ override_dh_auto_configure:
+ 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
+ 		--enable-sdl2 --enable-gl --enable-rtdxt \
+ 		--enable-portaudio --disable-jack-transport --enable-jack \
+-		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
++		--enable-alsa --enable-scale --disable-qt --disable-quicktime \
+ 		--disable-coreaudio --disable-sage --enable-screen\
+ 		--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
+ 		--disable-rtsp \

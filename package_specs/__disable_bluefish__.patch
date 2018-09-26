@@ -1,7 +1,7 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 --- a/ultragrid/debian.rules
 +++ b/ultragrid/debian.rules
-@@ -14,7 +14,7 @@ CUDA=--disable-cuda
+@@ -16,7 +16,7 @@ VDPAU=--disable-lavc-hw-accel-vdpau
  #####################################################
  # > bluefish
  #####################################################
@@ -13,7 +13,7 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 --- a/ultragrid/ultragrid.spec.tpl
 +++ b/ultragrid/ultragrid.spec.tpl
-@@ -102,7 +102,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -126,7 +126,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################

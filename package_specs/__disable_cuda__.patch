@@ -1,7 +1,7 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 --- a/ultragrid/debian.rules
 +++ b/ultragrid/debian.rules
-@@ -49,7 +49,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
+@@ -51,7 +51,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
  #####################################################
  # > cuda
  #####################################################
@@ -13,7 +13,7 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 --- a/ultragrid/ultragrid.spec.tpl
 +++ b/ultragrid/ultragrid.spec.tpl
-@@ -35,7 +35,7 @@ BuildRequires:	glib2-devel, libcurl-deve
+@@ -40,7 +40,7 @@ BuildRequires:	glib2-devel, libcurl-deve
  #####################################################
  # > cuda
  #####################################################

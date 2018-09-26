@@ -2,8 +2,8 @@
 %undefine _missing_build_ids_terminate_build
 
 Name:		ultragrid-nightly
-Version:	1.4
-Release:	20170401.00
+Version:	1.5
+Release:	20181004.00
 Summary:	Software for real-time transmissions of high-definition video
 Group:		Applications/Multimedia
 
@@ -357,6 +357,9 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %endif
 
 %changelog
+* Thu Oct 04 2018 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.5-20181004
+- Switching to 1.5 release
+
 * Fri Mar 31 2017 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.4-20170401
 - Switching to 1.4 release
 

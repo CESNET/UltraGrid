@@ -1,7 +1,7 @@
 # see https://en.opensuse.org/openSUSE:Build_Service_Debian_builds#packageName.dsc
 DEBTRANSFORM-TAR:	ultragrid-1.5.tar.bz2
 DEBTRANSFORM-FILES-TAR:	debian.tar.gz
-DEBTRANSFORM-SERIES:	debian-patches-series
+DEBTRANSFORM-SERIES:	debian-Debian_80-series
 Format: 1.0
 Source: ultragrid
 Binary: ultragrid
