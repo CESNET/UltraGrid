@@ -96,12 +96,13 @@ override_dh_auto_configure:
 #	dh_auto_build -- LDFLAGS="$$LDFLAGS -Wl,-rpath=$(UGLIBDIR)"
 
 override_dh_auto_install:
-	mkdir -p debian/ultragrid-nightly/usr/share/doc/ultragrid
-	mkdir -p debian/ultragrid-nightly/$(UGLIBDIR)
-	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/ultragrid-nightly/usr/share/doc/ultragrid/ultragrid-nightly.version
-	cp speex-*/COPYING debian/ultragrid-nightly/usr/share/doc/ultragrid/COPYING-speex
-	cp dxt_compress/LICENSE debian/ultragrid-nightly/usr/share/doc/ultragrid/LICENSE-dxt_compress
-	cp dxt_compress/LICENSE-rtdxt debian/ultragrid-nightly/usr/share/doc/ultragrid/
+	mkdir -p debian/ultragrid-nightly
+	mkdir -p debian/ultragrid*/usr/share/doc/ultragrid
+	mkdir -p debian/ultragrid*/$(UGLIBDIR)
+	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/ultragrid*/usr/share/doc/ultragrid/ultragrid-nightly.version
+	cp speex-*/COPYING debian/ultragrid*/usr/share/doc/ultragrid/COPYING-speex
+	cp dxt_compress/LICENSE debian/ultragrid*/usr/share/doc/ultragrid/LICENSE-dxt_compress
+	cp dxt_compress/LICENSE-rtdxt debian/ultragrid*/usr/share/doc/ultragrid/
 	dh_auto_install
 #	cp ${DELTACAST_DIRECTORY}/License.txt usr/share/doc/ultragrid/LICENSE-Deltacast
 #	mkdir -p debian/tmp/$(UGLIBDIR)

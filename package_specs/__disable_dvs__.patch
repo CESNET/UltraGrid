@@ -1,7 +1,7 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 --- a/ultragrid/debian.rules
 +++ b/ultragrid/debian.rules
-@@ -21,7 +21,7 @@ CARDCONF_BLUEFISH=--enable-bluefish444 -
+@@ -23,7 +23,7 @@ CARDCONF_BLUEFISH=--enable-bluefish444 -
  #####################################################
  # > dvs
  #####################################################
@@ -13,7 +13,7 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 --- a/ultragrid/ultragrid.spec.tpl
 +++ b/ultragrid/ultragrid.spec.tpl
-@@ -109,7 +109,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -133,7 +133,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > dvs
  #####################################################

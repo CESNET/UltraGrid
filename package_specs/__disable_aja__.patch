@@ -1,7 +1,7 @@
 diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 --- a/ultragrid/debian.rules
 +++ b/ultragrid/debian.rules
-@@ -42,7 +42,7 @@ CARDCONF_DELTACAST= --enable-deltacast -
+@@ -44,7 +44,7 @@ CARDCONF_DELTACAST= --enable-deltacast -
  #####################################################
  # > aja
  #####################################################
@@ -13,7 +13,7 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 --- a/ultragrid/ultragrid.spec.tpl
 +++ b/ultragrid/ultragrid.spec.tpl
-@@ -130,7 +130,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -154,7 +154,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > aja
  #####################################################

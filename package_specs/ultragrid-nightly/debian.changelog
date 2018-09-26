@@ -1,3 +1,8 @@
+ultragrid-nightly (1.5-20181004) unstable; urgency=low
+  * Ultragrid 1.5 released
+
+ -- SITOLA repository (maintainer) <ultragrid-dev@cesnet.cz>  Thu, 04 Oct 2018 13:00:00 +0200
+
 ultragrid-nightly (1.4-20170401) unstable; urgency=low
   * Ultragrid 1.4 released
 

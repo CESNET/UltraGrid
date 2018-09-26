@@ -2,7 +2,7 @@
 	<service name="tar_scm">
 		<param name="scm">git</param>
 		<param name="url">https://github.com/CESNET/UltraGrid.git</param>
-		<param name="version">1.4</param>
+		<param name="version">1.5</param>
 		<param name="revision">nightly</param>
 		<param name="filename">ultragrid-nightly</param>
 		<param name="package-meta">yes</param>

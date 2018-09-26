@@ -7,9 +7,11 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 CARDCONF_BLUEFISH=--disable-bluefish444 --disable-blue-audio
 CARDCONF_DVS=--disable-dvs
 CARDCONF_DECKLINK=--disable-decklink
-CARDCONF_DECKLINK=--disable-deltacast
+CARDCONF_DELTACAST=--disable-deltacast
 CARDCONF_AJA=--disable-aja
 CUDA=--disable-cuda
+VAAPI=--disable-lavc-hw-accel-vaapi
+VDPAU=--disable-lavc-hw-accel-vdpau
 
 #####################################################
 # > bluefish
@@ -53,8 +55,22 @@ CUDA=--with-cuda=/usr/local/cuda-8.0  --enable-jpeg
 #####################################################
 # < cuda
 #####################################################
+#####################################################
+# > vaapi
+#####################################################
+VAAPI=--enable-lavc-hw-accel-vaapi
+#####################################################
+# < vaapi
+#####################################################
+#####################################################
+# > vdpau
+#####################################################
+VDPAU=--enable-lavc-hw-accel-vdpau
+#####################################################
+# < vdpau
+#####################################################
 
-CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DECKLINK) $(CARDCONF_AJA)
+CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DELTACAST) $(CARDCONF_AJA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
 UGLIBDIR=$(LIBDIR)/ultragrid
 
@@ -64,13 +80,15 @@ UGLIBDIR=$(LIBDIR)/ultragrid
 override_dh_auto_configure:
 	./autogen.sh || true
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
-		--enable-sdl --enable-gl --enable-rtdxt \
+		--enable-sdl2 --enable-gl --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\
 		--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 		--disable-rtsp \
 		--enable-video-mixer --enable-swmix --enable-ihdtv \
+		$(VDPAU) \
+		$(VAAPI) \
 		$(CUDA) \
 		$(CARDCONF)
 
@@ -78,12 +96,13 @@ override_dh_auto_configure:
 #	dh_auto_build -- LDFLAGS="$$LDFLAGS -Wl,-rpath=$(UGLIBDIR)"
 
 override_dh_auto_install:
-	mkdir -p debian/tmp/usr/share/doc/ultragrid
-	mkdir -p debian/tmp/$(UGLIBDIR)
-	echo 1.4-20170401 > debian/tmp/usr/share/doc/ultragrid/ultragrid.version
-	cp speex-1.2rc1/COPYING debian/tmp/usr/share/doc/ultragrid/COPYING-speex
-	cp dxt_compress/LICENSE debian/tmp/usr/share/doc/ultragrid/LICENSE-dxt_compress
-	cp dxt_compress/LICENSE-rtdxt debian/tmp/usr/share/doc/ultragrid/
+	mkdir -p debian/ultragrid
+	mkdir -p debian/ultragrid*/usr/share/doc/ultragrid
+	mkdir -p debian/ultragrid*/$(UGLIBDIR)
+	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/ultragrid*/usr/share/doc/ultragrid/ultragrid.version
+	cp speex-*/COPYING debian/ultragrid*/usr/share/doc/ultragrid/COPYING-speex
+	cp dxt_compress/LICENSE debian/ultragrid*/usr/share/doc/ultragrid/LICENSE-dxt_compress
+	cp dxt_compress/LICENSE-rtdxt debian/ultragrid*/usr/share/doc/ultragrid/
 	dh_auto_install
 #	cp ${DELTACAST_DIRECTORY}/License.txt usr/share/doc/ultragrid/LICENSE-Deltacast
 #	mkdir -p debian/tmp/$(UGLIBDIR)
