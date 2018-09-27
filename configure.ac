@@ -1210,10 +1210,8 @@ PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 		PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
 			AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
 			OPENCV_MAJOR=2
-			], [
-			]
+			], [OPENCV_MAJOR=]
 		)
-	],[
 	]
 )
 
