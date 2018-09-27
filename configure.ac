@@ -2536,13 +2536,16 @@ TEXT_LIB=
 TEXT_OBJ=
 text=no
 
+define(text_dep, MagickWand)
+
 AC_ARG_ENABLE(text,
-[  --disable-text         disable text postprocessor (default is auto)],
+[  --disable-text          disable text postprocessor (default is auto)]
+[                          Requires: text_dep ],
     [text_req=$enableval],
     [text_req=auto]
     )
 
-PKG_CHECK_MODULES([TEXT], [MagickWand], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
+PKG_CHECK_MODULES([TEXT], [text_dep], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
 
 if test $text_req != no -a "$FOUND_TEXT_DEPS" = yes
 then
