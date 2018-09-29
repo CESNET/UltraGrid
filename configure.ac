@@ -2570,15 +2570,23 @@ fi
 # QT GUI
 
 qt_gui=no
+static_qt=no
 
 GUI_TARGET=
 QMAKE=
 #qmake # default for most distributions
 
 AC_ARG_ENABLE(qt,
-    AS_HELP_STRING([--enable-qt], [build QT GUI (default is disabled)]),
+[  --enable-qt             build Qt GUI (default is disabled)]
+[                          Requires: Qt5Core >= 5.4 Qt5Widgets Qt5Gui (for Linux also v4l2) ],
     [qt_req=$enableval],
     [qt_req=no]
+    )
+
+AC_ARG_ENABLE(static-qt,
+    AS_HELP_STRING([--enable-static-qt], [use statically built Qt (default is disabled)]),
+    [static_qt=$enableval],
+    [static_qt=no]
     )
 
 # Check for Qt libraries
@@ -2586,7 +2594,13 @@ QT_GUI_DEP="Qt5Core >= 5.4 Qt5Widgets Qt5Gui"
 if test $system = Linux; then
 	QT_GUI_DEP="$QT_GUI_DEP libv4l2"
 fi
+
+SAVED_PKG_CONFIG=$PKG_CONFIG
+if test $static_qt = yes; then
+        PKG_CONFIG='pkg-config --static'
+fi
 PKG_CHECK_MODULES(QT, [$QT_GUI_DEP], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+PKG_CONFIG=$SAVED_PKG_CONFIG
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
@@ -2966,6 +2980,7 @@ RESULT=\
   OpenSSL-libcrypto ........... $crypto
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
+  Qt GUI ...................... $qt_gui
 "
 
 # params: <result> <feature> <bool> 0|1
