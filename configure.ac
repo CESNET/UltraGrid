@@ -567,7 +567,7 @@ else
 fi
 
 AC_ARG_WITH(dvs,
-	[  --with-dvs=DIR    specify location of DVS SDK],
+	[  --with-dvs=DIR          specify location of DVS SDK],
 	[DVS_HDR_PATH=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
         )
@@ -740,7 +740,7 @@ AC_ARG_ENABLE(blue-audio,
 BLUEFISH444_PATH=$BLUE_LATEST_SDK
 
 AC_ARG_WITH(bluefish444,
-            [  --with-bluefish444=DIR         specify location of Bluefish444],
+[  --with-bluefish444=DIR  specify location of Bluefish444],
             [BLUEFISH444_PATH=$withval
              ])
 
@@ -848,11 +848,10 @@ AJA_PATH=
 aja=no
 
 AC_ARG_ENABLE(aja,
-              [  --disable-aja     disable AJA suppport (default is auto)]
-              [                          Requires: NTV2_SDK],
-              [aja_req=$enableval],
-              [aja_req=auto]
-              )
+[  --disable-aja           disable AJA suppport (default is auto)]
+[                          Requires: NTV2_SDK],
+[aja_req=$enableval],
+[aja_req=auto])
 
 if test -n "$NTV2_ROOT"; then
         AJA_PATH=$NTV2_ROOT/..
@@ -863,7 +862,7 @@ if test -n "$AJA_DIRECTORY"; then
 fi
 
 AC_ARG_WITH(aja,
-            [  --with-aja=DIR         specify location of NTV2],
+            [  --with-aja=DIR          specify location of NTV2],
             [AJA_PATH=$withval
              ])
 
@@ -952,7 +951,7 @@ AC_ARG_ENABLE(deltacast,
 DELTACAST_PATH=$DELTACAST_DIRECTORY
 
 AC_ARG_WITH(deltacast,
-            [  --with-deltacast=DIR         specify location of DELTACAST],
+            [  --with-deltacast=DIR    specify location of DELTACAST],
             [DELTACAST_PATH=$withval
              ])
 
@@ -1271,7 +1270,7 @@ AC_ARG_ENABLE(rtsp_server,
     )
 
 AC_ARG_WITH(live555,
-            [  --with-live555=DIR         specify location of live555],
+            [  --with-live555=DIR      specify location of live555],
             [livemedia_prefix=$withval
             ])
 
@@ -1336,7 +1335,7 @@ blank=no
 define(blank_dep, libswscale)
 
 AC_ARG_ENABLE(blank,
-[  --disable-blank        disable blank capture filter (default is auto)]
+[  --disable-blank         disable blank capture filter (default is auto)]
 [                          Requires: blank_dep],
     [blank_req=$enableval],
     [blank_req=auto]
@@ -2818,7 +2817,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 syphon=no
 AC_ARG_ENABLE(syphon,
-[  --enable-syphon        enables Syphon support (default is disabled)]
+[  --enable-syphon         enables Syphon support (default is disabled)]
 [                          Requires: Syphon],
     [syphon_req=$enableval],
     [syphon_req=no]
@@ -2837,7 +2836,7 @@ fi
 # ------------------------------------------------------------------------------
 spout=no
 AC_ARG_ENABLE(spout,
-[  --enable-spout        enables Spout support (default is disabled)]
+[  --enable-spout          enables Spout support (default is disabled)]
 [                          Requires: Spout],
     [spout_req=$enableval],
     [spout_req=no]
