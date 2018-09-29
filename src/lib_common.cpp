@@ -91,7 +91,7 @@ static void push_basename_entry(char ***binarynames, const char *bnc, size_t * t
 		*binarynames = (char **)realloc(*binarynames, (*templates + 2)*sizeof(**binarynames));
 		assert(*binarynames != NULL);
 		(*binarynames)[(*templates)++] = strdup(bn_v0);
-		(*binarynames)[*templates +1] = NULL;
+		(*binarynames)[*templates] = NULL;
 	}
 	free(alt_v0);
 }
