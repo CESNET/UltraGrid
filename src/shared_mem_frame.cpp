@@ -218,9 +218,15 @@ void Shared_mem::put_frame(struct video_frame *frame){
                 return;
         }
 
-        check_reconf(video_desc_from_frame(frame));
-
         decoder_t dec = get_decoder_from_to(frame->color_spec, preview_codec, true);
+        if (!dec) {
+                LOG(LOG_LEVEL_WARNING) << "[Shared mem] Cannot find decoder from " <<
+                        get_codec_name(frame->color_spec) << " to " <<
+                        get_codec_name(preview_codec) << ".\n";
+                return;
+        }
+
+        check_reconf(video_desc_from_frame(frame));
 
         int src_line_len = vc_get_linesize(desc.width, frame->color_spec);
         int block_size = get_pf_block_size(frame->color_spec);
