@@ -9,7 +9,7 @@
 # prints dependecies
 get_depends() {
         if [ -f "$1" ]; then
-                objdump -x "$1" | grep 'DLL Name' | cut -d: -f 2 | cut -b2-
+                objdump -x "$1" | grep 'DLL Name' | awk '{ print $3 }'
         fi
 }
 
