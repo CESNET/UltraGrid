@@ -1187,27 +1187,53 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
 }
 
 /**
- * @brief Converts UYVY to RGB.
+ * @brief Converts 8-bit YCbCr (packed 4:2:2 in 32-bit) word to RGB.
+ *
+ * Converts 8-bit YCbCr (packed 4:2:2 in 32-bit word to RGB. Offset of YCbCr
+ * components can be given by parameters (in bytes). This macro is used by
+ * vc_copylineUYVYtoRGB() and vc_copylineYUYVtoRGB().
+ *
  * Uses Rec. 709 with standard SDI ceiling and floor
- * @copydetails vc_copylinev210
+ *
  * @todo make it faster if needed
  */
-void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
-        while (dst_len >= 4) {
-                register int y1, y2, u ,v;
-                u = *src++;
-                y1 = *src++;
-                v = *src++;
-                y2 = *src++;
-                *dst++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
-                *dst++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
-                *dst++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
-                *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
-                *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
-                *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
+#define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off) {\
+        while (dst_len >= 4) {\
+                register int y1, y2, u ,v;\
+                y1 = src[y1_off];\
+                y2 = src[y2_off];\
+                u = src[u_off];\
+                v = src[v_off];\
+                src += 4;\
+                *dst++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
+                *dst++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                *dst++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
+                *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
+                *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
+\
+                dst_len -= 6;\
+        }\
+}
 
-                dst_len -= 6;
-        }
+/**
+ * @brief Converts UYVY to RGB.
+ * @see copylineYUVtoRGB
+ * @param[out] dst     output buffer for RGB
+ * @param[in]  src     input buffer with UYVY
+ */
+void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
+        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2);
+}
+
+/**
+ * @brief Converts YUYV to RGB.
+ * @see copylineYUVtoRGB
+ * @param[out] dst     output buffer for RGB
+ * @param[in]  src     input buffer with YUYV
+ */
+void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
+        copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3);
 }
 
 /**
@@ -1630,6 +1656,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
         { (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
         { (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
+        { (decoder_t) vc_copylineYUYVtoRGB,   YUYV,  RGB, true },
         { (decoder_t) vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
         { (decoder_t) vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
         { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB, false },
