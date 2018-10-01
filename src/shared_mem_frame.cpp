@@ -152,6 +152,7 @@ Shared_mem_frame *Shared_mem::get_frame_and_lock(){
                 } else {
                         if(shared_mem.create(mem_size) == false){
                                 error_msg("[Shared mem] Can't create shared memory (get_frame)!\n");
+                                return nullptr;
                         } else {
                                 owner = true;
                         }
