@@ -174,7 +174,7 @@ public:
                 log_msg(LOG_LEVEL_NOTICE, "[DeckLink] Format change detected.\n");
 
                 unique_lock<mutex> lk(s->lock);
-		if ((flags & bmdDisplayModeSupports3D) != 0u && !s->stereo) {
+		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
 			LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D detected but not enabled! Please supply a \"3D\" parameter.\n";
 			return E_FAIL;
 		}
