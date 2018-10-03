@@ -25,7 +25,6 @@ void VuMeterWidget::updateVal(){
 #else
 		double newHeight = pow(10.0, peak[i] / 20.0) * 100;
 #endif
-
 		barLevel[i] = std::max(barLevel[i], newPeakHeight);
 		rmsLevel[i] = std::max(rmsLevel[i], newRmsHeight);
 	}
@@ -167,7 +166,7 @@ void VuMeterWidget::connect_ug(){
 			c = future_connection.get();
 		}
 	} else {
-		future_connection = std::async(connectLoop, port);
+		future_connection = std::async(std::launch::async, connectLoop, port);
 	}
 
 	if(!c)
