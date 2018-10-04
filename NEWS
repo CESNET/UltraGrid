@@ -1,3 +1,18 @@
+1.5
+====
+* added BitFlow grabber
+* added SDL2 (replacing SDL1)
+* added SPOUT server
+* added Syphon client
+* added VDPAU and VAAPI HW accelerated decoding
+* AJA - support for macOS and Windows
+* multiple improvements in DeckLink (multi-link, 3D, passthrough)
+* new QT GUI
+* option to runtime switching of recording
+* performance and latency improvements in GL
+* support for 64-bit Windows builds
+* support for Comprimato J2K codec
+
 1.4
 ====
 * added AJA capture cards support

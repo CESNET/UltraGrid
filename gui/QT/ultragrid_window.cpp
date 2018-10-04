@@ -259,6 +259,8 @@ void UltragridWindow::closeEvent(QCloseEvent *e){
 			process.kill();
 	}
 
+	stopPreview();
+
 	log.close();
 }
 
