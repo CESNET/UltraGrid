@@ -7,7 +7,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 CARDCONF_BLUEFISH=--disable-bluefish444 --disable-blue-audio
 CARDCONF_DVS=--disable-dvs
 CARDCONF_DECKLINK=--disable-decklink
-CARDCONF_DECKLINK=--disable-deltacast
+CARDCONF_DELTACAST=--disable-deltacast
 CARDCONF_AJA=--disable-aja
 CUDA=--disable-cuda
 VAAPI=--disable-lavc-hw-accel-vaapi
@@ -70,7 +70,7 @@ VDPAU=--enable-lavc-hw-accel-vdpau
 # < vdpau
 #####################################################
 
-CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DECKLINK) $(CARDCONF_AJA)
+CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DELTACAST) $(CARDCONF_AJA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
 UGLIBDIR=$(LIBDIR)/ultragrid
 
