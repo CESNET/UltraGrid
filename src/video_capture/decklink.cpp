@@ -70,6 +70,7 @@
 #include <vector>
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
+#define MOD_NAME "[DeckLink capture] "
 
 #ifndef WIN32
 #define STDMETHODCALLTYPE
@@ -122,6 +123,9 @@ struct vidcap_decklink_state {
         bool                    detect_format;
         bool                    is_10b;
         bool                    p_not_i;
+
+        uint32_t                duplex;
+        uint32_t                link;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -353,9 +357,15 @@ decklink_help()
         printf("p_not_i\n");
         printf("\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n");
         printf("[no]passthrough\n");
+        printf("\n");
         printf("\tEnable/disable capture passthrough.\n");
 	printf("\n");
-
+        printf("half-duplex|full-duplex|no-half-duplex\n");
+        printf("\tUse half-/full-duplex, no-half-duplex suppresses automatically set half-duplex (for quad-link)\n");
+        printf("\n");
+        printf("single-/dual-/quad-link\n");
+        printf("\tUse single-/dual-/quad-link.\n");
+        printf("\n");
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = create_decklink_iterator();
@@ -517,6 +527,16 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
+        } else if (strcasecmp(opt, "half-duplex") == 0) {
+                s->duplex = bmdDuplexModeHalf;
+        } else if (strcasecmp(opt, "full-duplex") == 0) {
+                s->duplex = bmdDuplexModeFull;
+        } else if (strcasecmp(opt, "single-link") == 0) {
+                s->link = bmdLinkConfigurationSingleLink;
+        } else if (strcasecmp(opt, "dual-link") == 0) {
+                s->link = bmdLinkConfigurationDualLink;
+        } else if (strcasecmp(opt, "quad-link") == 0) {
+                s->link = bmdLinkConfigurationQuadLink;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -838,6 +858,16 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 		return VIDCAP_INIT_FAIL;
 	}
 
+	if (s->link == bmdLinkConfigurationQuadLink) {
+		if (s->duplex == bmdDuplexModeFull) {
+			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
+		}
+		if (s->duplex == 0) {
+			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
+			s->duplex = bmdDuplexModeHalf;
+		}
+	}
+
         s->is_10b = get_bits_per_component(s->codec) == 10;
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
@@ -989,6 +1019,19 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 }
                         }
 
+			if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
+				HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex);
+				if(res != S_OK) {
+					LOG(LOG_LEVEL_ERROR) << "[DeckLink capture] Unable set output SDI duplex mode: " << bmd_hresult_to_string(res) << ".\n";
+				}
+			}
+
+                        if(s->link != 0) {
+                                HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link);
+                                if(res != S_OK) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable set output SDI standard: " << bmd_hresult_to_string(res) << ".\n";
+                                }
+                        }
 
                         // set Callback which returns frames
                         s->state[i].delegate = new VideoDelegate(s, i);
