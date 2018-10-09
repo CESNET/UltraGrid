@@ -377,8 +377,8 @@ static size_t heapStringNextAllocationSize(size_t required);
 static void poolStringStartNewString(struct PoolString* poolString, struct Request* request);
 static void poolStringAppendChar(struct Request* request, struct PoolString* string, char c);
 static bool strEndsWith(const char* big, const char* endsWith);
-static void ignoreSIGPIPE();
-static void callWSAStartupIfNecessary();
+static void ignoreSIGPIPE(void);
+static void callWSAStartupIfNecessary(void) __attribute__((unused));
 static FILE* fopen_utf8_path(const char* utf8Path, const char* mode);
 static int pathInformationGet(const char* path, struct PathInformation* info);
 static int sendResponseBody(struct Connection* connection, const struct Response* response, ssize_t* bytesSent);
@@ -933,7 +933,7 @@ struct Response* responseAllocHTMLWithFormat(const char* format, ...) {
 }
 
 struct Response* responseAllocHTMLWithStatus(int code, const char* status, const char* html) {
-    struct Response* response = responseAlloc(code, "OK", "text/html; charset=UTF-8", 0);
+    struct Response* response = responseAlloc(code, status, "text/html; charset=UTF-8", 0);
     heapStringSetToCString(&response->body, html);
     return response;
 }
@@ -952,7 +952,7 @@ struct Response* responseAllocJSONWithFormat(const char* format, ...) {
 }
 
 struct Response* responseAllocJSONWithStatus(int code, const char* status, const char* json) {
-    struct Response* response = responseAlloc(code, "OK", "application/json", 0);
+    struct Response* response = responseAlloc(code, status, "application/json", 0);
     heapStringSetToCString(&response->body, json);
     return response;
 }
@@ -1438,6 +1438,7 @@ static void connectionFree(struct Connection* connection) {
 }
 
 static void SIGPIPEHandler(int signal) {
+    (void) signal;
     /* SIGPIPE happens any time we try to send() and the connection is closed. So we just ignore it and check the return code of send...*/
     ews_printf_debug("Ignoring SIGPIPE\n");
 }
@@ -1565,7 +1566,7 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
     /* print out the addresses we're listening on. Special-case IPv4 0.0.0.0 bind-to-all-interfaces */
     bool printed = false;
     if (address->sa_family == AF_INET) {
-        struct sockaddr_in* addressIPv4 = (struct sockaddr_in*) address;
+        const struct sockaddr_in* addressIPv4 = (const struct sockaddr_in*) address;
         if (INADDR_ANY == addressIPv4->sin_addr.s_addr) {
             printIPv4Addresses(ntohs(addressIPv4->sin_port));
             printed = true;
@@ -1659,7 +1660,7 @@ static int sendResponseBody(struct Connection* connection, const struct Response
     /* Second, if a response body exists, send that */
     if (response->body.length > 0) {
         sendResult = send(connection->socketfd, response->body.contents, response->body.length, 0);
-        if (sendResult != response->body.length) {
+        if (sendResult != (ssize_t) response->body.length) {
             ews_printf("Failed to respond to %s:%s because we could not send the HTTP response *body*. send returned %" PRId64 " with %s = %d\n",
                    connection->remoteHost,
                    connection->remotePort,
@@ -1701,7 +1702,7 @@ static int sendResponseFile(struct Connection* connection, const struct Response
     } else {
         assert(sizeof(connection->sendRecvBuffer) >= MIMEReadSize);
         actualMIMEReadSize = fread(connection->sendRecvBuffer, 1, MIMEReadSize, fp);
-        if (-1 == actualMIMEReadSize) {
+        if (actualMIMEReadSize == 0) {
             ews_printf("Unable to satisfy request for '%s' because we could read the first bunch of bytes to determine MIME type '%s' %s = %d\n", connection->request.path, response->filenameToSend, strerror(errno), errno);
             errorResponse = responseAlloc500InternalErrorHTML("fread for MIME type detection failed");
             goto exit;
@@ -1747,14 +1748,14 @@ static int sendResponseFile(struct Connection* connection, const struct Response
         if (0 == bytesRead) { /* peacefull end of file */
             break;
         }
-        if (-1 == bytesRead) {
+        if (ferror(fp)) {
             ews_printf("Unable to satisfy request for '%s' because there was an error freading. '%s' %s = %d\n", connection->request.path, response->filenameToSend, strerror(errno), errno);
             errorResponse = responseAlloc500InternalErrorHTML("Could not fread to send over socket");
             goto exit;
         }
         /* send the data out the socket to the network */
         sendResult = send(connection->socketfd, connection->sendRecvBuffer, bytesRead, 0);
-        if (sendResult != bytesRead) {
+        if (sendResult != (ssize_t) bytesRead) {
             ews_printf("Unable to satisfy request for '%s' because there was an error sending bytes. '%s' %s = %d\n", connection->request.path, response->filenameToSend, strerror(errno), errno);
             result = 1;
             goto exit;
