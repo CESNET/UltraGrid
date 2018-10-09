@@ -1002,6 +1002,7 @@ then
 	fi
         LIBS="$LIBS $DELTACAST_LIB"
 		
+        AC_MSG_CHECKING([DELTACAST library presence])
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
 			  # include <VideoMasterHD_Core.h>
                           # include <VideoMasterHD_Sdi.h>
@@ -1019,6 +1020,7 @@ then
                 CXXFLAGS=$CXXFLAGS_SAVE
                 CPPFLAGS=$CPPFLAGS_SAVE
         fi
+        AC_MSG_RESULT([$FOUND_VHD_L])
 
         AC_LANG_POP(C++)
 
