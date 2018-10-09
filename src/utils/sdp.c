@@ -66,6 +66,7 @@
 #include "debug.h"
 #include "rtp/rtp_types.h"
 #include "types.h"
+#include "utils/fs.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
 #ifdef SDP_HTTP
@@ -193,14 +194,17 @@ bool gen_sdp(struct sdp *sdp){
     strappend(&buf, &len, "\n\n");
     sdp->sdp_dump = buf;
 
-    FILE *fOut = fopen(SDP_FILE, "w");
+    char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
+    strcpy(sdp_file_name, get_temp_dir());
+    strcat(sdp_file_name, SDP_FILE);
+    FILE *fOut = fopen(sdp_file_name, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
         } else {
-            printf("[SDP] File " SDP_FILE " created.\n");
+            printf("[SDP] File %s created.\n", sdp_file_name);
         }
         fclose(fOut);
     }
@@ -225,7 +229,10 @@ void clean_sdp(struct sdp *sdp){
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     UNUSED(connection);
     if (strlen(request->pathDecoded) > 1 && request->pathDecoded[0] == '/' && strcmp(request->pathDecoded + 1, SDP_FILE) == 0) {
-	return responseAllocWithFile(SDP_FILE, "application/sdp");
+        char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
+        strcpy(sdp_file_name, get_temp_dir());
+        strcat(sdp_file_name, SDP_FILE);
+	return responseAllocWithFile(sdp_file_name, "application/sdp");
     }
     return responseAlloc404NotFoundHTML(request->pathDecoded);
 }
