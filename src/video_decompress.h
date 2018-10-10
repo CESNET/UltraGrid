@@ -50,7 +50,7 @@
  *
  */
 
-#define VIDEO_DECOMPRESS_ABI_VERSION 4
+#define VIDEO_DECOMPRESS_ABI_VERSION 5
 
 /**
  * @defgroup video_decompress Video Decompress
