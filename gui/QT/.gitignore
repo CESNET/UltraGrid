@@ -1,0 +1,5 @@
+.qmake.stash
+moc_*.cpp
+moc_*.h
+ui_*.h
+uv-qt
