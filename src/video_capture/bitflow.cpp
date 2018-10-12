@@ -350,7 +350,7 @@ static struct vidcap_type *vidcap_bitflow_probe(bool verbose)
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->name = "bitflow";
-                vt->description = "No video capture device";
+                vt->description = "BitFlow video capture device";
         }
         return vt;
 }
