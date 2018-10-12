@@ -105,10 +105,10 @@ struct vidcap_type {
 
 struct vidcap_params;
 
-#define VIDCAP_INIT_OK 0
-#define VIDCAP_INIT_NOERR 1
-#define VIDCAP_INIT_FAIL -1
-#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED -2
+#define VIDCAP_INIT_OK 0    ///< initialization successful
+#define VIDCAP_INIT_NOERR 1 ///< state not initialized, other action performed (typically help)
+#define VIDCAP_INIT_FAIL -1 ///< error ocured
+#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED -2 ///< card doesn't support audio
 
 struct video_capture_info {
         struct vidcap_type    *(*probe) (bool verbose);

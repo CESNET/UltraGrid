@@ -2962,6 +2962,30 @@ if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
         AC_MSG_ERROR([Comprimato J2K not found!)]);
 fi
 
+# ------------------------------------------------------------------------------
+# NDI
+# ------------------------------------------------------------------------------
+ndi=no
+AC_ARG_ENABLE(ndi,
+[  --enable-ndi            enables NDI support (default is auto)],
+    [ndi_req=$enableval],
+    [ndi_req=auto]
+    )
+
+AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
+AC_CHECK_LIB(ndi, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
+
+if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L"
+then
+        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-lndi")
+        ndi=yes
+fi
+
+if test $ndi_req = yes -a $ndi = no; then
+        AC_MSG_ERROR([NDI not found!]);
+fi
+
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
@@ -3009,15 +3033,13 @@ RESULT=\
 add_column() {
         # left column
         if [ test $4 = 0 ]; then
-        printf "$1
-  $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)"
-  return 1
-else
-        # right column
-        printf "$1   $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)
-"
-  return 0
-fi
+                printf "$1\n  $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)"
+                return 1
+        else
+                # right column
+                printf "$1   $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)\n"
+                return 0
+        fi
 }
 
 true # set $? to zero
@@ -3029,6 +3051,7 @@ RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
+RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl $?`
 RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
