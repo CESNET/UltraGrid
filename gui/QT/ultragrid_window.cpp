@@ -1,5 +1,6 @@
 #include <QMessageBox>
 #include <QCloseEvent>
+#include <QOpenGLFunctions_3_3_Core>
 
 #include "ultragrid_window.hpp"
 
@@ -116,6 +117,22 @@ void UltragridWindow::checkPreview(){
 				" without preview and multiplier displays."
 				" Please build UltraGrid configured with the --enable-qt flag"
 				" to enable preview.");
+		warningBox.setStandardButtons(QMessageBox::Ok);
+		warningBox.setIcon(QMessageBox::Warning);
+		warningBox.exec();
+	}
+
+	QOpenGLContext ctx;
+	ctx.create();
+	QOpenGLFunctions_3_3_Core* funcs =
+		ctx.versionFunctions<QOpenGLFunctions_3_3_Core>();
+	if (!funcs) {
+		ui.previewCheckBox->setChecked(false);
+		ui.previewCheckBox->setEnabled(false);
+
+		QMessageBox warningBox(this);
+		warningBox.setWindowTitle("Preview disabled");
+		warningBox.setText("OpenGL 3.3 is not supported, disabling preview.");
 		warningBox.setStandardButtons(QMessageBox::Ok);
 		warningBox.setIcon(QMessageBox::Warning);
 		warningBox.exec();
