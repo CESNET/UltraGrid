@@ -289,7 +289,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         char path[1024] = ""; // path for msg receiver (usually video)
         char path_audio[1024] = ""; // auxiliary buffer used when we need to signalize both audio
                                     // and video
-        char buf[1024];
+        char buf[1048];
 
         if(prefix_matches(message, "port ")) {
                 message = suffix(message, "port ");
