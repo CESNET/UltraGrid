@@ -2940,10 +2940,10 @@ fi
 # ------------------------------------------------------------------------------
 cmpto_j2k=no
 AC_ARG_ENABLE(cmpto-j2k,
-[  --enable-cmpto-j2k      enables Comprimato J2K support (default is disabled)]
+[  --enable-cmpto-j2k      enables Comprimato J2K support (default is auto)]
 [                          Requires: cmpto_j2k],
     [cmpto_j2k_req=$enableval],
-    [cmpto_j2k_req=no]
+    [cmpto_j2k_req=auto]
     )
 
 AC_CHECK_HEADER(cmpto_j2k_enc.h, FOUND_CMPTO_J2K_ENC_H=yes, FOUND_CMPTO_J2K_ENC_H=no)
