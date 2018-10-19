@@ -758,4 +758,4 @@ static const struct video_capture_info vidcap_testcard_info = {
 
 REGISTER_MODULE(testcard, &vidcap_testcard_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */

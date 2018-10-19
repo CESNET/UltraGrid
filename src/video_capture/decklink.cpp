@@ -1641,4 +1641,4 @@ static const struct video_capture_info vidcap_decklink_info = {
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */

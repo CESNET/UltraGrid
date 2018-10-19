@@ -419,5 +419,5 @@ static const struct video_capture_info vidcap_ndi_info = {
 
 REGISTER_MODULE(ndi, &vidcap_ndi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
 

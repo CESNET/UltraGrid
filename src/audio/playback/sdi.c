@@ -210,5 +210,5 @@ REGISTER_MODULE(AESEBU, &aplay_sdi_info_aesebu, LIBRARY_CLASS_AUDIO_PLAYBACK, AU
 REGISTER_MODULE(analog, &aplay_sdi_info_analog, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
 

@@ -250,4 +250,4 @@ static struct capture_filter_info capture_filter_resize = {
 
 REGISTER_MODULE(resize, &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
-/* vim: set expandtab: sw=4 */
+/* vim: set expandtab sw=4: */

@@ -59,5 +59,5 @@ void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void 
 }
 #endif
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
 

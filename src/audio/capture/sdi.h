@@ -58,5 +58,5 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame);
 }
 #endif
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
 

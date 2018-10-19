@@ -89,5 +89,5 @@ void                       *audio_capture_get_state_pointer(struct state_audio_c
 }
 #endif
 
-/* vim: set expandtab: sw=4 */
+/* vim: set expandtab sw=4: */
 

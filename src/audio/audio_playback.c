@@ -154,5 +154,5 @@ void  *audio_playback_get_state_pointer(struct state_audio_playback *s)
         return s->state;
 }
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
 

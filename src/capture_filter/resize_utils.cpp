@@ -117,4 +117,4 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
     return 0;
 }
 
-/* vim: set expandtab: sw=4 */
+/* vim: set expandtab sw=4: */

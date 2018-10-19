@@ -1330,4 +1330,4 @@ cleanup:
         return exit_status;
 }
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */

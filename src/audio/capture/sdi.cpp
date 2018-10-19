@@ -224,4 +224,4 @@ REGISTER_MODULE(embedded, &acap_sdi_info_embedded, LIBRARY_CLASS_AUDIO_CAPTURE, 
 REGISTER_MODULE(AESEBU, &acap_sdi_info_aesebu, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 REGISTER_MODULE(analog, &acap_sdi_info_analog, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab sw=8: */
