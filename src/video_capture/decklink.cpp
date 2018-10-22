@@ -51,12 +51,14 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <cassert>
 #include <condition_variable>
 #include <chrono>
 #include <iostream>
 #include <list>
 #include <mutex>
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -125,7 +127,7 @@ struct vidcap_decklink_state {
         struct timeval          t0;
 
         bool                    detect_format;
-        bool                    is_10b;
+        int                     requested_bit_depth; // 8, 10 or 12
         bool                    p_not_i;
 
         uint32_t                duplex;
@@ -194,9 +196,14 @@ public:
 			return E_FAIL;
 		}
                 if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
-                        s->codec = s->is_10b ? v210 : UYVY;
+                        unordered_map<int, codec_t> m = {{8, UYVY}, {10, v210}, {12, v210}};
+                        if (s->requested_bit_depth == 12) {
+                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Using 10-bit YCbCr.\n";
+                        }
+                        s->codec = m.at(s->requested_bit_depth);
                 } else if ((flags & bmdDetectedVideoInputRGB444) != 0u) {
-                        s->codec = s->is_10b ? R10k : RGBA;
+                        unordered_map<int, codec_t> m = {{8, RGBA}, {10, R10k}, {12, R12L}};
+                        s->codec = m.at(s->requested_bit_depth);
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
                         abort();
@@ -895,6 +902,14 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 		return VIDCAP_INIT_FAIL;
 	}
 
+        /// @todo
+        /// Check if this is still an issue
+        if (s->codec == R12L && s->mode.empty()) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "With R12L codec, the video mode must be set explicitly!\n";
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
+
 	if (s->link == bmdLinkConfigurationQuadLink) {
 		if (s->duplex == bmdDuplexModeFull) {
 			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
@@ -905,7 +920,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 		}
 	}
 
-        s->is_10b = get_bits_per_component(s->codec) == 10;
+        s->requested_bit_depth = get_bits_per_component(s->codec);
+        assert(s->requested_bit_depth == 8 || s->requested_bit_depth == 10
+                        || s->requested_bit_depth == 12);
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;

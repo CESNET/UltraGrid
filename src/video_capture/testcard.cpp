@@ -289,6 +289,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
 static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
+static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
 
 static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
 {
@@ -311,7 +312,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
                 printf("\tpattern - pattern to use\n");
-                show_codec_help("testcard", codecs_8b, codecs_10b);
+                show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -377,9 +378,10 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 goto error;
         }
         {
-                const codec_t *sets[] = {codecs_8b, codecs_10b};
+                const codec_t other[] = {R12L, VIDEO_CODEC_NONE};
+                const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
                 bool supported = false;
-                for (int i = 0; i < 2; ++i) {
+                for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
                         const codec_t *it = sets[i];
                         while (*it != VIDEO_CODEC_NONE) {
                                 if (codec == *it++) {
@@ -541,6 +543,22 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                             (char *)tov210((unsigned char *) s->data, aligned_x,
                                            aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
                         free(s->pixmap.data);
+                }
+
+                if (codec == R12L) {
+                        s->data =
+                            (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
+                                           vf_get_tile(s->frame, 0)->height);
+                        free(s->pixmap.data);
+                        auto tmp = (unsigned char *) malloc(s->size);
+                        int dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
+                        int src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGB);
+                        for (int i = 0; i < (int) vf_get_tile(s->frame, 0)->height; ++i) {
+                                vc_copylineRGBtoR12L(tmp + i * dst_linesize,
+                                                (unsigned char *) s->data + i * src_linesize, dst_linesize, 0, 0, 0);
+                        }
+                        free(s->data);
+                        s->data = (char *) tmp;
                 }
 
                 if (codec == R10k) {

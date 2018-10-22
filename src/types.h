@@ -71,6 +71,7 @@ typedef enum {
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
         R10k,     ///< RGB 10-bit (also know as r210)
+        R12L,     ///< RGB 12-bit packed, little-endian
         v210,     ///< YCbCr 422 10-bit
         DVS10,    ///< DVS 10-bit format
         DXT1,     ///< S3 Texture Compression DXT1

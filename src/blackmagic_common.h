@@ -52,11 +52,14 @@
 
 std::string bmd_hresult_to_string(HRESULT res);
 
+// Order of codecs is important because it is used as a preference list (upper
+// codecs are favored) returned by DISPLAY_PROPERTY_CODECS property (display)
 static std::map<codec_t, BMDPixelFormat> uv_to_bmd_codec_map = {
-                  { RGBA, bmdFormat8BitBGRA },
-                  { UYVY, bmdFormat8BitYUV },
+                  { R12L, bmdFormat12BitRGBLE },
                   { R10k, bmdFormat10BitRGB },
                   { v210, bmdFormat10BitYUV },
+                  { RGBA, bmdFormat8BitBGRA },
+                  { UYVY, bmdFormat8BitYUV },
 };
 
 #ifdef WIN32

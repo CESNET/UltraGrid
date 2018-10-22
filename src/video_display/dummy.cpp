@@ -99,7 +99,7 @@ static int display_dummy_putf(void *state, struct video_frame * /* frame */, int
 
 static int display_dummy_get_property(void *, int property, void *val, size_t *len)
 {
-        codec_t codecs[] = {UYVY, YUYV, v210, RGBA, RGB, BGR};
+        codec_t codecs[] = {UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:

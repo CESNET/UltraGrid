@@ -66,7 +66,7 @@ typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_
                 int rshift, int gshift, int bshift);
 
 /// Prints list of suppored codecs for video module
-void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10);
+void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12);
 /// @returns number of bits per color component
 int              get_bits_per_component(codec_t codec) ATTRIBUTE(pure);
 /// @returns number of bytes per pixel
@@ -110,6 +110,8 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len,
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int len,
+                int rshift, int gshift, int bshift);
 void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int len);

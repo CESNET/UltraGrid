@@ -133,6 +133,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('Y','U','Y','V'), 2, 2, 8, 4, FALSE, FALSE, FALSE, FALSE, "yuv"},
         [R10k] = {"R10k", "RGB 4:4:4",
                 to_fourcc('R','1','0','k'), 64, 4, 10, 4, TRUE, FALSE, FALSE, FALSE, "r10k"},
+        [R12L] = {"R12L", "12-bit packed RGB 4:4:4 little-endian", // SMPTE 268M DPX v1, Annex C, Method C4
+                to_fourcc('R','1','2','l'), 8, 36.0/8.0, 12, 36, TRUE, FALSE, FALSE, FALSE, "r12l"},
         [v210] = {"v210", "YUV 4:2:2",
                 to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 10, 16, FALSE, FALSE, FALSE, FALSE, "v210"},
         [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
@@ -167,7 +169,6 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",
                 to_fourcc('M','J','2','R'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k"},
-
 #ifdef HWACC_VDPAU
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
                 to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, "vdpau"},
@@ -215,21 +216,33 @@ static const struct alternative_codec_name codec_name_aliases[] = {
         {"HEVC", "H.265"},
 };
 
-void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10)
+void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12)
 {
         printf("\tSupported codecs (%s):\n", module);
 
-        printf("\t\t8bits\n");
+        if (codecs8) {
+                printf("\t\t8bits\n");
 
-        while (*codecs8 != VIDEO_CODEC_NONE) {
-                printf("\t\t\t'%s' - %s\n", codec_info[*codecs8].name, codec_info[*codecs8].name_long);
-                codecs8++;
+                while (*codecs8 != VIDEO_CODEC_NONE) {
+                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs8].name, codec_info[*codecs8].name_long);
+                        codecs8++;
+                }
         }
 
-        printf("\t\t10bits\n");
-        while (*codecs10 != VIDEO_CODEC_NONE) {
-                printf("\t\t\t'%s' - %s\n", codec_info[*codecs10].name, codec_info[*codecs10].name_long);
-                codecs10++;
+        if (codecs10) {
+                printf("\t\t10bits\n");
+                while (*codecs10 != VIDEO_CODEC_NONE) {
+                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs10].name, codec_info[*codecs10].name_long);
+                        codecs10++;
+                }
+        }
+
+        if (codecs12) {
+                printf("\t\t12bits\n");
+                while (*codecs12 != VIDEO_CODEC_NONE) {
+                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs10].name_long);
+                        codecs12++;
+                }
         }
 }
 
@@ -1333,6 +1346,88 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int 
         vc_copylineUYVYtoRGB(dst, src, dst_len);
 }
 
+#ifdef WORDS_BIGENDIAN
+#define END_SWAP(x) (3 - x)
+#else
+#define END_SWAP(x) x
+#endif
+
+/**
+ * Converts 8-bit RGB to 12-bit packed RGB in full range (compatible with
+ * SMPTE 268M DPX version 1, Annex C, Method C4 packing).
+ */
+void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        while (dst_len >= 36) {
+                unsigned char r = *src++;
+                unsigned char g = *src++;
+                unsigned char b = *src++;
+                dst[END_SWAP(0)] = r << 4;
+                dst[END_SWAP(1)] = r >> 4;
+                dst[END_SWAP(2)] = g;
+                dst[END_SWAP(3)] = b << 4;
+                dst[4 + END_SWAP(0)] = b >> 4;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[4 + END_SWAP(1)] = r;
+                dst[4 + END_SWAP(2)] = g << 4;
+                dst[4 + END_SWAP(3)] = g >> 4;
+                dst[8 + END_SWAP(0)] = b;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[8 + END_SWAP(1)] = r << 4;
+                dst[8 + END_SWAP(2)] = r >> 4;
+                dst[8 + END_SWAP(3)] = g;
+                dst[12 + END_SWAP(0)] = b << 4;
+                dst[12 + END_SWAP(1)] = b >> 4;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[12 + END_SWAP(2)] = r;
+                dst[12 + END_SWAP(3)] = g << 4;
+                dst[16 + END_SWAP(0)] = g >> 4;
+                dst[16 + END_SWAP(1)] = b;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[16 + END_SWAP(2)] = r << 4;
+                dst[16 + END_SWAP(3)] = r >> 4;
+                dst[20 + END_SWAP(0)] = g;
+                dst[20 + END_SWAP(1)] = b << 4;
+                dst[20 + END_SWAP(2)] = b >> 4;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[20 + END_SWAP(3)] = r;
+                dst[24 + END_SWAP(0)] = g << 4;
+                dst[24 + END_SWAP(1)] = g >> 4;
+                dst[24 + END_SWAP(2)] = b;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[24 + END_SWAP(3)] = r << 4;
+                dst[28 + END_SWAP(0)] = r >> 4;
+                dst[28 + END_SWAP(1)] = g;
+                dst[28 + END_SWAP(2)] = b << 4;
+                dst[28 + END_SWAP(3)] = b >> 4;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                dst[32 + END_SWAP(0)] = r;
+                dst[32 + END_SWAP(1)] = g << 4;
+                dst[32 + END_SWAP(2)] = g >> 4;
+                dst[32 + END_SWAP(3)] = b;
+                dst += 36;
+                dst_len -= 36;
+        }
+}
+
 /**
  * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
@@ -1749,3 +1844,4 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
         return true;
 }
 
+/* vim: set expandtab sw=8: */
