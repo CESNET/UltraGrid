@@ -180,7 +180,7 @@ public:
 		}
                 if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
                         s->codec = s->is_10b ? v210 : UYVY;
-                } else if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
+                } else if ((flags & bmdDetectedVideoInputRGB444) != 0u) {
                         s->codec = s->is_10b ? R10k : RGBA;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
