@@ -52,9 +52,9 @@
 const char *get_temp_dir(void)
 {
 #ifdef WIN32
-        thread_local static char temp_dir[MAX_PATH + 1];
+        static __thread char temp_dir[MAX_PATH + 1];
 #else
-        thread_local static char temp_dir[MAXPATHLEN + 2];
+        static __thread char temp_dir[MAXPATHLEN + 2];
 #endif
 
         if (temp_dir[0] != '\0') {
