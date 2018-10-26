@@ -169,13 +169,19 @@ public:
         	return newRefValue;
 	}
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
-                        BMDVideoInputFormatChangedEvents /*notificationEvents*/,
+                        BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) override {
                 BMDPixelFormat pf;
                 HRESULT result;
 
-                log_msg(LOG_LEVEL_NOTICE, "[DeckLink] Format change detected.\n");
+                string reason{"unknown"};
+                switch (notificationEvents) {
+                case bmdVideoInputDisplayModeChanged: reason = "display mode"; break;
+                case bmdVideoInputFieldDominanceChanged: reason = "field dominance"; break;
+                case bmdVideoInputColorspaceChanged: reason = "color space"; break;
+                }
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << reason << ").\n";
 
                 unique_lock<mutex> lk(s->lock);
 		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
