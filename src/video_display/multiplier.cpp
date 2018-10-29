@@ -52,6 +52,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <thread>
 #include <unordered_map>
 
 using namespace std;
@@ -62,7 +63,7 @@ static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 struct sub_display {
         struct display *real_display;
-        pthread_t thread_id;
+        thread disp_thread;
 };
 
 struct state_multiplier_common {
@@ -84,26 +85,13 @@ struct state_multiplier_common {
         condition_variable cv;
 
         struct module *parent;
+        thread worker_thread;
 };
 
 struct state_multiplier {
         shared_ptr<struct state_multiplier_common> common;
         struct video_desc desc;
 };
-
-static struct display *display_multiplier_fork(void *state)
-{
-        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
-        struct display *out;
-        char fmt[2 + sizeof(void *) * 2 + 1] = "";
-        snprintf(fmt, sizeof fmt, "%p", state);
-
-        int rc = initialize_video_display(s->parent,
-                        "multiplier", fmt, 0, NULL, &out);
-        if (rc == 0) return out; else return NULL;
-
-        return out;
-}
 
 static void show_help(){
         printf("Multiplier display\n");
@@ -153,10 +141,10 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         *delim = '\0';
                         cfg = delim + 1;
                 }
-                assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &disp.real_display) == 0);
-                int ret = pthread_create(&disp.thread_id, NULL, (void *(*)(void *)) display_run,
-                                disp.real_display);
-                assert (ret == 0);
+                if (initialize_video_display(parent, requested_display, cfg, flags, NULL, &disp.real_display) != 0) {
+                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << requested_display << "!\n";
+                        abort();
+                }
 
                 s->common->displays.push_back(std::move(disp));
         }
@@ -178,7 +166,7 @@ static void check_reconf(struct state_multiplier_common *s, struct video_desc de
         }
 }
 
-static void display_multiplier_run(void *state)
+static void display_multiplier_worker(void *state)
 {
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
         int skipped = 0;
@@ -216,9 +204,34 @@ static void display_multiplier_run(void *state)
 
                 vf_free(frame);
         }
+}
 
-        for (auto& disp : s->displays){
-                pthread_join(disp.thread_id, NULL);
+/**
+ * Multiplier main loop
+ *
+ * Runs threads for all slave displays except the first one and an additional
+ * one for this display. For the first display given on command-line it then
+ * switches to its run-loop. This allows a flawless run on macOS where a GUI
+ * worker (GL/SDL) needs to be run in the main thread to work properly.
+ */
+static void display_multiplier_run(void *state)
+{
+        shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
+
+        for (int i = 1; i < (int) s->displays.size(); i++) {
+                s->displays[i].disp_thread = thread(display_run, s->displays[i].real_display);
+        }
+
+        s->worker_thread = thread(display_multiplier_worker, state);
+
+        // run the displays[0] worker
+        if (s->displays.size() > 0) {
+                display_run(s->displays[0].real_display);
+        }
+
+        s->worker_thread.join();
+        for (int i = 1; i < (int) s->displays.size(); i++) {
+                s->displays[i].disp_thread.join();
         }
 }
 

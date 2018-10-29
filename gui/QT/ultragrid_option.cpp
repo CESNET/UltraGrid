@@ -270,10 +270,8 @@ QString VideoDisplayOption::getLaunchParam(){
 
 bool VideoDisplayOption::filter(const QString &item){
 	const QStringList whiteList = {
-#ifndef __APPLE__
 		"gl",
 		"sdl",
-#endif
 		"decklink",
 		"aja",
 		"dvs"
