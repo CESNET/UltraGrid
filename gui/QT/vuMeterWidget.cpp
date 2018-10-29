@@ -143,12 +143,15 @@ void VuMeterWidget::paintEvent(QPaintEvent *paintEvent){
 }
 
 ug_connection *connectLoop(int port){
-	ug_connection *connection = nullptr;
+	const int max_tries = 2;
+	int tries = 0;
 
+	ug_connection *connection = nullptr;
 	connection = ug_control_connection_init(port);
-	while(!connection){
+	while(!connection && tries < max_tries){
 		std::this_thread::sleep_for (std::chrono::seconds(2));
 		connection = ug_control_connection_init(port);
+		tries++;
 	}
 
 	return connection;

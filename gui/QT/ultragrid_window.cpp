@@ -279,8 +279,6 @@ void UltragridWindow::closeEvent(QCloseEvent *e){
 	stopPreview();
 
 	log.close();
-
-	exit(0);
 }
 
 void UltragridWindow::setAdvanced(bool adv){
