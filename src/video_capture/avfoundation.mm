@@ -68,18 +68,18 @@ std::unordered_map<std::string, NSString *> preset_to_av = {
 std::unordered_map<CMPixelFormatType, std::tuple<codec_t, int, int, int>> av_to_uv = {
         {kCVPixelFormatType_32ARGB, {RGBA, 8, 16, 24}},
         {kCVPixelFormatType_32BGRA, {RGBA, 16, 8, 0}},
-        {kCVPixelFormatType_24RGB, RGB},
+        {kCVPixelFormatType_24RGB, {RGB, 0, 8, 16}},
 	//kCMPixelFormat_16BE555
 	//kCMPixelFormat_16BE565
 	//kCMPixelFormat_16LE555
 	//kCMPixelFormat_16LE565
 	//kCMPixelFormat_16LE5551
-        {kCVPixelFormatType_422YpCbCr8, UYVY},
-        {kCVPixelFormatType_422YpCbCr8_yuvs, YUYV},
+        {kCVPixelFormatType_422YpCbCr8, {UYVY, 0, 0, 0}},
+        {kCVPixelFormatType_422YpCbCr8_yuvs, {YUYV, 0, 0, 0}},
 	//kCMPixelFormat_444YpCbCr8
 	//kCMPixelFormat_4444YpCbCrA8
 	//kCMPixelFormat_422YpCbCr16
-        {kCVPixelFormatType_422YpCbCr10, v210},
+        {kCVPixelFormatType_422YpCbCr10, {v210, 0, 0, 0}},
 	//kCMPixelFormat_444YpCbCr10
 	//kCMPixelFormat_8IndexedGray_WhiteIsZero
 };
