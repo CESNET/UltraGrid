@@ -252,6 +252,7 @@ static void * audio_play_portaudio_init(const char *cfg)
                 return NULL;
         }
 	s->max_output_channels = device_info->maxOutputChannels;
+        Pa_Terminate();
 
         s->quiet = true;
         
@@ -268,7 +269,6 @@ static void audio_play_portaudio_done(void *state)
 {
         auto s = (state_portaudio_playback *) state;
         cleanup(s);
-	Pa_Terminate();
         delete s;
 }
 
@@ -278,6 +278,7 @@ static void cleanup(struct state_portaudio_playback * s)
         s->stream = NULL;
         audio_buffer_destroy(s->data);
         s->data = NULL;
+	Pa_Terminate();
 }
 
 static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_t *len)
