@@ -100,7 +100,7 @@ struct sdp {
 // this is needed for HTTP server
 static struct sdp *sdp_global;
 
-struct sdp *new_sdp(int ip_version) {
+struct sdp *new_sdp(int ip_version, const char *receiver) {
     assert(ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
@@ -112,10 +112,29 @@ struct sdp *new_sdp(int ip_version) {
     } else {
         ip_loopback = "::1";
     }
+    char hostname[256];
+    const char *connection_address = ip_loopback;
+    const char *origin_address = ip_loopback;
+    struct sockaddr_storage addrs[20];
+    size_t len = sizeof addrs;
+    if (get_local_addresses(addrs, &len, ip_version)) {
+        for (int i = 0; i < (int)(len / sizeof addrs[0]); ++i) {
+            if (!is_addr_linklocal((struct sockaddr *) &addrs[i]) && !is_addr_loopback((struct sockaddr *) &addrs[i])) {
+                bool ipv6 = addrs[i].ss_family == AF_INET6;
+                size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+                getnameinfo((struct sockaddr *) &addrs[i], sa_len, hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
+                origin_address = hostname;
+                break;
+            }
+        }
+    }
+    if (is_addr_multicast(receiver)) {
+        connection_address = receiver;
+    }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, ip_loopback);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, origin_address);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, ip_loopback);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
     return sdp;

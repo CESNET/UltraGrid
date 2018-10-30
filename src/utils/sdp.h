@@ -49,7 +49,7 @@ extern "C" {
 
 #define DEFAULT_SDP_HTTP_PORT 8554
 
-struct sdp *new_sdp(int ip_version);
+struct sdp *new_sdp(int ip_version, const char *receiver);
 void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec);
 void sdp_add_video(struct sdp *sdp, int port, codec_t codec);
 bool gen_sdp(struct sdp *sdp);

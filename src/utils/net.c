@@ -297,3 +297,55 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 #endif
 }
 
+/**
+ * Checks if the address is a dot-separated numeric IPv4 address.
+ */
+static bool is_addr4(const char *addr) {
+        // only basic check
+        while (*addr != '\0') {
+                if (!isdigit(*addr) && *addr != '.') {
+                        return false;
+                }
+                addr++;
+        }
+        return true;
+}
+
+/**
+ * Checks if the address is a colon-separated numeric IPv6 address
+ * (with optional zone index).
+ */
+static bool is_addr6(const char *addr) {
+        while (*addr != '\0') {
+                if (*addr == '%') { // skip zone identification at the end
+                        return true;
+                }
+                // only basic check
+                if (!isxdigit(*addr) && *addr != ':') {
+                        return false;
+                }
+                addr++;
+        }
+        return true;
+}
+
+bool is_addr_multicast(const char *addr)
+{
+        if (is_addr4(addr)) {
+                unsigned int first_addr_byte = atoi(addr);
+                if ((first_addr_byte >> 4) == 0xe) {
+                        return true;
+                }
+                return false;
+
+        }
+        if (is_addr6(addr)) {
+                if (strlen(addr) >= 2 && addr[0] == 'f' && addr[1] == 'f') {
+                        return true;
+                }
+                return false;
+
+        }
+        return false;
+}
+
