@@ -69,7 +69,7 @@ using std::mutex;
 using std::queue;
 using std::unique_lock;
 
-#define FPS 30.0
+#define FPS 60.0
 
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define LEGACY 1\n"
