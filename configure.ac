@@ -88,6 +88,22 @@ AC_DEFUN([HM_VERSION_WARNING], [
                                ])
           ])
 
+m4_defun([MY_CHECK_FRAMEWORK],
+        [AC_CACHE_CHECK([if -framework ]$1[ works],[my_cv_framework_]$1,
+                [save_LIBS="$LIBS"
+                LIBS="$LIBS -framework ]$1["
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])],
+                        [my_cv_framework_]$1[=yes],
+                        [my_cv_framework_]$1[=no])
+                ])
+        LIBS="$save_LIBS"
+        if test "$my_cv_framework_]$1["="yes"; then
+        AC_DEFINE(AS_TR_CPP([HAVE_FRAMEWORK_]$1),1,
+                [Define if you have the ] $1 [ framework])
+        AS_TR_CPP([FRAMEWORK_]$1)="-framework ]$1["
+        AC_SUBST([FRAMEWORK_]AS_TR_CPP($1))
+        fi])
+
 AC_MSG_CHECKING([GIT presence])
 if which git
 then
@@ -1029,21 +1045,6 @@ then
 		deltacast_found=yes
 	fi
 else # OS X
-	m4_defun([MY_CHECK_FRAMEWORK],
-		[AC_CACHE_CHECK([if -framework ]$1[ works],[my_cv_framework_]$1,
-			[save_LIBS="$LIBS"
-			LIBS="$LIBS -framework ]$1["
-			AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])],
-				[my_cv_framework_]$1[=yes],
-				[my_cv_framework_]$1[=no])
-			])
-		LIBS="$save_LIBS"
-		if test "$my_cv_framework_]$1["="yes"; then
-		AC_DEFINE(AS_TR_CPP([HAVE_FRAMEWORK_]$1),1,
-			[Define if you have the ] $1 [ framework])
-		AS_TR_CPP([FRAMEWORK_]$1)="-framework ]$1["
-		AC_SUBST([FRAMEWORK_]AS_TR_CPP($1))
-		fi])
 	MY_CHECK_FRAMEWORK([VideoMasterHD])
 	MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
         AC_CHECK_HEADERS([VideoMasterHD/VideoMasterHD_Core.h])
@@ -2839,19 +2840,26 @@ fi
 # -------------------------------------------------------------------------------------------------
 syphon=no
 AC_ARG_ENABLE(syphon,
-[  --enable-syphon         enables Syphon support (default is disabled)]
+[  --enable-syphon         enables Syphon support (default is auto)]
 [                          Requires: Syphon],
     [syphon_req=$enableval],
-    [syphon_req=no]
+    [syphon_req=auto]
     )
 
-if test $syphon_req == yes
+MY_CHECK_FRAMEWORK([Syphon])
+
+if test $syphon_req != no -a $my_cv_framework_Syphon = yes
 then
         AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
         LIBS="$LIBS -framework Syphon"
         OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
         syphon=yes
 fi
+
+if test $syphon_req = yes -a $syphon = no; then
+        AC_MSG_ERROR([Syphon framework cannot be found!]);
+fi
+
 
 # ------------------------------------------------------------------------------
 # Spout
