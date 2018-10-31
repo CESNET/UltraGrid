@@ -80,15 +80,18 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <unordered_map>
+
+#include "aja_common.h"
+
+namespace aja = ultragrid::aja;
 
 #ifdef _MSC_VER
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
 #undef LOG
 #define LOG(...) std::cerr
 extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
-volatile int log_level = 5;
 extern "C" __declspec(dllexport) volatile bool *aja_should_exit = NULL;
+volatile int log_level = 5;
 #else
 unsigned int *aja_audio_capture_channels = &audio_capture_channels;
 volatile bool *aja_should_exit = &should_exit;
@@ -288,16 +291,6 @@ vidcap_state_aja::~vidcap_state_aja() {
         mOutputFrame = NULL;
         free(mAudio.data);
 }
-
-static const unordered_map<NTV2FrameBufferFormat, codec_t, hash<int>> codec_map = {
-        { NTV2_FBF_10BIT_YCBCR, v210 },
-        { NTV2_FBF_8BIT_YCBCR, UYVY },
-        { NTV2_FBF_RGBA, RGBA },
-        { NTV2_FBF_10BIT_RGB, R10k },
-        { NTV2_FBF_8BIT_YCBCR_YUY2, YUYV },
-        { NTV2_FBF_24BIT_RGB, RGB },
-        { NTV2_FBF_24BIT_BGR, BGR },
-};
 
 static const NTV2InputCrosspointID gCSCVideoInput [] = {
         NTV2_XptCSC1VidInput, NTV2_XptCSC2VidInput, NTV2_XptCSC3VidInput,
@@ -524,7 +517,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         mDevice.EnableInputInterrupt (mInputChannel);
         mDevice.SubscribeInputVerticalEvent (mInputChannel);
 
-        if (codec_map.find(mPixelFormat) == codec_map.end()) {
+        if (aja::codec_map.find(mPixelFormat) == aja::codec_map.end()) {
                 cerr << "Cannot find valid mapping from AJA pixel format to UltraGrid" << endl;
                 return AJA_STATUS_NOINPUT;
         }
@@ -541,7 +534,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         }
 
         video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
-                codec_map.at(mPixelFormat),
+                aja::codec_map.at(mPixelFormat),
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
                 interlacing,
                 1};

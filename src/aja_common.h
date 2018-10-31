@@ -1,9 +1,9 @@
 /**
- * @file   config_msvc.h
+ * @file   aja_common.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017 CESNET z.s.p.o.
+ * Copyright (c) 2018 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,43 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CONFIG_MSVC_H
-#define CONFIG_MSVC_H
+#include <map>
+#include <ntv2enums.h>
 
-#if defined _MSC_VER && !defined WIN32
+#include "types.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <process.h> // getpid()
+namespace ultragrid {
+namespace aja {
+extern const std::map<NTV2FrameBufferFormat, codec_t> codec_map;
+} // end of namespace aja
+} // end of namespace ultragrid
 
-static inline char * strtok_r(char *str, const char *delim, char **save);
-
-/*
- * Public domain licensed code taken from:
- * http://en.wikibooks.org/wiki/C_Programming/Strings#The_strtok_function
- */
-static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
-{
-     char *sbegin, *send;
-     sbegin = s ? s : *lasts;
-     sbegin += strspn(sbegin, delimiters);
-     if (*sbegin == '\0') {
-         /* *lasts = ""; */
-         *lasts = sbegin;
-         return NULL;
-     }
-     send = sbegin + strcspn(sbegin, delimiters);
-     if (*send != '\0')
-         *send++ = '\0';
-     *lasts = send;
-     return sbegin;
-}
-
-#define ATTRIBUTE(a)
-
-#define snprintf(x, y, ...) sprintf(x, __VA_ARGS__)
-#define strncasecmp(x, y, z) strcmp(x, y)
-
-#endif
-
-#endif

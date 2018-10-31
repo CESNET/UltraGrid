@@ -28,7 +28,11 @@ function run_vs10
 
 export INCLUDE='src;C:\msys64\home\toor\AJA\ajalibraries\ajantv2\includes;C:\msys64\home\toor\AJA\ajalibraries\ajantv2\src\win;C:\msys64\home\toor\AJA\ajaapps\crossplatform\demoapps;C:\msys64\home\toor\AJA\ajalibraries;C:\msys64\home\toor\AJA\ajaapps\crossplatform\demoapps\ntv2capture;$INCLUDE'
 
-run_vs12 cl //LD //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/video_capture/aja.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp ../AJA/lib/libajantv2.lib ../AJA/lib/libajabase.lib advapi32.lib user32.lib
+# rename both aja.cpp because msvc creates object aja.obj for both in the same directory
+cp src/video_capture/aja.cpp aja_capture.cpp
+cp src/video_display/aja.cpp aja_display.cpp
+
+run_vs12 cl //LD //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/aja_common.cpp aja_capture.cpp aja_display.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp ../AJA/lib/libajantv2.lib ../AJA/lib/libajabase.lib advapi32.lib user32.lib //Feaja
 cp aja.lib /usr/local/lib
 cp aja.dll /usr/local/bin
 

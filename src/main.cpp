@@ -493,7 +493,7 @@ int main(int argc, char *argv[])
         struct vidcap_params *vidcap_params_head = vidcap_params_allocate();
         struct vidcap_params *vidcap_params_tail = vidcap_params_head;
 
-        char *display_cfg = NULL;
+        const char *display_cfg = "";
         const char *audio_recv = "none";
         const char *audio_send = "none";
         const char *requested_video_fec = "none";

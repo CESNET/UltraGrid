@@ -134,6 +134,39 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
         return buf;
 }
 
+struct video_frame * vf_alloc_desc_data(struct video_desc desc)
+{
+        struct video_frame *buf;
+
+        buf = vf_alloc_desc(desc);
+
+        if (!buf) {
+                return NULL;
+        }
+        for(unsigned int i = 0; i < desc.tile_count; ++i) {
+                buf->tiles[i].data_len = vc_get_linesize(desc.width,
+                                desc.color_spec) *
+                        desc.height;
+                buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len);
+                assert(buf->tiles[i].data != NULL);
+        }
+
+        buf->callbacks.data_deleter = vf_data_deleter;
+        buf->callbacks.recycle = NULL;
+
+        return buf;
+}
+
+void vf_data_deleter(struct video_frame *buf)
+{
+        if(!buf)
+                return;
+
+        for(unsigned int i = 0u; i < buf->tile_count; ++i) {
+                free(buf->tiles[i].data);
+        }
+}
+
 void vf_free(struct video_frame *buf)
 {
         if(!buf)

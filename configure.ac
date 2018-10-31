@@ -901,7 +901,7 @@ if test $system = Windows
 then
         if test "$aja_req" = yes
         then
-                ADD_MODULE("vidcap_aja", "src/video_capture/aja_win32_stub.o", "-laja")
+                ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
                 aja=yes
         fi
 else # MacOSX
@@ -935,9 +935,11 @@ then
                 AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                 AJA_LIB="-lajantv2"
         fi
-        AJA_CAP_OBJ="src/video_capture/aja.o"
+        AJA_CAP_OBJ="src/aja_common.o src/video_capture/aja.o"
+        AJA_DISP_OBJ="src/aja_common.o src/video_display/aja.o"
         AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
+        ADD_MODULE("display_aja", "$AJA_DISP_OBJ", "$AJA_LIB")
         ADD_MODULE("vidcap_aja", "$AJA_CAP_OBJ", "$AJA_LIB")
         INC="$INC $AJA_INC"
         CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
