@@ -217,7 +217,7 @@ static void oneshot_init(int value [[gnu::unused]])
 
         NSArray *descriptions;
         if (s->appName || s->serverName) {
-                descriptions = [[SyphonServerDirectory sharedDirectory] serversMatchingName:@"uv" appName:nil];
+                descriptions = [[SyphonServerDirectory sharedDirectory] serversMatchingName:s->serverName appName:s->appName];
         } else {
                 descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         }
@@ -314,7 +314,7 @@ static void usage()
         printf("\t-t syphon[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]\n");
         printf("\n");
         printf("\tname\n\t\tsyphon server name\n");
-        printf("\tname\n\t\tsyphon server application name\n");
+        printf("\tapp\n\t\tsyphon server application name\n");
         printf("\toverride_fps\n\t\toverrides FPS in metadata (but not the actual rate captured)\n");
         printf("\tRGB\n\t\tuse RGB as an output codec instead of default UYVY\n");
 }
