@@ -159,7 +159,7 @@ void VideoSourceOption::queryExtraOpts(const QStringList &opts){
 		std::vector<Camera> cams = getCameras();
 		for(const auto& cam : cams){
 			QString name = QString::fromStdString(cam.name);
-			QString opt = QString::fromStdString("v4l2:device=" + cam.path);
+			QString opt = QString::fromStdString("v4l2:device=" + cam.path + ":RGB");
 			box->addItem(name, QVariant(opt));
 		}
 	}
@@ -224,6 +224,9 @@ void VideoSourceOption::srcChanged(){
 			param += QString::number(m.tpf_numerator);
 			param += "/";
 			param += QString::number(m.tpf_denominator);
+
+			param += ":RGB"; // convert to RGB - this allows eg. MJPG to be displayed
+					 // as a preview and recompress
 
 			mode->addItem(name, param);
 		}
