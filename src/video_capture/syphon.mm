@@ -50,6 +50,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <GLUT/glut.h>
+#include <iostream>
 #include <mutex>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
@@ -61,15 +62,19 @@
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "video.h"
 #include "video_capture.h"
 
 using std::condition_variable;
+using std::cout;
 using std::mutex;
 using std::queue;
 using std::unique_lock;
 
 #define FPS 60.0
+
+static void usage();
 
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define LEGACY 1\n"
@@ -146,6 +151,8 @@ struct state_vidcap_syphon {
 
         GLuint program_to_yuv422;
 
+        bool show_help; // only show help and exit
+
         ~state_vidcap_syphon() {
                 [appName release];
                 [serverName release];
@@ -198,6 +205,16 @@ static void oneshot_init(int value [[gnu::unused]])
         // timer is periodically triggered because only then is glutCheckLoop()
         // left (without that, glutCheckLoop would block infinitely).
         glutTimerFunc(100, oneshot_init, 0);
+
+        if (should_exit) {
+                return;
+        }
+
+        if (s->show_help) {
+                usage();
+                exit_uv(0);
+                return;
+        }
 
         // if we are already initialized, exit
         if (s->client)
@@ -309,14 +326,30 @@ static void syphon_mainloop(void *state)
         }
 }
 
+/**
+ * Prints usage
+ *
+ * Because it enumerates available servers it must be run from within
+ * application main loop, not directly from vidcap_syphon_init().
+ */
 static void usage()
 {
-        printf("\t-t syphon[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]\n");
-        printf("\n");
-        printf("\tname\n\t\tsyphon server name\n");
-        printf("\tapp\n\t\tsyphon server application name\n");
-        printf("\toverride_fps\n\t\toverrides FPS in metadata (but not the actual rate captured)\n");
-        printf("\tRGB\n\t\tuse RGB as an output codec instead of default UYVY\n");
+        cout << "Usage:\n";
+        cout << rang::style::bold << rang::fg::red << "\t-t syphon" << rang::fg::reset << "[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]\n" << rang::style::reset;
+        cout << "\nwhere:\n";
+        cout << rang::style::bold << "\tname\n" << rang::style::reset << "\t\tSyphon server name\n";
+        cout << rang::style::bold << "\tapp\n" << rang::style::reset << "\t\tSyphon server application name\n";
+        cout << rang::style::bold << "\toverride_fps\n" << rang::style::reset << "\t\toverrides FPS in metadata (but not the actual rate captured)\n";
+        cout << rang::style::bold << "\tRGB\n" << rang::style::reset << "\t\tuse RGB as an output codec instead of default UYVY\n";
+        cout << "\n";
+        cout << "Available servers:\n";
+
+        NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
+        for (id item in descriptions) {
+                cout << rang::style::bold << "\tapp: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << rang::style::bold << " name: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
+                //...do something useful with myArrayElement
+        }
+        cout << "\n";
 }
 
 static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
@@ -330,8 +363,7 @@ static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
         item = strtok_r(opts, ":", &save_ptr);
         while (item) {
                 if (strcmp(item, "help") == 0) {
-                        usage();
-                        ret = VIDCAP_INIT_NOERR;
+                        s->show_help = true;
                         break;
                 } else if (strstr(item, "app=") == item) {
                         s->appName = [NSString stringWithCString: item + strlen("app=") encoding:NSASCIIStringEncoding];
@@ -436,3 +468,4 @@ static const struct video_capture_info vidcap_syphon_info = {
 
 REGISTER_MODULE(syphon, &vidcap_syphon_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
+/* vim: set expandtab sw=8: */
