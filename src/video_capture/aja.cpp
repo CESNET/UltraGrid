@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2018 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,10 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/**
- * @todo
- * Audio support is currently broken. Readd it in future.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -78,6 +74,7 @@
 
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 
+#include <algorithm>
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
@@ -249,7 +246,7 @@ void vidcap_state_aja::Init()
                 const char *fcc_req  = get_commandline_param("aja-fourcc");
                 char fcc_s[4] = "";
                 // trim or pad with spaces
-                strncpy(fcc_s, fcc_req, 4);
+                memcpy(fcc_s, fcc_req, min<int>(strlen(fcc_req), 4));
                 fourcc = AJA_FOURCC(fcc_s[0], fcc_s[1], fcc_s[2], fcc_s[3]);
         }
 
@@ -257,7 +254,7 @@ void vidcap_state_aja::Init()
                 throw string("Cannot aquire stream.");
 #endif
 
-        mDevice.GetEveryFrameServices (&mSavedTaskMode);        //      Save the current state before we change it
+        mDevice.GetEveryFrameServices (mSavedTaskMode);        //      Save the current state before we change it
         mDevice.SetEveryFrameServices (NTV2_OEM_TASKS);
 
         //      Keep the device ID handy as it will be used frequently...
@@ -698,7 +695,7 @@ void vidcap_state_aja::CaptureFrames (void)
                 if (mGrabAudio) {
                         pHostAudioBuffer = reinterpret_cast <uint32_t *> (aligned_malloc(NTV2_AUDIOSIZE_MAX, AJA_PAGE_SIZE));
                         //      Read the audio position registers as close to the interrupt as possible...
-                        mDevice.ReadAudioLastIn (&currentAudioInAddress, mInputChannel);
+                        mDevice.ReadAudioLastIn (currentAudioInAddress, mInputChannel);
                         currentAudioInAddress &= ~0x7f;  //      Force 128 B alignment (originally there was 4 bytes)
                         currentAudioInAddress += audioReadOffset;
 
