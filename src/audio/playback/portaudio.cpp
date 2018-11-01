@@ -281,6 +281,57 @@ static void cleanup(struct state_portaudio_playback * s)
 	Pa_Terminate();
 }
 
+/**
+ * Tries to find format compatible with Portaudio
+ *
+ * @param      device_idx  index of Portaudio device to be evaluated (-1 for default)
+ * @param[in]  ch_count    number of channels to be used
+ * @param[in]  sample_rate requested sample rate
+ * @param[out] sample_rate sample rate supported by state_portaudio_playback::device
+ * @param[in]  bps         requested bytes per sample
+ * @param[out] bps         bps supported by state_portaudio_playback::device
+ *
+ * @returns true if eligible format was found, false otherwise
+ */
+static bool get_supported_format(int device_idx, int ch_count, int *sample_rate, int *bps) {
+        int sample_rates[] = { *sample_rate, 48000, 44100, 8000, 16000, 32000, 96000, 24000 };
+        PaSampleFormat sample_formats[] = { paInt8, paInt16, paInt24, paInt32 };
+        PaStreamParameters outputParameters{};
+        outputParameters.device = device_idx >= 0 ? device_idx : Pa_GetDefaultOutputDevice();
+        outputParameters.channelCount = ch_count;
+        outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowInputLatency;
+
+        assert(*bps >= 1 && *bps <= 4);
+        for (int i = 0; i < (int)(sizeof sample_rates / sizeof sample_rates[0]); ++i) {
+                int j = *bps - 1;
+                while (true) {
+                        outputParameters.sampleFormat = sample_formats[j];
+                        int err = Pa_IsFormatSupported(NULL, &outputParameters, sample_rates[i]);
+                        if (err == paFormatIsSupported) {
+                                *sample_rate = sample_rates[i];
+                                *bps = j + 1;
+                                log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Using %d channel%s, sample rate: %d, bps: %d\n", ch_count, ch_count > 1 ? "s" : "", *sample_rate, *bps * 8);
+                                return true;
+                        }
+                        if (j >= *bps - 1 && j < 3) { // try better sample formats
+                                j++;
+                                continue;
+                        }
+                        if (j == 3) { // start trying worse formats
+                                j = *bps - 2;
+                        } else {
+                                j--;
+                        }
+                        if (j == -1) { // we tested all sample rates
+                                break;
+                        }
+                }
+        }
+
+        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Unable to find eligible format!\n");
+        return false;
+}
+
 static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_t *len)
 {
         switch (request) {
@@ -292,6 +343,9 @@ static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_
                         memcpy(&desc, data, sizeof desc);
                         desc.ch_count = min(desc.ch_count, s->max_output_channels);
                         desc.codec = AC_PCM;
+                        if (!get_supported_format(((state_portaudio_playback *) state)->device, desc.ch_count, &desc.sample_rate, &desc.bps)) {
+                                return false;
+                        }
                         memcpy(data, &desc, sizeof desc);
                         *len = sizeof desc;
                         return true;
