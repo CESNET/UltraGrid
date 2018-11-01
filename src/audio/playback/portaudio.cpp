@@ -383,6 +383,12 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
                         s
                         );
 
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, "[Portaudio] Unable to open stream: %s\n",
+                                Pa_GetErrorText(error));
+                return FALSE;
+        }
+
         if (!portaudio_start_stream(s->stream)) {
                 return FALSE;
         }
