@@ -224,7 +224,7 @@ static void show_help()
                 memset(&fmt, 0, sizeof(fmt));
                 fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 if(ioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
-                        perror("[V4L2] Unable to get video formant");
+                        perror("[V4L2] Unable to get video format");
                         goto next_device;
                 }
 
