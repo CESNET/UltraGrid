@@ -463,7 +463,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         memset(&fmt, 0, sizeof(fmt));
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
-                perror("[V4L2] Unable to get video formant");
+                perror("[V4L2] Unable to get video format");
 
                 goto error;
         }
@@ -490,7 +490,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         fmt.fmt.pix.bytesperline = 0;
 
         if(ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
-                perror("[V4L2] Unable to set video formant");
+                perror("[V4L2] Unable to set video format");
                 goto error;
         }
 
@@ -509,7 +509,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         memcpy(&s->dst_fmt, &fmt, sizeof(fmt));
 
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
-                perror("[V4L2] Unable to get video formant");
+                perror("[V4L2] Unable to get video format");
 
                 goto error;
         }
