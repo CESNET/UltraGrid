@@ -261,9 +261,9 @@ static void usage(const char *exec_path, bool full = false)
         printf("\n");
         printf("\t-c <cfg>                 \tvideo compression (see '-c help')\n");
         printf("\n");
-        printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
+        printf("\t-r <playback_device>     \taudio playback device (see '-r help')\n");
         printf("\n");
-        printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
+        printf("\t-s <capture_device>      \taudio capture device (see '-s help')\n");
         printf("\n");
         if (full) {
                 printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
@@ -279,24 +279,25 @@ static void usage(const char *exec_path, bool full = false)
                 printf("\n");
                 printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
                 printf("\n");
-                printf("\t--protocol <proto>       \t<proto> shortcut for '--audio-protocol <proto> --video-protocol <proto>'\n");
+                printf("\t--protocol <proto>       \tshortcut for '--audio-protocol <proto> --video-protocol <proto>'\n");
                 printf("\n");
 #ifdef HAVE_IPv6
-                printf("\t-4/-6                    \tForce IPv4/IPv6 resolving\n");
+                printf("\t-4/-6                    \tforce IPv4/IPv6 resolving\n");
                 printf("\n");
 #endif //  HAVE_IPv6
-                printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
+                printf("\t--mcast-if <iface>       \tbind to specified interface for multicast\n");
                 printf("\n");
                 printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
                 printf("\t                         \tdual-link)\n");
                 printf("\n");
-                printf("\t-p <postprocess>         \tpostprocess module\n");
+                printf("\t-p <postprocess> | help  \tpostprocess module\n");
                 printf("\n");
         }
         printf("\t-f [A:|V:]<settings>     \tFEC settings (audio or video) - use \"none\"\n"
                "\t                         \t\"mult:<nr>\",\n");
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
+        printf("\t                         \t\"rs:<k>:<n>\"\n");
         printf("\n");
         printf("\t-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]\n");
         printf("\t                         \t<port> is base port number, also 3 subsequent\n");
@@ -311,41 +312,43 @@ static void usage(const char *exec_path, bool full = false)
         if (full) {
                 printf("\t-A <address>             \taudio destination address\n");
                 printf("\t                         \tIf not specified, will use same as for video\n");
-        }
-        printf("\t--audio-capture-format <fmt>|help format of captured audio\n");
-        printf("\n");
-        if (full) {
-                printf("\t--audio-channel-map      <mapping> | help\n");
                 printf("\n");
         }
-        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>]|help\taudio codec\n");
+        printf("\t--audio-capture-format <fmt> | help format of captured audio\n");
         printf("\n");
         if (full) {
-                printf("\t--audio-delay <delay_ms> \tAmount of time audio should be delayed to video\n");
-                printf("\t                         \t(may be also negative to delayed video)\n");
+                printf("\t--audio-channel-map <mapping> | help\n");
+                printf("\n");
+        }
+        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help\taudio codec\n");
+        printf("\n");
+        if (full) {
+                printf("\t--audio-delay <delay_ms> \tamount of time audio should be delayed to video\n");
+                printf("\t                         \t(may be also negative to delay video)\n");
                 printf("\n");
                 printf("\t--audio-scale <factor> | <method> | help\n");
                 printf("\t                         \tscales received audio\n");
                 printf("\n");
         }
 #if 0
-        printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
+        printf("\t--echo-cancellation      \tapply acoustic echo cancellation to audio\n");
         printf("\n");
 #endif
-        printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
+        printf("\t--cuda-device <index> | help\tuse specified CUDA device\n");
         printf("\n");
-        printf("\t--encryption <passphrase>\tKey material for encryption\n");
+        printf("\t--encryption <passphrase>\tkey material for encryption\n");
         printf("\n");
-        printf("\t--playback <directory>   \treplays captured recorded\n");
+        printf("\t--playback <directory> | help  \treplays recorded audio and video\n");
         printf("\n");
         printf("\t--record[=<directory>]   \trecord captured audio and video\n");
         printf("\n");
         if (full) {
-                printf("\t--capture-filter <filter>\tCapture filter(s), must be given before capture device\n");
+                printf("\t--capture-filter <filter> | help\n");
+                printf("\t                           \tcapture filter(s), must be given before capture device\n");
                 printf("\n");
         }
         if (full) {
-                printf("\t--param <params>|help    \tAdditional advanced parameters, use help for list\n");
+                printf("\t--param <params> | help    \tadditional advanced parameters, use help for list\n");
                 printf("\n");
         }
         printf("\taddress                  \tdestination address\n");
