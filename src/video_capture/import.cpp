@@ -291,9 +291,11 @@ try {
         s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
         char *suffix;
         if (!s->directory || strcmp(s->directory, "help") == 0) {
-                throw string("Import usage:\n"
+                printf("Import usage:\n"
                                 "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>|:disable_audio}\n"
                                 "\t\t<fps> - overrides FPS from sequence metadata\n");
+                delete s;
+                return VIDCAP_INIT_NOERR;
         }
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (suffix[0] == '\\') { // MSW path
@@ -956,7 +958,7 @@ static void *video_reader_callback(void *arg)
         data->entry->count = data->tile_count;
 
         for (unsigned int i = 0; i < data->tile_count; i++) {
-                char name[1024];
+                char name[1048];
                 char tile_idx[3] = "";
                 if (data->tile_count > 1) {
                         sprintf(tile_idx, "_%d", i);
