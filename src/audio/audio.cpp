@@ -107,50 +107,74 @@ struct audio_network_parameters {
 };
 
 struct state_audio {
+        state_audio(struct module *parent) {
+                module_init_default(&mod);
+                mod.priv_data = this;
+                mod.cls = MODULE_CLASS_AUDIO;
+                module_register(&mod, parent);
+
+                module_init_default(&audio_receiver_module);
+                audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
+                audio_receiver_module.priv_data = this;
+                module_register(&audio_receiver_module, &mod);
+
+                module_init_default(&audio_sender_module);
+                audio_sender_module.cls = MODULE_CLASS_SENDER;
+                audio_sender_module.priv_data = this;
+                module_register(&audio_sender_module, &mod);
+
+                gettimeofday(&t0, NULL);
+        }
+        ~state_audio() {
+                module_done(&audio_receiver_module);
+                module_done(&audio_sender_module);
+                module_done(&mod);
+        }
+
         struct module mod;
-        struct state_audio_capture *audio_capture_device;
-        struct state_audio_playback *audio_playback_device;
+        struct state_audio_capture *audio_capture_device = nullptr;
+        struct state_audio_playback *audio_playback_device = nullptr;
 
         struct module audio_receiver_module;
         struct module audio_sender_module;
 
-        struct audio_codec_state *audio_coder;
+        struct audio_codec_state *audio_coder = nullptr;
         
         struct audio_network_parameters audio_network_parameters;
-        struct rtp *audio_network_device;
-        struct pdb *audio_participants;
+        struct rtp *audio_network_device = nullptr;
+        struct pdb *audio_participants = nullptr;
         std::string proto_cfg; // audio network protocol options
-        void *jack_connection;
-        enum audio_transport_device sender;
-        enum audio_transport_device receiver;
+        void *jack_connection = nullptr;
+        enum audio_transport_device sender = NET_NATIVE;
+        enum audio_transport_device receiver = NET_NATIVE;
         
         std::chrono::steady_clock::time_point start_time;
 
         struct timeval t0; // for statistics
         audio_frame2 captured;
 
-        struct tx *tx_session;
+        struct tx *tx_session = nullptr;
         
         pthread_t audio_sender_thread_id,
                   audio_receiver_thread_id;
-	bool audio_sender_thread_started,
-		audio_receiver_thread_started;
+        bool audio_sender_thread_started = false,
+             audio_receiver_thread_started = false;
 
-        char *audio_channel_map;
-        const char *audio_scale;
-        echo_cancellation_t *echo_state;
-        struct exporter *exporter;
-        int  resample_to;
+        char *audio_channel_map = nullptr;
+        const char *audio_scale = nullptr;
+        echo_cancellation_t *echo_state = nullptr;
+        struct exporter *exporter = nullptr;
+        int resample_to = 0;
 
-        char *requested_encryption;
+        char *requested_encryption = nullptr;
 
-        volatile bool paused; // for CoUniverse...
+        volatile bool paused = false; // for CoUniverse...
 
-        int audio_tx_mode;
+        int audio_tx_mode = 0;
 
-        double volume; // receiver volume scale
-        bool muted_receiver;
-        bool muted_sender;
+        double volume = 1.0; // receiver volume scale
+        bool muted_receiver = false;
+        bool muted_sender = false;
 };
 
 /** 
@@ -163,6 +187,8 @@ typedef void (*audio_device_help_t)(void);
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(struct audio_network_parameters *params);
+static struct response *audio_receiver_process_message(struct state_audio *s, struct msg_receiver *msg);
+static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg);
 
 static void audio_channel_map_usage(void);
 static void audio_scale_usage(void);
@@ -243,22 +269,14 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 return NULL;
         }
         
-        s = new state_audio();
+        s = new state_audio(parent);
         s->start_time = *start_time;
-
-        s->volume = 1.0;
 
         if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
                 // nothing to do, return empty state
                 return s;
         }
 
-        module_init_default(&s->mod);
-        s->mod.priv_data = s;
-        s->mod.cls = MODULE_CLASS_AUDIO;
-        module_register(&s->mod, parent);
-
-        s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
 
@@ -293,8 +311,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        gettimeofday(&s->t0, NULL);
-        
         assert(addrs && strlen(addrs) > 0);
         tmp = strdup(addrs);
         s->audio_participants = pdb_init(audio_delay);
@@ -317,8 +333,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
         free(tmp);
 
-        s->audio_tx_mode = 0;
-
         if (strcmp(send_cfg, "none") != 0) {
                 char *cfg = NULL;
                 char *device = strdup(send_cfg);
@@ -338,10 +352,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
-                module_init_default(&s->audio_sender_module);
-                s->audio_sender_module.cls = MODULE_CLASS_SENDER;
-                s->audio_sender_module.priv_data = s;
-                module_register(&s->audio_sender_module, &s->mod);
                 s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, bitrate);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
@@ -374,10 +384,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 size_t len = sizeof(struct rtp *);
                 audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
                                         &s->audio_network_device, &len);
-                module_init_default(&s->audio_receiver_module);
-                s->audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
-                s->audio_receiver_module.priv_data = s;
-                module_register(&s->audio_receiver_module, &s->mod);
 
                 s->audio_tx_mode |= MODE_RECEIVER;
         } else {
@@ -410,16 +416,6 @@ error:
                 module_done(CAST_MODULE(s->tx_session));
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
-        }
-
-        if (s->audio_receiver_module.cls != 0) {
-                module_done(&s->audio_receiver_module);
-        }
-        if (s->audio_sender_module.cls != 0) {
-                module_done(&s->audio_sender_module);
-        }
-        if (s->mod.cls != 0) {
-                module_done(&s->mod);
         }
 
         audio_codec_done(s->audio_coder);
@@ -471,27 +467,36 @@ void audio_join(struct state_audio *s) {
         
 void audio_done(struct state_audio *s)
 {
-        if(s) {
-                audio_playback_done(s->audio_playback_device);
-                audio_capture_done(s->audio_capture_device);
-                module_done(CAST_MODULE(s->tx_session));
-                module_done(&s->audio_receiver_module);
-                module_done(&s->audio_sender_module);
-                if(s->audio_network_device)
-                        rtp_done(s->audio_network_device);
-                if(s->audio_participants) {
-                        pdb_destroy(&s->audio_participants);
-                }
-                module_done(&s->mod);
-                free(s->requested_encryption);
-
-                free(s->audio_network_parameters.addr);
-                free(s->audio_network_parameters.mcast_if);
-
-                audio_codec_done(s->audio_coder);
-
-                delete s;
+        if (!s) {
+                return;
         }
+        audio_playback_done(s->audio_playback_device);
+        audio_capture_done(s->audio_capture_device);
+        // process remaining messages
+        struct message *msg;
+        while ((msg = check_message(&s->audio_receiver_module))) {
+                struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg);
+                free_message(msg, r);
+        }
+        while ((msg = check_message(&s->audio_sender_module))) {
+                struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
+                free_message(msg, r);
+        }
+
+        module_done(CAST_MODULE(s->tx_session));
+        if(s->audio_network_device)
+                rtp_done(s->audio_network_device);
+        if(s->audio_participants) {
+                pdb_destroy(&s->audio_participants);
+        }
+        free(s->requested_encryption);
+
+        free(s->audio_network_parameters.addr);
+        free(s->audio_network_parameters.mcast_if);
+
+        audio_codec_done(s->audio_coder);
+
+        delete s;
 }
 
 static struct rtp *initialize_audio_network(struct audio_network_parameters *params)
