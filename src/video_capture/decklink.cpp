@@ -619,76 +619,78 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 
 /* External API ***************************************************************/
 
-static struct vidcap_type *
-vidcap_decklink_probe(bool verbose)
+static struct vidcap_type *vidcap_decklink_probe(bool verbose)
 {
-	struct vidcap_type*		vt;
-
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "decklink";
-		vt->description = "Blackmagic DeckLink card";
-
-                IDeckLinkIterator*		deckLinkIterator = nullptr;
-                IDeckLink*			deckLink;
-                int				numDevices = 0;
-                HRESULT				result;
-
-                if (verbose) {
-                        // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                        deckLinkIterator = create_decklink_iterator(false);
-                        if (deckLinkIterator != NULL) {
-                                // Enumerate all cards in this system
-                                while (deckLinkIterator->Next(&deckLink) == S_OK)
-                                {
-                                        IDeckLinkAttributes *deckLinkAttributes;
-
-                                        result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
-                                        if (result != S_OK) {
-                                                continue;
-                                        }
-                                        int64_t connections;
-                                        if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
-                                                fprintf(stderr, "[DeckLink] Could not get connections.\n");
-                                        } else {
-                                                for (auto it : connection_string_map) {
-                                                        if (connections & it.first) {
-                                                                vt->card_count += 1;
-                                                                vt->cards = (struct device_info *)
-                                                                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                                                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                                                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                                                                "device=%d:connection=%s", numDevices, it.second.c_str());
-                                                                BMD_STR deviceNameString = NULL;
-                                                                char *deviceNameCString = NULL;
-
-                                                                // *** Print the model name of the DeckLink card
-                                                                result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
-                                                                if (result == S_OK) {
-                                                                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                                                                        snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
-                                                                                        "%s #%d (%s)", deviceNameCString, numDevices, it.second.c_str());
-                                                                        release_bmd_api_str(deviceNameString);
-                                                                        free(deviceNameCString);
-                                                                }
-                                                        }
-                                                }
-                                        }
-
-
-                                        // Increment the total number of DeckLink cards found
-                                        numDevices++;
-
-                                        // Release the IDeckLink instance when we've finished with it to prevent leaks
-                                        deckLink->Release();
-                                }
-
-                                deckLinkIterator->Release();
-                        }
-                decklink_uninitialize();
-                }
+        auto vt = static_cast<struct vidcap_type *>(calloc(1, sizeof(struct vidcap_type)));
+        if (vt == nullptr) {
+                return nullptr;
         }
-	return vt;
+
+        vt->name        = "decklink";
+        vt->description = "Blackmagic DeckLink card";
+
+        if (!verbose) {
+                return vt;
+        }
+
+        IDeckLinkIterator*		deckLinkIterator;
+        IDeckLink*			deckLink;
+        int				numDevices = 0;
+
+        // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+        deckLinkIterator = create_decklink_iterator(false);
+        if (deckLinkIterator == nullptr) {
+                return vt;
+        }
+
+        // Enumerate all cards in this system
+        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+                HRESULT result;
+                IDeckLinkAttributes *deckLinkAttributes;
+
+                result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                if (result != S_OK) {
+                        continue;
+                }
+                int64_t connections;
+                if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
+                        fprintf(stderr, "[DeckLink] Could not get connections.\n");
+                        continue;
+                }
+                for (auto it : connection_string_map) {
+                        if (connections & it.first) {
+                                vt->card_count += 1;
+                                vt->cards = (struct device_info *)
+                                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                                "device=%d:connection=%s", numDevices, it.second.c_str());
+                                BMD_STR deviceNameString = NULL;
+                                char *deviceNameCString = NULL;
+
+                                // *** Print the model name of the DeckLink card
+                                result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
+                                if (result == S_OK) {
+                                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+                                        snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                                        "%s #%d (%s)", deviceNameCString, numDevices, it.second.c_str());
+                                        release_bmd_api_str(deviceNameString);
+                                        free(deviceNameCString);
+                                }
+                        }
+                }
+
+                // Increment the total number of DeckLink cards found
+                numDevices++;
+
+                // Release the IDeckLink instance when we've finished with it to prevent leaks
+                deckLink->Release();
+        }
+
+        deckLinkIterator->Release();
+        decklink_uninitialize();
+
+        return vt;
 }
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
