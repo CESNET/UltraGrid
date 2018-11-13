@@ -195,6 +195,7 @@ static void show_help()
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
         printf("\t\tRGB - forces conversion to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
+        printf("\n");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
@@ -210,9 +211,11 @@ static void show_help()
                         perror("[V4L2] Unable to query device capabilities");
                 }
 
-                printf("\t%sDevice %s (%s):\n",
+                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)) continue;
+
+                printf("\t%sDevice %s (%s, %s):\n",
                                 (i == 0 ? "(*) " : "    "),
-                                name, capab.card);
+                                name, capab.card, capab.bus_info);
 
 
                 struct v4l2_fmtdesc format;
@@ -434,13 +437,6 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 goto error;
         }
 
-        int index = 0;
-
-        if (ioctl(s->fd, VIDIOC_S_INPUT, &index) != 0) {
-                perror ("Could not enable input (VIDIOC_S_INPUT)");
-                goto error;
-        }
-
         struct v4l2_capability   capability;
         memset(&capability, 0, sizeof(capability));
         if (ioctl(s->fd,VIDIOC_QUERYCAP, &capability) != 0) {
@@ -448,13 +444,20 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 goto error;
         }
 
-        if (!(capability.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
                 fprintf(stderr, "%s, %s can't capture\n",capability.card,capability.bus_info);
                 goto error;
         }
 
-        if (!(capability.capabilities & V4L2_CAP_STREAMING)) {
+        if (!(capability.device_caps & V4L2_CAP_STREAMING)) {
                 fprintf(stderr, "[V4L2] Streaming capability not present.\n");
+                goto error;
+        }
+
+        int index = 0;
+
+        if (ioctl(s->fd, VIDIOC_S_INPUT, &index) != 0) {
+                perror ("Could not enable input (VIDIOC_S_INPUT)");
                 goto error;
         }
 
