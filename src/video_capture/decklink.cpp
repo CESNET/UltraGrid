@@ -64,6 +64,7 @@
 
 #include <condition_variable>
 #include <chrono>
+#include <list>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -130,6 +131,7 @@ struct vidcap_decklink_state {
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
 static void cleanup_common(struct vidcap_decklink_state *s);
+static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deckLink);
 static void print_input_modes (IDeckLink* deckLink);
 
 class VideoDelegate : public IDeckLinkInputCallback {
@@ -652,32 +654,66 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
                 if (result != S_OK) {
                         continue;
                 }
-                int64_t connections;
-                if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
+                int64_t connections_bitmap;
+                if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections_bitmap) != S_OK) {
                         fprintf(stderr, "[DeckLink] Could not get connections.\n");
                         continue;
                 }
-                for (auto it : connection_string_map) {
-                        if (connections & it.first) {
-                                vt->card_count += 1;
-                                vt->cards = (struct device_info *)
-                                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                                "device=%d:connection=%s", numDevices, it.second.c_str());
-                                BMD_STR deviceNameString = NULL;
-                                char *deviceNameCString = NULL;
 
-                                // *** Print the model name of the DeckLink card
-                                result = deckLink->GetModelName((BMD_STR *) &deviceNameString);
-                                if (result == S_OK) {
-                                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                                        snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
-                                                        "%s #%d (%s)", deviceNameCString, numDevices, it.second.c_str());
-                                        release_bmd_api_str(deviceNameString);
-                                        free(deviceNameCString);
-                                }
+                BMD_STR deviceNameBMDString = NULL;
+                // *** Print the model name of the DeckLink card
+                result = deckLink->GetModelName((BMD_STR *) &deviceNameBMDString);
+                if (result != S_OK) {
+                        continue;
+                }
+                string deviceName = get_cstr_from_bmd_api_str(deviceNameBMDString);
+                release_bmd_api_str(deviceNameBMDString);
+
+                vt->card_count += 1;
+                vt->cards = (struct device_info *)
+                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                "device=%d", numDevices);
+                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                "%s #%d", deviceName.c_str(), numDevices);
+
+
+                list<string> connections;
+                for (auto it : connection_string_map) {
+                        if (connections_bitmap & it.first) {
+                                connections.push_back(it.second);
                         }
+                }
+                list<tuple<int, string, string, string>> modes = get_input_modes (deckLink);
+                int i = 0;
+                for (auto &m : modes) {
+                        for (auto &c : connections) {
+                                if (i >= (int) (sizeof vt->cards[vt->card_count - 1].modes /
+                                                sizeof vt->cards[vt->card_count - 1].modes[0])) { // no space
+                                        break;
+                                }
+
+                                snprintf(vt->cards[vt->card_count - 1].modes[i].id,
+                                                sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                                                "connection=%s:mode=%s",
+                                                c.c_str(), get<1>(m).c_str());
+                                snprintf(vt->cards[vt->card_count - 1].modes[i].name,
+                                                sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                                                "%s (%s)", get<2>(m).c_str(), c.c_str());
+                                i++;
+                        }
+                }
+
+                if (i < (int) (sizeof vt->cards[vt->card_count - 1].modes /
+                                        sizeof vt->cards[vt->card_count - 1].modes[0])) {
+                        snprintf(vt->cards[vt->card_count - 1].modes[i].id,
+                                        sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                                        "detect-format");
+                        snprintf(vt->cards[vt->card_count - 1].modes[i].name,
+                                        sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                                        "UltraGrid auto-detect");
+                        i++;
                 }
 
                 // Increment the total number of DeckLink cards found
@@ -1565,15 +1601,15 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 }
 
 /* function from DeckLink SDK sample DeviceList */
-
-static void print_input_modes (IDeckLink* deckLink)
+static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deckLink)
 {
+        list<tuple<int, string, string, string>> ret;
 	IDeckLinkInput*			deckLinkInput = NULL;
 	IDeckLinkDisplayModeIterator*		displayModeIterator = NULL;
 	IDeckLinkDisplayMode*			displayMode = NULL;
-	HRESULT					result;	
+	HRESULT					result;
 	int 					displayModeNumber = 0;
-	
+
 	// Query the DeckLink for its configuration interface
 	result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
 	if (result != S_OK)
@@ -1585,7 +1621,7 @@ static void print_input_modes (IDeckLink* deckLink)
                 }
 		goto bail;
 	}
-	
+
 	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
 	result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
 	if (result != S_OK)
@@ -1594,13 +1630,12 @@ static void print_input_modes (IDeckLink* deckLink)
 		fprintf(stderr, "Could not obtain the video input display mode iterator: %s\n", err_msg.c_str());
 		goto bail;
 	}
-	
+
 	// List all supported output display modes
-	printf("capture modes:\n");
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
 		BMD_STR displayModeString = NULL;
-		
+
 		result = displayMode->GetName((BMD_STR *) &displayModeString);
 
 		if (result == S_OK)
@@ -1610,7 +1645,7 @@ static void print_input_modes (IDeckLink* deckLink)
                         BMDDisplayModeFlags             flags;
 			BMDTimeValue	frameRateDuration;
 			BMDTimeScale	frameRateScale;
-			
+
                         char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 			// Obtain the display mode's properties
                         flags = displayMode->GetFlags();
@@ -1618,26 +1653,44 @@ static void print_input_modes (IDeckLink* deckLink)
 			modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                         uint32_t mode = ntohl(displayMode->GetDisplayMode());
-                        printf("%2d (%.4s)) %-20s \t %d x %d \t %2.2f FPS%s\n", displayModeNumber, (char *) &mode, displayModeCString,
-                                        modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
+                        string fcc{(char *) &mode, 4};
+                        string name{displayModeCString};
+                        char buf[1024];
+                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS%s", modeWidth, modeHeight,
+                                        (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
+                        string details{buf};
+                        ret.push_back({displayModeNumber, fcc, name, details});
+
                         release_bmd_api_str(displayModeString);
 			free(displayModeCString);
 		}
-		
+
 		// Release the IDeckLinkDisplayMode object to prevent a leak
 		displayMode->Release();
 
 		displayModeNumber++;
 	}
-	
+
 bail:
 	// Ensure that the interfaces we obtained are released to prevent a memory leak
 	if (displayModeIterator != NULL)
 		displayModeIterator->Release();
-	
+
 	if (deckLinkInput != NULL)
 		deckLinkInput->Release();
+
+        return ret;
+}
+
+static void print_input_modes (IDeckLink* deckLink)
+{
+        list<tuple<int, string, string, string>> ret = get_input_modes (deckLink);
+	printf("capture modes:\n");
+        for (auto &i : ret) {
+                printf("%2d (%.4s)) %-20s \t %s\n", get<0>(i), get<1>(i).c_str(),
+                                get<2>(i).c_str(), get<3>(i).c_str());
+        }
 }
 
 static const struct video_capture_info vidcap_decklink_info = {
