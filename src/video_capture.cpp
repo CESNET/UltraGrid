@@ -117,7 +117,20 @@ void print_available_capturers()
 
                 struct vidcap_type *vt = vci->probe(true);
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("[cap] (%s:%s;%s)\n", vt->name, vt->cards[i].id, vt->cards[i].name);
+                        printf("[capability][capture][v1] {\"device\": \"%s%s%s\", \"name\": \"%s\", \"modes\": {", vt->name, strlen(vt->cards[i].id) > 0 ? ":" : "", vt->cards[i].id, vt->cards[i].name);
+                        for (unsigned int j = 0; j < sizeof vt->cards[i].modes
+                                        / sizeof vt->cards[i].modes[0]; j++) {
+                                if (vt->cards[i].modes[j].id[0] == '\0') { // last item
+                                        break;
+                                }
+                                if (j > 0) {
+                                        printf(", ");
+                                }
+                                printf("\"%s\": \"%s\"", vt->cards[i].modes[j].id,
+                                                vt->cards[i].modes[j].name);
+                        }
+
+                        printf("}}\n");
                 }
 
         }
