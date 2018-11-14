@@ -86,11 +86,6 @@
 
 using namespace std;
 
-struct audio_device_t {
-        int index;
-        void *state;
-};
-
 enum audio_transport_device {
         NET_NATIVE,
         NET_JACK,
@@ -98,12 +93,12 @@ enum audio_transport_device {
 };
 
 struct audio_network_parameters {
-        char *addr;
-        int recv_port;
-        int send_port;
-        struct pdb *participants;
-        int force_ip_version;
-        char *mcast_if;
+        char *addr = nullptr;
+        int recv_port = 0;
+        int send_port = 0;
+        struct pdb *participants = 0;
+        int force_ip_version = 0;
+        char *mcast_if = nullptr;
 };
 
 struct state_audio {
@@ -140,7 +135,7 @@ struct state_audio {
 
         struct audio_codec_state *audio_coder = nullptr;
         
-        struct audio_network_parameters audio_network_parameters;
+        struct audio_network_parameters audio_network_parameters{};
         struct rtp *audio_network_device = nullptr;
         struct pdb *audio_participants = nullptr;
         std::string proto_cfg; // audio network protocol options
