@@ -479,24 +479,54 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "avfoundation";
-                vt->description = "AV Foundation capture device";
+        if (vt == nullptr) {
+                return nullptr;
+        }
+        vt->name = "avfoundation";
+        vt->description = "AV Foundation capture device";
 
-                if (verbose) {
-                        int i = 0;
-                        NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-                        for (AVCaptureDevice *device in devices) {
-                                vt->card_count += 1;
-                                vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                                "device=%d", i);
-                                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
-                                                "AV Foundation %s", [[device localizedName] UTF8String]);
-                                i++;
+        if (!verbose) {
+                return vt;
+        }
+
+        int i = 0;
+        NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+        for (AVCaptureDevice *device in devices) {
+                vt->card_count += 1;
+                vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                "device=%d", i);
+                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                "AV Foundation %s", [[device localizedName] UTF8String]);
+
+                int j = 0;
+                for ( AVCaptureDeviceFormat *format in [device formats] ) {
+                        if (j >= (int) (sizeof vt->cards[vt->card_count - 1].modes /
+                                                sizeof vt->cards[vt->card_count - 1].modes[0])) { // no space
+                                break;
                         }
+
+                        CMVideoFormatDescriptionRef formatDesc = [format formatDescription];
+                        FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
+                        CMVideoDimensions dim = CMVideoFormatDescriptionGetDimensions(formatDesc);
+                        FourCharCode fcc_host = CFSwapInt32BigToHost(fcc);
+                        int maxrate = 0;
+                        for ( AVFrameRateRange *range in format.videoSupportedFrameRateRanges ) {
+                                maxrate = range.maxFrameRate;
+                                break;
+                        }
+
+                        snprintf(vt->cards[vt->card_count - 1].modes[j].id,
+                                        sizeof vt->cards[vt->card_count - 1].modes[j].id,
+                                        "mode=%d:fps=%d", j, maxrate);
+                        snprintf(vt->cards[vt->card_count - 1].modes[j].name,
+                                        sizeof vt->cards[vt->card_count - 1].modes[j].name,
+                                        "%.4s %dx%d (%d FPS)", (const char *) &fcc_host, dim.width, dim.height, maxrate);
+                        j++;
                 }
+
+                i++;
         }
 
         return vt;
