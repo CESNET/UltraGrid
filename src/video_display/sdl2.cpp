@@ -538,7 +538,7 @@ static const struct video_display_info display_sdl2_info = {
         [](struct device_info **available_cards, int *count) {
                 *count = 1;
                 *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].id, "SDL2");
+                strcpy((*available_cards)[0].id, "sdl");
                 strcpy((*available_cards)[0].name, "SDL2 SW display");
                 (*available_cards)[0].repeatable = true;
         },
