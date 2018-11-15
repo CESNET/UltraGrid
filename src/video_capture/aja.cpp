@@ -887,7 +887,7 @@ LINK_SPEC struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool)
+LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose)
 {
         struct vidcap_type *vt;
 
@@ -896,6 +896,23 @@ LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool)
                 vt->name = "aja";
                 vt->description = "AJA capture card";
         }
+        if (!verbose) {
+                return vt;
+        }
+
+        CNTV2DeviceScanner      deviceScanner;
+        for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
+                NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
+                vt->card_count += 1;
+                vt->cards = (struct device_info *)
+                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                "device=%d", i);
+                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                "AJA %s", info.deviceIdentifier.c_str());
+        }
+
         return vt;
 }
 
