@@ -764,6 +764,7 @@ static void * audio_play_alsa_init(const char *cfg)
                                     snd_strerror(rc));
                     goto error;
         }
+        print_alsa_device_info(s->handle, MOD_NAME);
 
         if (s->new_api) {
 #ifdef USE_SPEEX_JITTER_BUFFER

@@ -43,6 +43,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "debug.h"
+
 static inline void audio_alsa_help(void)
 {
         void **hints;
@@ -152,6 +154,15 @@ static int get_rate_near(snd_pcm_t *handle, snd_pcm_hw_params_t *params, unsigne
                 }
         }
         return ret;
+}
+
+static void print_alsa_device_info(snd_pcm_t *handle, const char *module_name) {
+        snd_pcm_info_t *info;
+        snd_pcm_info_alloca(&info);
+        if (snd_pcm_info(handle, info) == 0) {
+                log_msg(LOG_LEVEL_NOTICE, "%sUsing device: %s\n",
+                                module_name, snd_pcm_info_get_name(info));
+        }
 }
 
 #endif // defined ALSA_COMMON_H

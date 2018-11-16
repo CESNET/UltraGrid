@@ -176,6 +176,7 @@ static void * audio_cap_alsa_init(const char *cfg)
                         snd_strerror(rc));
                 goto error;
         }
+        print_alsa_device_info(s->handle, MOD_NAME);
 
         /* Allocate a hardware parameters object. */
         snd_pcm_hw_params_alloca(&params);
