@@ -538,7 +538,7 @@ int main(int argc, char *argv[])
         const char *requested_encryption = NULL;
         struct exporter *exporter = NULL;
 
-        long long int bitrate = RATE_AUTO;
+        long long int bitrate = RATE_DEFAULT;
 
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
 
@@ -1017,13 +1017,16 @@ int main(int argc, char *argv[])
                 }
         }
 
-        if (requested_mtu == 0) {
-                if (is_host_loopback(requested_receiver) && video_rx_port == video_tx_port &&
-                                audio_rx_port == audio_tx_port) {
-                        requested_mtu = min(RTP_MAX_MTU, 65536);
-                } else {
-                        requested_mtu = 1500;
-                }
+        // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
+        // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
+        // to a reflector, thats why we require equal ports (we are a receiver as well).
+        if (is_host_loopback(requested_receiver) && video_rx_port == video_tx_port &&
+                        audio_rx_port == audio_tx_port) {
+                requested_mtu = requested_mtu == 0 ? requested_mtu = min(RTP_MAX_MTU, 65535) : requested_mtu;
+                bitrate = bitrate == RATE_DEFAULT ? RATE_UNLIMITED : bitrate;
+        } else {
+                requested_mtu = requested_mtu == 0 ? 1500 : requested_mtu;
+                bitrate = bitrate == RATE_DEFAULT ? RATE_AUTO : bitrate;
         }
 
         if((strcmp("none", audio_send) != 0 || strcmp("none", audio_recv) != 0) && strcmp(video_protocol, "rtsp") == 0){

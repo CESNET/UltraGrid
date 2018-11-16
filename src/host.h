@@ -121,6 +121,7 @@ void set_audio_delay(int val);
 
 #define RATE_UNLIMITED 0
 #define RATE_AUTO -1
+#define RATE_DEFAULT -2
 
 bool common_preinit(int argc, char *argv[]);
 
