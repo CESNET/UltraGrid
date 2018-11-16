@@ -48,6 +48,7 @@
 #import <AVFoundation/AVFoundation.h>
 #include <AppKit/NSApplication.h>
 #include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <mutex>
 #include <queue>
@@ -89,12 +90,14 @@ constexpr int MAX_CAPTURE_QUEUE_SIZE = 2;
 
 using namespace std;
 using namespace vidcap_avfoundation;
+using std::chrono::milliseconds;
 
 @interface vidcap_avfoundation_state : NSObject
 {
         AVCaptureDevice *m_device;
         AVCaptureSession *m_session;
         mutex m_lock;
+        condition_variable m_frame_ready;
         queue<struct video_frame *> m_queue;
 	chrono::steady_clock::time_point m_t0;
 	int m_frames;
@@ -356,11 +359,13 @@ fromConnection:(AVCaptureConnection *)connection
 {
 #pragma unused (captureOutput)
 #pragma unused (connection)
-        lock_guard<mutex> lock(m_lock);
+        unique_lock<mutex> lock(m_lock);
         struct video_frame *frame = [self imageFromSampleBuffer: sampleBuffer];
         if (frame) {
                 if (m_queue.size() < MAX_CAPTURE_QUEUE_SIZE) {
                         m_queue.push(frame);
+                        lock.unlock();
+                        m_frame_ready.notify_one();
                 } else {
                         NSLog(@"Frame dropped!");
                         VIDEO_FRAME_DISPOSE(frame);
@@ -444,7 +449,8 @@ fromConnection:(AVCaptureConnection *)connection
 
 - (struct video_frame *) grab
 {
-        lock_guard<mutex> lock(m_lock);
+        unique_lock<mutex> lock(m_lock);
+        m_frame_ready.wait_for(lock, milliseconds(100), [&]{return m_queue.size() != 0;});
         if (m_queue.size() == 0) {
                 return NULL;
         } else {
