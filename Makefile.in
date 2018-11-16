@@ -411,7 +411,7 @@ ifeq ($(SYSTEM),Windows)
 	MAKE_GUI_TARGET=release
 endif
 
-gui/QT/uv-qt:
+gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	cd gui/QT && $(QMAKE) && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
