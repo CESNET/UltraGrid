@@ -77,20 +77,31 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         if (m_sdp == nullptr) {
                 throw string("[SDP] SDP creation failed\n");
         }
-        sdp_add_video(m_sdp, params.at("tx_port").i, H264);
         /// @todo this should be done in audio module
         if (params.at("a_tx_port").i != 0) {
-                sdp_add_audio(m_sdp, params.at("a_tx_port").i, params.at("audio_sample_rate").i, params.at("audio_channels").i, static_cast<audio_codec_t>(params.at("audio_codec").l));
+                if (!sdp_add_audio(m_sdp, params.at("a_tx_port").i, params.at("audio_sample_rate").i, params.at("audio_channels").i, static_cast<audio_codec_t>(params.at("audio_codec").l))) {
+                        throw string("[SDP] Cannot add audio\n");
+                }
         }
+        m_saved_tx_port = params.at("tx_port").i;
+        if (strstr(opts, "port=") == opts) {
+                m_requested_http_port = atoi(strchr(opts, '=') + 1);
+        }
+}
+
+void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
+{
+        if (codec != H264) {
+                LOG(LOG_LEVEL_ERROR) << "[SDP] Currently only supported video codec is H.264!\n";
+                exit_uv(1);
+                return;
+        }
+        ::sdp_add_video(m_sdp, m_saved_tx_port, codec);
         if (!gen_sdp(m_sdp)){
                 throw string("[SDP] File creation failed\n");
         }
 #ifdef SDP_HTTP
-        int port = DEFAULT_SDP_HTTP_PORT;
-        if (strstr(opts, "port=") == opts) {
-                port = atoi(strchr(opts, '=') + 1);
-        }
-        if (!sdp_run_http_server(m_sdp, port)){
+        if (!sdp_run_http_server(m_sdp, m_requested_http_port)){
                 throw string("[SDP] Server run failed!\n");
         }
 #endif
@@ -98,6 +109,15 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
 
 void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
+        if (m_sdp_configured_codec == VIDEO_CODEC_NONE) {
+                sdp_add_video(tx_frame->color_spec);
+                m_sdp_configured_codec = tx_frame->color_spec;
+        }
+
+        if (m_sdp_configured_codec != tx_frame->color_spec) {
+                LOG(LOG_LEVEL_ERROR) << "[SDP] Video codec reconfiguration is not supported!\n";
+        }
+
         if (m_connections_count == 1) { /* normal/default case - only one connection */
             tx_send_h264(m_tx, tx_frame.get(), m_network_devices[0]);
         } else {

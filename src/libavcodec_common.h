@@ -109,6 +109,7 @@ static bool is422_8(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static bool is420_8(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static void print_decoder_error(const char *mod_name, int rc) __attribute__((unused));
 static void print_libav_error(int verbosity, const char *msg, int rc)  __attribute__((unused));
+static bool libav_codec_has_extradata(codec_t codec) __attribute__((unused));
 
 static bool is444_8(enum AVPixelFormat pix_fmt) {
         for(unsigned int i = 0; i < sizeof(fmts444_8) / sizeof(enum AVPixelFormat); ++i) {

@@ -148,7 +148,7 @@ static int new_stream(struct sdp *sdp){
     return -1;
 }
 
-void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
+bool sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
 {
     int index = new_stream(sdp);
     assert(index >= 0);
@@ -173,11 +173,14 @@ void sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, aud
                 ts_rate = 48000; // RFC 7587 specifies always 48 kHz for OPUS
 		break;
             default:
-                abort();
+                log_msg(LOG_LEVEL_ERROR, "[SDP] Currently only PCMA, PCMU and OPUS audio codecs are supported!\n");
+                return false;
 	}
 
 	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
     }
+
+    return true;
 }
 
 void sdp_add_video(struct sdp *sdp, int port, codec_t codec)

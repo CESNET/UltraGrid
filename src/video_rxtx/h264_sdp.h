@@ -42,6 +42,7 @@
 #ifndef VIDEO_RXTX_H264_SDP_H_
 #define VIDEO_RXTX_H264_SDP_H_
 
+#include "utils/sdp.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
 
@@ -54,7 +55,11 @@ private:
         virtual void *(*get_receiver_thread())(void *arg) {
                 return NULL;
         }
+        void sdp_add_video(codec_t codec);
         struct sdp *m_sdp;
+        codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
+        int m_saved_tx_port;
+        int m_requested_http_port = DEFAULT_SDP_HTTP_PORT;
 };
 
 #endif // VIDEO_RXTX_H264_SDP_H_
