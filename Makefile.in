@@ -161,6 +161,7 @@ OBJS	      = @OBJS@ \
 		src/video_rxtx.o \
 		src/video_rxtx/h264_sdp.o \
 		src/video_rxtx/ihdtv.o \
+		src/video_rxtx/loopback.o \
 		src/video_rxtx/rtp.o \
 		src/video_rxtx/sage.o \
 		src/video_rxtx/ultragrid_rtp.o \
