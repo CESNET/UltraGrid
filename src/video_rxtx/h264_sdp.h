@@ -60,6 +60,7 @@ private:
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;
         int m_requested_http_port = DEFAULT_SDP_HTTP_PORT;
+        bool m_sent_compress_change = false;
 };
 
 #endif // VIDEO_RXTX_H264_SDP_H_

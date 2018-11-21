@@ -45,6 +45,10 @@
 /** @page av_pkt_description UltraGrid packet format
  * Packet formats are described in papers referenced here:<br/>
  * https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation#packet-formats
+ * @todo
+ * Custom PT allocation seems to be wrong - 20-23, although unassigned, should be
+ * used for audio, 24+ for video but 25, 26 and 28 are registered (26 for JPEG).
+ * PT_ENCRYPT_VIDEO_LDGM was moved from 26 to 29.
  */
 #define PT_ITU_T_G711_PCMU  0 /* mU-law std */
 #define PT_ITU_T_G711_PCMA  8 /* A-law std */
@@ -53,8 +57,9 @@
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
-#define PT_ENCRYPT_VIDEO_LDGM 26
+#define PT_JPEG          26
 #define PT_VIDEO_RS     27
+#define PT_ENCRYPT_VIDEO_LDGM 29
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*

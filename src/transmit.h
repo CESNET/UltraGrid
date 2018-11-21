@@ -80,6 +80,7 @@ void             format_video_header(struct video_frame *frame, int tile_idx, in
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long bitrate);
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
+void tx_send_jpeg(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 
 /**
  * Returns buffer ID to be sent with next tx_send() call

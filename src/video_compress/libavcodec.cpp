@@ -114,6 +114,7 @@ typedef struct {
 } codec_params_t;
 
 static void setparam_default(AVCodecContext *, struct setparam_param *);
+static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
@@ -142,7 +143,7 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 nullptr,
                 1.2,
                 nullptr,
-                setparam_default
+                setparam_jpeg
         }},
         { J2K, codec_params_t{
                 AV_CODEC_ID_JPEG2000,
@@ -1578,6 +1579,19 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->thread_mode.c_str());
                 }
+        }
+}
+
+static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        if (param->thread_mode == "slice") {
+                // zero should mean count equal to the number of virtual cores
+                codec_ctx->thread_count = 0;
+                codec_ctx->thread_type = FF_THREAD_SLICE;
+        }
+
+        if (av_opt_set(codec_ctx->priv_data, "huffman", "default", 0) != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Cannot set default Huffman tables.\n");
         }
 }
 

@@ -72,12 +72,14 @@
 #include "perf.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
+#include "rang.hpp"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "transmit.h"
+#include "utils/jpeg_reader.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -1076,6 +1078,78 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	tx_send_base_h264(tx, frame, rtp_session, ts, 0,
 			frame->color_spec, frame->fps, frame->interlacing, 0,
 			0);
+}
+
+void tx_send_jpeg(struct tx *tx, struct video_frame *frame,
+               struct rtp *rtp_session) {
+        uint32_t ts = 0;
+
+        assert(frame->tile_count == 1); // std transmit doesn't handle more than one tile
+        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
+        assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
+
+        ts = get_std_video_local_mediatime();
+
+        struct tile *tile = &frame->tiles[0];
+        char pt = PT_JPEG;
+        struct jpeg_rtp_data d;
+
+        if (!jpeg_get_rtp_hdr_data((uint8_t *) frame->tiles[0].data, frame->tiles[0].data_len, &d)) {
+                exit_uv(1);
+                return;
+        }
+
+        uint32_t jpeg_hdr[2 /* JPEG hdr */ + 1 /* RM hdr */ + 129 /* QT hdr */];
+        int hdr_off = 0;
+        unsigned int type_spec = 0u;
+        jpeg_hdr[hdr_off++] = htonl(type_spec << 24u);
+        jpeg_hdr[hdr_off++] = htonl(d.type << 24u | d.q << 16u | d.width / 8u << 8u | d.height / 8u);
+        if (d.restart_interval != 0) {
+                // we do not align restart interval on packet boundaries yet
+                jpeg_hdr[hdr_off++] = htonl(d.restart_interval << 16u | 1u << 15u | 1u << 14u | 0x3fffu);
+        }
+        // quantization headers
+        if (d.q == 255u) { // we must include the tables
+                unsigned int mbz = 0u; // must be zero
+                unsigned int precision = 0u;
+                unsigned int qt_len = 2 * 64u;
+                jpeg_hdr[hdr_off++] = htonl(mbz << 24u | precision << 16u | qt_len);
+                memcpy(&jpeg_hdr[hdr_off], d.quantization_tables[0], 64);
+                hdr_off += 64 / sizeof(uint32_t);
+                memcpy(&jpeg_hdr[hdr_off], d.quantization_tables[1], 64);
+                hdr_off += 64 / sizeof(uint32_t);
+        }
+
+        char *data = (char *) d.data;
+        int bytes_left = tile->data_len - ((char *) d.data - tile->data);
+        int max_mtu = tx->mtu - ((rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12); // IP hdr size + UDP hdr size + RTP hdr size
+
+        int fragment_offset = 0;
+        do {
+                int hdr_len;
+                if (fragment_offset == 0) { // include quantization header only in 1st pkt
+                        hdr_len = hdr_off * sizeof(uint32_t);
+                } else {
+                        hdr_len = 8 + (d.restart_interval > 0 ? 4 : 0);
+                }
+                int data_len = max_mtu - hdr_len;
+                int m = 0;
+                if (bytes_left <= data_len) {
+                        data_len = bytes_left;
+                        m = 1;
+                }
+                jpeg_hdr[0] = htonl(type_spec << 24u | fragment_offset);
+
+                int ret = rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
+                                (char *) &jpeg_hdr, hdr_len,
+                                data, data_len, 0, 0, 0);
+                if (ret < 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Error sending RTP/JPEG packet!\n");
+                }
+                data += data_len;
+                bytes_left -= data_len;
+                fragment_offset += data_len;
+        } while (bytes_left > 0);
 }
 
 int tx_get_buffer_id(struct tx *tx)

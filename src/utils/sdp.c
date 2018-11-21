@@ -148,10 +148,17 @@ static int new_stream(struct sdp *sdp){
     return -1;
 }
 
-bool sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
+/**
+ * @retval  0 ok
+ * @retval -1 too much streams
+ * @retval -2 unsupported codec
+ */
+int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
 {
     int index = new_stream(sdp);
-    assert(index >= 0);
+    if (index < 0) {
+        return -1;
+    }
     int pt = PT_DynRTP_Type97; // default
 
     if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
@@ -174,22 +181,35 @@ bool sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, aud
 		break;
             default:
                 log_msg(LOG_LEVEL_ERROR, "[SDP] Currently only PCMA, PCMU and OPUS audio codecs are supported!\n");
-                return false;
+                return -2;
 	}
 
 	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
     }
 
-    return true;
+    return 0;
 }
 
-void sdp_add_video(struct sdp *sdp, int port, codec_t codec)
+/**
+ * @retval  0 ok
+ * @retval -1 too much streams
+ * @retval -2 unsupported codec
+ */
+int sdp_add_video(struct sdp *sdp, int port, codec_t codec)
 {
-    assert(codec == H264);
+    if (codec != H264 && codec != JPEG && codec != MJPG) {
+        return -2;
+    }
+
     int index = new_stream(sdp);
-    assert(index >= 0);
-    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, PT_H264);
-    snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_H264);
+    if (index < 0) {
+        return -1;
+    }
+    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_H264 : PT_JPEG);
+    if (codec == H264) {
+        snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_H264);
+    }
+    return 0;
 }
 
 static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
@@ -213,7 +233,7 @@ bool gen_sdp(struct sdp *sdp){
         strappend(&buf, &len, sdp->stream[i].media_info);
         strappend(&buf, &len, sdp->stream[i].rtpmap);
     }
-    strappend(&buf, &len, "\n\n");
+    strappend(&buf, &len, "\n");
     sdp->sdp_dump = buf;
 
     char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
@@ -283,8 +303,14 @@ static void print_http_path() {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
     if (get_local_addresses(addrs, &len, sdp_global->ip_version)) {
+        bool found_public_ip = false;
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
             if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
+                found_public_ip = true;
+            }
+        }
+        for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
+            if (!found_public_ip || (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i]))) {
                 char hostname[256];
                 bool ipv6 = addrs[i].ss_family == AF_INET6;
                 size_t sa_len = ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);

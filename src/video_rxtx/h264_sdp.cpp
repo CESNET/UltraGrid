@@ -79,7 +79,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         }
         /// @todo this should be done in audio module
         if (params.at("a_tx_port").i != 0) {
-                if (!sdp_add_audio(m_sdp, params.at("a_tx_port").i, params.at("audio_sample_rate").i, params.at("audio_channels").i, static_cast<audio_codec_t>(params.at("audio_codec").l))) {
+                if (sdp_add_audio(m_sdp, params.at("a_tx_port").i, params.at("audio_sample_rate").i, params.at("audio_channels").i, static_cast<audio_codec_t>(params.at("audio_codec").l)) != 0) {
                         throw string("[SDP] Cannot add audio\n");
                 }
         }
@@ -91,12 +91,15 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 {
-        if (codec != H264) {
-                LOG(LOG_LEVEL_ERROR) << "[SDP] Currently only supported video codec is H.264!\n";
+        int rc = ::sdp_add_video(m_sdp, m_saved_tx_port, codec);
+        if (rc == -1) {
+                LOG(LOG_LEVEL_ERROR) << "[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n";
                 exit_uv(1);
                 return;
         }
-        ::sdp_add_video(m_sdp, m_saved_tx_port, codec);
+	if (rc != 0) {
+		abort();
+	}
         if (!gen_sdp(m_sdp)){
                 throw string("[SDP] File creation failed\n");
         }
@@ -109,6 +112,21 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 
 void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
+        if (!is_codec_opaque(tx_frame->color_spec)) {
+		if (m_sent_compress_change) {
+			return;
+		}
+		auto msg = (struct msg_change_compress_data *)
+			new_message(sizeof(struct msg_change_compress_data));
+		msg->what = CHANGE_COMPRESS;
+		strncpy(msg->config_string, "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh", sizeof(msg->config_string) - 1);
+
+		const char *path = "sender.compress";
+		auto resp = send_message(get_root_module(m_parent), path, (struct message *) msg);
+		free_response(resp);
+		m_sent_compress_change = true;
+		return;
+        }
         if (m_sdp_configured_codec == VIDEO_CODEC_NONE) {
                 sdp_add_video(tx_frame->color_spec);
                 m_sdp_configured_codec = tx_frame->color_spec;
@@ -119,7 +137,11 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
         }
 
         if (m_connections_count == 1) { /* normal/default case - only one connection */
-            tx_send_h264(m_tx, tx_frame.get(), m_network_devices[0]);
+            if (m_sdp_configured_codec == H264) {
+                tx_send_h264(m_tx, tx_frame.get(), m_network_devices[0]);
+            } else {
+                tx_send_jpeg(m_tx, tx_frame.get(), m_network_devices[0]);
+            }
         } else {
             //TODO to be tested, the idea is to reply per destiny
                 for (int i = 0; i < m_connections_count; ++i) {

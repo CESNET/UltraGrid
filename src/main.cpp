@@ -955,7 +955,7 @@ int main(int argc, char *argv[])
                         audio_codec = "OPUS:sample_rate=48000";
                 }
                 if (requested_compression == nullptr) {
-                        requested_compression = "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh";
+                        requested_compression = "none"; // will be set later
                 }
                 if (force_ip_version == 0 && strcmp(video_protocol, "rtsp") == 0) {
                         force_ip_version = 4;
