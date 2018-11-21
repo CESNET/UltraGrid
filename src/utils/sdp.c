@@ -177,7 +177,7 @@ bool sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, aud
                 return false;
 	}
 
-	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
+	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
     }
 
     return true;
