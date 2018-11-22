@@ -83,6 +83,7 @@
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture/import.h"
 #include "video_display.h"
 #include "video_compress.h"
 #include "export.h"
@@ -849,7 +850,9 @@ int main(int argc, char *argv[])
                         export_opts = optarg;
                         break;
                 case OPT_IMPORT:
-                        audio_send = "embedded";
+                        if (import_has_audio(optarg)) {
+                                audio_send = "embedded";
+                        }
                         {
                                 char dev_string[1024];
                                 snprintf(dev_string, sizeof(dev_string), "import:%s", optarg);

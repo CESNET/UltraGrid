@@ -54,6 +54,7 @@
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
+#include "video_capture/import.h"
 //#include "audio/audio.h"
 
 #include <stdio.h>
@@ -1276,4 +1277,21 @@ static const struct video_capture_info vidcap_import_info = {
 };
 
 REGISTER_MODULE(import, &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+
+// EXTERNAL API
+bool import_has_audio(const char *dir) {
+        const char *suffix = "/sound.wav";
+        char *audio_filename = (char *) malloc(strlen(dir) + strlen(suffix) + 1);
+        assert(audio_filename != NULL);
+        strcpy(audio_filename, dir);
+        strcat(audio_filename, suffix);
+
+        FILE *audio_file = fopen(audio_filename, "rb");
+        free(audio_filename);
+        if (!audio_file) {
+                return false;
+        }
+        fclose(audio_file);
+        return true;
+}
 
