@@ -49,6 +49,7 @@
 #include "lib_common.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_version.h"
+#include "rang.hpp"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
@@ -84,7 +85,7 @@ private:
         struct video_desc                        m_saved_desc;
         video_frame_pool<default_data_allocator> m_pool;
         decoder_t                                m_decoder;
-        bool                                     m_rgb;
+        bool                                     m_rgb; // input is in RGB
         int                                      m_encoder_input_linesize;
         unique_ptr<char []>                      m_decoded;
 
@@ -120,6 +121,7 @@ private:
         uint32_t m_out_seq; ///< seq of next frame to be decoded
 
         size_t m_ended_count; ///< number of workers ended
+
 public:
         ~state_video_compress_jpeg() {
                 if (m_uses_worker_threads) {
@@ -140,6 +142,8 @@ public:
         struct module           m_module_data;
         int                     m_restart_interval;
         int                     m_quality;
+        bool                    m_force_interleaved = false;
+        bool                    m_jpeg_rgb = false; // use RGB as JPEG colorspace
 
         synchronized_queue<shared_ptr<struct video_frame>, 1> m_out_queue; ///< queue for compressed frames
         mutex                                                 m_occupancy_lock;
@@ -251,7 +255,11 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_encoder_param.sampling_factor[2].horizontal = 1;
         m_encoder_param.sampling_factor[2].vertical = 1;
 
-        m_encoder_param.interleaved = m_rgb ? 0 : 1;
+        m_encoder_param.interleaved = (m_rgb && !m_parent_state->m_force_interleaved) ? 0 : 1;
+
+        if (m_parent_state->m_jpeg_rgb) {
+                m_encoder_param.color_space_internal = GPUJPEG_RGB;
+        }
 
         gpujpeg_image_set_default_parameters(&m_param_image);
 
@@ -292,24 +300,35 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
 {
         if(fmt && fmt[0] != '\0') {
                 char *tok, *save_ptr = NULL;
-                tok = strtok_r(fmt, ":", &save_ptr);
-                m_quality = atoi(tok);
-                if (m_quality <= 0 || m_quality > 100) {
-                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Quality should be in interval [1-100]!\n");
-                        return false;
-                }
-
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        m_restart_interval = atoi(tok);
-                        if (m_restart_interval < 0) {
-                                log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Restart interval should be non-negative!\n");
-                                return false;
+                int pos = 0;
+                while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
+                        if (isdigit(tok[0]) && pos == 0) {
+                                m_quality = atoi(tok);
+                                if (m_quality <= 0 || m_quality > 100) {
+                                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Quality should be in interval [1-100]!\n");
+                                        return false;
+                                }
+                        } else if (isdigit(tok[0]) && pos == 1) {
+                                m_restart_interval = atoi(tok);
+                                if (m_restart_interval < 0) {
+                                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Restart interval should be non-negative!\n");
+                                        return false;
+                                }
+                        } else {
+                                if (strcasecmp(tok, "interleaved") == 0) {
+                                        m_force_interleaved = true;
+                                } else if (strcasecmp(tok, "RGB") == 0) {
+#if LIBGPUJPEG_API_VERSION >= 4
+                                        m_jpeg_rgb = true;
+#else
+                                        log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
+                                        return false;
+#endif
+                                }
+                                log_msg(LOG_LEVEL_WARNING, "[JPEG] WARNING: Trailing configuration parameters.\n");
                         }
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        log_msg(LOG_LEVEL_WARNING, "[JPEG] WARNING: Trailing configuration parameters.\n");
+                        fmt = nullptr;
+                        pos += 1;
                 }
         }
 
@@ -372,8 +391,13 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
         struct state_video_compress_jpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
-                printf("JPEG comperssion usage:\n");
-                printf("\t-c JPEG[:<quality>[:<restart_interval>]]\n");
+                cout << "JPEG comperssion usage:\n";
+                cout << "\t" << rang::fg::red << rang::style::bold << "-c JPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB]\n" << rang::style::reset;
+                cout << "where\n";
+                cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset
+                        << "\t\tforce interleaved encoding (default for YCbCr input formats)\n";
+                cout << rang::style::bold << "\tRGB\n" << rang::style::reset
+                        << "\t\tuse RGB as an internal JPEG color space\n";
                 return &compress_init_noerr;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
