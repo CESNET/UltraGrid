@@ -157,3 +157,78 @@ void x11_unlock(void)
         pthread_mutex_unlock(&s->lock);
 }
 
+/*
+ * Copyright (C) 2017 Alberts Muktupāvels
+ * Code to disable window decorations taken from:
+ * https://gist.github.com/muktupavels/d03bb14ea6042b779df89b4c87df975d
+ */
+typedef struct
+{
+	unsigned long flags;
+	unsigned long functions;
+	unsigned long decorations;
+	long input_mode;
+	unsigned long status;
+} MotifWmHints;
+
+static MotifWmHints * get_motif_wm_hints (Display *display, Window window)
+{
+	Atom property;
+	int result;
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems;
+	unsigned long bytes_after;
+	unsigned char *data;
+
+	property = XInternAtom (display, "_MOTIF_WM_HINTS", False);
+	result = XGetWindowProperty (display, window, property,
+			0, LONG_MAX, False, AnyPropertyType,
+			&actual_type, &actual_format,
+			&nitems, &bytes_after, &data);
+
+	if (result == Success && data != NULL)
+	{
+		size_t data_size;
+		size_t max_size;
+		MotifWmHints *hints;
+
+		data_size = nitems * sizeof (long);
+		max_size = sizeof (*hints);
+
+		hints = calloc (1, max_size);
+
+		memcpy (hints, data, data_size > max_size ? max_size : data_size);
+		XFree (data);
+
+		return hints;
+	}
+
+	return NULL;
+}
+
+void x11_unset_window_decorations (Display *display, Window window)
+{
+	MotifWmHints *hints;
+	Atom property;
+	int nelements;
+
+	hints = get_motif_wm_hints (display, window);
+	if (hints == NULL)
+	{
+		hints = calloc (1, sizeof (*hints));
+		hints->decorations = (1L << 0);
+	}
+
+	hints->flags |= (1L << 1);
+	hints->decorations = 0;
+
+	property = XInternAtom (display, "_MOTIF_WM_HINTS", False);
+	nelements = sizeof (*hints) / sizeof (long);
+
+	XChangeProperty (display, window, property, property, 32, PropModeReplace,
+			(unsigned char *) hints, nelements);
+
+	free (hints);
+}
+

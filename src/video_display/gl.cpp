@@ -69,6 +69,7 @@
 
 #include <algorithm>
 #include <condition_variable>
+#include <iostream>
 #include <mutex>
 #include <queue>
 
@@ -78,6 +79,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "rang.hpp"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -286,6 +288,8 @@ struct state_gl {
         bool fixed_size, first_run;
         int fixed_w, fixed_h;
 
+        bool nodecorate = false;
+
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
@@ -345,10 +349,11 @@ extern "C" void NSApplicationLoad(void);
  * Show help
  */
 static void gl_show_help(void) {
-        printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>|:spout=<name>]|:fixed_size[=WxH]|:[vsync=<x>|single]]* | help\n\n");
+        cout << "GL options:\n";
+        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:nodecorate|:fixed_size[=WxH]|:vsync[<x>|single]]* | help\n\n" << rang::style::reset;
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
+        printf("\t\tnodecorate\tdisable window decorations (works with X11 only)\n");
         printf("\t\tnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\tvsync=<x>\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
         printf("\t\tsingle\t\tuse single buffer (instead of double-buffering\n");
@@ -433,6 +438,12 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 s->video_aspect = atof(tok + strlen("aspect="));
                                 char *pos = strchr(tok,'/');
                                 if(pos) s->video_aspect /= atof(pos + 1);
+                        } else if(!strcasecmp(tok, "nodecorate")) {
+#ifdef HAVE_LINUX
+                                s->nodecorate = true;
+#else
+				log_msg(LOG_LEVEL_WARNING, "[GL] Nodecorate not supported for current platform!\n");
+#endif
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->vsync = 0;
                         } else if(!strcasecmp(tok, "single")) {
@@ -761,7 +772,16 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 	}
 #endif
 
+	if (s->nodecorate) {
+#ifdef HAVE_LINUX
+                // https://stackoverflow.com/questions/12343390/how-to-get-x-window-id-of-a-window-created-by-glut
+		GLXDrawable d = glXGetCurrentDrawable();
+		x11_unset_window_decorations(glXGetCurrentDisplay(), d);
+#endif
+	}
+
         s->current_display_desc = desc;
+
 }
 
 static void gl_render(struct state_gl *s, char *data)

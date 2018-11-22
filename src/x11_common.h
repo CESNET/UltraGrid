@@ -45,6 +45,8 @@
  *
  */
 
+#include <X11/Xlib.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,6 +68,8 @@ void * x11_acquire_display(void);
  */
 void * x11_get_display(void);
 void x11_release_display(void);
+
+void x11_unset_window_decorations (Display *display, Window window);
 
 #ifdef __cplusplus
 }
