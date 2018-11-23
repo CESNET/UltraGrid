@@ -281,7 +281,7 @@ static void * audio_cap_portaudio_init(const char *cfg)
         if((int) audio_capture_channels <= device_info->maxInputChannels) {
                 inputParameters.channelCount = audio_capture_channels;
         } else {
-                fprintf(stderr, MODULE_NAME "Requested %d input channels, devide offers only %d.\n",
+                fprintf(stderr, MODULE_NAME "Requested %d input channels, device offers only %d.\n",
                                 audio_capture_channels,
                                 device_info->maxInputChannels);
                 free(s);
