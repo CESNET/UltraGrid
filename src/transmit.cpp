@@ -948,11 +948,13 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 /**
  *  H.264 standard transmission
  */
-static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
-		struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec,
-		double input_fps, enum interlacing_t interlacing,
-		unsigned int substream, int fragment_offset) {
-	struct tile *tile = &frame->tiles[substream];
+void tx_send_h264(struct tx *tx, struct video_frame *frame,
+		struct rtp *rtp_session) {
+        assert(frame->tile_count == 1); // std transmit doesn't handle more than one tile
+        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
+        assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
+        uint32_t ts = get_std_video_local_mediatime();
+        struct tile *tile = &frame->tiles[0];
 
 	char pt = RTPENC_H264_PT;
 	unsigned char hdr[2];
@@ -1054,30 +1056,6 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 			return;
 		}
 	}
-}
-
-/*
- * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
- */
-void tx_send_h264(struct tx *tx, struct video_frame *frame,
-		struct rtp *rtp_session) {
-	struct timeval curr_time;
-	static uint32_t ts_prev = 0;
-	uint32_t ts = 0;
-
-        assert(frame->tile_count == 1); // std transmit doesn't handle more than one tile
-	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
-	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
-
-	ts = get_std_video_local_mediatime();
-
-	gettimeofday(&curr_time, NULL);
-	rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
-	ts_prev = ts;
-
-	tx_send_base_h264(tx, frame, rtp_session, ts, 0,
-			frame->color_spec, frame->fps, frame->interlacing, 0,
-			0);
 }
 
 void tx_send_jpeg(struct tx *tx, struct video_frame *frame,

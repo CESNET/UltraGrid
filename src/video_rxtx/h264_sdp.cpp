@@ -54,6 +54,7 @@
 #include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
+#include "tv.h"
 #include "utils/sdp.h"
 #include "video.h"
 #include "video_rxtx.h"
@@ -151,9 +152,7 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
         }
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
                 struct timeval curr_time;
-                uint32_t ts;
-                gettimeofday(&curr_time, NULL);
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                uint32_t ts = get_std_video_local_mediatime();
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 
