@@ -156,7 +156,7 @@ int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
                 char *tmp = alloca(len_drop);
                 ring_buffer_read(buf->ring, tmp, len_drop);
                 buf->last_overrun = 0;
-                log_msg(LOG_LEVEL_VERBOSE, "Dropped audio samples: req latency %d remaining %d dropped %d!\n", requested_latency_bytes, suggested_latency_bytes, remaining_bytes, len_drop);
+                log_msg(LOG_LEVEL_VERBOSE, "Dropped audio samples: req latency %d remaining %d dropped %d!\n", requested_latency_bytes, remaining_bytes, len_drop);
         } else {
                 buf->last_overrun += 1;
         }

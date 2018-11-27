@@ -547,7 +547,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 s->audio_buf_len_ms = get_commandline_param("low-latency-audio") ? 5 : s->sched_latency_ms * 2;
                 log_msg(LOG_LEVEL_INFO, "[ALSA play.] Setting audio buffer length: %d ms\n", s->audio_buf_len_ms);
                 if (get_commandline_param("audio-buffer-len")) {
-                        s->audio_buf_len_ms = atoi(get_commandline_param("alsa-buffer-len"));
+                        s->audio_buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
                 }
                 s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, s->audio_buf_len_ms);
 #endif
