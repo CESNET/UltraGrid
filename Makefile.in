@@ -122,6 +122,7 @@ OBJS	      = @OBJS@ \
 		src/rtsp/rtsp_utils.o \
 		src/ug_runtime_error.o \
 		src/utils/audio_buffer.o \
+		src/utils/color_out.o \
 		src/utils/config_file.o \
 		src/utils/fs.o \
 		src/utils/jpeg_reader.o \
