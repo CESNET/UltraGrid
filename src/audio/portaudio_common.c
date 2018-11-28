@@ -45,7 +45,7 @@
 
 #include "portaudio_common.h"
 
-const char *portaudio_get_api_name(PaDeviceIndex device) {
+static const char *portaudio_get_api_name(PaDeviceIndex device) {
         for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
                 const PaHostApiInfo *info = Pa_GetHostApiInfo(i);
                 for (int j = 0; j < info->deviceCount; ++j) {
@@ -56,5 +56,61 @@ const char *portaudio_get_api_name(PaDeviceIndex device) {
 
         }
         return "(unknown API)";
+}
+
+void portaudio_print_device_info(PaDeviceIndex device)
+{
+        if( (device < 0) || (device >= Pa_GetDeviceCount()) )
+        {
+                printf("Requested info on non-existing device");
+                return;
+        }
+
+        const   PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
+        printf(" %s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+}
+
+void portaudio_print_available_devices(enum portaudio_device_direction kind)
+{
+        int numDevices;
+        int i;
+
+        PaError error;
+
+        error = Pa_Initialize();
+        if(error != paNoError)
+        {
+                printf("error initializing portaudio\n");
+                printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                return;
+        }
+
+        numDevices = Pa_GetDeviceCount();
+        if( numDevices < 0)
+        {
+                printf("Error getting portaudio devices number\n");
+                goto error;
+        }
+        if( numDevices == 0)
+        {
+                printf("There are NO available audio devices!\n");
+                goto error;
+        }
+
+        printf("\tportaudio : use default Portaudio device (marked with star)\n");
+
+        for(i = 0; i < numDevices; i++)
+        {
+                if((i == Pa_GetDefaultInputDevice() && kind == PORTAUDIO_IN) ||
+                                (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
+                        printf("(*) ");
+
+                printf("\tportaudio:%d :", i);
+                portaudio_print_device_info(i);
+                printf("\n");
+        }
+
+error:
+        Pa_Terminate();
 }
 

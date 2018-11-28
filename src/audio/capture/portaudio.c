@@ -82,20 +82,12 @@ struct state_portaudio_capture {
         struct ring_buffer *buffer;
 };
 
-enum audio_device_kind {
-        AUDIO_IN,
-        AUDIO_OUT
-};
-
-
 /*
  * For Portaudio threads-related issues see
  * http://www.portaudio.com/trac/wiki/tips/Threading
  */
-static void        print_device_info(PaDeviceIndex device);
 static int         portaudio_start_stream(PaStream *stream);
 static void        portaudio_close(PaStream *stream); // closes and frees all audio resources ( according to valgrind this is not true..  )
-static void        portaudio_print_available_devices(enum audio_device_kind);
 static int         callback( const void *inputBuffer, void *outputBuffer,
                 unsigned long framesPerBuffer,
                 const PaStreamCallbackTimeInfo* timeInfo,
@@ -118,19 +110,6 @@ static int portaudio_start_stream(PaStream *stream)
 	return 0;
 }
 
-
-static void print_device_info(PaDeviceIndex device)
-{
-	if( (device < 0) || (device >= Pa_GetDeviceCount()) )
-	{
-		printf("Requested info on non-existing device");
-		return;
-	}
-	
-	const	PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-	printf(" %s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
-}
-
 static void audio_cap_portaudio_probe(struct device_info **available_devices, int *count)
 {
         *available_devices = malloc(sizeof(struct device_info));
@@ -142,50 +121,7 @@ static void audio_cap_portaudio_probe(struct device_info **available_devices, in
 static void audio_cap_portaudio_help(const char *driver_name)
 {
         UNUSED(driver_name);
-        portaudio_print_available_devices(AUDIO_IN);
-}
-
-static void portaudio_print_available_devices(enum audio_device_kind kind)
-{
-	int numDevices;
-        int i;
-
-	PaError error;
-	
-	error = Pa_Initialize();
-	if(error != paNoError)
-	{
-		printf("error initializing portaudio\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return;
-	}
-
-	numDevices = Pa_GetDeviceCount();
-	if( numDevices < 0)
-	{
-		printf("Error getting portaudio devices number\n");
-		return;
-	}
-	if( numDevices == 0)
-	{
-		printf("There are NO available audio devices!\n");
-		return;
-	}
-        
-        printf("\tportaudio : use default Portaudio device (marked with star)\n");
-        
-	for(i = 0; i < numDevices; i++)
-	{
-		if((i == Pa_GetDefaultInputDevice() && kind == AUDIO_IN) ||
-                                (i == Pa_GetDefaultOutputDevice() && kind == AUDIO_OUT))
-			printf("(*) ");
-			
-		printf("\tportaudio:%d :", i);
-		print_device_info(i);
-		printf("\n");
-	}
-
-	return;
+        portaudio_print_available_devices(PORTAUDIO_IN);
 }
 
 static void portaudio_close(PaStream * stream)	// closes and frees all audio resources
@@ -257,13 +193,13 @@ static void * audio_cap_portaudio_init(const char *cfg)
 	if(input_device == -1)
 	{
 		printf("Using default input audio device");
-		print_device_info(Pa_GetDefaultInputDevice());
+		portaudio_print_device_info(Pa_GetDefaultInputDevice());
 		printf("\n");
 		inputParameters.device = Pa_GetDefaultInputDevice();
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultInputDevice());
 	} else if(input_device >= 0) {
 		printf("Using input audio device:");
-		print_device_info(input_device);
+		portaudio_print_device_info(input_device);
 		printf("\n");
 		inputParameters.device = input_device;
                 device_info = Pa_GetDeviceInfo(input_device);

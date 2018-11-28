@@ -42,7 +42,13 @@
 extern "C" {
 #endif
 
-const char *portaudio_get_api_name(PaDeviceIndex device);
+enum portaudio_device_direction {
+        PORTAUDIO_IN,
+        PORTAUDIO_OUT
+};
+
+void portaudio_print_available_devices(enum portaudio_device_direction);
+void portaudio_print_device_info(PaDeviceIndex device);
 
 #ifdef __cplusplus
 }
