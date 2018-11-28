@@ -63,6 +63,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/portaudio_common.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
@@ -128,7 +129,6 @@ static bool portaudio_start_stream(PaStream *stream)
 	return true;
 }
 
-
 static void print_device_info(PaDeviceIndex device)
 {
 	if( (device < 0) || (device >= Pa_GetDeviceCount()) )
@@ -138,7 +138,7 @@ static void print_device_info(PaDeviceIndex device)
 	}
 	
 	const	PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
+	printf(" %s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
 }
 
 static void audio_play_portaudio_probe(struct device_info **available_devices, int *count)

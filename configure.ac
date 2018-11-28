@@ -2369,8 +2369,8 @@ fi
 
 if test $portaudio = yes
 then
-            PORTAUDIO_CAP_OBJ="src/audio/capture/portaudio.o"
-            PORTAUDIO_PLAY_OBJ="src/audio/playback/portaudio.o"
+            PORTAUDIO_CAP_OBJ="src/audio/portaudio_common.o src/audio/capture/portaudio.o"
+            PORTAUDIO_PLAY_OBJ="src/audio/portaudio_common.o src/audio/playback/portaudio.o"
             AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
             ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
             ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
