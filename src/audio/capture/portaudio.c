@@ -67,6 +67,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
+#include "utils/color_out.h"
 
 /* default variables for sender */
 #define BUF_MS 100
@@ -138,8 +139,10 @@ static void * audio_cap_portaudio_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Portaudio options:\n");
-                printf("\t-s poraudio[:<index>[:latency=<l>]]\n\n");
-                printf("<l>\tsuggested latency in sec (experimental, use in case of problems)\n");
+                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-s poraudio");
+                color_out(COLOR_OUT_BOLD, "[:<index>[:latency=<l>]]\n\n");
+                color_out(COLOR_OUT_BOLD, "\t<l>");
+                printf("\tsuggested latency in sec (experimental, use in case of problems)\n");
                 printf("\nAvailable PortAudio capture devices:\n");
 
                 audio_cap_portaudio_help(NULL);

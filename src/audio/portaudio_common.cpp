@@ -41,9 +41,14 @@
 #include "config_win32.h"
 #endif
 
+#include <iostream>
 #include <portaudio.h>
 
+#include "debug.h"
 #include "portaudio_common.h"
+#include "rang.hpp"
+
+using std::cout;
 
 static const char *portaudio_get_api_name(PaDeviceIndex device) {
         for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
@@ -67,7 +72,7 @@ void portaudio_print_device_info(PaDeviceIndex device)
         }
 
         const   PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-        printf(" %s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        printf("%s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
 }
 
 void portaudio_print_available_devices(enum portaudio_device_direction kind)
@@ -80,24 +85,24 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
         error = Pa_Initialize();
         if(error != paNoError)
         {
-                printf("error initializing portaudio\n");
-                printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                log_msg(LOG_LEVEL_ERROR, "error initializing portaudio\n");
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
                 return;
         }
 
         numDevices = Pa_GetDeviceCount();
         if( numDevices < 0)
         {
-                printf("Error getting portaudio devices number\n");
+                log_msg(LOG_LEVEL_ERROR, "Error getting portaudio devices number\n");
                 goto error;
         }
         if( numDevices == 0)
         {
-                printf("There are NO available audio devices!\n");
+                log_msg(LOG_LEVEL_ERROR, "There are NO available audio devices!\n");
                 goto error;
         }
 
-        printf("\tportaudio : use default Portaudio device (marked with star)\n");
+        cout << rang::style::bold << "\tportaudio" << rang::style::reset << " - use default Portaudio device (marked with star)\n";
 
         for(i = 0; i < numDevices; i++)
         {
@@ -105,7 +110,7 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
 
-                printf("\tportaudio:%d :", i);
+                cout << rang::style::bold << "\tportaudio:" << i << rang::style::reset << " - ";
                 portaudio_print_device_info(i);
                 printf("\n");
         }
