@@ -62,7 +62,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
-#include "portaudio.h"
+#include "audio/portaudio_common.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -128,7 +128,7 @@ static void print_device_info(PaDeviceIndex device)
 	}
 	
 	const	PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
+	printf(" %s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
 }
 
 static void audio_cap_portaudio_probe(struct device_info **available_devices, int *count)
