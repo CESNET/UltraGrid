@@ -370,7 +370,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         unsigned int val;
         int dir;
         int rc;
-        unsigned int frames;
+        unsigned int period_size;
 
         if (s->new_api && s->thread_started) {
                 pthread_mutex_lock(&s->lock);
@@ -465,51 +465,57 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         }
 
         /* Set period to its minimal size.
-         * Do not use snd_pcm_hw_params_set_period_size_near,
-         * since it allows to set also unsupported value without notifying.
+         *
+         * Do not use snd_pcm_hw_params_set_period_size_near(), since it
+         * allows to set also unsupported value without notifying. Using
+         * snd_pcm_hw_params_set_period_size_first() with Pulseaudio
+         * returns invalid argument.
+         *
          * See also http://www.alsa-project.org/main/index.php/FramesPeriods */
-        frames = 1;
+        period_size = 1;
         dir = 1;
         rc = snd_pcm_hw_params_set_period_time_min(s->handle,
-                        params, &frames, &dir);
+                        params, &period_size, &dir);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
+        } else {
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %u frames\n", period_size);
         }
 
         if (s->new_api) {
-                int mindir = -1, maxdir = 1;
-                unsigned int minval = 0;
-                unsigned int maxval = s->sched_latency_ms * 1000 * 2;
-                //maxval = 15000;
-
-                const char *buff_str = get_commandline_param("alsa-playback-buffer");
-                if (buff_str) {
-                        if (strchr(buff_str, '-')) {
-                                minval = atoi(buff_str);
-                                maxval = atoi(strchr(buff_str, '-') + 1);
-                        } else {
-                                maxval = atoi(buff_str);
-                        }
-                }
-
                 if (get_commandline_param("low-latency-audio")) {
 			unsigned int val;
 			int dir;
 			rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
                                         &val, &dir);
                         if (rc == 0) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Buffer len set to: %c%u us\n", dir < 0 ? '-' : dir == 0 ? '=' : '+', val);
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", val / 1000.0);
                         }
                 } else {
+                        int mindir = -1, maxdir = 1;
+                        unsigned int minval = 0;
+                        unsigned int maxval = s->sched_latency_ms * 1000 * 3;
+
+                        const char *buff_str = get_commandline_param("alsa-playback-buffer");
+                        if (buff_str) {
+                                if (strchr(buff_str, '-')) {
+                                        minval = atoi(buff_str);
+                                        maxval = atoi(strchr(buff_str, '-') + 1);
+                                } else {
+                                        maxval = atoi(buff_str);
+                                }
+                        }
+
                         rc = snd_pcm_hw_params_set_buffer_time_minmax(s->handle, params, &minval, &mindir,
                                         &maxval, &maxdir);
+                        if (rc == 0) {
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf-%lf ms\n", minval / 1000.0, maxval / 1000.0);
+                        }
                 }
                 if (rc < 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
                                         snd_strerror(rc));
-                } else {
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Buffer size: %d-%d us\n", minval, maxval);
                 }
         } else {
                 val = BUFFER_MIN * 1000;
