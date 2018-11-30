@@ -211,7 +211,9 @@ static void show_help()
                         perror("[V4L2] Unable to query device capabilities");
                 }
 
-                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)) continue;
+                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
+                        goto next_device;
+                }
 
                 printf("\t%sDevice %s (%s, %s):\n",
                                 (i == 0 ? "(*) " : "    "),
@@ -298,6 +300,24 @@ next_device:
         }
 }
 
+static void write_mode(struct mode *m,
+                int width, int height,
+                unsigned tpf_num, unsigned tpf_denom,
+                int pixelformat)
+{
+        double fps = tpf_denom / tpf_num;
+        snprintf(m->name, sizeof(m->name), "%dx%d %2f fps %4s",
+                        width, height, fps, (char *) &pixelformat);
+
+        snprintf(m->id, sizeof(m->id), "{"
+                        "\"codec\":\"%4s\", "
+                        "\"size\":\"%dx%d\", "
+                        "\"tpf\":\"%u/%u\" }",
+                        (char *) &pixelformat,
+                        width, height,
+                        tpf_num, tpf_denom);
+}
+
 static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
 {
         struct vidcap_type*		vt;
@@ -318,17 +338,81 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                 int fd = open(name, O_RDWR);
                                 if(fd == -1) continue;
 
-                                vt->card_count += 1;
-                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
                                 struct v4l2_capability capab;
                                 memset(&capab, 0, sizeof capab);
                                 if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
                                         perror("[V4L2] Unable to query device capabilities");
                                 }
+
+                                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
+                                        goto next_device;
+                                }
+
+                                vt->card_count += 1;
+                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
                                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
 
+                                struct v4l2_fmtdesc format;
+                                memset(&format, 0, sizeof(format));
+                                format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                                format.index = 0;
+
+                                int fmt_idx = 0;
+                                while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+                                        struct v4l2_frmsizeenum size;
+                                        memset(&size, 0, sizeof(size));
+                                        size.pixel_format = format.pixelformat;
+
+                                        int res = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size);
+
+                                        if(res == -1) {
+                                                fprintf(stderr, "[V4L2] Unable to get frame size iterator.\n");
+                                                goto next_device;
+                                        }
+
+                                        struct v4l2_frmivalenum frame_int;
+                                        memset(&frame_int, 0, sizeof(frame_int));
+                                        frame_int.index = 0;
+                                        frame_int.pixel_format = format.pixelformat;
+
+                                        switch (size.type) {
+                                                case V4L2_FRMSIZE_TYPE_DISCRETE:
+                                                        while(ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
+                                                                frame_int.width = size.discrete.width;
+                                                                frame_int.height = size.discrete.height;
+                                                                frame_int.index = 0;
+
+                                                                res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, frame_int);
+
+                                                                if(res == -1) {
+                                                                        fprintf(stderr, "[V4L2] Unable to get FPS.\n");
+                                                                        goto next_device;
+                                                                }
+
+                                                                switch (frame_int.type) {
+                                                                        case V4L2_FRMIVAL_TYPE_DISCRETE:
+                                                                                while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
+                                                                                        write_mode(&vt->cards[vt->card_count - 1].modes[fmt_idx++],
+                                                                                                        size.discrete.width, size.discrete.height,
+                                                                                                        frame_int.discrete.numerator, frame_int.discrete.denominator,
+                                                                                                        format.pixelformat);
+                                                                                        frame_int.index++;
+                                                                                }
+                                                                                break;
+                                                                        default:
+                                                                                break;
+                                                                }
+                                                                size.index++;
+                                                        }
+                                                        break;
+                                                default:
+                                                        break;
+                                        }
+
+                                }
+next_device:
                                 close(fd);
                         }
                 }
