@@ -19,6 +19,7 @@
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"
+#include "capture_filter.h"
 #include "video.h"
 #include <chrono>
 #include <iomanip>
@@ -222,6 +223,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
         for (auto it : compressions) {
                 auto vci = static_cast<const struct video_compress_info *>(it.second);
                 auto presets = vci->get_presets();
+                cout << "[cap][compress] " << it.first << std::endl;
                 for (auto const & it : presets) {
                         cout << "[cap] (" << vci->name << (it.name.empty() ? "" : ":") <<
                                 it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) << it.compute_bitrate(&desc) << ";" <<
@@ -229,6 +231,14 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
                                 ")\n";
                 }
+        }
+
+        // capture filters
+        cout << "[cap] Capture filters:" << endl;
+        auto cap_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+
+        for (auto it : cap_filters) {
+                cout << "[cap][capture_filter] " << it.first << std::endl;
         }
 
         // capturers
@@ -244,6 +254,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 int count;
                 struct device_info *devices;
                 vdi->probe(&devices, &count);
+                cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ";" <<
                                 devices[i].repeatable << ")\n";
@@ -259,6 +270,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 int count;
                 struct device_info *devices;
                 aci->probe(&devices, &count);
+                cout << "[cap][audio_cap] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ")\n";
                 }
@@ -273,6 +285,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 int count;
                 struct device_info *devices;
                 api->probe(&devices, &count);
+                cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ")\n";
                 }
