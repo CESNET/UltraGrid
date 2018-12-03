@@ -305,8 +305,8 @@ static void write_mode(struct mode *m,
                 unsigned tpf_num, unsigned tpf_denom,
                 int pixelformat)
 {
-        double fps = tpf_denom / tpf_num;
-        snprintf(m->name, sizeof(m->name), "%dx%d %2f fps %4s",
+        double fps = (double) tpf_denom / tpf_num;
+        snprintf(m->name, sizeof(m->name), "%dx%d %.2f fps %4s",
                         width, height, fps, (char *) &pixelformat);
 
         snprintf(m->id, sizeof(m->id), "{"
@@ -360,7 +360,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                 format.index = 0;
 
                                 int fmt_idx = 0;
-                                while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+				while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
                                         struct v4l2_frmsizeenum size;
                                         memset(&size, 0, sizeof(size));
                                         size.pixel_format = format.pixelformat;
@@ -384,7 +384,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                                                 frame_int.height = size.discrete.height;
                                                                 frame_int.index = 0;
 
-                                                                res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, frame_int);
+                                                                res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int);
 
                                                                 if(res == -1) {
                                                                         fprintf(stderr, "[V4L2] Unable to get FPS.\n");
@@ -411,6 +411,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose)
                                                         break;
                                         }
 
+					format.index++;
                                 }
 next_device:
                                 close(fd);

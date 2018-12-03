@@ -302,7 +302,7 @@ struct device_info {
                                  ///< with the appropriate mode (eg. "mode=Hi50" for DeckLink 0).
                                  ///< Must not be empty (!)
                 char name[1024]; ///< human readable name of the mode
-        } modes[100];
+        } modes[512];
 };
 
 struct vidcap_params;
