@@ -116,8 +116,14 @@ void print_available_capturers()
                 auto vci = static_cast<const struct video_capture_info *>(item.second);
 
                 struct vidcap_type *vt = vci->probe(true);
+                printf("[cap][capture] %s\n", item.first.c_str());
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("[capability][capture][v1] {\"device\": \"%s%s%s\", \"name\": \"%s\", \"modes\": {", vt->name, strlen(vt->cards[i].id) > 0 ? ":" : "", vt->cards[i].id, vt->cards[i].name);
+                        printf("[capability][capture][v1] {"
+                                        "\"type\":\"%s\", "
+                                        "\"device\":\"%s\", "
+                                        "\"name\":\"%s\", "
+                                        "\"modes\": [",
+                                        vt->name, vt->cards[i].id, vt->cards[i].name);
                         for (unsigned int j = 0; j < sizeof vt->cards[i].modes
                                         / sizeof vt->cards[i].modes[0]; j++) {
                                 if (vt->cards[i].modes[j].id[0] == '\0') { // last item
@@ -126,11 +132,11 @@ void print_available_capturers()
                                 if (j > 0) {
                                         printf(", ");
                                 }
-                                printf("\"%s\": \"%s\"", vt->cards[i].modes[j].id,
-                                                vt->cards[i].modes[j].name);
+                                printf("{\"name\":\"%s\", \"opts\":%s}", vt->cards[i].modes[j].name,
+                                                vt->cards[i].modes[j].id);
                         }
 
-                        printf("}}\n");
+                        printf("]}\n");
                 }
 
         }
