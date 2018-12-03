@@ -742,8 +742,37 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose)
                 if (verbose) {
                         vt->card_count = 1;
                         vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
-                        snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "1920:1080:25:UYVY:i");
-                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing 1080@50i signal");
+                        snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "");
+                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing signal");
+
+                        struct {
+                                int width;
+                                int height;
+                        } sizes[] = {
+                                {1280, 720},
+                                {1920, 1080},
+                                {3840, 2160},
+                        };
+                        int framerates[] = {24, 30, 60};
+                        int i = 0;
+                        for(const auto &size : sizes){
+                                for(const auto &fps : framerates){
+                                        snprintf(vt->cards[0].modes[i].name,
+                                                        sizeof vt->cards[0].name,
+                                                        "%dx%d@%d",
+                                                        size.width, size.height,
+                                                        fps);
+                                        snprintf(vt->cards[0].modes[i].id,
+                                                        sizeof vt->cards[0].id,
+                                                        "{\"width\":\"%d\", "
+                                                        "\"height\":\"%d\", "
+                                                        "\"fps\":\"%d\"}",
+                                                        size.width, size.height,
+                                                        fps);
+                                        i++;
+                                }
+                        }
+
                 }
         }
         return vt;
