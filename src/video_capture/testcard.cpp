@@ -754,23 +754,38 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose)
                                 {3840, 2160},
                         };
                         int framerates[] = {24, 30, 60};
-                        int i = 0;
-                        for(const auto &size : sizes){
-                                for(const auto &fps : framerates){
-                                        snprintf(vt->cards[0].modes[i].name,
-                                                        sizeof vt->cards[0].name,
-                                                        "%dx%d@%d",
-                                                        size.width, size.height,
-                                                        fps);
-                                        snprintf(vt->cards[0].modes[i].id,
-                                                        sizeof vt->cards[0].id,
-                                                        "{\"width\":\"%d\", "
-                                                        "\"height\":\"%d\", "
-                                                        "\"fps\":\"%d\"}",
-                                                        size.width, size.height,
-                                                        fps);
-                                        i++;
+                        const char * const pix_fmts[] = {"UYVY", "RGB"};
+
+                        snprintf(vt->cards[0].modes[0].name,
+                                        sizeof vt->cards[0].name, "Default");
+                        snprintf(vt->cards[0].modes[0].id,
+                                        sizeof vt->cards[0].id,
+                                        "{\"width\":\"\", "
+                                        "\"height\":\"\", "
+                                        "\"format\":\"\", "
+                                        "\"fps\":\"\"}");
+
+                        int i = 1;
+                        for(const auto &pix_fmt : pix_fmts){
+                                for(const auto &size : sizes){
+                                        for(const auto &fps : framerates){
+                                                snprintf(vt->cards[0].modes[i].name,
+                                                                sizeof vt->cards[0].name,
+                                                                "%dx%d@%d %s",
+                                                                size.width, size.height,
+                                                                fps, pix_fmt);
+                                                snprintf(vt->cards[0].modes[i].id,
+                                                                sizeof vt->cards[0].id,
+                                                                "{\"width\":\"%d\", "
+                                                                "\"height\":\"%d\", "
+                                                                "\"format\":\"%s\", "
+                                                                "\"fps\":\"%d\"}",
+                                                                size.width, size.height,
+                                                                pix_fmt, fps);
+                                                i++;
+                                        }
                                 }
+
                         }
 
                 }
