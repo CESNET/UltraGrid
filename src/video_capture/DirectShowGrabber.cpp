@@ -548,7 +548,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose)
 
 			snprintf(vt->cards[vt->card_count - 1].modes[i].id,
 					sizeof vt->cards[vt->card_count - 1].modes[i].id,
-					"mode=%d", i);
+					"{\"mode\":\"%d\"}", i);
 			snprintf(vt->cards[vt->card_count - 1].modes[i].name,
 					sizeof vt->cards[vt->card_count - 1].modes[i].name,
 					"%s %ldx%ld %s", GetSubtypeName(&mediaType->subtype),
