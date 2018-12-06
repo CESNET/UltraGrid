@@ -674,7 +674,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
                         realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
                 snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "device=%d", numDevices);
+                                "%d", numDevices);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "%s #%d", deviceName.c_str(), numDevices);
 
@@ -696,7 +696,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
 
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].id,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].id,
-                                                "connection=%s:mode=%s",
+                                                "{\"modeOpt\":\"connection=%s:mode=%s\"}",
                                                 c.c_str(), get<1>(m).c_str());
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].name,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].name,
@@ -709,7 +709,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
                                         sizeof vt->cards[vt->card_count - 1].modes[0])) {
                         snprintf(vt->cards[vt->card_count - 1].modes[i].id,
                                         sizeof vt->cards[vt->card_count - 1].modes[i].id,
-                                        "detect-format");
+                                        "{\"modeOpt\":\"detect-format\"}");
                         snprintf(vt->cards[vt->card_count - 1].modes[i].name,
                                         sizeof vt->cards[vt->card_count - 1].modes[i].name,
                                         "UltraGrid auto-detect");
