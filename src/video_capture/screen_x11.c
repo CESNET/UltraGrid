@@ -252,6 +252,26 @@ static struct vidcap_type * vidcap_screen_x11_probe(bool verbose)
                         vt->cards = calloc(vt->card_count, sizeof(struct device_info));
                         // vt->cards[0].id can be "" since screen cap. doesn't require parameters
                         snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+
+                        int framerates[] = {24, 30, 60};
+
+						snprintf(vt->cards[0].modes[0].name,
+								sizeof vt->cards[0].name,
+								"Unlimited fps");
+						snprintf(vt->cards[0].modes[0].id,
+								sizeof vt->cards[0].id,
+								"{\"fps\":\"\"}");
+
+						for(unsigned i = 0; i < sizeof(framerates) / sizeof(framerates[0]); i++){
+							snprintf(vt->cards[0].modes[i + 1].name,
+									sizeof vt->cards[0].name,
+									"%d fps",
+									framerates[i]);
+							snprintf(vt->cards[0].modes[i + 1].id,
+									sizeof vt->cards[0].id,
+									"{\"fps\":\"%d\"}",
+									framerates[i]);
+						}
                 }
         }
         return vt;
