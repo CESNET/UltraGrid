@@ -496,7 +496,7 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
                 vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
                 snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "device=%d", i);
+                                "%d", i);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "AV Foundation %s", [[device localizedName] UTF8String]);
 
@@ -519,7 +519,7 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
 
                         snprintf(vt->cards[vt->card_count - 1].modes[j].id,
                                         sizeof vt->cards[vt->card_count - 1].modes[j].id,
-                                        "mode=%d:fps=%d", j, maxrate);
+                                        "{\"mode\":\"%d\", \"fps\":\"%d\"}", j, maxrate);
                         snprintf(vt->cards[vt->card_count - 1].modes[j].name,
                                         sizeof vt->cards[vt->card_count - 1].modes[j].name,
                                         "%.4s %dx%d (%d FPS)", (const char *) &fcc_host, dim.width, dim.height, maxrate);
