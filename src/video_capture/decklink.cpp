@@ -1660,7 +1660,7 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
                                         (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         string details{buf};
-                        ret.push_back({displayModeNumber, fcc, name, details});
+                        ret.push_back(tuple<int, string, string, string> {displayModeNumber, fcc, name, details});
 
                         release_bmd_api_str(displayModeString);
 			free(displayModeCString);
