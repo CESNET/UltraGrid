@@ -90,7 +90,8 @@
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
 #undef LOG
 #define LOG(...) std::cerr
-extern "C" __declspec(dllexport) { int *aja_display_init_noerr; }
+extern "C" __declspec(dllexport) int *aja_display_init_noerr;
+int *aja_display_init_noerr;
 #else
 int *aja_display_init_noerr = &display_init_noerr;
 #endif
