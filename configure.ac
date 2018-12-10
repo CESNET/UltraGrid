@@ -939,8 +939,7 @@ then
         AJA_DISP_OBJ="src/video_display/aja.o"
         AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
-        ADD_MODULE("display_aja", "$AJA_DISP_OBJ", "$AJA_LIB")
-        ADD_MODULE("vidcap_aja", "$AJA_CAP_OBJ", "$AJA_LIB")
+        ADD_MODULE("aja", "$AJA_CAP_OBJ $AJA_DISP_OBJ", "$AJA_LIB")
         INC="$INC $AJA_INC"
         CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
 fi
