@@ -935,8 +935,8 @@ then
                 AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                 AJA_LIB="-lajantv2"
         fi
-        AJA_CAP_OBJ="src/aja_common.o src/video_capture/aja.o"
-        AJA_DISP_OBJ="src/aja_common.o src/video_display/aja.o"
+        AJA_CAP_OBJ="src/video_capture/aja.o"
+        AJA_DISP_OBJ="src/video_display/aja.o"
         AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
         ADD_MODULE("display_aja", "$AJA_DISP_OBJ", "$AJA_LIB")
