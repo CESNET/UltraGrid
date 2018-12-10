@@ -57,7 +57,7 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-struct state_preview{
+struct state_preview_filter{
         Shared_mem shared_mem;
 };
 
@@ -66,7 +66,7 @@ static int init(struct module *parent, const char *cfg, void **state){
         UNUSED(parent);
         UNUSED(cfg);
 
-        struct state_preview *s = new state_preview();
+        struct state_preview_filter *s = new state_preview_filter();
         s->shared_mem.setKey("ultragrid_preview_capture");
         s->shared_mem.create();
 
@@ -76,12 +76,12 @@ static int init(struct module *parent, const char *cfg, void **state){
 }
 
 static void done(void *state){
-        struct state_preview *s = (state_preview *) state;
-        delete (state_preview *) state;
+        struct state_preview_filter *s = (state_preview_filter *) state;
+        delete (state_preview_filter *) state;
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in){
-        struct state_preview *s = (state_preview *) state;
+        struct state_preview_filter *s = (state_preview_filter *) state;
 
         s->shared_mem.put_frame(in);
         

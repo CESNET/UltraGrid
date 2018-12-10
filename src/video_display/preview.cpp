@@ -64,8 +64,8 @@ static constexpr int BUFFER_LEN = 5;
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
-struct state_preview_common {
-        ~state_preview_common() {
+struct state_preview_display_common {
+        ~state_preview_display_common() {
 
         }
 
@@ -90,14 +90,14 @@ struct state_preview_common {
         struct module *parent;
 };
 
-struct state_preview {
-        shared_ptr<struct state_preview_common> common;
+struct state_preview_display {
+        shared_ptr<struct state_preview_display_common> common;
         struct video_desc desc;
 };
 
 static struct display *display_preview_fork(void *state)
 {
-        shared_ptr<struct state_preview_common> s = ((struct state_preview *)state)->common;
+        shared_ptr<struct state_preview_display_common> s = ((struct state_preview_display *)state)->common;
         struct display *out;
         char fmt[2 + sizeof(void *) * 2 + 1] = "";
         snprintf(fmt, sizeof fmt, "%p", state);
@@ -116,13 +116,13 @@ static void show_help(){
 
 static void *display_preview_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        struct state_preview *s;
+        struct state_preview_display *s;
 
-        s = new state_preview();
+        s = new state_preview_display();
 
         if (fmt && strlen(fmt) > 0) {
                 if (isdigit(fmt[0])) { // fork
-                        struct state_preview *orig;
+                        struct state_preview_display *orig;
                         sscanf(fmt, "%p", &orig);
                         s->common = orig->common;
                         return s;
@@ -131,7 +131,7 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
                         return &display_init_noerr;
                 }
         }
-        s->common = shared_ptr<state_preview_common>(new state_preview_common());
+        s->common = shared_ptr<state_preview_display_common>(new state_preview_display_common());
         s->common->parent = parent;
 
         s->common->shared_mem.setKey("ultragrid_preview_display");
@@ -139,7 +139,7 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
         return s;
 }
 
-static void check_reconf(struct state_preview_common *s, struct video_desc desc)
+static void check_reconf(struct state_preview_display_common *s, struct video_desc desc)
 {
         if (video_desc_eq(desc, s->display_desc))
                 return;
@@ -150,7 +150,7 @@ static void check_reconf(struct state_preview_common *s, struct video_desc desc)
 
 static void display_preview_run(void *state)
 {
-        shared_ptr<struct state_preview_common> s = ((struct state_preview *)state)->common;
+        shared_ptr<struct state_preview_display_common> s = ((struct state_preview_display *)state)->common;
         int skipped = 0;
 
         while (1) {
@@ -183,20 +183,20 @@ static void display_preview_run(void *state)
 
 static void display_preview_done(void *state)
 {
-        struct state_preview *s = (struct state_preview *)state;
+        struct state_preview_display *s = (struct state_preview_display *)state;
         delete s;
 }
 
 static struct video_frame *display_preview_getf(void *state)
 {
-        struct state_preview *s = (struct state_preview *)state;
+        struct state_preview_display *s = (struct state_preview_display *)state;
 
         return vf_alloc_desc_data(s->desc);
 }
 
 static int display_preview_putf(void *state, struct video_frame *frame, int flags)
 {
-        shared_ptr<struct state_preview_common> s = ((struct state_preview *)state)->common;
+        shared_ptr<struct state_preview_display_common> s = ((struct state_preview_display *)state)->common;
 
         if (flags == PUTF_DISCARD) {
                 vf_free(frame);
@@ -262,7 +262,7 @@ static int display_preview_get_property(void *state, int property, void *val, si
 
 static int display_preview_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_preview *s = (struct state_preview *) state;
+        struct state_preview_display *s = (struct state_preview_display *) state;
 
         s->desc = desc;
 
