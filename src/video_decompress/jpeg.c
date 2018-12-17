@@ -96,10 +96,7 @@ static void * jpeg_decompress_init(void)
 {
         struct state_decompress_jpeg *s;
 
-        s = (struct state_decompress_jpeg *) malloc(sizeof(struct state_decompress_jpeg));
-
-        s->decoder = NULL;
-        s->pitch = 0;
+        s = (struct state_decompress_jpeg *) calloc(1, sizeof(struct state_decompress_jpeg));
 
         int ret;
         printf("Initializing CUDA device %d...\n", cuda_devices[0]);
