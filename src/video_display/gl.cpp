@@ -69,6 +69,7 @@
 
 #include <algorithm>
 #include <condition_variable>
+#include <csetjmp>
 #include <mutex>
 #include <queue>
 
@@ -984,6 +985,26 @@ static void glut_mouse_callback(int /* x */, int /* y */)
         }
 }
 
+#ifdef FREEGLUT
+static void glut_init_error_callback(const char *fmt, va_list ap)
+{
+        // get number of required bytes
+        int size = vsnprintf(NULL, 0, fmt, ap);
+
+        // format the string
+        auto buffer = (char *) alloca(size + 1);
+        if (vsprintf(buffer, fmt, ap) == size) {
+                LOG(LOG_LEVEL_ERROR) << "[GL] " << buffer << "\n";
+        }
+
+        // This is required - if there is no noexit function call, glutInit()
+        // continues normally until it crashes. This solution (passing
+        // exception through freeglut) works with GCC (see https://stackoverflow.com/questions/490773/how-is-the-c-exception-handling-runtime-implemented). Other possibilty is
+        // to use longjmp() (but saved environment needs to be passed here then).
+        throw EXIT_FAIL_DISPLAY;
+}
+#endif
+
 static bool display_gl_init_opengl(struct state_gl *s)
 {
         char *tmp, *gl_ver_major;
@@ -992,7 +1013,15 @@ static bool display_gl_init_opengl(struct state_gl *s)
         GLenum err;
 #endif // HAVE_LINUX
 
-        glutInit(&uv_argc, uv_argv);
+#ifdef FREEGLUT
+        glutInitErrorFunc(glut_init_error_callback);
+#endif
+        try {
+                glutInit(&uv_argc, uv_argv);
+        } catch (...) {
+                exit_uv(EXIT_FAIL_DISPLAY);
+                return false;
+        }
         glutInitDisplayMode(GLUT_RGBA | (s->vsync == SINGLE_BUF ? GLUT_SINGLE : GLUT_DOUBLE));
 
 #ifdef HAVE_MACOSX
