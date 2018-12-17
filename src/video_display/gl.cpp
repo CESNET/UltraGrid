@@ -988,14 +988,19 @@ static void glut_mouse_callback(int /* x */, int /* y */)
 #ifdef FREEGLUT
 static void glut_init_error_callback(const char *fmt, va_list ap)
 {
+        va_list aq;
+        va_copy(aq, ap);
         // get number of required bytes
         int size = vsnprintf(NULL, 0, fmt, ap);
+        va_end(aq);
 
         // format the string
         auto buffer = (char *) alloca(size + 1);
+        va_copy(aq, ap);
         if (vsprintf(buffer, fmt, ap) == size) {
                 LOG(LOG_LEVEL_ERROR) << "[GL] " << buffer << "\n";
         }
+        va_end(aq);
 
         // This is required - if there is no noexit function call, glutInit()
         // continues normally until it crashes. This solution (passing
