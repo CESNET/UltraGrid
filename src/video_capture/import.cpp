@@ -81,6 +81,7 @@
 #define PIPE "/tmp/ultragrid_import.fifo"
 
 #define MAX_NUMBER_WORKERS 100
+#define MOD_NAME "[import] "
 
 using std::condition_variable;
 using std::chrono::duration;
@@ -356,6 +357,9 @@ try {
         free(info_filename);
         if(info == NULL) {
                 perror("[import] Failed to open index file");
+                if (errno == ENOENT) {
+                        throw string("Invalid directory?\n");
+                }
                 throw string();
         }
 
@@ -484,7 +488,7 @@ try {
         *state = s;
 	return VIDCAP_INIT_OK;
 } catch (string const & str) {
-        fprintf(stderr, "%s", str.c_str());
+        LOG(LOG_LEVEL_ERROR) << MOD_NAME << str;
         free(tmp);
         if (info != NULL)
                 fclose(info);
