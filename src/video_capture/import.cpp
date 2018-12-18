@@ -768,7 +768,7 @@ static void * control_thread(void *args)
         if (rc != 0) {
                 perror("Video import - setsockopt");
         }
-        struct sockaddr_in6 s_in;
+        struct sockaddr_in6 s_in{};
         s_in.sin6_family = AF_INET6;
         s_in.sin6_addr = in6addr_any;
         s_in.sin6_port = htons(CONTROL_PORT);
