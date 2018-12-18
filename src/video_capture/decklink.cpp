@@ -64,6 +64,7 @@
 
 #include <condition_variable>
 #include <chrono>
+#include <iostream>
 #include <list>
 #include <mutex>
 #include <queue>
@@ -738,23 +739,13 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         result = displayMode->GetName(&displayModeString);
         if (result == S_OK)
         {
-                switch (s->codec) {
-                  case RGBA:
-                        *pf = bmdFormat8BitBGRA;
-                        break;
-                  case UYVY:
-                        *pf = bmdFormat8BitYUV;
-                        break;
-                  case R10k:
-                        *pf = bmdFormat10BitRGB;
-                        break;
-                  case v210:
-                        *pf = bmdFormat10BitYUV;
-                        break;
-                  default:
+                auto it = uv_to_bmd_codec_map.find(s->codec);
+                if (it == uv_to_bmd_codec_map.end()) {
                         LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
                         return E_FAIL;
                 }
+                *pf = it->second;
+
                 // get avarage time between frames
                 BMDTimeValue	frameRateDuration;
                 BMDTimeScale	frameRateScale;

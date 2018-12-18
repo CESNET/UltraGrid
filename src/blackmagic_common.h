@@ -44,9 +44,20 @@
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
 #endif
 
+#include <map>
 #include <string>
+#include <utility>
+
+#include "video.h"
 
 std::string bmd_hresult_to_string(HRESULT res);
+
+static std::map<codec_t, BMDPixelFormat> uv_to_bmd_codec_map = {
+                  { RGBA, bmdFormat8BitBGRA },
+                  { UYVY, bmdFormat8BitYUV },
+                  { R10k, bmdFormat10BitRGB },
+                  { v210, bmdFormat10BitYUV },
+};
 
 #ifdef WIN32
 #define BMD_BOOL BOOL

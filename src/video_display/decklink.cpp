@@ -652,19 +652,12 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         
         s->vid_desc = desc;
 
-	switch (desc.color_spec) {
-                case UYVY:
-                        s->pixelFormat = bmdFormat8BitYUV;
-                        break;
-                case v210:
-                        s->pixelFormat = bmdFormat10BitYUV;
-                        break;
-                case RGBA:
-                        s->pixelFormat = bmdFormat8BitBGRA;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
+        auto it = uv_to_bmd_codec_map.find(desc.color_spec);
+        if (it == uv_to_bmd_codec_map.end()) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
+                goto error;
         }
+        s->pixelFormat = it->second;
 
         if (s->initialized_video) {
                 for (int i = 0; i < s->devices_cnt; ++i) {
@@ -1295,14 +1288,18 @@ static void display_decklink_done(void *state)
 static int display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        codec_t codecs[] = {v210, UYVY, RGBA};
+        vector<codec_t> codecs(uv_to_bmd_codec_map.size());
         int rgb_shift[] = {16, 8, 0};
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
+        int count = 0;
+        for (auto & c : uv_to_bmd_codec_map) {
+                codecs[count++] = c.first;
+        }
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
+                        if(sizeof(codec_t) * count <= *len) {
+                                memcpy(val, codecs.data(), sizeof(codec_t) * count);
                         } else {
                                 return FALSE;
                         }
