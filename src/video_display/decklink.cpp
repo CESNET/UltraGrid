@@ -55,6 +55,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "tv.h"
 #include "utils/misc.h"
 #include "video.h"
@@ -99,6 +100,8 @@ static void display_decklink_done(void *state);
         } while (0)
 
 using namespace std;
+using rang::fg;
+using rang::style;
 
 namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
@@ -313,30 +316,30 @@ static void show_help(bool full)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink[:device=<device(s)>][:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex]\n");
-        printf("\t\t<device(s)> is coma-separated indices or names of output devices\n");
-        printf("\t\tsingle-link/dual-link/quad-link specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n");
-        printf("\t\tLevelA/LevelB specifies 3G-SDI output level\n");
+        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << " [:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex]\n" << style::reset;
+        cout << style::bold << "\t\t<device(s)>" << style::reset << " is coma-separated indices or names of output devices\n";
+        cout << style::bold << "\t\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
+        cout << style::bold << "\t\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
         if (!full) {
-                printf("\t\tconversion - use '-d decklink:fullhelp' for list of conversions\n");
+                cout << style::bold << "\t\tconversion" << style::reset << " - use '-d decklink:fullhelp' for list of conversions\n";
         } else {
-                printf("\t\toutput conversion can be:\n"
-                                "\t\t\tnone - no conversion\n"
-                                "\t\t\tltbx - down-converted letterbox SD\n"
-                                "\t\t\tamph - down-converted anamorphic SD\n"
-                                "\t\t\t720c - HD720 to HD1080 conversion\n"
-                                "\t\t\tHWlb - simultaneous output of HD and down-converted letterbox SD\n"
-                                "\t\t\tHWam - simultaneous output of HD and down-converted anamorphic SD\n"
-                                "\t\t\tHWcc - simultaneous output of HD and center cut SD\n"
-                                "\t\t\txcap - simultaneous output of 720p and 1080p cross-conversion\n"
-                                "\t\t\tua7p - simultaneous output of SD and up-converted anamorphic 720p\n"
-                                "\t\t\tua1i - simultaneous output of SD and up-converted anamorphic 1080i\n"
-                                "\t\t\tu47p - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 720p\n"
-                                "\t\t\tu41i - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n"
-                                "\t\t\tup7p - simultaneous output of SD and up-converted pollarbox 720p\n"
-                                "\t\t\tup1i - simultaneous output of SD and up-converted pollarbox 1080i\n");
-                printf("\t\tHDMI3DPacking can be:\n"
-				"\t\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly");
+                cout << "\t\toutput conversion can be:\n" <<
+                                style::bold << "\t\t\tnone" << style::reset << " - no conversion\n" <<
+                                style::bold << "\t\t\tltbx" << style::reset << " - down-converted letterbox SD\n" <<
+                                style::bold << "\t\t\tamph" << style::reset << " - down-converted anamorphic SD\n" <<
+                                style::bold << "\t\t\t720c" << style::reset << " - HD720 to HD1080 conversion\n" <<
+                                style::bold << "\t\t\tHWlb" << style::reset << " - simultaneous output of HD and down-converted letterbox SD\n" <<
+                                style::bold << "\t\t\tHWam" << style::reset << " - simultaneous output of HD and down-converted anamorphic SD\n" <<
+                                style::bold << "\t\t\tHWcc" << style::reset << " - simultaneous output of HD and center cut SD\n" <<
+                                style::bold << "\t\t\txcap" << style::reset << " - simultaneous output of 720p and 1080p cross-conversion\n" <<
+                                style::bold << "\t\t\tua7p" << style::reset << " - simultaneous output of SD and up-converted anamorphic 720p\n" <<
+                                style::bold << "\t\t\tua1i" << style::reset << " - simultaneous output of SD and up-converted anamorphic 1080i\n" <<
+                                style::bold << "\t\t\tu47p" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 720p\n" <<
+                                style::bold << "\t\t\tu41i" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n" <<
+                                style::bold << "\t\t\tup7p" << style::reset << " - simultaneous output of SD and up-converted pollarbox 720p\n" <<
+                                style::bold << "\t\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
+                cout << style::bold << "\t\tHDMI3DPacking" << style::reset << " can be:\n" <<
+				style::bold << "\t\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
         }
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -352,18 +355,16 @@ static void show_help(bool full)
                 
                 // *** Print the model name of the DeckLink card
                 result = deckLink->GetDisplayName(&deviceNameString);
-                if (result == S_OK)
-                {
+                cout << "\ndevice: " << style::bold << numDevices << style::reset << ".) ";
+                if (result == S_OK) {
                         char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                        printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
+                        cout << style::bold << deviceNameCString << style::reset << "\n";
                         release_bmd_api_str(deviceNameString);
                         free(deviceNameCString);
-
-                        print_output_modes(deckLink);
                 } else {
-                        printf("\ndevice: %d.) (unable to get name)\n\n",numDevices);
-                        print_output_modes(deckLink);
+                        printf("(unable to get name)\n");
                 }
+                print_output_modes(deckLink);
                 
                 // Increment the total number of DeckLink cards found
                 numDevices++;
@@ -383,16 +384,16 @@ static void show_help(bool full)
                 return;
         } 
 
-        printf("\nHDMI 3D packing can be one of following (optional for HDMI 1.4, mandatory for pre-1.4 HDMI):\n");
-        printf("\tSideBySideHalf\n");
-        printf("\tLineByLine\n");
-        printf("\tTopAndBottom\n");
-        printf("\tFramePacking\n");
-        printf("\tLeftOnly\n");
-        printf("\tRightOnly\n");
-        printf("\n");
+        cout << style::bold << "\nHDMI3DPacking" << style::reset << " can be one of following (optional for HDMI 1.4, mandatory for pre-1.4 HDMI):\n" <<
+                style::bold << "\tSideBySideHalf\n" << style::reset <<
+                style::bold << "\tLineByLine\n" << style::reset <<
+                style::bold << "\tTopAndBottom\n" << style::reset <<
+                style::bold << "\tFramePacking\n" << style::reset <<
+                style::bold << "\tLeftOnly\n" << style::reset <<
+                style::bold << "\tRightOnly\n" << style::reset <<
+                "\n";
 
-        printf("If audio_level is mic audio analog level is set to maximum attenuation on audio output.\n");
+        cout << "If " << style::bold << "audio_level" << style::reset << " is " << style::bold << "mic" << style::reset << " audio analog level is set to maximum attenuation on audio output.\n";
         printf("\n");
         print_decklink_version();
         printf("\n");
