@@ -716,6 +716,10 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         goto error;
                 }
 
+                BMD_BOOL subsampling_444 = codec_is_a_rgb(desc.color_spec); // we don't have pixfmt for 444 YCbCr
+                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
+                                "SDI subsampling");
+
                 result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
                 if (FAILED(result)) {
                         if (result == E_ACCESSDENIED) {
@@ -1716,3 +1720,4 @@ static const struct video_display_info display_decklink_info = {
 
 REGISTER_MODULE(decklink, &display_decklink_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
+/* vim: set expandtab sw=8: */
