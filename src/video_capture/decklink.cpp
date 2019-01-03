@@ -913,14 +913,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 		return VIDCAP_INIT_FAIL;
 	}
 
-        /// @todo
-        /// Check if this is still an issue
-        if (s->codec == R12L && s->mode.empty()) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "With R12L codec, the video mode must be set explicitly!\n";
-                delete s;
-                return VIDCAP_INIT_FAIL;
-        }
-
 	if (s->link == bmdLinkConfigurationQuadLink) {
 		if (s->duplex == bmdDuplexModeFull) {
 			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
@@ -1144,11 +1136,20 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                                 displayMode->Release();
                                         }
                                 } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first eligible mode and let device autodetect
-
-                                        if (!s->stereo || (displayMode->GetFlags() & bmdDisplayModeSupports3D) != 0u) {
-						break;
-					} else {
+					if (s->stereo && (displayMode->GetFlags() & bmdDisplayModeSupports3D) == 0u) {
+                                                displayMode->Release();
 						continue;
+					}
+					auto it = uv_to_bmd_codec_map.find(s->codec);
+					if (it == uv_to_bmd_codec_map.end()) {
+						LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
+						goto error;
+					}
+					BMDPixelFormat pf = it->second;
+					BMDDisplayModeSupport             supported;
+					EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
+					if (supported == bmdDisplayModeSupported) {
+						break;
 					}
                                 } else if (mode_idx != MODE_SPEC_FOURCC) { // manually given idx
                                         if (mode_idx != mnum) {
