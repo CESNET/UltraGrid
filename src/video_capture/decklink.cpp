@@ -100,6 +100,30 @@ using rang::style;
                 }\
         } while (0)
 
+// similar as above, but only displays warning
+#define CALL_AND_CHECK_2(cmd, name) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                }\
+        } while (0)
+
+#define CALL_AND_CHECK_3(cmd, name, msg) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                } else {\
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << name << ": " << msg << "\n";\
+		}\
+        } while (0)
+
+#define GET_3TH_ARG(arg1, arg2, arg3, ...) arg3
+#define CALL_AND_CHECK_CHOOSER(...) \
+    GET_3TH_ARG(__VA_ARGS__, CALL_AND_CHECK_3, CALL_AND_CHECK_2, )
+
+#define CALL_AND_CHECK(cmd, ...) CALL_AND_CHECK_CHOOSER(__VA_ARGS__)(cmd, __VA_ARGS__)
 
 class VideoDelegate;
 
@@ -225,7 +249,7 @@ public:
                 deckLinkInput->FlushStreams();
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
-                        result = deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags);
+                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags), "EnableVideoInput");
                         if(s->grab_audio == FALSE ||
                                         this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
@@ -238,6 +262,8 @@ public:
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
                         deckLinkInput->StartStreams();
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";\
                 }
 
                 return result;
@@ -818,6 +844,10 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         return result;
 }
 
+/**
+ * This function is used when device does not support autodetection and user
+ * request explicitly to detect the format (:detect-format)
+ */
 static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDisplayMode, int card_idx)
 {
         IDeckLinkDisplayMode *displayMode;
@@ -1036,58 +1066,33 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         }
 
                         // Query the DeckLink for its configuration interface
-                        result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
-                        if (result != S_OK) {
-                                LOG(LOG_LEVEL_ERROR) << "Could not obtain the IDeckLinkInput interface: " << bmd_hresult_to_string(result) << "\n";
-                                goto error;
-                        }
-
+                        EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface");
                         s->state[i].deckLinkInput = deckLinkInput;
 
                         // Query the DeckLink for its configuration interface
-                        result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
-                        if (result != S_OK) {
-                                LOG(LOG_LEVEL_ERROR) << "Could not obtain the IDeckLinkConfiguration interface: " << bmd_hresult_to_string(result) << "\n";
-                                goto error;
-                        }
-
+                        EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration), "Could not obtain the IDeckLinkConfiguration interface");
                         s->state[i].deckLinkConfiguration = deckLinkConfiguration;
 
                         if(s->connection) {
-                                if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
-                                                        s->connection) == S_OK) {
-                                        printf("Input set to: %d\n", s->connection);
-                                }
+                                CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection, s->connection),
+						"bmdDeckLinkConfigVideoInputConnection",
+						"Input set to: " << s->connection);
                         }
 
                         if (s->conversion_mode) {
-                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
-                                if(result != S_OK) {
-                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set conversion mode.\n");
-                                        goto error;
-                                }
+                                EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
                         }
 
                         if (s->passthrough) {
-                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
-                                if(result != S_OK) {
-                                        log_msg(LOG_LEVEL_ERROR, "[DeckLink capture] Unable to set passthrough mode.\n");
-                                        goto error;
-                                }
+                                EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough), "Unable to set passthrough mode");
                         }
 
 			if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
-				HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex);
-				if(res != S_OK) {
-					LOG(LOG_LEVEL_ERROR) << "[DeckLink capture] Unable set output SDI duplex mode: " << bmd_hresult_to_string(res) << ".\n";
-				}
+				CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex), "Unable set output SDI duplex mode");
 			}
 
                         if(s->link != 0) {
-                                HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link);
-                                if(res != S_OK) {
-                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable set output SDI standard: " << bmd_hresult_to_string(res) << ".\n";
-                                }
+                                CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI standard");
                         }
 
                         // set Callback which returns frames
@@ -1103,14 +1108,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         }
 
                         // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
-                        result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
-                        if (result != S_OK)
-                        {
-                                string err_msg = bmd_hresult_to_string(result);
-                                fprintf(stderr, "Could not obtain the video input display mode iterator: %s\n",
-                                                err_msg.c_str());
-                                goto error;
-                        }
+                        EXIT_IF_FAILED(deckLinkInput->GetDisplayModeIterator(&displayModeIterator),
+                                "Could not obtain the video input display mode iterator:");
 
                         mnum = 0;
                         bool mode_found = false;
@@ -1198,115 +1197,100 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         }
 
                         BMDPixelFormat pf;
+                        EXIT_IF_FAILED(set_display_mode_properties(s, tile, displayMode, &pf),
+					"Could not set display mode properties");
 
-                        if (set_display_mode_properties(s, tile, displayMode, &pf) == S_OK) {
-                                IDeckLinkAttributes *deckLinkAttributes;
-                                deckLinkInput->StopStreams();
+			IDeckLinkAttributes *deckLinkAttributes;
+			deckLinkInput->StopStreams();
 
-                                result = deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
-                                if (result != S_OK) {
-                                        LOG(LOG_LEVEL_ERROR) << "Could not query device attributes: " << bmd_hresult_to_string(result) << "\n";
-                                        goto error;
-                                }
+			EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
 
-                                if (!mode_found) {
-                                        log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
-                                        BMD_BOOL autodetection;
-                                        if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection) != S_OK) {
-                                                fprintf(stderr, "[DeckLink] Could not verify if device supports autodetection.\n");
-                                                goto error;
-                                        }
-                                        if (autodetection == BMD_FALSE) {
-                                                log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
-                                                goto error;
-                                        }
-                                        s->flags |=  bmdVideoInputEnableFormatDetection;
-                                }
+			if (!mode_found) {
+				log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
+				BMD_BOOL autodetection;
+				EXIT_IF_FAILED(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection");
+				if (autodetection == BMD_FALSE) {
+					log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
+					goto error;
+				}
+				s->flags |=  bmdVideoInputEnableFormatDetection;
+			}
 
-                                if (s->stereo) {
-                                        s->flags |= bmdVideoInputDualStream3D;
-                                }
-                                BMDDisplayModeSupport             supported;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
+			if (s->stereo) {
+				s->flags |= bmdVideoInputDualStream3D;
+			}
+			BMDDisplayModeSupport             supported;
+			EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
 
-                                if (supported == bmdDisplayModeNotSupported) {
-                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported wit the selected pixel format\n";
-                                        goto error;
-                                }
+			if (supported == bmdDisplayModeNotSupported) {
+				LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported wit the selected pixel format\n";
+				goto error;
+			}
 
-                                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
-                                if (result != S_OK) {
-                                        switch (result) {
-                                                case E_INVALIDARG:
-                                                        fprintf(stderr, "You have required invalid video mode and pixel format combination.\n");
-                                                        break;
-                                                case E_ACCESSDENIED:
-                                                        fprintf(stderr, "Unable to access the hardware or input "
-                                                                        "stream currently active (another application using it?).\n");
-                                                        break;
-                                        }
-                                        string err_msg = bmd_hresult_to_string(result);
+			result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
+			if (result != S_OK) {
+				switch (result) {
+					case E_INVALIDARG:
+						fprintf(stderr, "You have required invalid video mode and pixel format combination.\n");
+						break;
+					case E_ACCESSDENIED:
+						fprintf(stderr, "Unable to access the hardware or input "
+								"stream currently active (another application using it?).\n");
+						break;
+				}
+				string err_msg = bmd_hresult_to_string(result);
 
-                                        fprintf(stderr, "Could not enable video input: %s\n",
-                                                        err_msg.c_str());
-                                        goto error;
-                                }
+				fprintf(stderr, "Could not enable video input: %s\n",
+						err_msg.c_str());
+				goto error;
+			}
 
-                                if (s->grab_audio == FALSE ||
-                                                i != 0) { //TODO: figure out output from multiple streams
-                                        deckLinkInput->DisableAudioInput();
-                                } else {
-                                        if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                                                audioConnection) == S_OK) {
-                                                const map<BMDAudioConnection, string> mapping = {
-                                                        { bmdAudioConnectionEmbedded, "embedded" },
-                                                        { bmdAudioConnectionAESEBU, "AES/EBU" },
-                                                        { bmdAudioConnectionAnalog, "analog" },
-							{ bmdAudioConnectionAnalogXLR, "analogXLR" },
-							{ bmdAudioConnectionAnalogRCA, "analogRCA" },
-							{ bmdAudioConnectionMicrophone, "microphone" },
-							{ bmdAudioConnectionHeadphones, "headphones" },
-                                                };
-                                                printf("[Decklink capture] Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
-                                        } else {
-                                                fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
+			if (s->grab_audio == FALSE ||
+					i != 0) { //TODO: figure out output from multiple streams
+				deckLinkInput->DisableAudioInput();
+			} else {
+				if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
+							audioConnection) == S_OK) {
+					const map<BMDAudioConnection, string> mapping = {
+						{ bmdAudioConnectionEmbedded, "embedded" },
+						{ bmdAudioConnectionAESEBU, "AES/EBU" },
+						{ bmdAudioConnectionAnalog, "analog" },
+						{ bmdAudioConnectionAnalogXLR, "analogXLR" },
+						{ bmdAudioConnectionAnalogRCA, "analogRCA" },
+						{ bmdAudioConnectionMicrophone, "microphone" },
+						{ bmdAudioConnectionHeadphones, "headphones" },
+					};
+					printf("[Decklink capture] Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
+				} else {
+					fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 
-                                        }
-                                        if (audio_capture_channels != 1 &&
-                                                        audio_capture_channels != 2 &&
-                                                        audio_capture_channels != 8 &&
-                                                        audio_capture_channels != 16) {
-                                                fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
-                                                                "Only 1, 2, 8 or 16 are poosible.", audio_capture_channels);
-                                                goto error;
-                                        }
-                                        if (s->audio_consumer_levels != -1) {
-                                                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                                                s->audio_consumer_levels == 1 ? true : false);
-                                                if(result != S_OK) {
-                                                        fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
-                                                }
-                                        }
-                                        result = deckLinkInput->EnableAudioInput(
-                                                        bmdAudioSampleRate48kHz,
-                                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                                        audio_capture_channels == 1 ? 2 : audio_capture_channels);
-                                        if (result == S_OK) {
-                                                LOG(LOG_LEVEL_NOTICE) << "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
-                                        }
-                                }
+				}
+				if (audio_capture_channels != 1 &&
+						audio_capture_channels != 2 &&
+						audio_capture_channels != 8 &&
+						audio_capture_channels != 16) {
+					fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
+							"Only 1, 2, 8 or 16 are poosible.", audio_capture_channels);
+					goto error;
+				}
+				if (s->audio_consumer_levels != -1) {
+					result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+							s->audio_consumer_levels == 1 ? true : false);
+					if(result != S_OK) {
+						fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
+					}
+				}
+				CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
+							bmdAudioSampleRate48kHz,
+							s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
+							audio_capture_channels == 1 ? 2 : audio_capture_channels),
+						"EnableAudioInput",
+						"Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio));
+			}
 
-                                // Start streaming
-                                printf("Start capture\n");
-                                result = deckLinkInput->StartStreams();
-                                if (result != S_OK) {
-                                        LOG(LOG_LEVEL_ERROR) << "Could not start stream: " << bmd_hresult_to_string(result)<< "\n";
-                                        goto error;
-                                }
-                        } else {
-                                LOG(LOG_LEVEL_ERROR) << "Could not set display mode properties: " << bmd_hresult_to_string(result) << "\n";
-                                goto error;
-                        }
+			// Start streaming
+			printf("Start capture\n");
+			EXIT_IF_FAILED(deckLinkInput->StartStreams(), "Could not start stream");
 
                         displayMode->Release();
                         displayMode = NULL;
