@@ -90,6 +90,17 @@ using rang::style;
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
 //static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
+// performs command, if failed, displays error and jumps to error label
+#define EXIT_IF_FAILED(cmd, name) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                        goto error;\
+                }\
+        } while (0)
+
+
 class VideoDelegate;
 
 struct device_state {
@@ -1214,6 +1225,14 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 if (s->stereo) {
                                         s->flags |= bmdVideoInputDualStream3D;
                                 }
+                                BMDDisplayModeSupport             supported;
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
+
+                                if (supported == bmdDisplayModeNotSupported) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported wit the selected pixel format\n";
+                                        goto error;
+                                }
+
                                 result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
                                 if (result != S_OK) {
                                         switch (result) {
