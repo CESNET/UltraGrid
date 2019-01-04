@@ -58,6 +58,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/color_out.h"
 
 #define BUFFER_MIN 41
 #define BUFFER_MAX 200
@@ -728,12 +729,17 @@ static void * audio_play_alsa_init(const char *cfg)
 
         if(cfg && strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
-			printf("Usage\n");
-			printf("\t-s alsa\n");
-			printf("\t-s alsa:<device>\n");
-			printf("\t-s alsa --param alsa-playback-api={new|old} # uses new experimental API\n");
-			printf("\t-s alsa --param alsa-playback-api=new[:alsa-playback-bufmin=<us>][:alsa-playback-bufmax=<us>] # new api only\n");
-			printf("\n");
+                        printf("Usage\n");
+                        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-r alsa");
+                        color_out(COLOR_OUT_BOLD, "[:<device>] --param alsa-playback-api={new|old}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n");
+                        color_out(0u, "where\n");
+                        color_out(COLOR_OUT_BOLD, "\talsa-playback-api={new|old}\n");
+                        color_out(0, "\t\tuse new experimental API\n");
+                        color_out(COLOR_OUT_BOLD, "\talsa-playback-buffer=[<us>-]<us>\n");
+                        color_out(0, "\t\tset buffer max and optionally max (new api only)\n");
+                        color_out(COLOR_OUT_BOLD, "\taudio-buffer-len=<ablen>\n");
+                        color_out(0, "\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
+                        printf("\n");
 
                         printf("Available ALSA playback devices:\n");
                         audio_play_alsa_help(NULL);

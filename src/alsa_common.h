@@ -44,12 +44,14 @@
 #include <string.h>
 
 #include "debug.h"
+#include "utils/color_out.h"
 
 static inline void audio_alsa_help(void)
 {
         void **hints;
 
-        printf("\talsa %27s default ALSA device (same as \"alsa:default\")\n", ":");
+        color_out(COLOR_OUT_BOLD, "\talsa");
+        printf("%27s default ALSA device (same as \"alsa:default\")\n", ":");
         snd_device_name_hint(-1, "pcm", &hints);
         while(*hints != NULL) {
                 char *tmp = strdup(*(char **) hints);
@@ -71,12 +73,12 @@ static inline void audio_alsa_help(void)
                 strcpy(name, "alsa:");
                 strcat(name, name_part);
 
-                printf("\t%s", name);
+                color_out(COLOR_OUT_BOLD, "\t%s", name);
                 int i;
 
                 if (desc_short) {
                         for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
-                        printf(" : %s", desc_short);
+                        printf(": %s", desc_short);
                         if(desc_long) {
                                 printf(" - %s", desc_long);
                         }
