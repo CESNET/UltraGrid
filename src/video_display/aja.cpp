@@ -121,7 +121,7 @@ namespace ultragrid {
 namespace aja {
 
 struct display {
-        display(string const &device_id, bool withAudio);
+        display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
@@ -139,7 +139,7 @@ struct display {
         NTV2Channel  mOutputChannel = NTV2_CHANNEL1;
         NTV2VideoFormat mVideoFormat = NTV2_FORMAT_UNKNOWN;
         NTV2FrameBufferFormat mPixelFormat = NTV2_FBF_INVALID;
-        const NTV2OutputDestination mOutputDestination = NTV2_OUTPUTDESTINATION_SDI1;
+        const NTV2OutputDestination mOutputDestination;
         bool mDoLevelConversion = false;
         bool mEnableVanc = false;
 
@@ -164,7 +164,7 @@ struct display {
         static void show_help();
 };
 
-display::display(string const &device_id, bool withAudio) : mWithAudio(withAudio) {
+display::display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio) : mOutputDestination(outputDestination),  mWithAudio(withAudio) {
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
         }
@@ -240,6 +240,8 @@ AJAStatus display::SetUpVideo ()
                 cerr << "## ERROR:  This device cannot handle '" << ::NTV2VideoFormatToString (mVideoFormat) << "'" << endl;
                 return AJA_STATUS_UNSUPPORTED;
         }
+
+        mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
 
         //      Configure the device to handle the requested video format...
         mDevice.SetVideoFormat (mVideoFormat, false, false, mOutputChannel);
@@ -466,11 +468,25 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[:device=<d>][:help] [-r embedded]\n" << rang::style::reset <<
-                "where\n"
-                << rang::style::bold << "\tdevice\n" << rang::style::reset <<
-                "\t\tdevice identifier (number or name)\n"
-                << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
+                "[:device=<d>][:connection=<c>][:help] [-r embedded]\n" << rang::style::reset <<
+                "where\n";
+        cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
+                "\t\tdevice identifier (number or name)\n";
+        cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
+                "\t\tone of: ";
+        NTV2OutputDestination dest = NTV2OutputDestination();
+        while (dest != NTV2_OUTPUTDESTINATION_INVALID) {
+                if (dest > 0) {
+                        cout << ", ";
+                }
+                cout << NTV2OutputDestinationToString(dest, true);
+                // should be this, but GetNTV2InputSourceForIndex knows only SDIs
+                //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
+                dest = (NTV2OutputDestination) ((int) dest + 1);
+        }
+        cout << "\n";
+
+        cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
                 "\t\treceive also audio and embed it to SDI\n"
                 "\n";
 
@@ -562,6 +578,8 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
 LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags)
 {
         string device_idx{"0"};
+        string connection;
+        NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
 
@@ -570,6 +588,22 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 if (strcmp("help", item) == 0) {
                         aja::display::show_help();
                         return aja_display_init_noerr;
+                } else if (strstr(item, "connection=") != nullptr) {
+                        string connection = item + strlen("connection=");
+                        NTV2OutputDestination dest = NTV2OutputDestination();
+                        while (dest != NTV2_OUTPUTDESTINATION_INVALID) {
+                                if (NTV2OutputDestinationToString(dest, true) == connection) {
+                                        outputDestination = dest;
+                                        break;
+                                }
+                                // should be this, but GetNTV2InputSourceForIndex knows only SDIs
+                                //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
+                                dest = (NTV2OutputDestination) ((int) dest + 1);
+                        }
+                        if (dest == NTV2_OUTPUTDESTINATION_INVALID) {
+                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown destination: " << connection << "!\n";
+                                return nullptr;
+                        }
                 } else if (strstr(item, "device=") != nullptr) {
                         device_idx = item + strlen("device=");
                 } else {
@@ -580,7 +614,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u);
+                auto s = new aja::display(device_idx, outputDestination, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
