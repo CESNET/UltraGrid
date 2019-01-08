@@ -51,6 +51,11 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#if defined _MSC_VER && _MSC_VER <= 1800 // VS 2013
+#define constexpr
+#define noexcept
+#endif
+#include "rang.hpp"
 #include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_capture.h"
@@ -189,7 +194,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         mCheckFor4K = true;
                 } else if (it.first == "device") {
                         mDeviceIndex = stol(it.second, nullptr, 10);
-                } else if (it.first == "source") {
+                } else if (it.first == "connection") {
                         NTV2InputSource source = NTV2InputSource();
                         while (source != NTV2_INPUTSOURCE_INVALID) {
                                 if (NTV2InputSourceToString(source, true) == it.second) {
@@ -807,28 +812,37 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 }
 
 static void show_help() {
-        printf("Usage:\n");
-        printf("\t-t aja[:device=<idx>][:progressive][:4K][:source=<src>][:format=<fmt>]\n");
-        printf("\n");
+        cout << "Usage:\n";
+        cout << rang::style::bold << rang::fg::red << "\t-t aja[:device=<idx>]" << rang::fg::reset << "[:progressive][:4K][:connection=<c>][:format=<fmt>]\n" << rang::style::reset;
+        cout << "where\n";
 
-        printf("progressive\n");
-        printf("\tVideo input is progressive.\n");
-        printf("\n");
+        cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
+        cout << "\t\tVideo input is progressive.\n";
 
-        printf("4K\n");
-        printf("\tVideo input is 4K.\n");
-        printf("\n");
+        cout << rang::style::bold << "\t4K\n" << rang::style::reset;
+        cout << "\t\tVideo input is 4K.\n";
 
-        printf("source\n");
-        printf("\tSource can be one of SDIX (replace X with index, starting with 1), HDMI, or Analog.\n");
-        printf("\n");
+        cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
+                "\t\tConnection can be one of: ";
+        NTV2InputSource source = NTV2InputSource();
+        while (source != NTV2_INPUTSOURCE_INVALID) {
+                if (source > 0) {
+                        cout << ", ";
+                }
+                cout << NTV2InputSourceToString(source, true);
+                // should be this, but GetNTV2InputSourceForIndex knows only SDIs
+                //source = ::GetNTV2InputSourceForIndex(::GetIndexForNTV2InputSource(source) + 1);
+                source = (NTV2InputSource) ((int) source + 1);
+        }
+        cout << "\n";
 
+        cout << "\n";
 
         printf("Available devices:\n");
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                cout << "\t" << i << ") " << info.deviceIdentifier << ". " << info;
+                cout << "\t"  << rang::style::bold << i << rang::style::reset << ") " << rang::style::bold << info.deviceIdentifier << rang::style::reset << ". " << info;
                 NTV2VideoFormatSet fmt_set;
                 if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
                         cout << "\tAvailable formats:";
@@ -837,6 +851,9 @@ static void show_help() {
                         }
                         cout << "\n";
                 }
+        }
+        if (deviceScanner.GetNumDevices() == 0) {
+                cout << rang::fg::red << "\tno devices found\n" << rang::fg::reset;
         }
         cout << "\n";
 }
