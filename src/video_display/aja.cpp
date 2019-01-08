@@ -152,7 +152,7 @@ struct display {
         uint32_t mAudioOutWrapAddress = 0u;
         uint32_t mAudioOutLastAddress = 0u;
 
-        uint32_t mCurrentOutFrame = 2u;
+        uint32_t mCurrentOutFrame;
         uint32_t mFramesProcessed = 0u;
         uint32_t mFramesDropped = 0u;
 
@@ -190,6 +190,8 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                 mDevice.SetMultiFormatMode (false);
         }
 
+        mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
+
         //      Beware -- some devices (e.g. Corvid1) can only output from FrameStore 2...
         if ((mOutputChannel == NTV2_CHANNEL1) && (!::NTV2DeviceCanDoFrameStore1Display (mDeviceID))) {
                 mOutputChannel = NTV2_CHANNEL2;
@@ -200,6 +202,8 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                         << (::NTV2DeviceGetNumFrameStores (mDeviceID) > 1  ?  string (" thru ") + string (1, uint8_t (::NTV2DeviceGetNumFrameStores (mDeviceID)+'0'))  :  "");
                 throw runtime_error(oss.str());
         }
+
+        mCurrentOutFrame = mOutputChannel * 2u;
 }
 
 display::~display() {
@@ -240,8 +244,6 @@ AJAStatus display::SetUpVideo ()
                 cerr << "## ERROR:  This device cannot handle '" << ::NTV2VideoFormatToString (mVideoFormat) << "'" << endl;
                 return AJA_STATUS_UNSUPPORTED;
         }
-
-        mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
 
         //      Configure the device to handle the requested video format...
         mDevice.SetVideoFormat (mVideoFormat, false, false, mOutputChannel);

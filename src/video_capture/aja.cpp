@@ -661,7 +661,7 @@ void vidcap_state_aja::ProducerThreadStatic (vidcap_state_aja * pContext)       
 
 void vidcap_state_aja::CaptureFrames (void)
 {
-        uint32_t        currentInFrame                  = 0;    //      Will ping-pong between 0 and 1
+        uint32_t        currentInFrame                  = mInputChannel * 2;    //      Will ping-pong between 0 and 1
 
         uint32_t        currentAudioInAddress   = 0;
         uint32_t        audioReadOffset                 = 0;
