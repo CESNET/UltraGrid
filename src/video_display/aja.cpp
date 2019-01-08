@@ -220,7 +220,7 @@ void display::Init()
         status = SetUpVideo();
         if (AJA_FAILURE(status)) {
                 ostringstream oss;
-                oss << "Unable to initialize video: " << status;
+                oss << "Unable to initialize video: " << ::AJAStatusToString(status);
                 throw runtime_error(oss.str());
         }
         RouteOutputSignal();
@@ -545,6 +545,22 @@ LINK_SPEC void display_aja_run(void * /* arg */)
 {
 }
 
+/*
+ * modified GetFirstMatchingVideoFormat
+ */
+static NTV2VideoFormat MyGetFirstMatchingVideoFormat (const NTV2FrameRate inFrameRate, const UWord inHeightLines, const UWord inWidthPixels, const bool inIsInterlaced, const bool inIsLevelB)
+{
+        for (NTV2VideoFormat fmt(NTV2_FORMAT_FIRST_HIGH_DEF_FORMAT);  fmt < NTV2_MAX_NUM_VIDEO_FORMATS;  fmt = NTV2VideoFormat(fmt+1))
+                if (inFrameRate == ::GetNTV2FrameRateFromVideoFormat(fmt))
+                        if (inHeightLines == ::GetDisplayHeight(fmt))
+                                if (inWidthPixels == ::GetDisplayWidth(fmt))
+                                        if (inIsInterlaced == !::IsProgressiveTransport(fmt) && !IsPSF(fmt))
+                                                if (NTV2_VIDEO_FORMAT_IS_B(fmt) == inIsLevelB)
+                                                        return fmt;
+        return NTV2_FORMAT_UNKNOWN;
+}
+
+
 LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
 {
         auto s = static_cast<struct aja::display *>(state);
@@ -552,7 +568,7 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
         vf_free(s->frame);
         s->frame = nullptr;
 
-        s->mVideoFormat = GetFirstMatchingVideoFormat(aja::display::getFrameRate(desc.fps),
+        s->mVideoFormat = MyGetFirstMatchingVideoFormat(aja::display::getFrameRate(desc.fps),
                         desc.height, desc.width, desc.interlacing == INTERLACED_MERGED,
                         false);
         s->mPixelFormat = NTV2_FBF_INVALID;
@@ -709,7 +725,7 @@ LINK_SPEC int display_aja_reconfigure_audio(void *state, int quant_samples, int 
         AJAStatus status = s->SetUpAudio();
         if (AJA_FAILURE(status)) {
                 ostringstream oss;
-                oss << "Unable to initialize audio: " << status;
+                oss << "Unable to initialize audio: " << AJAStatusToString(status);
                 return FALSE;
         }
 
