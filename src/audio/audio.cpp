@@ -267,11 +267,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s = new state_audio(parent);
         s->start_time = *start_time;
 
-        if (strcmp("none", send_cfg) == 0 && strcmp("none", recv_cfg) == 0) {
-                // nothing to do, return empty state
-                return s;
-        }
-
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
 
