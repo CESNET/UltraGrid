@@ -144,7 +144,7 @@ const char *video_rxtx::get_long_name(string const & short_name) {
         if (vri) {
                 return vri->long_name;
         } else {
-                return nullptr;
+                return "";
         }
 }
 

@@ -102,7 +102,6 @@
 #define DEFAULT_AUDIO_FEC       "none"
 static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
-#define AUDIO_PROTOCOLS "ultragrid_rtp, JACK or rtsp" // available audio protocols
 
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
 #define OPT_AUDIO_CAPTURE_FORMAT (('C' << 8) | 'F')
@@ -702,6 +701,12 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_PROTOCOL:
+                        if (strcmp(optarg, "help") == 0) {
+                                cout << "Specify a " << rang::style::bold << "common" << rang::style::reset << " protocol for both audio and video.\n";
+                                cout << "Audio protocol can be one of: " << rang::style::bold << AUDIO_PROTOCOLS "\n" << rang::style::reset;
+                                video_rxtx::create("help", {});
+                                return EXIT_SUCCESS;
+                        }
                         audio_protocol = video_protocol = optarg;
                         if (strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');

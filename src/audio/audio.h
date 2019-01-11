@@ -49,6 +49,7 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#define AUDIO_PROTOCOLS "JACK, rtsp, sdp or ultragrid_rtp" // available audio protocols
 #define PORT_AUDIO              5006
 
 #include "audio/types.h"
