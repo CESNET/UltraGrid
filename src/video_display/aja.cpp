@@ -46,7 +46,6 @@
 #endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
-#include <ajabase/system/debug.h>
 #include <ajantv2/includes/ntv2utils.h>
 #include <ajatypes.h>
 #include <ntv2debug.h>
@@ -231,11 +230,14 @@ void display::Init()
 
         //      Before the main loop starts, ping-pong the buffers so the hardware will use
         //      different buffers than the ones it was using while idling...
-        mCurrentOutFrame ^= 1;
-        mDevice.SetOutputFrame(mOutputChannel, mCurrentOutFrame);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                mCurrentOutFrame ^= 1;
+                mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i);
 
-        mCurrentOutFrame ^= 1;
-        mDevice.SetOutputFrame(mOutputChannel, mCurrentOutFrame);
+                mCurrentOutFrame ^= 1;
+                mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i);
+        }
 }
 
 AJAStatus display::SetUpVideo ()
@@ -246,7 +248,15 @@ AJAStatus display::SetUpVideo ()
         }
 
         //      Configure the device to handle the requested video format...
-        mDevice.SetVideoFormat (mVideoFormat, false, false, mOutputChannel);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                if (!mDevice.SetVideoFormat (mVideoFormat, false, false, chan)) {
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
+                                << NTV2VideoFormatToString(mVideoFormat)
+                                << " for output " << chan << "\n";
+                        return AJA_STATUS_FAIL;
+                }
+        }
 
         if (!::NTV2DeviceCanDo3GLevelConversion (mDeviceID) && mDoLevelConversion && ::IsVideoFormatA (mVideoFormat)) {
                 mDoLevelConversion = false;
@@ -259,12 +269,19 @@ AJAStatus display::SetUpVideo ()
         //      If the device doesn't support it, fall back to 8-bit YCbCr...
         if (!::NTV2DeviceCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
         {
-                cerr    << "## NOTE:  Device cannot handle '" << ::NTV2FrameBufferFormatString (mPixelFormat) << "' -- using '"
-                        << ::NTV2FrameBufferFormatString (NTV2_FBF_8BIT_YCBCR) << "' instead" << endl;
-                mPixelFormat = NTV2_FBF_8BIT_YCBCR;
+                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Device cannot handle '" << ::NTV2FrameBufferFormatString (mPixelFormat) << "'\n";
+                return AJA_STATUS_FAIL;
         }
 
-        mDevice.SetFrameBufferFormat (mOutputChannel, mPixelFormat);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                if (!mDevice.SetFrameBufferFormat (chan, mPixelFormat)) {
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
+                                << NTV2FrameBufferFormatString(mPixelFormat)
+                                << " for output " << mOutputChannel + i << "\n";
+                        return AJA_STATUS_FAIL;
+                }
+        }
         if(mDeviceID == DEVICE_ID_KONAIP_1RX_1TX_2110 ||
                         mDeviceID == DEVICE_ID_KONAIP_2110)
         {
@@ -274,7 +291,14 @@ AJAStatus display::SetUpVideo ()
         {
                 mDevice.SetReference (NTV2_REFERENCE_FREERUN);
         }
-        mDevice.EnableChannel (mOutputChannel);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                if (!mDevice.EnableChannel(chan)) {
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot enable channel "
+                                <<  chan << "\n";
+                        return AJA_STATUS_FAIL;
+                }
+        }
 
         if (mEnableVanc && !::IsRGBFormat (mPixelFormat) && NTV2_IS_HD_VIDEO_FORMAT (mVideoFormat))
         {
@@ -350,29 +374,38 @@ void display::RouteOutputSignal ()
         bool                                    isRGB                   (::IsRGBFormat (mPixelFormat));
 
         //      If device has no RGB conversion capability for the desired channel, use YUV instead
-        if (UWord (mOutputChannel) > ::NTV2DeviceGetNumCSCs (mDeviceID))
-                isRGB = false;
-
-        NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
-        NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
-        if (isRGB) {
-                mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID))
+                        isRGB = false;
         }
 
         if (mDoMultiChannel) {
-                //      Multiformat --- route the one SDI output to the CSC video output (RGB) or FrameStore output (YUV)...
-                if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
-                        mDevice.SetSDITransmitEnable (mOutputChannel, true);
-                }
+                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                        //      Multiformat --- route the one SDI output to the CSC video output (RGB) or FrameStore output (YUV)...
+                        if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
+                                mDevice.SetSDITransmitEnable (chan, true);
+                        }
 
-                mDevice.Connect (::GetSDIOutputInputXpt (mOutputChannel, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
-                mDevice.SetSDIOutputStandard (mOutputChannel, outputStandard);
+                        NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !isRGB/*isRGB*/));
+                        NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
+                        if (isRGB) {
+                                mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt);
+                        }
+                        mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        mDevice.SetSDIOutputStandard (chan, outputStandard);
+                }
         } else {
+                NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
+                NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
+
                 //      Not multiformat:  Route all possible SDI outputs to CSC video output (RGB) or FrameStore output (YUV)...
                 mDevice.ClearRouting ();
 
                 if (isRGB) {
-                        mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt);
+                        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                                mDevice.Connect (::GetCSCInputXptFromChannel ((NTV2Channel)((unsigned int) mOutputChannel + i), false/*isKeyInput*/),  fsVidOutXpt);
+                        }
                 }
 
                 for (NTV2Channel chan (NTV2_CHANNEL1);  ULWord (chan) < numVideoOutputs;  chan = NTV2Channel (chan + 1))
@@ -401,22 +434,28 @@ int display::Putf(struct video_frame *frame, int /* nonblock */) {
         }
         //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
         mCurrentOutFrame ^= 1;
-        mDevice.DMAWriteFrame(mCurrentOutFrame, reinterpret_cast<ULWord*>(frame->tiles[0].data), frame->tiles[0].data_len);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len);
+        }
 
         //      Check for dropped frames by ensuring the hardware has not started to process
         //      the buffers that were just filled....
-        uint32_t readBackOut;
-        mDevice.GetOutputFrame   (mOutputChannel, readBackOut);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                uint32_t readBackOut;
+                mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut);
 
-        if (readBackOut == mCurrentOutFrame) {
-                LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame << ", readback out " << readBackOut << endl;
-                mFramesDropped++;
-        } else {
-                mFramesProcessed++;
+                if (readBackOut == mCurrentOutFrame + 2 * i) {
+                        LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame + 2 * i << ", readback out " << readBackOut << endl;
+                        mFramesDropped++;
+                } else {
+                        mFramesProcessed++;
+                }
         }
 
-        //      Tell the hardware which buffers to start using at the beginning of the next frame...
-        mDevice.SetOutputFrame  (mOutputChannel, mCurrentOutFrame);
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                //      Tell the hardware which buffers to start using at the beginning of the next frame...
+                mDevice.SetOutputFrame((NTV2Channel)((unsigned int)mOutputChannel + i), mCurrentOutFrame + 2 * i);
+        }
 
         if (mWithAudio) {
                 lock_guard<mutex> lk(mAudioLock);
@@ -570,9 +609,22 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
         vf_free(s->frame);
         s->frame = nullptr;
 
+        if (desc.tile_count != 1 && desc.tile_count != 4) {
+                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported tile count: " << desc.tile_count << "\n";
+                return FALSE;
+        }
+
         s->mVideoFormat = MyGetFirstMatchingVideoFormat(aja::display::getFrameRate(desc.fps),
                         desc.height, desc.width, desc.interlacing == INTERLACED_MERGED,
                         false);
+        if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN) {
+                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported resolution"
+#ifndef _MSC_VER
+                        ": " << desc
+#endif
+                        << "\n";
+                return FALSE;
+        }
         s->mPixelFormat = NTV2_FBF_INVALID;
         for (auto & c : aja::codec_map) {
                 if (c.second == desc.color_spec) {
@@ -695,6 +747,14 @@ LINK_SPEC int display_aja_get_property(void *state, int property, void *val, siz
                                 desc->codec = AC_PCM;
                                 desc->bps = BPS;
                                 *len = sizeof *desc;
+                        }
+                        break;
+                case DISPLAY_PROPERTY_VIDEO_MODE:
+                        if (*len >= sizeof(int)) {
+                                *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                                *len = sizeof(int);
+                        } else {
+                                return FALSE;
                         }
                         break;
                 default:
