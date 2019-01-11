@@ -54,6 +54,7 @@
 #include "host.h"
 
 #include "lib_common.h"
+#include "rang.hpp"
 
 using namespace std;
 
@@ -291,7 +292,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 void list_modules(enum library_class cls, int abi_version) {
         const auto & class_set = get_libraries_for_class(cls, abi_version);
         for (auto && item : class_set) {
-                printf("\t%s\n", item.first.c_str());
+                cout << rang::style::bold << "\t" << item.first.c_str() << "\n" << rang::style::reset;
         }
 }
 
@@ -302,16 +303,16 @@ void list_all_modules() {
                 auto it = libraries->find(cls_it->first);
                 if (it != libraries->end()) {
                         for (auto && item : it->second) {
-                                cout << "\t" << item.first << "\n";
+                                cout << rang::style::bold << "\t" << item.first << "\n" << rang::style::reset;
                         }
                 }
                 cout << "\n";
         }
 
         if (!lib_errors.empty()) {
-                cout << "Errors:\n";
+                cout << rang::style::bold << rang::fg::red << "Errors:\n" << rang::fg::reset << rang::style::reset;
                 for (auto && item : lib_errors) {
-                        cout << "\t" << item.first << "\n\t\t" << item.second << "\n";
+                        cout << "\t" << rang::fg::red << item.first << rang::fg::reset << "\n\t\t" << item.second << "\n";
                 }
                 cout << "\n";
         }
