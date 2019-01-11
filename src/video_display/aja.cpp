@@ -46,6 +46,7 @@
 #endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
+#include <ajabase/system/debug.h>
 #include <ajantv2/includes/ntv2utils.h>
 #include <ajatypes.h>
 #include <ntv2debug.h>
