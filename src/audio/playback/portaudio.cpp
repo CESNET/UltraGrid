@@ -407,15 +407,15 @@ static int callback( const void *inputBuffer, void *outputBuffer,
 
         if (bytes_read < req_bytes) {
                 if (!s->quiet)
-                        fprintf(stderr, "[Portaudio] Buffer underflow.\n");
+                        log_msg(LOG_LEVEL_INFO, "[Portaudio] Buffer underflow.\n");
                 memset((int8_t *) outputBuffer + bytes_read, 0, req_bytes - bytes_read);
                 if (!s->quiet && duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
-                        fprintf(stderr, "[Portaudio] No data for %d seconds!\n", NO_DATA_STOP_SEC);
+                        log_msg(LOG_LEVEL_WARNING, "[Portaudio] No data for %d seconds!\n", NO_DATA_STOP_SEC);
                         s->quiet = true;
                 }
         } else {
                 if (s->quiet) {
-                        fprintf(stderr, "[Portaudio] Starting again.\n");
+                        log_msg(LOG_LEVEL_NOTICE, "[Portaudio] Starting again.\n");
                 }
                 s->quiet = false;
                 s->last_audio_read = steady_clock::now();
