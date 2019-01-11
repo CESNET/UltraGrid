@@ -45,6 +45,11 @@
 #include "config_win32.h"
 #endif
 
+#ifdef _MSC_VER
+#include <winsock2.h>
+#define snprintf _snprintf
+#endif
+
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
