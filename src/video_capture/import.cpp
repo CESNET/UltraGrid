@@ -161,6 +161,7 @@ struct vidcap_import_state {
         int frames_prev;
         struct timeval t0;
         char *directory;
+        char tile_delim; // eg. '_' for format "00000001_0.yuv"
 
         struct message_queue message_queue;
 
@@ -448,13 +449,21 @@ try {
                 desc.tile_count = 1;
         } else {
                 desc.tile_count = 0;
-                for (int i = 0; i < 10; i++) {
-                        snprintf(name, sizeof(name), "%s/%08d_%d.%s",
-                                        s->directory, 1, i,
-                                        get_codec_file_extension(desc.color_spec));
-                        if (stat(name, &sb) == 0) {
-                                desc.tile_count++;
-                        } else {
+                char possible_tile_delim[] = { '_', '-' };
+                for (unsigned int d = 0; d < sizeof possible_tile_delim; d++) {
+                        for (int i = 0; i < 10; i++) {
+                                snprintf(name, sizeof(name), "%s/%08d%c%d.%s",
+                                                s->directory, 1,
+                                                possible_tile_delim[d], i,
+                                                get_codec_file_extension(desc.color_spec));
+                                if (stat(name, &sb) == 0) {
+                                        desc.tile_count++;
+                                } else {
+                                        break;
+                                }
+                        }
+                        if (desc.tile_count > 0) {
+                                s->tile_delim = possible_tile_delim[d];
                                 break;
                         }
                 }
@@ -945,6 +954,7 @@ static void * audio_reading_thread(void *args)
 struct video_reader_data {
         char file_name_prefix[512];
         char file_name_suffix[512];
+        char tile_delim;
         unsigned int tile_count;
         struct processed_entry *entry;
         bool o_direct;
@@ -966,7 +976,7 @@ static void *video_reader_callback(void *arg)
                 char name[1048];
                 char tile_idx[3] = "";
                 if (data->tile_count > 1) {
-                        sprintf(tile_idx, "_%d", i);
+                        sprintf(tile_idx, "%c%d", data->tile_delim, i);
 	        }
                 snprintf(name, sizeof(name), "%s%s.%s",
                                 data->file_name_prefix, tile_idx,
@@ -1099,6 +1109,7 @@ static void * reading_thread(void *args)
                                 &data_reader[i];
                         data->o_direct = s->o_direct;
                         data->tile_count = s->video_desc.tile_count;
+                        data->tile_delim = s->tile_delim;
                         snprintf(data->file_name_prefix, sizeof(data->file_name_prefix),
                                         "%s/%08d", s->directory, index + i + 1);
                         strncpy(data->file_name_suffix,
