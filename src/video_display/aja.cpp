@@ -132,7 +132,7 @@ struct display {
 
         CNTV2Card mDevice;
         NTV2DeviceID mDeviceID;
-        struct video_frame *frame = nullptr;
+        struct video_desc desc{};
         bool mDoMultiChannel = false; ///< Use multi-format
         NTV2EveryFrameTaskMode mSavedTaskMode = NTV2_TASK_MODE_INVALID; ///< Used to restore the prior task mode
         NTV2Channel  mOutputChannel = NTV2_CHANNEL1;
@@ -230,7 +230,7 @@ void display::Init()
 
         //      Before the main loop starts, ping-pong the buffers so the hardware will use
         //      different buffers than the ones it was using while idling...
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 mCurrentOutFrame ^= 1;
                 mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i);
@@ -248,7 +248,7 @@ AJAStatus display::SetUpVideo ()
         }
 
         //      Configure the device to handle the requested video format...
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetVideoFormat (mVideoFormat, false, false, chan)) {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
@@ -273,7 +273,7 @@ AJAStatus display::SetUpVideo ()
                 return AJA_STATUS_FAIL;
         }
 
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetFrameBufferFormat (chan, mPixelFormat)) {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot set format "
@@ -291,7 +291,7 @@ AJAStatus display::SetUpVideo ()
         {
                 mDevice.SetReference (NTV2_REFERENCE_FREERUN);
         }
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.EnableChannel(chan)) {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Cannot enable channel "
@@ -374,13 +374,13 @@ void display::RouteOutputSignal ()
         bool                                    isRGB                   (::IsRGBFormat (mPixelFormat));
 
         //      If device has no RGB conversion capability for the desired channel, use YUV instead
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID))
                         isRGB = false;
         }
 
         if (mDoMultiChannel) {
-                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                for (unsigned int i = 0; i < desc.tile_count; ++i) {
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                         //      Multiformat --- route the one SDI output to the CSC video output (RGB) or FrameStore output (YUV)...
                         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
@@ -403,7 +403,7 @@ void display::RouteOutputSignal ()
                 mDevice.ClearRouting ();
 
                 if (isRGB) {
-                        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        for (unsigned int i = 0; i < desc.tile_count; ++i) {
                                 mDevice.Connect (::GetCSCInputXptFromChannel ((NTV2Channel)((unsigned int) mOutputChannel + i), false/*isKeyInput*/),  fsVidOutXpt);
                         }
                 }
@@ -428,9 +428,14 @@ void display::RouteOutputSignal ()
         }
 }
 
-int display::Putf(struct video_frame *frame, int /* nonblock */) {
+int display::Putf(struct video_frame *frame, int flags) {
         if (frame == nullptr) {
                 return 1;
+        }
+
+        if (flags == PUTF_DISCARD) {
+                vf_free(frame);
+                return 0;
         }
         //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
         mCurrentOutFrame ^= 1;
@@ -491,6 +496,8 @@ int display::Putf(struct video_frame *frame, int /* nonblock */) {
 
         mFrames += 1;
         print_stats();
+
+        vf_free(frame);
 
         return 0;
 }
@@ -605,9 +612,7 @@ static NTV2VideoFormat MyGetFirstMatchingVideoFormat (const NTV2FrameRate inFram
 LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
 {
         auto s = static_cast<struct aja::display *>(state);
-
-        vf_free(s->frame);
-        s->frame = nullptr;
+        s->desc = {};
 
         if (desc.tile_count != 1 && desc.tile_count != 4) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported tile count: " << desc.tile_count << "\n";
@@ -633,12 +638,13 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
         }
         assert(s->mPixelFormat != NTV2_FBF_INVALID);
 
-        s->frame = vf_alloc_desc_data(desc);
         // deinit?
+        s->desc = desc;
         try {
                 s->Init();
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Reconfiguration failed: " << e.what() << "\n";
+                s->desc = {};
                 return FALSE;
         }
 
@@ -697,8 +703,6 @@ LINK_SPEC void display_aja_done(void *state)
 {
         auto s = static_cast<struct aja::display *>(state);
 
-        free(s->frame);
-
         delete s;
 }
 
@@ -706,7 +710,7 @@ LINK_SPEC struct video_frame *display_aja_getf(void *state)
 {
         auto s = static_cast<struct aja::display *>(state);
 
-        return s->frame;
+        return vf_alloc_desc_data(s->desc);
 }
 
 LINK_SPEC int display_aja_putf(void *state, struct video_frame *frame, int nonblock)
