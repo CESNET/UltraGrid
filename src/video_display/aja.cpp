@@ -53,12 +53,15 @@
 #include <ntv2devicescanner.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "aja_common.h"
@@ -74,6 +77,7 @@
 #include "rang.hpp"
 #include "video.h"
 
+#define MAX_FRAME_QUEUE_LEN 1
 #define MODULE_NAME "[AJA display] "
 /**
  * The maximum number of bytes of 48KHz audio that can be transferred for two frames.
@@ -102,17 +106,21 @@ int *aja_display_init_noerr = &display_init_noerr;
 #define LINK_SPEC static
 #endif
 
+using std::cerr;
 using std::chrono::duration;
 using std::chrono::steady_clock;
-using std::cerr;
+using std::condition_variable;
 using std::cout;
 using std::endl;
 using std::lock_guard;
 using std::min;
 using std::mutex;
 using std::ostringstream;
+using std::queue;
 using std::runtime_error;
 using std::string;
+using std::thread;
+using std::unique_lock;
 using std::unique_ptr;
 using std::vector;
 
@@ -127,6 +135,12 @@ struct display {
         AJAStatus SetUpAudio();
         void RouteOutputSignal();
         int Putf(struct video_frame *frame, int nonblock);
+        queue<struct video_frame *> frames;
+        mutex frames_lock;
+        condition_variable frame_ready;
+        thread worker;
+        void join();
+        void process_frames();
 
         static const ULWord app = AJA_FOURCC ('U','L','G','R');
 
@@ -428,6 +442,91 @@ void display::RouteOutputSignal ()
         }
 }
 
+void display::join()
+{
+        unique_lock<mutex> lk(frames_lock);
+        frames.push(nullptr); // poison pill
+        lk.unlock();
+        frame_ready.notify_one();
+        worker.join();
+}
+
+void display::process_frames()
+{
+        while (true) {
+                unique_lock<mutex> lk(frames_lock);
+                frame_ready.wait(lk, [this]{ return frames.size() > 0; });
+                struct video_frame *frame = frames.front();
+                frames.pop();
+                lk.unlock();
+                if (!frame) { // poison pill
+                        break;
+                }
+
+                //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
+                mCurrentOutFrame ^= 1;
+                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len);
+                }
+
+                //      Check for dropped frames by ensuring the hardware has not started to process
+                //      the buffers that were just filled....
+                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        uint32_t readBackOut;
+                        mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut);
+
+                        if (readBackOut == mCurrentOutFrame + 2 * i) {
+                                LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame + 2 * i << ", readback out " << readBackOut << endl;
+                                mFramesDropped++;
+                        } else {
+                                mFramesProcessed++;
+                        }
+                }
+
+                for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        //      Tell the hardware which buffers to start using at the beginning of the next frame...
+                        mDevice.SetOutputFrame((NTV2Channel)((unsigned int)mOutputChannel + i), mCurrentOutFrame + 2 * i);
+                }
+
+                if (mWithAudio) {
+                        lock_guard<mutex> lk(mAudioLock);
+                        if (mAudioIsReset && mAudioLen > 0) {
+                                //      Now that the audio system has some samples to play, playback can be taken out of reset...
+                                mDevice.SetAudioOutputReset (mAudioSystem, false);
+                                mAudioIsReset = false;
+                        }
+
+                        if (mAudioLen > 0) {
+                                uint32_t val;
+                                mDevice.ReadAudioLastOut(val, mOutputChannel);
+                                int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
+                                int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
+                                if (latency_ms > 135) {
+                                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Buffer length: " << latency_ms << " ms, possible wrap-around.\n";
+                                        mAudioOutLastAddress = ((val + (SAMPLE_RATE / 1000) * 70 /* ms */ * BPS * channels) % mAudioOutWrapAddress) / 128 * 128;
+                                } else {
+                                        LOG(LOG_LEVEL_DEBUG) << MODULE_NAME "Audio latency: " << latency_ms << "\n";
+                                }
+
+                                int len = min<int>(mAudioLen, mAudioOutWrapAddress - mAudioOutLastAddress); // length to the wrap-around
+                                mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get()), mAudioOutLastAddress, len);
+                                if (mAudioLen - len > 0) {
+                                        mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get() + len), 0, mAudioLen - len);
+                                        mAudioOutLastAddress = mAudioLen - len;
+                                } else {
+                                        mAudioOutLastAddress += len;
+                                }
+                                mAudioLen = 0;
+                        }
+                }
+
+                mFrames += 1;
+                print_stats();
+
+                vf_free(frame);
+        }
+}
+
 int display::Putf(struct video_frame *frame, int flags) {
         if (frame == nullptr) {
                 return 1;
@@ -437,67 +536,17 @@ int display::Putf(struct video_frame *frame, int flags) {
                 vf_free(frame);
                 return 0;
         }
-        //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
-        mCurrentOutFrame ^= 1;
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len);
+
+        unique_lock<mutex> lk(frames_lock);
+        // PUTF_BLOCKING is not currently honored
+        if (frames.size() > MAX_FRAME_QUEUE_LEN) {
+                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Frame dropped!\n";
+                vf_free(frame);
+                return 1;
         }
-
-        //      Check for dropped frames by ensuring the hardware has not started to process
-        //      the buffers that were just filled....
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                uint32_t readBackOut;
-                mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut);
-
-                if (readBackOut == mCurrentOutFrame + 2 * i) {
-                        LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame + 2 * i << ", readback out " << readBackOut << endl;
-                        mFramesDropped++;
-                } else {
-                        mFramesProcessed++;
-                }
-        }
-
-        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                //      Tell the hardware which buffers to start using at the beginning of the next frame...
-                mDevice.SetOutputFrame((NTV2Channel)((unsigned int)mOutputChannel + i), mCurrentOutFrame + 2 * i);
-        }
-
-        if (mWithAudio) {
-                lock_guard<mutex> lk(mAudioLock);
-                if (mAudioIsReset && mAudioLen > 0) {
-                        //      Now that the audio system has some samples to play, playback can be taken out of reset...
-                        mDevice.SetAudioOutputReset (mAudioSystem, false);
-                        mAudioIsReset = false;
-                }
-
-                if (mAudioLen > 0) {
-                        uint32_t val;
-                        mDevice.ReadAudioLastOut(val, mOutputChannel);
-                        int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
-                        int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
-                        if (latency_ms > 135) {
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Buffer length: " << latency_ms << " ms, possible wrap-around.\n";
-                                mAudioOutLastAddress = ((val + (SAMPLE_RATE / 1000) * 70 /* ms */ * BPS * channels) % mAudioOutWrapAddress) / 128 * 128;
-                        } else {
-                                LOG(LOG_LEVEL_DEBUG) << MODULE_NAME "Audio latency: " << latency_ms << "\n";
-                        }
-
-                        int len = min<int>(mAudioLen, mAudioOutWrapAddress - mAudioOutLastAddress); // length to the wrap-around
-                        mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get()), mAudioOutLastAddress, len);
-                        if (mAudioLen - len > 0) {
-                                mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get() + len), 0, mAudioLen - len);
-                                mAudioOutLastAddress = mAudioLen - len;
-                        } else {
-                                mAudioOutLastAddress += len;
-                        }
-                        mAudioLen = 0;
-                }
-        }
-
-        mFrames += 1;
-        print_stats();
-
-        vf_free(frame);
+        frames.push(frame);
+        lk.unlock();
+        frame_ready.notify_one();
 
         return 0;
 }
@@ -612,7 +661,10 @@ static NTV2VideoFormat MyGetFirstMatchingVideoFormat (const NTV2FrameRate inFram
 LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
 {
         auto s = static_cast<struct aja::display *>(state);
-        s->desc = {};
+        if (s->desc.color_spec != VIDEO_CODEC_NONE) {
+                s->join();
+                s->desc = {};
+        }
 
         if (desc.tile_count != 1 && desc.tile_count != 4) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported tile count: " << desc.tile_count << "\n";
@@ -647,6 +699,8 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
                 s->desc = {};
                 return FALSE;
         }
+
+        s->worker = thread(&aja::display::process_frames, s);
 
         return TRUE;
 }
@@ -702,6 +756,11 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
 LINK_SPEC void display_aja_done(void *state)
 {
         auto s = static_cast<struct aja::display *>(state);
+
+        if (s->desc.color_spec != VIDEO_CODEC_NONE) {
+                s->join();
+                s->desc = {};
+        }
 
         delete s;
 }
