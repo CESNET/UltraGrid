@@ -318,9 +318,11 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         } else {
                 int gap = (uint16_t) pkt->seq - playout_buf->last_rtp_seq;
                 gap -= 1;
-                if (gap > playout_buf->longest_gap &&
-                                gap < 1<<16 / 2) { // to eliminate errors, misordered pckts etc.
-                        playout_buf->longest_gap = gap;
+                if (gap > 1<<16 / 2) { // to eliminate errors, misordered pckts etc.
+                        playout_buf->longest_gap = 1<<16;
+                }
+                if (gap > playout_buf->longest_gap) {
+                        gap = playout_buf->longest_gap;
                 }
                 playout_buf->last_rtp_seq = pkt->seq;
 
@@ -348,15 +350,21 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         // print statistics after 5 seconds
         if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
                         playout_buf->expected_pkts > 0) {
+                char loss_str[128];
+                if (playout_buf->longest_gap == 1<<16) {
+                        snprintf(loss_str, sizeof loss_str, "reordered pkts");
+                } else {
+                        snprintf(loss_str, sizeof loss_str, "max loss %d", playout_buf->longest_gap);
+                }
                 // print stats
                 log_msg(LOG_LEVEL_INFO, "SSRC %08x: %d/%d packets received "
-                                "(%.5f%%), max loss %d.\n",
+                                "(%.5f%%), %s.\n",
                                 pkt->ssrc,
                                 playout_buf->received_pkts,
                                 playout_buf->expected_pkts,
                                 (double) playout_buf->received_pkts /
                                 playout_buf->expected_pkts * 100.0,
-                                playout_buf->longest_gap);
+                                loss_str);
                 playout_buf->received_pkts_last = playout_buf->received_pkts;
                 playout_buf->expected_pkts_last = playout_buf->expected_pkts;
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
