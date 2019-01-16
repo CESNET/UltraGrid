@@ -48,8 +48,8 @@
 #include "transmit.h"
 #include "video.h"
 
-#define DEFAULT_K 128
-#define DEFAULT_N 224
+#define DEFAULT_K 200
+#define DEFAULT_N 240
 
 #define MAX_K 255
 #define MAX_N 255
