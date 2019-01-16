@@ -554,7 +554,7 @@ static void *decompress_thread(void *args) {
                                                 out = vf_get_tile(decoder->frame, 0)->data + y * decoder->pitch * tile_height +
                                                         vc_get_linesize(tile_width, decoder->out_codec) * x;
                                         } else {
-                                                out = vf_get_tile(decoder->frame, x)->data;
+                                                out = vf_get_tile(decoder->frame, pos)->data;
                                         }
                                         if(!msg->nofec_frame->tiles[pos].data)
                                                 continue;
