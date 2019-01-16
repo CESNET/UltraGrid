@@ -77,7 +77,7 @@
 #include "rang.hpp"
 #include "video.h"
 
-#define MAX_FRAME_QUEUE_LEN 1
+#define DEFAULT_MAX_FRAME_QUEUE_LEN 1
 #define MODULE_NAME "[AJA display] "
 /**
  * The maximum number of bytes of 48KHz audio that can be transferred for two frames.
@@ -128,20 +128,23 @@ namespace ultragrid {
 namespace aja {
 
 struct display {
-        display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio);
+        display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio, bool novsync, int buf_len);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
         AJAStatus SetUpAudio();
         void RouteOutputSignal();
         int Putf(struct video_frame *frame, int nonblock);
+
         queue<struct video_frame *> frames;
+        unsigned int max_frame_queue_len;
         mutex frames_lock;
         condition_variable frame_ready;
         thread worker;
         void join();
         void process_frames();
 
+        bool mNovsync;
         static const ULWord app = AJA_FOURCC ('U','L','G','R');
 
         CNTV2Card mDevice;
@@ -168,6 +171,7 @@ struct display {
         uint32_t mCurrentOutFrame;
         uint32_t mFramesProcessed = 0u;
         uint32_t mFramesDropped = 0u;
+        uint32_t mFramesDiscarded = 0u;
 
         steady_clock::time_point mT0 = steady_clock::now();
         int mFrames = 0;
@@ -177,7 +181,7 @@ struct display {
         static void show_help();
 };
 
-display::display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio) : mOutputDestination(outputDestination),  mWithAudio(withAudio) {
+display::display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio, bool novsync, int buf_len) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mWithAudio(withAudio) {
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
         }
@@ -219,6 +223,11 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
         }
 
         mCurrentOutFrame = mOutputChannel * 2u;
+
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                mDevice.EnableOutputInterrupt(chan);
+        }
 }
 
 display::~display() {
@@ -338,17 +347,18 @@ AJAStatus display::SetUpVideo ()
 
 }       //      SetUpVideo
 
-#define CHECK_OK(cmd, msg) do { bool ret = cmd; if (!ret) {\
+#define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
         LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
-        return AJA_STATUS_FAIL;\
+        action_failed;\
 }\
 } while(0)
+#define NOOP ((void)0)
 AJAStatus display::SetUpAudio ()
 {
         mAudioSystem = NTV2ChannelToAudioSystem(mOutputChannel);
 
         //      It's best to use all available audio channels...
-        CHECK_OK(mDevice.SetNumberAudioChannels(::NTV2DeviceGetMaxAudioChannels(mDeviceID), mAudioSystem), "Unable to set audio channels!");
+        CHECK_OK(mDevice.SetNumberAudioChannels(::NTV2DeviceGetMaxAudioChannels(mDeviceID), mAudioSystem), "Unable to set audio channels!", return AJA_STATUS_FAIL);
 
         //      Assume 48kHz PCM...
         mDevice.SetAudioRate (NTV2_AUDIO_48K, mAudioSystem);
@@ -369,7 +379,7 @@ AJAStatus display::SetUpAudio ()
         //
         mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem);
 
-        CHECK_OK(mDevice.SetAudioOutputEraseMode(mAudioSystem, true), "Set erase mode");
+        CHECK_OK(mDevice.SetAudioOutputEraseMode(mAudioSystem, true), "Set erase mode", return AJA_STATUS_FAIL);
 
         //      Reset both the input and output sides of the audio system so that the buffer
         //      pointers are reset to zero and inhibited from advancing.
@@ -455,6 +465,11 @@ void display::join()
 
 void display::process_frames()
 {
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                mDevice.SubscribeOutputVerticalEvent(chan);
+        }
+
         while (true) {
                 unique_lock<mutex> lk(frames_lock);
                 frame_ready.wait(lk, [this]{ return frames.size() > 0; });
@@ -465,15 +480,16 @@ void display::process_frames()
                         break;
                 }
 
+                CHECK_OK(mDevice.WaitForOutputVerticalInterrupt(mOutputChannel), "WaitForOutputVerticalInterrupt", NOOP);
                 //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
                 mCurrentOutFrame ^= 1;
                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
                         mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len);
                 }
 
-                //      Check for dropped frames by ensuring the hardware has not started to process
-                //      the buffers that were just filled....
                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                        //      Check for dropped frames by ensuring the hardware has not started to process
+                        //      the buffers that were just filled....
                         uint32_t readBackOut;
                         mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut);
 
@@ -483,9 +499,6 @@ void display::process_frames()
                         } else {
                                 mFramesProcessed++;
                         }
-                }
-
-                for (unsigned int i = 0; i < frame->tile_count; ++i) {
                         //      Tell the hardware which buffers to start using at the beginning of the next frame...
                         mDevice.SetOutputFrame((NTV2Channel)((unsigned int)mOutputChannel + i), mCurrentOutFrame + 2 * i);
                 }
@@ -541,8 +554,11 @@ int display::Putf(struct video_frame *frame, int flags) {
 
         unique_lock<mutex> lk(frames_lock);
         // PUTF_BLOCKING is not currently honored
-        if (frames.size() > MAX_FRAME_QUEUE_LEN) {
+        if (frames.size() > max_frame_queue_len) {
                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Frame dropped!\n";
+                if (++mFramesDiscarded % 20 == 0) {
+                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << mFramesDiscarded << " frames discarded - try to increase buffer count or set \"novsync\" (see \"-d aja:help\" for details).\n";
+                }
                 vf_free(frame);
                 return 1;
         }
@@ -567,7 +583,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[:device=<d>][:connection=<c>][:help] [-r embedded]\n" << rang::style::reset <<
+                "[:device=<d>][:connection=<c>][:novsync][:buffers=<b>][:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
         cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
                 "\t\tdevice identifier (number or name)\n";
@@ -585,10 +601,17 @@ void aja::display::show_help() {
         }
         cout << "\n";
 
-        cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
-                "\t\treceive also audio and embed it to SDI\n"
-                "\n";
+        cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
+                "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
 
+        cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
+                "\t\tuse <b> output buffers (default is " << DEFAULT_MAX_FRAME_QUEUE_LEN << ") - higher values increase stability\n"
+                "\t\tbut may also increase latency (when VBlank is enabled)\n";
+
+        cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
+                "\t\treceive also audio and embed it to SDI\n";
+
+        cout << "\n";
         cout << "Available devices:\n";
 
         CNTV2DeviceScanner      deviceScanner;
@@ -711,6 +734,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
 {
         string device_idx{"0"};
         string connection;
+        bool novsync = false;
+        int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
@@ -738,6 +763,14 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                         }
                 } else if (strstr(item, "device=") != nullptr) {
                         device_idx = item + strlen("device=");
+                } else if (strstr(item, "novsync") == item) {
+                        novsync = true;
+                } else if (strstr(item, "buffers=") == item) {
+                        buf_len = atoi(item + strlen("buffers="));
+                        if (buf_len <= 0) {
+                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Buffers must be positive!\n";
+                                return nullptr;
+                        }
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
                         return nullptr;
@@ -746,7 +779,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, outputDestination, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u);
+                auto s = new aja::display(device_idx, outputDestination, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
