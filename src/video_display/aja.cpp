@@ -147,7 +147,7 @@ struct display {
         CNTV2Card mDevice;
         NTV2DeviceID mDeviceID;
         struct video_desc desc{};
-        bool mDoMultiChannel = false; ///< Use multi-format
+        bool mDoMultiChannel; ///< Use multi-format
         NTV2EveryFrameTaskMode mSavedTaskMode = NTV2_TASK_MODE_INVALID; ///< Used to restore the prior task mode
         NTV2Channel  mOutputChannel = NTV2_CHANNEL1;
         NTV2VideoFormat mVideoFormat = NTV2_FORMAT_UNKNOWN;
@@ -186,7 +186,11 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                 throw runtime_error(string("Device '") + device_id + "' not ready!");
         }
 
+        mDeviceID = mDevice.GetDeviceID(); // Keep this ID handy -- it's used frequently
+
+        mDoMultiChannel = NTV2DeviceCanDoMultiFormat(mDeviceID);
         if (!mDoMultiChannel) {
+                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Device " << device_id << " cannot simultaneously handle different video formats.\n";
                 if (!mDevice.AcquireStreamForApplication(app, static_cast <uint32_t> (getpid()))) {
                         throw runtime_error("Device busy!\n"); // Device is in use by another app -- fail
                 }
@@ -194,8 +198,6 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
         }
 
         mDevice.SetEveryFrameServices(NTV2_OEM_TASKS);
-
-        mDeviceID = mDevice.GetDeviceID(); // Keep this ID handy -- it's used frequently
 
         if (::NTV2DeviceCanDoMultiFormat(mDeviceID) && mDoMultiChannel) {
                 mDevice.SetMultiFormatMode(true);
