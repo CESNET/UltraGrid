@@ -409,11 +409,13 @@ static void gl_load_splashscreen(struct state_gl *s)
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
+        if (gl) {
+                LOG(LOG_LEVEL_ERROR) << "Multiple instances of GL display is disallowed!\n";
+                return nullptr;
+        }
+
 	struct state_gl *s = new state_gl(parent);
         
-        /* GLUT callbacks take only some arguments so we need static variable */
-        gl = s;
-
 	// parse parameters
 	if (fmt != NULL) {
 		if (strcmp(fmt, "help") == 0) {
@@ -503,6 +505,9 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         }
 
         gl_load_splashscreen(s);
+
+        /* GLUT callbacks take only some arguments so we need static variable */
+        gl = s;
 
         return (void*)s;
 }
@@ -1702,6 +1707,8 @@ static void display_gl_done(void *state)
                 spout_sender_unregister(s->syphon_spout);
 #endif
         }
+
+        gl = nullptr;
         
         delete s;
 }
