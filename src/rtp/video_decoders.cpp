@@ -1632,7 +1632,6 @@ cleanup:
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
         pbuf_data->decoded++;
 
-        /// @todo figure out multiple substreams
         if (decoder->last_buffer_number != -1) {
                 long int missing = buffer_number -
                         ((decoder->last_buffer_number + 1) & 0x3fffff);

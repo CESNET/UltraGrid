@@ -374,8 +374,8 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
                 tx_send_base(tx, frame, rtp_session, ts, last,
                                 i, fragment_offset);
-                tx->buffer ++;
         }
+        tx->buffer++;
 }
 
 void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx, uint32_t *video_hdr)
