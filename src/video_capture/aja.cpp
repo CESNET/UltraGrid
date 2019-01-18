@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +112,15 @@ volatile bool *aja_should_exit = &should_exit;
 #else
 #define LINK_SPEC static
 #endif
+
+#define MODULE_NAME "[AJA cap.] "
+
+#define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
+        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
+        action_failed;\
+}\
+} while(0)
+#define NOOP ((void)0)
 
 using namespace std;
 
@@ -411,11 +420,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
         mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
 
 //      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
-        mDevice.EnableChannel (mInputChannel);
+        CHECK_OK(mDevice.EnableChannel (mInputChannel), "Cannot enable channel", NOOP);
 
         //      Enable and subscribe to the interrupts for the channel to be used...
-        mDevice.EnableInputInterrupt (mInputChannel);
-        mDevice.SubscribeInputVerticalEvent (mInputChannel);
+        CHECK_OK(mDevice.EnableInputInterrupt (mInputChannel), "EnableInputInterrupt failed", NOOP);
+        CHECK_OK(mDevice.SubscribeInputVerticalEvent (mInputChannel), "SubscribeInputVerticalEvent failed", NOOP);
 
         //      Set the video format to match the incomming video format.
         //      Does the device support the desired input source?
@@ -425,15 +434,15 @@ AJAStatus vidcap_state_aja::SetupVideo()
         //      is configured for input...
         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (mInputSource))
         {
-                mDevice.SetSDITransmitEnable (mInputChannel, false);
+                CHECK_OK(mDevice.SetSDITransmitEnable (mInputChannel, false), "Cannot disable SDI transmit", NOOP);
 
                 //      Give the input circuit some time (~10 frames) to lock onto the input signal...
 #if AJA_NTV2_SDK_VERSION_BEFORE(12,5)
                 for (int i = 0; i < 10; i++) {
-                        mDevice.WaitForInputVerticalInterrupt (mInputChannel);
+                        CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel), "Cannot wait for VBI", NOOP);
                 }
 #else
-                mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10);
+                CHECK_OK(mDevice.WaitForInputVerticalInterrupt (mInputChannel, 10), "Cannot wait for VBI", NOOP);
 #endif
         }
 
