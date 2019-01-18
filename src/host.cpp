@@ -297,6 +297,9 @@ void print_version()
 {
         cout << rang::fg::cyan << rang::style::bold << PACKAGE_STRING <<
                 rang::fg::reset << rang::style::reset << " (" <<
+#ifdef GIT_BRANCH
+                GIT_BRANCH << " "
+#endif
 #ifdef GIT_REV
                 "rev " GIT_REV " " <<
 #endif

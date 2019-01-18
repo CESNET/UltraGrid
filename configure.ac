@@ -107,6 +107,14 @@ m4_defun([MY_CHECK_FRAMEWORK],
 AC_MSG_CHECKING([GIT presence])
 if which git
 then
+        AC_MSG_CHECKING([checking GIT branch ])
+        git_branch=`git name-rev --name-only HEAD`
+        if test "$git_branch"; then
+                AC_DEFINE_UNQUOTED([GIT_BRANCH], "$git_branch", [Current GIT branch])
+                AC_MSG_RESULT($git_branch);
+        else
+                AC_MSG_RESULT(no);
+        fi
         AC_MSG_CHECKING([checking GIT revision ])
         git_rev=`git rev-parse --short HEAD`
         if test "$git_rev"; then
