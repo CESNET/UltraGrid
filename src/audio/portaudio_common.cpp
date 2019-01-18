@@ -50,6 +50,8 @@
 
 using std::cout;
 
+#define MODULE_NAME "[PortAudio] "
+
 static const char *portaudio_get_api_name(PaDeviceIndex device) {
         for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
                 const PaHostApiInfo *info = Pa_GetHostApiInfo(i);
@@ -119,3 +121,16 @@ error:
         Pa_Terminate();
 }
 
+void portaudio_print_version() {
+        int error = Pa_Initialize();
+        if(error != paNoError) {
+                log_msg(LOG_LEVEL_INFO, MODULE_NAME "Cannot get version.\n");
+                return;
+        }
+
+        const PaVersionInfo *info = Pa_GetVersionInfo();
+
+        if (info && info->versionText) {
+                log_msg(LOG_LEVEL_INFO, MODULE_NAME "Using %s\n", info->versionText);
+        }
+}

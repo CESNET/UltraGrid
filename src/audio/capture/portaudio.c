@@ -137,6 +137,8 @@ static void portaudio_close(PaStream * stream)	// closes and frees all audio res
  */
 static void * audio_cap_portaudio_init(const char *cfg)
 {
+        portaudio_print_version();
+
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Portaudio options:\n");
                 color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-s poraudio");

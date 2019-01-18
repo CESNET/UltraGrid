@@ -49,6 +49,7 @@ enum portaudio_device_direction {
 
 void portaudio_print_available_devices(enum portaudio_device_direction);
 void portaudio_print_device_info(PaDeviceIndex device);
+void portaudio_print_version();
 
 #ifdef __cplusplus
 }

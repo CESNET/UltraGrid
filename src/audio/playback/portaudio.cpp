@@ -149,6 +149,8 @@ static void * audio_play_portaudio_init(const char *cfg)
 {	
         struct state_portaudio_playback *s;
         int output_device;
+
+        portaudio_print_version();
         
         if(cfg) {
                 if(strcmp(cfg, "help") == 0) {
