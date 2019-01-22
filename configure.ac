@@ -245,6 +245,11 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 }
 #endif // POSIX_MEMALIGN
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
+
+#undef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#undef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
 ])
 
 # @param $1 name of the module

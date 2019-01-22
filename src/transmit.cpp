@@ -445,7 +445,7 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         return htonl(tmp);
 }
 static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
-                int fec_symbol_size, int *fec_symbol_offset)
+                int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
 {
         int data_len;
         data_len = mtu - hdrs_len;
@@ -461,7 +461,8 @@ static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
                         }
                 }
         } else {
-                data_len = (data_len / 48) * 48;
+                pf_block_size = MAX(pf_block_size, 1); // compressed formats have usually 0
+                data_len = (data_len / pf_block_size) * pf_block_size;
         }
         return data_len;
 }
@@ -590,7 +591,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int packet_count = 0;
         do {
                 pos += get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
-                                fec_symbol_size, &fec_symbol_offset);
+                                fec_symbol_size, &fec_symbol_offset,
+                                get_pf_block_size(frame->color_spec));
                 packet_count += 1;
         } while (pos < (unsigned int) tile->data_len);
         if(tx->fec_scheme == FEC_MULT) {
@@ -641,7 +643,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 data = tile->data + pos;
                 data_len = get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
-                                fec_symbol_size, &fec_symbol_offset);
+                                fec_symbol_size, &fec_symbol_offset,
+                                get_pf_block_size(frame->color_spec));
                 if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
                                 m = 1;
