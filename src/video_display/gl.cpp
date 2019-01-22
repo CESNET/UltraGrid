@@ -85,6 +85,7 @@
 #include "tv.h"
 
 #define MAGIC_GL         0x1331018e
+#define MODULE_NAME      "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define STRINGIFY(A) #A
@@ -1010,10 +1011,21 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
 }
 #endif
 
+static bool display_gl_check_gl_version() {
+        auto version = (const char *) glGetString(GL_VERSION);
+        if (!version) {
+                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Unable to get OpenGL version!\n");
+        }
+        if (atof(version) < 2.0) {
+                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
+                return false;
+        }
+        log_msg(LOG_LEVEL_INFO, MODULE_NAME "OpenGL 2.0 is supported...\n");
+        return true;
+}
+
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        char *tmp, *gl_ver_major;
-        char *save_ptr = NULL;
 #if defined HAVE_LINUX || defined WIN32
         GLenum err;
 #endif // HAVE_LINUX
@@ -1055,16 +1067,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
 #endif
 	glutReshapeFunc(gl_resize);
 
-        tmp = strdup((const char *)glGetString(GL_VERSION));
-        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
-        if(atoi(gl_ver_major) >= 2) {
-                fprintf(stderr, "OpenGL 2.0 is supported...\n");
-        } else {
-                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
-                free(tmp);
+        if (!display_gl_check_gl_version()) {
                 return false;
         }
-        free(tmp);
 
 #if defined HAVE_LINUX || defined WIN32
         err = glewInit();
