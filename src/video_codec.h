@@ -96,6 +96,8 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len,
                 int rshift, int gshift, int bshift);
+void vc_copylineR12L(unsigned char *dst, const unsigned char *src, int len,
+                int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len,
                 int rshift, int gshift, int bshift);
 void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int len,
