@@ -78,6 +78,8 @@
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
 
+#define DEFAULT 0
+#define KEEP -1
 #define MAX_DEVICES 4
 
 // performs command, if failed, displays error and jumps to error label
@@ -295,8 +297,8 @@ struct state_decklink {
 
         BMDPixelFormat      pixelFormat;
 
-        uint32_t            link;
-        uint32_t            duplex; // 0 default, -1 don't change, other - value
+        uint32_t            link_req; // 0 default
+        uint32_t            duplex_req; // 0 default, -1 don't change, other - value
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
 
@@ -722,6 +724,33 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
                                 "SDI subsampling");
 
+                uint32_t link = s->link_req;
+                uint32_t duplex = s->duplex_req;
+
+                if (s->link_req == DEFAULT) {
+                        if (desc.width != 7680) {
+                                link = bmdLinkConfigurationSingleLink;
+                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
+                        } else {
+                                link = bmdLinkConfigurationQuadLink;
+                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting quad-link for 8K by default.\n";
+                        }
+                }
+                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
+
+                if (link == bmdLinkConfigurationQuadLink && s->duplex_req == bmdDuplexModeFull) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
+                }
+
+                if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
+                        duplex = bmdDuplexModeHalf;
+                }
+
+                if (duplex != DEFAULT && duplex != (uint32_t) KEEP) {
+                        CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, duplex), "Unable set output SDI duplex mode");
+                }
+
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
                                 "Quad-link SDI Square Division Quad Split mode");
 
@@ -860,8 +889,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
-        s->duplex = 0;
-        s->link = 0;
+        s->duplex_req = 0;
+        s->link_req = 0;
         cardId[0] = "0";
         s->devices_cnt = 1;
         s->low_latency = true;
@@ -911,17 +940,17 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
                         } else if(strcasecmp(ptr, "single-link") == 0) {
-                                s->link = bmdLinkConfigurationSingleLink;
+                                s->link_req = bmdLinkConfigurationSingleLink;
                         } else if(strcasecmp(ptr, "dual-link") == 0) {
-                                s->link = bmdLinkConfigurationDualLink;
+                                s->link_req = bmdLinkConfigurationDualLink;
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
-                                s->link = bmdLinkConfigurationQuadLink;
+                                s->link_req = bmdLinkConfigurationQuadLink;
                         } else if(strcasecmp(ptr, "half-duplex") == 0) {
-                                s->duplex = bmdDuplexModeHalf;
+                                s->duplex_req = bmdDuplexModeHalf;
                         } else if(strcasecmp(ptr, "no-half-duplex") == 0) {
-                                s->duplex = -1;
+                                s->duplex_req = KEEP;
                         } else if(strcasecmp(ptr, "full-duplex") == 0) {
-                                s->duplex = bmdDuplexModeFull;
+                                s->duplex_req = bmdDuplexModeFull;
                         } else if(strcasecmp(ptr, "LevelA") == 0) {
                                 s->level = 'A';
                         } else if(strcasecmp(ptr, "LevelB") == 0) {
@@ -980,16 +1009,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 return NULL;
                         }
                         ptr = strtok_r(NULL, ":", &save_ptr);
-                }
-        }
-
-        if (s->link == bmdLinkConfigurationQuadLink) {
-                if (s->duplex == bmdDuplexModeFull) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
-                }
-                if (s->duplex == 0) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
-                        s->duplex = bmdDuplexModeHalf;
                 }
         }
 
@@ -1143,20 +1162,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                         HDMI3DPacking);
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set 3D packing.\n");
-                        }
-                }
-
-                if(s->link != 0) {
-                        HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link);
-                        if(res != S_OK) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable set output SDI standard: " << bmd_hresult_to_string(res) << ".\n";
-                        }
-                }
-
-                if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
-                        HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex);
-                        if(res != S_OK) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable set output SDI duplex mode: " << bmd_hresult_to_string(res) << ".\n";
                         }
                 }
 

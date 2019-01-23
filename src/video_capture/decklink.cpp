@@ -1107,9 +1107,11 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex), "Unable set output SDI duplex mode");
                 }
 
-                if(s->link != 0) {
-                        CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI standard");
+                if (s->link == 0) {
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
+                        s->link = bmdLinkConfigurationSingleLink;
                 }
+                CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
 
                 // set Callback which returns frames
                 s->state[i].delegate = new VideoDelegate(s, i);
