@@ -774,7 +774,7 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
         d = (uint32_t *)(void *) dst;
         s = (const void *)(const void *) src;
 
-        while (len > 0) {
+        while (len >= 16) {
                 tmp =
                     (s->
                      r << rshift) | (((s->gh << 2) | s->
@@ -805,6 +805,16 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
                 *(d++) = tmp;
                 len -= 16;
         }
+        while (len >= 4) {
+                tmp =
+                    (s->
+                     r << rshift) | (((s->gh << 2) | s->
+                                      gl) << gshift) | (((s->bh << 4) | s->
+                                                         bl) << bshift);
+                s++;
+                *(d++) = tmp;
+                len -= 4;
+        }
 }
 
 /**
@@ -822,7 +832,7 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
         if (rshift == 0 && gshift == 8 && bshift == 16) {
                 memcpy(dst, src, len);
         } else {
-                while (len > 0) {
+                while (len >= 16) {
                         register unsigned int r, g, b;
                         tmp = *(s++);
                         r = tmp & 0xff;
@@ -849,6 +859,16 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
                         tmp = (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         len -= 16;
+                }
+                while (len >= 4) {
+                        register unsigned int r, g, b;
+                        tmp = *(s++);
+                        r = tmp & 0xff;
+                        g = (tmp >> 8) & 0xff;
+                        b = (tmp >> 16) & 0xff;
+                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        *(d++) = tmp;
+                        len -= 4;
                 }
         }
 }
