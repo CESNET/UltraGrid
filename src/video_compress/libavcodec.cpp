@@ -45,7 +45,13 @@
 
 #include "libavcodec_common.h"
 
-#include <assert.h>
+#include <cassert>
+#include <cmath>
+#include <map>
+#include <regex>
+#include <string>
+#include <thread>
+#include <unordered_map>
 
 #include "debug.h"
 #include "host.h"
@@ -57,12 +63,6 @@
 #include "utils/worker.h"
 #include "video.h"
 #include "video_compress.h"
-
-#include <map>
-#include <regex>
-#include <string>
-#include <thread>
-#include <unordered_map>
 
 #ifdef HWACC_VAAPI
 extern "C"
