@@ -46,7 +46,7 @@ static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {
         { NTV2_FBF_10BIT_YCBCR, v210 },
         { NTV2_FBF_8BIT_YCBCR, UYVY },
         { NTV2_FBF_RGBA, RGBA },
-        { NTV2_FBF_10BIT_RGB, R10k },
+        { NTV2_FBF_10BIT_DPX, R10k }, // or NTV2_FBF_10BIT_RGB?
         { NTV2_FBF_8BIT_YCBCR_YUY2, YUYV },
         { NTV2_FBF_24BIT_RGB, RGB },
         { NTV2_FBF_24BIT_BGR, BGR },

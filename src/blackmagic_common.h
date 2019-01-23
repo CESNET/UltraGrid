@@ -56,7 +56,7 @@ std::string bmd_hresult_to_string(HRESULT res);
 // codecs are favored) returned by DISPLAY_PROPERTY_CODECS property (display)
 static std::map<codec_t, BMDPixelFormat> uv_to_bmd_codec_map = {
                   { R12L, bmdFormat12BitRGBLE },
-                  { R10k, bmdFormat10BitRGB },
+                  { R10k, bmdFormat10BitRGBX },
                   { v210, bmdFormat10BitYUV },
                   { RGBA, bmdFormat8BitBGRA },
                   { UYVY, bmdFormat8BitYUV },

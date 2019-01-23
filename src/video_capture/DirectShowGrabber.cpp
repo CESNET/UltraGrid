@@ -1376,7 +1376,7 @@ static const struct {
         &MEDIASUBTYPE_Overlay,     0,   "Overlay",            L"Overlay", VIDEO_CODEC_NONE,
         &GUID_I420        ,       12,   "I420",               L"I420", VIDEO_CODEC_NONE,
         &MEDIASUBTYPE_YUY2,       12,   "YUY2",               L"YUY2", YUYV,
-        &GUID_R210,               12,   "r210",               L"r210", R10k,
+        //&GUID_R210,               12,   "r210",               L"r210", r210,
         &GUID_v210,               12,   "v210",               L"v210", v210,
         &GUID_V210,               12,   "V210",               L"V210", v210,
         &MEDIASUBTYPE_UYVY,       12,   "UYVY",               L"UYVY", UYVY,
