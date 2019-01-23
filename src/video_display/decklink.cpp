@@ -316,7 +316,7 @@ static void show_help(bool full)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << " [:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex]\n" << style::reset;
         cout << style::bold << "\t\t<device(s)>" << style::reset << " is coma-separated indices or names of output devices\n";
         cout << style::bold << "\t\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\t\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
@@ -355,7 +355,7 @@ static void show_help(bool full)
                 
                 // *** Print the model name of the DeckLink card
                 result = deckLink->GetDisplayName(&deviceNameString);
-                cout << "\ndevice: " << style::bold << numDevices << style::reset << ".) ";
+                cout << "\ndevice: " << style::bold << numDevices << style::reset << ") ";
                 if (result == S_OK) {
                         char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
                         cout << style::bold << deviceNameCString << style::reset << "\n";
@@ -1662,7 +1662,7 @@ static void print_output_modes (IDeckLink* deckLink)
         }
 
         // List all supported output display modes
-        printf("display modes:\n");
+        printf("\tdisplay modes:\n");
         while (displayModeIterator->Next(&displayMode) == S_OK)
         {
                 BMD_STR                  displayModeString = NULL;
@@ -1683,7 +1683,7 @@ static void print_output_modes (IDeckLink* deckLink)
                         modeWidth = displayMode->GetWidth();
                         modeHeight = displayMode->GetHeight();
                         displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                        printf("%d.) %-20s \t %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
+                        printf("\t\t%2d) %-20s  %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);

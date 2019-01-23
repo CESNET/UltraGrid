@@ -55,6 +55,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 #include <list>
 #include <mutex>
 #include <queue>
@@ -453,11 +454,11 @@ decklink_help()
 		if (result == S_OK)
 		{
                         deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
+			cout << "device: " << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceNameCString << style::reset << "\n";
 			release_bmd_api_str(deviceNameString);
                         free(deviceNameCString);
                 } else {
-			printf("\ndevice: %d.) (unable to get name)\n\n", numDevices);
+			printf("device: %d) (unable to get name)\n", numDevices);
                 }
 		
 		// Increment the total number of DeckLink cards found
@@ -478,14 +479,18 @@ decklink_help()
                                 fprintf(stderr, "[DeckLink] Could not get connections.\n");
                         } else {
                                 printf("\n");
-                                printf("Connection can be one of following (not required):\n");
+                                cout << "\tConnection can be one of following:\n";
                                 for (auto it : connection_string_map) {
-                                        if (connections & it.first)
-                                                printf("\t%s\n", it.second.c_str());
+                                        if (connections & it.first) {
+                                                cout << style::bold << "\t\t" <<
+                                                        it.second << style::reset << "\n";
+                                        }
                                 }
                         }
                 }
 				
+                printf("\n");
+
 		// Release the IDeckLink instance when we've finished with it to prevent leaks
 		deckLink->Release();
 	}
@@ -500,14 +505,12 @@ decklink_help()
 		log_msg(LOG_LEVEL_ERROR, "No Blackmagic Design devices were found.\n");
         }
 
-        printf("\n");
-
         printf("Examples:\n");
-        printf("\t%s -t decklink # captures autodetected video from first DeckLink in system\n", uv_argv[0]);
-        printf("\t%s -t decklink:0:Hi50:UYVY # captures 1080i50, 8-bit yuv\n", uv_argv[0]);
-        printf("\t%s -t decklink:0:10:v210:connection=HDMI # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n", uv_argv[0]);
-        printf("\t%s -t decklink:mode=23ps # captures 1080p24, 8-bit yuv from first device\n", uv_argv[0]);
-        printf("\t%s -t \"decklink:mode=Hp30:codec=v210:device=DeckLink HD Extreme 3D+\" # captures 1080p30, 10-bit yuv from DeckLink HD Extreme 3D+\n", uv_argv[0]);
+        cout << "\t" << style::bold << uv_argv[0] << " -t decklink" << style::reset << " # captures autodetected video from first DeckLink in system\n";
+        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:0:Hi50:UYVY" << style::reset << " # captures 1080i50, 8-bit yuv\n";
+        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:0:10:v210:connection=HDMI" << style::reset << " # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n";
+        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:mode=23ps" << style::reset << " # captures 1080p24, 8-bit yuv from first device\n";
+        cout << "\t" << style::bold << uv_argv[0] << " -t \"decklink:mode=Hp30:codec=v210:device=DeckLink HD Extreme 3D+\"" << style::reset << " # captures 1080p30, 10-bit yuv from DeckLink HD Extreme 3D+\n";
 
 	printf("\n");
 
@@ -1703,10 +1706,12 @@ bail:
 static void print_input_modes (IDeckLink* deckLink)
 {
         list<tuple<int, string, string, string>> ret = get_input_modes (deckLink);
-	printf("capture modes:\n");
+	printf("\tcapture modes:\n");
         for (auto &i : ret) {
-                printf("%2d (%.4s)) %-20s \t %s\n", get<0>(i), get<1>(i).c_str(),
-                                get<2>(i).c_str(), get<3>(i).c_str());
+                cout << "\t\t" << right << style::bold << setw(2) << get<0>(i) <<
+                        " (" << get<1>(i) << ")" << style::reset  << ") " <<
+                        left << setw(20) << get<2>(i) << internal << "  " <<
+                        get<3>(i) << "\n";
         }
 }
 
