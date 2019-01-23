@@ -217,11 +217,24 @@ public:
                 BMDPixelFormat pf;
                 HRESULT result;
 
-                string reason{"unknown"};
-                switch (notificationEvents) {
-                case bmdVideoInputDisplayModeChanged: reason = "display mode"; break;
-                case bmdVideoInputFieldDominanceChanged: reason = "field dominance"; break;
-                case bmdVideoInputColorspaceChanged: reason = "color space"; break;
+                string reason{};
+                if ((notificationEvents & bmdVideoInputDisplayModeChanged) != 0u) {
+                        reason = "display mode";
+                }
+                if ((notificationEvents & bmdVideoInputFieldDominanceChanged) != 0u) {
+                        if (!reason.empty()) {
+                                reason += ", ";
+                        }
+                        reason += "field dominance";
+                }
+                if ((notificationEvents & bmdVideoInputColorspaceChanged) != 0u) {
+                        if (!reason.empty()) {
+                                reason += ", ";
+                        }
+                        reason += "color space";
+                }
+                if (reason.empty()) {
+                        reason = "unknown";
                 }
                 LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << reason << ").\n";
 
@@ -243,6 +256,7 @@ public:
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
                         abort();
                 }
+                LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->DisableVideoInput();
                 deckLinkInput->StopStreams();
