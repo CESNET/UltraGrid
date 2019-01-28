@@ -860,6 +860,14 @@ static void show_help() {
                         }
                         cout << "\n";
                 }
+                NTV2FrameBufferFormatSet pix_fmts;
+                if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
+                        cout << "\tAvailable pixel formats (informative):";
+                        for (auto fmt : pix_fmts) {
+                                cout << " " << NTV2FrameBufferFormatToString(fmt);
+                        }
+                        cout << "\n";
+                }
         }
         if (deviceScanner.GetNumDevices() == 0) {
                 cout << rang::fg::red << "\tno devices found\n" << rang::fg::reset;
