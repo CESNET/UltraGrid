@@ -1197,6 +1197,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                 if(s->queue_len == 0) {
                         if (s->finished == true && s->loop) {
                                 lk.unlock();
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the sequence.\n");
                                 reset_import(s);
                                 lk.lock();
                         }
