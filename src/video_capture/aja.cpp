@@ -203,6 +203,20 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         mCheckFor4K = true;
                 } else if (it.first == "device") {
                         mDeviceIndex = stol(it.second, nullptr, 10);
+                } else if (it.first == "codec") {
+                        if (get_codec_from_name(it.second.c_str()) == VIDEO_CODEC_NONE) {
+                                throw string("Unknown codec " + it.second + "!");
+                        }
+                        mPixelFormat = NTV2_FBF_INVALID;
+                        for (auto c : aja::codec_map) {
+                                if (c.second == get_codec_from_name(it.second.c_str())) {
+                                        mPixelFormat = c.first;
+                                        break;
+                                }
+                        }
+                        if (mPixelFormat == NTV2_FBF_INVALID) {
+                                throw string("Cannoc map " + it.second + " to AJA codec!");
+                        }
                 } else if (it.first == "connection") {
                         NTV2InputSource source = NTV2InputSource();
                         while (source != NTV2_INPUTSOURCE_INVALID) {
@@ -822,7 +836,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 
 static void show_help() {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t aja[:device=<idx>]" << rang::fg::reset << "[:progressive][:4K][:connection=<c>][:format=<fmt>]\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-t aja[:device=<idx>]" << rang::fg::reset << "[:progressive][:4K][:codec=<pixfmt>][:connection=<c>][:format=<fmt>]\n" << rang::style::reset;
         cout << "where\n";
 
         cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
@@ -854,17 +868,28 @@ static void show_help() {
                 cout << "\t"  << rang::style::bold << i << rang::style::reset << ") " << rang::style::bold << info.deviceIdentifier << rang::style::reset << ". " << info;
                 NTV2VideoFormatSet fmt_set;
                 if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
-                        cout << "\tAvailable formats:";
+                        cout << rang::style::underline << "\tAvailable formats:" << rang::style::reset;
                         for (auto fmt : fmt_set) {
+                                if (fmt != *fmt_set.begin()) {
+                                        cout << ",";
+                                }
                                 cout << " \"" << NTV2VideoFormatToString(fmt) << "\"";
                         }
                         cout << "\n";
                 }
                 NTV2FrameBufferFormatSet pix_fmts;
                 if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
-                        cout << "\tAvailable pixel formats (informative):";
+                        cout << rang::style::underline << "\tAvailable pixel formats:" << rang::style::reset;
                         for (auto fmt : pix_fmts) {
-                                cout << " " << NTV2FrameBufferFormatToString(fmt);
+                                if (fmt != *pix_fmts.begin()) {
+                                        cout << ",";
+                                }
+                                if (aja::codec_map.find(fmt) == aja::codec_map.end()) {
+                                        cout << " " << NTV2FrameBufferFormatToString(fmt) << " (unsupported)";
+                                } else {
+                                        cout << " " << get_codec_name(aja::codec_map.at(fmt));
+
+                                }
                         }
                         cout << "\n";
                 }
