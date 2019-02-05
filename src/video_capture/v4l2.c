@@ -185,6 +185,15 @@ static void print_fps(int fd, struct v4l2_frmivalenum *param) {
         }
 }
 
+static void write_fcc(char *out, int pixelformat){
+        out[4] = '\0';
+
+        for(int i = 0; i < 4; i++){
+                out[i] = pixelformat & 0xff;
+                pixelformat >>= 8;
+        }
+}
+
 static void show_help()
 {
         printf("V4L2 capture\n");
@@ -240,8 +249,10 @@ static void show_help()
                         } else {
                                 printf("    ");
                         }
+                        char codec[5];
+                        write_fcc(codec, format.pixelformat);
                         printf("Pixel format %4s (%s). Available frame sizes:\n",
-                                        (char *) &format.pixelformat, format.description);
+                                        codec, format.description);
 
                         struct v4l2_frmsizeenum size;
                         memset(&size, 0, sizeof(size));
@@ -306,14 +317,16 @@ static void write_mode(struct mode *m,
                 int pixelformat)
 {
         double fps = (double) tpf_denom / tpf_num;
+        char codec[5];
+        write_fcc(codec, pixelformat);
         snprintf(m->name, sizeof(m->name), "%dx%d %.2f fps %4s",
-                        width, height, fps, (char *) &pixelformat);
+                        width, height, fps, codec);
 
         snprintf(m->id, sizeof(m->id), "{"
                         "\"codec\":\"%4s\", "
                         "\"size\":\"%dx%d\", "
                         "\"tpf\":\"%u/%u\" }",
-                        (char *) &pixelformat,
+                        codec,
                         width, height,
                         tpf_num, tpf_denom);
 }
