@@ -164,7 +164,7 @@ static const struct codec_info_t codec_info[] = {
         [VP9] = {"VP9", "Google VP9",
                 to_fourcc('V','P','9','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "vp9"},
         [BGR] = {"BGR", "Blue Green Red 24bit",
-                to_fourcc('B','G','R','2'), 1, 3.0, 8, 0, TRUE, FALSE, FALSE, FALSE, "bgr"},
+                to_fourcc('B','G','R','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, FALSE, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
                 to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",

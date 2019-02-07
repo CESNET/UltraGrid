@@ -231,6 +231,7 @@ void Shared_mem::put_frame(struct video_frame *frame){
 
         int src_line_len = vc_get_linesize(desc.width, frame->color_spec);
         int block_size = get_pf_block_size(frame->color_spec);
+        assert(block_size > 0);
         int dst = 0;
         for(unsigned y = 0; y < desc.height; y += scaleF){
                 for(int x = 0; x + scaleF * block_size <= src_line_len; x += scaleF * block_size){
