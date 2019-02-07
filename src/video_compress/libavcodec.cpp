@@ -58,6 +58,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "rang.hpp"
 #include "utils/misc.h"
 #include "utils/resource_manager.h"
 #include "utils/worker.h"
@@ -85,6 +86,7 @@ extern "C"
 #endif
 
 using namespace std;
+using namespace rang;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
@@ -322,11 +324,12 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        printf("\t-c libavcodec[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>]"
+        cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
-                        "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n");
-        printf("\t\t<encoder> specifies encoder (eg. nvenc or libx264 for H.264)\n");
-        printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
+                        "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
+                        style::reset;
+        cout << style::bold << "\t\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
+        cout << style::bold << "\t\t<codec_name>" << style::reset << " may be specified codec name (default MJPEG), supported codecs:\n";
         for (auto && param : codec_params) {
                 if (param.second.av_codec != AV_CODEC_ID_NONE) {
                         char avail[1024];
@@ -338,18 +341,18 @@ static void usage() {
                         }
                         print_codec_info(param.second.av_codec, avail + strlen(avail), sizeof avail - strlen(avail));
 
-                        printf("\t\t\t%s - %s\n", get_codec_name(param.first), avail);
+                        cout << "\t\t\t" << style::bold << get_codec_name(param.first) << style::reset << " - " << avail << "\n";
                 }
 
         }
-        printf("\t\tdisable_intra_refresh - do not use Periodic Intra Refresh (H.264/H.265)\n");
-        printf("\t\t<bits_per_sec> specifies requested bitrate\n");
-        printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
-        printf("\t\t<crf> specifies CRF factor (only for libx264/libx265)\n");
-        printf("\t\t<subsampling> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n");
-        printf("\t\t<thr_mode> can be one of \"no\", \"frame\" or \"slice\"\n");
-        printf("\t\t<gop> specifies GOP size\n");
-        printf("\t\t<lavc_opt> arbitrary option to be passed directly to libavcodec (eg. preset=veryfast)\n");
+        cout << style::bold << "\t\tdisable_intra_refresh" << style::reset << " - do not use Periodic Intra Refresh (H.264/H.265)\n";
+        cout << style::bold << "\t\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
+                << "\t\t\t0 means codec default (same as when parameter omitted)\n";
+        cout << style::bold << "\t\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
+        cout << style::bold << "\t\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\" or \"slice\"\n";
+        cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
+        cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast)\n";
         printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
 }
 
