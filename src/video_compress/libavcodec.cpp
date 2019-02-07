@@ -182,6 +182,13 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 nullptr,
                 setparam_default
         }},
+        { AV1, codec_params_t{
+                AV_CODEC_ID_AV1,
+                nullptr,
+                0,
+                nullptr,
+                setparam_default
+        }},
 };
 
 codec_t get_ug_for_av_codec(AVCodecID id) {

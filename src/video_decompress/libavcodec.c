@@ -215,6 +215,7 @@ static const struct decoder_info decoders[] = {
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
         { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
         { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
+        { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
 };
 
 ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
@@ -1448,6 +1449,7 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 { VP9, UYVY, 500 },
                 { HFYU, UYVY, 500 },
                 { FFV1, UYVY, 500 },
+                { AV1, UYVY, 500 },
         };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
