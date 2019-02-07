@@ -411,9 +411,9 @@ static int snprintfResponseHeader(char* destination, size_t destinationCapacity,
     static int pthread_mutex_unlock(pthread_mutex_t* mutex);
     static int pthread_mutex_destroy(pthread_mutex_t* mutex);
     static int snprintf(char* destination, size_t length, const char* format, ...);
-    static int strcasecmp(const char* utf8String1, const char* utf8String2);
     static wchar_t* strdupWideFromUTF8(const char* utf8String, size_t extraBytes);
     /* windows function aliases */
+    #define strcasecmp _stricmp
     #define strdup(string) _strdup(string)
     #define unlink(file) _unlink(file)
     #define close(x) closesocket(x)
@@ -2190,10 +2190,12 @@ static void ignoreSIGPIPE() {
     /* not needed on Windows */
 }
 
+#ifndef WIN32
 static int strcasecmp(const char* str1, const char* str2) {
     /* lstrcmpI seems like the closest analog */
     return lstrcmpiA(str1, str2);
 }
+#endif
 
 static int pthread_create(HANDLE* threadHandle, const void* attributes, LPTHREAD_START_ROUTINE threadRoutine, void* params) {
     *threadHandle = CreateThread(NULL, 0, threadRoutine, params, 0, NULL);
