@@ -3007,8 +3007,8 @@ CINEFORM_STATIC_PATH=
 cineform=no
 
 AC_ARG_ENABLE(cineform,
-              [  --disable-cineform     disable cineform suppport (default is auto)]
-              [                          Requires: CINEFORM_SDK],
+              [  --disable-cineform      disable cineform suppport (default is auto)]
+              [            Requires: CINEFORM_SDK],
               [cineform_req=$enableval],
               [cineform_req=auto]
               )
@@ -3018,7 +3018,7 @@ if test -n "$CINEFORM_DIRECTORY"; then
 fi
 
 AC_ARG_WITH(cineform,
-            [  --with-cineform=DIR         specify location of NTV2],
+            [  --with-cineform=DIR     specify location of Cineform SDK],
             [CINEFORM_PATH=$withval
              ])
 
