@@ -2928,7 +2928,9 @@ then
 	])
 elif test x$OPENCV_MAJOR != x3
 then
-	AC_DEFINE([HAVE_OPENCV_CUDA], [1], [Whether the opencv installation supports cuda modules])
+	AC_CHECK_HEADER(opencv2/gpu/gpu.hpp, AC_DEFINE([HAVE_OPENCV_CUDA], [1],
+			[Whether the opencv installation supports cuda modules]),
+			AC_MSG_WARN([Video mixer will be compiled as CPU-only]))
 fi
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
