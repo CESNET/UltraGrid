@@ -1223,11 +1223,23 @@ OPENCV_MAJOR=
 PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 		AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
 		OPENCV_MAJOR=3
+		OPENCV_LIBS=$OPENCV_3_LIBS
+		OPENCV_CFLAGS=$OPENCV_3_CFLAGS
 	], [
 		PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
 			AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
 			OPENCV_MAJOR=2
-			], [OPENCV_MAJOR=]
+			OPENCV_LIBS=$OPENCV_2_LIBS
+			OPENCV_CFLAGS=$OPENCV_2_CFLAGS
+			], [
+				PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
+					AC_DEFINE([HAVE_OPENCV_4], [1], [Use OpenCV version 4])
+					OPENCV_MAJOR=4
+					OPENCV_LIBS=$OPENCV_4_LIBS
+					OPENCV_CFLAGS=$OPENCV_4_CFLAGS
+					], [OPENCV_MAJOR=]
+					)
+			]
 		)
 	]
 )
@@ -2905,16 +2917,20 @@ fi
 # -------------------------------------------------------------------------------------------------
 video_mix=no
 
-define(video_mix_dep, opencv)
-
 AC_ARG_ENABLE(video-mixer,
 [  --disable-video-mixer   disable MCU-like video mixer (default is auto)]
-[                          Requires: video_mix_dep],
+[                          Requires: opencv],
     [video_mix_req=$enableval],
     [video_mix_req=auto]
     )
 
-PKG_CHECK_MODULES([VIDEO_MIX], [video_mix_dep], FOUND_VIDEO_MIX_DEP=yes, FOUND_VIDEO_MIX_DEP=no)
+if test x$OPENCV_MAJOR != x; then
+	FOUND_VIDEO_MIX_DEP=yes
+	VIDEO_MIX_LIBS=$OPENCV_LIBS
+	VIDEO_MIX_CFLAGS=$OPENCV_CFLAGS
+else
+	FOUND_VIDEO_MIX_DEP=no
+fi
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes -a x$OPENCV_MAJOR = x3
 then
