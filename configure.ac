@@ -1244,6 +1244,14 @@ PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 	]
 )
 
+if test -n "$OPENCV_MAJOR"; then
+        HAVE_OPENCV=yes
+        opencv="yes (version: $OPENCV_MAJOR)"
+else
+        HAVE_OPENCV=no
+        opencv="no"
+fi
+
 # -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
@@ -1351,23 +1359,19 @@ RESIZE_LIBS=
 RESIZE_OBJ=
 resize=no
 
-define(resize_dep, opencv > 2.3.1) # TODO: supply correct version requirement
-
 AC_ARG_ENABLE(resize,
 [  --disable-resize        disable resize capture filter (default is auto)]
-[                          Requires: resize_dep],
+[                          Requires: opencv],
     [resize_req=$enableval],
     [resize_req=auto]
     )
 
-PKG_CHECK_MODULES([RESIZE], [resize_dep], FOUND_RESIZE_DEP=yes, FOUND_RESIZE_DEP=no)
-
-if test $resize_req != no -a $FOUND_RESIZE_DEP = yes -a $system = Linux
+if test $resize_req != no -a $HAVE_OPENCV = yes
 then
-        CFLAGS="$CFLAGS ${RESIZE_CFLAGS}"
-        CXXFLAGS="$CXXFLAGS ${RESIZE_CFLAGS}"
+        CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
+        CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$RESIZE_LIBS")
+        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$OPENCV_LIBS")
         resize=yes
 fi
 
@@ -3134,6 +3138,7 @@ RESULT=\
   CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
   Library live555 ............. $livemedia
   Qt GUI ...................... $qt_gui
+  OpenCV ...................... $opencv
 "
 
 # params: <result> <feature> <bool> 0|1
