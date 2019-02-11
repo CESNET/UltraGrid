@@ -226,7 +226,7 @@ static void show_help(void)
 	printf("\n");
 	codec_t codecs_8b[] = {RGBA, RGB, UYVY, VIDEO_CODEC_NONE};
         codec_t codecs_10b[] = {DVS10, VIDEO_CODEC_NONE};
-	show_codec_help("dvs", codecs_8b, codecs_10b);
+	show_codec_help("dvs", codecs_8b, codecs_10b, NULL);
 }
 
 /* External API ***********************************************************************************/
