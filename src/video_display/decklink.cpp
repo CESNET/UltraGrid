@@ -298,6 +298,7 @@ struct state_decklink {
         uint32_t            link;
         uint32_t            duplex; // 0 default, -1 don't change, other - value
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
+        bool                quad_square_division_split = true;
 
         buffer_pool_t       buffer_pool;
 
@@ -316,13 +317,14 @@ static void show_help(bool full)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex][:quad-[no-]square]\n" << style::reset;
         cout << style::bold << "\t\t<device(s)>" << style::reset << " is coma-separated indices or names of output devices\n";
         cout << style::bold << "\t\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\t\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
         if (!full) {
                 cout << style::bold << "\t\tconversion" << style::reset << " - use '-d decklink:fullhelp' for list of conversions\n";
         } else {
+                cout << style::bold << "\t\t[no-]quad-square" << style::reset << " - set Quad-link SDI is output in Square Division Quad Split mode\n";
                 cout << "\t\toutput conversion can be:\n" <<
                                 style::bold << "\t\t\tnone" << style::reset << " - no conversion\n" <<
                                 style::bold << "\t\t\tltbx" << style::reset << " - down-converted letterbox SD\n" <<
@@ -720,6 +722,9 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
                                 "SDI subsampling");
 
+                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
+                                "Quad-link SDI Square Division Quad Split mode");
+
                 result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
                 if (FAILED(result)) {
                         if (result == E_ACCESSDENIED) {
@@ -845,7 +850,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
         BMDVideoOutputConversionMode conversion_mode = bmdNoVideoOutputConversion;
-        bool use1080p_not_psf = true;
+        bool use1080psf = false;
 
         if (!blackmagic_api_version_check()) {
                 return NULL;
@@ -961,12 +966,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 						strlen("Use1080pNotPsF=")) == 0) {
 				const char *levels = ptr + strlen("Use1080pNotPsF=");
 				if (strcasecmp(levels, "false") == 0) {
-					use1080p_not_psf = false;
+					use1080psf = true;
 				} else {
-					use1080p_not_psf = true;
+					use1080psf = false;
 				}
                         } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
                                 s->low_latency = strcasecmp(ptr, "low-latency") == 0;
+                        } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
+                                s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                                 delete s;
@@ -1112,7 +1119,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 			goto error;
 		}
 
-		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigUse1080pNotPsF, use1080p_not_psf);
+		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf);
 		if (result != S_OK) {
 			log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set 1080p P/PsF mode.\n");
 		}
