@@ -20,6 +20,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "rang.hpp"
 #include "rtp/net_udp.h"
 #include "utils/misc.h"
 #include "tv.h"
@@ -30,6 +31,8 @@
 #include <vector>
 
 using namespace std;
+using s = rang::style;
+using fg = rang::fg;
 
 struct item;
 
@@ -438,25 +441,25 @@ static void *writer(void *arg)
 }
 
 static void usage(const char *progname) {
-        printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
-                progname);
-        printf("\twhere global_opts may be:\n"
-                "\t\t--control-port <port_number>[:0|:1] - control port to connect to, optionally client/server (default)\n"
-                "\t\t--blend - enable blending from original to newly received stream, increases latency\n"
-                "\t\t--conference <width>:<height>[:fps] - enable combining of multiple inputs, increases latency\n"
-                "\t\t--capture-filter <cfg_string> - apply video capture filter to incoming video\n"
-                "\t\t--help\n"
-                "\t\t--verbose\n"
-                "\t\t-v\n");
-        printf("\tand hostX_options may be:\n"
-                "\t\t-P [<rx_port>:]<tx_port> - TX port to be used (optionally also RX)\n"
-                "\t\t-c <compression> - compression\n"
-                "\t\tFollowing options will be used only if '-c' parameter is set:\n"
-                "\t\t-m <mtu> - MTU size\n"
-                "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
-                "\t\t-f <fec> - FEC that will be used for transmission.\n"
-                "\t\t-6 - use IPv6\n"
-              );
+        cout << s::bold << fg::red << progname << fg::reset <<
+            " [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n"
+            << s::reset;
+        cout << "\twhere " << s::underline << "global_opts" << s::reset << " may be:\n" <<
+                s::bold << "\t\t--control-port <port_number>[:0|:1]" << s::reset << " - control port to connect to, optionally client/server (default)\n" <<
+                s::bold << "\t\t--blend" << s::reset << " - enable blending from original to newly received stream, increases latency\n" <<
+                s::bold << "\t\t--conference <width>:<height>[:fps]" << s::reset << " - enable combining of multiple inputs, increases latency\n" <<
+                s::bold << "\t\t--capture-filter <cfg_string>" << s::reset << " - apply video capture filter to incoming video\n" <<
+                s::bold << "\t\t--help\n" << s::reset <<
+                s::bold << "\t\t--verbose\n" << s::reset <<
+                s::bold << "\t\t-v" << s::reset << " - print version\n";
+        cout << "\tand " << s::underline<< "hostX_options" << s::reset << " may be:\n" <<
+                s::bold << "\t\t-P [<rx_port>:]<tx_port>" << s::reset << " - TX port to be used (optionally also RX)\n" <<
+                s::bold << "\t\t-c <compression>" << s::reset << " - compression\n" <<
+                "\t\tFollowing options will be used only if " << s::underline << "'-c'" << s::reset << " parameter is set:\n" <<
+                s::bold << "\t\t-m <mtu>" << s::reset << " - MTU size\n" <<
+                s::bold << "\t\t-l <limiting_bitrate>" << s::reset << " - bitrate to be shaped to\n" <<
+                s::bold << "\t\t-f <fec>" << s::reset << " - FEC that will be used for transmission.\n" <<
+                s::bold << "\t\t-6" << s::reset << " - use IPv6\n";
         printf("\tPlease note that blending and capture filter is used only for host for which\n"
                "\tcompression is specified (transcoding is active). If compression is not\n"
                "\tset, simple packet retransmission is used. Compression can be also 'none'\n"
@@ -517,7 +520,6 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             usage(argv[0]);
             return false;
         } else if(strcmp(argv[start_index], "-v") == 0) {
-            print_version();
             return false;
         } else if(strcmp(argv[start_index], "--verbose") == 0) {
             parsed->verbose = true;
@@ -646,6 +648,9 @@ int main(int argc, char **argv)
     if (!common_preinit(argc, argv)) {
         return EXIT_FAILURE;
     }
+
+    print_version();
+    printf("\n");
 
     if (argc == 1) {
         usage(argv[0]);
