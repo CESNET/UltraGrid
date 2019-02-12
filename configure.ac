@@ -1218,7 +1218,10 @@ fi
 # OpenCV version detection
 # -------------------------------------------------------------------------------------------------
 
-OPENCV_MAJOR=
+AC_ARG_ENABLE(opencv,
+              AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
+              [opencv_req=$enableval],
+              [opencv_req=auto])
 
 PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 		AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
@@ -1244,7 +1247,7 @@ PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 	]
 )
 
-if test -n "$OPENCV_MAJOR"; then
+if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         HAVE_OPENCV=yes
         opencv="yes (version: $OPENCV_MAJOR)"
 else
@@ -2928,7 +2931,7 @@ AC_ARG_ENABLE(video-mixer,
     [video_mix_req=auto]
     )
 
-if test x$OPENCV_MAJOR != x; then
+if test x$HAVE_OPENCV != xno; then
 	FOUND_VIDEO_MIX_DEP=yes
 	VIDEO_MIX_LIBS=$OPENCV_LIBS
 	VIDEO_MIX_CFLAGS=$OPENCV_CFLAGS
