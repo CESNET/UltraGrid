@@ -66,14 +66,14 @@ class IDeckLinkVideoFrame_v7_1;
 class IDeckLinkVideoInputFrame_v7_1;
 class IDeckLinkAudioInputPacket_v7_1;
 
-class IDeckLinkDisplayModeIterator_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkDisplayModeIterator_v7_1 : public IUnknown
 {
 public:
 	virtual	HRESULT	STDMETHODCALLTYPE	Next (IDeckLinkDisplayMode_v7_1* *deckLinkDisplayMode) = 0;
 };
 
 
-class IDeckLinkDisplayMode_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkDisplayMode_v7_1 : public IUnknown
 {
 public:
 	virtual	HRESULT			STDMETHODCALLTYPE	GetName (const char **name) = 0;
@@ -83,20 +83,20 @@ public:
 	virtual	HRESULT			STDMETHODCALLTYPE	GetFrameRate (BMDTimeValue *frameDuration, BMDTimeScale *timeScale) = 0;
 };
 
-class IDeckLinkVideoOutputCallback_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkVideoOutputCallback_v7_1 : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE	ScheduledFrameCompleted (IDeckLinkVideoFrame_v7_1* completedFrame, BMDOutputFrameCompletionResult result) = 0;
 };
 
-class IDeckLinkInputCallback_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkInputCallback_v7_1 : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE	VideoInputFrameArrived (IDeckLinkVideoInputFrame_v7_1* videoFrame, IDeckLinkAudioInputPacket_v7_1* audioPacket) = 0;
 };
 
 // IDeckLinkOutput_v7_1.  Created by QueryInterface from IDeckLink.
-class IDeckLinkOutput_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkOutput_v7_1 : public IUnknown
 {
 public:
 	// Display mode predicates
@@ -140,7 +140,7 @@ public:
 };
 
 // IDeckLinkInput_v7_1.  Created by QueryInterface from IDeckLink.
-class IDeckLinkInput_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkInput_v7_1 : public IUnknown
 {
 public:
 	virtual	HRESULT	STDMETHODCALLTYPE	DoesSupportVideoMode (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, BMDDisplayModeSupport *result) = 0;
@@ -156,7 +156,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE	ReadAudioSamples (void* buffer, uint32_t sampleFrameCount, uint32_t *sampleFramesRead, BMDTimeValue *audioPacketTime, BMDTimeScale timeScale) = 0;
 	virtual HRESULT STDMETHODCALLTYPE	GetBufferedAudioSampleFrameCount (uint32_t *bufferedSampleCount) = 0;
 	
-	// Input control
+
 	virtual HRESULT	STDMETHODCALLTYPE	StartStreams () = 0;
 	virtual HRESULT	STDMETHODCALLTYPE	StopStreams () = 0;
 	virtual HRESULT	STDMETHODCALLTYPE	PauseStreams () = 0;
@@ -164,7 +164,7 @@ public:
 };
 
 // IDeckLinkVideoFrame_v7_1.  Created by IDeckLinkOutput::CreateVideoFrame.
-class IDeckLinkVideoFrame_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkVideoFrame_v7_1 : public IUnknown
 {
 public:
 	virtual long STDMETHODCALLTYPE					GetWidth () = 0;
@@ -176,14 +176,14 @@ public:
 };
 
 // IDeckLinkVideoInputFrame_v7_1.  Provided by the IDeckLinkInput_v7_1 frame arrival callback.
-class IDeckLinkVideoInputFrame_v7_1 : public IDeckLinkVideoFrame_v7_1
+class BMD_PUBLIC IDeckLinkVideoInputFrame_v7_1 : public IDeckLinkVideoFrame_v7_1
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE			GetFrameTime (BMDTimeValue *frameTime, BMDTimeValue *frameDuration, BMDTimeScale timeScale) = 0;
 };
 
 // IDeckLinkAudioInputPacket_v7_1.  Provided by the IDeckLinkInput_v7_1 callback.
-class IDeckLinkAudioInputPacket_v7_1 : public IUnknown
+class BMD_PUBLIC IDeckLinkAudioInputPacket_v7_1 : public IUnknown
 {
 public:
 	virtual long STDMETHODCALLTYPE				GetSampleCount () = 0;

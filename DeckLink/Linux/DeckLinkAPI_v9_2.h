@@ -40,7 +40,7 @@
 
 /* Interface IDeckLinkInput - Created by QueryInterface from IDeckLink. */
 
-class IDeckLinkInput_v9_2 : public IUnknown
+class BMD_PUBLIC IDeckLinkInput_v9_2 : public IUnknown
 {
 public:
     virtual HRESULT DoesSupportVideoMode (/* in */ BMDDisplayMode displayMode, /* in */ BMDPixelFormat pixelFormat, /* in */ BMDVideoInputFlags flags, /* out */ BMDDisplayModeSupport *result, /* out */ IDeckLinkDisplayMode **resultDisplayMode) = 0;

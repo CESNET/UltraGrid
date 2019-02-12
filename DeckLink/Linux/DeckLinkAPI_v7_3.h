@@ -53,7 +53,7 @@ class IDeckLinkVideoInputFrame_v7_3;
 
 /* Interface IDeckLinkOutput - Created by QueryInterface from IDeckLink. */
 
-class IDeckLinkOutput_v7_3 : public IUnknown
+class BMD_PUBLIC IDeckLinkOutput_v7_3 : public IUnknown
 {
 public:
     virtual HRESULT DoesSupportVideoMode (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, /* out */ BMDDisplayModeSupport *result) = 0;
@@ -107,7 +107,7 @@ protected:
 
 /* Interface IDeckLinkInputCallback - Frame arrival callback. */
 
-class IDeckLinkInputCallback_v7_3 : public IUnknown
+class BMD_PUBLIC IDeckLinkInputCallback_v7_3 : public IUnknown
 {
 public:
     virtual HRESULT VideoInputFormatChanged (/* in */ BMDVideoInputFormatChangedEvents notificationEvents, /* in */ IDeckLinkDisplayMode_v7_6 *newDisplayMode, /* in */ BMDDetectedVideoInputFormatFlags detectedSignalFlags) = 0;
@@ -122,7 +122,7 @@ protected:
 
 /* Interface IDeckLinkInput - Created by QueryInterface from IDeckLink. */
 
-class IDeckLinkInput_v7_3 : public IUnknown
+class BMD_PUBLIC IDeckLinkInput_v7_3 : public IUnknown
 {
 public:
     virtual HRESULT DoesSupportVideoMode (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, /* out */ BMDDisplayModeSupport *result) = 0;
@@ -158,7 +158,7 @@ protected:
 
 /* Interface IDeckLinkVideoInputFrame - Provided by the IDeckLinkVideoInput frame arrival callback. */
 
-class IDeckLinkVideoInputFrame_v7_3 : public IDeckLinkVideoFrame_v7_6
+class BMD_PUBLIC IDeckLinkVideoInputFrame_v7_3 : public IDeckLinkVideoFrame_v7_6
 {
 public:
     virtual HRESULT GetStreamTime (/* out */ BMDTimeValue *frameTime, /* out */ BMDTimeValue *frameDuration, BMDTimeScale timeScale) = 0;

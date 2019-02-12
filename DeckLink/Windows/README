@@ -1,0 +1,2 @@
+Use widl from mingw-w64-x86_64-tools-git or MIDL from VS (use VS Command
+Prompt) to compile interface from IDL.
