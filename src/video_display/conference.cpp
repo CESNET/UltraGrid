@@ -591,7 +591,7 @@ static void display_conference_run(void *state)
 
                 vf_free(frame);
 
-                now = chrono::high_resolution_clock::now();
+                now = chrono::system_clock::now();
 
                 //If it's time to send next frame downlaod it from gpu,
                 //convert to UYVY and send
