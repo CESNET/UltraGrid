@@ -415,6 +415,7 @@ ifeq ($(SYSTEM),Windows)
 endif
 
 gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
+	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
 	cd gui/QT && $(QMAKE) && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
