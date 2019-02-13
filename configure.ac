@@ -2153,7 +2153,7 @@ else
 	with_cuda_host_compiler="default"
 fi
 
-if test "x$NVCC" != "X" ; then
+if test "x$NVCC" != "x" ; then
 	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
 else
 	HOST_CC_REPORT=""
