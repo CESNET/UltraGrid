@@ -305,7 +305,8 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %{_libdir}/ultragrid/ultragrid_display_bluefish444.so
 %endif
 %if 0%{?build_aja} > 0
-%{_libdir}/ultragrid/ultragrid_vidcap_aja.so
+# as of e3e481243
+%{_libdir}/ultragrid/ultragrid_aja.so
 %endif
 %if 0%{?build_deltacast} > 0
 %{_libdir}/ultragrid/ultragrid_vidcap_deltacast.so
