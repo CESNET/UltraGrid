@@ -355,7 +355,7 @@ static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *le
 
 }
 
-ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=[<min>-]<max>\n"
+ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
 /**
  * @todo
@@ -485,34 +485,25 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         }
 
         if (s->new_api) {
+                unsigned int val;
+                int dir;
                 if (get_commandline_param("low-latency-audio")) {
-			unsigned int val;
-			int dir;
 			rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
                                         &val, &dir);
-                        if (rc == 0) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", val / 1000.0);
-                        }
                 } else {
-                        int mindir = -1, maxdir = 1;
-                        unsigned int minval = 0;
-                        unsigned int maxval = s->sched_latency_ms * 1000 * 3;
+                        dir = -1;
+                        val = s->sched_latency_ms * 1000 * 3;
 
                         const char *buff_str = get_commandline_param("alsa-playback-buffer");
                         if (buff_str) {
-                                if (strchr(buff_str, '-')) {
-                                        minval = atoi(buff_str);
-                                        maxval = atoi(strchr(buff_str, '-') + 1);
-                                } else {
-                                        maxval = atoi(buff_str);
-                                }
+                                val = atoi(buff_str);
                         }
 
-                        rc = snd_pcm_hw_params_set_buffer_time_minmax(s->handle, params, &minval, &mindir,
-                                        &maxval, &maxdir);
-                        if (rc == 0) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf-%lf ms\n", minval / 1000.0, maxval / 1000.0);
-                        }
+                        rc = snd_pcm_hw_params_set_buffer_time_near(s->handle, params, &val, &dir);
+                }
+                if (rc == 0) {
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %u frames\n", val);
+                        s->buffer_size = val;
                 }
                 if (rc < 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
