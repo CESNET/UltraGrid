@@ -167,5 +167,30 @@ static void print_alsa_device_info(snd_pcm_t *handle, const char *module_name) {
         }
 }
 
+static const char *alsa_get_pcm_state_name(snd_pcm_state_t state) {
+        switch (state) {
+                case SND_PCM_STATE_OPEN:
+                        return "Open";
+                case SND_PCM_STATE_SETUP:
+                        return "Setup installed";
+                case SND_PCM_STATE_PREPARED:
+                        return "Ready to start";
+                case SND_PCM_STATE_RUNNING:
+                        return "Running";
+                case SND_PCM_STATE_XRUN:
+                        return "Stopped: underrun (playback) or overrun (capture) detected";
+                case SND_PCM_STATE_DRAINING:
+                        return "Draining: running (playback) or stopped (capture)";
+                case SND_PCM_STATE_PAUSED:
+                        return "Paused";
+                case SND_PCM_STATE_SUSPENDED:
+                        return "Hardware is suspended";
+                case SND_PCM_STATE_DISCONNECTED:
+                        return "Hardware is disconnected";
+                default:
+                        return "(unknown)";
+        }
+}
+
 #endif // defined ALSA_COMMON_H
 

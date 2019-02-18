@@ -75,6 +75,29 @@
 #include "utils/audio_buffer.h"
 #endif
 
+#define EXIT_IF_FAILED(cmd, name) \
+        do {\
+                int rc = cmd;\
+                if (rc < 0) {;\
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", name, snd_strerror(rc));\
+                        goto error;\
+                }\
+        } while (0)
+
+#define CHECK_OK(cmd) \
+        do {\
+                int rc = cmd;\
+                if (rc < 0) {;\
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", #cmd, snd_strerror(rc));\
+                }\
+        } while (0)
+
+typedef enum {
+        SYNC,
+        THREAD,
+        ASYNC
+} playback_mode_t;
+
 struct state_alsa_playback {
         snd_pcm_t *handle;
         struct audio_desc desc;
@@ -88,9 +111,12 @@ struct state_alsa_playback {
         snd_config_t * local_config;
 
         bool non_interleaved;
-        bool new_api;
+        playback_mode_t playback_mode;
 
-        // following variables are used only if new_api == true
+        snd_pcm_uframes_t period_size;
+        snd_pcm_uframes_t buffer_size;
+
+        // following variables are used only if playback_mode == THREAD
         pthread_t thread_id;
 #ifdef USE_SPEEX_JITTER_BUFFER
         JitterBuffer *buf;
@@ -103,6 +129,9 @@ struct state_alsa_playback {
         bool thread_started;
         uint32_t timestamp;
         struct timeval last_audio_read;
+
+        // following variables are used only if playback_mode == ASYNC
+        snd_async_handler_t *pcm_callback;
 
         long sched_latency_ms;
 };
@@ -354,6 +383,52 @@ static bool audio_play_alsa_ctl(void *state, int request, void *data, size_t *le
 
 }
 
+static void alsa_play_async_callback(snd_async_handler_t *handler) {
+        struct state_alsa_playback *s =
+                snd_async_handler_get_callback_private(handler);
+
+        struct audio_frame f = { .bps = s->desc.bps,
+                .sample_rate = s->desc.sample_rate,
+                .ch_count = s->desc.ch_count };
+
+        size_t len = f.bps * f.ch_count * s->period_size;
+
+        char *data = malloc(len);
+
+        pthread_mutex_lock(&s->lock);
+
+        snd_pcm_sframes_t avail;
+        avail = snd_pcm_avail_update(s->handle);
+        while (avail >= (snd_pcm_sframes_t) s->period_size)
+        {
+                int ret;
+                ret = audio_buffer_read(s->buf, data, len);
+                memset(data + ret, 0, len - ret);
+                f.data = data;
+                f.data_len = len;
+                audio_play_alsa_write_frame(s, &f);
+                avail = snd_pcm_avail_update(s->handle);
+        }
+
+        free(data);
+
+        pthread_mutex_unlock(&s->lock);
+}
+
+static void write_fill(struct state_alsa_playback *s) {
+        struct audio_frame f = { .bps = s->desc.bps,
+                .sample_rate = s->desc.sample_rate,
+                .ch_count = s->desc.ch_count };
+
+        size_t len = f.bps * f.ch_count * s->buffer_size;
+        f.data = calloc(1, len);
+        f.data_len = len;
+
+        audio_play_alsa_write_frame(s, &f);
+
+        free(f.data);
+}
+
 ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
 /**
@@ -370,9 +445,8 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         unsigned int val;
         int dir;
         int rc;
-        unsigned int period_time;
 
-        if (s->new_api && s->thread_started) {
+        if (s->playback_mode == THREAD && s->thread_started) {
                 pthread_mutex_lock(&s->lock);
                 s->should_exit_thread = true;
                 pthread_mutex_unlock(&s->lock);
@@ -380,12 +454,16 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 s->should_exit_thread = false;
                 s->thread_started = false;
         }
+        if (s->playback_mode == ASYNC && s->pcm_callback) {
+                snd_async_del_handler(s->pcm_callback);
+                s->pcm_callback = NULL;
+        }
 
         s->desc.bps = desc.bps;
         s->desc.ch_count = desc.ch_count;
         s->desc.sample_rate = desc.sample_rate;
 
-        snd_pcm_drop(s->handle); // stop the stream
+        CHECK_OK(snd_pcm_drop(s->handle)); // stop the stream
 
         /* Allocate a hardware parameters object. */
         snd_pcm_hw_params_alloca(&params);
@@ -472,24 +550,25 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
          * returns invalid argument.
          *
          * See also http://www.alsa-project.org/main/index.php/FramesPeriods */
-        period_time = 1;
+        s->period_size = 1;
         dir = 1;
-        rc = snd_pcm_hw_params_set_period_time_min(s->handle,
-                        params, &period_time, &dir);
+        rc = snd_pcm_hw_params_set_period_size_min(s->handle,
+                        params, &s->period_size, &dir);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
         } else {
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period time: %lf ms\n", period_time / 1000.0);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %u frames (%lf ms)\n", s->period_size, (double) s->period_size / desc.sample_rate * 1000);
         }
 
         unsigned int buf_len;
         int buf_dir = -1;
         if (get_commandline_param("low-latency-audio")) {
-                rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
-                                &buf_len, &buf_dir);
+                CHECK_OK(snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
+                                &buf_len, &buf_dir));
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
         } else {
-                if (s->new_api) {
+                if (s->playback_mode == THREAD || s->playback_mode == ASYNC) {
                         buf_len = s->sched_latency_ms * 3 * 1000;
                 } else {
                         buf_len = BUFFER_MAX * 1000;
@@ -518,7 +597,10 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 return FALSE;
         }
 
-        if (s->new_api) {
+        snd_pcm_hw_params_current(s->handle, params);
+        snd_pcm_hw_params_get_buffer_size(params, &s->buffer_size);
+
+        if (s->playback_mode == THREAD || s->playback_mode == ASYNC) {
 #ifdef USE_SPEEX_JITTER_BUFFER
 		jitter_buffer_reset(s->buf);
 #else
@@ -530,12 +612,45 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 }
                 s->buf = audio_buffer_init(s->desc.sample_rate, s->desc.bps, s->desc.ch_count, s->audio_buf_len_ms);
 #endif
+        }
+
+        if (s->playback_mode == THREAD) {
                 s->timestamp = 0;
                 pthread_create(&s->thread_id, NULL, worker, s);
                 s->thread_started = true;
         }
 
+        if (s->playback_mode == ASYNC) {
+                snd_pcm_sw_params_t *sw_params;
+                CHECK_OK(snd_pcm_sw_params_malloc(&sw_params));
+                CHECK_OK(snd_pcm_sw_params_current (s->handle, sw_params));
+                CHECK_OK(snd_pcm_sw_params_set_start_threshold(s->handle, sw_params, s->buffer_size - s->period_size));
+                CHECK_OK(snd_pcm_sw_params_set_stop_threshold(s->handle, sw_params, s->buffer_size));
+                CHECK_OK(snd_pcm_sw_params_set_avail_min(s->handle, sw_params, s->period_size));
+                CHECK_OK(snd_pcm_sw_params(s->handle, sw_params));
+                snd_pcm_sw_params_free (sw_params);
+
+                EXIT_IF_FAILED(snd_async_add_pcm_handler(&s->pcm_callback, s->handle, alsa_play_async_callback, s), "Add async handler");
+
+                write_fill(s);
+
+                if (snd_pcm_state(s->handle) == SND_PCM_STATE_PREPARED) {
+                        int err = snd_pcm_start(s->handle);
+                        if (err < 0) {
+                                printf("Start error: %s\n", snd_strerror(err));
+                                goto error;
+                        }
+                }
+                if (snd_pcm_state(s->handle) != SND_PCM_STATE_RUNNING) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Device was not running: %s!\n",
+                                        alsa_get_pcm_state_name(snd_pcm_state(s->handle)));
+                        goto error;
+                }
+        }
+
         return TRUE;
+error:
+        return FALSE;
 }
 
 static void audio_play_alsa_probe(struct device_info **available_devices, int *count)
@@ -659,7 +774,7 @@ init_local_config_with_workaround(char const * pcm_node_name)
         return lconf;
 }
 
-ADD_TO_PARAM(alsa_playback_api, "alsa-playback-api", "* alsa-playback-api={new|old}\n"
+ADD_TO_PARAM(alsa_playback_api, "alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
                                 "  ALSA API.\n");
 static void * audio_play_alsa_init(const char *cfg)
 {
@@ -668,7 +783,7 @@ static void * audio_play_alsa_init(const char *cfg)
         const char *name;
 
         s = malloc(sizeof(struct state_alsa_playback));
-        *s = (struct state_alsa_playback){.new_api = true};
+        *s = (struct state_alsa_playback){.playback_mode = THREAD};
 
         long latency_ns = get_sched_latency_ns();
         if (latency_ns > 0) {
@@ -679,22 +794,28 @@ static void * audio_play_alsa_init(const char *cfg)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get latency, assuming %ld.\n", s->sched_latency_ms);
         }
 
-        const char *new_api;
-        new_api = get_commandline_param("alsa-playback-api");
-        if (new_api) {
-                if (strcmp(new_api, "new") == 0) {
-                        s->new_api = true;
-                } else if (strcmp(new_api, "old") == 0) {
-                        s->new_api = false;
+        const char *use_api;
+        use_api = get_commandline_param("alsa-playback-api");
+        if (use_api) {
+                if (strcmp(use_api, "thread") == 0 || strcmp(use_api, "new") == 0) {
+                        s->playback_mode = THREAD;
+                } else if (strcmp(use_api, "sync") == 0 || strcmp(use_api, "old") == 0) {
+                        s->playback_mode = SYNC;
+                } else if (strcmp(use_api, "async") == 0) {
+                        s->playback_mode = ASYNC;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown API string \"%s\"!\n", new_api);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown API string \"%s\"!\n", use_api);
                         free(s);
                         return NULL;
                 }
         }
 
-        if (s->new_api) {
-		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using new API. In case of problems, you may try to use '--param alsa-playback-api=old'.\n");
+        if (s->playback_mode == THREAD) {
+		log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using new API. In case of problems, you may try to use '--param alsa-playback-api=sync'.\n");
+	}
+
+        if (s->playback_mode == ASYNC) {
+		log_msg(LOG_LEVEL_WARNING, MOD_NAME "Async API is experimental, in case of problems use either \"thread\" or \"sync\" API\n");
 	}
 
         gettimeofday(&s->start_time, NULL);
@@ -703,12 +824,12 @@ static void * audio_play_alsa_init(const char *cfg)
                 if(strcmp(cfg, "help") == 0) {
                         printf("Usage\n");
                         color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-r alsa");
-                        color_out(COLOR_OUT_BOLD, "[:<device>] --param alsa-playback-api={new|old}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n");
+                        color_out(COLOR_OUT_BOLD, "[:<device>] --param alsa-playback-api={thread|async|sync}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n");
                         color_out(0u, "where\n");
-                        color_out(COLOR_OUT_BOLD, "\talsa-playback-api={new|old}\n");
-                        color_out(0, "\t\tuse new experimental API\n");
+                        color_out(COLOR_OUT_BOLD, "\talsa-playback-api={thread|async|sync}\n");
+                        color_out(0, "\t\tuse selected API ('thread' is default)\n");
                         color_out(COLOR_OUT_BOLD, "\talsa-playback-buffer=[<us>-]<us>\n");
-                        color_out(0, "\t\tset buffer max and optionally max (new api only)\n");
+                        color_out(0, "\t\tset buffer max and optionally max (thread and async API only)\n");
                         color_out(COLOR_OUT_BOLD, "\taudio-buffer-len=<ablen>\n");
                         color_out(0, "\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
                         printf("\n");
@@ -731,11 +852,11 @@ static void * audio_play_alsa_init(const char *cfg)
 
         strncat(device, name, sizeof(device) - strlen(device) - 1);
 
-        if (!s->new_api) {
+        if (s->playback_mode == SYNC) {
                 s->local_config = init_local_config_with_workaround(device);
         }
 
-        if (!s->new_api && s->local_config) {
+        if (s->playback_mode == SYNC && s->local_config) {
                 rc = snd_pcm_open_lconf(&s->handle, name,
                                 SND_PCM_STREAM_PLAYBACK, 0, s->local_config);
         } else {
@@ -750,12 +871,12 @@ static void * audio_play_alsa_init(const char *cfg)
         }
         print_alsa_device_info(s->handle, MOD_NAME);
 
-        if (s->new_api) {
+        pthread_mutex_init(&s->lock, NULL);
+        if (s->playback_mode == THREAD) {
 #ifdef USE_SPEEX_JITTER_BUFFER
 		s->buf = jitter_buffer_init(1);
 #endif
-                pthread_mutex_init(&s->lock, NULL);
-        } else {
+        } else if (s->playback_mode == SYNC) {
                 rc = snd_pcm_nonblock(s->handle, 1);
                 if(rc < 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set nonblock mode.\n");
@@ -772,7 +893,7 @@ static void * audio_play_alsa_init(const char *cfg)
                         audio_play_alsa_reconfigure(s, desc);
                 }
         }
-        
+
         return s;
 
 error:
@@ -780,7 +901,7 @@ error:
         return NULL;
 }
 
-static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int frames, bool noninterleaved, bool new_api) {
+static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int frames, bool noninterleaved, playback_mode_t playback_mode) {
         char *write_ptr[frame->ch_count]; // for non-interleaved
         char *tmp_data = (char *) alloca(frame->data_len);
         if (noninterleaved) {
@@ -803,7 +924,7 @@ static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int
                 if (rc < 0) {
                         return rc;
                 }
-                if (!new_api) { // overrun (in non-blocking mode) or signal
+                if (playback_mode == SYNC) { // overrun (in non-blocking mode) or signal
                         return rc;
                 }
                 written += rc;
@@ -830,7 +951,7 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
         s->played_samples += frame->data_len / frame->bps / frame->ch_count;
     
         int frames = frame->data_len / (frame->bps * frame->ch_count);
-        rc = write_samples(s->handle, frame, frames, s->non_interleaved, s->new_api);
+        rc = write_samples(s->handle, frame, frames, s->non_interleaved, s->playback_mode);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "underrun occurred\n");
@@ -841,7 +962,7 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
                         if(sec + (double) frames/frame->sample_rate > BUFFER_MAX / 1000.0) {
                                 frames_to_write = (BUFFER_MAX / 1000.0 - sec) * frame->sample_rate;
                         }
-                        int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved, s->new_api);
+                        int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved, s->playback_mode);
                         if(rc < 0) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from writei: %s\n",
                                                 snd_strerror(rc));
@@ -866,7 +987,19 @@ static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_alsa_playback *s = state;
 
-        if (s->new_api) {
+        // first repair asyn stream if needed
+        if (s->playback_mode == ASYNC && snd_pcm_state(s->handle) != SND_PCM_STATE_RUNNING) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", alsa_get_pcm_state_name(snd_pcm_state(s->handle)));
+                snd_pcm_prepare(s->handle);
+                write_fill(s);
+                int err = snd_pcm_start(s->handle);
+                if (err < 0) {
+                        printf("Start error: %s\n", snd_strerror(err));
+                }
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%s\n", alsa_get_pcm_state_name(snd_pcm_state(s->handle)));
+        }
+
+        if (s->playback_mode == THREAD || s->playback_mode == ASYNC) {
                pthread_mutex_lock(&s->lock);
 #ifdef USE_SPEEX_JITTER_BUFFER
                 JitterBufferPacket pkt;
@@ -891,11 +1024,15 @@ static void audio_play_alsa_done(void *state)
 
         struct timeval t;
 
-        if (s->new_api && s->thread_started) {
+        if (s->playback_mode == THREAD && s->thread_started) {
                 pthread_mutex_lock(&s->lock);
                 s->should_exit_thread = true;
                 pthread_mutex_unlock(&s->lock);
                 pthread_join(s->thread_id, NULL);
+        }
+
+        if (s->playback_mode == ASYNC && s->pcm_callback) {
+                snd_async_del_handler(s->pcm_callback);
         }
 
         gettimeofday(&t, NULL);
@@ -908,14 +1045,16 @@ static void audio_play_alsa_done(void *state)
         if (s->local_config) {
                 snd_config_delete(s->local_config);
         }
-        if (s->new_api) {
+        if (s->buf != NULL) {
 #ifdef USE_SPEEX_JITTER_BUFFER
                 jitter_buffer_destroy(s->buf);
 #else
                 audio_buffer_destroy(s->buf);
 #endif
-                pthread_mutex_destroy(&s->lock);
         }
+
+        pthread_mutex_destroy(&s->lock);
+
         free(s);
 }
 
