@@ -60,7 +60,6 @@
 #include "tv.h"
 #include "utils/color_out.h"
 
-#define BUFFER_MIN 41
 #define BUFFER_MAX 200
 #define MOD_NAME "[ALSA play.] "
 
@@ -371,7 +370,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         unsigned int val;
         int dir;
         int rc;
-        unsigned int period_size;
+        unsigned int period_time;
 
         if (s->new_api && s->thread_started) {
                 pthread_mutex_lock(&s->lock);
@@ -467,64 +466,46 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 
         /* Set period to its minimal size.
          *
-         * Do not use snd_pcm_hw_params_set_period_size_near(), since it
+         * Do not use snd_pcm_hw_params_set_period_time_near(), since it
          * allows to set also unsupported value without notifying. Using
-         * snd_pcm_hw_params_set_period_size_first() with Pulseaudio
+         * snd_pcm_hw_params_set_period_time_first() with Pulseaudio
          * returns invalid argument.
          *
          * See also http://www.alsa-project.org/main/index.php/FramesPeriods */
-        period_size = 1;
+        period_time = 1;
         dir = 1;
         rc = snd_pcm_hw_params_set_period_time_min(s->handle,
-                        params, &period_size, &dir);
+                        params, &period_time, &dir);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
         } else {
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %u frames\n", period_size);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period time: %lf ms\n", period_time / 1000.0);
         }
 
-        if (s->new_api) {
-                unsigned int val;
-                int dir;
-                if (get_commandline_param("low-latency-audio")) {
-			rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
-                                        &val, &dir);
+        unsigned int buf_len;
+        int buf_dir = -1;
+        if (get_commandline_param("low-latency-audio")) {
+                rc = snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
+                                &buf_len, &buf_dir);
+        } else {
+                if (s->new_api) {
+                        buf_len = s->sched_latency_ms * 3 * 1000;
                 } else {
-                        dir = -1;
-                        val = s->sched_latency_ms * 1000 * 3;
-
-                        const char *buff_str = get_commandline_param("alsa-playback-buffer");
-                        if (buff_str) {
-                                val = atoi(buff_str);
-                        }
-
-                        rc = snd_pcm_hw_params_set_buffer_time_near(s->handle, params, &val, &dir);
+                        buf_len = BUFFER_MAX * 1000;
                 }
+
+                const char *buff_str = get_commandline_param("alsa-playback-buffer");
+                if (buff_str) {
+                        buf_len = atoi(buff_str);
+                }
+
+                rc = snd_pcm_hw_params_set_buffer_time_near(s->handle, params, &buf_len, &buf_dir);
                 if (rc == 0) {
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %u frames\n", val);
-                        s->buffer_size = val;
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
                 }
                 if (rc < 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set buffer to its size: %s\n",
-                                        snd_strerror(rc));
-                }
-        } else {
-                val = BUFFER_MIN * 1000;
-                dir = 1;
-                rc = snd_pcm_hw_params_set_buffer_time_min(s->handle, params,
-                                &val, &dir);
-                if (rc < 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set minimal buffer size: %s\n",
-                                        snd_strerror(rc));
-                }
-
-                val = BUFFER_MAX * 1000;
-                dir = -1;
-                rc = snd_pcm_hw_params_set_buffer_time_max(s->handle, params,
-                                &val, &dir);
-                if (rc < 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning - unable to set maximal buffer size: %s\n",
                                         snd_strerror(rc));
                 }
         }
