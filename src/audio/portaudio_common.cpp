@@ -128,9 +128,13 @@ void portaudio_print_version() {
                 return;
         }
 
+#ifdef HAVE_PA_GETVERSIONINFO
         const PaVersionInfo *info = Pa_GetVersionInfo();
 
         if (info && info->versionText) {
                 log_msg(LOG_LEVEL_INFO, MODULE_NAME "Using %s\n", info->versionText);
         }
+#else // compat
+        log_msg(LOG_LEVEL_INFO, MODULE_NAME "Using %s\n", Pa_GetVersionText());
+#endif
 }
