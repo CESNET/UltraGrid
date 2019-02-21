@@ -140,3 +140,9 @@ int ring_get_current_size(struct ring_buffer * ring)
         return (ring->end - ring->start + ring->len) % ring->len;
 }
 
+struct audio_buffer_api ring_buffer_fns = {
+        (void (*)(void *)) ring_buffer_destroy,
+        (int (*)(void *, char *, int)) ring_buffer_read,
+        (void (*)(void *, const char *, int)) ring_buffer_write
+};
+

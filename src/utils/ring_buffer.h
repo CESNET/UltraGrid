@@ -51,8 +51,9 @@
   * therefore is mainly intended for one producer and one consumer.
   */
 #ifndef __RING_BUFFER_H
-
 #define __RING_BUFFER_H
+
+#include "audio_buffer.h" // audio_buffer_api
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +85,8 @@ void ring_buffer_flush(struct ring_buffer *ring);
  * Returns actual buffer usage
  */
 int ring_get_current_size(struct ring_buffer * ring);
+
+extern struct audio_buffer_api ring_buffer_fns;
 
 #ifdef __cplusplus
 }

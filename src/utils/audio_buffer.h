@@ -50,6 +50,15 @@ void audio_buffer_destroy(struct audio_buffer *buf);
 int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len);
 void audio_buffer_write(struct audio_buffer *buf, const char *in, int len);
 
+// used also for ring buffer;
+struct audio_buffer_api {
+        void (*destroy)(void *buf);
+        int (*read)(void *buf, char *out, int max_len);
+        void (*write)(void *buf, const char *in, int len);
+};
+
+extern struct audio_buffer_api audio_buffer_fns;
+
 #ifdef __cplusplus
 }
 #endif

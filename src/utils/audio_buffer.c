@@ -176,3 +176,9 @@ void audio_buffer_write(struct audio_buffer *buf, const char *in, int len)
         ring_buffer_write(buf->ring, in, len);
 }
 
+struct audio_buffer_api audio_buffer_fns = {
+        (void (*)(void *)) audio_buffer_destroy,
+        (int (*)(void *, char *, int)) audio_buffer_read,
+        (void (*)(void *, const char *, int)) audio_buffer_write,
+};
+
