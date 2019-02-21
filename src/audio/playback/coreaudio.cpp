@@ -171,8 +171,11 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 
         s->desc = desc;
 
-        s->buffer_fns->destroy(s->buffer);
-        s->buffer = NULL;
+        if (s->buffer_fns) {
+                s->buffer_fns->destroy(s->buffer);
+                s->buffer_fns = nullptr;
+                s->buffer = nullptr;
+        }
 
         {
                 int buf_len_ms = 200; // 200 ms by default
@@ -304,12 +307,6 @@ static void * audio_play_ca_init(const char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
-        if (get_commandline_param(CA_DIS_AD_B) == nullptr) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Using adaptive buffer. "
-                        "In case of problems, try \"--param " CA_DIS_AD_B "\" "
-                        "option.\n";
-        }
-
         s = new struct state_ca_playback();
 
         //There are several different types of Audio Units.
@@ -369,6 +366,11 @@ static void * audio_play_ca_init(const char *cfg)
                 if(ret) goto error;
         }
 
+        if (get_commandline_param(CA_DIS_AD_B) == nullptr) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Using adaptive buffer. "
+                        "In case of problems, try \"--param " CA_DIS_AD_B "\" "
+                        "option.\n";
+        }
 
         ret = AudioUnitSetProperty(s->auHALComponentInstance,
                          kAudioOutputUnitProperty_CurrentDevice,
@@ -400,7 +402,9 @@ static void audio_play_ca_done(void *state)
                 AudioOutputUnitStop(s->auHALComponentInstance);
                 AudioUnitUninitialize(s->auHALComponentInstance);
         }
-        s->buffer_fns->destroy(s->buffer);
+        if (s->buffer_fns) {
+                s->buffer_fns->destroy(s->buffer);
+        }
         delete s;
 }
 
