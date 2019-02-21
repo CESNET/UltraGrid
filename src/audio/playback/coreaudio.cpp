@@ -162,7 +162,13 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ring_buffer_destroy(s->buffer);
         s->buffer = NULL;
 
-        s->buffer = ring_buffer_init(desc.bps * desc.ch_count * desc.sample_rate);
+        {
+                int buf_len = desc.bps * desc.ch_count * (desc.sample_rate / 5); // 200 ms by default
+                if (get_commandline_param("audio-buffer-len")) {
+                        buf_len = atoi(get_commandline_param("audio-buffer-len")) / (desc.bps * desc.ch_count) * (desc.bps * desc.ch_count);
+                }
+                s->buffer = ring_buffer_init(buf_len);
+        }
 
         size = sizeof(stream_desc);
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,

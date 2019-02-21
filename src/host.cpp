@@ -394,7 +394,7 @@ bool register_mainloop(mainloop_t m, void *u)
 
 // some common parameters used within multiple modules
 ADD_TO_PARAM(audio_buffer_len, "audio-buffer-len", "* audio-buffer-len=<ms>\n"
-                "  Sets length of software audio playback buffer (in ms, ALSA/Portaudio)\n");
+                "  Sets length of software audio playback buffer (in ms, ALSA/Coreaudio/Portaudio)\n");
 ADD_TO_PARAM(low_latency_audio, "low-latency-audio", "* low-latency-audio\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n");
 ADD_TO_PARAM(window_title, "window-title", "* window-title=<title>\n"
