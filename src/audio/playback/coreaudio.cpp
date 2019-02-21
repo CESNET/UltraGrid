@@ -39,18 +39,24 @@
 
 #ifdef HAVE_COREAUDIO
 
-#include "audio/audio.h"
-#include "audio/audio_playback.h"
-#include "utils/ring_buffer.h"
-#include "debug.h"
-#include "lib_common.h"
+#include <AudioUnit/AudioUnit.h>
 #include <chrono>
+#include <CoreAudio/AudioHardware.h>
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
-#include <AudioUnit/AudioUnit.h>
-#include <CoreAudio/AudioHardware.h>
+
+#include "audio/audio.h"
+#include "audio/audio_playback.h"
+#include "debug.h"
+#include "lib_common.h"
+#include "rang.hpp"
+#include "utils/ring_buffer.h"
 
 using namespace std::chrono;
+using rang::fg;
+using rang::style;
+using std::cout;
 
 #define NO_DATA_STOP_SEC 2
 
@@ -239,7 +245,7 @@ static void audio_play_ca_help(const char *driver_name)
         UInt32 size;
         AudioObjectPropertyAddress propertyAddress;
 
-        printf("\tcoreaudio : default CoreAudio output\n");
+        cout << style::bold << "\tcoreaudio" << style::reset << ": default CoreAudio output\n";
         propertyAddress.mSelector = kAudioHardwarePropertyDevices;
         propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
         propertyAddress.mElement = kAudioObjectPropertyElementMaster;
@@ -259,7 +265,7 @@ static void audio_play_ca_help(const char *driver_name)
                 propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
                 ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
                 CFStringGetCString(deviceName, (char *) cname, sizeof cname, kCFStringEncodingMacRoman);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], cname);
+                cout << style::bold << "\tcoreaudio:" << dev_ids[i] << style::reset << ": " << cname << "\n";
                 CFRelease(deviceName);
         }
         free(dev_ids);
@@ -322,6 +328,9 @@ static void * audio_play_ca_init(const char *cfg)
         size=sizeof(device);
         if(cfg != NULL) {
                 if(strcmp(cfg, "help") == 0) {
+                        cout << "Core Audio playback usage:\n";
+                        cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
+                                "[:<index>] [--param audio-buffer-len=<len_ms>]\n\n" << style::reset;
                         printf("Available CoreAudio devices:\n");
                         audio_play_ca_help(NULL);
                         delete s;
