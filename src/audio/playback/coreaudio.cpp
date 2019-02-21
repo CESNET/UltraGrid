@@ -52,6 +52,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "utils/ring_buffer.h"
+#include "utils/audio_buffer.h"
 
 using namespace std::chrono;
 using rang::fg;
@@ -59,6 +60,8 @@ using rang::style;
 using std::cout;
 
 #define NO_DATA_STOP_SEC 2
+#define MOD_NAME "[CoreAudio play.] "
+#define CA_DIS_AD_B "ca-disable-adaptive-buf"
 
 struct state_ca_playback {
 #if OS_VERSION_MAJOR <= 9
@@ -68,7 +71,8 @@ struct state_ca_playback {
 #endif
                         auHALComponentInstance;
         struct audio_desc desc;
-        struct ring_buffer *buffer;
+        void *buffer; // audio buffer
+        struct audio_buffer_api *buffer_fns;
         int audio_packet_size;
         steady_clock::time_point last_audio_read;
         bool quiet; ///< do not report buffer underruns if we do not receive data at all for a long period
@@ -95,7 +99,7 @@ static OSStatus theRenderProc(void *inRefCon,
         int write_bytes = inNumFrames * s->audio_packet_size;
         int ret;
 
-        ret = ring_buffer_read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
+        ret = s->buffer_fns->read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
         ioData->mBuffers[0].mDataByteSize = ret;
 
         if(ret < write_bytes) {
@@ -137,6 +141,8 @@ static bool audio_play_ca_ctl(void *state [[gnu::unused]], int request, void *da
         }
 }
 
+ADD_TO_PARAM(ca_disable_adaptive_buf, CA_DIS_AD_B, "* " CA_DIS_AD_B "\n"
+                "  Core Audio - use fixed audio playback buffer instead of an adaptive one\n");
 static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
@@ -165,15 +171,23 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 
         s->desc = desc;
 
-        ring_buffer_destroy(s->buffer);
+        s->buffer_fns->destroy(s->buffer);
         s->buffer = NULL;
 
         {
-                int buf_len = desc.bps * desc.ch_count * (desc.sample_rate / 5); // 200 ms by default
+                int buf_len_ms = 200; // 200 ms by default
                 if (get_commandline_param("audio-buffer-len")) {
-                        buf_len = atoi(get_commandline_param("audio-buffer-len")) / (desc.bps * desc.ch_count) * (desc.bps * desc.ch_count);
+                        buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
+                        assert(buf_len_ms > 0 && buf_len_ms < 10000);
                 }
-                s->buffer = ring_buffer_init(buf_len);
+                if (get_commandline_param(CA_DIS_AD_B)) {
+                        int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
+                        s->buffer = ring_buffer_init(buf_len);
+                        s->buffer_fns = &ring_buffer_fns;
+                } else {
+                        s->buffer = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, buf_len_ms);
+                        s->buffer_fns = &audio_buffer_fns;
+                }
         }
 
         size = sizeof(stream_desc);
@@ -290,6 +304,12 @@ static void * audio_play_ca_init(const char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
+        if (get_commandline_param(CA_DIS_AD_B) == nullptr) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Using adaptive buffer. "
+                        "In case of problems, try \"--param " CA_DIS_AD_B "\" "
+                        "option.\n";
+        }
+
         s = new struct state_ca_playback();
 
         //There are several different types of Audio Units.
@@ -330,7 +350,7 @@ static void * audio_play_ca_init(const char *cfg)
                 if(strcmp(cfg, "help") == 0) {
                         cout << "Core Audio playback usage:\n";
                         cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
-                                "[:<index>] [--param audio-buffer-len=<len_ms>]\n\n" << style::reset;
+                                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param " CA_DIS_AD_B "]\n\n" << style::reset;
                         printf("Available CoreAudio devices:\n");
                         audio_play_ca_help(NULL);
                         delete s;
@@ -369,7 +389,7 @@ static void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 
-        ring_buffer_write(s->buffer, frame->data, frame->data_len);
+        s->buffer_fns->write(s->buffer, frame->data, frame->data_len);
 }
 
 static void audio_play_ca_done(void *state)
@@ -380,7 +400,7 @@ static void audio_play_ca_done(void *state)
                 AudioOutputUnitStop(s->auHALComponentInstance);
                 AudioUnitUninitialize(s->auHALComponentInstance);
         }
-        ring_buffer_destroy(s->buffer);
+        s->buffer_fns->destroy(s->buffer);
         delete s;
 }
 
