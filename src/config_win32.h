@@ -77,7 +77,7 @@
 #include <ws2tcpip.h>
 #include <naptypes.h>
 #include <ntddndis.h>
-#include <Iphlpapi.h> // if_nametoindex
+#include <iphlpapi.h> // if_nametoindex
 
 #include <mmreg.h>
 #include <mmsystem.h>

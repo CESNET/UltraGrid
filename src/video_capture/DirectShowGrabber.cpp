@@ -14,15 +14,15 @@
 #include "video_capture.h"
 
 #include <tchar.h>
-#include <DShow.h>
-#include <Dvdmedia.h>
-#include <Qedit.h>
-#include <OleAuto.h>
+#include <dshow.h>
+#include <dvdmedia.h>
+#include <qedit.h>
+#include <oleauto.h>
 //#include <Streams.h>
 
 #include <iostream>
 #include <stdio.h>
-#include <Windows.h>
+#include <windows.h>
 
 using namespace std;
 

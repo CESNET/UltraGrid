@@ -17,6 +17,7 @@ AC_PROG_CC
 AC_PROG_CC_C99
 AC_PROG_CPP
 AC_PROG_CXX
+AC_PROG_CXXCPP
 AC_PROG_INSTALL
 AC_HEADER_STDC
 AC_C_CONST
@@ -133,13 +134,19 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi -lOleAut32"
+	NET_LIBS="-lsetupapi -lws2_32 -liphlpapi -loleaut32"
 	LIBS="$LIBS $NET_LIBS"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
+fi
+
+if test $build != $host; then
+        cross_compile=yes
+else
+        cross_compile=no
 fi
 
 AC_SUBST(system)
@@ -681,7 +688,7 @@ case "$system" in
                         DECKLINK_INC=$srcdir/DeckLink/Windows
                 fi
                 SAVED_LIBS=$LIBS
-                LIBS="$LIBS -lOle32"
+                LIBS="$LIBS -lole32"
                 AC_LANG_PUSH(C++)
 		AC_MSG_CHECKING([DeckLink usability])
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -692,7 +699,7 @@ case "$system" in
 		[[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$SAVED_LIBS
                 if test $FOUND_DECKLINK = yes; then
-                        DECKLINK_LIB="$DECKLINK_LIB -lOle32"
+                        DECKLINK_LIB="$DECKLINK_LIB -lole32"
                 fi
 		AC_MSG_RESULT([$FOUND_DECKLINK])
                 AC_LANG_POP(C++)
@@ -1315,13 +1322,17 @@ AC_ARG_WITH(live555,
             [livemedia_prefix=$withval
             ])
 
-
-AC_CHECK_FILE($livemedia_prefix/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+AC_LANG_PUSH(C++)
+RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
+SAVED_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
+AC_CHECK_HEADERS($livemedia_prefix/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+CPPFLAGS=$SAVED_CPPFLAGS
+AC_LANG_POP(C++)
 
 if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes
 then
         AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-        RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
         CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
         CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
         RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
@@ -2076,7 +2087,7 @@ AC_ARG_WITH(cuda,
 AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH/bin$PATH_SEPARATOR$PATH]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
-if test -n "$NVCC" -a $cuda_req != no
+if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
 then
         CUDA_PATH=`dirname "$NVCC"`
         CUDA_PATH=`dirname "$CUDA_PATH"`
@@ -2153,7 +2164,7 @@ else
 	with_cuda_host_compiler="default"
 fi
 
-if test "x$NVCC" != "x" ; then
+if test "x$FOUND_CUDA" = "xyes" ; then
 	HOST_CC_REPORT="$HOST_CC_REPORT, ${with_cuda_host_compiler})"
 else
 	HOST_CC_REPORT=""
@@ -2358,7 +2369,7 @@ then
         AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
 fi
 
-AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+AC_CHECK_HEADERS(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 
 if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
@@ -3069,7 +3080,7 @@ else
 fi
 
 
-if test -n "$CINEFORM_PATH"
+if test -n "$CINEFORM_PATH" -a $cross_compile = no
 then
         AC_CHECK_FILES(${CINEFORM_STATIC_PATH}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
 fi

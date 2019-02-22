@@ -112,9 +112,9 @@ static bool OptionPrintResponse = false;
 #include <inttypes.h>
 
 #ifdef WIN32
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
-#include <Windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
 typedef int64_t ssize_t;
 typedef HANDLE pthread_t;
 typedef CRITICAL_SECTION pthread_mutex_t;

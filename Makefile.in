@@ -239,22 +239,22 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 
 SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations
 src/audio/resample.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
 
 src/audio/preprocess.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
 
 src/audio/filterbank.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
 
 src/audio/fftwrap.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@

@@ -86,6 +86,7 @@ using namespace std;
 using namespace std::chrono;
 using rang::fg;
 using rang::style;
+using std::mutex;
 
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
