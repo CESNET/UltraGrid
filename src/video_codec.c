@@ -185,6 +185,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
         [CFHD] = {"CFHD", "Cineform",
                 to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "cfhd"},
+        [RG48] = {"RG48", "16-bit RGB Cineform",
+                to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
 };
 
 /**
@@ -1540,6 +1542,101 @@ void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
+ * @brief Converts R12L to RG48.
+ * Converts 12-bit packed RGB in full range (compatible with
+ * SMPTE 268M DPX version 1, Annex C, Method C4 packing) to 16-bit RGB
+ * @copydetails vc_copylinev210
+ */
+void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        while(dst_len >= 48){
+                //0
+                //R
+                *dst++ = src[BYTE_SWAP(0)] << 4;
+                *dst++ = (src[BYTE_SWAP(1)] << 4) | (src[BYTE_SWAP(0)] >> 4);
+                //G
+                *dst++ = src[BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[BYTE_SWAP(2)];
+                //B
+                *dst++ = src[BYTE_SWAP(3)] << 4;
+                *dst++ = (src[4 + BYTE_SWAP(0)] << 4) | (src[BYTE_SWAP(3)] >> 4);
+
+                //1
+                *dst++ = src[4 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[4 + BYTE_SWAP(1)];
+
+                *dst++ = src[4 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[4 + BYTE_SWAP(3)] << 4) | (src[4 + BYTE_SWAP(2)] >> 4);
+
+                *dst++ = src[4 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[8 + BYTE_SWAP(0)];
+
+                //2
+                *dst++ = src[8 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[8 + BYTE_SWAP(2)] << 4) | (src[8 + BYTE_SWAP(1)] >> 4);
+
+                *dst++ = src[8 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[8 + BYTE_SWAP(3)];
+
+                *dst++ = src[12 + BYTE_SWAP(0)] << 4;
+                *dst++ = (src[12 + BYTE_SWAP(1)] << 4) | (src[12 + BYTE_SWAP(0)] >> 4);
+
+                //3
+                *dst++ = src[12 + BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[12 + BYTE_SWAP(2)];
+
+                *dst++ = src[12 + BYTE_SWAP(3)] << 4;
+                *dst++ = (src[16 + BYTE_SWAP(0)] << 4) | (src[12 + BYTE_SWAP(3)] >> 4);
+
+                *dst++ = src[16 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[16 + BYTE_SWAP(1)];
+
+                //4
+                *dst++ = src[16 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[16 + BYTE_SWAP(3)] << 4) | (src[16 + BYTE_SWAP(2)] >> 4);
+
+                *dst++ = src[16 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[20 + BYTE_SWAP(0)];
+
+                *dst++ = src[20 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[20 + BYTE_SWAP(2)] << 4) | (src[20 + BYTE_SWAP(1)] >> 4);
+
+                //5
+                *dst++ = src[20 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[20 + BYTE_SWAP(3)];
+
+                *dst++ = src[24 + BYTE_SWAP(0)] << 4;
+                *dst++ = (src[24 + BYTE_SWAP(1)] << 4) | (src[24 + BYTE_SWAP(0)] >> 4);
+
+                *dst++ = src[24 + BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[24 + BYTE_SWAP(2)];
+
+                //6
+                *dst++ = src[24 + BYTE_SWAP(3)] << 4;
+                *dst++ = (src[28 + BYTE_SWAP(0)] << 4) | (src[24 + BYTE_SWAP(3)] >> 4);
+
+                *dst++ = src[28 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[28 + BYTE_SWAP(1)];
+
+                *dst++ = src[28 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[28 + BYTE_SWAP(3)] << 4) | (src[28 + BYTE_SWAP(2)] >> 4);
+
+                //7
+                *dst++ = src[28 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[32 + BYTE_SWAP(0)];
+
+                *dst++ = src[32 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[32 + BYTE_SWAP(2)] << 4) | (src[32 + BYTE_SWAP(1)] >> 4);
+
+                *dst++ = src[32 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[32 + BYTE_SWAP(3)];
+
+                dst_len -= 48;
+                src += 36;
+        }
+}
+
+/**
  * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
@@ -1861,6 +1958,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
         { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
         { (decoder_t) vc_copylineR12L,        R12L,  RGBA, false },
+        { (decoder_t) vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },

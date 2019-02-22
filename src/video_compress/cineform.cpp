@@ -38,6 +38,7 @@ struct state_video_compress_cineform{
         std::mutex mutex;
 
         struct video_desc saved_desc;
+        struct video_desc precompress_desc;
         struct video_desc compressed_desc;
 
         void (*convertFunc)(video_frame *dst, video_frame *src);
@@ -200,18 +201,33 @@ void R10k_shift(video_frame *dst, video_frame *src){
                 d += pitch;
         }
 }
+void R12L_to_RG48(video_frame *dst, video_frame *src){
+        int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
+        int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
+
+        unsigned char *s = (unsigned char *) src->tiles[0].data;
+        unsigned char *d = (unsigned char *) dst->tiles[0].data;
+
+        for(int i = 0; i < src->tiles[0].height; i++){
+                vc_copylineR12LtoRG48(d, s, dst_pitch);
+                s += src_pitch;
+                d += dst_pitch;
+        }
+}
 
 static struct {
         codec_t ug_codec;
         CFHD_PixelFormat cfhd_pixel_format;
         CFHD_EncodedFormat cfhd_encoded_format;
+		codec_t convert_codec;
         void (*convertFunc)(video_frame *dst, video_frame *src);
 } codecs[] = {
-        {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, nullptr},
-        {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444, RGBtoBGR_invert},
-        {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444, RGBAtoBGRA},
-        {v210, CFHD_PIXEL_FORMAT_V210, CFHD_ENCODED_FORMAT_YUV_422, nullptr},
-        {R10k, CFHD_PIXEL_FORMAT_RG30, CFHD_ENCODED_FORMAT_RGB_444, R10k_shift},
+        {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
+        {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, RGBtoBGR_invert},
+        {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444, VIDEO_CODEC_NONE, RGBAtoBGRA},
+        {v210, CFHD_PIXEL_FORMAT_V210, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
+        {R10k, CFHD_PIXEL_FORMAT_RG30, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, R10k_shift},
+        {R12L, CFHD_PIXEL_FORMAT_RG48, CFHD_ENCODED_FORMAT_RGB_444, RG48, R12L_to_RG48},
 };
 
 static bool configure_with(struct state_video_compress_cineform *s, struct video_desc desc)
@@ -235,6 +251,10 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                         pix_fmt = codec.cfhd_pixel_format;
                         enc_fmt = codec.cfhd_encoded_format;
                         s->convertFunc = codec.convertFunc;
+						s->precompress_desc = desc;
+						if(codec.convert_codec != VIDEO_CODEC_NONE){
+							s->precompress_desc.color_spec = codec.convert_codec;
+						}
                         break;
                 }
         }
@@ -281,7 +301,7 @@ static video_frame *get_copy(struct state_video_compress_cineform *s, video_fram
                 return vf_get_copy(frame);
         }
 
-        video_frame *ret = vf_alloc_desc_data(s->saved_desc);
+        video_frame *ret = vf_alloc_desc_data(s->precompress_desc);
         s->convertFunc(ret, frame);
 
         return ret;
@@ -298,7 +318,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 return;
 
         if(!tx){
-                std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->saved_desc), vf_free);
+                std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->precompress_desc), vf_free);
                 video_frame *dummy_ptr = dummy.get();
 
                 lock.lock();
@@ -309,7 +329,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 status = CFHD_EncodeAsyncSample(s->encoderPoolRef,
                                 s->frame_seq_in,
                                 dummy_ptr->tiles[0].data,
-                                vc_get_linesize(s->saved_desc.width, s->saved_desc.color_spec),
+                                vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec),
                                 nullptr);
                 if(status != CFHD_ERROR_OKAY){
                         log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to push null %i pool\n", status);
@@ -348,7 +368,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         status = CFHD_EncodeAsyncSample(s->encoderPoolRef,
                         s->frame_seq_in,
                         frame_ptr->tiles[0].data,
-                        vc_get_linesize(s->saved_desc.width, s->saved_desc.color_spec),
+                        vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec),
                         nullptr);
 
         if(status != CFHD_ERROR_OKAY){

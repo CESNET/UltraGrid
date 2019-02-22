@@ -93,6 +93,7 @@ typedef enum {
         HFYU,     ///< HuffYUV
         FFV1,     ///< FFV1
         CFHD,     ///< Cineform
+        RG48,     ///< Cineform 16-bit RGB
         VIDEO_CODEC_COUNT ///< count of known video codecs (including VIDEO_CODEC_NONE)
 } codec_t;
 
