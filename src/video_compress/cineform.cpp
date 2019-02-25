@@ -1,3 +1,44 @@
+/**
+ * @file   cineform.cpp
+ * @author Martin Piatka <piatka@cesnet.cz>
+ *
+ */
+/* Copyright (c) 2019 CESNET z.s.p.o.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, is permitted provided that the following conditions
+ * are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ * 
+ *      This product includes software developed by CESNET z.s.p.o.
+ * 
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -118,7 +159,7 @@ static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
         return 0;
 }
 
-struct module * cineform_compress_init(struct module *parent, const char *opts)
+static struct module * cineform_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_cineform *s;
 
@@ -163,52 +204,53 @@ struct module * cineform_compress_init(struct module *parent, const char *opts)
         return &s->module_data;
 }
 
-void RGBtoBGR_invert(video_frame *dst, video_frame *src){
+static void RGBtoBGR_invert(video_frame *dst, video_frame *src){
         int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
 
         unsigned char *s = (unsigned char *) src->tiles[0].data + (src->tiles[0].height - 1) * pitch;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
 
-        for(int i = 0; i < src->tiles[0].height; i++){
+        for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copylineBGRtoRGB(d, s, pitch, 0, 8, 16);
                 s -= pitch;
                 d += pitch;
         }
 }
 
-void RGBAtoBGRA(video_frame *dst, video_frame *src){
+static void RGBAtoBGRA(video_frame *dst, video_frame *src){
         int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
 
         unsigned char *s = (unsigned char *) src->tiles[0].data;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
 
-        for(int i = 0; i < src->tiles[0].height; i++){
+        for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copylineRGBA(d, s, pitch, 16, 8, 0);
                 s += pitch;
                 d += pitch;
         }
 }
 
-void R10k_shift(video_frame *dst, video_frame *src){
+static void R10k_shift(video_frame *dst, video_frame *src){
         int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
 
         unsigned char *s = (unsigned char *) src->tiles[0].data;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
 
-        for(int i = 0; i < src->tiles[0].height; i++){
+        for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copyliner10k(d, s, pitch, 2, 12, 22);
                 s += pitch;
                 d += pitch;
         }
 }
-void R12L_to_RG48(video_frame *dst, video_frame *src){
+
+static void R12L_to_RG48(video_frame *dst, video_frame *src){
         int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
         int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
 
         unsigned char *s = (unsigned char *) src->tiles[0].data;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
 
-        for(int i = 0; i < src->tiles[0].height; i++){
+        for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copylineR12LtoRG48(d, s, dst_pitch);
                 s += src_pitch;
                 d += dst_pitch;
@@ -219,7 +261,7 @@ static struct {
         codec_t ug_codec;
         CFHD_PixelFormat cfhd_pixel_format;
         CFHD_EncodedFormat cfhd_encoded_format;
-		codec_t convert_codec;
+        codec_t convert_codec;
         void (*convertFunc)(video_frame *dst, video_frame *src);
 } codecs[] = {
         {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
@@ -251,10 +293,10 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                         pix_fmt = codec.cfhd_pixel_format;
                         enc_fmt = codec.cfhd_encoded_format;
                         s->convertFunc = codec.convertFunc;
-						s->precompress_desc = desc;
-						if(codec.convert_codec != VIDEO_CODEC_NONE){
-							s->precompress_desc.color_spec = codec.convert_codec;
-						}
+                        s->precompress_desc = desc;
+                        if(codec.convert_codec != VIDEO_CODEC_NONE){
+                                s->precompress_desc.color_spec = codec.convert_codec;
+                        }
                         break;
                 }
         }
@@ -378,7 +420,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
 }
 
 #ifdef MEASUREMENT
-void timespec_diff(struct timespec *start, struct timespec *stop,
+static void timespec_diff(struct timespec *start, struct timespec *stop,
                 struct timespec *result)
 {
         if ((stop->tv_nsec - start->tv_nsec) < 0) {
