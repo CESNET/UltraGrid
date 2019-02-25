@@ -1544,6 +1544,231 @@ void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
+ * @brief Converts R12L to RG48.
+ * Converts 12-bit packed RGB in full range (compatible with
+ * SMPTE 268M DPX version 1, Annex C, Method C4 packing) to 16-bit RGB
+ * @copydetails vc_copylinev210
+ */
+void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        while(dst_len >= 48){
+                //0
+                //R
+                *dst++ = src[BYTE_SWAP(0)] << 4;
+                *dst++ = (src[BYTE_SWAP(1)] << 4) | (src[BYTE_SWAP(0)] >> 4);
+                //G
+                *dst++ = src[BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[BYTE_SWAP(2)];
+                //B
+                *dst++ = src[BYTE_SWAP(3)] << 4;
+                *dst++ = (src[4 + BYTE_SWAP(0)] << 4) | (src[BYTE_SWAP(3)] >> 4);
+
+                //1
+                *dst++ = src[4 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[4 + BYTE_SWAP(1)];
+
+                *dst++ = src[4 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[4 + BYTE_SWAP(3)] << 4) | (src[4 + BYTE_SWAP(2)] >> 4);
+
+                *dst++ = src[4 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[8 + BYTE_SWAP(0)];
+
+                //2
+                *dst++ = src[8 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[8 + BYTE_SWAP(2)] << 4) | (src[8 + BYTE_SWAP(1)] >> 4);
+
+                *dst++ = src[8 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[8 + BYTE_SWAP(3)];
+
+                *dst++ = src[12 + BYTE_SWAP(0)] << 4;
+                *dst++ = (src[12 + BYTE_SWAP(1)] << 4) | (src[12 + BYTE_SWAP(0)] >> 4);
+
+                //3
+                *dst++ = src[12 + BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[12 + BYTE_SWAP(2)];
+
+                *dst++ = src[12 + BYTE_SWAP(3)] << 4;
+                *dst++ = (src[16 + BYTE_SWAP(0)] << 4) | (src[12 + BYTE_SWAP(3)] >> 4);
+
+                *dst++ = src[16 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[16 + BYTE_SWAP(1)];
+
+                //4
+                *dst++ = src[16 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[16 + BYTE_SWAP(3)] << 4) | (src[16 + BYTE_SWAP(2)] >> 4);
+
+                *dst++ = src[16 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[20 + BYTE_SWAP(0)];
+
+                *dst++ = src[20 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[20 + BYTE_SWAP(2)] << 4) | (src[20 + BYTE_SWAP(1)] >> 4);
+
+                //5
+                *dst++ = src[20 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[20 + BYTE_SWAP(3)];
+
+                *dst++ = src[24 + BYTE_SWAP(0)] << 4;
+                *dst++ = (src[24 + BYTE_SWAP(1)] << 4) | (src[24 + BYTE_SWAP(0)] >> 4);
+
+                *dst++ = src[24 + BYTE_SWAP(1)] & 0xF0;
+                *dst++ = src[24 + BYTE_SWAP(2)];
+
+                //6
+                *dst++ = src[24 + BYTE_SWAP(3)] << 4;
+                *dst++ = (src[28 + BYTE_SWAP(0)] << 4) | (src[24 + BYTE_SWAP(3)] >> 4);
+
+                *dst++ = src[28 + BYTE_SWAP(0)] & 0xF0;
+                *dst++ = src[28 + BYTE_SWAP(1)];
+
+                *dst++ = src[28 + BYTE_SWAP(2)] << 4;
+                *dst++ = (src[28 + BYTE_SWAP(3)] << 4) | (src[28 + BYTE_SWAP(2)] >> 4);
+
+                //7
+                *dst++ = src[28 + BYTE_SWAP(3)] & 0xF0;
+                *dst++ = src[32 + BYTE_SWAP(0)];
+
+                *dst++ = src[32 + BYTE_SWAP(1)] << 4;
+                *dst++ = (src[32 + BYTE_SWAP(2)] << 4) | (src[32 + BYTE_SWAP(1)] >> 4);
+
+                *dst++ = src[32 + BYTE_SWAP(2)] & 0xF0;
+                *dst++ = src[32 + BYTE_SWAP(3)];
+
+                dst_len -= 48;
+                src += 36;
+        }
+}
+
+/**
+ * @brief Converts RG48 to R12L.
+ * Converts 16-bit RGB to 12-bit packed RGB in full range (compatible with
+ * SMPTE 268M DPX version 1, Annex C, Method C4 packing)
+ * @copydetails vc_copylinev210
+ */
+void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        while(dst_len >= 36){
+                //0
+                dst[BYTE_SWAP(0)] = src[0] >> 4;
+                dst[BYTE_SWAP(0)] |= src[1] << 4;
+                dst[BYTE_SWAP(1)] = src[1] >> 4;
+                src += 2;
+
+                dst[BYTE_SWAP(1)] |= src[0] & 0xF0;
+                dst[BYTE_SWAP(2)] = src[1];
+                src += 2;
+
+                dst[BYTE_SWAP(3)] = src[0] >> 4;
+                dst[BYTE_SWAP(3)] |= src[1] << 4;
+                dst[4 + BYTE_SWAP(0)] = src[1] >> 4;
+                src += 2;
+
+                //1
+                dst[4 + BYTE_SWAP(0)] |= src[0] & 0xF0;
+                dst[4 + BYTE_SWAP(1)] = src[1];
+                src += 2;
+
+                dst[4 + BYTE_SWAP(2)] = src[0] >> 4;
+                dst[4 + BYTE_SWAP(2)] |= src[1] << 4;
+                dst[4 + BYTE_SWAP(3)] = src[1] >> 4;
+                src += 2;
+
+                dst[4 + BYTE_SWAP(3)] |= src[0] & 0xF0;
+                dst[8 + BYTE_SWAP(0)] = src[1];
+                src += 2;
+
+                //2
+                dst[8 + BYTE_SWAP(1)] = src[0] >> 4;
+                dst[8 + BYTE_SWAP(1)] |= src[1] << 4;
+                dst[8 + BYTE_SWAP(2)] = src[1] >> 4;
+                src += 2;
+
+                dst[8 + BYTE_SWAP(2)] |= src[0] & 0xF0;
+                dst[8 + BYTE_SWAP(3)] = src[1];
+                src += 2;
+
+                dst[12 + BYTE_SWAP(0)] = src[0] >> 4;
+                dst[12 + BYTE_SWAP(0)] |= src[1] << 4;
+                dst[12 + BYTE_SWAP(1)] = src[1] >> 4;
+                src += 2;
+
+                //3
+                dst[12 + BYTE_SWAP(1)] |= src[0] & 0xF0;
+                dst[12 + BYTE_SWAP(2)] = src[1];
+                src += 2;
+
+                dst[12 + BYTE_SWAP(3)] = src[0] >> 4;
+                dst[12 + BYTE_SWAP(3)] |= src[1] << 4;
+                dst[16 + BYTE_SWAP(0)] = src[1] >> 4;
+                src += 2;
+
+                dst[16 + BYTE_SWAP(0)] |= src[0] & 0xF0;
+                dst[16 + BYTE_SWAP(1)] = src[1];
+                src += 2;
+
+                //4
+                dst[16 + BYTE_SWAP(2)] = src[0] >> 4;
+                dst[16 + BYTE_SWAP(2)] |= src[1] << 4;
+                dst[16 + BYTE_SWAP(3)] = src[1] >> 4;
+                src += 2;
+
+                dst[16 + BYTE_SWAP(3)] |= src[0] & 0xF0;
+                dst[20 + BYTE_SWAP(0)] = src[1];
+                src += 2;
+
+                dst[20 + BYTE_SWAP(1)] = src[0] >> 4;
+                dst[20 + BYTE_SWAP(1)] |= src[1] << 4;
+                dst[20 + BYTE_SWAP(2)] = src[1] >> 4;
+                src += 2;
+
+                //5
+                dst[20 + BYTE_SWAP(2)] |= src[0] & 0xF0;
+                dst[20 + BYTE_SWAP(3)] = src[1];
+                src += 2;
+
+                dst[24 + BYTE_SWAP(0)] = src[0] >> 4;
+                dst[24 + BYTE_SWAP(0)] |= src[1] << 4;
+                dst[24 + BYTE_SWAP(1)] = src[1] >> 4;
+                src += 2;
+
+                dst[24 + BYTE_SWAP(1)] |= src[0] & 0xF0;
+                dst[24 + BYTE_SWAP(2)] = src[1];
+                src += 2;
+
+                //6
+                dst[24 + BYTE_SWAP(3)] = src[0] >> 4;
+                dst[24 + BYTE_SWAP(3)] |= src[1] << 4;
+                dst[28 + BYTE_SWAP(0)] = src[1] >> 4;
+                src += 2;
+
+                dst[28 + BYTE_SWAP(0)] |= src[0] & 0xF0;
+                dst[28 + BYTE_SWAP(1)] = src[1];
+                src += 2;
+
+                dst[28 + BYTE_SWAP(2)] = src[0] >> 4;
+                dst[28 + BYTE_SWAP(2)] |= src[1] << 4;
+                dst[28 + BYTE_SWAP(3)] = src[1] >> 4;
+                src += 2;
+
+                //7
+                dst[28 + BYTE_SWAP(3)] |= src[0] & 0xF0;
+                dst[32 + BYTE_SWAP(0)] = src[1];
+                src += 2;
+
+                dst[32 + BYTE_SWAP(1)] = src[0] >> 4;
+                dst[32 + BYTE_SWAP(1)] |= src[1] << 4;
+                dst[32 + BYTE_SWAP(2)] = src[1] >> 4;
+                src += 2;
+
+                dst[32 + BYTE_SWAP(2)] |= src[0] & 0xF0;
+                dst[32 + BYTE_SWAP(3)] = src[1];
+                src += 2;
+
+                dst += 36;
+                dst_len -= 36;
+        }
+}
+
+/**
  * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210

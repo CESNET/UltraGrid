@@ -1,3 +1,41 @@
+/**
+ * @file   video_decompress/cineform.cpp
+ * @author Martin Piatka     <piatka@cesnet.cz>
+ */
+/*
+ * Copyright (c) 2019 CESNET, z. s. p. o.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, is permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -15,6 +53,9 @@
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"
 
+#include <mutex>
+#include <vector>
+
 struct state_cineform_decompress {
         int              width, height;
         int              pitch;
@@ -22,6 +63,11 @@ struct state_cineform_decompress {
         int              max_compressed_len;
         codec_t          in_codec;
         codec_t          out_codec;
+        CFHD_PixelFormat decode_codec;
+        void (*convert)(unsigned char *dst_buffer,
+                        unsigned char *src_buffer,
+                        int width, int height, int pitch);
+        std::vector<unsigned char> conv_buf;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
         bool             last_frame_seq_initialized;
@@ -39,6 +85,7 @@ static void * cineform_decompress_init(void)
         s = new state_cineform_decompress();
 
         s->width = s->height = s->pitch = 0;
+        s->convert = nullptr;
         s->prepared_to_decode = false;
 
         CFHD_Error status;
@@ -59,6 +106,31 @@ static void cineform_decompress_done(void *state)
         delete s;
 }
 
+static void rg48_to_r12l(unsigned char *dst_buffer,
+                unsigned char *src_buffer,
+                int width, int height, int pitch)
+{
+        int src_pitch = vc_get_linesize(width, RG48);
+        int dst_pitch = vc_get_linesize(width, R12L);
+
+        for(unsigned i = 0; i < height; i++){
+                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_pitch);
+                src_buffer += src_pitch;
+                dst_buffer += dst_pitch;
+        }
+}
+
+static const struct {
+        codec_t ug_codec;
+        CFHD_PixelFormat cfhd_pixfmt;
+        void (*convert)(unsigned char *dst_buffer,
+                        unsigned char *src_buffer,
+                        int width, int height, int pitch);
+} decode_codecs[] = {
+        {R12L, CFHD_PIXEL_FORMAT_RG48, rg48_to_r12l},
+        {UYVY, CFHD_PIXEL_FORMAT_2VUY, nullptr},
+};
+
 static bool configure_with(struct state_cineform_decompress *s,
                 struct video_desc desc)
 {
@@ -66,7 +138,19 @@ static bool configure_with(struct state_cineform_decompress *s,
         s->prepared_to_decode = false;
         s->saved_desc = desc;
 
-        return true;
+        for(const auto& i : decode_codecs){
+                if(i.ug_codec == s->out_codec){
+                        s->decode_codec = i.cfhd_pixfmt;
+                        s->convert = i.convert;
+                        CFHD_GetImagePitch(desc.width, i.cfhd_pixfmt, &s->pitch);
+                        if(i.ug_codec == R12L){
+                                log_msg(LOG_LEVEL_NOTICE, "[cineform] Using decoding to 12-bit RGB.\n");
+                        }
+                        return true;
+                }
+        }
+
+        return false;
 }
 
 static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
@@ -75,10 +159,10 @@ static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
         struct state_cineform_decompress *s =
                 (struct state_cineform_decompress *) state;
 
-        s->pitch = pitch;
         assert(out_codec == UYVY ||
                         out_codec == RGB ||
-                        out_codec == v210);
+                        out_codec == v210 ||
+                        out_codec == R12L);
 
         s->pitch = pitch;
         s->rshift = rshift;
@@ -108,7 +192,7 @@ static bool prepare(struct state_cineform_decompress *s,
         status = CFHD_PrepareToDecode(s->decoderRef,
                         s->saved_desc.width,
                         s->saved_desc.height,
-                        CFHD_PIXEL_FORMAT_2VUY,
+                        s->decode_codec,
                         CFHD_DECODED_RESOLUTION_FULL,
                         CFHD_DECODING_FLAGS_NONE,
                         src,
@@ -122,7 +206,12 @@ static bool prepare(struct state_cineform_decompress *s,
         int actualPitch;
         CFHD_GetImagePitch(actualWidth, actualFormat, &actualPitch);
         assert(actualPitch == s->pitch);
-        assert(actualFormat == CFHD_PIXEL_FORMAT_2VUY);
+        assert(actualFormat == s->decode_codec);
+        if(s->convert){
+                s->conv_buf.resize(s->height * s->pitch);
+        } else {
+                s->conv_buf.clear();
+        }
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to prepare for decoding\n");
                 return false;
@@ -144,13 +233,18 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
                 return res;
         }
 
+        unsigned char *decode_dst = s->convert ? s->conv_buf.data() : dst;
+
         status = CFHD_DecodeSample(s->decoderRef,
                         src,
                         src_len,
-                        dst,
+                        decode_dst,
                         s->pitch);
 
         if(status == CFHD_ERROR_OKAY){
+                if(s->convert){
+                        s->convert(dst, decode_dst, s->width, s->height, s->pitch);
+                }
                 res = DECODER_GOT_FRAME;
         } else {
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to decode %i\n", status);
@@ -185,12 +279,36 @@ static int cineform_decompress_get_property(void *state, int property, void *val
         return ret;
 }
 
+ADD_TO_PARAM(lavd_use_10bit, "cfhd-use-12bit",
+                "* cfhd-use-12bit\n"
+                "  Indicates that we are using decoding to R12L.\n"
+                "  With this flag, R12L (12-bit RGB)\n"
+                "  will be announced as a supported codec.\n");
+
 static const struct decode_from_to *cineform_decompress_get_decoders() {
-        static const struct decode_from_to dec_static[] = {
+        const struct decode_from_to dec_static[] = {
                 { CFHD, UYVY, 500 },
         };
 
-        return dec_static;
+        static struct decode_from_to ret[sizeof dec_static / sizeof dec_static[0]
+                + 1 /* terminating zero */
+                + 10 /* place for additional decoders, see below */];
+
+        static std::mutex mutex;
+
+        std::lock_guard<std::mutex> lock(mutex);
+
+        if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
+                memcpy(ret, dec_static, sizeof dec_static);
+                if (get_commandline_param("cfhd-use-12bit")) {
+                        log_msg(LOG_LEVEL_NOTICE, "[cineform] param 12-bit RGB.\n");
+                        //Report only 12-bit formats
+                        ret[0] = (struct decode_from_to) {CFHD, R12L, 100};
+                        ret[1] = { };
+                }
+        }
+
+        return ret;
 }
 
 static const struct video_decompress_info cineform_info = {
