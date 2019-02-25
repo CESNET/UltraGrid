@@ -104,7 +104,7 @@ int fec::pt_from_fec_type(enum fec_type type, bool encrypted) throw()
         case FEC_LDGM:
                 return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
         case FEC_RS:
-                return PT_VIDEO_RS;
+                return encrypted ? PT_ENCRYPT_VIDEO_RS : PT_VIDEO_RS;
         default:
                 abort();
         }
@@ -120,6 +120,7 @@ enum fec_type fec::fec_type_from_pt(int pt) throw()
         case PT_ENCRYPT_VIDEO_LDGM:
                 return FEC_LDGM;
         case PT_VIDEO_RS:
+        case PT_ENCRYPT_VIDEO_RS:
                 return FEC_RS;
         default:
                 abort();

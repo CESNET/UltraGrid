@@ -1368,7 +1368,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 buffer_length = ntohl(hdr[2]);
                 ssrc = pckt->ssrc;
 
-                if (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_VIDEO_RS) {
+                if (PT_VIDEO_HAS_FEC(pt)) {
                         tmp = ntohl(hdr[3]);
                         k = tmp >> 19;
                         m = 0x1fff & (tmp >> 6);
@@ -1376,7 +1376,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         seed = ntohl(hdr[4]);
                 }
 
-                if (pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
+                if (PT_VIDEO_IS_ENCRYPTED(pt)) {
                         if(!decoder->decrypt) {
                                 log_msg(LOG_LEVEL_ERROR, ENCRYPTED_ERR);
                                 ERROR_GOTO_CLEANUP
@@ -1400,6 +1400,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         break;
                 case PT_ENCRYPT_VIDEO:
                 case PT_ENCRYPT_VIDEO_LDGM:
+                case PT_ENCRYPT_VIDEO_RS:
                         {
 				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t);
                                 len = pckt->data_len - sizeof(crypto_payload_hdr_t) - media_hdr_len;
@@ -1442,7 +1443,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 }
 
                 char plaintext[len]; // will be actually shorter
-                if(pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM) {
+                if (PT_VIDEO_IS_ENCRYPTED(pt)) {
                         int data_len;
 
                         if((data_len = decoder->dec_funcs->decrypt(decoder->decrypt,
@@ -1457,7 +1458,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         len = data_len;
                 }
 
-                if (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)
+                if (!PT_VIDEO_HAS_FEC(pt))
                 {
                         /* Critical section
                          * each thread *MUST* wait here if this condition is true

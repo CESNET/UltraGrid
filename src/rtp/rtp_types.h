@@ -60,6 +60,7 @@
 #define PT_JPEG          26
 #define PT_VIDEO_RS     27
 #define PT_ENCRYPT_VIDEO_LDGM 29
+#define PT_ENCRYPT_VIDEO_RS   30
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
@@ -145,3 +146,5 @@ typedef uint32_t fec_video_payload_hdr_t[5];
  */
 typedef uint32_t crypto_payload_hdr_t[1];
 
+#define PT_VIDEO_HAS_FEC(pt) (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_VIDEO_RS || pt == PT_ENCRYPT_VIDEO_RS)
+#define PT_VIDEO_IS_ENCRYPTED(pt) (pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_RS)
