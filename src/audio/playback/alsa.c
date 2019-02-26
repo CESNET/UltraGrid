@@ -563,7 +563,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 
         unsigned int buf_len;
         int buf_dir = -1;
-        if (get_commandline_param("low-latency-audio")) {
+        if (get_commandline_param("low-latency-audio") && get_commandline_param("alsa-playback-buffer") == NULL) {
                 CHECK_OK(snd_pcm_hw_params_set_buffer_time_first(s->handle, params,
                                 &buf_len, &buf_dir));
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
