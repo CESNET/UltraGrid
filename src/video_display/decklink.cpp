@@ -268,7 +268,8 @@ struct device_state {
         PlaybackDelegate        *delegate;
         IDeckLink               *deckLink;
         IDeckLinkOutput         *deckLinkOutput;
-        IDeckLinkConfiguration*         deckLinkConfiguration;
+        IDeckLinkConfiguration  *deckLinkConfiguration;
+        IDeckLinkAttributes     *deckLinkAttributes;
 };
 
 struct state_decklink {
@@ -754,8 +755,11 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, duplex), "Unable set output SDI duplex mode");
                 }
 
-                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
-                                "Quad-link SDI Square Division Quad Split mode");
+                BMD_BOOL quad_link_supp;
+                if (s->state[i].deckLinkAttributes && s->state[i].deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
+                        CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
+                                        "Quad-link SDI Square Division Quad Split mode");
+                }
 
                 result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
                 if (FAILED(result)) {
@@ -1120,6 +1124,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 		if (result != S_OK) {
 			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
 		}
+                s->state[i].deckLinkAttributes = deckLinkAttributes;
 
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
@@ -1253,6 +1258,7 @@ static void display_decklink_run(void *state)
         UNUSED(state);
 }
 
+#define RELEASE_IF_NOT_NULL(x) if (x != nullptr) x->Release();
 static void display_decklink_done(void *state)
 {
         debug_msg("display_decklink_done\n"); /* TOREMOVE */
@@ -1276,17 +1282,10 @@ static void display_decklink_done(void *state)
                         }
                 }
 
-                if(s->state[i].deckLinkConfiguration != NULL) {
-                        s->state[i].deckLinkConfiguration->Release();
-                }
-
-                if(s->state[i].deckLinkOutput != NULL) {
-                        s->state[i].deckLinkOutput->Release();
-                }
-
-                if(s->state[i].deckLink != NULL) {
-                        s->state[i].deckLink->Release();
-                }
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkOutput);
+                RELEASE_IF_NOT_NULL(s->state[i].deckLink);
 
                 if(s->state[i].delegate != NULL) {
                         delete s->state[i].delegate;
