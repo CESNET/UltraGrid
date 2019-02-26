@@ -60,7 +60,8 @@
 #include "tv.h"
 #include "utils/color_out.h"
 
-#define BUFFER_MAX 200
+#define BUF_LEN_DEFAULT 60
+#define BUF_LEN_DEFAULT_SYNC 200 // default buffer len for sync API
 #define MOD_NAME "[ALSA play.] "
 
 /**
@@ -568,11 +569,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                                 &buf_len, &buf_dir));
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "ALSA driver buffer len set to: %lf ms\n", buf_len / 1000.0);
         } else {
-                if (s->playback_mode == THREAD || s->playback_mode == ASYNC) {
-                        buf_len = s->sched_latency_ms * 3 * 1000;
-                } else {
-                        buf_len = BUFFER_MAX * 1000;
-                }
+                buf_len = (s->playback_mode == SYNC ? BUF_LEN_DEFAULT_SYNC : BUF_LEN_DEFAULT) * 1000;
 
                 const char *buff_str = get_commandline_param("alsa-playback-buffer");
                 if (buff_str) {
@@ -957,10 +954,10 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "underrun occurred\n");
                 snd_pcm_prepare(s->handle);
                 /* fill the stream with some sasmples */
-                for (double sec = 0.0; sec < BUFFER_MAX / 1000.0; sec += (double) frames / frame->sample_rate) {
+                for (snd_pcm_uframes_t f = 0; f < s->buffer_size; f += frames) {
                         int frames_to_write = frames;
-                        if(sec + (double) frames/frame->sample_rate > BUFFER_MAX / 1000.0) {
-                                frames_to_write = (BUFFER_MAX / 1000.0 - sec) * frame->sample_rate;
+                        if (f + frames > s->buffer_size) {
+                                frames_to_write = s->buffer_size - frames;
                         }
                         int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved, s->playback_mode);
                         if(rc < 0) {
