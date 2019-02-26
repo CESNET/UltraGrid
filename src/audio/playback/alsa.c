@@ -213,7 +213,7 @@ static void *worker(void *args) {
                         f.data_len = pkt.len;
                         f.data = pkt.data;
 		} else {
-			log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "underrun occurred\n");
+			log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "empty buffer\n");
 			if (err < 0) {
 				log_msg(LOG_LEVEL_WARNING, MOD_NAME "Jitter buffer: %s\n",
 						JITTER_BUFFER_INTERNAL_ERROR ? "internal error" :
@@ -236,7 +236,7 @@ static void *worker(void *args) {
                         f.data = silence;
 
                         if (tv_diff(now, s->last_audio_read) < 2.0) {
-                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "underrun occurred\n");
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "empty buffer\n");
                         }
                 }
 #endif
