@@ -3035,7 +3035,7 @@ AC_ARG_ENABLE(ndi,
 AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 AC_CHECK_LIB(ndi, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
 
-if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L"
+if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes
 then
         ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-lndi")
         ndi=yes
