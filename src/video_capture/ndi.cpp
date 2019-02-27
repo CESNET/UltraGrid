@@ -314,9 +314,16 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 if (video_frame.frame_format_type != NDIlib_frame_format_type_progressive && video_frame.frame_format_type != NDIlib_frame_format_type_interleaved) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported interlacing, please report to " PACKAGE_BUGREPORT "!\n";
                 }
+                union {
+                        uint32_t fcc_i;
+                        char fcc_s[5];
+                } u;
+                u.fcc_i = video_frame.FourCC;
+                u.fcc_s[5] = '\0';
                 if (video_frame.FourCC != NDIlib_FourCC_type_UYVY &&
-                                video_frame.FourCC != NDIlib_FourCC_type_RGBA) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported codec \" " << video_frame.FourCC << " \", please report to " PACKAGE_BUGREPORT "!\n";
+                                video_frame.FourCC != NDIlib_FourCC_type_RGBA &&
+                                video_frame.FourCC != NDIlib_FourCC_type_BGRA) {
+                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported codec '" << u.fcc_s << "', please report to " PACKAGE_BUGREPORT "!\n";
 
                 }
                 out = vf_alloc_desc({static_cast<unsigned int>(video_frame.xres),
@@ -325,6 +332,13 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 static_cast<double>(video_frame.frame_rate_N) / video_frame.frame_rate_D,
                                 video_frame.frame_format_type == NDIlib_frame_format_type_progressive ? PROGRESSIVE : INTERLACED_MERGED,
                                 1});
+                if (video_frame.FourCC == NDIlib_FourCC_type_BGRA) { // BGRA -> RGBA
+                        auto tmp = reinterpret_cast<uint32_t *>(video_frame.p_data);
+                        for (int i = 0; i < video_frame.xres * video_frame.yres; ++i) {
+                                uint32_t argb = *tmp;
+                                *tmp++ = (argb & 0xff000000) | ((argb & 0xff) << 16) | (argb & 0xff00) | ((argb & 0xff0000) >> 16);
+                        }
+                }
                 out->tiles[0].data = reinterpret_cast<char*>(video_frame.p_data);
                 struct dispose_udata_t {
                         NDIlib_video_frame_v2_t video_frame;
