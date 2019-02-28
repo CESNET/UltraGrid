@@ -51,7 +51,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 
         READ_N(buffer, 4);
         if(strncmp(buffer, "RIFF", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF chunk, %4s given.\n", buffer);
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 
@@ -60,7 +60,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 
         READ_N(buffer, 4);
         if (strncmp(buffer, "WAVE", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected WAVE chunk, %4s given.\n", buffer);
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected WAVE chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 

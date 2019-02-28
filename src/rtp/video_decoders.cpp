@@ -1234,7 +1234,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
         if(desc->color_spec == VIDEO_CODEC_NONE) {
-                log_msg(LOG_LEVEL_ERROR, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
+                log_msg(LOG_LEVEL_ERROR, "Unknown FourCC \"%.4s\"!\n", (char *) &hdr[4]);
                 return false;
         }
 
