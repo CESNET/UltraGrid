@@ -55,6 +55,7 @@
 #include "tv.h"
 #include "video.h"
 
+#include "Availability.h"
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
@@ -214,7 +215,7 @@ const quicktime_mode_t quicktime_modes[] = {
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -807,7 +808,7 @@ static void *display_quicktime_init(struct module *parent, const char *fmt, unsi
 static void display_quicktime_audio_init(struct state_quicktime *s)
 {
         OSErr ret = noErr;
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         Component comp;
         ComponentDescription desc;
 #else
@@ -830,7 +831,7 @@ static void display_quicktime_audio_init(struct state_quicktime *s)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         comp = FindNextComponent(NULL, &desc);
         if(!comp) goto audio_error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);

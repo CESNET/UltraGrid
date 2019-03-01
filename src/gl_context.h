@@ -13,11 +13,15 @@
 #include <OpenGL/GL.h>
 #endif /*  HAVE_LINUX */
 
+#ifdef HAVE_MACOSX
+#include <Availability.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#if defined HAVE_MACOSX && ! defined__MAC_10_11
 #define glGenFramebuffers glGenFramebuffersEXT
 #define glBindFramebuffer glBindFramebufferEXT
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT

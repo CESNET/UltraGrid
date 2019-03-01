@@ -175,9 +175,6 @@ then
         OBJS="$OBJS src/utils/autorelease_pool.o"
 fi
 
-AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
-AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
-
 LINKER=$CXX
 
 AC_SUBST(LINKER)
@@ -236,7 +233,9 @@ AH_BOTTOM([
  * so supplying a fake one (Macs allocate always aligned pointers
  * to a 16 byte boundry.
  */
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
+#if defined HAVE_MACOSX
+#include <Availability.h>
+#ifndef __MAC_10_9
 #include <errno.h>
 #include <stdlib.h>
 #ifndef POSIX_MEMALIGN
@@ -251,7 +250,8 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
        return 0;
 }
 #endif // POSIX_MEMALIGN
-#endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
+#endif // !defined __MAC_10_9
+#endif // defined HAVE_MACOSX
 
 #undef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))

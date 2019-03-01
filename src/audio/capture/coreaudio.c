@@ -42,6 +42,7 @@
 
 #ifdef HAVE_COREAUDIO
 
+#include <Availability.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
 #include <pthread.h>
@@ -64,7 +65,7 @@
 #define MODULE_NAME "[CoreAudio] "
 
 struct state_ca_capture {
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -246,7 +247,7 @@ static void * audio_cap_ca_init(const char *cfg)
         }
         struct state_ca_capture *s;
         OSErr ret = noErr;
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         Component comp;
         ComponentDescription desc;
 #else
@@ -326,7 +327,7 @@ static void * audio_cap_ca_init(const char *cfg)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
-#if OS_VERSION_MAJOR > 9
+#ifdef __MAC_10_9
         comp = AudioComponentFindNext(NULL, &desc);
         if(!comp) {
                 fprintf(stderr, "Error finding AUHAL component.\n");

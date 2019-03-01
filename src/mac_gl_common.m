@@ -51,6 +51,7 @@
 
 #include "mac_gl_common.h"
 
+#include <Availability.h>
 #import <Cocoa/Cocoa.h>
 #include <OpenGL/gl.h>
 #include <sys/param.h>
@@ -59,7 +60,7 @@
 #include <stdlib.h>
 
 
-#if OS_VERSION_MAJOR < 11
+#ifndef __MAC_10_11
 #warning "You are compling on pre-10.7 Mac OS X version. Core OpenGL 3.2 profile won't work"
 #warning "in case you'll try to use this binary with Lion or higher (only legacy OpenGL)."
 #endif
@@ -113,7 +114,7 @@ void *mac_gl_init(mac_opengl_version_t ogl_version)
         mac_version_major = get_mac_kernel_version_major();
 
         if(ogl_version == MAC_GL_PROFILE_3_2) { /* Lion or later */
-#if OS_VERSION_MAJOR >= 11
+#ifdef __MAC_10_11
                 if(mac_version_major < 11) {
                         fprintf(stderr, "[Mac OpenGL] Unable to activate OpenGL 3.2 for pre-Lion Macs.\n");
                         return NULL;
@@ -126,7 +127,7 @@ void *mac_gl_init(mac_opengl_version_t ogl_version)
                 return NULL;
 #endif
         } else if(ogl_version == MAC_GL_PROFILE_LEGACY) {
-#if OS_VERSION_MAJOR >= 11
+#ifdef __MAC_10_11
                 if(mac_version_major >= 11) {
                         attrs[0] = kCGLPFAOpenGLProfile;
                         attrs[1] = kCGLOGLPVersion_Legacy; // kCGLOGLPVersion_Legacy;

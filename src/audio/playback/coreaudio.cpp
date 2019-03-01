@@ -40,6 +40,7 @@
 #ifdef HAVE_COREAUDIO
 
 #include <AudioUnit/AudioUnit.h>
+#include <Availability.h>
 #include <chrono>
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
@@ -64,7 +65,7 @@ using std::cout;
 #define CA_DIS_AD_B "ca-disable-adaptive-buf"
 
 struct state_ca_playback {
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         ComponentInstance
 #else
         AudioComponentInstance
@@ -297,7 +298,7 @@ static void * audio_play_ca_init(const char *cfg)
 {
         struct state_ca_playback *s;
         OSErr ret = noErr;
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         Component comp;
         ComponentDescription comp_desc;
 #else
@@ -325,7 +326,7 @@ static void * audio_play_ca_init(const char *cfg)
         comp_desc.componentFlags = 0;
         comp_desc.componentFlagsMask = 0;
 
-#if OS_VERSION_MAJOR <= 9
+#ifndef __MAC_10_9
         comp = FindNextComponent(NULL, &comp_desc);
         if(!comp) goto error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);
