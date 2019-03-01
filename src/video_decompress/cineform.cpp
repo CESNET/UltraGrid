@@ -144,7 +144,7 @@ static bool configure_with(struct state_cineform_decompress *s,
                         s->convert = i.convert;
                         CFHD_GetImagePitch(desc.width, i.cfhd_pixfmt, &s->pitch);
                         if(i.ug_codec == R12L){
-                                log_msg(LOG_LEVEL_NOTICE, "[cineform] Using decoding to 12-bit RGB.\n");
+                                log_msg(LOG_LEVEL_NOTICE, "[cineform] Decoding to 12-bit RGB.\n");
                         }
                         return true;
                 }
@@ -301,7 +301,6 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
         if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
                 memcpy(ret, dec_static, sizeof dec_static);
                 if (get_commandline_param("cfhd-use-12bit")) {
-                        log_msg(LOG_LEVEL_NOTICE, "[cineform] param 12-bit RGB.\n");
                         //Report only 12-bit formats
                         ret[0] = (struct decode_from_to) {CFHD, R12L, 100};
                         ret[1] = { };

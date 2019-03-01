@@ -183,7 +183,7 @@ static struct module * cineform_compress_init(struct module *parent, const char 
                         return NULL;
         }
 
-        log_msg(LOG_LEVEL_ERROR, "[cineform] : Threads: %d.\n", s->requested_threads);
+        log_msg(LOG_LEVEL_NOTICE, "[cineform] : Threads: %d.\n", s->requested_threads);
         CFHD_Error status = CFHD_ERROR_OKAY;
         status = CFHD_CreateEncoderPool(&s->encoderPoolRef,
                         s->requested_threads,
@@ -325,7 +325,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
 
         s->saved_desc = desc;
 
-        log_msg(LOG_LEVEL_ERROR, "[cineform] start encoder pool\n");
+        log_msg(LOG_LEVEL_INFO, "[cineform] start encoder pool\n");
         status = CFHD_StartEncoderPool(s->encoderPoolRef);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to start encoder pool\n");
