@@ -68,6 +68,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "DeckLinkAPIVersion.h"
 
@@ -657,7 +658,9 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         
         s->vid_desc = desc;
 
-        auto it = uv_to_bmd_codec_map.find(desc.color_spec);
+        auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                        uv_to_bmd_codec_map.end(),
+                        [&desc](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == desc.color_spec; });
         if (it == uv_to_bmd_codec_map.end()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format!\n");
                 goto error;

@@ -62,6 +62,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "blackmagic_common.h"
 #include "audio/audio.h"
@@ -802,7 +803,9 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         result = displayMode->GetName(&displayModeString);
         if (result == S_OK)
         {
-                auto it = uv_to_bmd_codec_map.find(s->codec);
+                auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                                uv_to_bmd_codec_map.end(),
+                                [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
                 if (it == uv_to_bmd_codec_map.end()) {
                         LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
                         return E_FAIL;
@@ -1157,7 +1160,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         displayMode->Release();
                                         continue;
                                 }
-                                auto it = uv_to_bmd_codec_map.find(s->codec);
+                                auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                                                uv_to_bmd_codec_map.end(),
+                                                [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
                                 if (it == uv_to_bmd_codec_map.end()) {
                                         LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
                                         goto error;
