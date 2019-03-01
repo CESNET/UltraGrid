@@ -178,3 +178,30 @@ void vf_free(struct video_frame *buf)
         free(buf);
 }
 
+const char *get_codec_name(codec_t codec) {
+        switch (codec) {
+                case UYVY: return "UYVY";
+                case v210: return "v210";
+                case RGBA: return "RGBA";
+                case RGB: return "RGB";
+                case R10k: return "R10k";
+                default:
+                           fprintf(stderr, "Getting codec name - unsupported in Windows, report to "
+                                           "ultragrid-dev@cesnet.cz\n");
+                           return "_UNSUPPORTED_";
+        }
+}
+
+codec_t get_codec_from_name(const char *name) {
+        if (strcmp(name, "UYVY") == 0) return UYVY;
+        else if (strcmp(name, "UYVY") == 0) return UYVY;
+        else if (strcmp(name, "RGBA") == 0) return RGBA;
+        else if (strcmp(name, "RGB") == 0) return UYVY;
+        else if (strcmp(name, "R10k") == 0) return R10k;
+        else {
+                fprintf(stderr, "Getting codec from name - unsupported in Windows, report to "
+                                "ultragrid-dev@cesnet.cz\n");
+                return VIDEO_CODEC_NONE;
+        }
+}
+
