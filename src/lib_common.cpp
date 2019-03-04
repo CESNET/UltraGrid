@@ -251,6 +251,9 @@ static struct init_libraries loader;
 void register_library(const char *name, const void *data, enum library_class cls, int abi_version)
 {
         struct init_libraries loader;
+        if ((*libraries)[cls].find(name) != (*libraries)[cls].find(name)) {
+                LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" multiple initialization!\n";
+        }
         (*libraries)[cls][name] = {data, abi_version};
 }
 
