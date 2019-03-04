@@ -182,6 +182,7 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new RadioButtonUi(ui->fecRsRadio, "rs", settings, "network.fec.type"));
 	addControl(new RadioButtonUi(ui->ldgmSimpCpuRadio, "CPU", settings, "network.fec.ldgm.device"));
 	addControl(new RadioButtonUi(ui->ldgmSimpGpuRadio, "GPU", settings, "network.fec.ldgm.device"));
-	addControl(new RadioButtonUi(ui->ldgmAdvCpuRadio, "CPU", settings, "network.fec.ldgm.device"));
-	addControl(new RadioButtonUi(ui->ldgmAdvGpuRadio, "GPU", settings, "network.fec.ldgm.device"));
+	addControl(new RadioButtonUi(ui->ldgmCpuRadio, "CPU", settings, "network.fec.ldgm.device"));
+	addControl(new RadioButtonUi(ui->ldgmGpuRadio, "GPU", settings, "network.fec.ldgm.device"));
+	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 }

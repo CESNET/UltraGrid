@@ -177,7 +177,7 @@
                   </sizepolicy>
                  </property>
                  <property name="currentIndex">
-                  <number>3</number>
+                  <number>2</number>
                  </property>
                  <widget class="QWidget" name="mult">
                   <layout class="QHBoxLayout" name="horizontalLayout_7">
@@ -304,27 +304,6 @@
                      </property>
                     </widget>
                    </item>
-                   <item>
-                    <layout class="QVBoxLayout" name="verticalLayout_4">
-                     <property name="rightMargin">
-                      <number>5</number>
-                     </property>
-                     <item>
-                      <widget class="QRadioButton" name="ldgmAdvCpuRadio">
-                       <property name="text">
-                        <string>CPU</string>
-                       </property>
-                      </widget>
-                     </item>
-                     <item>
-                      <widget class="QRadioButton" name="ldgmAdvGpuRadio">
-                       <property name="text">
-                        <string>GPU</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </item>
                   </layout>
                  </widget>
                  <widget class="QWidget" name="page_2">
@@ -399,6 +378,45 @@
           </size>
          </property>
         </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="accelTab">
+      <attribute name="title">
+       <string>Acceleration</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_2">
+       <item row="0" column="0">
+        <widget class="QCheckBox" name="decodeAccelCheck">
+         <property name="text">
+          <string>Video decode</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>LDGM</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="ldgmCpuRadio">
+           <property name="text">
+            <string>CPU</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="ldgmGpuRadio">
+           <property name="text">
+            <string>GPU</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>
