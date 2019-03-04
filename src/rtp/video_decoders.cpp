@@ -91,6 +91,7 @@
 #include "rtp/video_decoders.h"
 #include "utils/synchronized_queue.h"
 #include "utils/timed_message.h"
+#include "utils/worker.h"
 #include "video.h"
 #include "video_decompress.h"
 #include "video_display.h"
@@ -529,6 +530,42 @@ static bool blacklist_current_out_codec(struct state_video_decoder *decoder){
         return true;
 }
 
+struct decompress_data {
+        struct state_video_decoder *decoder;
+        int pos;
+        struct video_frame *compressed;
+        int buffer_num;
+        decompress_status ret = DECODER_NO_FRAME;
+};
+static void *decompress_worker(void *data)
+{
+        auto d = (struct decompress_data *) data;
+        struct state_video_decoder *decoder = d->decoder;
+        int pos = d->pos;
+
+        char *out;
+        int x = d->pos % get_video_mode_tiles_x(decoder->video_mode),
+            y = d->pos / get_video_mode_tiles_x(decoder->video_mode);
+        int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
+        int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
+        if(decoder->merged_fb) {
+                // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
+                out = vf_get_tile(decoder->frame, 0)->data + y * decoder->pitch * tile_height +
+                        vc_get_linesize(tile_width, decoder->out_codec) * x;
+        } else {
+                out = vf_get_tile(decoder->frame, pos)->data;
+        }
+        if (!d->compressed->tiles[pos].data)
+                return NULL;
+        d->ret = decompress_frame(decoder->decompress_state[pos],
+                        (unsigned char *) out,
+                        (unsigned char *) d->compressed->tiles[pos].data,
+                        d->compressed->tiles[pos].data_len,
+                        d->buffer_num,
+                        &decoder->frame->callbacks);
+        return d;
+}
+
 static void *decompress_thread(void *args) {
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
@@ -543,35 +580,33 @@ static void *decompress_thread(void *args) {
                 auto t0 = std::chrono::high_resolution_clock::now();
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                        int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
-                        int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
-                        int x, y;
-                        for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
-                                for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
-                                        int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
-                                        char *out;
-                                        if(decoder->merged_fb) {
-                                                // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
-                                                out = vf_get_tile(decoder->frame, 0)->data + y * decoder->pitch * tile_height +
-                                                        vc_get_linesize(tile_width, decoder->out_codec) * x;
-                                        } else {
-                                                out = vf_get_tile(decoder->frame, pos)->data;
+                        int tile_count = get_video_mode_tiles_x(decoder->video_mode) *
+                                        get_video_mode_tiles_y(decoder->video_mode);
+                        vector<task_result_handle_t> handle(tile_count);
+                        vector<decompress_data> data(tile_count);
+                        for (int pos = 0; pos < tile_count; ++pos) {
+                                data[pos].decoder = decoder;
+                                data[pos].pos = pos;
+                                data[pos].compressed = msg->nofec_frame;
+                                data[pos].buffer_num = msg->buffer_num[pos];
+                                if (tile_count > 1) {
+                                        handle[pos] = task_run_async(decompress_worker, &data[pos]);
+                                } else {
+                                        decompress_worker(&data[pos]);
+                                }
+                        }
+                        if (tile_count > 1) {
+                                for (int pos = 0; pos < tile_count; ++pos) {
+                                        wait_task(handle[pos]);
+                                }
+                        }
+                        for (int pos = 0; pos < tile_count; ++pos) {
+                                if (data[pos].ret != DECODER_GOT_FRAME){
+                                        if (data[pos].ret == DECODER_CANT_DECODE){
+                                                if(blacklist_current_out_codec(decoder))
+                                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true));
                                         }
-                                        if(!msg->nofec_frame->tiles[pos].data)
-                                                continue;
-                                        decompress_status ret = decompress_frame(decoder->decompress_state[pos],
-                                                        (unsigned char *) out,
-                                                        (unsigned char *) msg->nofec_frame->tiles[pos].data,
-                                                        msg->nofec_frame->tiles[pos].data_len,
-                                                        msg->buffer_num[pos],
-														&decoder->frame->callbacks);
-                                        if (ret != DECODER_GOT_FRAME) {
-                                                if(ret == DECODER_CANT_DECODE){
-                                                        if(blacklist_current_out_codec(decoder))
-                                                                decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true));
-                                                }
-                                                goto skip_frame;
-                                        }
+                                        goto skip_frame;
                                 }
                         }
                 } else {
