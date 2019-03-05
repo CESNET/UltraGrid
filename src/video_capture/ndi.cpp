@@ -81,6 +81,7 @@ struct vidcap_state_ndi {
         array<struct audio_frame, 2> audio;
         int audio_buf_idx = 0;
         bool capture_audio = false;
+        struct video_desc last_desc{};
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
@@ -333,6 +334,10 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 static_cast<double>(video_frame.frame_rate_N) / video_frame.frame_rate_D,
                                 video_frame.frame_format_type == NDIlib_frame_format_type_progressive ? PROGRESSIVE : INTERLACED_MERGED,
                                 1};
+                if (s->last_desc != out_desc) {
+                        LOG(LOG_LEVEL_NOTICE) << "[NDI] Received video changed: " << out_desc << "\n";
+                        s->last_desc = out_desc;
+                }
                 if (video_frame.FourCC == NDIlib_FourCC_type_BGRA) { // BGRA -> RGBA
                         out = vf_alloc_desc_data(out_desc);
                         auto in_p = reinterpret_cast<uint32_t *>(video_frame.p_data);
