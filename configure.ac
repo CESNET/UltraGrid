@@ -3032,12 +3032,18 @@ AC_ARG_ENABLE(ndi,
     [ndi_req=auto]
     )
 
+if test $system = Windows; then
+        NDI_LIB=Processing.NDI.Lib.x64
+else
+        NDI_LIB=ndi
+fi
+
 AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
-AC_CHECK_LIB(ndi, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
+AC_CHECK_LIB($NDI_LIB, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
 
 if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes
 then
-        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-lndi")
+        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-l$NDI_LIB")
         ndi=yes
 fi
 
