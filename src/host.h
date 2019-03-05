@@ -64,6 +64,8 @@
 #define EXIT_FAIL_NETWORK      10
 #define EXIT_FAIL_AUDIO        11
 
+#define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
+
 #ifdef __cplusplus
 extern "C" {
 #endif
