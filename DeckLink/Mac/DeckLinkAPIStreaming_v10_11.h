@@ -1,5 +1,5 @@
 /* -LICENSE-START-
-** Copyright (c) 2019 Blackmagic Design
+** Copyright (c) 2018 Blackmagic Design
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
@@ -25,51 +25,22 @@
 ** -LICENSE-END-
 */
 
-#ifndef BMD_DECKLINKAPIDISCOVERY_H
-#define BMD_DECKLINKAPIDISCOVERY_H
-
-
-#ifndef BMD_CONST
-    #if defined(_MSC_VER)
-        #define BMD_CONST __declspec(selectany) static const
-    #else
-        #define BMD_CONST static const
-    #endif
-#endif
+#ifndef BMD_DECKLINKAPISTREAMING_H
+#define BMD_DECKLINKAPISTREAMING_H
 
 #ifndef BMD_PUBLIC
 	#define BMD_PUBLIC
 #endif
 
-// Type Declarations
-
-
-// Interface ID Declarations
-
-BMD_CONST REFIID IID_IDeckLink                                    = /* C418FBDD-0587-48ED-8FE5-640F0A14AF91 */ {0xC4,0x18,0xFB,0xDD,0x05,0x87,0x48,0xED,0x8F,0xE5,0x64,0x0F,0x0A,0x14,0xAF,0x91};
-
-// Forward Declarations
-
-class IDeckLink;
-
-/* Interface IDeckLink - represents a DeckLink device */
-
-class BMD_PUBLIC IDeckLink : public IUnknown
-{
-public:
-    virtual HRESULT GetModelName (/* out */ CFStringRef *modelName) = 0;
-    virtual HRESULT GetDisplayName (/* out */ CFStringRef *displayName) = 0;
-
-protected:
-    virtual ~IDeckLink () {} // call Release method to drop reference count
-};
 
 /* Functions */
 
 extern "C" {
 
+    IBMDStreamingDiscovery* BMD_PUBLIC CreateBMDStreamingDiscoveryInstance_v10_11 (void);
+    IBMDStreamingH264NALParser* BMD_PUBLIC CreateBMDStreamingH264NALParser_v10_11 (void);
 
 }
 
 
-#endif /* defined(BMD_DECKLINKAPIDISCOVERY_H) */
+#endif /* defined(BMD_DECKLINKAPISTREAMING_H) */
