@@ -369,7 +369,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 lock.unlock();
 
                 status = CFHD_EncodeAsyncSample(s->encoderPoolRef,
-                                s->frame_seq_in,
+                                s->frame_seq_in++,
                                 dummy_ptr->tiles[0].data,
                                 vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec),
                                 nullptr);
@@ -397,8 +397,6 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         lock.lock();
         s->frame_queue.push(std::move(frame_copy));
 
-        s->frame_seq_in++;
-
 #ifdef MEASUREMENT
         struct timespec t_0;
         clock_gettime(CLOCK_MONOTONIC_RAW, &t_0);
@@ -408,7 +406,7 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
         lock.unlock();
 
         status = CFHD_EncodeAsyncSample(s->encoderPoolRef,
-                        s->frame_seq_in,
+                        s->frame_seq_in++,
                         frame_ptr->tiles[0].data,
                         vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec),
                         nullptr);
@@ -493,6 +491,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
                 return {};
         }
         out->callbacks.dispose_udata = new std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef>(s->encoderPoolRef, buf);
+        out->seq = frame_num;
 
         lock.lock();
         if(s->frame_queue.empty()){

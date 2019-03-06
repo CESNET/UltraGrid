@@ -59,6 +59,7 @@
 #include "video.h"
 #include "video_compress.h"
 #include "lib_common.h"
+#include "debug.h"
 
 using namespace std;
 
@@ -107,8 +108,8 @@ struct compress_state {
  */
 struct module compress_init_noerr;
 
-static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
-                shared_ptr<video_frame> frame, struct module *parent);
+static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy,
+                shared_ptr<video_frame> frame);
 static void compress_done(struct module *mod);
 
 /// @brief Displays list of available compressions.
@@ -116,6 +117,14 @@ void show_compress_help()
 {
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
         list_modules(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+}
+
+static void async_poison(struct compress_state_real *s){
+        if (s->funcs->compress_frame_async_push_func) {
+                for(size_t i = 0; i < s->state.size(); i++){
+                        s->funcs->compress_frame_async_push_func(s->state[i], {}); // poison
+                }
+        }
 }
 
 /**
@@ -162,11 +171,9 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                 }
 
                 struct compress_state_real *old = proxy->ptr;
-                if (old->funcs->compress_frame_async_push_func) {
-                        // let the async processing finish
-                        old->discard_frames = true;
-                        old->funcs->compress_frame_async_push_func(old->state[0], {}); // poison
-                }
+                // let the async processing finish
+                old->discard_frames = true;
+                async_poison(old);
                 delete old;
                 proxy->ptr = new_state;
                 r = new_response(RESPONSE_OK, NULL);
@@ -283,6 +290,32 @@ const char *get_compress_name(struct compress_state *proxy)
 }
 
 /**
+ * Checks if there are at least as many states as there are tiles.
+ * If there are not enough states it initializes new ones. 
+ *
+ * @param         proxy         compress state
+ * @param[in]     frame         uncompressed frame
+ * @return                      false in case of failure
+ */
+static bool check_state_count(unsigned tile_count, struct compress_state *proxy)
+{
+        struct compress_state_real *s = proxy->ptr;
+
+        if(tile_count != s->state.size()) {
+                size_t old_size = s->state.size();
+                s->state.resize(tile_count);
+                for (unsigned int i = old_size; i < s->state.size(); ++i) {
+                        s->state[i] = s->funcs->init_func(&proxy->mod, s->compress_options.c_str());
+                        if(!s->state[i]) {
+                                fprintf(stderr, "Compression initialization failed\n");
+                                return false;
+                        }
+                }
+        }
+        return true;
+}
+
+/**
  * @brief Compressses frame
  *
  * @param proxy        compress state
@@ -305,10 +338,25 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
-                if (frame) {
-                        frame->compress_start = t0;
+                if (!frame) {
+                        async_poison(s);
+                        return;
                 }
-                s->funcs->compress_frame_async_push_func(s->state[0], frame);
+
+                frame->compress_start = t0;
+
+                if(!check_state_count(frame->tile_count, proxy)){
+                        return;
+                }
+
+                vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
+                // frame pointer may no longer be valid
+                frame = NULL;
+
+                for(unsigned i = 0; i < separate_tiles.size(); i++){
+                        s->funcs->compress_frame_async_push_func(s->state[i], separate_tiles[i]);
+                }
+
         } else {
                 if (!frame) { // pass poisoned pill
                         proxy->queue.push(shared_ptr<video_frame>());
@@ -319,7 +367,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 if (s->funcs->compress_frame_func) {
                         sync_api_frame = s->funcs->compress_frame_func(s->state[0], frame);
                 } else if(s->funcs->compress_tile_func) {
-                        sync_api_frame = compress_frame_tiles(s, frame, &proxy->mod);
+                        sync_api_frame = compress_frame_tiles(proxy, frame);
                 } else {
                         assert(!"No egliable compress API found");
                 }
@@ -369,24 +417,17 @@ static void *compress_tile_callback(void *arg) {
 /**
  * Compresses video frame with tiles API
  *
- * @param[in]     s             compress state
+ * @param         proxy         compress state
  * @param[in]     frame         uncompressed frame
- * @param         parent        parent module (for the case when there is a need to reconfigure)
  * @return                      compressed video frame, may be NULL if compression failed
  */
-static shared_ptr<video_frame> compress_frame_tiles(struct compress_state_real *s,
-                shared_ptr<video_frame> frame, struct module *parent)
+static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy,
+                shared_ptr<video_frame> frame)
 {
-        if(frame->tile_count != s->state.size()) {
-                size_t old_size = s->state.size();
-                s->state.resize(frame->tile_count);
-                for (unsigned int i = old_size; i < s->state.size(); ++i) {
-                        s->state[i] = s->funcs->init_func(parent, s->compress_options.c_str());
-                        if(!s->state[i]) {
-                                fprintf(stderr, "Compression initialization failed\n");
-                                return NULL;
-                        }
-                }
+        struct compress_state_real *s = proxy->ptr;
+
+        if(!check_state_count(frame->tile_count, proxy)){
+                return NULL;
         }
 
         vector<shared_ptr<video_frame>> separate_tiles = vf_separate_tiles(frame);
@@ -459,14 +500,51 @@ compress_state_real::~compress_state_real()
 namespace {
 void compress_state_real::async_consumer(struct compress_state *s)
 {
+        vector<shared_ptr<video_frame>> compressed_tiles;
+        unsigned expected_seq = 0;
         while (true) {
-                auto frame = funcs->compress_frame_async_pop_func(state[0]);
+                bool fail = false;
+                for(unsigned i = 0; i < state.size(); i++){
+                        std::shared_ptr<video_frame> ret = nullptr;
+                        //discard frames with seq lower than expected
+                        do {
+                                ret = funcs->compress_frame_async_pop_func(state[i]);
+                        } while(ret && ret->seq < expected_seq);
+
+                        if (!ret) {
+                                if(!discard_frames)
+                                        s->queue.push(nullptr); //poison
+                                return;
+                        }
+
+                        if(ret->seq > expected_seq){
+                                log_msg(LOG_LEVEL_ERROR,
+                                                "Expected sequence number %u but got %u!\n",
+                                                expected_seq,
+                                                ret->seq);
+                                if(i == 0){
+                                        //If this is first tile we can continue
+                                        expected_seq = ret->seq;
+                                } else {
+                                        expected_seq = ret->seq + 1;
+                                        fail = true;
+                                        break;
+                                }
+                        }
+
+                        ret->compress_end = time_since_epoch_in_ms();
+                        compressed_tiles.resize(state.size(), nullptr);
+                        compressed_tiles[i] = std::move(ret);
+                }
+
+                if(fail)
+                        continue;
+
                 if (!discard_frames) {
-                        s->queue.push(frame);
+                        s->queue.push(vf_merge_tiles(compressed_tiles));
                 }
-                if (!frame) {
-                        return;
-                }
+                //If frames are not numbered they always have seq = 0
+                if(expected_seq > 0) expected_seq++;
         }
 }
 } // end of anonymous namespace
