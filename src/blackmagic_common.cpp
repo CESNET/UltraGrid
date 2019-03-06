@@ -279,6 +279,7 @@ bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
         IDeckLinkProfileManager *manager = nullptr;
         IDeckLinkProfileIterator *it = nullptr;
         IDeckLinkProfile *profile = nullptr;
+        bool found = false;
 
         EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkProfileManager, (void**)&manager), "Cannot set duplex - query profile manager");
 
@@ -287,7 +288,6 @@ bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
         while (it->Next(&profile) == S_OK) {
                 IDeckLinkProfileAttributes *attributes;
                 int64_t id;
-                bool found = false;
                 if (profile->QueryInterface(IID_IDeckLinkProfileAttributes,
                                         (void**)&attributes) != S_OK) {
                         LOG(LOG_LEVEL_WARNING) << "[DeckLink] Cannot get profile attributes!\n";
@@ -317,6 +317,11 @@ bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
                 if (found) {
                         break;
                 }
+        }
+
+        if (!found && ret) { // no err but not found
+                LOG(LOG_LEVEL_WARNING) << "[DeckLink] didn't found suitable duplex profile!\n";
+                ret = false;
         }
 
 cleanup:

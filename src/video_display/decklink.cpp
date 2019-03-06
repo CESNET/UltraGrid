@@ -650,7 +650,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         struct state_decklink            *s = (struct state_decklink *)state;
 
         BMDDisplayMode                    displayMode;
-        bool                              supported;
+        BMD_BOOL                          supported;
         HRESULT                           result;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
@@ -697,6 +697,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
+                BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
                 displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                 &s->frameRateScale);
@@ -711,9 +712,10 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 if (s->stereo) {
                         outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputDualStream3D);
+                        supportedFlags = (BMDSupportedVideoModeFlags) (outputFlags | bmdSupportedVideoModeDualStream3D);
                 }
 
-                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, outputFlags, nullptr, &supported),
+                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, supportedFlags, nullptr, &supported),
                                 "DoesSupportVideoMode");
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
@@ -728,7 +730,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                                 "SDI subsampling");
 
                 uint32_t link = s->link_req;
-                uint32_t duplex = s->duplex_req;
 
                 if (s->link_req == DEFAULT) {
                         if (desc.width != 7680) {
@@ -747,11 +748,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
-                        duplex = bmdDuplexHalf;
-                }
-
-                if (duplex != DEFAULT && duplex != (uint32_t) KEEP) {
-                        decklink_set_duplex(s->state[i].deckLink, duplex);
+                        decklink_set_duplex(s->state[i].deckLink, bmdDuplexHalf);
                 }
 
                 BMD_BOOL quad_link_supp;
@@ -1117,6 +1114,10 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
+                if (s->duplex_req != DEFAULT && s->duplex_req != (uint32_t) KEEP) {
+                        decklink_set_duplex(s->state[i].deckLink, (BMDDuplexMode) s->duplex_req);
+                }
+
 		// Get IDeckLinkAttributes object
 		IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
 		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);

@@ -151,7 +151,8 @@ struct vidcap_decklink_state {
         struct audio_frame      audio;
         queue<IDeckLinkAudioInputPacket *> audioPackets;
         codec_t                 codec;
-        BMDVideoInputFlags flags;
+        BMDVideoInputFlags enable_flags;
+        BMDSupportedVideoModeFlags supported_flags = bmdSupportedVideoModeDefault;
 
         mutex                   lock;
 	condition_variable      boss_cv;
@@ -269,7 +270,7 @@ public:
                 deckLinkInput->FlushStreams();
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
-                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags), "EnableVideoInput");
+                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
                         if(s->grab_audio == FALSE ||
                                         this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
@@ -956,7 +957,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         s->stereo = false;
         s->sync_timecode = FALSE;
         s->connection = bmdVideoConnectionUnspecified;
-        s->flags = 0;
+        s->enable_flags = 0;
         s->audio_consumer_levels = -1;
         s->conversion_mode = (BMDVideoInputConversionMode) 0;
 
@@ -1019,6 +1020,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         }
 
         if(s->stereo) {
+                s->enable_flags |= bmdVideoInputDualStream3D;
+                s->supported_flags = (BMDSupportedVideoModeFlags) (s->supported_flags | bmdSupportedVideoModeDualStream3D);
                 if (s->devices_cnt > 1) {
                         fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
@@ -1090,6 +1093,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         free(deviceNameCString);
                 }
 
+                if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
+                        decklink_set_duplex(s->state[i].deckLink, (BMDDuplexMode) s->duplex);
+                }
+
                 // Query the DeckLink for its configuration interface
                 EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface");
                 s->state[i].deckLinkInput = deckLinkInput;
@@ -1114,10 +1121,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 
                 if (s->passthrough) {
                         EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough), "Unable to set passthrough mode");
-                }
-
-                if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
-                        decklink_set_duplex(s->state[i].deckLink, s->duplex);
                 }
 
                 if (s->link == 0) {
@@ -1180,8 +1183,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                                 BMDPixelFormat pf = it->second;
-                                bool  supported;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->flags, &supported), "DoesSupportVideoMode");
+                                BMD_BOOL supported;
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
                                 if (supported) {
                                         break;
                                 }
@@ -1232,6 +1235,11 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         goto error;
                 }
 
+                if (!displayMode) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No display mode found! Try to set to half-duplex mode.\n");
+                        goto error;
+                }
+
                 BMDPixelFormat pf;
                 EXIT_IF_FAILED(set_display_mode_properties(s, tile, displayMode, &pf),
                                 "Could not set display mode properties");
@@ -1246,21 +1254,18 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
                                 goto error;
                         }
-                        s->flags |=  bmdVideoInputEnableFormatDetection;
+                        s->enable_flags |=  bmdVideoInputEnableFormatDetection;
                 }
 
-                if (s->stereo) {
-                        s->flags |= bmdVideoInputDualStream3D;
-                }
-                bool supported;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->flags, &supported), "DoesSupportVideoMode");
+                BMD_BOOL supported;
+                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
 
                 if (!supported) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
                         goto error;
                 }
 
-                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
+                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags);
                 if (result != S_OK) {
                         switch (result) {
                                 case E_INVALIDARG:
