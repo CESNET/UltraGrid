@@ -1253,7 +1253,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
 
                 if (supported == bmdDisplayModeNotSupported) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported wit the selected pixel format\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
                         goto error;
                 }
 
