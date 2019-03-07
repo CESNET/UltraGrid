@@ -379,7 +379,6 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 goto error;
         }
         {
-                const codec_t other[] = {R12L, VIDEO_CODEC_NONE};
                 const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
                 bool supported = false;
                 for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
@@ -767,7 +766,7 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose)
                 if (verbose) {
                         vt->card_count = 1;
                         vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
-                        snprintf(vt->cards[0].id, sizeof vt->cards[0].name, "");
+                        vt->cards[0].id[0] = '\0';
                         snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing signal");
 
                         struct {
