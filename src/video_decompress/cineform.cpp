@@ -64,6 +64,7 @@ struct state_cineform_decompress {
         codec_t          in_codec;
         codec_t          out_codec;
         CFHD_PixelFormat decode_codec;
+        int              decode_linesize;
         void (*convert)(unsigned char *dst_buffer,
                         unsigned char *src_buffer,
                         int width, int height, int pitch);
@@ -84,7 +85,7 @@ static void * cineform_decompress_init(void)
 
         s = new state_cineform_decompress();
 
-        s->width = s->height = s->pitch = 0;
+        s->width = s->height = s->pitch = s->decode_linesize = 0;
         s->convert = nullptr;
         s->prepared_to_decode = false;
 
@@ -111,12 +112,12 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
                 int width, int height, int pitch)
 {
         int src_pitch = vc_get_linesize(width, RG48);
-        int dst_pitch = vc_get_linesize(width, R12L);
+        int dst_len = vc_get_linesize(width, R12L);
 
         for(unsigned i = 0; i < height; i++){
-                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_pitch);
+                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len);
                 src_buffer += src_pitch;
-                dst_buffer += dst_pitch;
+                dst_buffer += pitch;
         }
 }
 
@@ -142,7 +143,7 @@ static bool configure_with(struct state_cineform_decompress *s,
                 if(i.ug_codec == s->out_codec){
                         s->decode_codec = i.cfhd_pixfmt;
                         s->convert = i.convert;
-                        CFHD_GetImagePitch(desc.width, i.cfhd_pixfmt, &s->pitch);
+                        CFHD_GetImagePitch(desc.width, i.cfhd_pixfmt, &s->decode_linesize);
                         if(i.ug_codec == R12L){
                                 log_msg(LOG_LEVEL_NOTICE, "[cineform] Decoding to 12-bit RGB.\n");
                         }
@@ -203,12 +204,12 @@ static bool prepare(struct state_cineform_decompress *s,
                         );
         assert(actualWidth == s->width);
         assert(actualHeight == s->height);
-        int actualPitch;
-        CFHD_GetImagePitch(actualWidth, actualFormat, &actualPitch);
-        assert(actualPitch == s->pitch);
         assert(actualFormat == s->decode_codec);
         if(s->convert){
-                s->conv_buf.resize(s->height * s->pitch);
+                int actualPitch;
+                CFHD_GetImagePitch(actualWidth, actualFormat, &actualPitch);
+                assert(actualPitch == s->decode_linesize);
+                s->conv_buf.resize(s->height * s->decode_linesize);
         } else {
                 s->conv_buf.clear();
         }
@@ -234,12 +235,13 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
         }
 
         unsigned char *decode_dst = s->convert ? s->conv_buf.data() : dst;
+        int pitch = s->convert ? s->decode_linesize : s->pitch;
 
         status = CFHD_DecodeSample(s->decoderRef,
                         src,
                         src_len,
                         decode_dst,
-                        s->pitch);
+                        pitch);
 
         if(status == CFHD_ERROR_OKAY){
                 if(s->convert){
