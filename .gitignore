@@ -10,6 +10,7 @@ config.h.in
 *.log
 uv
 bin/
+/build*/
 lib/
 aclocal.m4
 autom4te.cache

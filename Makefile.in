@@ -195,32 +195,40 @@ SWITCHER_CONTROL_KEYBOARD_OBJS = src/switcher_control_keyboard.o
 all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(SWITCHER_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 src/dir-stamp:
-	${MKDIR_P} src src/audio src/audio/capture src/audio/codec src/audio/playback src/capture_filter src/compat src/crypto src/hd-rum-translator src/ihdtv src/rtp src/rtsp src/utils src/video_capture src/video_compress src/video_decompress src/video_display src/video_rxtx src/vo_postprocess ag_plugin bin cuda_dxt dxt_compress ldgm/src ldgm/matrix-gen lib lib/ultragrid
+	$(MKDIR_P) $(dir $@)
 	touch $@
 
 $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 $(IMPORT_C_TARGET): $(IMPORT_CONTROL_KEYBOARD_OBJS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@
 
 $(SWITCHER_TARGET): $(SWITCHER_CONTROL_KEYBOARD_OBJS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(SWITCHER_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@ -pthread
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 %.o: %.c $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
 %.o: %.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
 %.o: %.m $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(INC) -c $< -o $@
 
 %.o: %.mm $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CXX) -x objective-c++ -std=c++11 $(CXXFLAGS) $(INC) -c $< -o $@
 
 # Set suffix for CUDA files
@@ -228,53 +236,69 @@ $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -c $< -o $@
 %.cu.lib: %.cu $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 
 
 SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations
 src/audio/resample.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
 
 src/audio/preprocess.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
 
 src/audio/filterbank.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
 
 src/audio/fftwrap.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
 src/video_display/quicktime.o: src/video_display/quicktime.c $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 
 src/vo_postprocess/text.o: src/vo_postprocess/text.cpp
+	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -Wno-unknown-attributes -Wno-unused-parameter -c $(INC) -c $< -o $@
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
@@ -282,6 +306,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/display_fp.glsl dxt_compress/display_dxt5ycocg_fp.glsl \
 		dxt_compress/yuv422_to_yuv444.glsl dxt_compress/display_dxt1_yuv_fp.glsl \
 		dxt_compress/rgba_to_yuv422.glsl
+	$(MKDIR_P) $(dir $@)
 	echo "/**" > $@
 	echo " * GLSL source codes for DXT compressions" >> $@
 	echo " *" >> $@
@@ -416,8 +441,9 @@ ifeq ($(SYSTEM),Windows)
 endif
 
 gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
+	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	cd gui/QT && $(QMAKE) && make -j 4 $(MAKE_GUI_TARGET)
+	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
@@ -433,6 +459,7 @@ TEST_OBJS = test/test_bitstream.o \
 	    test/run_tests.o
 
 test/run_tests: $(TEST_OBJS) $(OBJS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
 
 suggest-tests:
@@ -451,6 +478,7 @@ UNITTEST_OBJS = unittest/run_tests.o \
 		unittest/video_desc_test.o
 
 unittest/run_tests: $(UNITTEST_OBJS) $(OBJS)
+	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(UNITTEST_OBJS) $(OBJS) $(LIBS) -lcppunit -o $@
 
 unittests: unittest/run_tests
@@ -464,6 +492,7 @@ AG_PLUGIN_TX_SCRIPTS = $(srcdir)/ag_plugin/uvSenderService.py \
                        $(srcdir)/ag_plugin/uvSenderService.manifest
 
 ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+
 	@echo "Creating AccessGrid plugin: uvSenderService.zip"
 	@rm  -f ag_plugin/uvSenderService.zip
 	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
@@ -473,6 +502,7 @@ AG_PLUGIN_RX_SCRIPTS = $(srcdir)/ag_plugin/uvReceiverService.py \
                        $(srcdir)/ag_plugin/uvReceiverService.manifest
 
 ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+	$(MKDIR_P) $(dir $@)
 	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
 	@rm  -f ag_plugin/uvReceiverService.zip
 	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
@@ -504,7 +534,7 @@ release:
 
 # Makes dummy bundle (almost empty). May not be portable due to missing libs.
 bundle-nolib: all
-	mkdir -p $(BUNDLE)/Contents/MacOS
+	$(MKDIR_P) $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/

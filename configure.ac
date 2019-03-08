@@ -279,6 +279,7 @@ AC_DEFUN([ADD_MODULE], [
 				 MODULES="$MODULES $TARGET"
 				 TARGETS="$TARGETS
 $TARGET: "$2" $4
+	\$(MKDIR_P) lib/ultragrid
 	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3" $4
 "
 				 ])
