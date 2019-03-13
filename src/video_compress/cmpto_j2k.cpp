@@ -384,6 +384,8 @@ static struct video_compress_info j2k_compress_info = {
         j2k_compress_init,
         NULL,
         NULL,
+        NULL,
+        NULL,
         j2k_compress_push,
         j2k_compress_pop,
         [] { return list<compress_preset>{}; }

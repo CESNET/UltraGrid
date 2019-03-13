@@ -513,6 +513,8 @@ const struct video_compress_info cineform_info = {
         cineform_compress_init,
         NULL,
         NULL,
+        NULL,
+        NULL,
         cineform_compress_push,
         cineform_compress_pop,
         get_cineform_presets,

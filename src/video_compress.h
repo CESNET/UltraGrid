@@ -121,6 +121,25 @@ typedef void (*compress_frame_async_push_t)(struct module *state, std::shared_pt
  */
 typedef  std::shared_ptr<video_frame> (*compress_frame_async_pop_t)(struct module *state);
 
+/**
+ * @brief Passes tile to compress module for async processing.
+ *
+ * compress_frame_async_pop_t() should be called thereafter to fetch compressed frame.
+ *
+ * @param[in]     state         driver internal state
+ * @param[in]     in_frame      uncompressed frame or empty shared_ptr to pass a poisoned pile
+ */
+typedef void (*compress_tile_async_push_t)(struct module *state, std::shared_ptr<video_frame> in_frame);
+
+/**
+ * @brief Fetches compressed tile passed with compress_tile_async_push()
+ *
+ * @param[in]     state         driver internal state
+ * @return                      compressed frame, empty shared_ptr corresponding with poisoned
+ *                              pill can be also returned
+ */
+typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(struct module *state);
+
 void compress_frame(struct compress_state *, std::shared_ptr<video_frame>);
 
 struct compress_preset {
@@ -138,13 +157,14 @@ struct compress_preset {
 };
 
 /**
- * There are 3 possible APIs for video compress modules. Each module may choose
+ * There are 4 possible APIs for video compress modules. Each module may choose
  * which one to implement, however, only one should be implemented (there is no
  * "smart" heuristics to pick one if more APIs are implemented). Available options
  * are:
  * 1. Frame API - compress entire frame (all tiles)
  * 2. Tile API - compress one tile
  * 3. Async API - compress a frame asynchronously
+ * 4. Async tile API - compress a tile asynchronously
  */
 struct video_compress_info {
         const char        * name;         ///< compress (unique) name
@@ -153,6 +173,8 @@ struct video_compress_info {
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
         compress_frame_async_push_t compress_frame_async_push_func; ///< Async API
         compress_frame_async_pop_t compress_frame_async_pop_func; ///< Async API
+        compress_tile_async_push_t compress_tile_async_push_func; ///< Async tile API
+        compress_tile_async_pop_t compress_tile_async_pop_func; ///< Async tile API
         std::list<compress_preset> (*get_presets)();    ///< list of available presets
 };
 

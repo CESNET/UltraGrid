@@ -74,6 +74,7 @@ private:
         compress_state_real(struct module *parent, const char *config_string);
         void          start(struct compress_state *proxy);
         void          async_consumer(struct compress_state *s);
+        void          async_tile_consumer(struct compress_state *s);
         thread        asynch_consumer_thread;
 public:
         static compress_state_real *create(struct module *parent, const char *config_string,
@@ -121,8 +122,10 @@ void show_compress_help()
 
 static void async_poison(struct compress_state_real *s){
         if (s->funcs->compress_frame_async_push_func) {
+                s->funcs->compress_frame_async_push_func(s->state[0], {}); // poison
+        } else if (s->funcs->compress_tile_async_push_func){
                 for(size_t i = 0; i < s->state.size(); i++){
-                        s->funcs->compress_frame_async_push_func(s->state[i], {}); // poison
+                        s->funcs->compress_tile_async_push_func(s->state[i], {}); // poison
                 }
         }
 }
@@ -272,6 +275,8 @@ void compress_state_real::start(struct compress_state *proxy)
 {
         if (funcs->compress_frame_async_push_func) {
                 asynch_consumer_thread = thread(&compress_state_real::async_consumer, this, proxy);
+        } else if (funcs->compress_tile_async_push_func){
+                asynch_consumer_thread = thread(&compress_state_real::async_tile_consumer, this, proxy);
         }
 }
 
@@ -338,6 +343,12 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
+                if (frame) {
+                        frame->compress_start = t0;
+                }
+                s->funcs->compress_frame_async_push_func(s->state[0], frame);
+        } else if (s->funcs->compress_tile_async_push_func) {
+                assert(s->funcs->compress_tile_async_pop_func);
                 if (!frame) {
                         async_poison(s);
                         return;
@@ -354,7 +365,7 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
                 frame = NULL;
 
                 for(unsigned i = 0; i < separate_tiles.size(); i++){
-                        s->funcs->compress_frame_async_push_func(s->state[i], separate_tiles[i]);
+                        s->funcs->compress_tile_async_push_func(s->state[i], separate_tiles[i]);
                 }
 
         } else {
@@ -488,7 +499,7 @@ static void compress_done(struct module *mod)
 
 compress_state_real::~compress_state_real()
 {
-        if (funcs->compress_frame_async_push_func) {
+        if (asynch_consumer_thread.joinable()) {
                 asynch_consumer_thread.join();
         }
 
@@ -498,7 +509,7 @@ compress_state_real::~compress_state_real()
 }
 
 namespace {
-void compress_state_real::async_consumer(struct compress_state *s)
+void compress_state_real::async_tile_consumer(struct compress_state *s)
 {
         vector<shared_ptr<video_frame>> compressed_tiles;
         unsigned expected_seq = 0;
@@ -508,7 +519,7 @@ void compress_state_real::async_consumer(struct compress_state *s)
                         std::shared_ptr<video_frame> ret = nullptr;
                         //discard frames with seq lower than expected
                         do {
-                                ret = funcs->compress_frame_async_pop_func(state[i]);
+                                ret = funcs->compress_tile_async_pop_func(state[i]);
                         } while(ret && ret->seq < expected_seq);
 
                         if (!ret) {
@@ -546,6 +557,23 @@ void compress_state_real::async_consumer(struct compress_state *s)
                 //If frames are not numbered they always have seq = 0
                 if(expected_seq > 0) expected_seq++;
         }
+}
+
+void compress_state_real::async_consumer(struct compress_state *s)
+{
+        while (true) {
+                auto frame = funcs->compress_frame_async_pop_func(state[0]);
+                if (!discard_frames) {
+                        s->queue.push(frame);
+
+                }
+                if (!frame) {
+                        return;
+
+                }
+
+        }
+
 }
 } // end of anonymous namespace
 

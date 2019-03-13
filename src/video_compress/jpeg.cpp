@@ -588,6 +588,8 @@ const struct video_compress_info jpeg_info = {
         [](struct module *mod) {
                 return static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->pop();
         },
+        NULL,
+        NULL,
         [] {
                 return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
                         { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},

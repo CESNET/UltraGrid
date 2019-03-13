@@ -1782,6 +1782,8 @@ const struct video_compress_info libavcodec_info = {
         libavcodec_compress_tile,
         NULL,
         NULL,
+        NULL,
+        NULL,
         get_libavcodec_presets,
 };
 
