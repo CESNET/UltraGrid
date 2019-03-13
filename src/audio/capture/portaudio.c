@@ -141,7 +141,7 @@ static void * audio_cap_portaudio_init(const char *cfg)
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Portaudio options:\n");
-                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-s poraudio");
+                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-s portaudio");
                 color_out(COLOR_OUT_BOLD, "[:<index>[:latency=<l>]]\n\n");
                 color_out(COLOR_OUT_BOLD, "\t<l>");
                 printf("\tsuggested latency in sec (experimental, use in case of problems)\n");
