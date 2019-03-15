@@ -321,8 +321,9 @@ error:
         return FALSE;
 }
 
-static void display_deltacast_probe(struct device_info **available_cards, int *count)
+static void display_deltacast_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        UNUSED(deleter);
         *count = 0;
         *available_cards = nullptr;
 

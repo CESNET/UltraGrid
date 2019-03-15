@@ -318,7 +318,8 @@ static int display_multiplier_reconfigure_audio(void *state, int quant_samples, 
 }
 
 static const struct video_display_info display_multiplier_info = {
-        [](struct device_info **available_cards, int *count) {
+        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+                UNUSED(deleter);
                 *available_cards = nullptr;
                 *count = 0;
         },

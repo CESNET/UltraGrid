@@ -138,7 +138,7 @@ enum display_prop_vid_mode {
 #define VIDEO_DISPLAY_ABI_VERSION 8
 
 struct video_display_info {
-        void                    (*probe)(struct device_info **available_cards, int *count);
+        void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
         void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
         void                    (*run) (void *state);
         void                    (*done) (void *state);

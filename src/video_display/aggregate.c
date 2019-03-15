@@ -99,8 +99,9 @@ static void display_aggregate_run(void *state)
         }
 }
 
-static void display_aggregate_probe(struct device_info **available_cards, int *count)
+static void display_aggregate_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        UNUSED(deleter);
         *available_cards = NULL;
         *count = 0;
 }

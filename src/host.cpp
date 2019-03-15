@@ -253,13 +253,14 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 auto vdi = static_cast<const struct video_display_info *>(it.second);
                 int count;
                 struct device_info *devices;
-                vdi->probe(&devices, &count);
+                void (*deleter)(void *) = nullptr;
+                vdi->probe(&devices, &count, &deleter);
                 cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ";" <<
                                 devices[i].repeatable << ")\n";
                 }
-                free(devices);
+                deleter ? deleter(devices) : free(devices);
         }
 
         cout << "[cap] Audio capturers:" << endl;

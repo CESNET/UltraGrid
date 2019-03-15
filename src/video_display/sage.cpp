@@ -548,7 +548,8 @@ static int display_sage_reconfigure_audio(void *state, int quant_samples, int ch
 }
 
 static const struct video_display_info display_sage_info = {
-        [](struct device_info **available_cards, int *count) {
+        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+                UNUSED(deleter);
                 *count = 1;
                 *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
                 strcpy((*available_cards)[0].id, "SAGE");

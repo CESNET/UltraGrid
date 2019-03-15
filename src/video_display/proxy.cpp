@@ -399,7 +399,8 @@ static int display_proxy_reconfigure_audio(void *state, int quant_samples, int c
 }
 
 static const struct video_display_info display_proxy_info = {
-        [](struct device_info **available_cards, int *count) {
+        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+                UNUSED(deleter);
                 *available_cards = nullptr;
                 *count = 0;
         },

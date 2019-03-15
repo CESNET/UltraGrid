@@ -822,8 +822,9 @@ static void show_help(void)
         }
 }
 
-static void display_bluefish444_probe(struct device_info **available_cards, int *count)
+static void display_bluefish444_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        UNUSED(deleter);
         int iDevices;
         CBLUEVELVET_H pSDK = bfcFactory();
         bfcEnumerate(pSDK, iDevices);

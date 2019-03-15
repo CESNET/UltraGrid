@@ -803,8 +803,9 @@ error:
         return FALSE;
 }
 
-static void display_decklink_probe(struct device_info **available_cards, int *count)
+static void display_decklink_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        UNUSED(deleter);
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
 

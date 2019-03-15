@@ -598,8 +598,9 @@ static void show_help(int full)
         print_modes(full);
 }
 
-static void display_quicktime_probe(struct device_info **available_cards, int *count)
+static void display_quicktime_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        UNUSED(deleter);
         *available_cards = NULL;
         *count = 0;
 }

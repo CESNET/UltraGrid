@@ -650,8 +650,9 @@ NTV2FrameRate aja::display::getFrameRate(double fps)
 
 namespace aja = ultragrid::aja;
 
-LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *count)
+LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         CNTV2DeviceScanner      deviceScanner;
         *count = deviceScanner.GetNumDevices();
         *available_cards = static_cast<struct device_info *>(calloc(deviceScanner.GetNumDevices(), sizeof(struct device_info)));
