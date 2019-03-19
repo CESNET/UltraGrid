@@ -7,6 +7,10 @@
 LogWindow::LogWindow(QWidget *parent): QDialog(parent){
 	ui.setupUi(this);
 
+	setWindowFlags(windowFlags()
+			| Qt::WindowMinimizeButtonHint
+			| Qt::WindowCloseButtonHint);
+
 	connect(ui.copyBtn, SIGNAL(clicked()), this, SLOT(copyToClipboard()));
 	connect(ui.saveBtn, SIGNAL(clicked()), this, SLOT(saveToFile()));
 }
