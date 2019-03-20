@@ -2760,6 +2760,27 @@ if test $dshow_req = yes -a $dshow = no; then
         AC_MSG_ERROR([DirectShow not found]);
 fi
 
+# -----------------------------------------------------------------------------
+# WASAPI
+# -----------------------------------------------------------------------------
+wasapi=no
+wasapi_req=auto
+AC_ARG_ENABLE(wasapi,
+      AS_HELP_STRING([--disable-wasapi], [disable WASAPI support (default is auto)]),
+    [wasapi_req=$enableval],
+    [wasapi_req=auto]
+    )
+
+if test $system = Windows -a $wasapi_req != no; then
+        AC_DEFINE([HAVE_WASAPI], [1], [Build with WASAPI support])
+        ADD_MODULE("aplay_wasapi", "src/audio/playback/wasapi.o", "")
+        wasapi=yes
+fi
+
+if test $wasapi_req = yes -a $wasapi = no; then
+        AC_MSG_ERROR([WASAPI not found]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # iHDTV
 # -------------------------------------------------------------------------------------------------
@@ -3200,6 +3221,7 @@ RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
+RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
 
 RESULT="$RESULT
 "
