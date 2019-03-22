@@ -253,7 +253,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
 
         if (audioFlags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 // this maps according to mInputSource - EMBEDDED (SDI), HDMI or ANALOG
-                mAudioSource = ::NTV2InputSourceToEmbeddedAudioInput(mInputSource);
+                mAudioSource = NTV2InputSourceToAudioSource(mInputSource);
         } else if (audioFlags & VIDCAP_FLAG_AUDIO_AESEBU) {
                 mAudioSource = NTV2_AUDIO_AES;
         } else if (audioFlags & VIDCAP_FLAG_AUDIO_ANALOG) {
