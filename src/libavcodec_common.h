@@ -44,6 +44,10 @@ extern "C" {
 #define AV_INPUT_BUFFER_PADDING_SIZE FF_INPUT_BUFFER_PADDING_SIZE
 #endif
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 26, 0)
+#define AV_CODEC_ID_AV1 AV_CODEC_ID_NONE
+#endif
+
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 8, 0)
 #define av_packet_unref av_free_packet
 #endif
