@@ -52,6 +52,7 @@ struct state_border {
         struct video_desc saved_desc = {};
         uint8_t color[4] = { 0xff, 0xff, 0x00, 0xff }; ///< border color in RGBA
         unsigned int width = 10;                       ///< border width in pixels (must be even)
+        unsigned int height = 10;                      ///< border height in pixels (must be even)
         struct video_frame *in = nullptr;
 };
 
@@ -68,7 +69,7 @@ static void * border_init(const char *config) {
         if (config) {
                 if (strcmp(config, "help") == 0) {
                         printf("border video postprocess takes optional parameters: color to be the border drawn with and border width. Example:\n");
-                        printf("\t-p border[:color=#rrggbb][:width=<x>]\n");
+                        printf("\t-p border[:color=rrggbb][:width=<x>][:height=<y>]\n");
                         printf("\n");
                         delete s;
                         return NULL;
@@ -79,7 +80,10 @@ static void * border_init(const char *config) {
                         while ((item = strtok_r(config_copy, ":", &save_ptr))) {
                                 if (strncasecmp(item, "color=", strlen("color=")) == 0) {
                                         const char *color = item + strlen("color=");
-                                        if (color[0] == '#' || strlen(color) == 7) {
+                                        if (color[0] == '#') {
+                                                color += 1; //skip #
+                                        }
+                                        if (strlen(color) == 6) {
                                                 char color_str[3] = "";
                                                 color += 1; //skip #
 
@@ -100,6 +104,9 @@ static void * border_init(const char *config) {
                                 } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
                                         s->width = atoi(item + strlen("width="));
                                         s->width = (s->width + 1) / 2 * 2;
+                                } else if (strncasecmp(item, "height=", strlen("height=")) == 0) {
+                                        s->height = atoi(item + strlen("height="));
+                                        s->height = (s->height + 1) / 2 * 2;
                                 } else {
                                         log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
                                         free(tmp);
@@ -139,7 +146,7 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
 
         struct state_border *s = (struct state_border *) state;
 
-        memcpy(out->tiles[0].data + s->width * req_pitch, in->tiles[0].data + s->width * req_pitch, in->tiles[0].data_len - 2 * s->width * req_pitch);
+        memcpy(out->tiles[0].data + s->height * req_pitch, in->tiles[0].data + s->height * req_pitch, in->tiles[0].data_len - 2 * s->height * req_pitch);
 
         if (in->color_spec == UYVY) {
                 uint32_t rgba[2]{};
@@ -147,13 +154,17 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
                 memcpy(&rgba[0], s->color, 4);
                 memcpy(&rgba[1], s->color, 4);
                 vc_copylineRGBAtoUYVY((unsigned char *) &uyvy, (unsigned char *) rgba, 4);
-                for (unsigned int i = 0; i < s->width; ++i) {
+                // up and down
+                for (unsigned int i = 0; i < s->height; ++i) {
                         char *line1 = out->tiles[0].data + i * req_pitch;
                         char *line2 = out->tiles[0].data + (out->tiles[0].height - 1 - i) * req_pitch;
                         for (unsigned int x = 0; x < out->tiles[0].width; x += 2) {
                                 memcpy(line1 + x * 2, &uyvy, 4);
                                 memcpy(line2 + x * 2, &uyvy, 4);
                         }
+                }
+                // sides
+                for (unsigned int i = 0; i < s->width; ++i) {
                         if (i % 2 == 0) {
                                 for (unsigned int y = 0; y < out->tiles[0].height; y += 1) {
                                         char *line = out->tiles[0].data + y * req_pitch;
@@ -166,14 +177,17 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
                 }
         } else if (in->color_spec == RGB || in->color_spec == RGBA) {
                 int bpp = get_bpp(in->color_spec);
-                for (unsigned int i = 0; i < s->width; ++i) {
+                for (unsigned int i = 0; i < s->height; ++i) {
                         char *line1 = out->tiles[0].data + i * req_pitch;
                         char *line2 = out->tiles[0].data + (out->tiles[0].height - 1 - i) * req_pitch;
                         for (unsigned int x = 0; x < out->tiles[0].width; x += 1) {
                                 memcpy(line1 + x * bpp, s->color, bpp);
                                 memcpy(line2 + x * bpp, s->color, bpp);
                         }
+                }
 
+                // sides
+                for (unsigned int i = 0; i < s->width; ++i) {
                         for (unsigned int y = 0; y < out->tiles[0].height; y += 1) {
                                 char *line = out->tiles[0].data + y * req_pitch;
                                 char *line_end = out->tiles[0].data + y * req_pitch +
