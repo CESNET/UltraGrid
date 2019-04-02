@@ -23,13 +23,7 @@ static QStringList getProcessOutput(const std::string& executable, const std::st
 	process.waitForFinished();
 
 	QString output = QString(process.readAllStandardOutput());
-#ifdef WIN32
-	QString lineSeparator = "\r\n";
-#else
-	QString lineSeparator = "\n";
-#endif
-
-	QStringList lines = output.split(lineSeparator);
+	QStringList lines = output.split(QRegularExpression("\n|\r\n|\r"));
 
 	return lines;
 }
