@@ -432,6 +432,8 @@ static void write_fill(struct state_alsa_playback *s) {
 
 ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
+ADD_TO_PARAM(alsa_play_period_size, "alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
+                                    "  ALSA playback period size in frames (default is minimal) .\n");
 /**
  * @todo
  * Consider using snd_pcm_hw_params_set_buffer_time_first() by default, it works fine
@@ -464,7 +466,15 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
         s->desc.ch_count = desc.ch_count;
         s->desc.sample_rate = desc.sample_rate;
 
-        CHECK_OK(snd_pcm_drop(s->handle)); // stop the stream
+        if (snd_pcm_state(s->handle) == SND_PCM_STATE_RUNNING) {
+                CHECK_OK(snd_pcm_drop(s->handle)); // stop the stream
+        }
+        snd_pcm_state_t current_state = snd_pcm_state(s->handle);
+        if (current_state != SND_PCM_STATE_OPEN &&
+                        current_state != SND_PCM_STATE_SETUP) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected state: %s\n",
+                                alsa_get_pcm_state_name(current_state));
+        }
 
         /* Allocate a hardware parameters object. */
         snd_pcm_hw_params_alloca(&params);
@@ -552,6 +562,9 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
          *
          * See also http://www.alsa-project.org/main/index.php/FramesPeriods */
         s->period_size = 1;
+        if (get_commandline_param("alsa-play-period-size")) {
+                s->period_size = atoi(get_commandline_param("alsa-play-period-size"));
+        }
         dir = 1;
         rc = snd_pcm_hw_params_set_period_size_min(s->handle,
                         params, &s->period_size, &dir);
