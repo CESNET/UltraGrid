@@ -82,6 +82,8 @@
 #define STDMETHODCALLTYPE
 #endif
 
+#define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
+
 using namespace std;
 using namespace std::chrono;
 using rang::fg;
@@ -134,6 +136,7 @@ struct device_state {
 	IDeckLink*		deckLink;
 	IDeckLinkInput*		deckLinkInput;
 	VideoDelegate*		delegate;
+	IDeckLinkAttributes    *deckLinkAttributes;
 	IDeckLinkConfiguration*		deckLinkConfiguration;
         string                  device_id; // either numeric value or device name
 };
@@ -469,7 +472,7 @@ decklink_help()
 		// ** List the video input display modes supported by the card
 		print_input_modes(deckLink);
 
-                IDeckLinkAttributes *deckLinkAttributes;
+                IDeckLinkAttributes *deckLinkAttributes = nullptr;
 
                 result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
                 if (result != S_OK)
@@ -494,6 +497,7 @@ decklink_help()
                 printf("\n");
 
 		// Release the IDeckLink instance when we've finished with it to prevent leaks
+                RELEASE_IF_NOT_NULL(deckLinkAttributes);
 		deckLink->Release();
 	}
 	
@@ -785,6 +789,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
                 // Increment the total number of DeckLink cards found
                 numDevices++;
 
+                RELEASE_IF_NOT_NULL(deckLinkAttributes);
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
                 deckLink->Release();
         }
@@ -1228,6 +1233,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 deckLinkInput->StopStreams();
 
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
+                s->state[i].deckLinkAttributes = deckLinkAttributes;
 
                 if (!mode_found) {
                         log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
@@ -1350,6 +1356,7 @@ error:
 
 static void cleanup_common(struct vidcap_decklink_state *s) {
         for (int i = 0; i < s->devices_cnt; ++i) {
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
 		if(s->state[i].deckLinkConfiguration != NULL) {
 			s->state[i].deckLinkConfiguration->Release();
                 }
