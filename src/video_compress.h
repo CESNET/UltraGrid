@@ -46,7 +46,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 6
+#define VIDEO_COMPRESS_ABI_VERSION 7
 
 #ifdef __cplusplus
 extern "C" {
