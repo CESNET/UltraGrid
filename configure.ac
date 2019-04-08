@@ -2773,7 +2773,7 @@ AC_ARG_ENABLE(wasapi,
 
 if test $system = Windows -a $wasapi_req != no; then
         AC_DEFINE([HAVE_WASAPI], [1], [Build with WASAPI support])
-        ADD_MODULE("aplay_wasapi", "src/audio/playback/wasapi.o", "")
+        ADD_MODULE("aplay_wasapi", "src/audio/capture/wasapi.o src/audio/playback/wasapi.o", "")
         wasapi=yes
 fi
 
