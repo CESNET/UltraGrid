@@ -826,6 +826,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 #endif
 
+        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()) {
+                requested_pix_fmts[total_pix_fmts++] = ug_to_av_pixfmt_map.find(desc.color_spec)->second;
+        }
+
         if (s->requested_subsampling == 0) {
                 // for interlaced formats, it is better to use either 422 or 444
                 if (desc.interlacing == INTERLACED_MERGED) {
@@ -881,10 +885,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 const char *val = get_commandline_param("lavc-use-codec");
                 requested_pix_fmts[0] = av_get_pix_fmt(val);
                 total_pix_fmts = 1;
-        }
-
-        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()) {
-                requested_pix_fmts[total_pix_fmts++] = ug_to_av_pixfmt_map.find(desc.color_spec)->second;
         }
 
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
@@ -955,12 +955,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 s->decoded_codec = desc.color_spec;
                 s->decoder = (decoder_t) memcpy;
         }
-        if (s->selected_pixfmt == AV_PIX_FMT_YUV420P10LE ||
-                        s->selected_pixfmt == AV_PIX_FMT_YUV422P10LE ||
-                        s->selected_pixfmt == AV_PIX_FMT_YUV444P10LE) {
-                s->decoded_codec = v210; // most compressions use 8-bit YUV formats internally
-                s->decoder = (decoder_t) memcpy;
-        }
         if (s->decoder == nullptr) {
                 switch(desc.color_spec) {
                         case UYVY:
@@ -970,7 +964,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 s->decoder = (decoder_t) vc_copylineYUYV;
                                 break;
                         case v210:
-                                s->decoder = (decoder_t) vc_copylinev210;
+                                if (s->selected_pixfmt == AV_PIX_FMT_YUV420P10LE ||
+                                                s->selected_pixfmt == AV_PIX_FMT_YUV422P10LE ||
+                                                s->selected_pixfmt == AV_PIX_FMT_YUV444P10LE) {
+                                        s->decoded_codec = v210;
+                                        s->decoder = (decoder_t) memcpy;
+                                } else {
+                                        s->decoder = (decoder_t) vc_copylinev210;
+                                }
                                 break;
                         case RGB:
                                 s->decoder = (decoder_t) vc_copylineRGBtoUYVY;
