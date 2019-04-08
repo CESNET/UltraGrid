@@ -668,18 +668,39 @@ LINK_SPEC void display_aja_run(void * /* arg */)
 {
 }
 
+/**
+ * format is a quad-link format
+ */
+static bool display_aja_is_quad_format(NTV2VideoFormat fmt) {
+#if (AJA_NTV2_SDK_VERSION_MAJOR > 15 || (AJA_NTV2_SDK_VERSION_MAJOR == 15 && AJA_NTV2_SDK_VERSION_MINOR >= 2))
+        if ((fmt >= NTV2_FORMAT_FIRST_4K_DEF_FORMAT && fmt < NTV2_FORMAT_END_4K_DEF_FORMATS)
+                        || (fmt >= NTV2_FORMAT_FIRST_4K_DEF_FORMAT2 && fmt < NTV2_FORMAT_END_4K_DEF_FORMATS2)
+                        || (fmt >= NTV2_FORMAT_FIRST_UHD2_DEF_FORMAT && fmt < NTV2_FORMAT_END_UHD2_DEF_FORMATS)
+                        || (fmt >= NTV2_FORMAT_FIRST_UHD2_FULL_DEF_FORMAT && fmt < NTV2_FORMAT_END_UHD2_FULL_DEF_FORMATS)) {
+                return true;
+        }
+#else
+        UNUSED(fmt);
+#endif
+        return false;
+}
+
 /*
  * modified GetFirstMatchingVideoFormat
  */
-static NTV2VideoFormat MyGetFirstMatchingVideoFormat (const NTV2FrameRate inFrameRate, const UWord inHeightLines, const UWord inWidthPixels, const bool inIsInterlaced, const bool inIsLevelB)
+static NTV2VideoFormat display_aja_get_first_matching_video_format(const NTV2FrameRate inFrameRate, const UWord inHeightLines, const UWord inWidthPixels, const bool inIsInterlaced, const bool inIsLevelB, bool skipQuadFormats)
 {
-        for (NTV2VideoFormat fmt(NTV2_FORMAT_FIRST_HIGH_DEF_FORMAT);  fmt < NTV2_MAX_NUM_VIDEO_FORMATS;  fmt = NTV2VideoFormat(fmt+1))
+        for (NTV2VideoFormat fmt(NTV2_FORMAT_FIRST_HIGH_DEF_FORMAT); fmt < NTV2_MAX_NUM_VIDEO_FORMATS;  fmt = NTV2VideoFormat(fmt + 1)) {
+                if (display_aja_is_quad_format(fmt) && skipQuadFormats) {
+                        continue; // skip NTV2_FORMAT_4x formats
+                }
                 if (inFrameRate == ::GetNTV2FrameRateFromVideoFormat(fmt))
                         if (inHeightLines == ::GetDisplayHeight(fmt))
                                 if (inWidthPixels == ::GetDisplayWidth(fmt))
                                         if (inIsInterlaced == !::IsProgressiveTransport(fmt) && !IsPSF(fmt))
                                                 if (NTV2_VIDEO_FORMAT_IS_B(fmt) == inIsLevelB)
                                                         return fmt;
+	}
         return NTV2_FORMAT_UNKNOWN;
 }
 
@@ -697,9 +718,15 @@ LINK_SPEC int display_aja_reconfigure(void *state, struct video_desc desc)
                 return FALSE;
         }
 
-        s->mVideoFormat = MyGetFirstMatchingVideoFormat(aja::display::getFrameRate(desc.fps),
-                        desc.height, desc.width, desc.interlacing == INTERLACED_MERGED,
-                        false);
+        bool interlaced = desc.interlacing == INTERLACED_MERGED;
+        // first try to skip quad split formats (aka quad link)
+        s->mVideoFormat = display_aja_get_first_matching_video_format(aja::display::getFrameRate(desc.fps),
+                        desc.height, desc.width, interlaced, false, false);
+        // if not found or supported, include quad formats
+        if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN || !::NTV2DeviceCanDoVideoFormat (s->mDeviceID, s->mVideoFormat)) {
+                s->mVideoFormat = display_aja_get_first_matching_video_format(aja::display::getFrameRate(desc.fps),
+                                desc.height, desc.width, interlaced, false, true);
+        }
         if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unsupported resolution"
 #ifndef _MSC_VER
