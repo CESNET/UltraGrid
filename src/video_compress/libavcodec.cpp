@@ -950,7 +950,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->decoder = nullptr;
         s->decoded_codec = UYVY; // most compressions use 8-bit YUV formats internally
-        if (s->selected_pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
+        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
+                        && s->selected_pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
                 s->decoded_codec = desc.color_spec;
                 s->decoder = (decoder_t) memcpy;
         }
@@ -1003,7 +1004,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 #endif
 
         // conversion needed
-        if (ug_to_av_pixfmt_map.find(desc.color_spec)->second != s->selected_pixfmt) {
+        if (ug_to_av_pixfmt_map.find(desc.color_spec) == ug_to_av_pixfmt_map.end()
+                        || ug_to_av_pixfmt_map.find(desc.color_spec)->second != s->selected_pixfmt) {
                 /* the image can be allocated by any means and av_image_alloc() is
                  * just the most convenient way if av_malloc() is to be used */
                 ret = av_image_alloc(s->in_frame->data, s->in_frame->linesize,
@@ -1312,7 +1314,8 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
 
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
         // no conversion needed
-        if (ug_to_av_pixfmt_map.find(src)->second == fmt) {
+        if (ug_to_av_pixfmt_map.find(src) != ug_to_av_pixfmt_map.end()
+                        && ug_to_av_pixfmt_map.find(src)->second == fmt) {
                 return nullptr;
         }
 
