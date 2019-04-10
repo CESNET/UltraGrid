@@ -1300,7 +1300,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         audio_capture_channels != 8 &&
                                         audio_capture_channels != 16) {
                                 fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
-                                                "Only 1, 2, 8 or 16 are poosible.", audio_capture_channels);
+                                                "Only 1, 2, 8 or 16 are possible.", audio_capture_channels);
                                 goto error;
                         }
                         if (s->audio_consumer_levels != -1) {
@@ -1474,7 +1474,7 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                         void *audioFrame;
                         audioPacket->GetBytes(&audioFrame);
 
-                        if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
+                        if(audio_capture_channels == 1) { // there are actually 2 channels grabbed
                                 if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1u * s->audio.bps <= s->audio.max_size) {
                                         demux_channel(s->audio.data + s->audio.data_len, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, 2 /* channels (originally) */, 0 /* we want first channel */);
                                         s->audio.data_len += audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
