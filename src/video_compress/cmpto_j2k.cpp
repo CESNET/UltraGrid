@@ -383,7 +383,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                 if (!ret) {
                         return;
                 }
-                s->pool.reconfigure(desc, vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec)
+                s->pool.reconfigure(s->precompress_desc, vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec)
                                 * s->precompress_desc.height);
         }
 
