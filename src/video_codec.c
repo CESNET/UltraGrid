@@ -146,7 +146,7 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 10, 4, FALSE, FALSE, FALSE, FALSE, "dvs10"},
         [DXT1] = {"DXT1", "S3 Compressed Texture DXT1",
                 to_fourcc('D','X','T','1'), 0, 0.5, 2, 0, TRUE, TRUE, FALSE, FALSE, "dxt1"},
-        [DXT1_YUV] = {"DXT1 YUV", "S3 Compressed Texture DXT1 YUV",
+        [DXT1_YUV] = {"DXT1_YUV", "S3 Compressed Texture DXT1 YUV",
                 to_fourcc('D','X','T','Y'), 0, 0.5, 2, 0, FALSE, TRUE, FALSE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
         [DXT5] = {"DXT5", "S3 Compressed Texture DXT5 YCoCg",
                 to_fourcc('D','X','T','5'), 0, 1.0, 4, 0, FALSE, TRUE, FALSE, FALSE, "yog"},/* DXT5 YCoCg */
