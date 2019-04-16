@@ -1004,18 +1004,18 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->in_frame->height = s->codec_ctx->height;
 #endif
 
+        /* the image can be allocated by any means and av_image_alloc() is
+         * just the most convenient way if av_malloc() is to be used */
+        ret = av_image_alloc(s->in_frame->data, s->in_frame->linesize,
+                        s->codec_ctx->width, s->codec_ctx->height,
+                        fmt, 32);
+        if (ret < 0) {
+                log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
+                return false;
+        }
         // conversion needed
         if (ug_to_av_pixfmt_map.find(desc.color_spec) == ug_to_av_pixfmt_map.end()
                         || ug_to_av_pixfmt_map.find(desc.color_spec)->second != s->selected_pixfmt) {
-                /* the image can be allocated by any means and av_image_alloc() is
-                 * just the most convenient way if av_malloc() is to be used */
-                ret = av_image_alloc(s->in_frame->data, s->in_frame->linesize,
-                                s->codec_ctx->width, s->codec_ctx->height,
-                                fmt, 32);
-                if (ret < 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
-                        return false;
-                }
                 for(int i = 0; i < s->params.cpu_count; ++i) {
                         int chunk_size = s->codec_ctx->height / s->params.cpu_count;
                         chunk_size = chunk_size / 2 * 2;
@@ -1033,6 +1033,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
                         s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
                 }
+        } else {
+                av_freep(s->in_frame->data); // allocated buffers won't be needed and pointers
+                                             // will be filled by input buffers. av_image_alloc()
+                                             // was called to fill linesizes, however.
         }
 
         s->saved_desc = desc;
