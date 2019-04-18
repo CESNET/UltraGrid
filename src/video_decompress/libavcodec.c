@@ -34,12 +34,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo
- * remove not_implemented_conv - this should be handled differently now
- * (through internal codecs)
- */
-
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1101,17 +1095,6 @@ static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         free(tmp);
 }
 
-static void not_implemented_conv(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch)
-{
-        UNUSED(dst_buffer);
-        UNUSED(in_frame);
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(pitch);
-        log_msg(LOG_LEVEL_ERROR, "Selected conversion is not implemented!\n");
-}
-
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
@@ -1174,12 +1157,10 @@ static const struct {
         {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422, true},
         {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
         // 8-bit YUV (NV12)
-        {AV_PIX_FMT_NV12, v210, not_implemented_conv, false},
         {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422, true},
         {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
         // RGB
         {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
-        {AV_PIX_FMT_RGB24, v210, not_implemented_conv, false},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
 #ifdef HWACC_VDPAU
@@ -1493,45 +1474,54 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
+static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, VP8, VP9,
+        HFYU, FFV1, AV1 };
+static const struct decode_from_to dec_template[] = {
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 500 }, // for probe
+        { VIDEO_CODEC_NONE, RGB, RGB, 500 },
+        //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
+        { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
+        { VIDEO_CODEC_NONE, v210, v210, 500 },
+        { VIDEO_CODEC_NONE, v210, UYVY, 500 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 900 }, // provide also generic decoders
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 } // ditto
+};
+#define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
+#define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
 ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
                 "* lavd-use-10bit\n"
                 "  Indicates that we are using decoding to v210 (currently only H.264/HEVC).\n"
                 "  If so, it can be decompressed to v210. With this flag, v210 (10-bit YUV)\n"
                 "  will be announced as a supported codec.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
-        const struct decode_from_to dec_static[] = {
-                { H264, VIDEO_CODEC_NONE, UYVY, 500 },
-                { H265, VIDEO_CODEC_NONE, UYVY, 500 },
-                { JPEG, VIDEO_CODEC_NONE, UYVY, 600 },
-                { MJPG, VIDEO_CODEC_NONE, UYVY, 500 },
-                { J2K, VIDEO_CODEC_NONE, RGB, 500 },
-                { VP8, VIDEO_CODEC_NONE, UYVY, 500 },
-                { VP9, VIDEO_CODEC_NONE, UYVY, 500 },
-                { HFYU, VIDEO_CODEC_NONE, UYVY, 500 },
-                { FFV1, VIDEO_CODEC_NONE, UYVY, 500 },
-                { AV1, VIDEO_CODEC_NONE, UYVY, 500 },
-
-                { H264, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 500 },
-                { H264, RGB, RGB, 500 },
-        };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-        static struct decode_from_to ret[sizeof dec_static / sizeof dec_static[0] + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
+        static struct decode_from_to ret[SUPP_CODECS_CNT * DEC_TEMPLATE_CNT + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
 
         pthread_mutex_lock(&lock); // prevent concurent initialization
         if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
-                memcpy(ret, dec_static, sizeof dec_static);
+                int ret_idx = 0;
+                for (size_t t = 0; t < DEC_TEMPLATE_CNT; ++t) {
+                        for (size_t c = 0; c < SUPP_CODECS_CNT; ++c) {
+                                ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
+                                        dec_template[t].internal, dec_template[t].to,
+                                        dec_template[t].priority};
+                        }
+                }
+
+
                 // add also decoder from H.264/HEVC to v210 if user explicitly indicated to do so
                 if (get_commandline_param("lavd-use-10bit")) {
-                        ret[sizeof dec_static / sizeof dec_static[0]] =
+                        ret[ret_idx++] =
                                 (struct decode_from_to) {H264, VIDEO_CODEC_NONE, v210, 400};
-                        ret[sizeof dec_static / sizeof dec_static[0] + 1] =
+                        ret[ret_idx++] =
                                 (struct decode_from_to) {H265, VIDEO_CODEC_NONE, v210, 400};
                 }
                 if (get_commandline_param("use-hw-accel")) {
-                        ret[sizeof dec_static / sizeof dec_static[0]] =
+                        ret[ret_idx++] =
                                 (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
                 }
+                assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
         }
         pthread_mutex_unlock(&lock); // prevent concurent initialization
 

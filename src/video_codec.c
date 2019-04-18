@@ -444,6 +444,10 @@ int codec_is_const_size(codec_t codec)
         }
 }
 
+bool codec_is_hw_accelerated(codec_t codec) {
+        return codec == HW_VDPAU;
+}
+
 int get_halign(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;

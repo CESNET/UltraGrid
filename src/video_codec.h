@@ -91,6 +91,7 @@ int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(pure);
 int codec_is_a_rgb(codec_t codec) ATTRIBUTE(pure);
 bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(pure);
 int codec_is_const_size(codec_t codec) ATTRIBUTE(pure);
+bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(pure);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
