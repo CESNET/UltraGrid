@@ -1499,7 +1499,7 @@ lavc_hwacc_common=no
 lavc_hwacc_vdpau=no
 lavc_hwacc_vaapi=no
 
-define(lavc_hwacc_common_dep, libavutil >= 55.22.1)
+define(lavc_hwacc_common_dep, libavcodec libavutil >= 55.22.1)
 define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
 define(lavc_hwacc_vaapi_dep, lavc_hwacc_common_dep libva)
 
