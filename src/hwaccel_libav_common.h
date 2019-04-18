@@ -46,8 +46,8 @@
 #define HWACCEL_LIBAV_COMMON_H
 #ifdef HWACC_COMMON
 
-#include "libavcodec_common.h"
 #include "types.h"
+#include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
 
 #define DEFAULT_SURFACES 20

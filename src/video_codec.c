@@ -56,13 +56,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "debug.h"
 
 #include <stdio.h>
 #include <string.h>
-#include "video_codec.h"
 
+#include "debug.h"
+#include "hwaccel_vdpau.h"
 #include "utils/misc.h" // to_fourcc
+#include "video_codec.h"
 
 #ifdef __SSSE3__
 #include "tmmintrin.h"
@@ -91,8 +92,6 @@ using std::min;
 #else
 #define BYTE_SWAP(x) x
 #endif
-
-#include "hwaccel_vdpau.h"
 
 #ifdef __SSE2__
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);

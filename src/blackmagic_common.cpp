@@ -117,7 +117,7 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
 #ifdef WIN32
         if (coinit) {
                 // Initialize COM on this thread
-                HRESULT result = CoInitialize(NULL);
+                HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
                 if(FAILED(result)) {
                         log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
                                         "%08lx.\n", result);
@@ -162,7 +162,7 @@ bool blackmagic_api_version_check()
 
 #ifdef WIN32
         // Initialize COM on this thread
-        result = CoInitialize(NULL);
+        result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if(FAILED(result)) {
                 log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
                                 "%08lx.\n", result);
@@ -215,7 +215,7 @@ void print_decklink_version()
 
 #ifdef WIN32
         // Initialize COM on this thread
-        result = CoInitialize(NULL);
+        result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if(FAILED(result)) {
                 fprintf(stderr, "Initialize of COM failed - result = "
                                 "%08lx.\n", result);

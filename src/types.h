@@ -43,6 +43,9 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
+#ifndef __cpluspus
+#include <stdbool.h>
+#endif
 #include <stddef.h>
 #include <stdint.h>
 

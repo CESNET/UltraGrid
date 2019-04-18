@@ -249,7 +249,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 
 	// Initialize COM library
 	// COINIT_APARTMENTTHREADED is used because we do not expect any other thread to work with the object
-	res = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+	res = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	if (res != S_OK && res != S_FALSE && res != RPC_E_CHANGED_MODE) {
 		fprintf(stderr, "[dshow] vidcap_dshow_init: COM library initialization failed.\n");
 		ErrorDescription(res);
