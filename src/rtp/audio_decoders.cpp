@@ -74,6 +74,7 @@
 using std::ostringstream;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
+#define MOD_NAME "[audio dec.] "
 
 struct scale_data {
         double vol_avg;
@@ -284,6 +285,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         if(strcasecmp(audio_scale, "mixauto") == 0) {
                 if(s->channel_remapping) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Channel remapping detected - automatically scaling audio levels. Use \"--audio-scale none\" to disable.\n");
                         scale_auto = true;
                 } else {
                         scale_auto = false;
@@ -303,15 +305,10 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         s->fixed_scale = scale_auto ? false : true;
-
-        if(s->fixed_scale) {
-                s->scale = (struct scale_data *) malloc(sizeof(struct scale_data));
-                s->scale->samples = 0;
-                s->scale->vol_avg = 1.0;
-                s->scale->scale = scale_factor;
-        } else {
-                s->scale = NULL; // will allocated by decoder reconfiguration
-        }
+        s->scale = (struct scale_data *) malloc(sizeof(struct scale_data));
+        s->scale->samples = 0;
+        s->scale->vol_avg = 1.0;
+        s->scale->scale = scale_factor;
 
         return s;
 
@@ -570,7 +567,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         size_t new_data_len = s->buffer.data_len + decompressed.get_data_len(0) * s->buffer.ch_count;
-        if(s->buffer.max_size < new_data_len) {
+        if ((size_t) s->buffer.max_size < new_data_len) {
                 s->buffer.max_size = new_data_len;
                 s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
         }
