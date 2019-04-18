@@ -270,7 +270,7 @@ static struct {
         {v210, CMPTO_422_U10_V210, nullptr},
         {RGB, CMPTO_444_U8_P012, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
-        {R12L, CMPTO_444_U16LE_P012, rg48_to_r12l},
+        {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
 };
 
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,

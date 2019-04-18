@@ -130,7 +130,7 @@ static struct {
         {v210, CMPTO_422_U10_V210, VIDEO_CODEC_NONE, nullptr},
         {RGB, CMPTO_444_U8_P012, VIDEO_CODEC_NONE, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, VIDEO_CODEC_NONE, nullptr},
-        {R12L, CMPTO_444_U16LE_P012, RG48, R12L_to_RG48},
+        {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, R12L_to_RG48},
 };
 
 static bool configure_with(struct state_video_compress_j2k *s, struct video_desc desc){
