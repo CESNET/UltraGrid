@@ -1126,7 +1126,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 s->state[i].delegate = new VideoDelegate(s, i);
                 deckLinkInput->SetCallback(s->state[i].delegate);
 
-                BMDDisplayMode detectedDisplayMode;
+                BMDDisplayMode detectedDisplayMode = bmdModeUnknown;
                 if (s->detect_format) {
                         if (!detect_format(s, &detectedDisplayMode, i)) {
                                 LOG(LOG_LEVEL_WARNING) << "Signal could have not been detected!\n";
@@ -1139,9 +1139,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 "Could not obtain the video input display mode iterator:");
 
                 mnum = 0;
-                bool mode_found = false;
 #define MODE_SPEC_AUTODETECT -1
 #define MODE_SPEC_FOURCC -2
+#define MODE_SPEC_DETECTED -3
                 int mode_idx = MODE_SPEC_AUTODETECT;
 
                 // mode selected manually - either by index or FourCC
@@ -1152,11 +1152,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 mode_idx = MODE_SPEC_FOURCC;
                         }
                 }
+                if (s->detect_format) { // format already detected manually
+                        mode_idx = MODE_SPEC_DETECTED;
+                }
 
                 while (displayModeIterator->Next(&displayMode) == S_OK) {
-                        if (s->detect_format) { // format already detected manually
+                        if (mode_idx == MODE_SPEC_DETECTED) { // format already detected manually
                                 if (detectedDisplayMode == displayMode->GetDisplayMode()) {
-                                        mode_found = true;
                                         break;
                                 } else {
                                         displayMode->Release();
@@ -1187,7 +1189,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         continue;
                                 }
 
-                                mode_found = true;
                                 mnum++;
                                 break;
                         } else { // manually given FourCC
@@ -1199,14 +1200,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 if (s->mode.length() == 3) tmp[3] = ' ';
                                 fourcc = htonl(fourcc);
                                 if (displayMode->GetDisplayMode() == fourcc) {
-                                        mode_found = true;
                                         break;
                                 }
                                 displayMode->Release();
                         }
                 }
 
-                if (mode_found) {
+                if (displayMode) {
                         BMD_STR displayModeString = NULL;
                         result = displayMode->GetName(&displayModeString);
                         if (result == S_OK) {
@@ -1218,11 +1218,14 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 } else {
                         if (mode_idx == MODE_SPEC_FOURCC) {
                                 log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
-                                goto error;
                         } else if (mode_idx >= 0) {
                                 log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
-                                goto error;
+                        } else if (mode_idx == MODE_SPEC_AUTODETECT) {
+                                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set initial format for autodetection - perhaps imposible combinations of parameters were set.\n");
+                        } else {
+                                assert("Invalid mode spec." && 0);
                         }
+                        goto error;
                 }
 
                 BMDPixelFormat pf;
@@ -1235,7 +1238,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
                 s->state[i].deckLinkAttributes = deckLinkAttributes;
 
-                if (!mode_found) {
+                if (mode_idx == MODE_SPEC_AUTODETECT) {
                         log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
                         BMD_BOOL autodetection;
                         EXIT_IF_FAILED(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection");
