@@ -1,9 +1,9 @@
 /**
- * @file   blackmagic_common.h
+ * @file   utils/hresult.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,60 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BLACKMAGIC_COMMON_H
-#define BLACKMAGIC_COMMON_H
+#ifndef UTILS_HRESULT_H_
+#define UTILS_HRESULT_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef WIN32
-#include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
-#else
-#include "DeckLinkAPI.h" /*  From DeckLink SDK */
+const char *hresult_to_str(HRESULT res);
 #endif
 
-#include <map>
-#include <vector>
-#include <string>
-#include <utility>
-
-#include "video.h"
-
-std::string bmd_hresult_to_string(HRESULT res);
-
-// Order of codecs is important because it is used as a preference list (upper
-// codecs are favored) returned by DISPLAY_PROPERTY_CODECS property (display)
-static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
-                  { R12L, bmdFormat12BitRGBLE },
-                  { R10k, bmdFormat10BitRGBX },
-                  { v210, bmdFormat10BitYUV },
-                  { RGBA, bmdFormat8BitBGRA },
-                  { UYVY, bmdFormat8BitYUV },
-};
-
-#ifdef WIN32
-#define BMD_BOOL BOOL
-#define BMD_TRUE TRUE
-#define BMD_FALSE FALSE
-#else
-#define BMD_BOOL bool
-#define BMD_TRUE true
-#define BMD_FALSE false
+#ifdef __cplusplus
+}
 #endif
 
-#ifdef HAVE_MACOSX
-#define BMD_STR CFStringRef
-#elif defined WIN32
-#define BMD_STR BSTR
-#else
-#define BMD_STR const char *
-#endif
-char *get_cstr_from_bmd_api_str(BMD_STR string);
-void release_bmd_api_str(BMD_STR string);
-
-IDeckLinkIterator *create_decklink_iterator(bool verbose = true, bool coinit = true);
-void decklink_uninitialize();
-bool blackmagic_api_version_check();
-void print_decklink_version(void);
-
-bool decklink_set_duplex(IDeckLink *decklink, BMDDuplexMode duplex);
-
-#endif // defined BLACKMAGIC_COMMON_H
+#endif// UTILS_HRESULT_H_
 

@@ -133,12 +133,12 @@ using std::mutex;
 class VideoDelegate;
 
 struct device_state {
-	IDeckLink*		deckLink;
-	IDeckLinkInput*		deckLinkInput;
-	VideoDelegate*		delegate;
-	IDeckLinkAttributes    *deckLinkAttributes;
-	IDeckLinkConfiguration*		deckLinkConfiguration;
-        string                  device_id; // either numeric value or device name
+        IDeckLink                  *deckLink;
+        IDeckLinkInput             *deckLinkInput;
+        VideoDelegate              *delegate;
+        IDeckLinkProfileAttributes *deckLinkAttributes;
+        IDeckLinkConfiguration     *deckLinkConfiguration;
+        string                      device_id; // either numeric value or device name
 };
 
 struct vidcap_decklink_state {
@@ -151,7 +151,8 @@ struct vidcap_decklink_state {
         struct audio_frame      audio;
         queue<IDeckLinkAudioInputPacket *> audioPackets;
         codec_t                 codec;
-        BMDVideoInputFlags flags;
+        BMDVideoInputFlags enable_flags;
+        BMDSupportedVideoModeFlags supported_flags = bmdSupportedVideoModeDefault;
 
         mutex                   lock;
 	condition_variable      boss_cv;
@@ -269,7 +270,7 @@ public:
                 deckLinkInput->FlushStreams();
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
-                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags), "EnableVideoInput");
+                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
                         if(s->grab_audio == FALSE ||
                                         this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
@@ -472,9 +473,9 @@ decklink_help()
 		// ** List the video input display modes supported by the card
 		print_input_modes(deckLink);
 
-                IDeckLinkAttributes *deckLinkAttributes = nullptr;
+                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
 
-                result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                result = deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
                 if (result != S_OK)
                 {
                         printf("Could not query device attributes.\n");
@@ -606,9 +607,9 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
         } else if (strcasecmp(opt, "half-duplex") == 0) {
-                s->duplex = bmdDuplexModeHalf;
+                s->duplex = bmdDuplexHalf;
         } else if (strcasecmp(opt, "full-duplex") == 0) {
-                s->duplex = bmdDuplexModeFull;
+                s->duplex = bmdDuplexFull;
         } else if (strcasecmp(opt, "single-link") == 0) {
                 s->link = bmdLinkConfigurationSingleLink;
         } else if (strcasecmp(opt, "dual-link") == 0) {
@@ -718,9 +719,9 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK) {
                 HRESULT result;
-                IDeckLinkAttributes *deckLinkAttributes;
+                IDeckLinkProfileAttributes *deckLinkAttributes;
 
-                result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                result = deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
                 if (result != S_OK) {
                         continue;
                 }
@@ -955,8 +956,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 
         s->stereo = false;
         s->sync_timecode = FALSE;
-        s->connection = (BMDVideoConnection) 0;
-        s->flags = 0;
+        s->connection = bmdVideoConnectionUnspecified;
+        s->enable_flags = 0;
         s->audio_consumer_levels = -1;
         s->conversion_mode = (BMDVideoInputConversionMode) 0;
 
@@ -970,12 +971,12 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 	}
 
 	if (s->link == bmdLinkConfigurationQuadLink) {
-		if (s->duplex == bmdDuplexModeFull) {
+		if (s->duplex == bmdDuplexFull) {
 			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
 		}
 		if (s->duplex == 0) {
 			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
-			s->duplex = bmdDuplexModeHalf;
+			s->duplex = bmdDuplexHalf;
 		}
 	}
 
@@ -1019,6 +1020,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
         }
 
         if(s->stereo) {
+                s->enable_flags |= bmdVideoInputDualStream3D;
+                s->supported_flags = (BMDSupportedVideoModeFlags) (s->supported_flags | bmdSupportedVideoModeDualStream3D);
                 if (s->devices_cnt > 1) {
                         fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
@@ -1090,6 +1093,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         free(deviceNameCString);
                 }
 
+                if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
+                        decklink_set_duplex(s->state[i].deckLink, (BMDDuplexMode) s->duplex);
+                }
+
                 // Query the DeckLink for its configuration interface
                 EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface");
                 s->state[i].deckLinkInput = deckLinkInput;
@@ -1098,7 +1105,11 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration), "Could not obtain the IDeckLinkConfiguration interface");
                 s->state[i].deckLinkConfiguration = deckLinkConfiguration;
 
-                if(s->connection) {
+                IDeckLinkProfileAttributes *deckLinkAttributes;
+                EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
+                s->state[i].deckLinkAttributes = deckLinkAttributes;
+
+                if (s->connection != bmdVideoConnectionUnspecified) {
                         CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection, s->connection),
                                         "bmdDeckLinkConfigVideoInputConnection",
                                         "Input set to: " << s->connection);
@@ -1112,10 +1123,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough), "Unable to set passthrough mode");
                 }
 
-                if (s->duplex != 0 && s->duplex != (uint32_t) -1) {
-                        CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, s->duplex), "Unable set output SDI duplex mode");
-                }
-
                 if (s->link == 0) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
                         s->link = bmdLinkConfigurationSingleLink;
@@ -1126,7 +1133,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 s->state[i].delegate = new VideoDelegate(s, i);
                 deckLinkInput->SetCallback(s->state[i].delegate);
 
-                BMDDisplayMode detectedDisplayMode;
+                BMDDisplayMode detectedDisplayMode = bmdModeUnknown;
                 if (s->detect_format) {
                         if (!detect_format(s, &detectedDisplayMode, i)) {
                                 LOG(LOG_LEVEL_WARNING) << "Signal could have not been detected!\n";
@@ -1139,9 +1146,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 "Could not obtain the video input display mode iterator:");
 
                 mnum = 0;
-                bool mode_found = false;
 #define MODE_SPEC_AUTODETECT -1
 #define MODE_SPEC_FOURCC -2
+#define MODE_SPEC_DETECTED -3
                 int mode_idx = MODE_SPEC_AUTODETECT;
 
                 // mode selected manually - either by index or FourCC
@@ -1152,11 +1159,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 mode_idx = MODE_SPEC_FOURCC;
                         }
                 }
+                if (s->detect_format) { // format already detected manually
+                        mode_idx = MODE_SPEC_DETECTED;
+                }
 
                 while (displayModeIterator->Next(&displayMode) == S_OK) {
-                        if (s->detect_format) { // format already detected manually
+                        if (mode_idx == MODE_SPEC_DETECTED) { // format already detected manually
                                 if (detectedDisplayMode == displayMode->GetDisplayMode()) {
-                                        mode_found = true;
                                         break;
                                 } else {
                                         displayMode->Release();
@@ -1174,9 +1183,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                                 BMDPixelFormat pf = it->second;
-                                BMDDisplayModeSupport             supported;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
-                                if (supported == bmdDisplayModeSupported) {
+                                BMD_BOOL supported;
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
+                                if (supported) {
                                         break;
                                 }
                         } else if (mode_idx != MODE_SPEC_FOURCC) { // manually given idx
@@ -1187,7 +1196,6 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                         continue;
                                 }
 
-                                mode_found = true;
                                 mnum++;
                                 break;
                         } else { // manually given FourCC
@@ -1199,14 +1207,13 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 if (s->mode.length() == 3) tmp[3] = ' ';
                                 fourcc = htonl(fourcc);
                                 if (displayMode->GetDisplayMode() == fourcc) {
-                                        mode_found = true;
                                         break;
                                 }
                                 displayMode->Release();
                         }
                 }
 
-                if (mode_found) {
+                if (displayMode) {
                         BMD_STR displayModeString = NULL;
                         result = displayMode->GetName(&displayModeString);
                         if (result == S_OK) {
@@ -1218,24 +1225,28 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 } else {
                         if (mode_idx == MODE_SPEC_FOURCC) {
                                 log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
-                                goto error;
                         } else if (mode_idx >= 0) {
                                 log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
-                                goto error;
+                        } else if (mode_idx == MODE_SPEC_AUTODETECT) {
+                                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set initial format for autodetection - perhaps imposible combinations of parameters were set.\n");
+                        } else {
+                                assert("Invalid mode spec." && 0);
                         }
+                        goto error;
+                }
+
+                if (!displayMode) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No display mode found! Try to set to half-duplex mode.\n");
+                        goto error;
                 }
 
                 BMDPixelFormat pf;
                 EXIT_IF_FAILED(set_display_mode_properties(s, tile, displayMode, &pf),
                                 "Could not set display mode properties");
 
-                IDeckLinkAttributes *deckLinkAttributes;
                 deckLinkInput->StopStreams();
 
-                EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
-                s->state[i].deckLinkAttributes = deckLinkAttributes;
-
-                if (!mode_found) {
+                if (mode_idx == MODE_SPEC_AUTODETECT) {
                         log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
                         BMD_BOOL autodetection;
                         EXIT_IF_FAILED(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection");
@@ -1243,21 +1254,18 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
                                 goto error;
                         }
-                        s->flags |=  bmdVideoInputEnableFormatDetection;
+                        s->enable_flags |=  bmdVideoInputEnableFormatDetection;
                 }
 
-                if (s->stereo) {
-                        s->flags |= bmdVideoInputDualStream3D;
-                }
-                BMDDisplayModeSupport             supported;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(displayMode->GetDisplayMode(), pf, s->flags, &supported, NULL), "DoesSupportVideoMode");
+                BMD_BOOL supported;
+                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
 
-                if (supported == bmdDisplayModeNotSupported) {
+                if (!supported) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
                         goto error;
                 }
 
-                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
+                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags);
                 if (result != S_OK) {
                         switch (result) {
                                 case E_INVALIDARG:
