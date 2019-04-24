@@ -88,5 +88,7 @@ void decklink_uninitialize();
 bool blackmagic_api_version_check();
 void print_decklink_version(void);
 
+bool decklink_set_duplex(IDeckLink *decklink, BMDDuplexMode duplex);
+
 #endif // defined BLACKMAGIC_COMMON_H
 

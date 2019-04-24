@@ -265,11 +265,11 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 #define DECKLINK_MAGIC 0x12de326b
 
 struct device_state {
-        PlaybackDelegate        *delegate;
-        IDeckLink               *deckLink;
-        IDeckLinkOutput         *deckLinkOutput;
-        IDeckLinkConfiguration  *deckLinkConfiguration;
-        IDeckLinkAttributes     *deckLinkAttributes;
+        PlaybackDelegate           *delegate;
+        IDeckLink                  *deckLink;
+        IDeckLinkOutput            *deckLinkOutput;
+        IDeckLinkConfiguration     *deckLinkConfiguration;
+        IDeckLinkProfileAttributes *deckLinkAttributes;
 };
 
 struct state_decklink {
@@ -650,7 +650,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         struct state_decklink            *s = (struct state_decklink *)state;
 
         BMDDisplayMode                    displayMode;
-        BMDDisplayModeSupport             supported;
+        bool                              supported;
         HRESULT                           result;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
@@ -713,10 +713,9 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputDualStream3D);
                 }
 
-                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode,
-                                        s->pixelFormat, outputFlags, &supported, NULL),
+                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, outputFlags, nullptr, &supported),
                                 "DoesSupportVideoMode");
-                if (supported == bmdDisplayModeNotSupported) {
+                if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
                                         "combination not supported - %d * %dx%d@%f, timecode %s.\n",
                                         desc.tile_count, desc.width, desc.height, desc.fps,
@@ -742,17 +741,17 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
-                if (link == bmdLinkConfigurationQuadLink && s->duplex_req == bmdDuplexModeFull) {
+                if (link == bmdLinkConfigurationQuadLink && s->duplex_req == bmdDuplexFull) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
                 }
 
                 if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
-                        duplex = bmdDuplexModeHalf;
+                        duplex = bmdDuplexHalf;
                 }
 
                 if (duplex != DEFAULT && duplex != (uint32_t) KEEP) {
-                        CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigDuplexMode, duplex), "Unable set output SDI duplex mode");
+                        decklink_set_duplex(s->state[i].deckLink, duplex);
                 }
 
                 BMD_BOOL quad_link_supp;
@@ -954,11 +953,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
                                 s->link_req = bmdLinkConfigurationQuadLink;
                         } else if(strcasecmp(ptr, "half-duplex") == 0) {
-                                s->duplex_req = bmdDuplexModeHalf;
+                                s->duplex_req = bmdDuplexHalf;
                         } else if(strcasecmp(ptr, "no-half-duplex") == 0) {
                                 s->duplex_req = KEEP;
                         } else if(strcasecmp(ptr, "full-duplex") == 0) {
-                                s->duplex_req = bmdDuplexModeFull;
+                                s->duplex_req = bmdDuplexFull;
                         } else if(strcasecmp(ptr, "LevelA") == 0) {
                                 s->level = 'A';
                         } else if(strcasecmp(ptr, "LevelB") == 0) {
@@ -1119,8 +1118,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         
         for(int i = 0; i < s->devices_cnt; ++i) {
 		// Get IDeckLinkAttributes object
-		IDeckLinkAttributes *deckLinkAttributes = NULL;
-		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+		IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
+		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
 		if (result != S_OK) {
 			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
 		}
