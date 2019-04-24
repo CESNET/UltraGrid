@@ -44,6 +44,8 @@
 
 #include "hwaccel_vaapi.h"
 
+#include "debug.h"
+
 void vaapi_uninit(struct hw_accel_state *s){
 
         free(s->ctx);
