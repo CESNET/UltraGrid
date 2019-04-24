@@ -178,11 +178,11 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
 
 static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
         std::shared_ptr<video_frame> ret = s->pool.get_frame();
-        
-        if(!s->convertFunc){
-                memcpy(ret->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
-        } else {
+
+        if (s->convertFunc) {
                 s->convertFunc(ret.get(), frame);
+        } else {
+                memcpy(ret->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
         }
 
         return ret;
