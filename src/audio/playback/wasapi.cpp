@@ -58,6 +58,8 @@ const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 const GUID IDevice_FriendlyName = { 0xa45c254e, 0xdf1c, 0x4efd, { 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0 } };
 const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 };
+const static GUID UG_KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
+
 
 using rang::fg;
 using rang::style;
@@ -291,7 +293,7 @@ static DWORD get_channel_mask(int *count) {
 static WAVEFORMATEXTENSIBLE audio_format_to_waveformatex(struct audio_desc *desc) {
         assert(desc->codec == AC_PCM);
         WAVEFORMATEXTENSIBLE fmt;
-        fmt.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+        fmt.SubFormat = UG_KSDATAFORMAT_SUBTYPE_PCM;
         fmt.dwChannelMask = get_channel_mask(&desc->ch_count);
         fmt.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
         fmt.Format.nChannels = desc->ch_count;
