@@ -99,6 +99,10 @@ struct state_decompress_j2k {
         unsigned int in_frames{}; ///< actual number of decompressed frames
 
         unsigned long long int dropped{}; ///< number of dropped frames because queue was full
+
+        void (*convert)(unsigned char *dst_buffer,
+                unsigned char *src_buffer,
+                unsigned int width, unsigned int height);
 };
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
@@ -111,6 +115,20 @@ struct state_decompress_j2k {
 } while(0)
 
 #define NOOP ((void) 0)
+
+static void rg48_to_r12l(unsigned char *dst_buffer,
+                unsigned char *src_buffer,
+                unsigned int width, unsigned int height)
+{
+        int src_pitch = vc_get_linesize(width, RG48);
+        int dst_len = vc_get_linesize(width, R12L);
+
+        for(unsigned i = 0; i < height; i++){
+                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len);
+                src_buffer += src_pitch;
+                dst_buffer += dst_len;
+        }
+}
 
 /**
  * This function just runs in thread and gets decompressed images from decoder
@@ -150,7 +168,12 @@ static void *decompress_j2k_worker(void *args)
                                 "Error getting samples", cmpto_j2k_dec_img_destroy(img); continue);
 
                 char *buffer = (char *) malloc(len);
-                memcpy(buffer, dec_data, len);
+                if (s->convert) {
+                        s->convert((unsigned char*) buffer, (unsigned char*) dec_data, s->desc.width, s->desc.height);
+                        len = vc_get_linesize(s->desc.width, s->out_codec) * s->desc.height;
+                } else {
+                        memcpy(buffer, dec_data, len);
+                }
 
                 CHECK_OK(cmpto_j2k_dec_img_destroy(img),
                                 "Unable to to return processed image", NOOP);
@@ -238,6 +261,18 @@ error:
         return NULL;
 }
 
+static struct {
+        codec_t ug_codec;
+        enum cmpto_sample_format_type cmpto_sf;
+        void (*convert)(unsigned char *dst_buffer, unsigned char *src_buffer, unsigned int width, unsigned int height);
+} codecs[] = {
+        {UYVY, CMPTO_422_U8_P1020, nullptr},
+        {v210, CMPTO_422_U10_V210, nullptr},
+        {RGB, CMPTO_444_U8_P012, nullptr},
+        {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
+        {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
+};
+
 static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
@@ -248,31 +283,37 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         assert(pitch == vc_get_linesize(desc.width, out_codec));
 
         enum cmpto_sample_format_type cmpto_sf;
-        switch (out_codec) {
-                case UYVY:
-                        cmpto_sf = CMPTO_422_U8_P1020;
+        bool found = false;
+
+        for(const auto &codec : codecs){
+                if(codec.ug_codec == out_codec){
+                        switch (out_codec) {
+                                case RGB:
+                                        cmpto_sf = (rshift == 0 ?  CMPTO_444_U8_P012 : CMPTO_444_U8_P210 /*BGR*/);
+                                        break;
+                                case R12L:
+                                        log_msg(LOG_LEVEL_NOTICE, "[J2K] Decoding to 12-bit RGB.\n"); /* fall through */
+                                default:
+                                        cmpto_sf = codec.cmpto_sf;
+                        }
+                        s->convert = codec.convert;
+                        found = true;
                         break;
-                case v210:
-                        cmpto_sf = CMPTO_422_U10_V210;
-                        break;
-                case RGB:
-                        cmpto_sf = (rshift == 0 ?  CMPTO_444_U8_P012 : CMPTO_444_U8_P210 /*BGR*/);
-                        break;
-                case R10k:
-                        cmpto_sf = CMPTO_444_U10U10U10_MSB32BE_P210;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[J2K] Unsupported output codec: %s\n",
-                                        get_codec_name(out_codec));
-                        abort();
+                }
+        }
+
+        if(!found){
+                log_msg(LOG_LEVEL_ERROR, "[J2K] Unsupported output codec: %s\n",
+                                get_codec_name(out_codec));
+                abort();
         }
         CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
-                        "Error setting sample format type", return FALSE);
+                        "Error setting sample format type", return false);
 
         s->desc = desc;
         s->out_codec = out_codec;
 
-        return TRUE;
+        return true;
 }
 
 /**
@@ -341,18 +382,18 @@ return_previous:
 static int j2k_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        int ret = FALSE;
+        int ret = false;
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if(*len >= sizeof(int)) {
-                                *(int *) val = FALSE;
+                                *(int *) val = false;
                                 *len = sizeof(int);
-                                ret = TRUE;
+                                ret = true;
                         }
                         break;
                 default:
-                        ret = FALSE;
+                        ret = false;
         }
 
         return ret;
@@ -384,7 +425,8 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
                 { J2K, UYVY, 300 },
                 { J2K, v210, 200 }, // prefer decoding to 10-bit
                 { J2KR, RGB, 300 },
-                { J2KR, R10k, 200 }, // ditto
+                { J2KR, R10k, 200 },
+                { J2KR, R12L, 100 }, // prefer RGB decoding to 12-bit
                 { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
         };
         return ret;

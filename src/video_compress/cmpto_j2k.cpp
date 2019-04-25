@@ -98,10 +98,95 @@ struct state_video_compress_j2k {
         mutex lock;
         condition_variable frame_popped;
         video_desc saved_desc{}; ///< for pool reconfiguration
+        video_desc precompress_desc{};
+        video_desc compressed_desc{};
+        void (*convertFunc)(video_frame *dst, video_frame *src);
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
 static void j2k_compress_done(struct module *mod);
+
+static void R12L_to_RG48(video_frame *dst, video_frame *src){
+        int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
+        int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
+
+        unsigned char *s = (unsigned char *) src->tiles[0].data;
+        unsigned char *d = (unsigned char *) dst->tiles[0].data;
+
+        for(unsigned i = 0; i < src->tiles[0].height; i++){
+                vc_copylineR12LtoRG48(d, s, dst_pitch);
+                s += src_pitch;
+                d += dst_pitch;
+        }
+}
+
+static struct {
+        codec_t ug_codec;
+        enum cmpto_sample_format_type cmpto_sf;
+        codec_t convert_codec;
+        void (*convertFunc)(video_frame *dst, video_frame *src);
+} codecs[] = {
+        {UYVY, CMPTO_422_U8_P1020, VIDEO_CODEC_NONE, nullptr},
+        {v210, CMPTO_422_U10_V210, VIDEO_CODEC_NONE, nullptr},
+        {RGB, CMPTO_444_U8_P012, VIDEO_CODEC_NONE, nullptr},
+        {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, VIDEO_CODEC_NONE, nullptr},
+        {R12L, CMPTO_444_U12_MSB16LE_P012, RG48, R12L_to_RG48},
+};
+
+static bool configure_with(struct state_video_compress_j2k *s, struct video_desc desc){
+        enum cmpto_sample_format_type sample_format;
+        bool found = false;
+
+        for(const auto &codec : codecs){
+                if(codec.ug_codec == desc.color_spec){
+                        sample_format = codec.cmpto_sf;
+                        s->convertFunc = codec.convertFunc;
+                        s->precompress_desc = desc;
+                        if(codec.convert_codec != VIDEO_CODEC_NONE){
+                                s->precompress_desc.color_spec = codec.convert_codec;
+                        }
+                        found = true;
+                        break;
+                }
+        }
+
+        if(!found){
+                log_msg(LOG_LEVEL_ERROR, "[J2K] Failed to find suitable pixel format\n");
+                return false;
+        }
+
+        CHECK_OK(cmpto_j2k_enc_cfg_set_samples_format_type(s->enc_settings, sample_format),
+                        "Setting sample format", return false);
+        CHECK_OK(cmpto_j2k_enc_cfg_set_size(s->enc_settings, desc.width, desc.height),
+                        "Setting image size", return false);
+        if (s->rate) {
+                CHECK_OK(cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings,
+                                        CMPTO_J2K_ENC_COMP_MASK_ALL,
+                                        CMPTO_J2K_ENC_RES_MASK_ALL, s->rate / 8 / desc.fps),
+                                "Setting rate limit",
+                                NOOP);
+        }
+
+        s->compressed_desc = desc;
+        s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
+        s->compressed_desc.tile_count = 1;
+
+        s->saved_desc = desc;
+
+        return true;
+}
+
+static shared_ptr<video_frame> get_copy(struct state_video_compress_j2k *s, video_frame *frame){
+        std::shared_ptr<video_frame> ret = s->pool.get_frame();
+
+        if (s->convertFunc) {
+                s->convertFunc(ret.get(), frame);
+        } else {
+                memcpy(ret->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+        }
+
+        return ret;
+}
 
 /**
  * @fn j2k_compress_pop
@@ -129,18 +214,17 @@ start:
                 s->in_frames--;
                 s->frame_popped.notify_one();
         }
+        if (!img) {
+                // this happens cmpto_j2k_enc_ctx_stop() is called
+                // pass poison pill further
+                return {};
+        }
         if (status != CMPTO_J2K_ENC_IMG_OK) {
                 const char * encoding_error = "";
                 CHECK_OK(cmpto_j2k_enc_img_get_error(img, &encoding_error), "get error status",
                                 encoding_error = "(failed)");
                 log_msg(LOG_LEVEL_ERROR, "Image encoding failed: %s\n", encoding_error);
                 goto start;
-        }
-
-        if (!img) {
-                // this happens cmpto_j2k_enc_ctx_stop() is called
-                // pass poison pill further
-                return {};
         }
         struct video_desc *desc;
         size_t len;
@@ -155,7 +239,6 @@ start:
         out->tiles[0].data_len = size;
         out->tiles[0].data = (char *) malloc(size);
         memcpy(out->tiles[0].data, ptr, size);
-        out->color_spec = codec_is_a_rgb(desc->color_spec) ? J2KR : J2K;
         CHECK_OK(cmpto_j2k_enc_img_destroy(img), "Destroy image", NOOP);
         out->callbacks.dispose = j2k_compressed_frame_dispose;
         return shared_ptr<video_frame>(out, out->callbacks.dispose);
@@ -163,7 +246,7 @@ start:
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
+        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate\n");
         printf("\t\t<q> - quality\n");
@@ -296,43 +379,16 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
 
         desc = video_desc_from_frame(tx.get());
         if (!video_desc_eq(s->saved_desc, desc)) {
-                s->pool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec)
-                                * desc.height);
-                s->saved_desc = desc;
+                int ret = configure_with(s, desc);
+                if (!ret) {
+                        return;
+                }
+                s->pool.reconfigure(s->precompress_desc, vc_get_linesize(s->precompress_desc.width, s->precompress_desc.color_spec)
+                                * s->precompress_desc.height);
         }
 
         assert(tx->tile_count == 1); // TODO
 
-        enum cmpto_sample_format_type cmpto_sf;
-        switch (tx->color_spec) {
-                case UYVY:
-                        cmpto_sf = CMPTO_422_U8_P1020;
-                        break;
-                case v210:
-                        cmpto_sf = CMPTO_422_U10_V210;
-                        break;
-                case RGB:
-                        cmpto_sf = CMPTO_444_U8_P012;
-                        break;
-                case R10k:
-                        cmpto_sf = CMPTO_444_U10U10U10_MSB32BE_P210;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "[J2K] Unsupported codec!\n");
-                        abort();
-        }
-        CHECK_OK(cmpto_j2k_enc_cfg_set_samples_format_type(s->enc_settings, cmpto_sf),
-                        "Setting sample format", return);
-        CHECK_OK(cmpto_j2k_enc_cfg_set_size(s->enc_settings, tx->tiles[0].width, tx->tiles[0].height),
-                        "Setting image size", return);
-        if (s->rate) {
-                CHECK_OK(cmpto_j2k_enc_cfg_set_rate_limit(s->enc_settings,
-                                        CMPTO_J2K_ENC_COMP_MASK_ALL,
-                                        CMPTO_J2K_ENC_RES_MASK_ALL, s->rate / 8 / tx->fps),
-                                "Setting rate limit",
-                                NOOP);
-                //CMPTO_J2K_Enc_Settings_Enable(s->enc_settings, CMPTO_J2K_Rate_Control);
-        }
         CHECK_OK(cmpto_j2k_enc_img_create(s->context, &img),
                         "Image create", return);
 
@@ -348,13 +404,12 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                                 &udata),
                         "Allocate custom image data",
                         HANDLE_ERROR_COMPRESS_PUSH);
-        memcpy(udata, &desc, sizeof(desc));
+        memcpy(udata, &s->compressed_desc, sizeof(s->compressed_desc));
 
         ref = (shared_ptr<video_frame> *)((char *) udata + sizeof(struct video_desc));
-        new (ref) shared_ptr<video_frame>(s->pool.get_frame());
+        new (ref) shared_ptr<video_frame>(get_copy(s, tx.get()));
 
-        memcpy(ref->get()->tiles[0].data, tx->tiles[0].data, tx->tiles[0].data_len);
-        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, ref->get()->tiles[0].data, tx->tiles[0].data_len, release_cstream),
+        CHECK_OK(cmpto_j2k_enc_img_set_samples(img, ref->get()->tiles[0].data, ref->get()->tiles[0].data_len, release_cstream),
                         "Setting image samples", HANDLE_ERROR_COMPRESS_PUSH);
 
         unique_lock<mutex> lk(s->lock);
