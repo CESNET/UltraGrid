@@ -76,7 +76,6 @@ static int init(struct module *parent, const char *cfg, void **state){
 }
 
 static void done(void *state){
-        struct state_preview_filter *s = (state_preview_filter *) state;
         delete (state_preview_filter *) state;
 }
 
