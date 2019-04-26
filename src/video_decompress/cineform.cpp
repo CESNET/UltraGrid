@@ -114,7 +114,7 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         int src_pitch = vc_get_linesize(width, RG48);
         int dst_len = vc_get_linesize(width, R12L);
 
-        for(unsigned i = 0; i < height; i++){
+        for(int i = 0; i < height; i++){
                 vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len);
                 src_buffer += src_pitch;
                 dst_buffer += pitch;
@@ -225,6 +225,8 @@ static bool prepare(struct state_cineform_decompress *s,
 static decompress_status cineform_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
 {
+        UNUSED(frame_seq);
+        UNUSED(callbacks);
         struct state_cineform_decompress *s = (struct state_cineform_decompress *) state;
         decompress_status res = DECODER_NO_FRAME;
 
@@ -305,7 +307,7 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
                 if (get_commandline_param("cfhd-use-12bit")) {
                         //Report only 12-bit formats
                         ret[0] = (struct decode_from_to) {CFHD, R12L, 100};
-                        ret[1] = { };
+                        ret[1] = decode_from_to();
                 }
         }
 

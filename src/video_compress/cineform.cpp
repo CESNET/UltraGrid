@@ -180,7 +180,7 @@ static struct module * cineform_compress_init(struct module *parent, const char 
                 if(ret > 0)
                         return &compress_init_noerr;
                 else
-                        return NULL;
+                        return nullptr;
         }
 
         log_msg(LOG_LEVEL_NOTICE, "[cineform] : Threads: %d.\n", s->requested_threads);
@@ -189,6 +189,11 @@ static struct module * cineform_compress_init(struct module *parent, const char 
                         s->requested_threads,
                         s->requested_pool_size,
                         nullptr);
+        if(status != CFHD_ERROR_OKAY){
+                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create encoder pool\n");
+                delete s;
+                return nullptr;
+        }
 
         s->frame_seq_in = 0;
         s->frame_seq_out = 0;
