@@ -85,7 +85,7 @@ private:
         int scaledW, scaledH;
         int scaleF;
         int scaledW_pad;
-        struct video_desc desc = {};
+        struct video_desc desc = video_desc();
         std::vector<unsigned char> scaled_frame;
 
         bool reconfiguring = false;
