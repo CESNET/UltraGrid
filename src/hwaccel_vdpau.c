@@ -43,6 +43,7 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
 #include "debug.h"
 #include "hwaccel_vdpau.h"
 
@@ -147,8 +148,8 @@ void hw_vdpau_frame_unref(hw_vdpau_frame *frame){
 }
 
 void hw_vdpau_recycle_callback(struct video_frame *frame){
-        for(int i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = frame->tiles[i].data;
+        for(unsigned i = 0; i < frame->tile_count; i++){
+                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *) frame->tiles[i].data;
                 hw_vdpau_frame_unref(vdp_frame);
         }
 
@@ -156,8 +157,8 @@ void hw_vdpau_recycle_callback(struct video_frame *frame){
 }
 
 void hw_vdpau_copy_callback(struct video_frame *frame){
-        for(int i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = frame->tiles[i].data;
+        for(unsigned i = 0; i < frame->tile_count; i++){
+                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *) frame->tiles[i].data;
                 *vdp_frame = hw_vdpau_frame_copy(vdp_frame);
         }
 }
@@ -208,7 +209,7 @@ hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *
                 dst->data[i] = src->data[i];
         }
 
-        dst->surface = (VdpVideoSurface) dst->data[3];
+        dst->surface = (VdpVideoSurface) (intptr_t) dst->data[3];
 
         return dst;
 }
