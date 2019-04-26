@@ -168,7 +168,7 @@ int vaapi_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec)
 {
-        (void *)(out_codec);
+        (void)(out_codec);
         struct vaapi_ctx *ctx = calloc(1, sizeof(struct vaapi_ctx));
         if(!ctx){
                 return -1;
