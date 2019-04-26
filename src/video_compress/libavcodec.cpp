@@ -1967,6 +1967,28 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
                         codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
                 }
         }
+
+        /// turn on periodic intra refresh, unless explicitely disabled
+        if (!param->no_periodic_intra){
+                codec_ctx->refs = 1;
+                if(strncmp(codec_ctx->codec->name, "libx264", strlen("libx264"))){
+                        int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+                        if (ret != 0) {
+                                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
+                        }
+                }
+        }
+        if(strcmp(codec_ctx->codec->name, "libx265") == 0){
+                char buf[512] = "";
+                snprintf(buf, sizeof(buf), "keyint=%d", codec_ctx->gop_size);
+                if(!param->no_periodic_intra){
+                        strncat(buf, ":intra-refresh=1", sizeof(buf) - strlen(buf) - 1);
+                }
+                int ret = av_opt_set(codec_ctx->priv_data, "x265-params", buf, 0);
+                if (ret != 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set x265-params", ret);
+                }
+        }
 }
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
@@ -2040,17 +2062,6 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
                 configure_qsv(codec_ctx, param);
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
-        }
-
-        /// turn of periodic intra refresh for libx264/libx265 if requested
-        if (!param->no_periodic_intra &&
-                        (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 ||
-                         strcmp(codec_ctx->codec->name, "libx265") == 0)) {
-                codec_ctx->refs = 1;
-                int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh.\n");
-                }
         }
 }
 
