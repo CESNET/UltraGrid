@@ -116,6 +116,7 @@ static void show_help(){
 
 static void *display_preview_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(flags);
         struct state_preview_display *s;
 
         s = new state_preview_display();
