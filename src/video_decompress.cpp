@@ -71,7 +71,7 @@ struct state_decompress {
  * @retval -1       if no found
  * @retval priority best decoder's priority
  */
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
+static int find_best_decompress(codec_t in_codec, codec_t internal, codec_t out_codec,
                 int prio_min, int prio_max, const struct video_decompress_info **vdi, string & name) {
         auto decomps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
@@ -87,7 +87,7 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
                 // first pass - find the one with best priority (least)
                 const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->get_available_decoders();
                 while (f->from != VIDEO_CODEC_NONE) {
-                        if(in_codec == f->from && out_codec == f->to) {
+                        if(in_codec == f->from && internal == f->internal && out_codec == f->to) {
                                 int priority = f->priority;
                                 if(priority <= prio_max &&
                                                 priority >= prio_min &&
@@ -169,7 +169,7 @@ static bool try_initialize_decompress(const video_decompress_info *vdi,
  * @retval true           if state_count members of state is filled with valid decompressor
  * @retval false          if initialization failed
  */
-bool decompress_init_multi(codec_t in_codec, codec_t out_codec, struct state_decompress **out, int count)
+bool decompress_init_multi(codec_t in_codec, codec_t internal_codec, codec_t out_codec, struct state_decompress **out, int count)
 {
         int prio_max = 1000;
         int prio_min = 0;
@@ -178,7 +178,7 @@ bool decompress_init_multi(codec_t in_codec, codec_t out_codec, struct state_dec
 
         while(1) {
                 string name;
-                prio_cur = find_best_decompress(in_codec, out_codec,
+                prio_cur = find_best_decompress(in_codec, internal_codec, out_codec,
                                 prio_min, prio_max, &vdi, name);
                 // if found, init decoder
                 if(prio_cur != -1) {

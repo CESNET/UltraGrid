@@ -890,7 +890,7 @@ init_decompressor(void *state) {
     sr->sd = (struct state_decompress *) calloc(2,
         sizeof(struct state_decompress *));
 
-    if (decompress_init_multi(H264, UYVY, &sr->sd, 1)) {
+    if (decompress_init_multi(H264, VIDEO_CODEC_NONE, UYVY, &sr->sd, 1)) {
         sr->des.width = sr->tile->width;
         sr->des.height = sr->tile->height;
         sr->des.color_spec = sr->frame->color_spec;

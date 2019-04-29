@@ -446,6 +446,20 @@ static void rgb24_to_rgb(char *dst_buffer, AVFrame *frame,
         }
 }
 
+static void gbrp_to_rgb(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch)
+{
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                        uint8_t *buf = (uint8_t *) dst_buffer + y * pitch + x * 3;
+                        int src_idx = y * frame->linesize[0] + x;
+                        buf[2] = frame->data[0][src_idx];
+                        buf[1] = frame->data[1][src_idx];
+                        buf[0] = frame->data[2][src_idx];
+                }
+        }
+}
+
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch)
 {
@@ -1162,7 +1176,7 @@ static const struct {
         {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422, true},
         {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
         // RGB
-        {AV_PIX_FMT_GBRP, RGB, not_implemented_conv, true},
+        {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
         {AV_PIX_FMT_RGB24, v210, not_implemented_conv, false},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
@@ -1342,10 +1356,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
                 if (ret != 0) {
                         print_decoder_error(MOD_NAME, ret);
-                        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
-                                *internal_codec = s->internal_codec;
-                                return DECODER_GOT_CODEC;
-                        }
                 }
                 len = s->pkt.size;
 #endif
@@ -1424,6 +1434,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 if(s->broken_h264_mt_decoding_workaroud_warning_displayed++ % 1000 == 0)
                         av_log(NULL, AV_LOG_WARNING, "Broken multi-threaded decoder detected, "
                                         "switching to a single-threaded one! Consider upgrading your Libavcodec.\n");
+        }
+
+        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
+                *internal_codec = s->internal_codec;
+                return DECODER_GOT_CODEC;
         }
 
         return res;

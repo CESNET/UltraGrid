@@ -176,6 +176,7 @@ struct video_decompress_info {
 };
 
 bool decompress_init_multi(codec_t from,
+                codec_t internal,
                 codec_t to,
                 struct state_decompress **out,
                 int count);

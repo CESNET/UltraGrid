@@ -126,7 +126,7 @@ typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void
 
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc);
+                struct video_desc desc, codec_t comp_int_fmt);
 static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *fec_thread(void *args);
@@ -265,14 +265,17 @@ struct frame_msg {
 struct main_msg_reconfigure {
         inline main_msg_reconfigure(struct video_desc d,
                         unique_ptr<frame_msg> &&f,
-                        bool force = false) :
+                        bool force = false,
+                        codec_t cim = VIDEO_CODEC_NONE) :
                 desc(d),
                 last_frame(move(f)),
-                force(force) {}
+                force(force),
+                compress_internal_codec(cim) {}
 
         struct video_desc desc;
         unique_ptr<frame_msg> last_frame;
         bool force;
+        codec_t compress_internal_codec;
 };
 }
 
@@ -538,34 +541,23 @@ struct decompress_data {
         struct video_frame *compressed;
         int buffer_num;
         decompress_status ret = DECODER_NO_FRAME;
+        unsigned char *out;
+        codec_t internal_codec; // set only if probing (ret == DECODER_GOT_CODEC)
 };
 static void *decompress_worker(void *data)
 {
         auto d = (struct decompress_data *) data;
         struct state_video_decoder *decoder = d->decoder;
-        int pos = d->pos;
 
-        char *out;
-        int x = d->pos % get_video_mode_tiles_x(decoder->video_mode),
-            y = d->pos / get_video_mode_tiles_x(decoder->video_mode);
-        int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
-        int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
-        if(decoder->merged_fb) {
-                // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
-                out = vf_get_tile(decoder->frame, 0)->data + y * decoder->pitch * tile_height +
-                        vc_get_linesize(tile_width, decoder->out_codec) * x;
-        } else {
-                out = vf_get_tile(decoder->frame, pos)->data;
-        }
-        if (!d->compressed->tiles[pos].data)
+        if (!d->compressed->tiles[d->pos].data)
                 return NULL;
-        d->ret = decompress_frame(decoder->decompress_state[pos],
-                        (unsigned char *) out,
-                        (unsigned char *) d->compressed->tiles[pos].data,
-                        d->compressed->tiles[pos].data_len,
+        d->ret = decompress_frame(decoder->decompress_state[d->pos],
+                        (unsigned char *) d->out,
+                        (unsigned char *) d->compressed->tiles[d->pos].data,
+                        d->compressed->tiles[d->pos].data_len,
                         d->buffer_num,
                         &decoder->frame->callbacks,
-                        nullptr);
+                        &d->internal_codec);
         return d;
 }
 
@@ -573,6 +565,8 @@ static void *decompress_thread(void *args) {
         set_thread_name(__func__);
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
+        int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
+        int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
 
         while(1) {
                 unique_ptr<frame_msg> msg = decoder->decompress_queue.pop();
@@ -582,6 +576,11 @@ static void *decompress_thread(void *args) {
                 }
 
                 auto t0 = std::chrono::high_resolution_clock::now();
+                unique_ptr<char[]> tmp;
+
+                if (decoder->out_codec == VIDEO_CODEC_END) {
+                        tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + MAX_PADDING)]);
+                }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
                         int tile_count = get_video_mode_tiles_x(decoder->video_mode) *
@@ -593,6 +592,17 @@ static void *decompress_thread(void *args) {
                                 data[pos].pos = pos;
                                 data[pos].compressed = msg->nofec_frame;
                                 data[pos].buffer_num = msg->buffer_num[pos];
+                                if (tmp.get()) {
+                                        data[pos].out = (unsigned char *) tmp.get();
+                                } else if (decoder->merged_fb) {
+                                        // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
+                                        int x = pos % get_video_mode_tiles_x(decoder->video_mode),
+                                            y = pos / get_video_mode_tiles_x(decoder->video_mode);
+                                        data[pos].out = (unsigned char *) vf_get_tile(decoder->frame, 0)->data + y * decoder->pitch * tile_height +
+                                                vc_get_linesize(tile_width, decoder->out_codec) * x;
+                                } else {
+                                        data[pos].out = (unsigned char *) vf_get_tile(decoder->frame, pos)->data;
+                                }
                                 if (tile_count > 1) {
                                         handle[pos] = task_run_async(decompress_worker, &data[pos]);
                                 } else {
@@ -605,6 +615,10 @@ static void *decompress_thread(void *args) {
                                 }
                         }
                         for (int pos = 0; pos < tile_count; ++pos) {
+                                if (data[pos].ret == DECODER_GOT_CODEC) {
+                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true, data[pos].internal_codec));
+                                        goto skip_frame;
+                                }
                                 if (data[pos].ret != DECODER_GOT_FRAME){
                                         if (data[pos].ret == DECODER_CANT_DECODE){
                                                 if(blacklist_current_out_codec(decoder))
@@ -883,7 +897,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
  * @return                 Output codec, if no decoding function found, -1 is returned.
  */
 static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, struct video_desc desc,
-                                decoder_t *decode_line)
+                                decoder_t *decode_line, codec_t comp_int_fmt)
 {
         codec_t out_codec = VIDEO_CODEC_NONE;
         *decode_line = NULL;
@@ -942,34 +956,53 @@ after_linedecoder_lookup:
 
         /* we didn't find line decoder. So try now regular (aka DXT) decoder */
         if(*decode_line == NULL) {
-                for(native = 0; native < decoder->native_count; ++native)
-                {
-                        out_codec = decoder->native_codecs[native];
-                        decoder->decompress_state = (struct state_decompress **)
-                                calloc(decoder->max_substreams, sizeof(struct state_decompress *));
-                        if (decompress_init_multi(desc.color_spec, decoder->native_codecs[native],
-                                                decoder->decompress_state,
-                                                decoder->max_substreams)) {
-                                int res = 0, ret;
-                                size_t size = sizeof(res);
-                                ret = decompress_get_property(decoder->decompress_state[0],
-                                                DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
-                                                &res,
-                                                &size);
-                                decoder->accepts_corrupted_frame = ret && res;
+                decoder->decompress_state = (struct state_decompress **)
+                        calloc(decoder->max_substreams, sizeof(struct state_decompress *));
 
+                if (comp_int_fmt == VIDEO_CODEC_NONE) {
+                        bool supports_autodetection = decompress_init_multi(desc.color_spec,
+                                        VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, decoder->decompress_state,
+                                        decoder->max_substreams);
+                        if (supports_autodetection) {
                                 decoder->decoder_type = EXTERNAL_DECODER;
-                                goto after_decoder_lookup;
-                        } else {
-                                free(decoder->decompress_state);
-                                decoder->decompress_state = 0;
+                                return VIDEO_CODEC_END;
                         }
                 }
+
+                codec_t try_internal_codec[2] = { comp_int_fmt, VIDEO_CODEC_NONE };
+
+                for (int i = 0; i < 2; i++) {
+                        for (native = 0; native < decoder->native_count; ++native) {
+                                out_codec = decoder->native_codecs[native];
+                                if (decompress_init_multi(desc.color_spec, try_internal_codec[i],
+                                                        decoder->native_codecs[native],
+                                                        decoder->decompress_state,
+                                                        decoder->max_substreams)) {
+                                        int res = 0, ret;
+                                        size_t size = sizeof(res);
+                                        ret = decompress_get_property(decoder->decompress_state[0],
+                                                        DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
+                                                        &res,
+                                                        &size);
+                                        decoder->accepts_corrupted_frame = ret && res;
+
+                                        decoder->decoder_type = EXTERNAL_DECODER;
+                                        goto after_decoder_lookup;
+                                }
+                        }
+                }
+                free(decoder->decompress_state);
+                decoder->decompress_state = 0;
         }
 after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
+                log_msg(LOG_LEVEL_INFO, "Compression internal codec is \"%s\". Native codecs are:", get_codec_name(comp_int_fmt));
+                for(native = 0; native < decoder->native_count; ++native) {
+                        log_msg(LOG_LEVEL_INFO, " %s", get_codec_name(decoder->native_codecs[native]));
+                }
+                log_msg(LOG_LEVEL_INFO, "\n");
                 return VIDEO_CODEC_NONE;
         }
 
@@ -1031,7 +1064,7 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
  * decoder->display != NULL
  */
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc)
+                struct video_desc desc, codec_t comp_int_fmt)
 {
         codec_t out_codec;
         decoder_t decode_line;
@@ -1054,7 +1087,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
 
-        out_codec = choose_codec_and_decoder(decoder, desc, &decode_line);
+        out_codec = choose_codec_and_decoder(decoder, desc, &decode_line, comp_int_fmt);
         if(out_codec == VIDEO_CODEC_NONE)
                 return false;
         else
@@ -1082,10 +1115,12 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         decoder->disp_supported_il_cnt, &display_il);
         decoder->change_il_state.resize(decoder->max_substreams);
 
-        display_desc.color_spec = out_codec;
-        display_desc.interlacing = display_il;
+        if (out_codec != VIDEO_CODEC_END) { // no matter, pick first
+                display_desc.interlacing = display_il;
+                display_desc.color_spec = out_codec;
+        }
 
-        if(!video_desc_eq(decoder->display_desc, display_desc))
+        if (out_codec != VIDEO_CODEC_END && !video_desc_eq(decoder->display_desc, display_desc))
         {
                 int ret;
                 /* reconfigure VO and give it opportunity to pass us pitch */
@@ -1095,7 +1130,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 << display_desc << "\n";
                         return false;
                 }
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Sucessfully reconfigured display to "
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Sucessfully reconfigured display to "
                         << display_desc << "\n";
                 decoder->display_desc = display_desc;
         }
@@ -1204,7 +1239,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                         display_requested_rgb_shift[1],
                                         display_requested_rgb_shift[2],
                                         decoder->pitch,
-                                        out_codec);
+                                        out_codec == VIDEO_CODEC_END ? VIDEO_CODEC_NONE : out_codec);
                         if(!buf_size) {
                                 return false;
                         }
@@ -1256,7 +1291,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
 
 static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc,
-                bool force = false)
+                bool force = false, codec_t comp_int_fmt = VIDEO_CODEC_NONE)
 {
         bool desc_changed = !video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT);
         if(!desc_changed && !force)
@@ -1279,7 +1314,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
         decoder->reconfiguration_future = std::async(std::launch::async,
                         [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 #else
-        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc);
+        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_fmt);
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                 decoder->frame = NULL;
@@ -1374,7 +1409,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
-                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force)) {
+                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_codec)) {
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
                         vf_free(frame);
                         return FALSE;
