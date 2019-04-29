@@ -473,7 +473,7 @@ static void *fec_thread(void *args) {
                                         char *src = fec_out_buffer;
                                         char *dst = tile->data + line_decoder->base_offset;
                                         while(data_pos < (int) fec_out_len) {
-                                                line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->src_linesize,
+                                                line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->dst_linesize,
                                                                 line_decoder->shifts[0],
                                                                 line_decoder->shifts[1],
                                                                 line_decoder->shifts[2]);
