@@ -100,6 +100,7 @@ struct state_libavcodec_decompress {
         int              max_compressed_len;
         codec_t          internal_codec;
         codec_t          out_codec;
+        bool             blacklist_vdpau;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
         bool             last_frame_seq_initialized;
@@ -400,6 +401,7 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->gshift = gshift;
         s->bshift = bshift;
         s->internal_codec = VIDEO_CODEC_NONE;
+        s->blacklist_vdpau = false;
         s->out_codec = out_codec;
         s->desc = desc;
 
@@ -1182,7 +1184,7 @@ static const struct {
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
 #ifdef HWACC_VDPAU
         // HW acceleration
-        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, true},
+        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
 #endif
 };
 
@@ -1198,10 +1200,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
         }
 
-
+        struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         bool hwaccel = get_commandline_param("use-hw-accel") != NULL;
 #ifdef HWACC_COMMON
-        struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         hwaccel_state_reset(&state->hwaccel);
 
         static const struct{
@@ -1216,7 +1217,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 #endif
         };
 
-        if(hwaccel){
+        if (hwaccel){
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
@@ -1226,14 +1227,18 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                                 hwaccel_state_reset(&state->hwaccel);
                                                 break;
                                         }
-                                        return accels[i].pix_fmt;
+                                        if (state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
+                                                return accels[i].pix_fmt;
+                                        }
                                 }
                         }
                 }
-
                 log_msg(LOG_LEVEL_WARNING, "[lavd] Falling back to software decoding!\n");
+                if (state->out_codec == HW_VDPAU) {
+                        state->blacklist_vdpau = true;
+                        return AV_PIX_FMT_NONE;
+                }
         }
-
 #endif
 
         bool use_native[] = { true, false }; // try native first
@@ -1251,7 +1256,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                         for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
                                 if (convert_funcs[i].av_codec != *fmt_it) // this conversion is not valid
                                         continue;
-                                if (state->out_codec == VIDEO_CODEC_NONE) { // probing internal format
+                                if (state->out_codec == VIDEO_CODEC_NONE) { // just probing internal format
                                         if (!*use_native_it || convert_funcs[i].native) {
                                                 state->internal_codec = convert_funcs[i].uv_codec;
                                                 return AV_PIX_FMT_NONE;
@@ -1439,6 +1444,12 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
                 *internal_codec = s->internal_codec;
                 return DECODER_GOT_CODEC;
+        }
+
+        if (s->blacklist_vdpau) {
+                assert(s->out_codec == HW_VDPAU);
+                s->blacklist_vdpau = false;
+                return DECODER_CANT_DECODE;
         }
 
         return res;

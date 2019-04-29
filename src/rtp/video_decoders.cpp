@@ -527,8 +527,11 @@ static bool blacklist_current_out_codec(struct state_video_decoder *decoder){
         for(size_t i = 0; i < decoder->native_count; i++){
                 if(decoder->native_codecs[i] == decoder->out_codec){
                         log_msg(LOG_LEVEL_DEBUG, "Blacklisting codec %s\n", get_codec_name(decoder->out_codec));
-                        decoder->native_codecs[i] = VIDEO_CODEC_NONE;
+                        memmove(decoder->native_codecs + i, decoder->native_codecs + i + 1,
+                                        (decoder->native_count - i - 1) * sizeof(codec_t));
+                        decoder->native_count -= 1;
                         decoder->out_codec = VIDEO_CODEC_NONE;
+                        break;
                 }
         }
 
@@ -616,6 +619,7 @@ static void *decompress_thread(void *args) {
                         }
                         for (int pos = 0; pos < tile_count; ++pos) {
                                 if (data[pos].ret == DECODER_GOT_CODEC) {
+                                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Detected internal codec: " << get_codec_name(data[pos].internal_codec) << "\n";
                                         decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true, data[pos].internal_codec));
                                         goto skip_frame;
                                 }
@@ -1114,14 +1118,9 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il,
                         decoder->disp_supported_il_cnt, &display_il);
         decoder->change_il_state.resize(decoder->max_substreams);
-
-        if (out_codec != VIDEO_CODEC_END) { // no matter, pick first
+        if (out_codec != VIDEO_CODEC_END && !video_desc_eq(decoder->display_desc, display_desc)) {
                 display_desc.interlacing = display_il;
                 display_desc.color_spec = out_codec;
-        }
-
-        if (out_codec != VIDEO_CODEC_END && !video_desc_eq(decoder->display_desc, display_desc))
-        {
                 int ret;
                 /* reconfigure VO and give it opportunity to pass us pitch */
                 ret = display_reconfigure(decoder->display, display_desc, decoder->video_mode);
@@ -1342,6 +1341,8 @@ static int check_for_mode_change(struct state_video_decoder *decoder,
 #define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
 #define max(a, b)       (((a) > (b))? (a): (b))
 
+#define FRAMEBUFFER_READY(decoder) (decoder->frame == NULL && decoder->out_codec != VIDEO_CODEC_END)
+
 /**
  * @brief Decodes a participant buffer representing one video frame.
  * @param cdata        PBUF buffer
@@ -1546,7 +1547,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
                         // hereafter, display framebuffer can be used, so we
                         // check if we got it
-                        if (decoder->frame == NULL) {
+                        if (FRAMEBUFFER_READY(decoder)) {
                                 vf_free(frame);
                                 return FALSE;
                         }
@@ -1665,7 +1666,7 @@ next_packet:
                 return FALSE;
         }
 
-        if (decoder->frame == NULL && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
+        if (FRAMEBUFFER_READY(decoder) && (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO)) {
                 ret = FALSE;
                 goto cleanup;
         }
