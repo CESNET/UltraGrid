@@ -331,7 +331,7 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
  * it just returns false.
  */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */)
+                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, codec_t * /* internal_codec */)
 {
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;
@@ -422,12 +422,12 @@ static void j2k_decompress_done(void *state)
 static const struct decode_from_to *j2k_decompress_get_decoders() {
 
         static const struct decode_from_to ret[] = {
-                { J2K, UYVY, 300 },
-                { J2K, v210, 200 }, // prefer decoding to 10-bit
-                { J2KR, RGB, 300 },
-                { J2KR, R10k, 200 },
-                { J2KR, R12L, 100 }, // prefer RGB decoding to 12-bit
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
+                { J2K, VIDEO_CODEC_NONE, UYVY, 300 },
+                { J2K, VIDEO_CODEC_NONE, v210, 200 }, // prefer decoding to 10-bit
+                { J2KR, VIDEO_CODEC_NONE, RGB, 300 },
+                { J2KR, VIDEO_CODEC_NONE, R10k, 200 }, // ditto
+                { J2KR, VIDEO_CODEC_NONE, R12L, 100 }, // prefer RGB decoding to 12-bit
+                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
         };
         return ret;
 }

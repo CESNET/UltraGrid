@@ -50,7 +50,7 @@
  *
  */
 
-#define VIDEO_DECOMPRESS_ABI_VERSION 5
+#define VIDEO_DECOMPRESS_ABI_VERSION 6
 
 /**
  * @defgroup video_decompress Video Decompress
@@ -84,7 +84,8 @@ typedef  void *(*decompress_init_t)();
  * @param[in] gshift    requested output green shift
  * @param[in] bshift    requested output blue shift
  * @param[in] pitch     requested output pitch
- * @param[in] out_codec requested output pixelformat
+ * @param[in] out_codec requested output pixelformat (VIDEO_CODEC_NONE to
+ *                      discover internal representation)
  * @retval FALSE        if reconfiguration failed
  * @retval TRUE         if reconfiguration succeeded
  */
@@ -94,6 +95,7 @@ typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc,
 typedef enum {
         DECODER_NO_FRAME = 0, //Frame not decoded yet 
         DECODER_GOT_FRAME,    //Frame decoded and written to destination
+        DECODER_GOT_CODEC,    ///< Internal pixel format was determined
         DECODER_CANT_DECODE   //Decoder can't decode to selected out_codec
 } decompress_status;
 
@@ -112,6 +114,7 @@ typedef enum {
  * @note
  * Currently used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
  * @retval    DECODER_GOT_FRAME        if decompressed successfully
+ * @retval    DECODER_GOT_CODEC        successfully returned internal codec
  * @retval    DECODER_NO_FRAME         if the frame wasn't decoded yet
  * @retval    DECODER_CANT_DECODE      if decoding to selected out_codec failed
  */
@@ -121,7 +124,8 @@ typedef decompress_status (*decompress_decompress_t)(
                 unsigned char *buffer,
                 unsigned int src_len,
                 int frame_seq,
-                struct video_frame_callbacks *callbacks);
+                struct video_frame_callbacks *callbacks,
+                codec_t *internal_codec);
 
 /**
  * @param state decoder state
@@ -138,10 +142,19 @@ typedef  int (*decompress_get_property_t)(void *state, int property, void *val, 
 typedef  void (*decompress_done_t)(void *);
 
 /**
- * Struct of this type defines decompressor for codec to specified output codec
+ * Struct of this type defines decompressor for codec to specified output codec.
+ *
+ * Internal codec indicates interal codec color space, subsampling and channel count
+ * that is supported for output codec (eg. RGB for 8-bit RGB, UYVY for 8-bit YCbCr
+ * 4:2:2 etc.). If set to VIDEO_CODEC_NONE, decoder should handle all intenal
+ * configurations.
+ *
+ * If codec to is set to VIDEO_CODEC_NONE, decompressor indicates that it can
+ * discover codec internal properties as indicated in previous paragraph.
  */
 struct decode_from_to {
         codec_t from; ///< input (compressed) codec
+        codec_t internal; ///< represenation inside codec
         codec_t to;   ///< output pixelformat
 
         /** Priority to select this decoder if there are multiple matches for
@@ -167,6 +180,7 @@ bool decompress_init_multi(codec_t from,
                 struct state_decompress **out,
                 int count);
 
+/** */
 int decompress_reconfigure(struct state_decompress *,
                 struct video_desc,
                 int rshift,
@@ -175,12 +189,18 @@ int decompress_reconfigure(struct state_decompress *,
                 int pitch,
                 codec_t out_codec);
 
+/**
+ * @param internal_codec must not be nullptr if reconfigured with
+ *                       out_codec == VIDEO_CODEC_NONE. Its value
+                         is valid only if returned DECODER_GOT_CODEC.
+ */
 decompress_status decompress_frame(struct state_decompress *,
                 unsigned char *dst,
                 unsigned char *src,
                 unsigned int src_len,
                 int frame_seq,
-                struct video_frame_callbacks *callbacks);
+                struct video_frame_callbacks *callbacks,
+                codec_t *internal_codec);
 
 int decompress_get_property(struct state_decompress *state,
                 int property,

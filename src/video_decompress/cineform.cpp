@@ -223,7 +223,8 @@ static bool prepare(struct state_cineform_decompress *s,
 }
 
 static decompress_status cineform_decompress(void *state, unsigned char *dst, unsigned char *src,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks,
+                codec_t * /* internal_codec */)
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
@@ -291,7 +292,7 @@ ADD_TO_PARAM(cfhd_use_12bit, "cfhd-use-12bit",
 
 static const struct decode_from_to *cineform_decompress_get_decoders() {
         const struct decode_from_to dec_static[] = {
-                { CFHD, UYVY, 500 },
+                { CFHD, VIDEO_CODEC_NONE, UYVY, 500 },
         };
 
         static struct decode_from_to ret[sizeof dec_static / sizeof dec_static[0]
@@ -306,7 +307,7 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
                 memcpy(ret, dec_static, sizeof dec_static);
                 if (get_commandline_param("cfhd-use-12bit")) {
                         //Report only 12-bit formats
-                        ret[0] = (struct decode_from_to) {CFHD, R12L, 100};
+                        ret[0] = (struct decode_from_to) {CFHD, VIDEO_CODEC_NONE, R12L, 100};
                         ret[1] = decode_from_to();
                 }
         }

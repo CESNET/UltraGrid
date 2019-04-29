@@ -1278,8 +1278,9 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
 }
 
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
+        UNUSED(internal_codec);
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int len, got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
@@ -1440,16 +1441,16 @@ ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
                 "  will be announced as a supported codec.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         const struct decode_from_to dec_static[] = {
-                { H264, UYVY, 500 },
-                { H265, UYVY, 500 },
-                { JPEG, UYVY, 600 },
-                { MJPG, UYVY, 500 },
-                { J2K, RGB, 500 },
-                { VP8, UYVY, 500 },
-                { VP9, UYVY, 500 },
-                { HFYU, UYVY, 500 },
-                { FFV1, UYVY, 500 },
-                { AV1, UYVY, 500 },
+                { H264, VIDEO_CODEC_NONE, UYVY, 500 },
+                { H265, VIDEO_CODEC_NONE, UYVY, 500 },
+                { JPEG, VIDEO_CODEC_NONE, UYVY, 600 },
+                { MJPG, VIDEO_CODEC_NONE, UYVY, 500 },
+                { J2K, VIDEO_CODEC_NONE, RGB, 500 },
+                { VP8, VIDEO_CODEC_NONE, UYVY, 500 },
+                { VP9, VIDEO_CODEC_NONE, UYVY, 500 },
+                { HFYU, VIDEO_CODEC_NONE, UYVY, 500 },
+                { FFV1, VIDEO_CODEC_NONE, UYVY, 500 },
+                { AV1, VIDEO_CODEC_NONE, UYVY, 500 },
         };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1461,13 +1462,13 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 // add also decoder from H.264/HEVC to v210 if user explicitly indicated to do so
                 if (get_commandline_param("lavd-use-10bit")) {
                         ret[sizeof dec_static / sizeof dec_static[0]] =
-                                (struct decode_from_to) {H264, v210, 400};
+                                (struct decode_from_to) {H264, VIDEO_CODEC_NONE, v210, 400};
                         ret[sizeof dec_static / sizeof dec_static[0] + 1] =
-                                (struct decode_from_to) {H265, v210, 400};
+                                (struct decode_from_to) {H265, VIDEO_CODEC_NONE, v210, 400};
                 }
                 if (get_commandline_param("use-hw-accel")) {
                         ret[sizeof dec_static / sizeof dec_static[0]] =
-                                (struct decode_from_to) {H264, HW_VDPAU, 200};
+                                (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
                 }
         }
         pthread_mutex_unlock(&lock); // prevent concurent initialization

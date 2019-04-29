@@ -147,12 +147,13 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(src_len);
         UNUSED(frame_seq);
         UNUSED(callbacks);
+        UNUSED(internal_codec);
 
         if (!s->configured) {
                 fprintf(stderr, "DXT decoder not configured!\n");
@@ -235,13 +236,13 @@ static void dxt_glsl_decompress_done(void *state)
 
 static const struct decode_from_to *dxt_glsl_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
-                { DXT1, RGBA, 500 },
-                { DXT1_YUV, RGBA, 500 },
-                { DXT5, RGBA, 500 },
-                { DXT1, UYVY, 500 },
-                { DXT1_YUV, UYVY, 500 },
-                { DXT5, UYVY, 500 },
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+                { DXT1, VIDEO_CODEC_NONE, RGBA, 500 },
+                { DXT1_YUV, VIDEO_CODEC_NONE, RGBA, 500 },
+                { DXT5, VIDEO_CODEC_NONE, RGBA, 500 },
+                { DXT1, VIDEO_CODEC_NONE, UYVY, 500 },
+                { DXT1_YUV, VIDEO_CODEC_NONE, UYVY, 500 },
+                { DXT5, VIDEO_CODEC_NONE, UYVY, 500 },
+                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
 }

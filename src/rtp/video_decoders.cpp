@@ -564,7 +564,8 @@ static void *decompress_worker(void *data)
                         (unsigned char *) d->compressed->tiles[pos].data,
                         d->compressed->tiles[pos].data_len,
                         d->buffer_num,
-                        &decoder->frame->callbacks);
+                        &decoder->frame->callbacks,
+                        nullptr);
         return d;
 }
 
