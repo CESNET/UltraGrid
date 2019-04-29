@@ -53,6 +53,9 @@
 extern "C" {
 #endif
 
+#define MAX_BPS 5 /* 4.5 for R12L */
+#define MAX_PADDING 16
+
 /**
  * @brief Defines type for pixelformat conversions
  * @param[out] dst     destination buffer

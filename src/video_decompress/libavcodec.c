@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2017 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @todo
+ * remove not_implemented_conv - this should be handled differently now
+ * (through internal codecs)
  */
 
 
@@ -93,6 +98,7 @@ struct state_libavcodec_decompress {
         int              pitch;
         int              rshift, gshift, bshift;
         int              max_compressed_len;
+        codec_t          internal_codec;
         codec_t          out_codec;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
@@ -386,12 +392,14 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         assert(out_codec == UYVY ||
                         out_codec == RGB ||
                         out_codec == v210 ||
-                        out_codec == HW_VDPAU);
+                        out_codec == HW_VDPAU ||
+                        out_codec == VIDEO_CODEC_NONE);
 
         s->pitch = pitch;
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
+        s->internal_codec = VIDEO_CODEC_NONE;
         s->out_codec = out_codec;
         s->desc = desc;
 
@@ -1113,48 +1121,54 @@ static const struct {
         int av_codec;
         codec_t uv_codec;
         void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch);
+        bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
+                     ///< color space, channel count (w/wo alpha), bit-depth,
+                     ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
+                     ///< also 10,12 bit RGB). Subsampling doesn't need to be respected (we do
+                     ///< not have codec for eg. 4:4:4 UYVY).
 } convert_funcs[] = {
         // 10-bit YUV
-        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210},
-        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy},
-        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24},
-        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210},
-        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy},
-        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24},
-        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210},
-        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy},
-        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24},
+        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
+        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
+        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
+        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
+        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
+        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
         // 8-bit YUV
-        {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210},
-        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422},
-        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24},
-        {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210},
-        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422},
-        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24},
-        {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210},
-        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422},
-        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24},
+        {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
+        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422, true},
+        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
+        {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
+        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422, true},
+        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
+        {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
+        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422, true},
+        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
         // 8-bit YUV (JPEG color range)
-        {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210},
-        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422},
-        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24},
-        {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210},
-        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422},
-        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24},
-        {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210},
-        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422},
-        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
+        {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
+        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
+        {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
+        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
+        {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
+        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
         // 8-bit YUV (NV12)
-        {AV_PIX_FMT_NV12, v210, not_implemented_conv},
-        {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422},
-        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
+        {AV_PIX_FMT_NV12, v210, not_implemented_conv, false},
+        {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422, true},
+        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
         // RGB
-        {AV_PIX_FMT_RGB24, v210, not_implemented_conv},
-        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
-        {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb},
+        {AV_PIX_FMT_GBRP, RGB, not_implemented_conv, true},
+        {AV_PIX_FMT_RGB24, v210, not_implemented_conv, false},
+        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
+        {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
 #ifdef HWACC_VDPAU
         // HW acceleration
-        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau},
+        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, true},
 #endif
 };
 
@@ -1208,17 +1222,32 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
 #endif
 
-        for (; *fmt != AV_PIX_FMT_NONE; fmt++) {
-                //If hwaccel is not enabled skip hw accel pixfmts even if there
-                //are convert functions
-                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt);
-                if(!hwaccel && fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)){
-                        continue;
-                }
+        bool use_native[] = { true, false }; // try native first
 
-                for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
-                        if (convert_funcs[i].av_codec == *fmt) {
-                                return *fmt;
+        for (const bool *use_native_it = use_native; use_native_it !=
+                        use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
+                for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                        //If hwaccel is not enabled skip hw accel pixfmts even if there
+                        //are convert functions
+                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
+                        if(!hwaccel && fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)){
+                                continue;
+                        }
+
+                        for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                                if (convert_funcs[i].av_codec != *fmt_it) // this conversion is not valid
+                                        continue;
+                                if (state->out_codec == VIDEO_CODEC_NONE) { // probing internal format
+                                        if (!*use_native_it || convert_funcs[i].native) {
+                                                state->internal_codec = convert_funcs[i].uv_codec;
+                                                return AV_PIX_FMT_NONE;
+                                        }
+                                } else {
+                                        if (state->out_codec == convert_funcs[i].uv_codec) { // conversion found
+                                                state->internal_codec = convert_funcs[i].uv_codec; // same as out_codec
+                                                return *fmt_it;
+                                        }
+                                }
                         }
                 }
         }
@@ -1313,6 +1342,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
                 if (ret != 0) {
                         print_decoder_error(MOD_NAME, ret);
+                        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
+                                *internal_codec = s->internal_codec;
+                                return DECODER_GOT_CODEC;
+                        }
                 }
                 len = s->pkt.size;
 #endif
@@ -1451,6 +1484,9 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                 { HFYU, VIDEO_CODEC_NONE, UYVY, 500 },
                 { FFV1, VIDEO_CODEC_NONE, UYVY, 500 },
                 { AV1, VIDEO_CODEC_NONE, UYVY, 500 },
+
+                { H264, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 500 },
+                { H264, RGB, RGB, 500 },
         };
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
