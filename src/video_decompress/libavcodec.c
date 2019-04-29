@@ -1490,39 +1490,47 @@ static const struct decode_from_to dec_template[] = {
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
 ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
                 "* lavd-use-10bit\n"
-                "  Indicates that we are using decoding to v210 (currently only H.264/HEVC).\n"
-                "  If so, it can be decompressed to v210. With this flag, v210 (10-bit YUV)\n"
-                "  will be announced as a supported codec.\n");
+                "  Do not use, use \"--param lavd-use-codec=v210\" instead.\n");
+ADD_TO_PARAM(lavd_use_codec, "lavd-use-codec",
+                "* lavd-use-codec=<codec>\n"
+                "  Use specified color spec for decoding (eg. v210). This overrides automatic\n"
+                "  choice.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
         static struct decode_from_to ret[SUPP_CODECS_CNT * DEC_TEMPLATE_CNT + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
 
         pthread_mutex_lock(&lock); // prevent concurent initialization
-        if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
-                int ret_idx = 0;
-                for (size_t t = 0; t < DEC_TEMPLATE_CNT; ++t) {
-                        for (size_t c = 0; c < SUPP_CODECS_CNT; ++c) {
-                                ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
-                                        dec_template[t].internal, dec_template[t].to,
-                                        dec_template[t].priority};
-                        }
-                }
-
-
-                // add also decoder from H.264/HEVC to v210 if user explicitly indicated to do so
-                if (get_commandline_param("lavd-use-10bit")) {
-                        ret[ret_idx++] =
-                                (struct decode_from_to) {H264, VIDEO_CODEC_NONE, v210, 400};
-                        ret[ret_idx++] =
-                                (struct decode_from_to) {H265, VIDEO_CODEC_NONE, v210, 400};
-                }
-                if (get_commandline_param("use-hw-accel")) {
-                        ret[ret_idx++] =
-                                (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
-                }
-                assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
+        if (ret[0].from != VIDEO_CODEC_NONE) { // already initialized
+                pthread_mutex_unlock(&lock); // prevent concurent initialization
+                return ret;
         }
+
+        codec_t force_codec = VIDEO_CODEC_NONE;
+        if (get_commandline_param("lavd-use-10bit")) {
+                log_msg(LOG_LEVEL_WARNING, "Do not use \"--param lavd-use-10bit\", "
+                                "use \"--param lavd-use-codec=v210\" if needed.\n");
+                force_codec = v210;
+        }
+
+        int ret_idx = 0;
+        for (size_t t = 0; t < DEC_TEMPLATE_CNT; ++t) {
+                for (size_t c = 0; c < SUPP_CODECS_CNT; ++c) {
+                        if (force_codec && force_codec != supp_codecs[c]) {
+                                continue;
+                        }
+                        ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
+                                dec_template[t].internal, dec_template[t].to,
+                                dec_template[t].priority};
+                }
+        }
+
+        if (get_commandline_param("use-hw-accel")) {
+                ret[ret_idx++] =
+                        (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
+        }
+        assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
+
         pthread_mutex_unlock(&lock); // prevent concurent initialization
 
         return ret;
