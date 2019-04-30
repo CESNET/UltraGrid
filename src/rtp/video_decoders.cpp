@@ -335,7 +335,7 @@ struct state_video_decoder
         long int last_buffer_number = -1; ///< last received buffer ID
         timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
 
-        synchronized_queue<main_msg_reconfigure *> msg_queue;
+        synchronized_queue<main_msg_reconfigure *, -1> msg_queue;
 
         const struct openssl_decrypt_info *dec_funcs = NULL; ///< decrypt state
         struct openssl_decrypt      *decrypt = NULL; ///< decrypt state
