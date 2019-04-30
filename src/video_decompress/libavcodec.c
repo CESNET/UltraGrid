@@ -1169,6 +1169,30 @@ static const struct {
 #endif
 };
 
+static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
+
+        for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                if (convert_funcs[i].av_codec != pix_fmt) { // this conversion is not valid
+                        continue;
+                }
+
+                if (convert_funcs[i].native) {
+                        *ug_pix_fmt = convert_funcs[i].uv_codec;
+                        return true;
+                }
+        }
+
+        for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
+                if (convert_funcs[i].av_codec != pix_fmt) { // this conversion is not valid
+                        continue;
+                }
+
+                *ug_pix_fmt = convert_funcs[i].uv_codec;
+                return true;
+        }
+        return false;
+}
+
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
         if (log_level >= LOG_LEVEL_DEBUG) {
@@ -1390,14 +1414,18 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }
 #endif
-                                bool ret = change_pixfmt(s->frame, dst, s->frame->format,
-                                                s->out_codec, s->desc.width, s->desc.height, s->pitch);
-                                if(ret == TRUE) {
-                                        s->last_frame_seq_initialized = true;
-                                        s->last_frame_seq = frame_seq;
-                                        res = DECODER_GOT_FRAME;
+                                if (s->out_codec != VIDEO_CODEC_NONE) {
+                                        bool ret = change_pixfmt(s->frame, dst, s->frame->format,
+                                                        s->out_codec, s->desc.width, s->desc.height, s->pitch);
+                                        if(ret == TRUE) {
+                                                s->last_frame_seq_initialized = true;
+                                                s->last_frame_seq = frame_seq;
+                                                res = DECODER_GOT_FRAME;
+                                        } else {
+                                                res = DECODER_CANT_DECODE;
+                                        }
                                 } else {
-                                        res = DECODER_CANT_DECODE;
+                                        res = DECODER_GOT_FRAME;
                                 }
                         }
                 }
@@ -1424,6 +1452,14 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
         if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
                 *internal_codec = s->internal_codec;
+                return DECODER_GOT_CODEC;
+        }
+
+        // codec doesn't call get_format_callback (J2K)
+        if (s->out_codec == VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
+                if (has_conversion(s->codec_ctx->pix_fmt, internal_codec)) {
+                        s->internal_codec = *internal_codec;
+                }
                 return DECODER_GOT_CODEC;
         }
 
