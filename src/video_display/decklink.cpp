@@ -1305,6 +1305,35 @@ static void display_decklink_done(void *state)
         decklink_uninitialize();
 }
 
+/**
+ * This function returns true if any display mode and any output supports the
+ * codec. The codec, however, may not be supported with actual video mode.
+ */
+static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMDPixelFormat pf) {
+        IDeckLinkDisplayModeIterator     *displayModeIterator;
+        IDeckLinkDisplayMode*             deckLinkDisplayMode;
+
+        if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator))) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fatal: cannot create display mode iterator.\n");
+                return false;
+        }
+
+        while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
+                BMD_BOOL supported;
+                if (deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdSupportedVideoModeDefault, nullptr, &supported) != S_OK) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "DoesSupportVideoMode\n");
+                        continue;
+                }
+                if (supported) {
+                        return true;
+                }
+                deckLinkDisplayMode->Release();
+        }
+        displayModeIterator->Release();
+
+        return false;
+}
+
 static int display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decklink *s = (struct state_decklink *)state;
@@ -1313,7 +1342,9 @@ static int display_decklink_get_property(void *state, int property, void *val, s
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int count = 0;
         for (auto & c : uv_to_bmd_codec_map) {
-                codecs[count++] = c.first;
+                if (decklink_display_supports_codec(s->state[0].deckLinkOutput, c.second)) {
+                        codecs[count++] = c.first;
+                }
         }
         
         switch (property) {
