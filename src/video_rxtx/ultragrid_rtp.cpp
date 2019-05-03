@@ -64,6 +64,7 @@
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
+#include "utils/thread.h"
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
@@ -327,6 +328,7 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 
 void *ultragrid_rtp_video_rxtx::receiver_loop()
 {
+        set_thread_name(__func__);
         uint32_t ts;
         struct pdb_e *cp;
         struct timeval curr_time;

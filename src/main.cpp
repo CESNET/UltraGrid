@@ -80,6 +80,7 @@
 #include "ug_runtime_error.h"
 #include "utils/misc.h"
 #include "utils/net.h"
+#include "utils/thread.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
@@ -1279,6 +1280,7 @@ int main(int argc, char *argv[])
 
                 if (strcmp("none", requested_display) != 0) {
                         if (!mainloop) {
+                                set_thread_name("display");
                                 display_run(uv.display_device);
                         } else {
                                 throw string("Cannot run display when "
@@ -1287,8 +1289,10 @@ int main(int argc, char *argv[])
                 }
 
                 if (mainloop) {
+                        set_thread_name("mainloop");
                         mainloop(mainloop_udata);
                 }
+                set_thread_name("main");
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());

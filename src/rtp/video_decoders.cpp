@@ -90,6 +90,7 @@
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
 #include "utils/synchronized_queue.h"
+#include "utils/thread.h"
 #include "utils/timed_message.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -365,6 +366,7 @@ static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
         "while expecting encrypted.\n"
 
 static void *fec_thread(void *args) {
+        set_thread_name(__func__);
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
 
@@ -567,6 +569,7 @@ static void *decompress_worker(void *data)
 }
 
 static void *decompress_thread(void *args) {
+        set_thread_name(__func__);
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
 

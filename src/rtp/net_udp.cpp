@@ -55,6 +55,7 @@
 #include "net_udp.h"
 #include "rtp.h"
 #include "utils/net.h"
+#include "utils/thread.h"
 
 #ifdef NEED_ADDRINFO_H
 #include "addrinfo.h"
@@ -991,6 +992,7 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
  */
 static void *udp_reader(void *arg)
 {
+        set_thread_name(__func__);
         socket_udp *s = (socket_udp *) arg;
 
         while (1) {

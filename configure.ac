@@ -136,6 +136,7 @@ else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	NET_LIBS="-lsetupapi -lws2_32 -liphlpapi -loleaut32"
 	LIBS="$LIBS $NET_LIBS"
+	AC_CHECK_FUNCS(SetThreadDescription)
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"

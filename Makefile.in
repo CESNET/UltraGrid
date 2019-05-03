@@ -136,6 +136,7 @@ OBJS	      = @OBJS@ \
 		src/utils/ring_buffer.o \
 		src/utils/sdp.o \
 		src/utils/synchronized_queue.o \
+		src/utils/thread.o \
 		src/utils/vf_split.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \

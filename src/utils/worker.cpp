@@ -51,6 +51,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "utils/thread.h"
 #include "utils/worker.h"
 
 #include <algorithm>
@@ -123,6 +124,7 @@ struct wp_worker {
 };
 
 void *wp_worker::enter_loop(void *args) {
+        set_thread_name("worker");
         wp_worker *instance = (wp_worker *) args;
         instance->run();
 

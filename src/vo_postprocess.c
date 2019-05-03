@@ -56,8 +56,6 @@
 #include "lib_common.h"
 #include "vo_postprocess.h"
 
-extern char **uv_argv;
-
 struct vo_postprocess_state {
         const struct vo_postprocess_info *funcs;
         void *state;

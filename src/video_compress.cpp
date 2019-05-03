@@ -54,6 +54,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/synchronized_queue.h"
+#include "utils/thread.h"
 #include "utils/vf_split.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -511,6 +512,7 @@ compress_state_real::~compress_state_real()
 namespace {
 void compress_state_real::async_tile_consumer(struct compress_state *s)
 {
+        set_thread_name(__func__);
         vector<shared_ptr<video_frame>> compressed_tiles;
         unsigned expected_seq = 0;
         while (true) {
@@ -561,6 +563,7 @@ void compress_state_real::async_tile_consumer(struct compress_state *s)
 
 void compress_state_real::async_consumer(struct compress_state *s)
 {
+        set_thread_name(__func__);
         while (true) {
                 auto frame = funcs->compress_frame_async_pop_func(state[0]);
                 if (!discard_frames) {

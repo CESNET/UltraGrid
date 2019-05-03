@@ -60,6 +60,7 @@
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
+#include "utils/thread.h"
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
@@ -179,6 +180,7 @@ int video_rxtx::check_sender_messages() {
 }
 
 void *video_rxtx::sender_loop() {
+        set_thread_name(__func__);
         struct video_desc saved_vid_desc;
 
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));

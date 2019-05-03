@@ -58,6 +58,7 @@
 #include "rtp/net_udp.h" // socket_error
 #include "tv.h"
 #include "utils/net.h"
+#include "utils/thread.h"
 
 #define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
@@ -685,6 +686,7 @@ ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-g
                 "  Open control socket to public network.\n");
 static void * control_thread(void *args)
 {
+        set_thread_name(__func__);
         struct control_state *s = (struct control_state *) args;
         struct client *clients = NULL;
 
@@ -840,6 +842,7 @@ static void * control_thread(void *args)
 
 static void *stat_event_thread(void *args)
 {
+        set_thread_name(__func__);
         struct control_state *s = (struct control_state *) args;
 
         while (1) {
