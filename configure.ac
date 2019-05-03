@@ -127,33 +127,25 @@ then
 fi
 
 AC_MSG_CHECKING([OS family])
-
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-	NET_LIBS="-lsetupapi -lws2_32 -liphlpapi -loleaut32"
-	LIBS="$LIBS $NET_LIBS"
-	AC_CHECK_FUNCS(SetThreadDescription)
 else
         system=Linux
-	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
 fi
+AC_MSG_RESULT($system);
+AC_SUBST(system)
 
 if test $build != $host; then
         cross_compile=yes
 else
         cross_compile=no
 fi
-
-AC_SUBST(system)
-AC_SUBST(NET_LIBS)
-
-AC_MSG_RESULT($system);
 
 AC_MSG_CHECKING([OS kernel version (major)])
 os_version_major=`uname -r |cut -d . -f 1`
@@ -162,8 +154,11 @@ AC_MSG_CHECKING([OS kernel version (minor)])
 os_version_minor=`uname -r |cut -d . -f 2`
 AC_MSG_RESULT($os_version_minor);
 
-if test $system = MacOSX
-then
+if test $system = Linux; then
+	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
+fi
+
+if test $system = MacOSX; then
         COMMON_OSX_FLAGS="-mmacosx-version-min=10.7 -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
@@ -175,6 +170,13 @@ then
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
 fi
+
+if test $system = Windows; then
+	NET_LIBS="-lsetupapi -lws2_32 -liphlpapi -loleaut32"
+	LIBS="$LIBS $NET_LIBS"
+	AC_CHECK_FUNCS(SetThreadDescription)
+fi
+AC_SUBST(NET_LIBS)
 
 LINKER=$CXX
 
