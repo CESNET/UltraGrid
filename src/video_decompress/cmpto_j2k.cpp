@@ -278,7 +278,8 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
-        assert((rshift == 0 && gshift == 8 && bshift == 16) ||
+        assert(!codec_is_a_rgb(out_codec) ||
+                        (rshift == 0 && gshift == 8 && bshift == 16) ||
                         (rshift == 16 && gshift == 8 && bshift == 0));
         assert(pitch == vc_get_linesize(desc.width, out_codec));
 
@@ -340,16 +341,20 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
         switch (comp_info.bit_depth) {
         case 8:
                 *internal_codec = in_codec == J2K ? UYVY : RGB;
-                return DECODER_GOT_FRAME;
+                break;
         case 10:
                 *internal_codec = in_codec == J2K ? v210 : R10k;
-                return DECODER_GOT_FRAME;
+                break;
         case 12:
                 *internal_codec = R12L;
-                return DECODER_GOT_FRAME;
+                break;
         default:
                 assert("J2K - unsupported RGB bit depth" && 0);
         }
+
+        log_msg(LOG_LEVEL_VERBOSE, "J2K color space: %s\n", get_codec_name(*internal_codec));
+
+        return DECODER_GOT_CODEC;
 }
 
 /**
@@ -454,6 +459,7 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
 
         static const struct decode_from_to ret[] = {
                 { J2K, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
+                { J2KR, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
                 { J2K, UYVY, UYVY, 300 },
                 { J2K, v210, UYVY, 600 },
                 { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
@@ -463,8 +469,8 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
                 { J2KR, R12L, R12L, 100 }, // prefer RGB decoding to 12-bit
                 { J2KR, R12L, R10k, 550 },
                 { J2KR, R12L, RGB, 600 },
-                { J2K, VIDEO_CODEC_NONE, UYVY, 900 }, // fallback
-                { J2KR, VIDEO_CODEC_NONE, RGB, 900 }, // ditto
+                { J2K, VIDEO_CODEC_NONE, UYVY, 800 }, // fallback
+                { J2KR, VIDEO_CODEC_NONE, RGB, 800 }, // ditto
                 { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
         };
         return ret;

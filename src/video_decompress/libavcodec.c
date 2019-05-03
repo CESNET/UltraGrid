@@ -212,6 +212,7 @@ static const struct decoder_info decoders[] = {
         { MJPG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
         { JPEG, AV_CODEC_ID_MJPEG, jpeg_callback, { NULL } },
         { J2K, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
+        { J2KR, AV_CODEC_ID_JPEG2000, NULL, { NULL } },
         { VP8, AV_CODEC_ID_VP8, NULL, { NULL } },
         { VP9, AV_CODEC_ID_VP9, NULL, { NULL } },
         { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
@@ -1314,7 +1315,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
         if (convert) {
                 convert((char *) dst, frame, width, height, pitch);
         } else {
-                log_msg(LOG_LEVEL_ERROR, "Unsupported pixel "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel "
                                 "format: %s (id %d)\n",
                                 av_get_pix_fmt_name(
                                         av_codec), av_codec);
@@ -1510,10 +1511,10 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
-static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, VP8, VP9,
+static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, J2KR, VP8, VP9,
         HFYU, FFV1, AV1 };
 static const struct decode_from_to dec_template[] = {
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 500 }, // for probe
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
         { VIDEO_CODEC_NONE, RGB, RGB, 500 },
         //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
         { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },

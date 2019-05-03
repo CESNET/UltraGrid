@@ -1018,7 +1018,7 @@ after_linedecoder_lookup:
                         calloc(decoder->max_substreams, sizeof(struct state_decompress *));
 
                 // try to probe video format
-                if (comp_int_fmt == VIDEO_CODEC_NONE) {
+                if (comp_int_fmt == VIDEO_CODEC_NONE && decoder->out_codec != VIDEO_CODEC_END) {
                         bool supports_autodetection = decompress_init_multi(desc.color_spec,
                                         VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, decoder->decompress_state,
                                         decoder->max_substreams);
@@ -1129,8 +1129,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         decoder_t decode_line;
         enum interlacing_t display_il = PROGRESSIVE;
         //struct video_frame *frame;
-        int display_requested_pitch;
-        int display_requested_rgb_shift[3];
+        int display_requested_pitch = PITCH_DEFAULT;
+        int display_requested_rgb_shift[3] = { 0, 8, 16 };
 
         // this code forces flushing the pipelined data
         video_decoder_stop_threads(decoder);

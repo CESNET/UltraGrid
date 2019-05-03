@@ -1351,11 +1351,10 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                 case DISPLAY_PROPERTY_CODECS:
                         if(sizeof(codec_t) * count <= *len) {
                                 memcpy(val, codecs.data(), sizeof(codec_t) * count);
+                                *len = sizeof(codec_t) * count;
                         } else {
                                 return FALSE;
                         }
-                        
-                        *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
