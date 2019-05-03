@@ -81,12 +81,19 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
         if(!s->decoder) {
                 return FALSE;
         }
-        if(s->out_codec == RGB) {
+        switch (s->out_codec) {
+        case RGB:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 GPUJPEG_444_U8_P012);
-        } else {
+                break;
+        case UYVY:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
                                 GPUJPEG_422_U8_P1020);
+                break;
+        case VIDEO_CODEC_NONE:
+                break;
+        default:
+                assert("Invalid codec!" && 0);
         }
 
         return TRUE;
@@ -116,7 +123,7 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         
-        assert(out_codec == RGB || out_codec == UYVY);
+        assert(out_codec == RGB || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
 
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
@@ -138,16 +145,53 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
+#ifdef LIBGPUJPEG_API_VERSION >= 4
+static decompress_status jpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
+	struct gpujpeg_image_parameters params = { 0 };
+	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
+		return DECODER_NO_FRAME;
+	}
+
+	if (!params.color_space) {
+		return DECODER_NO_FRAME;
+	}
+
+	switch ( params.color_space ) {
+	case GPUJPEG_RGB:
+		*internal_codec = RGB;
+		break;
+	case GPUJPEG_YUV:
+	case GPUJPEG_YCBCR_BT601:
+	case GPUJPEG_YCBCR_BT601_256LVLS:
+	case GPUJPEG_YCBCR_BT709:
+		*internal_codec = UYVY;
+		break;
+	default:
+		return DECODER_NO_FRAME;
+	}
+
+	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(params.color_space));
+	return DECODER_GOT_CODEC;
+}
+#endif
+
 static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
-        UNUSED(internal_codec);
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         int ret;
         struct gpujpeg_decoder_output decoder_output;
         int linesize;
+
+        if (s->out_codec == VIDEO_CODEC_NONE) {
+#ifdef LIBGPUJPEG_API_VERSION >= 4
+                return jpeg_probe_internal_codec(buffer, src_len, internal_codec);
+#else
+                assert("Old GPUJPEG, cannot probe!" && 0);
+#endif
+        }
 
         if(s->out_codec == RGB) {
                 linesize = s->desc.width * 3;
@@ -228,8 +272,15 @@ static void jpeg_decompress_done(void *state)
 
 static const struct decode_from_to *jpeg_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
-		{ JPEG, VIDEO_CODEC_NONE, RGB, 500 },
-		{ JPEG, VIDEO_CODEC_NONE, UYVY, 500 },
+#ifdef LIBGPUJPEG_API_VERSION >= 4
+		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
+#endif
+		{ JPEG, RGB, RGB, 300 },
+		{ JPEG, UYVY, UYVY, 300 },
+		{ JPEG, RGB, UYVY, 900 },
+		{ JPEG, UYVY, RGB, 900 },
+		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
+		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
