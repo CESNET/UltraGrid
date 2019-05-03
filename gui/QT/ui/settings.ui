@@ -31,7 +31,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
-        <layout class="QFormLayout" name="formLayout">
+        <layout class="QFormLayout" name="networkFormLayout">
          <property name="sizeConstraint">
           <enum>QLayout::SetFixedSize</enum>
          </property>
@@ -385,7 +385,7 @@
       <attribute name="title">
        <string>Acceleration</string>
       </attribute>
-      <layout class="QFormLayout" name="formLayout_2">
+      <layout class="QFormLayout" name="accelFormLayout">
        <item row="0" column="0">
         <widget class="QCheckBox" name="decodeAccelCheck">
          <property name="text">
@@ -394,7 +394,7 @@
         </widget>
        </item>
        <item row="2" column="0">
-        <layout class="QHBoxLayout" name="horizontalLayout">
+        <layout class="QHBoxLayout" name="accelHorizontalLayout">
          <item>
           <widget class="QLabel" name="label_5">
            <property name="text">

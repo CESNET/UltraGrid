@@ -5,6 +5,17 @@ SettingsWindow::SettingsWindow(QWidget *parent): QDialog(parent){
 	ui.setupUi(this);
 	ui.basePort->setValidator(new QIntValidator(0, 65535, this));
 	ui.controlPort->setValidator(new QIntValidator(0, 65535, this));
+
+	connect(ui.multSpin, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.ldgmMaxLoss, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.ldgmC, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.ldgmK, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.ldgmM, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.rsK, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+	connect(ui.rsN, SIGNAL(valueChanged(int)), this, SIGNAL(changed()));
+
+	connect(ui.ldgmSimpCpuRadio, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
+	connect(ui.ldgmSimpGpuRadio, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
 }
 
 void SettingsWindow::init(SettingsUi *settingsUi, Settings *s){

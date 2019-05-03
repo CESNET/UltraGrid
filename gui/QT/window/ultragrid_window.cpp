@@ -239,6 +239,7 @@ void UltragridWindow::connectSignals(){
 
 	connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(refresh()));
 
+	connect(&settingsWindow, SIGNAL(changed()), this, SLOT(setArgs()));
 	connect(&settingsUi, SIGNAL(changed()), this, SLOT(setArgs()));
 
 	connect(ui.fecToolBtn, SIGNAL(clicked()), this, SLOT(showSettings()));

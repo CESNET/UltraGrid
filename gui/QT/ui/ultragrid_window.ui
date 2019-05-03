@@ -498,7 +498,6 @@
     </property>
     <addaction name="actionShow_Terminal"/>
     <addaction name="actionAdvanced"/>
-    <addaction name="actionUse_hw_acceleration"/>
     <addaction name="actionVuMeter"/>
     <addaction name="separator"/>
     <addaction name="actionRefresh"/>
