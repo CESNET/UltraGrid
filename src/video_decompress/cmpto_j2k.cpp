@@ -282,6 +282,12 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                         (rshift == 16 && gshift == 8 && bshift == 0));
         assert(pitch == vc_get_linesize(desc.width, out_codec));
 
+        if (out_codec == VIDEO_CODEC_NONE) { // probe format
+                s->out_codec = VIDEO_CODEC_NONE;
+                s->desc = desc;
+                return true;
+        }
+
         enum cmpto_sample_format_type cmpto_sf;
         bool found = false;
 
@@ -325,19 +331,44 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         free(const_cast<void *>(codestream));
 }
 
+static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned char *buffer, size_t len, codec_t *internal_codec) {
+        struct cmpto_j2k_dec_comp_info comp_info;
+        if (cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 0, &comp_info) != CMPTO_OK) {
+                return DECODER_NO_FRAME;
+        }
+
+        switch (comp_info.bit_depth) {
+        case 8:
+                *internal_codec = in_codec == J2K ? UYVY : RGB;
+                return DECODER_GOT_FRAME;
+        case 10:
+                *internal_codec = in_codec == J2K ? v210 : R10k;
+                return DECODER_GOT_FRAME;
+        case 12:
+                *internal_codec = R12L;
+                return DECODER_GOT_FRAME;
+        default:
+                assert("J2K - unsupported RGB bit depth" && 0);
+        }
+}
+
 /**
  * Main decompress function - passes frame to the codec and checks if there are
  * some decoded frames. If so, copies that to framebuffer. In the opposite case
  * it just returns false.
  */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, codec_t * /* internal_codec */)
+                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, codec_t *internal_codec)
 {
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;
         struct cmpto_j2k_dec_img *img;
         pair<char *, size_t> decoded;
         void *tmp;
+
+        if (s->out_codec == VIDEO_CODEC_NONE) {
+                return j2k_probe_internal_codec(s->desc.color_spec, buffer, src_len, internal_codec);
+        }
 
         if (s->in_frames >= s->max_in_frames + 1) {
                 if (s->dropped++ % 10 == 0) {
@@ -422,11 +453,18 @@ static void j2k_decompress_done(void *state)
 static const struct decode_from_to *j2k_decompress_get_decoders() {
 
         static const struct decode_from_to ret[] = {
-                { J2K, VIDEO_CODEC_NONE, UYVY, 300 },
-                { J2K, VIDEO_CODEC_NONE, v210, 200 }, // prefer decoding to 10-bit
-                { J2KR, VIDEO_CODEC_NONE, RGB, 300 },
-                { J2KR, VIDEO_CODEC_NONE, R10k, 200 }, // ditto
-                { J2KR, VIDEO_CODEC_NONE, R12L, 100 }, // prefer RGB decoding to 12-bit
+                { J2K, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
+                { J2K, UYVY, UYVY, 300 },
+                { J2K, v210, UYVY, 600 },
+                { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
+                { J2KR, RGB, RGB, 300 },
+                { J2KR, R10k, R10k, 200 },
+                { J2KR, R10k, RGB, 600 },
+                { J2KR, R12L, R12L, 100 }, // prefer RGB decoding to 12-bit
+                { J2KR, R12L, R10k, 550 },
+                { J2KR, R12L, RGB, 600 },
+                { J2K, VIDEO_CODEC_NONE, UYVY, 900 }, // fallback
+                { J2KR, VIDEO_CODEC_NONE, RGB, 900 }, // ditto
                 { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
         };
         return ret;
