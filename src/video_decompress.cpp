@@ -62,6 +62,8 @@ struct state_decompress {
         void *state;                ///< decoder driver state
 };
 
+ADD_TO_PARAM(decompress, "decompress", "* decompress=<name>[:<codec>]\n"
+                "  Forces specified decompress module (will fail if not able to decompress the received compression). Optionaly also force codec to decode to.\n");
 /**
  * @param[in] in_codec input codec
  * @param[in] out_codec output codec
@@ -76,13 +78,26 @@ static int find_best_decompress(codec_t in_codec, codec_t internal, codec_t out_
         auto decomps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
         int best_priority = prio_max + 1;
+        string force_module;
+
+        if (commandline_params.find("decompress") != commandline_params.end()) {
+                char *tmp = strdup(commandline_params.at("decompress").c_str());
+                if (strchr(tmp, ':')) {
+                        // if out_codec specified and doesn't match, return
+                        if (out_codec != get_codec_from_name(strchr(tmp, ':') + 1)) {
+                                free(tmp);
+                                return -1;
+                        }
+                        *strchr(tmp, ':') = '\0';
+                }
+                force_module = tmp;
+                free(tmp);
+        }
 
         for (const auto & d : decomps) {
                 // if user has explicitly requested decoder, skip all others
-                if (commandline_params.find("decoder") != commandline_params.end()) {
-                        if (d.first != commandline_params.at("decoder")) {
-                                continue;
-                        }
+                if (!force_module.empty() && d.first != force_module) {
+                        continue;
                 }
                 // first pass - find the one with best priority (least)
                 const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->get_available_decoders();
