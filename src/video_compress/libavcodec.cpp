@@ -657,7 +657,7 @@ static enum AVPixelFormat get_first_matching_pix_fmt(const enum AVPixelFormat **
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
 {
-        bool is_x264_x265 = strcmp(s->codec_ctx->codec->name, "libx264") == 0 ||
+        bool is_x264_x265 = strncmp(s->codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 ||
                 strcmp(s->codec_ctx->codec->name, "libx265") == 0;
 
         double avg_bpp; // average bit per pixel
@@ -1735,7 +1735,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 
 static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        if (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
+        if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
                 configure_x264_x265(codec_ctx, param);
         } else if (regex_match(codec_ctx->codec->name, regex(".*nvenc.*"))) {
@@ -1749,7 +1749,7 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
 
         /// turn of periodic intra refresh for libx264/libx265 if requested
         if (!param->no_periodic_intra &&
-                        (strcmp(codec_ctx->codec->name, "libx264") == 0 ||
+                        (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 ||
                          strcmp(codec_ctx->codec->name, "libx265") == 0)) {
                 codec_ctx->refs = 1;
                 int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
@@ -1761,7 +1761,7 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
 
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps)
 {
-        if (enc_name == "libx264") {
+        if (enc_name == "libx264" || enc_name == "libx264rgb") {
                 if (width <= 1920 && height <= 1080 && fps <= 30) {
                         return string("veryfast");
                 } else {
