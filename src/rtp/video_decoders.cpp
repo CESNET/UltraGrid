@@ -101,6 +101,7 @@
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
 #include <future>
 #endif
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -923,23 +924,34 @@ static vector<pair<codec_t, codec_t>> order_output_codecs(codec_t comp_int_fmt, 
                 }
         }
         // then add also all other codecs
-        /// @todo
-        /// The rest should be ordered as well. Eg. when internal is
-        /// R12L, next should be perhaps R10k, RGBA, RGB and then YCbCr
-        /// codecs.
+        vector<codec_t> remaining;
         for (int i = 0; i < display_codecs_count; ++i) {
                 if (used.find(display_codecs[i]) != used.end()) {
                         continue;
                 };
-                ret.push_back({comp_int_fmt, display_codecs[i]});
+                remaining.push_back(display_codecs[i]);
+        }
+        if (comp_int_fmt != VIDEO_CODEC_NONE) {
+                // sort - first codec of the same color space as internal (YUV
+                // is implicitly !RGB), inside those 2 groups, sort higher bit
+                // depths first
+                sort(remaining.begin(), remaining.end(), [comp_int_fmt](const codec_t &a, const codec_t &b) {
+                                if (codec_is_a_rgb(a) != codec_is_a_rgb(b)) { // RGB and YUV (or vice versa)
+                                        return codec_is_a_rgb(a) == codec_is_a_rgb(comp_int_fmt);
+                                }
+                                return get_bits_per_component(a) > get_bits_per_component(b);
+
+                        });
+        }
+        for (auto & c : remaining) {
+                ret.push_back({comp_int_fmt, c});
                 if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                        ret.push_back({VIDEO_CODEC_NONE, display_codecs[i]});
+                        ret.push_back({VIDEO_CODEC_NONE, c});
                 }
-                used.insert(display_codecs[i]);
         }
 
         if (log_level >= LOG_LEVEL_VERBOSE) {
-                LOG(LOG_LEVEL_VERBOSE) << "Trying codecs:\n";
+                LOG(LOG_LEVEL_VERBOSE) << "Trying codecs in this order:\n";
                 for (auto it = ret.begin(); it != ret.end(); ++it) {
                         LOG(LOG_LEVEL_VERBOSE) << "\t" << get_codec_name((*it).second) << ", internal: " << get_codec_name((*it).first) << "\n";
                 }
