@@ -269,6 +269,7 @@ static struct {
         {UYVY, CMPTO_422_U8_P1020, nullptr},
         {v210, CMPTO_422_U10_V210, nullptr},
         {RGB, CMPTO_444_U8_P012, nullptr},
+        {RGBA, CMPTO_444_U8_P012Z, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
         {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
 };
@@ -280,7 +281,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 
         assert(!codec_is_a_rgb(out_codec) ||
                         (rshift == 0 && gshift == 8 && bshift == 16) ||
-                        (rshift == 16 && gshift == 8 && bshift == 0));
+                        (out_codec == RGB && rshift == 16 && gshift == 8 && bshift == 0));
         assert(pitch == vc_get_linesize(desc.width, out_codec));
 
         if (out_codec == VIDEO_CODEC_NONE) { // probe format
@@ -464,13 +465,17 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
                 { J2K, v210, UYVY, 600 },
                 { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
                 { J2KR, RGB, RGB, 300 },
+                { J2KR, RGB, RGBA, 300 },
                 { J2KR, R10k, R10k, 200 },
                 { J2KR, R10k, RGB, 600 },
+                { J2KR, R10k, RGBA, 600 },
                 { J2KR, R12L, R12L, 100 }, // prefer RGB decoding to 12-bit
                 { J2KR, R12L, R10k, 550 },
                 { J2KR, R12L, RGB, 600 },
+                { J2KR, R12L, RGBA, 600 },
                 { J2K, VIDEO_CODEC_NONE, UYVY, 800 }, // fallback
                 { J2KR, VIDEO_CODEC_NONE, RGB, 800 }, // ditto
+                { J2KR, VIDEO_CODEC_NONE, RGBA, 800 }, // ditto
                 { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
         };
         return ret;
