@@ -123,7 +123,7 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         
-        assert(out_codec == RGB || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
+        assert(out_codec == RGB || out_codec == RGBA || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
 
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
@@ -193,15 +193,11 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
 #endif
         }
 
-        if(s->out_codec == RGB) {
-                linesize = s->desc.width * 3;
-        } else {
-                linesize = s->desc.width * 2;
-        }
+        linesize = vc_get_linesize(s->desc.width, s->out_codec);
         
         gpujpeg_set_device(cuda_devices[0]);
 
-        if((s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
+        if((s->out_codec == UYVY || (s->out_codec == RGB && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
                         s->pitch == linesize) {
                 gpujpeg_decoder_output_set_custom(&decoder_output, dst);
                 //int data_decompressed_size = decoder_output.data_size;
@@ -226,7 +222,11 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
                         if(s->out_codec == RGB) {
                                 vc_copylineRGB(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);
+                        } else if(s->out_codec == RGBA) {
+                                vc_copylineRGBtoRGBA(line_dst, line_src, linesize,
+                                                s->rshift, s->gshift, s->bshift);
                         } else {
+                                assert(s->out_codec == UYVY);
                                 memcpy(line_dst, line_src, linesize);
                         }
                                 
@@ -276,6 +276,7 @@ static const struct decode_from_to *jpeg_decompress_get_decoders() {
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
 #endif
 		{ JPEG, RGB, RGB, 300 },
+		{ JPEG, RGB, RGBA, 400 }, // RGB->RGBA conversion is performed on CPU
 		{ JPEG, UYVY, UYVY, 300 },
 		{ JPEG, RGB, UYVY, 900 },
 		{ JPEG, UYVY, RGB, 900 },
