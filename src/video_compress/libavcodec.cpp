@@ -953,12 +953,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
                         && s->selected_pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
                 s->decoded_codec = desc.color_spec;
-                s->decoder = (decoder_t) memcpy;
+                s->decoder = (decoder_t)(void *) memcpy;
         }
         if (s->decoder == nullptr) {
                 switch(desc.color_spec) {
                         case UYVY:
-                                s->decoder = (decoder_t) memcpy;
+                                s->decoder = (decoder_t) (void *) memcpy;
                                 break;
                         case YUYV:
                                 s->decoder = (decoder_t) vc_copylineYUYV;
@@ -968,7 +968,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                                 s->selected_pixfmt == AV_PIX_FMT_YUV422P10LE ||
                                                 s->selected_pixfmt == AV_PIX_FMT_YUV444P10LE) {
                                         s->decoded_codec = v210;
-                                        s->decoder = (decoder_t) memcpy;
+                                        s->decoder = (decoder_t)(void *) memcpy;
                                 } else {
                                         s->decoder = (decoder_t) vc_copylinev210;
                                 }

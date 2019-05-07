@@ -430,7 +430,7 @@ static void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
                 int width, int height, int pitch)
 {
         for (int y = 0; y < height; ++y) {
-                vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY));
+                vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY), 0, 0, 0);
         }
 }
 
@@ -1061,7 +1061,7 @@ static void yuv420p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         char *uyvy = tmp;
         yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
                 uyvy += vc_get_linesize(UYVY, width);
                 dst_buffer += pitch;
         }
@@ -1075,7 +1075,7 @@ static void yuv422p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         char *uyvy = tmp;
         yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
                 uyvy += vc_get_linesize(UYVY, width);
                 dst_buffer += pitch;
         }
@@ -1089,7 +1089,7 @@ static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         char *uyvy = tmp;
         yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width));
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width));
+                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
                 uyvy += vc_get_linesize(UYVY, width);
                 dst_buffer += pitch;
         }

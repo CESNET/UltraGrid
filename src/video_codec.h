@@ -64,9 +64,14 @@ extern "C" {
  * @param[in]  rshift  offset of red field inside a word (in bits)
  * @param[in]  gshift  offset of green field inside a word (in bits)
  * @param[in]  bshift  offset of blue field inside a word (in bits)
+ *
+ * @note
+ * {r,g,b}shift are usually applicable only for output RGBA. If decoder
+ * doesn't output RGBA, values are ignored.
  */
-typedef void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len,
+typedef void decoder_func_t(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
+typedef decoder_func_t *decoder_t;
 
 /// Prints list of suppored codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12);
@@ -95,43 +100,35 @@ bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(pure);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
-void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
-void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len);
-void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len);
-void vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineR12L(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int len,
-                int src_rshift, int src_gshift, int src_bshift);
-void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len);
-void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineABGRtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineRGBAtoRGBwithShift(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int len,
-                int rshift, int gshift, int bshift);
-void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int len);
-void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len,
-                int rshift, int gshift, int bshift);
-void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len);
-void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len,
-                int rshift, int gshift, int bshift);
+
+decoder_func_t vc_copylineDVS10;
+decoder_func_t vc_copylinev210;
+decoder_func_t vc_copylineYUYV;
+decoder_func_t vc_copyliner10k;
+decoder_func_t vc_copylineR12L;
+decoder_func_t vc_copylineRGBA;
+decoder_func_t vc_copylineToRGBA;
+decoder_func_t vc_copylineDVS10toV210;
+decoder_func_t vc_copylineRGBAtoRGB;
+decoder_func_t vc_copylineABGRtoRGB;
+decoder_func_t vc_copylineRGBAtoRGBwithShift;
+decoder_func_t vc_copylineRGBtoRGBA;
+decoder_func_t vc_copylineRGBtoUYVY;
+decoder_func_t vc_copylineRGBtoUYVY_SSE;
+decoder_func_t vc_copylineRGBtoGrayscale_SSE;
+decoder_func_t vc_copylineRGBtoR12L;
+decoder_func_t vc_copylineR12LtoRG48;
+decoder_func_t vc_copylineRG48toR12L;
+decoder_func_t vc_copylineUYVYtoRGB;
+decoder_func_t vc_copylineUYVYtoRGB_SSE;
+decoder_func_t vc_copylineUYVYtoGrayscale;
+decoder_func_t vc_copylineYUYVtoRGB;
+decoder_func_t vc_copylineBGRtoUYVY;
+decoder_func_t vc_copylineRGBAtoUYVY;
+decoder_func_t vc_copylineBGRtoRGB;
+decoder_func_t vc_copylineDPX10toRGBA;
+decoder_func_t vc_copylineDPX10toRGB;
+decoder_func_t vc_copylineRGB;
 
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
 

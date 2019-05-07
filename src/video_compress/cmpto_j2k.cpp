@@ -114,7 +114,7 @@ static void R12L_to_RG48(video_frame *dst, video_frame *src){
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
 
         for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copylineR12LtoRG48(d, s, dst_pitch);
+                vc_copylineR12LtoRG48(d, s, dst_pitch, 0, 0, 0);
                 s += src_pitch;
                 d += dst_pitch;
         }

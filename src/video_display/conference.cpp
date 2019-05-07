@@ -585,7 +585,7 @@ static void display_conference_run(void *state)
                 for(unsigned i = 0; i < frame->tiles[0].height; i++){
                         int width = frame->tiles[0].width;
                         int elemSize = s->output->getMat(frame->ssrc)->elemSize();
-                        vc_copylineUYVYtoRGB_SSE(s->output->getMat(frame->ssrc)->data + i*width*elemSize, (const unsigned char*)frame->tiles[0].data + i*width*2, width*elemSize);
+                        vc_copylineUYVYtoRGB_SSE(s->output->getMat(frame->ssrc)->data + i*width*elemSize, (const unsigned char*)frame->tiles[0].data + i*width*2, width*elemSize, 0, 0, 0);
                 }
                 s->output->updateTile(frame->ssrc);
 
@@ -602,7 +602,7 @@ static void display_conference_run(void *state)
                         for(int i = 0; i < result.size().height; i++){
                                 int width = result.size().width;
                                 int elemSize = result.elemSize();
-                                vc_copylineRGBtoUYVY_SSE((unsigned char*)outFrame->tiles[0].data + i*width*2, result.data + i*width*elemSize, width*2);
+                                vc_copylineRGBtoUYVY_SSE((unsigned char*)outFrame->tiles[0].data + i*width*2, result.data + i*width*elemSize, width*2, 0, 0, 0);
                         }
                         outFrame->ssrc = last_ssrc;
 

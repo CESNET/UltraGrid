@@ -124,7 +124,7 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         int dst_len = vc_get_linesize(width, R12L);
 
         for(unsigned i = 0; i < height; i++){
-                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len);
+                vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len, 0, 0, 0);
                 src_buffer += src_pitch;
                 dst_buffer += dst_len;
         }

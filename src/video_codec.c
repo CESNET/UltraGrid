@@ -184,7 +184,7 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
         [CFHD] = {"CFHD", "Cineform",
                 to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "cfhd"},
-        [RG48] = {"RG48", "16-bit RGB Cineform",
+        [RG48] = {"RG48", "16-bit RGB little-endian",
                 to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "av1"},
@@ -646,8 +646,12 @@ void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *d
  *                     should be even aligned to 16B boundary)
  * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
  */
-void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         struct {
                 unsigned a:10;
                 unsigned b:10;
@@ -692,8 +696,12 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
  * @brief Converts from YUYV to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
 #if defined __SSE2__
         register uint32_t *d;
         register const uint32_t *s;
@@ -979,8 +987,12 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
  * @brief Converts from DVS10 to v210
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         unsigned int *d;
         const unsigned int *s1;
         register unsigned int a,b;
@@ -1068,8 +1080,12 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
  * @brief Converts from DVS10 to UYVY
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         int src_len = dst_len / 1.5; /* right units */
         register const uint64_t *s;
         register uint64_t *d;
@@ -1219,7 +1235,11 @@ void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len
  * @brief Converts UYVY to grayscale.
  * @todo is this correct??
  */
-void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int dst_len) {
+void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         while(dst_len > 0) {
                 src++; // U
                 *dst++ = *src++; // Y
@@ -1363,7 +1383,11 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with UYVY
  */
-void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
+void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2);
 }
 
@@ -1373,7 +1397,11 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with YUYV
  */
-void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
+void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3);
 }
 
@@ -1384,7 +1412,8 @@ void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  * @copydetails vc_copylinev210
  * @todo make it faster if needed
  */
-void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
 #ifdef __SSSE3__
         __m128i yfactor = _mm_set1_epi16(74); //1.164 << 6
         __m128i rvfactor = _mm_set1_epi16(115); //1.793 << 6
@@ -1467,7 +1496,7 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int 
         }
 #endif
         //copy last few pixels
-        vc_copylineUYVYtoRGB(dst, src, dst_len);
+        vc_copylineUYVYtoRGB(dst, src, dst_len, rshift, gshift, bshift);
 }
 
 /**
@@ -1552,8 +1581,12 @@ void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing) to 16-bit RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         while(dst_len >= 48){
                 //0
                 //R
@@ -1647,8 +1680,12 @@ void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         while(dst_len >= 36){
                 //0
                 dst[BYTE_SWAP(0)] = src[0] >> 4;
@@ -1776,8 +1813,12 @@ void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 3);
 }
 
@@ -1787,7 +1828,8 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  * There can be some inaccuracies due to the use of integer arithmetic
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
 #ifdef __SSSE3__
         __m128i rgb;
         __m128i yuv;
@@ -1881,7 +1923,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int 
         }
 #endif
         //copy last few pixels
-        vc_copylineRGBtoUYVY(dst, src, dst_len);
+        vc_copylineRGBtoUYVY(dst, src, dst_len, rshift, gshift, bshift);
 }
 
 /**
@@ -1889,7 +1931,11 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int 
  * There can be some inaccuracies due to the use of integer arithmetic
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int dst_len){
+void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
 #ifdef __SSSE3__
         __m128i rgb;
 
@@ -1979,8 +2025,12 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src,
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         vc_copylineToUYVY709(dst, src, dst_len, 2, 1, 0, 3);
 }
 
@@ -1989,8 +2039,12 @@ void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
 }
 
@@ -2036,9 +2090,12 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
  * @copydetails vc_copylinev210
  */
 void
-vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
+vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
 {
-        
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
         register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;

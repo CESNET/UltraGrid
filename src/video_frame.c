@@ -398,7 +398,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 data = tmp_data = (unsigned char *) malloc(len);
                 if (frame->color_spec == UYVY) {
                         vc_copylineUYVYtoRGB(data, (const unsigned char *)
-                                        tile->data, len);
+                                        tile->data, len, 0, 0, 0);
                 } else if (frame->color_spec == RGBA) {
                         vc_copylineRGBAtoRGB(data, (const unsigned char *)
                                         tile->data, len, 0, 8, 16);
