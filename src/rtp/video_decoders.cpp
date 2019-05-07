@@ -42,7 +42,9 @@
  * @author  Ladan Gharai
  * @author  Martin Pulec <pulec@cesnet.cz>
  *
- * @ingroup video_rtp_decoder
+ * @addtogroup video_rtp_decoder
+ *
+ * ## Workflow ##
  *
  * Normal workflow through threads is following:
  * 1. decode data from in context of receiving thread with function decode_frame(),
@@ -65,8 +67,26 @@
  * ### Encrypted video (with FEC) ###
  * After FEC decoding, the whole block is decompressed.
  *
+ * ## Probing compressed video codecs ##
+ * When video is received, it is probed for an internal format:
+ * * compression is reconfigured to (VIDEO_CODEC_NONE, VIDEO_CODEC_NONE) -
+ *   internal and out codecs are set to 0
+ * * if any decoder for the codec supports probing, s->out_codec is set to
+ *   VIDEO_CODEC_END (otherwise a decompression is directly configured)
+ * * decompression is done as usual (display is not reconfigured and output is
+ *   put to a dummy framebuffer)
+ * * when decoder is able to establish the codec, it returns
+ *   DECODER_GOT_CODEC, thread send a reconf message to the main threads and
+ *   the reconfiguration shall begin - display codecs are reordered ideally to
+ *   match the incoming stream
+ * * BUGS: usually multiple reconf messages are sent, decompress priority is
+ *   evaluated only when there are multiple same (in_codec,internal_codec,out_codec)
+ *   tuples.
+ *
  * @todo
  * This code is very very messy, it needs to be rewritten.
+ *
+ * @{
  */
 
 #ifdef HAVE_CONFIG_H
@@ -713,7 +733,6 @@ static void decoder_set_video_mode(struct state_video_decoder *decoder, enum vid
  * @param encryption  Encryption config string. Currently, this is a passphrase to be
  *                    used. This may change eventually.
  * @return Newly created decoder state. If an error occured, returns NULL.
- * @ingroup video_rtp_decoder
  */
 struct state_video_decoder *video_decoder_init(struct module *parent,
                 enum video_mode video_mode,
@@ -895,8 +914,18 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         delete decoder;
 }
 
-static vector<pair<codec_t, codec_t>> order_output_codecs(codec_t comp_int_fmt, codec_t *display_codecs,
-                                int display_codecs_count)
+/**
+ * Reorders display codecs to match compression internal format.
+ *
+ * First try to add HW-accelerated codecs, then exactly comp_int_fmt (if
+ * available) and then sort the rest - matching color-space first, higher bit
+ * depths first.
+ *
+ * Always first try "native" than generic decoder (native is the one matching
+ * comp_int_fmt, generic should be catch-all allowing decompression of
+ * arbitrary compressed stream of received codec).
+ */
+static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t comp_int_fmt, codec_t *display_codecs, int display_codecs_count)
 {
         vector<pair<codec_t, codec_t>> ret;
         set<codec_t> used;
@@ -1041,7 +1070,7 @@ after_linedecoder_lookup:
                 }
 
                 vector<pair<codec_t, codec_t>> formats_to_try; // (comp_int_fmt || VIDEO_CODEC_NONE), display_fmt
-                formats_to_try = order_output_codecs(comp_int_fmt, decoder->native_codecs,
+                formats_to_try = video_decoder_order_output_codecs(comp_int_fmt, decoder->native_codecs,
                                 decoder->native_count);
 
                 for (auto it = formats_to_try.begin(); it != formats_to_try.end(); ++it) {
@@ -1813,3 +1842,4 @@ static void decoder_process_message(struct module *m)
         }
 }
 
+/** @} */
