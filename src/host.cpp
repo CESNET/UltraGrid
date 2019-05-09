@@ -393,6 +393,18 @@ bool register_mainloop(mainloop_t m, void *u)
         return true;
 }
 
+ADD_TO_PARAM(errors_fatal, "errors-fatal", "* errors-fatal\n"
+                "  Treats every error as a fatal (exits " PACKAGE_NAME ")\n");
+/**
+ * Soft version of exit_uv() checks errors-fatal command-line parameters and
+ * if set, exits. Otherwise error is ignored.
+ */
+void error(int status) {
+        if (get_commandline_param("errors-fatal")) {
+                exit_uv(status);
+        }
+}
+
 // some common parameters used within multiple modules
 ADD_TO_PARAM(audio_buffer_len, "audio-buffer-len", "* audio-buffer-len=<ms>\n"
                 "  Sets length of software audio playback buffer (in ms, ALSA/Coreaudio/Portaudio/WASAPI)\n");
