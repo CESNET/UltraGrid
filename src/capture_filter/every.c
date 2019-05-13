@@ -60,8 +60,6 @@
 #include "video.h"
 #include "video_codec.h"
 
-#define MAX_TILES 16
-
 struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -72,7 +70,6 @@ struct state_every {
         int num;
         int denom;
         int current;
-        struct video_frame *frame;
 };
 
 static void usage() {
@@ -110,7 +107,6 @@ static int init(struct module *parent, const char *cfg, void **state)
         struct state_every *s = calloc(1, sizeof(struct state_every));
         s->num = n;
         s->denom = denom;
-        s->frame = vf_alloc(MAX_TILES);
 
         s->current = -1;
 
@@ -120,39 +116,33 @@ static int init(struct module *parent, const char *cfg, void **state)
 
 static void done(void *state)
 {
-        struct state_every *s = state;
-
-        s->frame->callbacks.data_deleter = NULL;
-        vf_free(s->frame);
         free(state);
 }
 
 static void dispose_frame(struct video_frame *f) {
         VIDEO_FRAME_DISPOSE((struct video_frame *) f->callbacks.dispose_udata);
+        vf_free(f);
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_every *s = state;
 
-        assert(in->tile_count <= MAX_TILES);
-        struct tile *tiles = s->frame->tiles;
-        memcpy(s->frame, in, sizeof(struct video_frame));
-        s->frame->tiles = tiles;
-        memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
-        s->frame->fps /= (double) s->num / s->denom;
-
-        s->current = (s->current + 1) % s->num;
-
-        s->frame->callbacks.dispose = dispose_frame;
-        s->frame->callbacks.dispose_udata = in;
-
-        if (s->current < s->denom) {
-                return s->frame;
-        } else {
+        if (s->current >= s->denom) {
                 VIDEO_FRAME_DISPOSE(in);
                 return NULL;
         }
+
+        struct video_frame *frame = vf_alloc_desc(video_desc_from_frame(in));
+        memcpy(frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
+        frame->fps /= (double) s->num / s->denom;
+
+        s->current = (s->current + 1) % s->num;
+
+        frame->callbacks.dispose = dispose_frame;
+        frame->callbacks.dispose_udata = in;
+
+        return frame;
 }
 
 static const struct capture_filter_info capture_filter_every = {
