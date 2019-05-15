@@ -143,7 +143,9 @@ public:
         int                     m_restart_interval;
         int                     m_quality;
         bool                    m_force_interleaved = false;
-        bool                    m_jpeg_rgb = false; // use RGB as JPEG colorspace
+        codec_t                 m_use_internal_codec = VIDEO_CODEC_NONE; // RGB or UYVY,
+                                                                         // VIDEO_CODEC_NONE
+                                                                         // if no preferrence
 
         synchronized_queue<shared_ptr<struct video_frame>, 1> m_out_queue; ///< queue for compressed frames
         mutex                                                 m_occupancy_lock;
@@ -212,21 +214,28 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         bool try_slow = false;
 
+        // first determine, if the pixel format is YCbCr or RGB (can be easily
+        // converted to)
         m_decoder = get_decoder_from_to(desc.color_spec, UYVY, try_slow);
-        if (m_decoder) {
-                m_rgb = false;
-        } else {
+        m_rgb = false;
+        if (!m_decoder) { // if it is not a YCbCr format, it may be a RGB
                 m_decoder = get_decoder_from_to(desc.color_spec, RGB, try_slow);
-                if (m_decoder) {
+                m_rgb = true;
+        }
+        if (!m_decoder) { // no easy conversions found, try harder
+                log_msg(LOG_LEVEL_WARNING, "[JPEG] Trying slow decoders!\n");
+                try_slow = true;
+                m_decoder = get_decoder_from_to(desc.color_spec, UYVY, try_slow);
+                m_rgb = false;
+                if (!m_decoder) { // try conversion to RGB as well
+                        m_decoder = get_decoder_from_to(desc.color_spec, RGB, try_slow);
                         m_rgb = true;
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Unsupported codec: %s\n",
-                                        get_codec_name(desc.color_spec));
-                        if (!try_slow) {
-                                log_msg(LOG_LEVEL_WARNING, "[JPEG] Slow decoders not tried!\n");
-                        }
-                        return false;
                 }
+        }
+        if (!m_decoder) {
+                log_msg(LOG_LEVEL_ERROR, "[JPEG] Unsupported codec: %s\n",
+                                get_codec_name(desc.color_spec));
+                return false;
         }
 
         gpujpeg_set_default_parameters(&m_encoder_param);
@@ -257,7 +266,8 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         m_encoder_param.interleaved = (m_rgb && !m_parent_state->m_force_interleaved) ? 0 : 1;
 
-        if (m_parent_state->m_jpeg_rgb) {
+        if (m_parent_state->m_use_internal_codec == RGB ||
+                        (m_rgb && !m_parent_state->m_use_internal_codec)) {
                 m_encoder_param.color_space_internal = GPUJPEG_RGB;
         }
 
@@ -317,9 +327,11 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
                         } else {
                                 if (strcasecmp(tok, "interleaved") == 0) {
                                         m_force_interleaved = true;
+                                } else if (strcasecmp(tok, "UYVY") == 0) {
+                                        m_use_internal_codec = UYVY;
                                 } else if (strcasecmp(tok, "RGB") == 0) {
 #if LIBGPUJPEG_API_VERSION >= 4
-                                        m_jpeg_rgb = true;
+                                        m_use_internal_codec = RGB;
 #else
                                         log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
                                         return false;
@@ -392,12 +404,12 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "JPEG comperssion usage:\n";
-                cout << "\t" << rang::fg::red << rang::style::bold << "-c JPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB]\n" << rang::style::reset;
+                cout << "\t" << rang::fg::red << rang::style::bold << "-c JPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:UYVY]\n" << rang::style::reset;
                 cout << "where\n";
                 cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset
                         << "\t\tforce interleaved encoding (default for YCbCr input formats)\n";
                 cout << rang::style::bold << "\tRGB\n" << rang::style::reset
-                        << "\t\tuse RGB as an internal JPEG color space\n";
+                        << "\t\tforce RGB or UYVY as an internal JPEG color space\n";
                 return &compress_init_noerr;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
