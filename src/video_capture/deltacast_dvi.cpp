@@ -73,6 +73,8 @@
 #include <sys/time.h>
 #include <semaphore.h>
 
+#include <queue>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -90,6 +92,9 @@ struct vidcap_deltacast_dvi_state {
         codec_t      codec;
         bool         configured;
         struct video_desc desc;
+        // SlotHandles need to be unlocked within the same thread
+        mutex             lock;
+        queue<HANDLE>     frames_to_free;
 };
 
 #define EEDDIDOK 0
@@ -510,7 +515,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
+        s = new vidcap_deltacast_dvi_state();
 	if(s == NULL) {
 		printf("Unable to allocate DELTACAST state\n");
                 goto error;
@@ -711,7 +716,7 @@ bad_channel:
         VHD_CloseBoardHandle(s->BoardHandle);
 error:
         free(tmp);
-        free(s);
+        delete s;
         return VIDCAP_INIT_FAIL;
 }
 
@@ -721,6 +726,12 @@ vidcap_deltacast_dvi_done(void *state)
 	struct vidcap_deltacast_dvi_state *s = (struct vidcap_deltacast_dvi_state *) state;
 
 	assert(s != NULL);
+
+        while (!s->frames_to_free.empty()) {
+                HANDLE h = s->frames_to_free.front();
+                s->frames_to_free.pop();
+                VHD_UnlockSlotHandle(h);
+        }
         
         VHD_StopStream(s->StreamHandle);
         VHD_CloseStreamHandle(s->StreamHandle);
@@ -728,13 +739,22 @@ vidcap_deltacast_dvi_done(void *state)
         VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
         VHD_CloseBoardHandle(s->BoardHandle);
         
-        free(s);
+        delete s;
 }
+
+struct vidcap_deltacast_dispose_udata {
+        struct vidcap_deltacast_dvi_state *s;
+        HANDLE SlotHandle;
+};
 
 static void vidcap_deltacast_dvi_dispose(struct video_frame *f)
 {
-       VHD_UnlockSlotHandle((HANDLE) f->callbacks.dispose_udata);
-       vf_free(f);
+        auto data = (struct vidcap_deltacast_dispose_udata *) f->callbacks.dispose_udata;
+        data->s->lock.lock();
+        data->s->frames_to_free.push(data->SlotHandle);
+        data->s->lock.unlock();
+        delete data;
+        vf_free(f);
 }
 
 static struct video_frame *
@@ -746,6 +766,16 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         ULONG             Result;
         BYTE             *pBuffer=NULL;
         HANDLE            SlotHandle;
+        queue<HANDLE>     queue;
+
+        s->lock.lock();
+        swap(queue, s->frames_to_free); // empty the synchronized queue and unlock the slots without a lock
+        s->lock.unlock();
+        while (!queue.empty()) {
+                HANDLE h = queue.front();
+                queue.pop();
+                VHD_UnlockSlotHandle(h);
+        }
 
         if(!s->configured) {
                 s->configured = wait_for_channel_locked(s, false, NB_VHD_DV_MODES, 0, 0, 0);
@@ -774,15 +804,19 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
                 return NULL;
          }
 
-         if(s->desc.color_spec == RGBA) {
-                 vc_copylineRGBA(pBuffer, pBuffer, BufferSize, 16, 8, 0);
+         struct video_frame *out;
+         if (s->desc.color_spec == RGBA) { // DELTACAST uses BGRA
+                 out = vf_alloc_desc_data(s->desc);
+                 vc_copylineRGBA(reinterpret_cast<unsigned char *>(out->tiles[0].data), pBuffer, out->tiles[0].data_len, 16, 8, 0);
+                 VHD_UnlockSlotHandle(SlotHandle);
+                 out->callbacks.dispose = vf_free;
+         } else {
+                 out = vf_alloc_desc(s->desc);
+                 out->tiles[0].data = (char*) pBuffer;
+                 out->tiles[0].data_len = BufferSize;
+                 out->callbacks.dispose_udata = new vidcap_deltacast_dispose_udata{s, SlotHandle};
+                 out->callbacks.dispose = vidcap_deltacast_dvi_dispose;
          }
-         
-	 struct video_frame *out = vf_alloc_desc(s->desc);
-         out->tiles[0].data = (char*) pBuffer;
-         out->tiles[0].data_len = BufferSize;
-         out->callbacks.dispose_udata = SlotHandle;
-         out->callbacks.dispose = vidcap_deltacast_dvi_dispose;
 
          /* Print some statistics */
          /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);
