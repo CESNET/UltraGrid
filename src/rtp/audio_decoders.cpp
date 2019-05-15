@@ -61,7 +61,7 @@
 #include "audio/utils.h"
 #include "crypto/crc.h"
 #include "crypto/openssl_decrypt.h"
-
+#include "rang.hpp"
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
 
@@ -69,9 +69,16 @@
 #include <cctype>
 #include <cstring>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 
+using rang::fg;
+using rang::style;
+using std::cerr;
+using std::fixed;
 using std::ostringstream;
+using std::setprecision;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 #define MOD_NAME "[audio dec.] "
@@ -368,8 +375,9 @@ static void *adec_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                log_msg(LOG_LEVEL_INFO, "[Audio decoder] Channel %d - volume: %.2f dBFS RMS, %.2f dBFS peak.\n",
-                                i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+                if (log_level >= LOG_LEVEL_INFO) {
+                        std::cerr << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
+                }
         }
 
         delete d;

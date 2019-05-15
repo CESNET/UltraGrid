@@ -52,6 +52,7 @@
 #include "config_win32.h"
 #endif
 
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdio.h>
@@ -75,6 +76,7 @@
 #include "host.h"
 #include "module.h"
 #include "perf.h"
+#include "rang.hpp"
 #include "rtp/audio_decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -85,6 +87,8 @@
 #include "utils/worker.h"
 
 using namespace std;
+using rang::fg;
+using rang::style;
 
 enum audio_transport_device {
         NET_NATIVE,
@@ -876,8 +880,9 @@ static void *asend_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                log_msg(LOG_LEVEL_INFO, "[Audio sender] Channel %d - volume: %.2f dBFS RMS, %.2f dBFS peak.\n",
-                                i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+                if (log_level >= LOG_LEVEL_INFO) {
+                        cerr << "[Audio sender] Channel " << i << " - volume: " << setprecision(2) << fixed << fg::green << style::bold << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
+                }
         }
 
         delete d;
