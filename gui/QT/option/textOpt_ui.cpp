@@ -18,5 +18,9 @@ void TextOptUi::optChangeCallback(Option &changedOpt, bool suboption){
 }
 
 std::string TextOptUi::getOptValue(){
+	if(opt.empty()){
+		return "";
+	}
+
     return settings->getOption(opt).getValue();
 }

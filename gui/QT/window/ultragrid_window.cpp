@@ -268,6 +268,7 @@ void UltragridWindow::saveSettings(){
 	QFileDialog fileDialog(this);
 	fileDialog.setFileMode(QFileDialog::AnyFile);
 	fileDialog.setNameFilter(tr("Json (*.json)"));
+	fileDialog.setDefaultSuffix("json");
 
 	QStringList fileNames;
 	if (fileDialog.exec())

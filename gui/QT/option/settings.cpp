@@ -94,11 +94,13 @@ Settings *Option::getSettings(){
 	return settings;
 }
 
+#ifdef DEBUG
 static void test_callback(Option &opt, bool){
 	std::cout << "Callback: " << opt.getName()
 		<< ": " << opt.getValue()
 		<< " (" << opt.isEnabled() << ")" << std::endl;
 }
+#endif
 
 static void fec_builder_callback(Option &opt, bool subopt){
 	if(!subopt)
@@ -237,8 +239,10 @@ Settings::Settings() : dummy(this){
 				i.enabled,
 				i.parent,
 				i.limit);
+#ifdef DEBUG
 		if(!i.parent[0])
 			opt.addOnChangeCallback(test_callback);
+#endif
 	}
 
 	for(const auto &i : optionCallbacks){
