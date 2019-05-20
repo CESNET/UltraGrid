@@ -269,9 +269,10 @@ cleanup:
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
 
 /**
+ * @param BMDDuplexMode mode to set to translates to BMDProfileID
+ *      bmdDuplexSimplex - use for quad link (currently 8K Pro)
  * @todo
- * handle also other modes - bmdProfileTwoSubDevicesFullDuplex and
- * bmdProfileOneSubDevicesHalfDuplex (8K Pro) cannot be currently set
+ * handle also bmdProfileTwoSubDevicesFullDuplex
  */
 bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
 {
@@ -298,10 +299,17 @@ bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
                                 if (id == bmdProfileOneSubDeviceFullDuplex) {
                                         found = true;
                                 }
-                        } else  { // bmdDuplexHalf
+                        } else if (duplex == bmdDuplexHalf) {
                                 if (id == bmdProfileTwoSubDevicesHalfDuplex || id == bmdProfileFourSubDevicesHalfDuplex) {
                                         found = true;
                                 }
+                        } else if (duplex == bmdDuplexSimplex) {
+                                if (id == bmdProfileOneSubDeviceHalfDuplex) {
+                                        found = true;
+                                }
+
+                        } else {
+                                assert("Wrong duplex mode!" && 0);
                         }
                         if (found) {
                                 if (profile->SetActive() != S_OK) {

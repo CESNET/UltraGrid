@@ -748,7 +748,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
-                        decklink_set_duplex(s->state[i].deckLink, bmdDuplexHalf);
+                        decklink_set_duplex(s->state[i].deckLink, bmdDuplexSimplex);
                 }
 
                 BMD_BOOL quad_link_supp;
