@@ -296,7 +296,14 @@ void print_capabilities(struct module *root, bool use_vidcap)
 
 void print_version()
 {
-        cout << rang::fg::cyan << rang::style::bold << PACKAGE_STRING <<
+        bool is_release = true;
+#ifdef GIT_BRANCH
+        if (strncmp(GIT_BRANCH, "release", strlen("release")) != 0) {
+                is_release = false;
+        }
+#endif
+        cout << rang::fg::red << rang::style::bold << PACKAGE_STRING <<
+                (is_release ? "" : "+") <<
                 rang::fg::reset << rang::style::reset << " (" <<
 #ifdef GIT_BRANCH
                 GIT_BRANCH << " "
