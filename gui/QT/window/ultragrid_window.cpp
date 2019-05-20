@@ -1,6 +1,10 @@
 #include <QMessageBox>
 #include <QCloseEvent>
 #include <QOpenGLFunctions_3_3_Core>
+#include <QFileDialog>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QByteArray>
 
 #include "ultragrid_window.hpp"
 
@@ -239,6 +243,9 @@ void UltragridWindow::connectSignals(){
 
 	connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(refresh()));
 
+	connect(ui.actionSave, SIGNAL(triggered()), this, SLOT(saveSettings()));
+	connect(ui.actionLoad, SIGNAL(triggered()), this, SLOT(loadSettings()));
+
 	connect(&settingsWindow, SIGNAL(changed()), this, SLOT(setArgs()));
 	connect(&settingsUi, SIGNAL(changed()), this, SLOT(setArgs()));
 
@@ -254,6 +261,68 @@ void UltragridWindow::showLog(){
 void UltragridWindow::showSettings(){
 	settingsWindow.show();
 	settingsWindow.raise();
+}
+
+void UltragridWindow::saveSettings(){
+	const auto &optMap = settings.getOptionMap();
+	QFileDialog fileDialog(this);
+	fileDialog.setFileMode(QFileDialog::AnyFile);
+	fileDialog.setNameFilter(tr("Json (*.json)"));
+
+	QStringList fileNames;
+	if (fileDialog.exec())
+		fileNames = fileDialog.selectedFiles();
+
+	QFile outFile(fileNames.first());
+
+	if (!outFile.open(QIODevice::WriteOnly)) {
+		qWarning("Couldn't open save file.");
+		return;
+	}
+
+	QJsonObject jsonObj;
+
+	for(const auto &keyValPair : optMap){
+		jsonObj[QString::fromStdString(keyValPair.first)] =
+			QString::fromStdString(keyValPair.second->getValue());
+	}
+
+	QJsonDocument jsonDoc(jsonObj);
+
+	outFile.write(jsonDoc.toJson());
+
+}
+
+void UltragridWindow::loadSettings(){
+	QFileDialog fileDialog(this);
+	fileDialog.setFileMode(QFileDialog::ExistingFile);
+	fileDialog.setNameFilter(tr("Json (*.json)"));
+
+	QStringList fileNames;
+	if (fileDialog.exec())
+		fileNames = fileDialog.selectedFiles();
+
+	QFile inFile(fileNames.first());
+
+	if (!inFile.open(QIODevice::ReadOnly)) {
+		qWarning("Couldn't open save file.");
+		return;
+	}
+
+	QByteArray saveData = inFile.readAll();
+
+	QJsonDocument saveDoc = QJsonDocument::fromJson(saveData);
+	QJsonObject saveObj = saveDoc.object();
+
+	for(const QString &key : saveObj.keys()){
+		if(saveObj[key].isString()){
+			settings.getOption(key.toStdString())
+				.setValue(saveObj[key].toString().toStdString(), true);
+		}
+	}
+
+	settings.changedAll();
+	setArgs();
 }
 
 void UltragridWindow::setStartBtnText(QProcess::ProcessState s){

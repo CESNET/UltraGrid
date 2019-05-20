@@ -60,6 +60,9 @@ public slots:
 	void startPreview();
 	void stopPreview();
 
+	void saveSettings();
+	void loadSettings();
+
 private slots:
 	void setStartBtnText(QProcess::ProcessState);
 	void processStateChanged(QProcess::ProcessState);

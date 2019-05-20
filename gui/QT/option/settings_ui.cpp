@@ -114,7 +114,6 @@ void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool suboption){
 	win->vuMeter->setVisible(opt.isEnabled());
 }
 
-
 void SettingsUi::addCallbacks(){
 	using namespace std::placeholders;
 
