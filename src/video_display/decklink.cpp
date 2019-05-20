@@ -715,16 +715,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         supportedFlags = (BMDSupportedVideoModeFlags) (outputFlags | bmdSupportedVideoModeDualStream3D);
                 }
 
-                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, supportedFlags, nullptr, &supported),
-                                "DoesSupportVideoMode");
-                if (!supported) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
-                                        "combination not supported - %d * %dx%d@%f, timecode %s.\n",
-                                        desc.tile_count, desc.width, desc.height, desc.fps,
-                                        (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
-                        goto error;
-                }
-
                 BMD_BOOL subsampling_444 = codec_is_a_rgb(desc.color_spec); // we don't have pixfmt for 444 YCbCr
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
                                 "SDI subsampling");
@@ -755,6 +745,16 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 if (s->state[i].deckLinkAttributes && s->state[i].deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
                         CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
                                         "Quad-link SDI Square Division Quad Split mode");
+                }
+
+                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, supportedFlags, nullptr, &supported),
+                                "DoesSupportVideoMode");
+                if (!supported) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
+                                        "combination not supported - %d * %dx%d@%f, timecode %s.\n",
+                                        desc.tile_count, desc.width, desc.height, desc.fps,
+                                        (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
+                        goto error;
                 }
 
                 result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
