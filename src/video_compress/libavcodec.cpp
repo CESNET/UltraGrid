@@ -1317,6 +1317,23 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
         }
 }
 
+static const struct {
+        codec_t src;
+        AVPixelFormat dst;
+        pixfmt_callback_t func;
+} conversions[] = {
+        { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
+        { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
+        { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+        { UYVY, AV_PIX_FMT_YUV422P, to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUVJ422P, to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUV420P, to_yuv420p },
+        { UYVY, AV_PIX_FMT_YUVJ420P, to_yuv420p },
+        { UYVY, AV_PIX_FMT_NV12, to_nv12 },
+        { UYVY, AV_PIX_FMT_YUV444P, to_yuv444p },
+        { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
+};
+
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
         // no conversion needed
         if (ug_to_av_pixfmt_map.find(src) != ug_to_av_pixfmt_map.end()
@@ -1324,31 +1341,14 @@ static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) 
                 return nullptr;
         }
 
-        if (src == v210) {
-                if (fmt == AV_PIX_FMT_YUV420P10LE) {
-                        return v210_to_yuv420p10le;
-                } else if (fmt == AV_PIX_FMT_YUV422P10LE) {
-                        return v210_to_yuv422p10le;
-                } else if (fmt == AV_PIX_FMT_YUV444P10LE) {
-                        return v210_to_yuv444p10le;
-                } else {
-                        abort();
+        for (auto &it : conversions) {
+                if (it.src == src && it.dst == fmt) {
+                        return it.func;
                 }
         }
 
-        if (is422_8(fmt)) {
-                return to_yuv422p;
-        } else if (is420_8(fmt)) {
-                if (fmt == AV_PIX_FMT_NV12)
-                        return to_nv12;
-                else
-                        return to_yuv420p;
-        } else if (is444_8(fmt)) {
-                return to_yuv444p;
-        } else {
-                log_msg(LOG_LEVEL_FATAL, "[lavc] Unknown subsampling.\n");
-                abort();
-        }
+        log_msg(LOG_LEVEL_FATAL, "[lavc] Cannot find conversion to any of encoder supported pixel format.\n");
+        abort();
 }
 
 struct my_task_data {
