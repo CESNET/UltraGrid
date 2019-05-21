@@ -1,4 +1,5 @@
 #include "spinbox_ui.hpp"
+#include "overload.hpp"
 
 SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &opt) : 
     TextOptUi(settings, opt),
@@ -9,7 +10,7 @@ SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &o
 }
 
 void SpinBoxUi::connectSignals(){
-	connect(spinbox, QOverload<const QString &>::of(&QSpinBox::valueChanged),
+	connect(spinbox, Overload<const QString &>::of(&QSpinBox::valueChanged),
             this, &SpinBoxUi::textEdited);
 }
 

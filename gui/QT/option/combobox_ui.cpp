@@ -1,4 +1,5 @@
 #include "combobox_ui.hpp"
+#include "overload.hpp"
 
 ComboBoxUi::ComboBoxUi(QComboBox *box,
         Settings *settings,
@@ -15,7 +16,7 @@ ComboBoxUi::ComboBoxUi(QComboBox *box,
 }
 
 void ComboBoxUi::connectSignals(){
-	connect(box, QOverload<int>::of(&QComboBox::activated),
+	connect(box, Overload<int>::of(&QComboBox::activated),
 			this, &ComboBoxUi::itemSelected);
 }
 

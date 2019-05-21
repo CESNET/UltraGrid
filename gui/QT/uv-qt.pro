@@ -56,6 +56,7 @@ HEADERS += window/ultragrid_window.hpp \
 	option/radioButton_ui.hpp \
 	option/audio_opts.hpp \
 	option/video_opts.hpp \
+	util/overload.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \
