@@ -750,6 +750,81 @@ ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "  for NVENC encoder.\n"
                 "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
                 "  to force 10-bit encoding.\n");
+void fill_requested_pix_fmts(enum AVPixelFormat *fmts, int max_count, struct video_desc in_desc,
+                AVCodec *codec, int requested_subsampling) {
+        int total_pix_fmts = 0;
+
+#ifdef HWACC_VAAPI
+        if (regex_match(codec->name, regex(".*vaapi.*"))) {
+                fmts[total_pix_fmts++] = AV_PIX_FMT_VAAPI;
+        }
+#endif
+
+        if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
+                fmts[total_pix_fmts++] = ug_to_av_pixfmt_map.find(in_desc.color_spec)->second;
+        }
+
+        if (requested_subsampling == 0) {
+                // for interlaced formats, it is better to use either 422 or 444
+                if (in_desc.interlacing == INTERLACED_MERGED) {
+                        // 422
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
+                        // 444
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
+                        // 420
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
+                } else {
+                        // 420
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
+                        // 422
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
+                        // 444
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
+                }
+        } else {
+                switch (requested_subsampling) {
+                case 420:
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts420_8, sizeof(fmts420_8));
+                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
+                        break;
+                case 422:
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts422_8, sizeof(fmts422_8));
+                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
+                        break;
+                case 444:
+                        memcpy(fmts + total_pix_fmts,
+                                        fmts444_8, sizeof(fmts444_8));
+                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
+                        break;
+                default:
+                        abort();
+                }
+        }
+
+        if (get_commandline_param("lavc-use-codec")) {
+                const char *val = get_commandline_param("lavc-use-codec");
+                fmts[0] = av_get_pix_fmt(val);
+                total_pix_fmts = 1;
+        }
+
+        fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
+
+        assert(total_pix_fmts <= max_count);
+}
 
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
@@ -818,76 +893,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         enum AVPixelFormat requested_pix_fmts[100];
-        int total_pix_fmts = 0;
-
-#ifdef HWACC_VAAPI
-        if (regex_match(codec->name, regex(".*vaapi.*"))) {
-                requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_VAAPI;
-        }
-#endif
-
-        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()) {
-                requested_pix_fmts[total_pix_fmts++] = ug_to_av_pixfmt_map.find(desc.color_spec)->second;
-        }
-
-        if (s->requested_subsampling == 0) {
-                // for interlaced formats, it is better to use either 422 or 444
-                if (desc.interlacing == INTERLACED_MERGED) {
-                        // 422
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        // 444
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                        // 420
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
-                } else {
-                        // 420
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
-                        // 422
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        // 444
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                }
-        } else {
-                switch (s->requested_subsampling) {
-                case 420:
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
-                        break;
-                case 422:
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        break;
-                case 444:
-                        memcpy(requested_pix_fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                        break;
-                default:
-                        abort();
-                }
-        }
-
-        if (get_commandline_param("lavc-use-codec")) {
-                const char *val = get_commandline_param("lavc-use-codec");
-                requested_pix_fmts[0] = av_get_pix_fmt(val);
-                total_pix_fmts = 1;
-        }
-
-        requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
+        int max_pix_fmts = sizeof requested_pix_fmts / sizeof requested_pix_fmts[0];
+        fill_requested_pix_fmts(requested_pix_fmts, max_pix_fmts, desc, codec, s->requested_subsampling);
 
         // Try to open the codec context
         // It is done in a loop because some pixel formats that are reported
