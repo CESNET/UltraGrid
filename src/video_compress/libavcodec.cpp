@@ -47,6 +47,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <list>
 #include <map>
 #include <regex>
 #include <string>
@@ -122,6 +123,14 @@ static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
+
+static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height);
+static void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height);
+static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         { H264, codec_params_t{
@@ -617,10 +626,9 @@ fail:
  * second list, codec_pix_fmts. If found, returns that format. Efectivelly
  * select first match of item from first list in second list.
  */
-static enum AVPixelFormat get_first_matching_pix_fmt(const enum AVPixelFormat **req_pix_fmt_it,
-                const enum AVPixelFormat *codec_pix_fmts)
+static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
+                req_pix_fmts, const enum AVPixelFormat *codec_pix_fmts)
 {
-        assert(req_pix_fmt_it != NULL);
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
 
@@ -634,16 +642,14 @@ static enum AVPixelFormat get_first_matching_pix_fmt(const enum AVPixelFormat **
                 log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
                 out[0] = '\0';
                 strncat(out, "[lavd] Requested pixel formats:", sizeof out - strlen(out) - 1);
-                it = *req_pix_fmt_it;
-                while (*it != AV_PIX_FMT_NONE) {
+                for (auto &c : req_pix_fmts) {
                         strncat(out, " ", sizeof out - strlen(out) - 1);
-                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                        strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
                 }
                 log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
         }
 
-        enum AVPixelFormat req;
-        while((req = *(*req_pix_fmt_it)++) != AV_PIX_FMT_NONE) {
+        for (auto &req : req_pix_fmts) {
                 const enum AVPixelFormat *tmp = codec_pix_fmts;
                 enum AVPixelFormat fmt;
                 while((fmt = *tmp++) != AV_PIX_FMT_NONE) {
@@ -743,6 +749,74 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         return true;
 }
 
+/**
+ * Conversions from UltraGrid to FFMPEG formats.
+ *
+ * Currently do not add an "upgrade" conversion (UYVY->10b) because also
+ * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
+ * may be used resulting in a precision loss. If needed, put the upgrade
+ * conversions below the others.
+ */
+static const struct {
+        codec_t src;
+        AVPixelFormat dst;
+        pixfmt_callback_t func;
+} conversions[] = {
+        { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
+        { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
+        { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+        { UYVY, AV_PIX_FMT_YUV422P, to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUVJ422P, to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUV420P, to_yuv420p },
+        { UYVY, AV_PIX_FMT_YUVJ420P, to_yuv420p },
+        { UYVY, AV_PIX_FMT_NV12, to_nv12 },
+        { UYVY, AV_PIX_FMT_YUV444P, to_yuv444p },
+        { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
+};
+
+/**
+ * Returns a UltraGrid decoder needed to decode from the UltraGrid codec in
+ * to out with respect to conversions in @ref conversions. Therefore it should
+ * be feasible to convert in to out and then convert out to av (last step may
+ * be omitted if the format is native for both indicated in
+ * ug_to_av_pixfmt_map).
+ */
+decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
+        bool slow[] = {false, true};
+        for (auto use_slow : slow) {
+                for (auto const &i : ug_to_av_pixfmt_map) { // no FFMPEG conversion needed
+                        auto decoder = get_decoder_from_to(in, i.first, use_slow);
+                        if (decoder && i.second == av) {
+                                *out = i.first;
+                                return decoder;
+                        }
+                }
+                for (auto const &conv : conversions) {
+                        auto decoder = get_decoder_from_to(in, conv.src, use_slow);
+                        if (decoder && conv.dst == av) {
+                                *out = conv.src;
+                                return decoder;
+                        }
+                }
+        }
+        assert("Shouldn't reach here because the set of required pixel formats "
+                        "should contain only convertible pixel formats." && 0);
+}
+
+static int get_subsampling(enum AVPixelFormat fmt) {
+        const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(fmt);
+        if (pd->log2_chroma_w == 0 && pd->log2_chroma_h == 0) {
+                return 444;
+        }
+        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 0) {
+                return 422;
+        }
+        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 1) {
+                return 420;
+        }
+        return 0; // other (todo)
+}
+
 ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "* lavc-use-codec=<c>\n"
                 "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
@@ -750,80 +824,110 @@ ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "  for NVENC encoder.\n"
                 "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
                 "  to force 10-bit encoding.\n");
-void fill_requested_pix_fmts(enum AVPixelFormat *fmts, int max_count, struct video_desc in_desc,
+/**
+ * Returns ordered list of codec preferences for input description and
+ * requested_subsampling.
+ */
+list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
                 AVCodec *codec, int requested_subsampling) {
-        int total_pix_fmts = 0;
+        if (get_commandline_param("lavc-use-codec")) {
+                const char *val = get_commandline_param("lavc-use-codec");
+                return {av_get_pix_fmt(val)};
+        }
+
+        list<enum AVPixelFormat> fmts;
 
 #ifdef HWACC_VAAPI
         if (regex_match(codec->name, regex(".*vaapi.*"))) {
-                fmts[total_pix_fmts++] = AV_PIX_FMT_VAAPI;
+                fmts.push_back(AV_PIX_FMT_VAAPI);
         }
 #endif
 
+        // add the format itself if it matches the ultragrid one
         if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
-                fmts[total_pix_fmts++] = ug_to_av_pixfmt_map.find(in_desc.color_spec)->second;
+                fmts.push_back(ug_to_av_pixfmt_map.find(in_desc.color_spec)->second);
         }
 
+        vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
+        for (auto const & i : ug_to_av_pixfmt_map) { // no to FFMPEG conversion, just UG conversion
+                int codec_subsampling = get_subsampling(i.second);
+                if (get_decoder_from_to(in_desc.color_spec, i.first, true)) {
+                        if (requested_subsampling == 0 ||
+                                        requested_subsampling == codec_subsampling) {
+                                available_formats.push_back(i.second);
+                        }
+                }
+        }
+        for (auto const & c : conversions) { // FFMPEG conversion needed
+                int codec_subsampling = get_subsampling(c.dst);
+                if (c.src == in_desc.color_spec ||
+                                get_decoder_from_to(in_desc.color_spec, c.src, true)) {
+                        if (requested_subsampling == 0 ||
+                                        requested_subsampling == codec_subsampling) {
+                                available_formats.push_back(c.dst);
+                        }
+                }
+        }
+
+        int bits_per_comp = get_bits_per_component(in_desc.color_spec);
+        bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
+        int preferred_subsampling = requested_subsampling;
         if (requested_subsampling == 0) {
-                // for interlaced formats, it is better to use either 422 or 444
                 if (in_desc.interlacing == INTERLACED_MERGED) {
-                        // 422
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        // 444
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                        // 420
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
+                        preferred_subsampling = 422;
                 } else {
-                        // 420
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
-                        // 422
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        // 444
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                }
-        } else {
-                switch (requested_subsampling) {
-                case 420:
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts420_8, sizeof(fmts420_8));
-                        total_pix_fmts += sizeof(fmts420_8) / sizeof(enum AVPixelFormat);
-                        break;
-                case 422:
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts422_8, sizeof(fmts422_8));
-                        total_pix_fmts += sizeof(fmts422_8) / sizeof(enum AVPixelFormat);
-                        break;
-                case 444:
-                        memcpy(fmts + total_pix_fmts,
-                                        fmts444_8, sizeof(fmts444_8));
-                        total_pix_fmts += sizeof(fmts444_8) / sizeof(enum AVPixelFormat);
-                        break;
-                default:
-                        abort();
+                        preferred_subsampling = 420;
                 }
         }
+        // sort
+        sort(available_formats.begin(), available_formats.end(), [bits_per_comp, is_rgb, preferred_subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
+                const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
+                const struct AVPixFmtDescriptor *pdb = av_pix_fmt_desc_get(b);
+                int deptha = pda->comp[0].depth;
+                int depthb = pdb->comp[0].depth;
+                bool rgba = pda->flags & AV_PIX_FMT_FLAG_RGB;
+                bool rgbb = pdb->flags & AV_PIX_FMT_FLAG_RGB;
+                int subsa = get_subsampling(a);
+                int subsb = get_subsampling(b);
 
-        if (get_commandline_param("lavc-use-codec")) {
-                const char *val = get_commandline_param("lavc-use-codec");
-                fmts[0] = av_get_pix_fmt(val);
-                total_pix_fmts = 1;
+                if (rgba != rgbb) {
+                        if (rgba == is_rgb) {
+                                return true;
+                        }
+                        return false;
+                }
+                if (deptha != depthb) {
+                        if (deptha == bits_per_comp) {
+                                return true;
+                        }
+                        if (depthb == bits_per_comp) {
+                                return false;
+                        }
+                        if (deptha == 8) { // still default to 8-bit if not found exact bit depth
+                                return true;
+                        }
+                        if (depthb == 8) {
+                                return false;
+                        }
+                        return deptha > depthb;
+                }
+                if (subsa != subsb) {
+                        if (subsa == preferred_subsampling) {
+                                return true;
+                        }
+                        if (subsb == preferred_subsampling) {
+                                return false;
+                        }
+                        return subsa > subsb;
+                }
+                return a < b;
+                        });
+
+        for (auto &c : available_formats) {
+                fmts.push_back(c);
         }
 
-        fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
-
-        assert(total_pix_fmts <= max_count);
+        return fmts;
 }
 
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
@@ -892,16 +996,14 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 get_codec_name(ug_codec), codec->name);
         }
 
-        enum AVPixelFormat requested_pix_fmts[100];
-        int max_pix_fmts = sizeof requested_pix_fmts / sizeof requested_pix_fmts[0];
-        fill_requested_pix_fmts(requested_pix_fmts, max_pix_fmts, desc, codec, s->requested_subsampling);
+        list<enum AVPixelFormat> requested_pix_fmts;
+        requested_pix_fmts = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
 
         // Try to open the codec context
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        const AVPixelFormat *pix_fmt_iterator = requested_pix_fmts;
-        while ((pix_fmt = get_first_matching_pix_fmt(&pix_fmt_iterator, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmts, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
 		// avcodec_alloc_context3 allocates context and sets default value
 		s->codec_ctx = avcodec_alloc_context3(codec);
 		if (!s->codec_ctx) {
@@ -955,45 +1057,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
 
-        s->decoder = nullptr;
-        s->decoded_codec = UYVY; // most compressions use 8-bit YUV formats internally
         if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
                         && s->selected_pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
                 s->decoded_codec = desc.color_spec;
                 s->decoder = (decoder_t)(void *) memcpy;
-        }
-        if (s->decoder == nullptr) {
-                switch(desc.color_spec) {
-                        case UYVY:
-                                s->decoder = (decoder_t) (void *) memcpy;
-                                break;
-                        case YUYV:
-                                s->decoder = (decoder_t) vc_copylineYUYV;
-                                break;
-                        case v210:
-                                if (s->selected_pixfmt == AV_PIX_FMT_YUV420P10LE ||
-                                                s->selected_pixfmt == AV_PIX_FMT_YUV422P10LE ||
-                                                s->selected_pixfmt == AV_PIX_FMT_YUV444P10LE) {
-                                        s->decoded_codec = v210;
-                                        s->decoder = (decoder_t)(void *) memcpy;
-                                } else {
-                                        s->decoder = (decoder_t) vc_copylinev210;
-                                }
-                                break;
-                        case RGB:
-                                s->decoder = (decoder_t) vc_copylineRGBtoUYVY;
-                                break;
-                        case BGR:
-                                s->decoder = (decoder_t) vc_copylineBGRtoUYVY;
-                                break;
-                        case RGBA:
-                                s->decoder = (decoder_t) vc_copylineRGBAtoUYVY;
-                                break;
-                        default:
-                                log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unable to find "
-                                                "appropriate pixel format.\n");
-                                return false;
-                }
+        } else {
+                s->decoder = get_decoder_from_uv_to_uv(desc.color_spec, s->selected_pixfmt, &s->decoded_codec);
         }
 
         s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
@@ -1323,23 +1392,6 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
                 }
         }
 }
-
-static const struct {
-        codec_t src;
-        AVPixelFormat dst;
-        pixfmt_callback_t func;
-} conversions[] = {
-        { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
-        { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
-        { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-        { UYVY, AV_PIX_FMT_YUV422P, to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUVJ422P, to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUV420P, to_yuv420p },
-        { UYVY, AV_PIX_FMT_YUVJ420P, to_yuv420p },
-        { UYVY, AV_PIX_FMT_NV12, to_nv12 },
-        { UYVY, AV_PIX_FMT_YUV444P, to_yuv444p },
-        { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
-};
 
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
         // no conversion needed

@@ -2167,6 +2167,8 @@ static const struct decoder_item decoders[] = {
 
 /**
  * Returns line decoder for specifiedn input and output codec.
+ *
+ * @param[in] slow  include also slow decoders
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 {
