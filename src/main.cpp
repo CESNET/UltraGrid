@@ -951,6 +951,11 @@ int main(int argc, char *argv[])
                 audio_host = requested_receiver;
         }
 
+        if (!is_ipv6_supported()) {
+                log_msg(LOG_LEVEL_WARNING, "IPv6 support missing, setting IPv4-only mode.\n");
+                force_ip_version = 4;
+        }
+
         if (!set_output_buffering()) {
                 log_msg(LOG_LEVEL_WARNING, "Cannot set console output buffering!\n");
         }

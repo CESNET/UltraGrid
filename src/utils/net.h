@@ -49,6 +49,7 @@ bool is_addr_multicast(const char *addr);
 bool is_host_loopback(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
+bool is_ipv6_supported(void);
 
 #ifdef WIN32
 #define CLOSESOCKET closesocket
