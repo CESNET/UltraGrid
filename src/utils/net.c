@@ -297,3 +297,13 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 #endif
 }
 
+bool is_ipv6_supported(void)
+{
+        int fd = socket(AF_INET6, SOCK_DGRAM, 0);
+        if (fd == INVALID_SOCKET && errno == EAFNOSUPPORT) {
+                return false;
+        }
+        CLOSESOCKET(fd);
+        return true;
+}
+
