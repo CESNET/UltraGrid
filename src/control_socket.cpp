@@ -173,45 +173,58 @@ int control_init(int port, int connection_type, struct control_state **state, st
         }
 
         if(s->connection_type == SERVER) {
+                bool ipv6_missing;
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+                if (s->socket_fd == INVALID_SOCKET && errno == EAFNOSUPPORT) { // try IPv4
+                        s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+                        ipv6_missing = true;
+                }
                 if (s->socket_fd == INVALID_SOCKET) {
                         perror("Control socket - socket");
+                        goto error;
+                }
+                int val = 1;
+                int rc;
+                rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                (sso_val_type) &val, sizeof(val));
+                if (rc != 0) {
+                        perror("Control socket - setsockopt");
+                }
+
+                int ipv6only = 0;
+                if (!ipv6_missing && setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                        sizeof(ipv6only)) != 0) {
+                        perror("setsockopt IPV6_V6ONLY");
+                }
+
+                /* setting address to in6addr_any allows connections to be established
+                 * from both IPv4 and IPv6 hosts. This behavior can be modified
+                 * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
+                struct sockaddr_storage s_in;
+                memset(&s_in, 0, sizeof(s_in));
+                if(ipv6_missing) {
+                        struct sockaddr_in *s_in = (struct sockaddr_in *) &s_in;
+                        s_in->sin_family = AF_INET;
+                        s_in->sin_addr.s_addr = htonl(INADDR_ANY);
+                        s_in->sin_port = htons(s->network_port);
                 } else {
-                        int val = 1;
-                        int rc;
-                        rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                                        (sso_val_type) &val, sizeof(val));
+                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                        s_in6->sin6_family = AF_INET6;
+                        s_in6->sin6_addr = in6addr_any;
+                        s_in6->sin6_port = htons(s->network_port);
+                }
+
+                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                if (rc != 0) {
+                        perror("Control socket - bind");
+                        CLOSESOCKET(s->socket_fd);
+                        s->socket_fd = INVALID_SOCKET;
+                } else {
+                        rc = listen(s->socket_fd, MAX_CLIENTS);
                         if (rc != 0) {
-                                perror("Control socket - setsockopt");
-                        }
-
-                        int ipv6only = 0;
-                        if (setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
-                                         sizeof(ipv6only)) != 0) {
-                                perror("setsockopt IPV6_V6ONLY");
-                        }
-
-                        /* setting address to in6addr_any allows connections to be established
-                         * from both IPv4 and IPv6 hosts. This behavior can be modified
-                         * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-                        struct sockaddr_in6 s_in;
-                        memset(&s_in, 0, sizeof(s_in));
-                        s_in.sin6_family = AF_INET6;
-                        s_in.sin6_addr = in6addr_any;
-                        s_in.sin6_port = htons(s->network_port);
-
-                        rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-                        if (rc != 0) {
-                                perror("Control socket - bind");
+                                perror("Control socket - listen");
                                 CLOSESOCKET(s->socket_fd);
                                 s->socket_fd = INVALID_SOCKET;
-                        } else {
-                                rc = listen(s->socket_fd, MAX_CLIENTS);
-                                if (rc != 0) {
-                                        perror("Control socket - listen");
-                                        CLOSESOCKET(s->socket_fd);
-                                        s->socket_fd = INVALID_SOCKET;
-                                }
                         }
                 }
         } else {
@@ -250,6 +263,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 }
         }
 
+error:
         if (s->socket_fd == INVALID_SOCKET) {
                 delete s;
                 return -1;
