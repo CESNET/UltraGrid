@@ -99,7 +99,7 @@ struct control_state {
 
         enum connection_type connection_type;
 
-        fd_t socket_fd;
+        fd_t socket_fd = INVALID_SOCKET;
 
         bool started;
 
@@ -152,7 +152,7 @@ static void new_message(struct module *m) {
         }
 }
 
-int control_init(int port, int connection_type, struct control_state **state, struct module *root_module)
+int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version)
 {
         control_state *s = new control_state();
 
@@ -173,11 +173,13 @@ int control_init(int port, int connection_type, struct control_state **state, st
         }
 
         if(s->connection_type == SERVER) {
-                bool ipv6_missing;
-                s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
-                if (s->socket_fd == INVALID_SOCKET && errno == EAFNOSUPPORT) { // try IPv4
+                int ip_version = 6;
+                if (force_ip_version != 4) {
+                        s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+                }
+                if (force_ip_version == 4 || (s->socket_fd == INVALID_SOCKET && errno == EAFNOSUPPORT)) { // try IPv4
+                        ip_version = 4;
                         s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-                        ipv6_missing = true;
                 }
                 if (s->socket_fd == INVALID_SOCKET) {
                         perror("Control socket - socket");
@@ -192,7 +194,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 }
 
                 int ipv6only = 0;
-                if (!ipv6_missing && setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                if (ip_version == 6 && setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                         sizeof(ipv6only)) != 0) {
                         perror("setsockopt IPV6_V6ONLY");
                 }
@@ -202,7 +204,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                  * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
                 struct sockaddr_storage s_in;
                 memset(&s_in, 0, sizeof(s_in));
-                if(ipv6_missing) {
+                if (ip_version == 4) {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) &s_in;
                         s_in->sin_family = AF_INET;
                         s_in->sin_addr.s_addr = htonl(INADDR_ANY);
@@ -228,6 +230,10 @@ int control_init(int port, int connection_type, struct control_state **state, st
                         }
                 }
         } else {
+                if (force_ip_version == 6) {
+                        log_msg(LOG_LEVEL_ERROR, "Control socket: IPv6 unimplemented in client mode!\n");
+                        return -1;
+                }
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 assert(s->socket_fd != INVALID_SOCKET);
                 struct addrinfo hints, *res, *res0;
