@@ -55,9 +55,11 @@ struct control_state;
 struct module;
 
 /**
+ * @param[in] force_ip_version IP version to force (4 or 6). Use 0 to
+ *                             use default (both 4 and 6 if available)
  * @retval 0 if success
  */
-int control_init(int port, int connection_type, struct control_state **state, struct module *root_module);
+int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version);
 void control_start(struct control_state *state);
 void control_done(struct control_state *s);
 void control_report_stats(struct control_state *state, const std::string & stat_line);

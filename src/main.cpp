@@ -1058,8 +1058,8 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
 
-        if (control_init(control_port, connection_type, &control, &uv.root_module) != 0) {
-                fprintf(stderr, "Error: Unable to initialize remote control!\n");
+        if (control_init(control_port, connection_type, &control, &uv.root_module, force_ip_version) != 0) {
+                LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 return EXIT_FAIL_CONTROL_SOCK;
         }
 
