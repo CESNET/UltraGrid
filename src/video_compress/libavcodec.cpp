@@ -110,7 +110,7 @@ static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
         enum AVCodecID av_codec;
-        const char *prefered_encoder; ///< can be nullptr
+        const char *(*get_prefered_encoder)(bool is_rgb); ///< can be nullptr
         double avg_bpp;
         string (*get_preset)(string const & enc_name, int width, int height, double fps);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
@@ -135,7 +135,7 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         { H264, codec_params_t{
                 AV_CODEC_ID_H264,
-                "libx264",
+                [](bool is_rgb) { return is_rgb ? "libx264rgb" : "libx264"; },
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
@@ -144,7 +144,7 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         }},
         { H265, codec_params_t{
                 AV_CODEC_ID_HEVC,
-                "libx265", //nullptr,
+                [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 get_h264_h265_preset,
                 setparam_h264_h265
@@ -974,8 +974,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         // Else, try to open prefered encoder for requested codec
-        if (!codec && codec_params[ug_codec].prefered_encoder) {
-                const char *prefered_encoder = codec_params[ug_codec].prefered_encoder;
+        if (!codec && codec_params[ug_codec].get_prefered_encoder) {
+                const char *prefered_encoder = codec_params[ug_codec].get_prefered_encoder(
+                                codec_is_a_rgb(desc.color_spec));
                 codec = avcodec_find_encoder_by_name(prefered_encoder);
                 if (!codec) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
