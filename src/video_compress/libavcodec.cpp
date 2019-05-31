@@ -1766,10 +1766,16 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int ret;
+
         ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
+        if (ret != 0) { // older FFMPEG had only cbr
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Cannot set RC %s. Trying cbr.\n", DEFAULT_NVENC_RC);
+                ret = av_opt_set(codec_ctx->priv_data, "rc", "cbr", 0);
+        }
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set RC.\n");
         }
+
         ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "0", 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to unset spatial AQ.\n");
