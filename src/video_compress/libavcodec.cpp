@@ -131,6 +131,13 @@ static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int h
 static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+
+typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
+static void usage(void);
+static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
+static void cleanup(struct state_video_compress_libav *s);
 
 static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         { H264, codec_params_t{
@@ -250,21 +257,6 @@ struct state_video_compress_libav {
         bool hwenc;
         AVFrame *hwframe;
 };
-
-static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void to_yuv422p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void to_yuv444p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
-
-
-static void usage(void);
-static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
-static void cleanup(struct state_video_compress_libav *s);
 
 static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 {
@@ -773,6 +765,7 @@ static const struct {
         { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
         { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
         { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+        { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
         { UYVY, AV_PIX_FMT_YUV422P, to_yuv422p },
         { UYVY, AV_PIX_FMT_YUVJ422P, to_yuv422p },
         { UYVY, AV_PIX_FMT_YUV420P, to_yuv420p },
@@ -845,11 +838,11 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
 
         list<enum AVPixelFormat> fmts;
 
-#ifdef HWACC_VAAPI
         if (regex_match(codec->name, regex(".*vaapi.*"))) {
+#ifdef HWACC_VAAPI
                 fmts.push_back(AV_PIX_FMT_VAAPI);
-        }
 #endif
+        }
 
         // add the format itself if it matches the ultragrid one
         if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
@@ -1398,6 +1391,65 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
                         *dst_cr++ = w0_2 & 0x3ff;
                         *dst_cr++ = (w0_3 >> 10) & 0x3ff;
                         *dst_cr++ = (w0_3 >> 10) & 0x3ff;
+                }
+        }
+}
+
+static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        for(int y = 0; y < height; y += 2) {
+                /*  every even row */
+                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                /*  every odd row */
+                uint32_t *src2 = (uint32_t *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
+                uint16_t *dst_cbcr = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
+                for(int x = 0; x < width / 6; ++x) {
+			//block 1, bits  0 -  9: U0+0
+			//block 1, bits 10 - 19: Y0
+			//block 1, bits 20 - 29: V0+1
+			//block 2, bits  0 -  9: Y1
+			//block 2, bits 10 - 19: U2+3
+			//block 2, bits 20 - 29: Y2
+			//block 3, bits  0 -  9: V2+3
+			//block 3, bits 10 - 19: Y3
+			//block 3, bits 20 - 29: U4+5
+			//block 4, bits  0 -  9: Y4
+			//block 4, bits 10 - 19: V4+5
+			//block 4, bits 20 - 29: Y5
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src++;
+                        w0_1 = *src++;
+                        w0_2 = *src++;
+                        w0_3 = *src++;
+                        w1_0 = *src2++;
+                        w1_1 = *src2++;
+                        w1_2 = *src2++;
+                        w1_3 = *src2++;
+
+                        *dst_y++ = ((w0_0 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_1 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_1 >> 20) & 0x3ff) << 6;
+                        *dst_y++ = ((w0_2 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_3 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_3 >> 20) & 0x3ff) << 6;
+
+                        *dst_y2++ = ((w1_0 >> 10) & 0x3ff) << 6;
+                        *dst_y2++ = (w1_1 & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_1 >> 20) & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_2 >> 10) & 0x3ff) << 6;
+                        *dst_y2++ = (w1_3 & 0x3ff) << 6;
+                        *dst_y2++ = ((w1_3 >> 20) & 0x3ff) << 6;
+
+                        *dst_cbcr++ = (((w0_0 & 0x3ff) + (w1_0 & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = ((((w0_0 >> 20) & 0x3ff) + ((w1_0 >> 20) & 0x3ff)) / 2) << 6; // Cr
+                        *dst_cbcr++ = ((((w0_1 >> 10) & 0x3ff) + ((w1_1 >> 10) & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = (((w0_2 & 0x3ff) + (w1_2 & 0x3ff)) / 2) << 6; // Cr
+                        *dst_cbcr++ = ((((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2) << 6; // Cb
+                        *dst_cbcr++ = ((((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2) << 6; // Cr
                 }
         }
 }
