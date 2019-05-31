@@ -104,6 +104,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "perf.h"
+#include "rang.hpp"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -138,6 +139,7 @@
 
 #define FRAMEBUFFER_NOT_READY(decoder) (decoder->frame == NULL && decoder->out_codec != VIDEO_CODEC_END)
 
+using rang::style;
 using namespace std;
 
 struct state_video_decoder;
@@ -209,17 +211,29 @@ struct reported_statistics_cumul {
         unsigned long long int     nano_per_frame_expected = 0;
         unsigned long int     reported_frames = 0;
         void print() {
-                char buff[256];
-                int bytes = sprintf(buff, "Video dec stats (cumulative): %lu total / %lu disp / %lu "
-                                "drop / %lu corr / %lu missing.",
-                                displayed + dropped + missing,
-                                displayed, dropped, corrupted,
-                                missing);
-                if (fec_ok + fec_nok + fec_corrected > 0)
-                        sprintf(buff + bytes, " FEC noerr/OK/NOK: %ld/%ld/%ld\n", fec_ok, fec_corrected, fec_nok);
-                else
-                        sprintf(buff + bytes, "\n");
-                log_msg(LOG_LEVEL_INFO, buff);
+                if (log_level < LOG_LEVEL_INFO) {
+                        return;
+                }
+                cerr << style::underline << "Video dec stats" << style::reset << " (cumulative): "
+                        << style::bold << displayed + dropped + missing << style::reset
+                        << " total / "
+                        << style::bold << displayed << style::reset
+                        << " disp / "
+                        << style::bold << dropped << style::reset
+                        << " drop / "
+                        << style::bold << corrupted << style::reset
+                        << " corr / "
+                        << style::bold << missing << style::reset
+                        << " missing.";
+                if (fec_ok + fec_nok + fec_corrected > 0) {
+                        cerr << " FEC noerr/OK/NOK: "
+                                << style::bold << fec_ok << style::reset
+                                << "/"
+                                << style::bold << fec_corrected << style::reset
+                                << "/"
+                                << style::bold << fec_nok << style::reset;
+                }
+                cerr << "\n";
         }
 };
 
