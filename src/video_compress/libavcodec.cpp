@@ -1477,7 +1477,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
                 unsigned char *line2 = (unsigned char *) s->decoded;
                 int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
-                int dst_linesize = tx->tiles[0].width * 2; /* UYVY */
+                int dst_linesize = vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
                 for (int i = 0; i < (int) tx->tiles[0].height; ++i) {
                         s->decoder(line2, line1, dst_linesize,
                                         0, 8, 16);
