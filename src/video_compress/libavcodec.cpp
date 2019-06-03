@@ -132,6 +132,8 @@ static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int 
 static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
@@ -773,6 +775,8 @@ static const struct {
         { UYVY, AV_PIX_FMT_NV12, to_nv12 },
         { UYVY, AV_PIX_FMT_YUV444P, to_yuv444p },
         { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
+        { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
+        { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
 };
 
 /**
@@ -1450,6 +1454,33 @@ static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width
                         *dst_cbcr++ = (((w0_2 & 0x3ff) + (w1_2 & 0x3ff)) / 2) << 6; // Cr
                         *dst_cbcr++ = ((((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2) << 6; // Cb
                         *dst_cbcr++ = ((((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2) << 6; // Cr
+                }
+        }
+}
+
+static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, RGB);
+        int dst_linesize = vc_get_linesize(width, RGBA);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
+                vc_copylineRGBtoRGBA(dst, src, dst_linesize, 16, 8, 0);
+        }
+}
+
+static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, RGB);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                unsigned char *dst_b = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_g = out_frame->data[1] + out_frame->linesize[1] * y;
+                unsigned char *dst_r = out_frame->data[2] + out_frame->linesize[2] * y;
+                for (int x = 0; x < width; ++x) {
+                        *dst_r++ = *src++;
+                        *dst_g++ = *src++;
+                        *dst_b++ = *src++;
                 }
         }
 }
