@@ -479,6 +479,41 @@ static void gbrp_to_rgba(char *dst_buffer, AVFrame *frame,
         }
 }
 
+static void gbrp10le_to_r10k(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                for (int x = 0; x < width; ++x) {
+			*dst++ = *src_r >> 2;
+			*dst++ = (*src_r++ & 0x3) << 6 | *src_g >> 4;
+			*dst++ = (*src_g++ & 0xf) << 4 | *src_b >> 6;
+			*dst++ = (*src_b++ & 0x3f) << 2;
+                }
+        }
+}
+
+static void gbrp10le_to_rgb(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                for (int x = 0; x < width; ++x) {
+			*dst++ = *src_r++ >> 2;
+			*dst++ = *src_g++ >> 2;
+			*dst++ = *src_b++ >> 2;
+                }
+        }
+}
+
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[static restrict 3])
 {
@@ -1206,6 +1241,8 @@ static const struct {
         {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
+        {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
+        {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
 #ifdef HWACC_VDPAU
         // HW acceleration
         {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
@@ -1376,7 +1413,6 @@ static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
-        UNUSED(internal_codec);
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int len, got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
@@ -1499,12 +1535,13 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 return DECODER_GOT_CODEC;
         }
 
-        // codec doesn't call get_format_callback (J2K)
+        // codec doesn't call get_format_callback (J2K, 10-bit RGB HEVC)
         if (s->out_codec == VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
                 if (has_conversion(s->codec_ctx->pix_fmt, internal_codec)) {
                         s->internal_codec = *internal_codec;
+                        return DECODER_GOT_CODEC;
                 }
-                return DECODER_GOT_CODEC;
+                return DECODER_CANT_DECODE;
         }
 
         if (s->blacklist_vdpau) {
@@ -1560,6 +1597,8 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
         { VIDEO_CODEC_NONE, RGB, RGB, 500 },
         { VIDEO_CODEC_NONE, RGB, RGBA, 500 },
+        { VIDEO_CODEC_NONE, R10k, RGB, 500 },
+        { VIDEO_CODEC_NONE, R10k, R10k, 500 },
         //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
         { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },

@@ -134,6 +134,7 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
 static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
@@ -777,6 +778,7 @@ static const struct {
         { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
         { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
+        { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
 };
 
 /**
@@ -1481,6 +1483,26 @@ static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, i
                         *dst_r++ = *src++;
                         *dst_g++ = *src++;
                         *dst_b++ = *src++;
+                }
+        }
+}
+
+static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, R10k);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                uint16_t *dst_b = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_g = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                for (int x = 0; x < width; ++x) {
+                        unsigned char w0 = *src++;
+                        unsigned char w1 = *src++;
+                        unsigned char w2 = *src++;
+                        unsigned char w3 = *src++;
+                        *dst_r++ = w0 << 2 | w1 >> 6;
+                        *dst_g++ = (w1 & 0x3f) << 4 | w2 >> 4;
+                        *dst_b++ = (w2 & 0xf) << 6 | w3 >> 2;
                 }
         }
 }
