@@ -625,9 +625,13 @@ fail:
  * Iterates over formats in req_pix_fmts and tries to find the same format in
  * second list, codec_pix_fmts. If found, returns that format. Efectivelly
  * select first match of item from first list in second list.
+ *
+ * @note
+ * Unusable pixel formats and a currently selected one are removed from
+ * req_pix_fmts.
  */
 static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
-                req_pix_fmts, const enum AVPixelFormat *codec_pix_fmts)
+                &req_pix_fmts, const enum AVPixelFormat *codec_pix_fmts)
 {
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
@@ -649,13 +653,17 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
                 log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
         }
 
-        for (auto &req : req_pix_fmts) {
+        for (auto it = req_pix_fmts.begin(); it != req_pix_fmts.end(); ) {
                 const enum AVPixelFormat *tmp = codec_pix_fmts;
                 enum AVPixelFormat fmt;
                 while((fmt = *tmp++) != AV_PIX_FMT_NONE) {
-                        if(fmt == req)
-                                return req;
+                        if (fmt == *it) {
+                                enum AVPixelFormat ret = *it;
+                                req_pix_fmts.erase(it);
+                                return ret;
+                        }
                 }
+                it = req_pix_fmts.erase(it);
         }
 
         return AV_PIX_FMT_NONE;
