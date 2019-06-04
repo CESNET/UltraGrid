@@ -513,6 +513,109 @@ static void gbrp10le_to_rgb(char *dst_buffer, AVFrame *frame,
                 }
         }
 }
+static void gbrp10le_to_rgba(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+		uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
+                for (int x = 0; x < width; ++x) {
+			*dst++ = (*src_r++ >> 2) << rgb_shift[0] | (*src_g++ >> 2) << rgb_shift[1] |
+                                (*src_b++ >> 2) << rgb_shift[2];
+                }
+        }
+}
+
+#ifdef WORDS_BIGENDIAN
+#define BYTE_SWAP(x) (3 - x)
+#else
+#define BYTE_SWAP(x) x
+#endif
+
+static void gbrp12le_to_r12l(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                for (int x = 0; x < width; x += 8) {
+                        dst[BYTE_SWAP(0)] = *src_r & 0xff;
+                        dst[BYTE_SWAP(1)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
+                        dst[BYTE_SWAP(2)] = *src_g++ >> 4;
+                        dst[BYTE_SWAP(3)] = *src_b & 0xff;
+                        dst[4 + BYTE_SWAP(0)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
+                        dst[4 + BYTE_SWAP(1)] = *src_r++ >> 4;
+                        dst[4 + BYTE_SWAP(2)] = *src_g & 0xff;
+                        dst[4 + BYTE_SWAP(3)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
+                        dst[8 + BYTE_SWAP(0)] = *src_b++ >> 4;
+                        dst[8 + BYTE_SWAP(1)] = *src_r & 0xff;
+                        dst[8 + BYTE_SWAP(2)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
+                        dst[8 + BYTE_SWAP(3)] = *src_g++ >> 4;
+                        dst[12 + BYTE_SWAP(0)] = *src_b & 0xff;
+                        dst[12 + BYTE_SWAP(1)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
+                        dst[12 + BYTE_SWAP(2)] = *src_r++ >> 4;
+                        dst[12 + BYTE_SWAP(3)] = *src_g & 0xff;
+                        dst[16 + BYTE_SWAP(0)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
+                        dst[16 + BYTE_SWAP(1)] = *src_b++ >> 4;
+                        dst[16 + BYTE_SWAP(2)] = *src_r & 0xff;
+                        dst[16 + BYTE_SWAP(3)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
+                        dst[20 + BYTE_SWAP(0)] = *src_g++ >> 4;
+                        dst[20 + BYTE_SWAP(1)] = *src_b & 0xff;
+                        dst[20 + BYTE_SWAP(2)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
+                        dst[20 + BYTE_SWAP(3)] = *src_r++ >> 4;;
+                        dst[24 + BYTE_SWAP(0)] = *src_g & 0xff;
+                        dst[24 + BYTE_SWAP(1)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
+                        dst[24 + BYTE_SWAP(2)] = *src_b++ >> 4;
+                        dst[24 + BYTE_SWAP(3)] = *src_r & 0xff;
+                        dst[28 + BYTE_SWAP(0)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
+                        dst[28 + BYTE_SWAP(1)] = *src_g++ >> 4;
+                        dst[28 + BYTE_SWAP(2)] = *src_b & 0xff;
+                        dst[28 + BYTE_SWAP(3)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
+                        dst[32 + BYTE_SWAP(0)] = *src_r++ >> 4;
+                        dst[32 + BYTE_SWAP(1)] = *src_g & 0xff;
+                        dst[32 + BYTE_SWAP(2)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
+                        dst[32 + BYTE_SWAP(3)] = *src_b++ >> 4;
+                        dst += 36;
+                }
+        }
+}
+
+static void gbrp12le_to_rgb(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                for (int x = 0; x < width; ++x) {
+                        *dst++ = *src_r++ >> 4;
+                        *dst++ = *src_g++ >> 4;
+                        *dst++ = *src_b++ >> 4;
+                }
+        }
+}
+
+static void gbrp12le_to_rgba(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
+                for (int x = 0; x < width; ++x) {
+			*dst++ = (*src_r++ >> 4) << rgb_shift[0] | (*src_g++ >> 4) << rgb_shift[1] |
+                                (*src_b++ >> 4) << rgb_shift[2];
+                }
+        }
+}
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[static restrict 3])
@@ -1243,6 +1346,10 @@ static const struct {
         {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
+        {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
+        {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
+        {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
+        {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
 #ifdef HWACC_VDPAU
         // HW acceleration
         {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
@@ -1597,8 +1704,12 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
         { VIDEO_CODEC_NONE, RGB, RGB, 500 },
         { VIDEO_CODEC_NONE, RGB, RGBA, 500 },
-        { VIDEO_CODEC_NONE, R10k, RGB, 500 },
         { VIDEO_CODEC_NONE, R10k, R10k, 500 },
+        { VIDEO_CODEC_NONE, R10k, RGB, 500 },
+        { VIDEO_CODEC_NONE, R10k, RGBA, 500 },
+        { VIDEO_CODEC_NONE, R12L, R12L, 500 },
+        { VIDEO_CODEC_NONE, R12L, RGB, 500 },
+        { VIDEO_CODEC_NONE, R12L, RGBA, 500 },
         //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
         { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },

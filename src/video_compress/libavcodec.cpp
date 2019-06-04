@@ -135,6 +135,7 @@ static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width
 static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void r12l_to_gbrp12le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
@@ -779,6 +780,7 @@ static const struct {
         { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
+        { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 };
 
 /**
@@ -1503,6 +1505,86 @@ static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int wid
                         *dst_r++ = w0 << 2 | w1 >> 6;
                         *dst_g++ = (w1 & 0x3f) << 4 | w2 >> 4;
                         *dst_b++ = (w2 & 0xf) << 6 | w3 >> 2;
+                }
+        }
+}
+
+#ifdef WORDS_BIGENDIAN
+#define BYTE_SWAP(x) (3 - x)
+#else
+#define BYTE_SWAP(x) x
+#endif
+
+static void r12l_to_gbrp12le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, R12L);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                uint16_t *dst_b = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_g = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+		for (int x = 0; x < width; x += 8) {
+			uint16_t tmp;
+			tmp = src[BYTE_SWAP(0)];
+			tmp |= (src[BYTE_SWAP(1)] & 0xf) << 8;
+			*dst_r++ = tmp; // r0
+			*dst_g++ = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // g0
+			tmp = src[BYTE_SWAP(3)];
+			src += 4;
+			tmp |= (src[BYTE_SWAP(0)] & 0xf) << 8;
+			*dst_b++ = tmp; // b0
+			*dst_r++ = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // r1
+			tmp = src[BYTE_SWAP(2)];
+			tmp |= (src[BYTE_SWAP(3)] & 0xf) << 8;
+			*dst_g++ = tmp; // g1
+			tmp = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+			*dst_b++ = src[BYTE_SWAP(0)] << 4 | tmp; // b1
+			tmp = src[BYTE_SWAP(1)];
+			tmp |= (src[BYTE_SWAP(2)] & 0xf) << 8;
+			*dst_r++ = tmp; // r2
+			*dst_g++ = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // g2
+			src += 4;
+			tmp = src[BYTE_SWAP(0)];
+			tmp |= (src[BYTE_SWAP(1)] & 0xf) << 8;
+			*dst_b++ = tmp; // b2
+			*dst_r++ = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // r3
+			tmp = src[BYTE_SWAP(3)];
+			src += 4;
+			tmp |= (src[BYTE_SWAP(0)] & 0xf) << 8;
+			*dst_g++ = tmp; // g3
+			*dst_b++ = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // b3
+			tmp = src[BYTE_SWAP(2)];
+			tmp |= (src[BYTE_SWAP(3)] & 0xf) << 8;
+			*dst_r++ = tmp; // r4
+			tmp = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+			*dst_g++ = src[BYTE_SWAP(0)] << 4 | tmp; // g4
+			tmp = src[BYTE_SWAP(1)];
+			tmp |= (src[BYTE_SWAP(2)] & 0xf) << 8;
+			*dst_b++ = tmp; // b4
+			*dst_r++ = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // r5
+			src += 4;
+			tmp = src[BYTE_SWAP(0)];
+			tmp |= (src[BYTE_SWAP(1)] & 0xf) << 8;
+			*dst_g++ = tmp; // g5
+			*dst_b++ = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // b5
+			tmp = src[BYTE_SWAP(3)];
+			src += 4;
+			tmp |= (src[BYTE_SWAP(0)] & 0xf) << 8;
+			*dst_r++ = tmp; // r6
+			*dst_g++ = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // g6
+			tmp = src[BYTE_SWAP(2)];
+			tmp |= (src[BYTE_SWAP(3)] & 0xf) << 8;
+			*dst_b++ = tmp; // b6
+			tmp = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+			*dst_r++ = src[BYTE_SWAP(0)] << 4 | tmp; // r7
+			tmp = src[BYTE_SWAP(1)];
+			tmp |= (src[BYTE_SWAP(2)] & 0xf) << 8;
+			*dst_g++ = tmp; // g7
+			*dst_b++ = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // b7
+			src += 4;
                 }
         }
 }
