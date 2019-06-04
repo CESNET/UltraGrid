@@ -1023,7 +1023,7 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
         // format the string
         auto buffer = (char *) alloca(size + 1);
         va_copy(aq, ap);
-        if (vsprintf(buffer, fmt, ap) == size) {
+        if (vsprintf(buffer, fmt, ap) >= 0) {
                 LOG(LOG_LEVEL_ERROR) << "[GL] " << buffer << "\n";
         }
         va_end(aq);
