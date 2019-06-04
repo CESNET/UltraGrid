@@ -839,6 +839,88 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
 }
 
 /**
+ * @brief Converts from R12L to RGB
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     buffer containing pixels in R12L
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  ignored
+ * @param[in]  gshift  ignored
+ * @param[in]  bshift  ignored
+ */
+void
+vc_copylineR12LtoRGB(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        while (dstlen >= 32) {
+                uint8_t tmp;
+                tmp = src[BYTE_SWAP(0)] >> 4;
+                tmp |= src[BYTE_SWAP(1)] << 4;
+                *dst++ = tmp; // r0
+                *dst++ = src[BYTE_SWAP(2)]; // g0
+                tmp = src[BYTE_SWAP(3)]>> 4;
+                src += 4;
+                tmp |= src[BYTE_SWAP(0)] << 4;
+                *dst++ = tmp; // b0
+                *dst++ = src[BYTE_SWAP(1)]; // r1
+                tmp = src[BYTE_SWAP(2)] >> 4;
+                tmp |= src[BYTE_SWAP(3)] << 4;
+                src += 4;
+                *dst++ = tmp; // g1
+                *dst++ = src[BYTE_SWAP(0)]; // b1
+                tmp = src[BYTE_SWAP(1)] >> 4;
+                tmp |= src[BYTE_SWAP(2)] << 4;
+                *dst++ = tmp; // r2
+                *dst++ = src[BYTE_SWAP(3)]; // g2
+                src += 4;
+                tmp = src[BYTE_SWAP(0)] >> 4;
+                tmp |= src[BYTE_SWAP(1)] << 4;
+                *dst++ = tmp; // b2
+                *dst++ = src[BYTE_SWAP(2)]; // r3
+                tmp = src[BYTE_SWAP(3)] >> 4;
+                src += 4;
+                tmp |= src[BYTE_SWAP(0)] << 4;
+                *dst++ = tmp; // g3
+                *dst++ = src[BYTE_SWAP(1)]; // b3
+                tmp = src[BYTE_SWAP(2)] >> 4;
+                tmp |= src[BYTE_SWAP(3)] << 4;
+                src += 4;
+                *dst++ = tmp; // r4
+                *dst++ = src[BYTE_SWAP(0)]; // g4
+                tmp = src[BYTE_SWAP(1)] >> 4;
+                tmp |= src[BYTE_SWAP(2)] << 4;
+                *dst++ = tmp; // b4
+                *dst++ = src[BYTE_SWAP(3)]; // r5
+                src += 4;
+                tmp = src[BYTE_SWAP(0)] >> 4;
+                tmp |= src[BYTE_SWAP(1)] << 4;
+                *dst++ = tmp; // g5
+                *dst++ = src[BYTE_SWAP(2)]; // b5
+                tmp = src[BYTE_SWAP(3)] >> 4;
+                src += 4;
+                tmp |= src[BYTE_SWAP(0)] << 4;
+                *dst++ = tmp; // r6
+                *dst++ = src[BYTE_SWAP(1)]; // g6
+                tmp = src[BYTE_SWAP(2)] >> 4;
+                tmp |= src[BYTE_SWAP(3)] << 4;
+                src += 4;
+                *dst++ = tmp; // b6
+                *dst++ = src[BYTE_SWAP(0)]; // r7
+                tmp = src[BYTE_SWAP(1)] >> 4;
+                tmp |= src[BYTE_SWAP(2)] << 4;
+                *dst++ = tmp; // g7
+                *dst++ = src[BYTE_SWAP(3)]; // b7
+                src += 4;
+
+                dstlen -= 24;
+        }
+}
+
+/**
  * @brief Converts from R12L to RGBA
  *
  * @param[out] dst     4B-aligned buffer that will contain result
@@ -2161,6 +2243,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
         { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
         { (decoder_t) vc_copylineR12L,        R12L,  RGBA, false },
+        { (decoder_t) vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
