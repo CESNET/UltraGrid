@@ -134,6 +134,7 @@ static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int 
 static void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void rgba_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void r12l_to_gbrp12le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 
@@ -779,6 +780,7 @@ static const struct {
         { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
         { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
+        { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 };
@@ -1473,7 +1475,7 @@ static void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, i
         }
 }
 
-static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+static void rgb_rgba_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height, bool rgba)
 {
         int src_linesize = vc_get_linesize(width, RGB);
         for (int y = 0; y < height; ++y) {
@@ -1485,8 +1487,21 @@ static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, i
                         *dst_r++ = *src++;
                         *dst_g++ = *src++;
                         *dst_b++ = *src++;
+                        if (rgba) {
+                                src++;
+                        }
                 }
         }
+}
+
+static void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        rgb_rgba_to_gbrp(out_frame, in_data, width, height, false);
+}
+
+static void rgba_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+{
+        rgb_rgba_to_gbrp(out_frame, in_data, width, height, true);
 }
 
 static void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height)
