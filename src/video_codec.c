@@ -1808,6 +1808,17 @@ void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst
         }
 }
 
+void vc_copylineRG48toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        uint32_t *dst32 = (uint32_t *) dst;
+        while(dst_len >= 4) {
+                *dst32++ = src[1] << rshift | src[3] << gshift | src[5] << bshift;
+                src += 6;
+                dst_len -= 4;
+        }
+}
+
 /**
  * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)

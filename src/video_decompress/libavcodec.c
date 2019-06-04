@@ -388,13 +388,6 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
                 (struct state_libavcodec_decompress *) state;
 
         s->pitch = pitch;
-        assert(out_codec == UYVY ||
-                        out_codec == RGB ||
-                        out_codec == v210 ||
-                        out_codec == HW_VDPAU ||
-                        out_codec == VIDEO_CODEC_NONE);
-
-        s->pitch = pitch;
         s->rgb_shift[R] = rshift;
         s->rgb_shift[G] = gshift;
         s->rgb_shift[B] = bshift;
@@ -439,13 +432,14 @@ static void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
         }
 }
 
-static void rgb24_to_rgb(char *dst_buffer, AVFrame *frame,
+static void memcpy_data(char *dst_buffer, AVFrame *frame,
                 int width, int height, int pitch, int rgb_shift[static restrict 3])
 {
         UNUSED(rgb_shift);
+        UNUSED(width);
         for (int y = 0; y < height; ++y) {
                 memcpy(dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                vc_get_linesize(width, RGB));
+                                frame->linesize[0]);
         }
 }
 
@@ -614,6 +608,24 @@ static void gbrp12le_to_rgba(char *dst_buffer, AVFrame *frame,
 			*dst++ = (*src_r++ >> 4) << rgb_shift[0] | (*src_g++ >> 4) << rgb_shift[1] |
                                 (*src_b++ >> 4) << rgb_shift[2];
                 }
+        }
+}
+
+static void rgb48le_to_rgba(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        for (int y = 0; y < height; ++y) {
+                vc_copylineRG48toRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                vc_get_linesize(width, RGBA), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+        }
+}
+
+static void rgb48le_to_r12l(char *dst_buffer, AVFrame *frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        for (int y = 0; y < height; ++y) {
+                vc_copylineRG48toR12L((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                vc_get_linesize(width, R12L), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
         }
 }
 
@@ -1343,13 +1355,16 @@ static const struct {
         {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
         {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
-        {AV_PIX_FMT_RGB24, RGB, rgb24_to_rgb, true},
+        {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
         {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
+        {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
+        {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
+        {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
 #ifdef HWACC_VDPAU
         // HW acceleration
         {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
@@ -1485,11 +1500,6 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
-        assert(out_codec == UYVY ||
-                        out_codec == RGB ||
-                        out_codec == v210 ||
-                        out_codec == HW_VDPAU);
-
         void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch, int rgb_shift[static restrict 3]) = NULL;
         for (unsigned int i = 0; i < sizeof convert_funcs / sizeof convert_funcs[0]; ++i) {
                 if (convert_funcs[i].av_codec == av_codec &&
@@ -1710,6 +1720,8 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, R12L, R12L, 500 },
         { VIDEO_CODEC_NONE, R12L, RGB, 500 },
         { VIDEO_CODEC_NONE, R12L, RGBA, 500 },
+        { VIDEO_CODEC_NONE, RG48, RGBA, 500 },
+        { VIDEO_CODEC_NONE, RG48, R12L, 500 },
         //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
         { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },
