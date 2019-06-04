@@ -1554,7 +1554,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 #else
                 got_frame = 0;
                 int ret = avcodec_send_packet(s->codec_ctx, &s->pkt);
-                if (ret == 0) {
+                if (ret == 0 || ret == AVERROR(EAGAIN)) {
                         ret = avcodec_receive_frame(s->codec_ctx, s->frame);
                         if (ret == 0) {
                                 got_frame = 1;
