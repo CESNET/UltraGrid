@@ -462,17 +462,17 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
                 { J2K, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
                 { J2KR, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
                 { J2K, UYVY, UYVY, 300 },
-                { J2K, v210, UYVY, 600 },
+                { J2K, v210, UYVY, 400 },
                 { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
                 { J2KR, RGB, RGB, 300 },
                 { J2KR, RGB, RGBA, 300 },
                 { J2KR, R10k, R10k, 200 },
-                { J2KR, R10k, RGB, 600 },
-                { J2KR, R10k, RGBA, 600 },
+                { J2KR, R10k, RGB, 400 },
+                { J2KR, R10k, RGBA, 400 },
                 { J2KR, R12L, R12L, 100 }, // prefer RGB decoding to 12-bit
-                { J2KR, R12L, R10k, 550 },
-                { J2KR, R12L, RGB, 600 },
-                { J2KR, R12L, RGBA, 600 },
+                { J2KR, R12L, R10k, 400 },
+                { J2KR, R12L, RGB, 400 },
+                { J2KR, R12L, RGBA, 400 },
                 { J2K, VIDEO_CODEC_NONE, UYVY, 800 }, // fallback
                 { J2KR, VIDEO_CODEC_NONE, RGB, 800 }, // ditto
                 { J2KR, VIDEO_CODEC_NONE, RGBA, 800 }, // ditto
