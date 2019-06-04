@@ -1286,6 +1286,99 @@ static void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
         free(tmp);
 }
 
+static void p010le_to_v210(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height / 2; ++y) {
+                uint8_t *src_y1 = (in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint8_t *src_y2 = (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint8_t *src_cbcr = (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
+                uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+
+                for(int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src_cbcr << 2; // Cb0
+                        w1_0 = *src_cbcr << 2;
+                        src_cbcr++; // Cr0
+                        w0_0 = w0_0 | (*src_y1++ << 2) << 10;
+                        w1_0 = w1_0 | (*src_y2++ << 2) << 10;
+                        w0_0 = w0_0 | (*src_cbcr << 2) << 20;
+                        w1_0 = w1_0 | (*src_cbcr << 2) << 20;
+                        src_cbcr++; // Cb1
+
+                        w0_1 = *src_y1++ << 2;
+                        w1_1 = *src_y2++ << 2;
+                        w0_1 = w0_1 | (*src_cbcr << 2) << 10;
+                        w1_1 = w1_1 | (*src_cbcr << 2) << 10;
+                        src_cbcr++; // Cr1
+                        w0_1 = w0_1 | (*src_y1++ << 2) << 20;
+                        w1_1 = w1_1 | (*src_y2++ << 2) << 20;
+
+                        w0_2 = *src_cbcr << 2;
+                        w1_2 = *src_cbcr << 2;
+                        src_cbcr++;
+                        w0_2 = w0_2 | (*src_y1++ << 2) << 10;
+                        w1_2 = w1_2 | (*src_y2++ << 2) << 10;
+                        w0_2 = w0_2 | (*src_cbcr << 2) << 20;
+                        w1_2 = w1_2 | (*src_cbcr << 2) << 20;
+                        src_cbcr++;
+
+                        w0_3 = *src_y1++;
+                        w1_3 = *src_y2++;
+                        w0_3 = w0_3 | (*src_cbcr << 2) << 10;
+                        w1_3 = w1_3 | (*src_cbcr << 2) << 10;
+                        src_cbcr++;
+                        w0_3 = w0_3 | (*src_y1++ << 2) << 20;
+                        w1_3 = w1_3 | (*src_y2++ << 2) << 20;
+
+                        *dst1++ = w0_0;
+                        *dst1++ = w0_1;
+                        *dst1++ = w0_2;
+                        *dst1++ = w0_3;
+
+                        *dst2++ = w1_0;
+                        *dst2++ = w1_1;
+                        *dst2++ = w1_2;
+                        *dst2++ = w1_3;
+                }
+        }
+}
+
+static void p010le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch, int rgb_shift[static restrict 3])
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < (int) height / 2; ++y) {
+                uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint8_t *dst1 = (uint8_t *)(void *)(dst_buffer + (y * 2) * pitch);
+                uint8_t *dst2 = (uint8_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
+
+                for(int x = 0; x < width / 2; ++x) {
+                        uint8_t tmp;
+                        // U
+                        tmp = *src_cbcr++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                        // V
+                        tmp = *src_cbcr++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                }
+        }
+}
+
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[static restrict 3])
@@ -1328,6 +1421,8 @@ static const struct {
         {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
         {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
         {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
+        {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
+        {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
         // 8-bit YUV
         {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
         {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422, true},
