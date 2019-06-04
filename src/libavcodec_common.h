@@ -168,6 +168,7 @@ static const std::unordered_map<codec_t, enum AVPixelFormat, std::hash<int>> ug_
 #endif // __cplusplus
 
 static void print_decoder_error(const char *mod_name, int rc) {
+        char buf[1024];
 	switch (rc) {
 		case 0:
 			break;
@@ -178,7 +179,8 @@ static void print_decoder_error(const char *mod_name, int rc) {
 			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
 			break;
 		default:
-			log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d).\n", mod_name, rc);
+                        av_strerror(rc, buf, 1024);
+                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
 			break;
 	}
 }
