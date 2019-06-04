@@ -69,6 +69,7 @@
 #ifdef MEASUREMENT
 #include <time.h>
 #endif
+#include "utils/misc.h" // to_fourcc
 
 #define DEFAULT_POOL_SIZE 16
 #define DEFAULT_THREAD_COUNT 8
@@ -88,8 +89,8 @@ struct state_video_compress_cineform{
         int requested_threads;
         int requested_pool_size;
 
-        CFHD_EncoderRef encoderRef;
         CFHD_EncoderPoolRef encoderPoolRef;
+        CFHD_MetadataRef metadataRef;
 
         uint32_t frame_seq_in;
         uint32_t frame_seq_out;
@@ -112,6 +113,7 @@ static void cineform_compress_done(struct module *mod){
 
         CFHD_StopEncoderPool(s->encoderPoolRef);
         CFHD_ReleaseEncoderPool(s->encoderPoolRef);
+        CFHD_MetadataClose(s->metadataRef);
 
         s->mutex.unlock();
         delete s;
@@ -191,6 +193,13 @@ static struct module * cineform_compress_init(struct module *parent, const char 
                         nullptr);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create encoder pool\n");
+                delete s;
+                return nullptr;
+        }
+        status = CFHD_MetadataOpen(&s->metadataRef);
+        if(status != CFHD_ERROR_OKAY){
+                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to create metadataRef\n");
+                CFHD_ReleaseEncoderPool(s->encoderPoolRef);
                 delete s;
                 return nullptr;
         }
@@ -330,6 +339,28 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
 
         s->saved_desc = desc;
 
+        status = CFHD_AttachEncoderPoolMetadata(s->encoderPoolRef, s->metadataRef);
+        if(status != CFHD_ERROR_OKAY){
+                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to attach metadata to encoder pool\n");
+        }
+
+        uint32_t fcc_tag = to_fourcc('U', 'G', 'P', 'F');
+        uint32_t val = desc.color_spec;
+        status = CFHD_MetadataAdd(s->metadataRef,
+                                  fcc_tag,
+                                  METADATATYPE_UINT32,
+                                  sizeof(uint32_t),
+                                  &val,
+                                  false);
+        if(status != CFHD_ERROR_OKAY){
+                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to add metadata %u\n", status);
+        }
+
+        status = CFHD_AttachEncoderPoolMetadata(s->encoderPoolRef, s->metadataRef);
+        if(status != CFHD_ERROR_OKAY){
+                log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to attach metadata to encoder pool\n");
+        }
+
         log_msg(LOG_LEVEL_INFO, "[cineform] start encoder pool\n");
         status = CFHD_StartEncoderPool(s->encoderPoolRef);
         if(status != CFHD_ERROR_OKAY){
@@ -452,8 +483,9 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
                 return {};
         }
 
-        while(!s->started)
-                s->cv.wait(lock, [&started = s->started](){return started;});
+        const auto& started = s->started;
+        while(!started)
+                s->cv.wait(lock, [&started](){return started;});
 
         lock.unlock();
 
