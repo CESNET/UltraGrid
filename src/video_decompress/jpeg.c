@@ -145,7 +145,7 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
-#ifdef LIBGPUJPEG_API_VERSION >= 4
+#if LIBGPUJPEG_API_VERSION >= 4
 static decompress_status jpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
 	struct gpujpeg_image_parameters params = { 0 };
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
@@ -186,7 +186,7 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
         int linesize;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-#ifdef LIBGPUJPEG_API_VERSION >= 4
+#if LIBGPUJPEG_API_VERSION >= 4
                 return jpeg_probe_internal_codec(buffer, src_len, internal_codec);
 #else
                 assert("Old GPUJPEG, cannot probe!" && 0);
@@ -272,7 +272,7 @@ static void jpeg_decompress_done(void *state)
 
 static const struct decode_from_to *jpeg_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
-#ifdef LIBGPUJPEG_API_VERSION >= 4
+#if LIBGPUJPEG_API_VERSION >= 4
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
 #endif
 		{ JPEG, RGB, RGB, 300 },
