@@ -86,6 +86,8 @@ extern "C"
 #endif
 #endif
 
+#define MOD_NAME "[lavc] "
+
 using namespace std;
 using namespace rang;
 
@@ -834,16 +836,29 @@ ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
                 "  for NVENC encoder.\n"
                 "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
-                "  to force 10-bit encoding.\n");
+                "  to force 10-bit encoding.\n"
+                "  UltraGrid pixel formats (v210, R10k, UYVY etc.) are also accepted.\n");
 /**
  * Returns ordered list of codec preferences for input description and
  * requested_subsampling.
  */
 list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
                 AVCodec *codec, int requested_subsampling) {
+        codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
+                                                  // of UG conversions (before FFMPEG conversion)
+                                                  // or (likely) no conversion at all
         if (get_commandline_param("lavc-use-codec")) {
                 const char *val = get_commandline_param("lavc-use-codec");
-                return {av_get_pix_fmt(val)};
+                enum AVPixelFormat fmt = av_get_pix_fmt(val);
+                if (fmt != AV_PIX_FMT_NONE) {
+                        return { fmt };
+                }
+                force_conv_to = get_codec_from_name(val);
+                if (!force_conv_to) {
+                        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Wrong codec string: " << val << ".\n";
+                        exit_uv(1);
+                        return {};
+                }
         }
 
         list<enum AVPixelFormat> fmts;
@@ -856,15 +871,18 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
 
         // add the format itself if it matches the ultragrid one
         if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
-                fmts.push_back(ug_to_av_pixfmt_map.find(in_desc.color_spec)->second);
+                if (!force_conv_to || force_conv_to == in_desc.color_spec) {
+                        fmts.push_back(ug_to_av_pixfmt_map.find(in_desc.color_spec)->second);
+                }
         }
 
         vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
         for (auto const & i : ug_to_av_pixfmt_map) { // no to FFMPEG conversion, just UG conversion
                 int codec_subsampling = get_subsampling(i.second);
                 if (get_decoder_from_to(in_desc.color_spec, i.first, true)) {
-                        if (requested_subsampling == 0 ||
-                                        requested_subsampling == codec_subsampling) {
+                        if ((requested_subsampling == 0 ||
+                                        requested_subsampling == codec_subsampling) &&
+                                       (!force_conv_to || force_conv_to == i.first)) {
                                 available_formats.push_back(i.second);
                         }
                 }
@@ -873,8 +891,9 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
                 int codec_subsampling = get_subsampling(c.dst);
                 if (c.src == in_desc.color_spec ||
                                 get_decoder_from_to(in_desc.color_spec, c.src, true)) {
-                        if (requested_subsampling == 0 ||
-                                        requested_subsampling == codec_subsampling) {
+                        if ((requested_subsampling == 0 ||
+                                        requested_subsampling == codec_subsampling) &&
+                                       (!force_conv_to || force_conv_to == c.src)) {
                                 available_formats.push_back(c.dst);
                         }
                 }
