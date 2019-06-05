@@ -127,6 +127,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
+#define OPT_VIDEO_CODECS (('V' << 8) | 'C')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 
@@ -351,6 +352,8 @@ static void usage(const char *exec_path, bool full = false)
                 printf("\t--param <params> | help    \tadditional advanced parameters, use help for list\n");
                 printf("\n");
                 printf("\t--pix-fmts                 \tlist of pixel formats\n");
+                printf("\n");
+                printf("\t--video-codecs             \tlist of video codecs\n");
                 printf("\n");
         }
         printf("\taddress                  \tdestination address\n");
@@ -590,6 +593,7 @@ int main(int argc, char *argv[])
                 {"rtsp-server", optional_argument, 0, 'H'},
                 {"param", required_argument, 0, OPT_PARAM},
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
+                {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {0, 0, 0, 0}
         };
         const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:";
@@ -931,6 +935,9 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
+                        return EXIT_SUCCESS;
+                case OPT_VIDEO_CODECS:
+                        print_video_codecs();
                         return EXIT_SUCCESS;
                 case '?':
                 default:

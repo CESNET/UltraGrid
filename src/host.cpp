@@ -401,6 +401,18 @@ void print_pixel_formats(void) {
         }
 }
 
+void print_video_codecs(void) {
+        for (codec_t c = static_cast<codec_t>(1); c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+                char tag;
+                if (!is_codec_opaque(c)) {
+                        continue;
+                }
+
+                tag = is_codec_interframe(c) ? 'I' : '.';
+                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << "\n";
+        }
+}
+
 bool register_mainloop(mainloop_t m, void *u)
 {
         if (mainloop) {
