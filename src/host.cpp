@@ -39,6 +39,7 @@
 #include <mcheck.h>
 #endif
 
+using rang::style;
 using namespace std;
 
 unsigned int audio_capture_channels = DEFAULT_AUDIO_CAPTURE_CHANNELS;
@@ -385,6 +386,18 @@ void print_param_doc()
                 } else {
                         break;
                 }
+        }
+}
+
+void print_pixel_formats(void) {
+        for (codec_t c = static_cast<codec_t>(1); c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+                char tag;
+                if (is_codec_opaque(c)) {
+                        continue;
+                }
+
+                tag = codec_is_a_rgb(c) ? 'R' : 'Y';
+                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << "\n";
         }
 }
 

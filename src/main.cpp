@@ -123,6 +123,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PARAM (('O' << 8) | 'P')
+#define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
@@ -347,9 +348,9 @@ static void usage(const char *exec_path, bool full = false)
                 printf("\t--capture-filter <filter> | help\n");
                 printf("\t                           \tcapture filter(s), must be given before capture device\n");
                 printf("\n");
-        }
-        if (full) {
                 printf("\t--param <params> | help    \tadditional advanced parameters, use help for list\n");
+                printf("\n");
+                printf("\t--pix-fmts                 \tlist of pixel formats\n");
                 printf("\n");
         }
         printf("\taddress                  \tdestination address\n");
@@ -588,6 +589,7 @@ int main(int argc, char *argv[])
                 {"protocol", required_argument, 0, OPT_PROTOCOL},
                 {"rtsp-server", optional_argument, 0, 'H'},
                 {"param", required_argument, 0, OPT_PARAM},
+                {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {0, 0, 0, 0}
         };
         const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:";
@@ -927,6 +929,9 @@ int main(int argc, char *argv[])
                                 return EXIT_SUCCESS;
                         }
                         break;
+                case OPT_PIX_FMTS:
+                        print_pixel_formats();
+                        return EXIT_SUCCESS;
                 case '?':
                 default:
                         usage(uv_argv[0]);

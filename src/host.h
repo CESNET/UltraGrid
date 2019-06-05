@@ -144,6 +144,7 @@ bool set_output_buffering();
 void register_param(const char *param, const char *doc);
 bool validate_param(const char *param);
 void print_param_doc(void);
+void print_pixel_formats(void);
 
 bool register_mainloop(mainloop_t, void *);
 
