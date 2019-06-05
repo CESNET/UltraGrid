@@ -67,7 +67,7 @@ using std::string;
 h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &params)
         : rtp_video_rxtx(params)
 {
-        auto opts = static_cast<const char *>(params.at("opts").ptr);
+        auto opts = params.at("opts").str;
         if (strcmp(opts, "help") == 0) {
                 cout << "Usage:\n\tuv --protocol sdp[:port=<http_port>]\n";
                 throw 0;

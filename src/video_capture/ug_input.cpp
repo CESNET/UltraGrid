@@ -109,27 +109,27 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         // common
         params["parent"].ptr = vidcap_params_get_parent(cap_params);
         params["exporter"].ptr = NULL;
-        params["compression"].ptr = (void *) "none";
+        params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
         params["paused"].i = false;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
-        params["receiver"].ptr = (void *) "localhost";
+        params["receiver"].str = "localhost";
         if (isdigit(vidcap_params_get_fmt(cap_params)[0]))
                 params["rx_port"].i = atoi(vidcap_params_get_fmt(cap_params));
         else
                 params["rx_port"].i = 5004; // default
         params["tx_port"].i = 0;
         params["force_ip_version"].i = 0;
-        params["mcast_if"].ptr = (void *) NULL;
-        params["fec"].ptr = (void *) "none";
-        params["encryption"].ptr = (void *) NULL;
+        params["mcast_if"].str = NULL;
+        params["fec"].str = "none";
+        params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
         auto start_time = std::chrono::steady_clock::now();
-        params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].ptr = 0;
+        params["start_time"].cptr = (const void *) &start_time;
+        params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;

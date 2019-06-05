@@ -167,6 +167,7 @@ static void print_alsa_device_info(snd_pcm_t *handle, const char *module_name) {
         }
 }
 
+static const char *alsa_get_pcm_state_name(snd_pcm_state_t state) __attribute__((unused));
 static const char *alsa_get_pcm_state_name(snd_pcm_state_t state) {
         switch (state) {
                 case SND_PCM_STATE_OPEN:

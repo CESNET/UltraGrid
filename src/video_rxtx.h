@@ -56,11 +56,14 @@ struct video_frame;
 class video_rxtx;
 
 union param_u {
-        void     *ptr;
-        int       i;
-        long      l;
-        long long ll;
-        bool      b;
+        void          *ptr;
+        const void    *cptr;
+        volatile void *vptr;
+        const char    *str;
+        int            i;
+        long           l;
+        long long      ll;
+        bool           b;
 };
 
 struct video_rxtx_info {

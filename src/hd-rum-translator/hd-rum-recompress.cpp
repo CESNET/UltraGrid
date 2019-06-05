@@ -43,22 +43,22 @@ void *recompress_init(struct module *parent,
         // common
         params["parent"].ptr = parent;
         params["exporter"].ptr = NULL;
-        params["compression"].ptr = (void *) compress;
+        params["compression"].str = compress;
         params["rxtx_mode"].i = MODE_SENDER;
         params["paused"].b = false;
 
         //RTP
         params["mtu"].i = mtu;
-        params["receiver"].ptr = (void *) host;
+        params["receiver"].str = host;
         params["rx_port"].i = rx_port;
         params["tx_port"].i = tx_port;
         params["force_ip_version"].i = force_ip_version;
-        params["mcast_if"].ptr = (void *) NULL;
-        params["fec"].ptr = (void *) fec;
-        params["encryption"].ptr = (void *) NULL;
+        params["mcast_if"].str = NULL;
+        params["fec"].str = fec;
+        params["encryption"].str = NULL;
         params["bitrate"].ll = bitrate;
-        params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].ptr = 0;
+        params["start_time"].cptr = (const void *) &start_time;
+        params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;

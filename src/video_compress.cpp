@@ -152,7 +152,7 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                                 new_message(sizeof(struct msg_change_compress_data));
                         tmp_data->what = data->what;
                         strncpy(tmp_data->config_string, data->config_string,
-                                        sizeof(tmp_data->config_string) - 1);
+                                        sizeof(tmp_data->config_string));
                         struct response *resp = send_message_to_receiver(proxy->ptr->state[i],
                                         (struct message *) tmp_data);
                         /// @todo

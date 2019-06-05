@@ -184,7 +184,7 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
 }
 
 void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count) {
-        assert(frame->max_size >= (unsigned int) frame->data_len * new_channel_count / frame->ch_count);
+        assert((unsigned int) frame->max_size >= (unsigned int) frame->data_len * new_channel_count / frame->ch_count);
 
         copy_channel(frame->data, frame->data, frame->bps, frame->data_len, new_channel_count);
 }

@@ -100,10 +100,6 @@ static void done(void *state)
         free(state);
 }
 
-static void dispose_frame(struct video_frame *f) {
-        VIDEO_FRAME_DISPOSE((struct video_frame *) f->callbacks.dispose_udata);
-}
-
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_split *s = state;

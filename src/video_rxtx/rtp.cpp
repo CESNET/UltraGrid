@@ -214,14 +214,14 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").ptr), m_video_desc{}
+        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").cptr), m_video_desc{}
 {
-        m_participants = pdb_init((volatile int *) params.at("video_delay").ptr);
-        m_requested_receiver = (const char *) params.at("receiver").ptr;
+        m_participants = pdb_init((volatile int *) params.at("video_delay").vptr);
+        m_requested_receiver = params.at("receiver").str;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;
         m_force_ip_version = params.at("force_ip_version").i;
-        m_requested_mcast_if = (const char *) params.at("mcast_if").ptr;
+        m_requested_mcast_if = params.at("mcast_if").str;
 
         if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
                                         m_participants, m_force_ip_version, m_requested_mcast_if))
@@ -237,8 +237,8 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
 
         if ((m_tx = tx_init(&m_sender_mod,
                                         params.at("mtu").i, TX_MEDIA_VIDEO,
-                                        static_cast<const char *>(params.at("fec").ptr),
-                                        static_cast<const char *>(params.at("encryption").ptr),
+                                        params.at("fec").str,
+                                        params.at("encryption").str,
                                         params.at("bitrate").ll)) == NULL) {
                 throw ug_runtime_error("Unable to initialize transmitter", EXIT_FAIL_TRANSMIT);
         }

@@ -216,23 +216,23 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         // common
         params["parent"].ptr = parent;
         params["exporter"].ptr = NULL;
-        params["compression"].ptr = (void *) "none";
+        params["compression"].str = "none";
         params["rxtx_mode"].i = MODE_RECEIVER;
         params["paused"].b = true;
 
         //RTP
         params["mtu"].i = 9000; // doesn't matter anyway...
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
-        params["receiver"].ptr = (void *) "localhost";
+        params["receiver"].str = "localhost";
         params["rx_port"].i = 0;
         params["tx_port"].i = 0;
         params["force_ip_version"].b = force_ip_version;
-        params["mcast_if"].ptr = (void *) NULL;
-        params["fec"].ptr = (void *) "none";
-        params["encryption"].ptr = (void *) NULL;
+        params["mcast_if"].str = NULL;
+        params["fec"].str = "none";
+        params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
         params["start_time"].ptr = (void *) &start_time;
-        params["video_delay"].ptr = 0;
+        params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
         params["decoder_mode"].l = VIDEO_NORMAL;

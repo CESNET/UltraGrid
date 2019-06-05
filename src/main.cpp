@@ -1048,7 +1048,7 @@ int main(int argc, char *argv[])
         // to a reflector, thats why we require equal ports (we are a receiver as well).
         if (is_host_loopback(requested_receiver) && video_rx_port == video_tx_port &&
                         audio_rx_port == audio_tx_port) {
-                requested_mtu = requested_mtu == 0 ? requested_mtu = min(RTP_MAX_MTU, 65535) : requested_mtu;
+                requested_mtu = requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : requested_mtu;
                 bitrate = bitrate == RATE_DEFAULT ? RATE_UNLIMITED : bitrate;
         } else {
                 requested_mtu = requested_mtu == 0 ? 1500 : requested_mtu;
@@ -1182,7 +1182,7 @@ int main(int argc, char *argv[])
                 // common
                 params["parent"].ptr = &uv.root_module;
                 params["exporter"].ptr = exporter;
-                params["compression"].ptr = (void *) requested_compression;
+                params["compression"].str = requested_compression;
                 params["rxtx_mode"].i = video_rxtx_mode;
                 params["paused"].b = start_paused;
 
@@ -1198,24 +1198,24 @@ int main(int argc, char *argv[])
 
                 //RTP
                 params["mtu"].i = requested_mtu;
-                params["receiver"].ptr = (void *) requested_receiver;
+                params["receiver"].str = requested_receiver;
                 params["rx_port"].i = video_rx_port;
                 params["tx_port"].i = video_tx_port;
                 params["force_ip_version"].i = force_ip_version;
-                params["mcast_if"].ptr = (void *) requested_mcast_if;
+                params["mcast_if"].str = requested_mcast_if;
                 params["mtu"].i = requested_mtu;
-                params["fec"].ptr = (void *) requested_video_fec;
-                params["encryption"].ptr = (void *) requested_encryption;
+                params["fec"].str = requested_video_fec;
+                params["encryption"].str = requested_encryption;
                 params["bitrate"].ll = bitrate;
-                params["start_time"].ptr = (void *) &start_time;
-                params["video_delay"].ptr = (void *) &video_offset;
+                params["start_time"].cptr = (const void *) &start_time;
+                params["video_delay"].vptr = (volatile void *) &video_offset;
 
                 // UltraGrid RTP
                 params["decoder_mode"].l = (long) decoder_mode;
                 params["display_device"].ptr = uv.display_device;
 
                 // SAGE + RTSP
-                params["opts"].ptr = (void *) video_protocol_opts;
+                params["opts"].str = video_protocol_opts;
 
                 // RTSP/SDP
                 params["audio_codec"].l = get_audio_codec(audio_codec);

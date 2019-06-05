@@ -59,11 +59,11 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
 {
         ostringstream oss;
 
-        if (params.at("opts").ptr) {
-                oss << static_cast<const char *>(params.at("opts").ptr) << ":";
+        if (params.at("opts").str) {
+                oss << params.at("opts").str << ":";
         }
 
-        oss << "fs=" << static_cast<const char *>(params.at("receiver").ptr);
+        oss << "fs=" << params.at("receiver").str;
         oss << ":tx"; // indicates that we are in tx mode
         int ret = initialize_video_display(&m_sender_mod, "sage",
                         oss.str().c_str(), 0, NULL, &m_sage_tx_device);
