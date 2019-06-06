@@ -320,7 +320,7 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex][:quad-[no-]square]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:fullhelp][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:<X>-duplex][:quad-[no-]square]\n" << style::reset;
         cout << style::bold << "\t\t<device(s)>" << style::reset << " is coma-separated indices or names of output devices\n";
         cout << style::bold << "\t\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\t\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
@@ -345,6 +345,9 @@ static void show_help(bool full)
                                 style::bold << "\t\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
                 cout << style::bold << "\t\tHDMI3DPacking" << style::reset << " can be:\n" <<
 				style::bold << "\t\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
+                cout << style::bold << "\t\thalf-duplex|full-duplex|one-device-half-duplex|keep-duplex\n" << style::reset;
+                cout << "\t\t\tUse half-/full-duplex (1-dev-1/2-duplex is for 8K Pro), keep-duplex suppresses automatically set one-device-half-duplex (for quad-link)\n";
+
         }
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -726,13 +729,12 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
-                if (link == bmdLinkConfigurationQuadLink && s->duplex_req == bmdDuplexFull) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and full-duplex may not be supported!\n";
-                }
 
                 if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'no-half-duplex' to override.\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'keep-duplex' to override.\n";
                         decklink_set_duplex(s->state[i].deckLink, bmdDuplexSimplex);
+                } else if (link == bmdLinkConfigurationQuadLink && s->duplex_req != KEEP) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible duplex may not be supported!\n";
                 }
 
                 BMD_BOOL quad_link_supp;
@@ -939,10 +941,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->link_req = bmdLinkConfigurationQuadLink;
                         } else if(strcasecmp(ptr, "half-duplex") == 0) {
                                 s->duplex_req = bmdDuplexHalf;
-                        } else if(strcasecmp(ptr, "no-half-duplex") == 0) {
-                                s->duplex_req = KEEP;
+                        } else if(strcasecmp(ptr, "one-device-half-duplex") == 0) {
+                                s->duplex_req = bmdDuplexSimplex;
                         } else if(strcasecmp(ptr, "full-duplex") == 0) {
                                 s->duplex_req = bmdDuplexFull;
+                        } else if(strcasecmp(ptr, "keep-duplex") == 0) {
+                                s->duplex_req = KEEP;
                         } else if(strcasecmp(ptr, "LevelA") == 0) {
                                 s->level = 'A';
                         } else if(strcasecmp(ptr, "LevelB") == 0) {
