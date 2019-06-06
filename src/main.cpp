@@ -430,18 +430,21 @@ static bool parse_audio_capture_format(const char *optarg)
 
         char *item, *save_ptr, *tmp;
         tmp = arg;
+        char *endptr;
 
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 if (strncmp(item, "channels=", strlen("channels=")) == 0) {
-                        audio_capture_channels = atoi(item + strlen("channels="));
-                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
+                        item += strlen("channels=");
+                        audio_capture_channels = strtol(item, &endptr, 10);
+                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS || endptr != item + strlen(item)) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
                                 return false;
                         }
                 } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
-                        int bps = atoi(item + strlen("bps="));
-                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %d!\n", bps);
+                        item += strlen("bps=");
+                        int bps = strtol(item, &endptr, 10);
+                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
                                 log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
                                 return false;
 

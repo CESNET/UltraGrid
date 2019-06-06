@@ -46,6 +46,15 @@
 #include "debug.h"
 #include "utils/misc.h"
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+#ifdef _MSC_VER
+#endif
+
 /**
  * Converts units in format <val>[.<val>][kMG] to integral representation.
  *
@@ -73,7 +82,7 @@ long long unit_evaluate(const char *str) {
                         return -1;
         }
 
-        if (ret < 0.0 && ret >= LLONG_MAX) {
+        if (ret < 0.0 || ret >= LLONG_MAX || strlen(end_ptr) > 1) {
                 return -1;
         } else {
                 return ret;
