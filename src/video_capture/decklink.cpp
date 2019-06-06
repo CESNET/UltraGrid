@@ -452,20 +452,13 @@ decklink_help()
 	// Enumerate all cards in this system
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
-		BMD_STR                 deviceNameString = NULL;
-		char *		deviceNameCString = NULL;
+                string deviceName = bmd_get_device_name(deckLink);
+                if (deviceName.empty()) {
+                        deviceName = "(unable to get name)";
+                }
 		
 		// *** Print the model name of the DeckLink card
-		result = deckLink->GetDisplayName((BMD_STR *) &deviceNameString);
-		if (result == S_OK)
-		{
-                        deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-			cout << "device: " << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceNameCString << style::reset << "\n";
-			release_bmd_api_str(deviceNameString);
-                        free(deviceNameCString);
-                } else {
-			printf("device: %d) (unable to get name)\n", numDevices);
-                }
+                cout << "device: " << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceName << style::reset << "\n";
 		
 		// Increment the total number of DeckLink cards found
 		numDevices++;
@@ -731,14 +724,10 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose)
                         continue;
                 }
 
-                BMD_STR deviceNameBMDString = NULL;
-                // *** Print the model name of the DeckLink card
-                result = deckLink->GetModelName((BMD_STR *) &deviceNameBMDString);
-                if (result != S_OK) {
-                        continue;
+                string deviceName = bmd_get_device_name(deckLink);
+                if (deviceName.empty()) {
+                        deviceName = "(unknown)";
                 }
-                string deviceName = get_cstr_from_bmd_api_str(deviceNameBMDString);
-                release_bmd_api_str(deviceNameBMDString);
 
                 vt->card_count += 1;
                 vt->cards = (struct device_info *)
@@ -1046,20 +1035,10 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         return VIDCAP_INIT_FAIL;
                 }
                 bool found = false;
-                BMD_STR deviceNameString = NULL;
                 while (deckLinkIterator->Next(&deckLink) == S_OK) {
-                        char* deviceNameCString = NULL;
-
-                        result = deckLink->GetDisplayName(&deviceNameString);
-                        if (result == S_OK) {
-                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-
-                                if (strcmp(deviceNameCString, s->state[i].device_id.c_str()) == 0) {
-                                        found = true;
-                                }
-
-                                release_bmd_api_str(deviceNameString);
-                                free(deviceNameCString);
+                        string deviceName = bmd_get_device_name(deckLink);
+                        if (!deviceName.empty() && deviceName == s->state[i].device_id.c_str()) {
+                                found = true;
                         }
 
                         if (isdigit(s->state[i].device_id.c_str()[0]) && atoi(s->state[i].device_id.c_str()) == dnum) {
@@ -1085,12 +1064,9 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                 s->state[i].deckLink = deckLink;
 
                 // Print the model name of the DeckLink card
-                result = deckLink->GetDisplayName(&deviceNameString);
-                if (result == S_OK) {
-                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                        LOG(LOG_LEVEL_INFO) << "Using device " << deviceNameCString << "\n";
-                        release_bmd_api_str(deviceNameString);
-                        free(deviceNameCString);
+                string deviceName = bmd_get_device_name(deckLink);
+                if (!deviceName.empty()) {
+                        LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
                 }
 
                 if (s->duplex != 0 && s->duplex != (uint32_t) -1) {

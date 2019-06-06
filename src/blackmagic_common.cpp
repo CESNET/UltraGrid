@@ -338,3 +338,18 @@ cleanup:
 	return ret;
 }
 
+string bmd_get_device_name(IDeckLink *decklink) {
+	BMD_STR         deviceNameString = NULL;
+	char *          deviceNameCString = NULL;
+	string 		ret;
+
+	if (decklink->GetDisplayName((BMD_STR *) &deviceNameString) == S_OK) {
+		deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
+		ret = deviceNameCString;
+		release_bmd_api_str(deviceNameString);
+		free(deviceNameCString);
+	}
+
+        return ret;
+}
+

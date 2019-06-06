@@ -318,7 +318,6 @@ static void show_help(bool full)
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
         int                             numDevices = 0;
-        HRESULT                         result;
 
         printf("Decklink (output) options:\n");
         cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:timecode][:single-link|:dual-link|:quad-link][:LevelA|:LevelB][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:half-duplex|full-duplex][:quad-[no-]square]\n" << style::reset;
@@ -357,19 +356,14 @@ static void show_help(bool full)
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                BMD_STR          deviceNameString = NULL;
-                
-                // *** Print the model name of the DeckLink card
-                result = deckLink->GetDisplayName(&deviceNameString);
-                cout << "\ndevice: " << style::bold << numDevices << style::reset << ") ";
-                if (result == S_OK) {
-                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                        cout << style::bold << deviceNameCString << style::reset << "\n";
-                        release_bmd_api_str(deviceNameString);
-                        free(deviceNameCString);
-                } else {
-                        printf("(unable to get name)\n");
+                string deviceName = bmd_get_device_name(deckLink);
+                if (deviceName.empty()) {
+                        deviceName = "(unable to get name)";
                 }
+
+                // *** Print the model name of the DeckLink card
+                cout << "\ndevice: " << style::bold << numDevices << style::reset << ") "
+			<< style::bold << deviceName << style::reset << "\n";
                 print_output_modes(deckLink);
                 
                 // Increment the total number of DeckLink cards found
@@ -820,10 +814,10 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                BMD_STR          deviceNameString = NULL;
-
-                // *** Print the model name of the DeckLink card
-                HRESULT result = deckLink->GetDisplayName(&deviceNameString);
+                string deviceName = bmd_get_device_name(deckLink);
+		if (deviceName.empty()) {
+			deviceName = "(unknown)";
+		}
 
                 *count += 1;
                 *available_cards = (struct device_info *)
@@ -832,14 +826,8 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 sprintf((*available_cards)[*count - 1].id, "decklink:device=%d", *count - 1);
                 (*available_cards)[*count - 1].repeatable = false;
 
-                if (result == S_OK)
-                {
-                        char *deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-                        strncpy((*available_cards)[*count - 1].name, deviceNameCString,
-                                        sizeof (*available_cards)[*count - 1].name - 1);
-                        release_bmd_api_str(deviceNameString);
-                        free(deviceNameCString);
-                }
+		strncpy((*available_cards)[*count - 1].name, deviceName.c_str(),
+				sizeof (*available_cards)[*count - 1].name - 1);
 
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
                 deckLink->Release();
@@ -1051,22 +1039,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         {
                 bool found = false;
                 for(int i = 0; i < s->devices_cnt; ++i) {
-                        BMD_STR deviceNameString = NULL;
-                        char* deviceNameCString = NULL;
+                        string deviceName = bmd_get_device_name(deckLink);
 
-                        result = deckLink->GetDisplayName(&deviceNameString);
-                        if (result == S_OK)
-                        {
-                                deviceNameCString = get_cstr_from_bmd_api_str(deviceNameString);
-
-                                if (strcmp(deviceNameCString, cardId[i].c_str()) == 0) {
-                                        found = true;
-                                }
-
-                                release_bmd_api_str(deviceNameString);
-                                free(deviceNameCString);
-                        }
-
+			if (!deviceName.empty() && deviceName == cardId[i]) {
+				found = true;
+			}
 
                         if (isdigit(cardId[i].c_str()[0]) && dnum == atoi(cardId[i].c_str())){
                                 found = true;
@@ -1084,6 +1061,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 if(s->state[i].deckLink == NULL) {
                         LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId[i] <<" found\n";
                         goto error;
+                }
+                // Print the model name of the DeckLink card
+                string deviceName = bmd_get_device_name(s->state[i].deckLink);
+                if (!deviceName.empty()) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
                 }
         }
 
