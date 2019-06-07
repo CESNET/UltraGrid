@@ -529,7 +529,7 @@ void r12l_to_gbrp12le(AVFrame *out_frame, unsigned char *in_data, int width, int
         }
 }
 
-void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void nv12_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[])
 {
         UNUSED(rgb_shift);
@@ -752,7 +752,7 @@ void rgb48le_to_r12l(char *dst_buffer, AVFrame *frame,
         }
 }
 
-void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv420p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[])
 {
         UNUSED(rgb_shift);
@@ -901,7 +901,7 @@ void yuv420p_to_v210(char *dst_buffer, AVFrame *in_frame,
         }
 }
 
-void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv422p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[])
 {
         UNUSED(rgb_shift);
@@ -957,7 +957,7 @@ void yuv422p_to_v210(char *dst_buffer, AVFrame *in_frame,
 }
 
 
-void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv444p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[])
 {
         UNUSED(rgb_shift);

@@ -246,7 +246,7 @@ static const struct {
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 };
 
- void nv12_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void nv12_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
 void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
                 int width, int height, int pitch, int rgb_shift[]);
@@ -272,15 +272,15 @@ void rgb48le_to_rgba(char *dst_buffer, AVFrame *frame,
                 int width, int height, int pitch, int rgb_shift[]);
 void rgb48le_to_r12l(char *dst_buffer, AVFrame *frame,
                 int width, int height, int pitch, int rgb_shift[]);
-void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv420p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
 void yuv420p_to_v210(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
-void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv422p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
 void yuv422p_to_v210(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
-void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+void yuv444p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
 void yuv444p_to_v210(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch, int rgb_shift[]);
@@ -343,26 +343,26 @@ static const struct {
         {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
         // 8-bit YUV
         {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
-        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_yuv422, true},
+        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
         {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
         {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
-        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_yuv422, true},
+        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
         {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
         {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
-        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_yuv422, true},
+        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
         {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
         // 8-bit YUV (JPEG color range)
         {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
-        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
         {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
         {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
-        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
         {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
         {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
-        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_yuv422, true},
+        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
         {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
         // 8-bit YUV (NV12)
-        {AV_PIX_FMT_NV12, UYVY, nv12_to_yuv422, true},
+        {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
         {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
         // RGB
         {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
