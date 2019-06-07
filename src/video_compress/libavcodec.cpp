@@ -126,10 +126,10 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
 
-static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-static void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height);
-static void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height);
-static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void uyvy_to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void uyvy_to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height);
+static void uyvy_to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height);
+static void uyvy_to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -773,13 +773,13 @@ static const struct {
         { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
         { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
         { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
-        { UYVY, AV_PIX_FMT_YUV422P, to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUVJ422P, to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUV420P, to_yuv420p },
-        { UYVY, AV_PIX_FMT_YUVJ420P, to_yuv420p },
-        { UYVY, AV_PIX_FMT_NV12, to_nv12 },
-        { UYVY, AV_PIX_FMT_YUV444P, to_yuv444p },
-        { UYVY, AV_PIX_FMT_YUVJ444P, to_yuv444p },
+        { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
+        { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
+        { UYVY, AV_PIX_FMT_YUVJ420P, uyvy_to_yuv420p },
+        { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
+        { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
+        { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
         { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
         { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
@@ -1156,7 +1156,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         return true;
 }
 
-static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+static void uyvy_to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -1178,7 +1178,7 @@ static void to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, in
         }
 }
 
-static void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
+static void uyvy_to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -1193,7 +1193,7 @@ static void to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int he
         }
 }
 
-static void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
+static void uyvy_to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height)
 {
         for(int y = 0; y < height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -1210,7 +1210,7 @@ static void to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int he
         }
 }
 
-static void to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
+static void uyvy_to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
