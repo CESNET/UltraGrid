@@ -200,21 +200,23 @@ static bool libav_codec_has_extradata(codec_t codec) {
 extern "C" {
 #endif
 
-void uyvy_to_yuv420p(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void uyvy_to_yuv422p(AVFrame *out_frame, unsigned char *src, int width, int height);
-void uyvy_to_yuv444p(AVFrame *out_frame, unsigned char *src, int width, int height);
-void uyvy_to_nv12(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void v210_to_yuv420p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void v210_to_yuv422p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void v210_to_yuv444p10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void v210_to_p010le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void rgb_to_bgr0(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void rgb_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void rgba_to_gbrp(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void r10k_to_gbrp10le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
-void r12l_to_gbrp12le(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
+typedef uv_to_av_convert *pixfmt_callback_t;
 
-typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+uv_to_av_convert uyvy_to_yuv420p;
+uv_to_av_convert uyvy_to_yuv422p;
+uv_to_av_convert uyvy_to_yuv444p;
+uv_to_av_convert uyvy_to_nv12;
+uv_to_av_convert v210_to_yuv420p10le;
+uv_to_av_convert v210_to_yuv422p10le;
+uv_to_av_convert v210_to_yuv444p10le;
+uv_to_av_convert v210_to_p010le;
+uv_to_av_convert rgb_to_bgr0;
+uv_to_av_convert rgb_to_gbrp;
+uv_to_av_convert rgba_to_gbrp;
+uv_to_av_convert r10k_to_gbrp10le;
+uv_to_av_convert r12l_to_gbrp12le;
+
 /**
  * Conversions from UltraGrid to FFMPEG formats.
  *
@@ -246,83 +248,51 @@ static const struct {
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 };
 
-void nv12_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void rgb24_to_uyvy(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void memcpy_data(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp_to_rgb(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp_to_rgba(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp10le_to_r10k(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp10le_to_rgb(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp10le_to_rgba(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp12le_to_r12l(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp12le_to_rgb(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void gbrp12le_to_rgba(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void rgb48le_to_rgba(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void rgb48le_to_r12l(char *dst_buffer, AVFrame *frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void nv12_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p10le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p10le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv420p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv422p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void yuv444p10le_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void p010le_to_v210(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
-void p010le_to_uyvy(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
+typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, int * __restrict rgb_shift);
+typedef av_to_uv_convert *av_to_uv_convert_p;
+
+av_to_uv_convert nv12_to_uyvy;
+av_to_uv_convert rgb24_to_uyvy;
+av_to_uv_convert memcpy_data;
+av_to_uv_convert gbrp_to_rgb;
+av_to_uv_convert gbrp_to_rgba;
+av_to_uv_convert gbrp10le_to_r10k;
+av_to_uv_convert gbrp10le_to_rgb;
+av_to_uv_convert gbrp10le_to_rgba;
+av_to_uv_convert gbrp12le_to_r12l;
+av_to_uv_convert gbrp12le_to_rgb;
+av_to_uv_convert gbrp12le_to_rgba;
+av_to_uv_convert rgb48le_to_rgba;
+av_to_uv_convert rgb48le_to_r12l;
+av_to_uv_convert yuv420p_to_uyvy;
+av_to_uv_convert yuv420p_to_v210;
+av_to_uv_convert yuv422p_to_uyvy;
+av_to_uv_convert yuv422p_to_v210;
+av_to_uv_convert yuv444p_to_uyvy;
+av_to_uv_convert yuv444p_to_v210;
+av_to_uv_convert nv12_to_rgb24;
+av_to_uv_convert yuv422p_to_rgb24;
+av_to_uv_convert yuv420p_to_rgb24;
+av_to_uv_convert yuv444p_to_rgb24;
+av_to_uv_convert yuv420p10le_to_v210;
+av_to_uv_convert yuv422p10le_to_v210;
+av_to_uv_convert yuv444p10le_to_v210;
+av_to_uv_convert yuv420p10le_to_uyvy;
+av_to_uv_convert yuv422p10le_to_uyvy;
+av_to_uv_convert yuv444p10le_to_uyvy;
+av_to_uv_convert yuv420p10le_to_rgb24;
+av_to_uv_convert yuv422p10le_to_rgb24;
+av_to_uv_convert yuv444p10le_to_rgb24;
+av_to_uv_convert p010le_to_v210;
+av_to_uv_convert p010le_to_uyvy;
 #ifdef HWACC_VDPAU
-void av_vdpau_to_ug_vdpau(char *dst_buffer, AVFrame *in_frame,
-                int width, int height, int pitch, int rgb_shift[]);
+av_to_uv_convert av_vdpau_to_ug_vdpau;
 #endif
 
 static const struct {
         int av_codec;
         codec_t uv_codec;
-        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch, int rgb_shift[3]);
+        av_to_uv_convert_p convert;
         bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
                      ///< color space, channel count (w/wo alpha), bit-depth,
                      ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future

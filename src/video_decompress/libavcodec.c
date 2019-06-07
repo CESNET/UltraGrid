@@ -510,7 +510,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
-        void (*convert)(char *dst_buffer, AVFrame *in_frame, int width, int height, int pitch, int rgb_shift[3]) = NULL;
+        av_to_uv_convert_p convert = NULL;
         for (unsigned int i = 0; i < sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]; ++i) {
                 if (av_to_uv_conversions[i].av_codec == av_codec &&
                                 av_to_uv_conversions[i].uv_codec == out_codec) {
