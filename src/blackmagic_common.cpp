@@ -268,13 +268,12 @@ cleanup:
 
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
 
+
+
 /**
- * @param BMDDuplexMode mode to set to translates to BMDProfileID
- *      bmdDuplexSimplex - use for quad link (currently 8K Pro)
- * @todo
- * handle also bmdProfileTwoSubDevicesFullDuplex
+ * @param a value from BMDProfileID or bmdDuplexHalf (maximize number of IOs)
  */
-bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
+bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
 {
         bool ret = true;
         IDeckLinkProfileManager *manager = nullptr;
@@ -295,21 +294,12 @@ bool decklink_set_duplex(IDeckLink *deckLink, BMDDuplexMode duplex)
                         continue;
                 }
                 if (attributes->GetInt(BMDDeckLinkProfileID, &id) == S_OK) {
-                        if (duplex == bmdDuplexFull) {
-                                if (id == bmdProfileOneSubDeviceFullDuplex) {
-                                        found = true;
-                                }
-                        } else if (duplex == bmdDuplexHalf) {
+                        if (profileID == bmdDuplexHalf) {
                                 if (id == bmdProfileTwoSubDevicesHalfDuplex || id == bmdProfileFourSubDevicesHalfDuplex) {
                                         found = true;
                                 }
-                        } else if (duplex == bmdDuplexSimplex) {
-                                if (id == bmdProfileOneSubDeviceHalfDuplex) {
-                                        found = true;
-                                }
-
-                        } else {
-                                assert("Wrong duplex mode!" && 0);
+                        } else if (profileID == id) {
+                                found = true;
                         }
                         if (found) {
                                 if (profile->SetActive() != S_OK) {
@@ -351,5 +341,14 @@ string bmd_get_device_name(IDeckLink *decklink) {
 	}
 
         return ret;
+}
+
+uint32_t bmd_read_fourcc(const char *str) {
+        union {
+                uint32_t fourcc;
+                char c4[4];
+        } u{};
+        memcpy(u.c4, str, min(strlen(str), sizeof u.c4));
+        return htonl(u.fourcc);
 }
 

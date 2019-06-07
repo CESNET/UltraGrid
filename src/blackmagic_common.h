@@ -44,6 +44,8 @@
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
 #endif
 
+#include <cstdbool>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <string>
@@ -73,6 +75,9 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
+#define BMD_OPT_DEFAULT 0u
+#define BMD_OPT_KEEP   ((uint32_t) -1)
+
 #ifdef HAVE_MACOSX
 #define BMD_STR CFStringRef
 #elif defined WIN32
@@ -88,8 +93,9 @@ void decklink_uninitialize();
 bool blackmagic_api_version_check();
 void print_decklink_version(void);
 
-bool decklink_set_duplex(IDeckLink *decklink, BMDDuplexMode duplex);
+bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
 std::string bmd_get_device_name(IDeckLink *decklink);
+uint32_t bmd_read_fourcc(const char *);
 
 #endif // defined BLACKMAGIC_COMMON_H
 

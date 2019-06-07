@@ -82,9 +82,6 @@
 #define STDMETHODCALLTYPE
 #endif
 
-#define DEFAULT 0
-#define KEEP   -1
-
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
 
 using namespace std;
@@ -175,7 +172,7 @@ struct vidcap_decklink_state {
         int                     requested_bit_depth; // 8, 10 or 12
         bool                    p_not_i;
 
-        uint32_t                duplex;
+        uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link;
 };
 
@@ -439,9 +436,17 @@ decklink_help()
         cout << style::bold << "[no]passthrough\n" << style::reset;
         printf("\tEnable/disable capture passthrough.\n");
 	printf("\n");
-        cout << style::bold << "half-duplex|full-duplex|one-device-half-duplex|keep-duplex\n" << style::reset;
-        printf("\tUse half-/full-duplex (1-dev-1/2-duplex is for 8K Pro), keep-duplex suppresses automatically set one-device-half-duplex (for quad-link)\n");
+        cout << style::bold << "profile=<FourCC>|profile=keep\n" << style::reset;
+        cout << "\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
+                << style::bold << "1dhd" << style::reset << ", "
+                << style::bold << "2dfd" << style::reset << ", "
+                << style::bold << "2dhd" << style::reset << " or "
+                << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
+                << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
         printf("\n");
+        cout << style::bold << "half-duplex\n" << style::reset;
+        cout << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
+        cout << "\n";
         cout << style::bold << "single-/dual-/quad-link\n" << style::reset;
         printf("\tUse single-/dual-/quad-link.\n");
         printf("\n");
@@ -572,14 +577,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if(strncasecmp(opt, "conversion=",
                                 strlen("conversion=")) == 0) {
-                const char *conversion_mode = opt + strlen("conversion=");
-
-                union {
-                        uint32_t fourcc;
-                        char tmp[4];
-                };
-                memcpy(tmp, conversion_mode, max(strlen(conversion_mode), sizeof(tmp)));
-                s->conversion_mode = (BMDVideoInputConversionMode) htonl(fourcc);
+                s->conversion_mode = (BMDVideoInputConversionMode) bmd_read_fourcc(opt + strlen("conversion="));
         } else if(strncasecmp(opt, "device=",
                                 strlen("device=")) == 0) {
                 const char *devices = opt + strlen("device=");
@@ -602,14 +600,15 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
-        } else if (strcasecmp(opt, "half-duplex") == 0) {
-                s->duplex = bmdDuplexHalf;
-        } else if (strcasecmp(opt, "one-device-half-duplex") == 0) {
-                s->duplex = bmdDuplexSimplex;
-        } else if (strcasecmp(opt, "full-duplex") == 0) {
-                s->duplex = bmdDuplexFull;
-        } else if (strcasecmp(opt, "keep-duplex") == 0) {
-                s->duplex = KEEP;
+        } else if (strstr(opt, "profile=") == opt) {
+                const char *mode = opt + strlen("profile=");
+                if (strcmp(mode, "keep") == 0) {
+                        s->profile = BMD_OPT_KEEP;
+                } else {
+                        s->profile = (BMDProfileID) bmd_read_fourcc(mode);
+                }
+        } else if (strstr(opt, "half-duplex") == opt) {
+                s->profile = bmdDuplexHalf;
         } else if (strcasecmp(opt, "single-link") == 0) {
                 s->link = bmdLinkConfigurationSingleLink;
         } else if (strcasecmp(opt, "dual-link") == 0) {
@@ -933,7 +932,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
-        if(strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+        if (strcmp(vidcap_params_get_fmt(params), "help") == 0 ||
+                        strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0) { // currently the same, compat with DeckLink display
                 decklink_help();
                 return VIDCAP_INIT_NOERR;
         }
@@ -967,11 +967,11 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
 	}
 
 	if (s->link == bmdLinkConfigurationQuadLink) {
-		if (s->duplex == DEFAULT) {
-			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'keep-duplex' to override.\n";
-			s->duplex = bmdDuplexSimplex;
-		} else (s->duplex != KEEP) {
-			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and duplex mode that may not be supported!\n";
+		if (s->profile == BMD_OPT_DEFAULT) {
+			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
+			s->profile = bmdProfileOneSubDeviceHalfDuplex;
+		} else if (s->profile != BMD_OPT_KEEP && s->profile != bmdProfileOneSubDeviceHalfDuplex) {
+			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and profile other than 1-subdevice-1/2-duplex may not be supported!\n";
 		}
 	}
 
@@ -1075,8 +1075,8 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                         LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
                 }
 
-                if (s->duplex != DEFAULT && s->duplex != (uint32_t) KEEP) {
-                        decklink_set_duplex(s->state[i].deckLink, (BMDDuplexMode) s->duplex);
+                if (s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
+                        decklink_set_duplex(s->state[i].deckLink, s->profile);
                 }
 
                 // Query the DeckLink for its configuration interface
@@ -1181,14 +1181,7 @@ vidcap_decklink_init(const struct vidcap_params *params, void **state)
                                 mnum++;
                                 break;
                         } else { // manually given FourCC
-                                union {
-                                        uint32_t fourcc;
-                                        char tmp[4];
-                                };
-                                memcpy(tmp, s->mode.c_str(), min(s->mode.length(), sizeof tmp));
-                                if (s->mode.length() == 3) tmp[3] = ' ';
-                                fourcc = htonl(fourcc);
-                                if (displayMode->GetDisplayMode() == fourcc) {
+                                if (displayMode->GetDisplayMode() == bmd_read_fourcc(s->mode.c_str())) {
                                         break;
                                 }
                                 displayMode->Release();

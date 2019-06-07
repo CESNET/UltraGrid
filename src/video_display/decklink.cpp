@@ -79,8 +79,6 @@
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
 
-#define DEFAULT 0
-#define KEEP -1
 #define MAX_DEVICES 4
 
 // performs command, if failed, displays error and jumps to error label
@@ -300,7 +298,7 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat;
 
         uint32_t            link_req; // 0 default
-        uint32_t            duplex_req; // 0 default, -1 don't change, other - value
+        uint32_t            profile_req; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
 
@@ -320,7 +318,8 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink[:device=<device(s)>]" << fg::reset << "[:fullhelp][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:<X>-duplex][:quad-[no-]square]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square]\n" << style::reset;
+        cout << style::bold << "\t\tfullhelp" << style::reset << " displays more options\n";
         cout << style::bold << "\t\t<device(s)>" << style::reset << " is coma-separated indices or names of output devices\n";
         cout << style::bold << "\t\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\t\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
@@ -345,10 +344,16 @@ static void show_help(bool full)
                                 style::bold << "\t\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
                 cout << style::bold << "\t\tHDMI3DPacking" << style::reset << " can be:\n" <<
 				style::bold << "\t\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
-                cout << style::bold << "\t\thalf-duplex|full-duplex|one-device-half-duplex|keep-duplex\n" << style::reset;
-                cout << "\t\t\tUse half-/full-duplex (1-dev-1/2-duplex is for 8K Pro), keep-duplex suppresses automatically set one-device-half-duplex (for quad-link)\n";
-
+                cout << style::bold << "\t\tprofile=<P>\n" << style::reset;
+                cout << "\t\t\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
+                        << style::bold << "1dhd" << style::reset << ", "
+                        << style::bold << "2dfd" << style::reset << ", "
+                        << style::bold << "2dhd" << style::reset << " or "
+                        << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
+                        << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
         }
+        cout << style::bold << "\t\thalf-duplex" << style::reset
+                << " - set a profile that allows maximal number of simultaneous IOs\n";
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
@@ -718,7 +723,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 uint32_t link = s->link_req;
 
-                if (s->link_req == DEFAULT) {
+                if (s->link_req == BMD_OPT_DEFAULT) {
                         if (desc.width != 7680) {
                                 link = bmdLinkConfigurationSingleLink;
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
@@ -729,12 +734,11 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
                 CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
-
-                if (s->duplex_req == DEFAULT && link == bmdLinkConfigurationQuadLink) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting half-duplex automatically, use 'keep-duplex' to override.\n";
-                        decklink_set_duplex(s->state[i].deckLink, bmdDuplexSimplex);
-                } else if (link == bmdLinkConfigurationQuadLink && s->duplex_req != KEEP) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible duplex may not be supported!\n";
+                if (s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
+                        decklink_set_duplex(s->state[i].deckLink, bmdProfileOneSubDeviceHalfDuplex);
+                } else if (link == bmdLinkConfigurationQuadLink && (s->profile_req != BMD_OPT_KEEP && s->profile_req == bmdProfileOneSubDeviceHalfDuplex)) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible device profile may not be supported!\n";
                 }
 
                 BMD_BOOL quad_link_supp;
@@ -883,7 +887,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
-        s->duplex_req = 0;
+        s->profile_req = BMD_OPT_DEFAULT;
         s->link_req = 0;
         cardId[0] = "0";
         s->devices_cnt = 1;
@@ -939,14 +943,15 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 s->link_req = bmdLinkConfigurationDualLink;
                         } else if(strcasecmp(ptr, "quad-link") == 0) {
                                 s->link_req = bmdLinkConfigurationQuadLink;
+                        } else if(strstr(ptr, "profile=") == ptr) {
+                                ptr += strlen("profile=");
+                                if (strcmp(ptr, "keep") == 0) {
+                                        s->profile_req = BMD_OPT_KEEP;
+                                } else {
+                                        s->profile_req = (BMDProfileID) bmd_read_fourcc(ptr);
+                                }
                         } else if(strcasecmp(ptr, "half-duplex") == 0) {
-                                s->duplex_req = bmdDuplexHalf;
-                        } else if(strcasecmp(ptr, "one-device-half-duplex") == 0) {
-                                s->duplex_req = bmdDuplexSimplex;
-                        } else if(strcasecmp(ptr, "full-duplex") == 0) {
-                                s->duplex_req = bmdDuplexFull;
-                        } else if(strcasecmp(ptr, "keep-duplex") == 0) {
-                                s->duplex_req = KEEP;
+                                s->profile_req = bmdDuplexHalf;
                         } else if(strcasecmp(ptr, "LevelA") == 0) {
                                 s->level = 'A';
                         } else if(strcasecmp(ptr, "LevelB") == 0) {
@@ -978,15 +983,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                 }
 			} else if(strncasecmp(ptr, "conversion=",
 						strlen("conversion=")) == 0) {
-				const char *conversion_mode_str = ptr + strlen("conversion=");
-
-				union {
-					uint32_t fourcc;
-					char tmp[4];
-				};
-				memcpy(tmp, conversion_mode_str, max(strlen(conversion_mode_str), sizeof(tmp)));
-				conversion_mode = (BMDVideoOutputConversionMode) htonl(fourcc);
-
+				conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
 			} else if(strncasecmp(ptr, "Use1080pNotPsF=",
 						strlen("Use1080pNotPsF=")) == 0) {
 				const char *levels = ptr + strlen("Use1080pNotPsF=");
@@ -1100,8 +1097,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
-                if (s->duplex_req != DEFAULT && s->duplex_req != (uint32_t) KEEP) {
-                        decklink_set_duplex(s->state[i].deckLink, (BMDDuplexMode) s->duplex_req);
+                if (s->profile_req != BMD_OPT_DEFAULT && s->profile_req != BMD_OPT_KEEP) {
+                        decklink_set_duplex(s->state[i].deckLink, s->profile_req);
                 }
 
 		// Get IDeckLinkAttributes object
