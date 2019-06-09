@@ -254,7 +254,7 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 
 
-SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations
+SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations -O3
 src/audio/resample.o:
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
