@@ -13,7 +13,7 @@
  * This file contains video codecs' metadata and helper
  * functions as well as pixelformat converting functions.
  */
-/* Copyright (c) 2005-2013 CESNET z.s.p.o.
+/* Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -97,9 +97,9 @@ using std::min;
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
-static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY709(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
-static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 
 /**
@@ -646,7 +646,7 @@ void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *d
  *                     should be even aligned to 16B boundary)
  * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
  */
-void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylinev210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -696,7 +696,7 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len, 
  * @brief Converts from YUYV to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -747,7 +747,7 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len, 
         }
 #else
 	char u, y1, v, y2;
-	while (dst_len > 0) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
 		y1 = *src++;
 		u = *src++;
 		y2 = *src++;
@@ -756,7 +756,6 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len, 
 		*dst++ = y1;
 		*dst++ = v;
 		*dst++ = y2;
-		dst_len -= 4;
 	}
 #endif
 }
@@ -772,7 +771,7 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len, 
  * @param[in]  bshift  destination blue shift
  */
 void
-vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift,
+vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,
                 int gshift, int bshift)
 {
         struct {
@@ -849,14 +848,14 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
  * @param[in]  bshift  ignored
  */
 void
-vc_copylineR12LtoRGB(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
+vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
 
-        while (dstlen >= 32) {
+        OPTIMIZED_FOR (int x = 0; x <= dstlen - 24; x += 24) {
                 uint8_t tmp;
                 tmp = src[BYTE_SWAP(0)] >> 4;
                 tmp |= src[BYTE_SWAP(1)] << 4;
@@ -915,8 +914,6 @@ vc_copylineR12LtoRGB(unsigned char *dst, const unsigned char *src, int dstlen, i
                 *dst++ = tmp; // g7
                 *dst++ = src[BYTE_SWAP(3)]; // b7
                 src += 4;
-
-                dstlen -= 24;
         }
 }
 
@@ -925,18 +922,18 @@ vc_copylineR12LtoRGB(unsigned char *dst, const unsigned char *src, int dstlen, i
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     buffer containing pixels in R12L
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  dstlen  length of data that should be writen to dst buffer (in bytes)
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
  */
-void
+        void
 vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
         uint32_t *d = (uint32_t *) dst;
 
-        while (dstlen >= 32) {
+        OPTIMIZED_FOR (int x = 0; x <= dstlen - 32; x += 32) {
                 uint8_t tmp;
                 uint8_t r, g, b;
                 tmp = src[BYTE_SWAP(0)] >> 4;
@@ -1004,8 +1001,6 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 b = src[BYTE_SWAP(3)]; // b7
                 src += 4;
                 *d++ = (r << rshift) | (g << gshift) | (b << bshift);
-
-                dstlen -= 32;
         }
 }
 
@@ -1014,7 +1009,7 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
  * @copydetails vc_copyliner10k
  */
 void
-vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift,
+vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,
                 int gshift, int bshift)
 {
         register uint32_t *d = (uint32_t *)(void *) dst;
@@ -1069,7 +1064,7 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
  * @brief Converts from DVS10 to v210
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineDVS10toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1081,7 +1076,7 @@ void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int ds
         d = (unsigned int *)(void *) dst;
         s1 = (const unsigned int *)(const void *) src;
 
-        while(dst_len > 0) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 a = b = *s1++;
                 b = ((b >> 24) * 0x00010101) & 0x00300c03;
                 a <<= 2;
@@ -1091,7 +1086,6 @@ void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int ds
                 a <<= 2;
                 b |= a & (0xff0000<<6);
                 *d++ = b;
-                dst_len -= 4;
         }
 }
 
@@ -1162,7 +1156,7 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
  * @brief Converts from DVS10 to UYVY
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineDVS10(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1177,7 +1171,7 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len,
         d = (uint64_t *)(void *) dst;
         s = (const uint64_t *)(const void *) src;
 
-        while (src_len > 0) {
+        OPTIMIZED_FOR (int x = 0; x <= src_len - 16; x += 16) {
                 a1 = *(s++);
                 a2 = *(s++);
                 a3 = *(s++);
@@ -1191,8 +1185,6 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len,
                 *(d++) = a1 | (a2 << 48);       /* 0xa2|a2|a1|a1|a1|a1|a1|a1 */
                 *(d++) = (a2 >> 16) | (a3 << 32);       /* 0xa3|a3|a3|a3|a2|a2|a2|a2 */
                 *(d++) = (a3 >> 32) | (a4 << 16);       /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
-
-                src_len -= 16;
         }
 }
 
@@ -1202,7 +1194,7 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len,
  * @brief Changes color order of an RGB
  * @copydetails vc_copyliner10k
  */
-void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
         union {
@@ -1213,7 +1205,7 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
         if (rshift == 0 && gshift == 8 && bshift == 16) {
                 memcpy(dst, src, dst_len);
         } else {
-                while (dst_len >= 3) {
+                OPTIMIZED_FOR (int x = 0; x <= dst_len - 3; x += 3) {
                         r = *src++;
                         g = *src++;
                         b = *src++;
@@ -1221,7 +1213,6 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
                         *dst++ = u.c[0];
                         *dst++ = u.c[1];
                         *dst++ = u.c[2];
-                        dst_len -= 3;
                 }
         }
 }
@@ -1230,7 +1221,7 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  * @brief Converts from RGBA to RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1242,11 +1233,12 @@ void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
  * @copydetails vc_copyliner10k
  */
-void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {
 	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
-        while (dst_len >= 12) {
+        int x;
+        OPTIMIZED_FOR (x = 0; x <= dst_len - 12; x += 12) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
 		register uint32_t in3 = *src++;
@@ -1264,18 +1256,14 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
                         ((in4 >> gshift) & 0xff) << 16 |
                         ((in4 >> rshift) & 0xff) << 8 |
                         ((in3 >> bshift) & 0xff);
-
-                dst_len -= 12;
         }
 
         uint8_t *dst_c = (uint8_t *) dst;
-        while (dst_len >= 4) {
+        OPTIMIZED_FOR (; x <= dst_len - 3; x += 3) {
 		register uint32_t in = *src++;
                 *dst_c++ = (in >> rshift) & 0xff;
                 *dst_c++ = (in >> gshift) & 0xff;
                 *dst_c++ = (in >> bshift) & 0xff;
-
-                dst_len -= 4;
         }
 }
 
@@ -1285,7 +1273,7 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
-void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1296,8 +1284,10 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 
 /**
  * @brief Converts RGBA with different shifts to RGBA
+ *
+ * dst and src may overlap
  */
-void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len,
+void vc_copylineToRGBA_inplace(unsigned char *dst, const unsigned char *src, int dst_len,
                 int src_rshift, int src_gshift, int src_bshift)
 {
 	register const uint32_t * in = (const uint32_t *)(const void *) src;
@@ -1317,18 +1307,16 @@ void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len
  * @brief Converts UYVY to grayscale.
  * @todo is this correct??
  */
-void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineUYVYtoGrayscale(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        while(dst_len > 0) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 2; x += 2) {
                 src++; // U
                 *dst++ = *src++; // Y
                 src++; // V
                 *dst++ = *src++; // Y
-
-                dst_len -= 2;
         }
 }
 
@@ -1336,18 +1324,17 @@ void vc_copylineUYVYtoGrayscale(unsigned char *dst, const unsigned char *src, in
  * @brief Converts RGB to RGBA
  * @copydetails vc_copyliner10k
  */
-void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
         
-        while (dst_len >= 4) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 r = *src++;
                 g = *src++;
                 b = *src++;
                 
                 *d++ = (r << rshift) | (g << gshift) | (b << bshift);
-                dst_len -= 4;
         }
 }
 
@@ -1358,13 +1345,13 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
  * @copydetails vc_copyliner10k
  * @param[in] source pixel size (3 for RGB, 4 for RGBA)
  */
-static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) {
         register int r, g, b;
         register int y1, y2, u ,v;
         register uint32_t *d = (uint32_t *)(void *) dst;
 
-        while (dst_len >= 4) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 r = *(src + rshift);
                 g = *(src + gshift);
                 b = *(src + bshift);
@@ -1386,7 +1373,6 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
                         (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
                         (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
                         (min(max(u, 0), (1<<24)-1) >> 16);
-                dst_len -= 4;
         }
 }
 
@@ -1397,13 +1383,13 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
  * @copydetails vc_copyliner10k
  * @param[in] source pixel size (3 for RGB, 4 for RGBA)
  */
-static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY709(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) {
         register int r, g, b;
         register int y1, y2, u ,v;
         register uint32_t *d = (uint32_t *)(void *) dst;
 
-        while (dst_len >= 4) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 r = *(src + rshift);
                 g = *(src + gshift);
                 b = *(src + bshift);
@@ -1425,7 +1411,6 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
                         (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
                         (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
                         (min(max(u, 0), (1<<24)-1) >> 16);
-                dst_len -= 4;
         }
 }
 
@@ -1441,7 +1426,7 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
  * @todo make it faster if needed
  */
 #define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off) {\
-        while (dst_len >= 4) {\
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {\
                 register int y1, y2, u ,v;\
                 y1 = src[y1_off];\
                 y2 = src[y2_off];\
@@ -1454,8 +1439,6 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
                 *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
                 *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
                 *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
-\
-                dst_len -= 6;\
         }\
 }
 
@@ -1465,7 +1448,7 @@ static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, i
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with UYVY
  */
-void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1479,7 +1462,7 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with YUYV
  */
-void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1494,7 +1477,7 @@ void vc_copylineYUYVtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  * @copydetails vc_copylinev210
  * @todo make it faster if needed
  */
-void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineUYVYtoRGB_SSE(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
 #ifdef __SSSE3__
         __m128i yfactor = _mm_set1_epi16(74); //1.164 << 6
@@ -1508,7 +1491,7 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int 
 
         __m128i zero128 = _mm_set1_epi32(0);
         __m128i max = _mm_set1_epi16(255);
-                                       //YYVVYYUU
+        //YYVVYYUU
         __m128i ymask = _mm_set1_epi32(0x00FF00FF);
         __m128i umask = _mm_set1_epi32(0x000000FF);
 
@@ -1585,13 +1568,13 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char *dst, const unsigned char *src, int 
  * Converts 8-bit RGB to 12-bit packed RGB in full range (compatible with
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing).
  */
-void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_len,
+void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
 
-        while (dst_len >= 36) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 36; x += 36) {
                 unsigned char r = *src++;
                 unsigned char g = *src++;
                 unsigned char b = *src++;
@@ -1653,7 +1636,6 @@ void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_
                 dst[32 + BYTE_SWAP(2)] = g >> 4;
                 dst[32 + BYTE_SWAP(3)] = b;
                 dst += 36;
-                dst_len -= 36;
         }
 }
 
@@ -1663,13 +1645,13 @@ void vc_copylineRGBtoR12L(unsigned char *dst, const unsigned char *src, int dst_
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing) to 16-bit RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        while(dst_len >= 48){
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 48; x += 48) {
                 //0
                 //R
                 *dst++ = src[BYTE_SWAP(0)] << 4;
@@ -1751,7 +1733,6 @@ void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst
                 *dst++ = src[32 + BYTE_SWAP(2)] & 0xF0;
                 *dst++ = src[32 + BYTE_SWAP(3)];
 
-                dst_len -= 48;
                 src += 36;
         }
 }
@@ -1762,13 +1743,13 @@ void vc_copylineR12LtoRG48(unsigned char *dst, const unsigned char *src, int dst
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        while(dst_len >= 36){
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 36; x += 36) {
                 //0
                 dst[BYTE_SWAP(0)] = src[0] >> 4;
                 dst[BYTE_SWAP(0)] |= src[1] << 4;
@@ -1886,18 +1867,16 @@ void vc_copylineRG48toR12L(unsigned char *dst, const unsigned char *src, int dst
                 src += 2;
 
                 dst += 36;
-                dst_len -= 36;
         }
 }
 
-void vc_copylineRG48toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         uint32_t *dst32 = (uint32_t *) dst;
-        while(dst_len >= 4) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 *dst32++ = src[1] << rshift | src[3] << gshift | src[5] << bshift;
                 src += 6;
-                dst_len -= 4;
         }
 }
 
@@ -1906,7 +1885,7 @@ void vc_copylineRG48toRGBA(unsigned char *dst, const unsigned char *src, int dst
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRGBtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1921,7 +1900,7 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  * There can be some inaccuracies due to the use of integer arithmetic
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRGBtoUYVY_SSE(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
 #ifdef __SSSE3__
         __m128i rgb;
@@ -2024,7 +2003,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char *dst, const unsigned char *src, int 
  * There can be some inaccuracies due to the use of integer arithmetic
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -2097,7 +2076,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src,
         register int ri, gi, bi;
         register int y1, y2;
         register uint16_t *d = (uint16_t *)(void *) dst;
-        while (dst_len >= 2) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 2; x += 2) {
                 ri = *(src++);
                 gi = *(src++);
                 bi = *(src++);
@@ -2109,7 +2088,6 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src,
 
                 *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 8 |
                        (min(max(y1, 0), (1<<24)-1) >> 16);
-                dst_len -= 2;
         }
 }
 
@@ -2118,7 +2096,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char *dst, const unsigned char *src,
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2132,7 +2110,7 @@ void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2145,7 +2123,7 @@ void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineBGRtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -2159,7 +2137,7 @@ void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_l
  * @copydetails vc_copyliner10k
  */
 void
-vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         
         register const unsigned int *in = (const unsigned int *)(const void *) src;
@@ -2183,7 +2161,7 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
  * @copydetails vc_copylinev210
  */
 void
-vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
+vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2193,7 +2171,7 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len,
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
        
-        while (dst_len >= 12) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 12; x += 12) {
                 register unsigned int val;
                 
                 val = *in++;
@@ -2221,8 +2199,6 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len,
                 b2 = 0xff & (val >> 4);
                 
                 *out++ = b1 | r2 << 8 | g2 << 16 | b2 << 24;
-                
-                dst_len -= 12;
         }
         if (dst_len != 0) {
                 /// @todo

@@ -1567,13 +1567,13 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                                 s->state[0].delegate->pixelFrameRight != NULL) {
                         s->frame->tiles[0].data = (char*)s->state[0].delegate->pixelFrame;
                         if (s->codec == RGBA) {
-                            vc_copylineRGBA((unsigned char*) s->frame->tiles[0].data,
+                            vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[0].data,
                                         (unsigned char*)s->frame->tiles[0].data,
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                         }
                         s->frame->tiles[1].data = (char*)s->state[0].delegate->pixelFrameRight;
                         if (s->codec == RGBA) {
-                            vc_copylineRGBA((unsigned char*) s->frame->tiles[1].data,
+                            vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[1].data,
                                         (unsigned char*)s->frame->tiles[1].data,
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                         }
@@ -1584,7 +1584,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         if (s->state[i].delegate->pixelFrame != NULL) {
                                 s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
                                 if (s->codec == RGBA) {
-                                    vc_copylineRGBA((unsigned char*) s->frame->tiles[i].data,
+                                    vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[i].data,
                                                 (unsigned char*)s->frame->tiles[i].data,
                                                 s->frame->tiles[i].data_len, 16, 8, 0);
                                 }

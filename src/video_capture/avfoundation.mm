@@ -437,7 +437,7 @@ fromConnection:(AVCaptureConnection *)connection
 				get<2>(codec_it->second) != 16)) {
 		int linesize = vc_get_linesize(desc.width, desc.color_spec);
 		for (unsigned int y = 0; y < desc.height; ++y) {
-			vc_copylineToRGBA((unsigned char *) ret->tiles[0].data + y * linesize,
+			vc_copylineToRGBA_inplace((unsigned char *) ret->tiles[0].data + y * linesize,
 					(unsigned char *) ret->tiles[0].data + y * linesize,
 					linesize, get<1>(codec_it->second),
 					get<2>(codec_it->second), get<3>(codec_it->second));

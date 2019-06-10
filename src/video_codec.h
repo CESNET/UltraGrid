@@ -8,7 +8,7 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
-/* Copyright (c) 2005-2017 CESNET z.s.p.o.
+/* Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -58,6 +58,9 @@ extern "C" {
 
 /**
  * @brief Defines type for pixelformat conversions
+ *
+ * dst and src must not overlap.
+ *
  * @param[out] dst     destination buffer
  * @param[in]  src     source buffer
  * @param[in]  dst_len expected number of bytes to be written
@@ -69,8 +72,7 @@ extern "C" {
  * {r,g,b}shift are usually applicable only for output RGBA. If decoder
  * doesn't output RGBA, values are ignored.
  */
-typedef void decoder_func_t(unsigned char *dst, const unsigned char *src, int dst_len,
-                int rshift, int gshift, int bshift);
+typedef void decoder_func_t(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift);
 typedef decoder_func_t *decoder_t;
 
 /// Prints list of suppored codecs for video module
@@ -107,7 +109,6 @@ decoder_func_t vc_copylineYUYV;
 decoder_func_t vc_copyliner10k;
 decoder_func_t vc_copylineR12L;
 decoder_func_t vc_copylineRGBA;
-decoder_func_t vc_copylineToRGBA;
 decoder_func_t vc_copylineDVS10toV210;
 decoder_func_t vc_copylineRGBAtoRGB;
 decoder_func_t vc_copylineABGRtoRGB;
@@ -131,6 +132,8 @@ decoder_func_t vc_copylineBGRtoRGB;
 decoder_func_t vc_copylineDPX10toRGBA;
 decoder_func_t vc_copylineDPX10toRGB;
 decoder_func_t vc_copylineRGB;
+
+void vc_copylineToRGBA_inplace(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
 

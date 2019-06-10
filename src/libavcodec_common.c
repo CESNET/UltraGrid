@@ -42,6 +42,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "host.h"
 #include "hwaccel_vdpau.h"
 #include "libavcodec_common.h"
 #include "video.h"
@@ -61,17 +62,6 @@
 #undef MIN
 #define MAX(a, b)      (((a) > (b))? (a): (b))
 #define MIN(a, b)      (((a) < (b))? (a): (b))
-
-#define __NL__
-/* Use following macro only if there are no dependencies between loop
- * iterations (GCC), perhals the same holds also for clang. */
-#if defined __GNUC__
-#define OPTIMIZED_FOR _Pragma("GCC ivdep") __NL__ for
-#elif defined __clang__
-#define OPTIMIZED_FOR _Pragma("clang loop vectorize(enable) interleave(enable)") __NL__ for
-#else
-#define OPTIMIZED_FOR for
-#endif
 
 void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {

@@ -176,4 +176,15 @@ static void add_to_param_doc##salt(void) \
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 
+/* Use following macro only if there are no dependencies between loop
+ * iterations (GCC), perhals the same holds also for clang. */
+#define __NL__
+#if defined __GNUC__
+#define OPTIMIZED_FOR _Pragma("GCC ivdep") __NL__ for
+#elif defined __clang__
+#define OPTIMIZED_FOR _Pragma("clang loop vectorize(enable) interleave(enable)") __NL__ for
+#else
+#define OPTIMIZED_FOR for
+#endif
+
 #endif

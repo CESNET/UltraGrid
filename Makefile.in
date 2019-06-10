@@ -248,6 +248,10 @@ src/libavcodec_common.o: src/libavcodec_common.c $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Ofast $(INC) -c $< -o $@
 
+src/video_codec.o: src/video_codec.c $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(CFLAGS) -Ofast $(INC) -c $< -o $@
+
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
