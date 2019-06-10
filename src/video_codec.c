@@ -183,11 +183,11 @@ static const struct codec_info_t codec_info[] = {
         [FFV1] = {"FFV1", "FFV1",
                 to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
         [CFHD] = {"CFHD", "Cineform",
-                to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "cfhd"},
+                to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "cfhd"},
         [RG48] = {"RG48", "16-bit RGB little-endian",
                 to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
-                to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "av1"},
+                to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
 };
 
 /**
