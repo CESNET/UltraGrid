@@ -70,10 +70,6 @@
 #include "host.h"
 #include "lib_common.h"
 #include "video_display.h"
-#if defined _MSC_VER && _MSC_VER <= 1800 // VS 2013
-#define constexpr
-#define noexcept
-#endif
 #include "rang.hpp"
 #include "video.h"
 

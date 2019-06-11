@@ -94,24 +94,6 @@ void log_msg(int level, const char *format, ...)
         }
 #endif                          /* WIN32 */
 
-        rang::fg color = rang::fg::reset;
-        rang::style style = rang::style::reset;
-
-        switch (level) {
-        case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
-        case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
-        case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
-        case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
-        }
-
-        auto timestamp = (char *) alloca((3 /* "[] " */ + 20 /* 64b int dec */ + 1 /* dot */ + 3 /* ms */) /* time */ + 1);
-        timestamp[0] = '\0';
-        if (log_level >= LOG_LEVEL_VERBOSE) {
-                unsigned long long time_ms = time_since_epoch_in_ms();
-                sprintf(timestamp, "[%llu.%03llu] ", time_ms / 1000,
-                                time_ms % 1000);
-        }
-
         // get number of required bytes
         va_start(ap, format);
         int size = vsnprintf(NULL, 0, format, ap);
@@ -126,8 +108,7 @@ void log_msg(int level, const char *format, ...)
         }
         va_end(ap);
 
-        std::cerr << style << color << timestamp <<
-                buffer << rang::style::reset << rang::fg::reset;
+        LOG(level) << buffer;
 }
 
 /**

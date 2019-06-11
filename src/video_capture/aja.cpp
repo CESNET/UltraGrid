@@ -40,10 +40,10 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
+#include "config_msvc.h"
 
 #ifdef _MSC_VER
 #include <winsock2.h>
-#define snprintf _snprintf
 #endif
 
 #include "audio/audio.h"
@@ -51,10 +51,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#if defined _MSC_VER && _MSC_VER <= 1800 // VS 2013
-#define constexpr
-#define noexcept
-#endif
 #include "rang.hpp"
 #include "utils/video_frame_pool.h"
 #include "video.h"

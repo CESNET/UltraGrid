@@ -61,20 +61,37 @@ void log_msg(int log_level, const char *format, ...);
 #endif
 
 #ifdef __cplusplus
-#include <sstream>
+#include <iomanip>
+#include <iostream>
+#include "compat/platform_time.h"
+#include "rang.hpp"
+
 // Log, version 0.1: a simple logging class
 class Logger
 {
 public:
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
-                log_msg(level, os.str().c_str());
+                std::cerr << rang::style::reset << rang::fg::reset;
         }
-        inline std::ostringstream& Get() {
-                return os;
+        inline std::ostream& Get() {
+                rang::fg color = rang::fg::reset;
+                rang::style style = rang::style::reset;
+
+                switch (level) {
+                case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
+                case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
+                case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
+                case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
+                }
+                std::cerr << style << color;
+                if (log_level >= LOG_LEVEL_VERBOSE) {
+                        unsigned long long time_ms = time_since_epoch_in_ms();
+                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
+                }
+
+                return std::cerr;
         }
-protected:
-        std::ostringstream os;
 private:
         int level;
 };

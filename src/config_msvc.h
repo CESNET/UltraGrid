@@ -38,11 +38,17 @@
 #ifndef CONFIG_MSVC_H
 #define CONFIG_MSVC_H
 
-#if defined _MSC_VER && !defined WIN32
+#if defined _MSC_VER
 
 #include <stdlib.h>
 #include <string.h>
 #include <process.h> // getpid()
+
+#if _MSC_VER <= 1800
+#define constexpr
+#define noexcept
+#endif
+
 
 static inline char * strtok_r(char *str, const char *delim, char **save);
 
@@ -69,7 +75,7 @@ static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
 
 #define ATTRIBUTE(a)
 
-#define snprintf(x, y, ...) sprintf(x, __VA_ARGS__)
+#define snprintf _snprintf
 #define strncasecmp(x, y, z) strcmp(x, y)
 
 #endif
