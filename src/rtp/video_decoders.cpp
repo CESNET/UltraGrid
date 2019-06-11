@@ -1239,7 +1239,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 << display_desc << "\n";
                         return false;
                 }
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Sucessfully reconfigured display to "
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Successfully reconfigured display to "
                         << display_desc << "\n";
                 decoder->display_desc = display_desc;
 
