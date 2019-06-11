@@ -68,7 +68,7 @@
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
-                log_msg(LOG_LEVEL_ERROR, "[J2K] %s: %s\n", \
+                log_msg(LOG_LEVEL_ERROR, "[J2K enc.] %s: %s\n", \
                                 err_msg, cmpto_j2k_enc_get_last_error()); \
                 action_fail;\
         } \

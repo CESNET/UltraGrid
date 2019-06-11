@@ -108,7 +108,7 @@ struct state_decompress_j2k {
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
-                log_msg(LOG_LEVEL_ERROR, "[J2K] %s: %s\n", \
+                log_msg(LOG_LEVEL_ERROR, "[J2K dec] %s: %s\n", \
                                 err_msg, cmpto_j2k_dec_get_last_error()); \
                 action_fail;\
         } \
@@ -150,16 +150,16 @@ static void *decompress_j2k_worker(void *args)
                         if (s->in_frames) s->in_frames--;
                 }
 
+                if (img == NULL) { // decoder stopped (poison pill)
+                        break;
+                }
+
                 if (decoded_img_status != CMPTO_J2K_DEC_IMG_OK) {
 			const char * decoding_error = "";
 			CHECK_OK(cmpto_j2k_dec_img_get_error(img, &decoding_error), "get error status",
 					decoding_error = "(failed)");
 			log_msg(LOG_LEVEL_ERROR, "Image decoding failed: %s\n", decoding_error);
                         continue;
-                }
-
-                if (img == NULL) { // decoder stopped (poison pill)
-                        break;
                 }
 
                 void *dec_data;
