@@ -756,8 +756,9 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
                         }
                 }
         }
-        assert("Shouldn't reach here because the set of required pixel formats "
-                        "should contain only convertible pixel formats." && 0);
+
+        *out = VIDEO_CODEC_NONE;
+        return nullptr;
 }
 
 static int get_subsampling(enum AVPixelFormat fmt) {
@@ -1039,6 +1040,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         } else {
                 s->decoder = get_decoder_from_uv_to_uv(desc.color_spec, s->selected_pixfmt, &s->decoded_codec);
         }
+        if(!s->decoder){
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
+                               get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+                return false;
+        }
+
 
         s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
 
