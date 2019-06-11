@@ -211,10 +211,16 @@ struct reported_statistics_cumul {
         unsigned long long int     nano_per_frame_expected = 0;
         unsigned long int     reported_frames = 0;
         void print() {
-                if (log_level < LOG_LEVEL_INFO) {
-                        return;
+                ostringstream fec;
+                if (fec_ok + fec_nok + fec_corrected > 0) {
+                        fec << " FEC noerr/OK/NOK: "
+                                << style::bold << fec_ok << style::reset
+                                << "/"
+                                << style::bold << fec_corrected << style::reset
+                                << "/"
+                                << style::bold << fec_nok << style::reset;
                 }
-                cerr << style::underline << "Video dec stats" << style::reset << " (cumulative): "
+                LOG(LOG_LEVEL_INFO) << style::underline << "Video dec stats" << style::reset << " (cumulative): "
                         << style::bold << displayed + dropped + missing << style::reset
                         << " total / "
                         << style::bold << displayed << style::reset
@@ -224,16 +230,7 @@ struct reported_statistics_cumul {
                         << style::bold << corrupted << style::reset
                         << " corr / "
                         << style::bold << missing << style::reset
-                        << " missing.";
-                if (fec_ok + fec_nok + fec_corrected > 0) {
-                        cerr << " FEC noerr/OK/NOK: "
-                                << style::bold << fec_ok << style::reset
-                                << "/"
-                                << style::bold << fec_corrected << style::reset
-                                << "/"
-                                << style::bold << fec_nok << style::reset;
-                }
-                cerr << "\n";
+                        << " missing." << fec.str() << "\n";
         }
 };
 

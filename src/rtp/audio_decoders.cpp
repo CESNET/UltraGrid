@@ -70,12 +70,10 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 
 using rang::fg;
 using rang::style;
-using std::cerr;
 using std::fixed;
 using std::ostringstream;
 using std::setprecision;
@@ -375,9 +373,7 @@ static void *adec_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                if (log_level >= LOG_LEVEL_INFO) {
-                        std::cerr << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
-                }
+                LOG(LOG_LEVEL_INFO) << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
         }
 
         delete d;
