@@ -75,6 +75,12 @@ extern "C"
 }
 #endif
 
+#ifdef HAVE_SWSCALE
+extern "C"{
+#include <libswscale/swscale.h>
+}
+#endif
+
 #define MOD_NAME "[lavc] "
 
 using namespace std;
@@ -223,7 +229,7 @@ struct state_video_compress_libav {
         int                 requested_cqp;
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling;
-        // actual value used
+        // contains format that is supplied by UG to the encoder or swscale (if used)
         AVPixelFormat       selected_pixfmt;
 
         codec_t             out_codec;
@@ -238,6 +244,13 @@ struct state_video_compress_libav {
 
         bool hwenc;
         AVFrame *hwframe;
+
+#ifdef HAVE_SWSCALE
+        struct SwsContext *sws_ctx;
+		// contains format that is supplied to the encoder
+        AVPixelFormat out_pixfmt;
+        AVFrame *sws_frame;
+#endif
 };
 
 static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
@@ -512,6 +525,12 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         s->hwenc = false;
         s->hwframe = NULL;
 
+#ifdef HAVE_SWSCALE
+        s->sws_ctx = nullptr;
+        s->out_pixfmt = AV_PIX_FMT_NONE;
+        s->sws_frame = nullptr;
+#endif
+
         return &s->module_data;
 }
 
@@ -775,37 +794,13 @@ static int get_subsampling(enum AVPixelFormat fmt) {
         return 0; // other (todo)
 }
 
-ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
-                "* lavc-use-codec=<c>\n"
-                "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
-                "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
-                "  for NVENC encoder.\n"
-                "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
-                "  to force 10-bit encoding.\n"
-                "  UltraGrid pixel formats (v210, R10k, UYVY etc.) are also accepted.\n");
 /**
- * Returns ordered list of codec preferences for input description and
- * requested_subsampling.
+ * Returns list of pix_fmts that UltraGrid can supply to the encoder.
+ * The list is ordered according to input description and requested subsampling.
  */
-list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
-                AVCodec *codec, int requested_subsampling) {
-        codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
-                                                  // of UG conversions (before FFMPEG conversion)
-                                                  // or (likely) no conversion at all
-        if (get_commandline_param("lavc-use-codec")) {
-                const char *val = get_commandline_param("lavc-use-codec");
-                enum AVPixelFormat fmt = av_get_pix_fmt(val);
-                if (fmt != AV_PIX_FMT_NONE) {
-                        return { fmt };
-                }
-                force_conv_to = get_codec_from_name(val);
-                if (!force_conv_to) {
-                        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Wrong codec string: " << val << ".\n";
-                        exit_uv(1);
-                        return {};
-                }
-        }
-
+static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc,
+                AVCodec *codec, int requested_subsampling, codec_t force_conv_to)
+{
         list<enum AVPixelFormat> fmts;
 
         if (regex_match(codec->name, regex(".*vaapi.*"))) {
@@ -903,6 +898,105 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
         }
 
         return fmts;
+
+}
+
+ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
+                "* lavc-use-codec=<c>\n"
+                "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
+                "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
+                "  for NVENC encoder.\n"
+                "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
+                "  to force 10-bit encoding.\n"
+                "  UltraGrid pixel formats (v210, R10k, UYVY etc.) are also accepted.\n");
+/**
+ * Returns ordered list of codec preferences for input description and
+ * requested_subsampling.
+ */
+list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
+                AVCodec *codec, int requested_subsampling) {
+        codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
+                                                  // of UG conversions (before FFMPEG conversion)
+                                                  // or (likely) no conversion at all
+        if (get_commandline_param("lavc-use-codec")) {
+                const char *val = get_commandline_param("lavc-use-codec");
+                enum AVPixelFormat fmt = av_get_pix_fmt(val);
+                if (fmt != AV_PIX_FMT_NONE) {
+                        return { fmt };
+                }
+                force_conv_to = get_codec_from_name(val);
+                if (!force_conv_to) {
+                        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Wrong codec string: " << val << ".\n";
+                        exit_uv(1);
+                        return {};
+                }
+        }
+
+        return get_available_pix_fmts(in_desc, codec, requested_subsampling, force_conv_to);
+}
+
+static bool try_open_codec(struct state_video_compress_libav *s,
+                           AVPixelFormat &pix_fmt,
+                           struct video_desc desc,
+                           codec_t ug_codec,
+                           AVCodec *codec)
+{
+        // avcodec_alloc_context3 allocates context and sets default value
+        s->codec_ctx = avcodec_alloc_context3(codec);
+        if (!s->codec_ctx) {
+                log_msg(LOG_LEVEL_ERROR, "Could not allocate video codec context\n");
+                return false;
+        }
+
+        if (!set_codec_ctx_params(s, pix_fmt, desc, ug_codec)) {
+                avcodec_free_context(&s->codec_ctx);
+                s->codec_ctx = NULL;
+                return false;
+        }
+
+        log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
+#ifdef HWACC_VAAPI
+        if (pix_fmt == AV_PIX_FMT_VAAPI){
+                int ret = vaapi_init(s->codec_ctx);
+                if (ret != 0) {
+                        avcodec_free_context(&s->codec_ctx);
+                        s->codec_ctx = NULL;
+                        return false;
+                }
+                s->hwenc = true;
+                s->hwframe = av_frame_alloc();
+                av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
+                pix_fmt = AV_PIX_FMT_NV12;
+        }
+#endif
+        /* open it */
+        pthread_mutex_lock(s->lavcd_global_lock);
+        if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
+                avcodec_free_context(&s->codec_ctx);
+                s->codec_ctx = NULL;
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Could not open codec for pixel format %s\n", av_get_pix_fmt_name(pix_fmt));
+                pthread_mutex_unlock(s->lavcd_global_lock);
+                return false;
+        }
+
+        pthread_mutex_unlock(s->lavcd_global_lock);
+        return true;
+}
+
+static bool find_decoder(struct video_desc desc,
+                AVPixelFormat pixfmt,
+                codec_t *decoded_codec,
+                decoder_t *decoder)
+{
+        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
+                        && pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
+                *decoded_codec = desc.color_spec;
+                *decoder = (decoder_t)(void *) memcpy;
+        } else {
+                *decoder = get_decoder_from_uv_to_uv(desc.color_spec, pixfmt, decoded_codec);
+        }
+
+        return *decoder != nullptr;
 }
 
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
@@ -911,6 +1005,12 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         codec_t ug_codec = VIDEO_CODEC_NONE;
         AVPixelFormat pix_fmt;
         AVCodec *codec = nullptr;
+#ifdef HAVE_SWSCALE
+        sws_freeContext(s->sws_ctx);
+        s->sws_ctx = nullptr;
+        av_frame_free(&s->sws_frame);
+        s->out_pixfmt = AV_PIX_FMT_NONE;
+#endif //HAVE_SWSCALE
 
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
@@ -980,44 +1080,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmts, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
-		// avcodec_alloc_context3 allocates context and sets default value
-		s->codec_ctx = avcodec_alloc_context3(codec);
-		if (!s->codec_ctx) {
-			log_msg(LOG_LEVEL_ERROR, "Could not allocate video codec context\n");
-			return false;
-		}
-
-		if (!set_codec_ctx_params(s, pix_fmt, desc, ug_codec)) {
-			avcodec_free_context(&s->codec_ctx);
-                        s->codec_ctx = NULL;
-			return false;
-		}
-
-                log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-#ifdef HWACC_VAAPI
-                if (pix_fmt == AV_PIX_FMT_VAAPI){
-                        int ret = vaapi_init(s->codec_ctx);
-                        if (ret != 0) {
-                                continue;
-                        }
-                        s->hwenc = true;
-                        s->hwframe = av_frame_alloc();
-                        av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
-                        pix_fmt = AV_PIX_FMT_NV12;
+                if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
+                        break;
                 }
-#endif
-                /* open it */
-                pthread_mutex_lock(s->lavcd_global_lock);
-                if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
-                        avcodec_free_context(&s->codec_ctx);
-                        s->codec_ctx = NULL;
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Could not open codec for pixel format %s\n", av_get_pix_fmt_name(pix_fmt));
-                        pthread_mutex_unlock(s->lavcd_global_lock);
-                        continue;
-                }
-
-                pthread_mutex_unlock(s->lavcd_global_lock);
-		break;
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
@@ -1033,19 +1098,60 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
 
-        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
-                        && s->selected_pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
-                s->decoded_codec = desc.color_spec;
-                s->decoder = (decoder_t)(void *) memcpy;
-        } else {
-                s->decoder = get_decoder_from_uv_to_uv(desc.color_spec, s->selected_pixfmt, &s->decoded_codec);
-        }
-        if(!s->decoder){
+        if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
                                get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+#ifndef HAVE_SWSCALE
                 return false;
-        }
+#else
+                log_msg(LOG_LEVEL_NOTICE, "[lavc] Attempting to use swscale to convert.\n");
+                //get all AVPixelFormats we can convert to and pick the first
+                auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
+                s->out_pixfmt = s->selected_pixfmt;
+                s->selected_pixfmt = fmts.front();
+                if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
+                        //Should not happen as get_available_pix_fmts should only
+                        //return formats we can decode to
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to convert even using swscale. Giving up.\n");
+                        return false;
+                }
 
+                s->sws_ctx = sws_getContext(desc.width,
+                                            desc.height,
+                                            s->selected_pixfmt,
+                                            desc.width,
+                                            desc.height,
+                                            s->out_pixfmt,
+                                            SWS_POINT,
+                                            NULL,
+                                            NULL,
+                                            NULL);
+                if(!s->sws_ctx){
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
+                        return false;
+                }
+
+                s->sws_frame = av_frame_alloc();
+                if (!s->sws_frame) {
+                        log_msg(LOG_LEVEL_ERROR, "Could not allocate sws frame\n");
+                        return false;
+                }
+                s->sws_frame->width = s->codec_ctx->width;
+                s->sws_frame->height = s->codec_ctx->height;
+                s->sws_frame->format = s->out_pixfmt;
+                ret = av_image_alloc(s->sws_frame->data, s->sws_frame->linesize,
+                                s->sws_frame->width, s->sws_frame->height,
+                                s->out_pixfmt, 32);
+                if (ret < 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer for sws\n");
+                        return false;
+                }
+
+                log_msg(LOG_LEVEL_NOTICE, "[lavc] Using swscale to convert %s to %s.\n",
+                                av_get_pix_fmt_name(s->selected_pixfmt),
+                                av_get_pix_fmt_name(s->out_pixfmt));
+#endif //HAVE_SWSCALE
+        }
 
         s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
 
@@ -1055,7 +1161,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 return false;
         }
 
-        AVPixelFormat fmt = (s->hwenc) ? AV_PIX_FMT_NV12 : s->codec_ctx->pix_fmt;
+        AVPixelFormat fmt = (s->hwenc) ? AV_PIX_FMT_NV12 : s->selected_pixfmt;
 #if LIBAVCODEC_VERSION_MAJOR >= 53
         s->in_frame->format = fmt;
         s->in_frame->width = s->codec_ctx->width;
@@ -1250,6 +1356,19 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 #endif
 
+#ifdef HAVE_SWSCALE
+        if(s->sws_ctx){
+                sws_scale(s->sws_ctx,
+                          s->in_frame->data,
+                          s->in_frame->linesize,
+                          0,
+                          s->in_frame->height,
+                          s->sws_frame->data,
+                          s->sws_frame->linesize);
+                frame = s->sws_frame;
+        }
+#endif //HAVE_SWSCALE
+
         /* encode the image */
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
@@ -1356,9 +1475,12 @@ static void cleanup(struct state_video_compress_libav *s)
         free(s->decoded);
         s->decoded = NULL;
 
-        if(s->hwframe){
-                av_frame_free(&s->hwframe);
-        }
+        av_frame_free(&s->hwframe);
+
+#ifdef HAVE_SWSCALE
+        sws_freeContext(s->sws_ctx);
+        av_frame_free(&s->sws_frame);
+#endif //HAVE_SWSCALE
 }
 
 static void libavcodec_compress_done(struct module *mod)

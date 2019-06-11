@@ -1636,6 +1636,47 @@ if test $libavcodec_req = yes -a $libavcodec = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# Libswscale
+# -------------------------------------------------------------------------------------------------
+libswscale=no
+AC_ARG_ENABLE(libswscale,
+[  --disable-libswscale    disable libswscale support (default is auto)]
+[                          Requires: libswscale libavutil],
+[libswscale_req=$enableval],
+[libswscale_req=auto]
+)
+
+if test $system = Windows; then
+AC_CHECK_HEADERS([libswscale/swscale.h])
+AC_CHECK_LIB(swscale, sws_getContext)
+if test $ac_cv_header_libswscale_swscale_h = yes -a \
+        $ac_cv_lib_swscale_sws_getContext = yes
+then
+        found_libswscale=yes
+        LIBSWSCALE_LIBS="-lswscale"
+else
+        found_libswscale=no
+fi
+else # Linux, OS X
+PKG_CHECK_MODULES([LIBSWSCALE], [libswscale], [found_libswscale=yes], [found_libswscale=no])
+fi
+
+if test $libswscale_req != no -a $found_libswscale = yes
+then
+        AC_DEFINE([HAVE_SWSCALE], [1], [Build with Swscale support])
+
+        COMMON_FLAGS="$COMMON_FLAGS $LIBSWSCALE_CFLAGS"
+        libswscale=yes
+        #LIBSWSCALE_LIBS="$LIBSWSCALE_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
+        LIBS="$LIBS $LIBSWSCALE_LIBS"
+fi
+
+if test $libswscale_req = yes -a $libswscale = no; then
+        AC_MSG_ERROR([Libswscale not found]);
+fi
+
+
+# -------------------------------------------------------------------------------------------------
 # OpenGL stuff
 # -------------------------------------------------------------------------------------------------
 GL_INC=
@@ -3253,6 +3294,7 @@ RESULT=`add_column "$RESULT" "Spout" $spout $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
 RESULT=`add_column "$RESULT" "Testcard extras" $testcard_extras $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
+RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 
 RESULT="$RESULT
 "
