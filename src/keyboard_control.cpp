@@ -51,6 +51,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 
 #ifdef HAVE_TERMIOS_H
 #include <unistd.h>

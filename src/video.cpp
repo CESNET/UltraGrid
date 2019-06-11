@@ -49,6 +49,7 @@
 #include "video.h"
 
 #include <iomanip>
+#include <sstream>
 #include <unordered_map>
 
 using namespace std;

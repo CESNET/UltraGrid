@@ -47,6 +47,7 @@
 #include "debug.h"
 #include <speex/speex_resampler.h>
 
+#include <sstream>
 #include <stdexcept>
 
 using namespace std;
