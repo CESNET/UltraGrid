@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,7 @@
 /// maximal number of concurrently decompressed frames
 #define DEFAULT_MAX_IN_FRAMES 4
 #define DEFAULT_MEM_LIMIT 1000000000ll
+#define MOD_NAME "[J2K dec.] "
 
 using namespace std;
 
@@ -108,7 +109,7 @@ struct state_decompress_j2k {
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
-                log_msg(LOG_LEVEL_ERROR, "[J2K dec] %s: %s\n", \
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", \
                                 err_msg, cmpto_j2k_dec_get_last_error()); \
                 action_fail;\
         } \
@@ -280,8 +281,11 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
-        assert(out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16));
-        assert(pitch == vc_get_linesize(desc.width, out_codec));
+        /**
+         * @todo
+         * Different pitch can be fixed with custom output format (as for RGBA).
+         */
+        assert(out_codec == RGBA || pitch == vc_get_linesize(desc.width, out_codec));
 
         if (out_codec == VIDEO_CODEC_NONE) { // probe format
                 s->out_codec = VIDEO_CODEC_NONE;
@@ -295,8 +299,16 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         for(const auto &codec : codecs){
                 if(codec.ug_codec == out_codec){
                         switch (out_codec) {
+                                case RGBA:
+                                        if (rshift == 0 && gshift == 8 && bshift == 16 &&
+                                                        pitch == vc_get_linesize(desc.width, out_codec)) {
+                                                cmpto_sf = codec.cmpto_sf;
+                                        } else {
+                                                cmpto_sf = (cmpto_sample_format_type) 0;
+                                        }
+                                        break;
                                 case R12L:
-                                        log_msg(LOG_LEVEL_NOTICE, "[J2K] Decoding to 12-bit RGB.\n"); /* fall through */
+                                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n"); /* fall through */
                                 default:
                                         cmpto_sf = codec.cmpto_sf;
                         }
@@ -307,12 +319,37 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         }
 
         if(!found){
-                log_msg(LOG_LEVEL_ERROR, "[J2K] Unsupported output codec: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported output codec: %s\n",
                                 get_codec_name(out_codec));
                 abort();
         }
-        CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
-                        "Error setting sample format type", return false);
+        if (cmpto_sf) {
+                CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
+                                "Error setting sample format type", return false);
+        } else { // RGBA with non-standard shift or pitch
+                if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
+                                "byte boundary is not supported.\n";
+                        return false;
+                }
+                cmpto_j2k_dec_comp_format fmt[3] = {};
+                const int shifts[3] = { rshift, gshift, bshift };
+                for (int i = 0; i < 3; ++i) {
+                        fmt[i].comp_index = i;
+                        fmt[i].data_type = CMPTO_INT8;
+                        fmt[i].offset = shifts[i] / 8;
+                        fmt[i].stride_x = 4;
+                        fmt[i].stride_y = pitch;
+                        fmt[i].bit_depth = 8;
+                        fmt[i].bit_shift = 0;
+                        fmt[i].is_or_combined = 0;
+                        fmt[i].is_signed = 0;
+                        fmt[i].sampling_factor_x = 1;
+                        fmt[i].sampling_factor_y = 1;
+                }
+                CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format(s->settings, fmt, 3),
+                                "Error setting sample format", return false);
+        }
 
         s->desc = desc;
         s->out_codec = out_codec;
