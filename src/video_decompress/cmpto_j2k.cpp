@@ -269,6 +269,7 @@ static struct {
         {UYVY, CMPTO_422_U8_P1020, nullptr},
         {v210, CMPTO_422_U10_V210, nullptr},
         {RGB, CMPTO_444_U8_P012, nullptr},
+        {BGR, CMPTO_444_U8_P210, nullptr},
         {RGBA, CMPTO_444_U8_P012Z, nullptr},
         {R10k, CMPTO_444_U10U10U10_MSB32BE_P210, nullptr},
         {R12L, CMPTO_444_U12_MSB16LE_P012, rg48_to_r12l},
@@ -279,9 +280,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
-        assert(!codec_is_a_rgb(out_codec) ||
-                        (rshift == 0 && gshift == 8 && bshift == 16) ||
-                        (out_codec == RGB && rshift == 16 && gshift == 8 && bshift == 0));
+        assert(out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16));
         assert(pitch == vc_get_linesize(desc.width, out_codec));
 
         if (out_codec == VIDEO_CODEC_NONE) { // probe format
@@ -296,9 +295,6 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         for(const auto &codec : codecs){
                 if(codec.ug_codec == out_codec){
                         switch (out_codec) {
-                                case RGB:
-                                        cmpto_sf = (rshift == 0 ?  CMPTO_444_U8_P012 : CMPTO_444_U8_P210 /*BGR*/);
-                                        break;
                                 case R12L:
                                         log_msg(LOG_LEVEL_NOTICE, "[J2K] Decoding to 12-bit RGB.\n"); /* fall through */
                                 default:
@@ -465,6 +461,7 @@ static const struct decode_from_to *j2k_decompress_get_decoders() {
                 { J2K, v210, UYVY, 400 },
                 { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
                 { J2KR, RGB, RGB, 300 },
+                { J2KR, RGB, BGR, 300 },
                 { J2KR, RGB, RGBA, 300 },
                 { J2KR, R10k, R10k, 200 },
                 { J2KR, R10k, RGB, 400 },
