@@ -96,45 +96,15 @@ extern "C" {
 #define av_frame_free av_free
 #endif
 
+/**
+ * @todo
+ * Is this stuff still needed?
+ */
 #define LAVCD_LOCK_NAME "lavcd_lock"
 
-static enum AVPixelFormat fmts444_8[] = { AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUVJ444P };
-static enum AVPixelFormat fmts422_8[] = { AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUVJ422P };
-static enum AVPixelFormat fmts420_8[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUVJ420P, AV_PIX_FMT_NV12 };
-/**
- * @param req_pix_fmts AV_PIX_FMT_NONE-ended priority list of requested pix_fmts
- * @param pix_fmts     AV_PIX_FMT_NONE-ended priority list of codec provided pix fmts
- * */
-static bool is444_8(enum AVPixelFormat pix_fmt) __attribute__((unused));
-static bool is422_8(enum AVPixelFormat pix_fmt) __attribute__((unused));
-static bool is420_8(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static void print_decoder_error(const char *mod_name, int rc) __attribute__((unused));
 static void print_libav_error(int verbosity, const char *msg, int rc)  __attribute__((unused));
 static bool libav_codec_has_extradata(codec_t codec) __attribute__((unused));
-
-static bool is444_8(enum AVPixelFormat pix_fmt) {
-        for(unsigned int i = 0; i < sizeof(fmts444_8) / sizeof(enum AVPixelFormat); ++i) {
-                if(fmts444_8[i] == pix_fmt)
-                        return true;
-        }
-        return false;
-}
-
-static bool is422_8(enum AVPixelFormat pix_fmt) {
-        for(unsigned int i = 0; i < sizeof(fmts422_8) / sizeof(enum AVPixelFormat); ++i) {
-                if(fmts422_8[i] == pix_fmt)
-                        return true;
-        }
-        return false;
-}
-
-static bool is420_8(enum AVPixelFormat pix_fmt) {
-        for(unsigned int i = 0; i < sizeof(fmts420_8) / sizeof(enum AVPixelFormat); ++i) {
-                if(fmts420_8[i] == pix_fmt)
-                        return true;
-        }
-        return false;
-}
 
 #ifdef __cplusplus
 #include <unordered_map>
@@ -190,10 +160,7 @@ static void print_libav_error(int verbosity, const char *msg, int rc) {
 }
 
 static bool libav_codec_has_extradata(codec_t codec) {
-        if (codec == HFYU || codec == FFV1) {
-                return true;
-        }
-        return false;
+        return codec == HFYU || codec == FFV1;
 }
 
 #ifdef __cplusplus
