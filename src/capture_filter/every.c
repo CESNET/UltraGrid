@@ -128,6 +128,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_every *s = state;
 
+        s->current = (s->current + 1) % s->num;
+
         if (s->current >= s->denom) {
                 VIDEO_FRAME_DISPOSE(in);
                 return NULL;
@@ -136,8 +138,6 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct video_frame *frame = vf_alloc_desc(video_desc_from_frame(in));
         memcpy(frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
         frame->fps /= (double) s->num / s->denom;
-
-        s->current = (s->current + 1) % s->num;
 
         frame->callbacks.dispose = dispose_frame;
         frame->callbacks.dispose_udata = in;
