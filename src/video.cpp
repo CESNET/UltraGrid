@@ -65,7 +65,7 @@ const static unordered_map<enum video_mode, video_mode_info_t, hash<int>> video_
         { VIDEO_NORMAL, { "normal", 1, 1 }},
         { VIDEO_DUAL, { "dual-link", 1, 2 }},
         { VIDEO_STEREO, { "3D", 2, 1 }},
-        { VIDEO_4K, { "tiled-4k", 2, 2 }},
+        { VIDEO_4K, { "tiled-2x2", 2, 2 }},
         { VIDEO_3X1, { "3x1", 3, 1 }},
 };
 
