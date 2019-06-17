@@ -219,47 +219,6 @@ struct video_frame_callbacks {
 };
 
 /**
- * @brief Struct video_frame represents a video frame and contains video description.
- */
-struct video_frame {
-        codec_t              color_spec;
-        enum interlacing_t   interlacing;
-        double               fps;
-        frame_type_t         frame_type;
-
-        /// tiles contain actual video frame data. A frame usually contains exactly one
-        /// tile but in some cases it can contain more tiles (eg. 4 for tiled 4K).
-        struct tile         *tiles;
-        unsigned int         tile_count;
-
-        /** @name Fragment Stuff 
-         * @{ */
-        /// Indicates that the tile is fragmented. Normally not used (only for Bluefish444).
-        unsigned int         fragment:1;
-        /// Used only if (fragment == 1). Indicates this is the last fragment.
-        unsigned int         last_fragment:1;
-        /// Used only if (fragment == 1). ID of the frame. Fragments of same frame must have the same ID
-        unsigned int         frame_fragment_id:14;
-        /// @}
-
-        unsigned int         decoder_overrides_data_len:1;
-
-        struct video_frame_callbacks callbacks;
-
-        // metadata follow
-        struct fec_desc fec_params;
-        uint32_t ssrc;
-
-        uint32_t seq; ///< sequential number, used internally by JPEG encoder
-        uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
-        uint64_t compress_start; ///< in ms from epoch
-        uint64_t compress_end; ///< in ms from epoch
-        unsigned int paused_play:1;
-};
-
-#define VF_METADATA_SIZE (sizeof(struct video_frame) - offsetof(struct video_frame, fec_params))
-
-/**
  * @brief Struct tile is an area of video_frame.
  * @note
  * Currently all tiles of a frame should have the same width and height.
@@ -279,6 +238,51 @@ struct tile {
         /// @see video_frame::fragment
         unsigned int         offset;
 };
+
+#define ANYSIZE_ARRAY 1
+
+/**
+ * @brief Struct video_frame represents a video frame and contains video description.
+ */
+struct video_frame {
+        codec_t              color_spec;
+        enum interlacing_t   interlacing;
+        double               fps;
+        frame_type_t         frame_type;
+
+        /** @name Fragment Stuff 
+         * @{ */
+        /// Indicates that the tile is fragmented. Normally not used (only for Bluefish444).
+        unsigned int         fragment:1;
+        /// Used only if (fragment == 1). Indicates this is the last fragment.
+        unsigned int         last_fragment:1;
+        /// Used only if (fragment == 1). ID of the frame. Fragments of same frame must have the same ID
+        unsigned int         frame_fragment_id:14;
+        /// @}
+
+        unsigned int         decoder_overrides_data_len:1;
+
+        struct video_frame_callbacks callbacks;
+
+        // metadata follow
+#define VF_METADATA_START fec_params
+        struct fec_desc fec_params;
+        uint32_t ssrc;
+
+        uint32_t seq; ///< sequential number, used internally by JPEG encoder
+        uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
+        uint64_t compress_start; ///< in ms from epoch
+        uint64_t compress_end; ///< in ms from epoch
+        unsigned int paused_play:1;
+#define VF_METADATA_END tile_count
+
+        /// tiles contain actual video frame data. A frame usually contains exactly one
+        /// tile but in some cases it can contain more tiles (eg. 4 for tiled 4K).
+        unsigned int         tile_count;
+        struct tile          tiles[ANYSIZE_ARRAY];
+};
+
+#define VF_METADATA_SIZE (offsetof(struct video_frame, VF_METADATA_END) - offsetof(struct video_frame, VF_METADATA_START))
 
 /** Video Mode
  *

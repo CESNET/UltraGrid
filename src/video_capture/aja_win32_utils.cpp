@@ -101,12 +101,9 @@ struct video_frame * vf_alloc(int count)
         struct video_frame *buf;
         assert(count > 0);
 
-        buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
+        buf = (struct video_frame *) calloc(1, offsetof (struct video_frame, tiles[count]));
         assert(buf != NULL);
 
-        buf->tiles = (struct tile *)
-                        calloc(1, sizeof(struct tile) * count);
-        assert(buf->tiles != NULL);
         buf->tile_count = count;
 
         return buf;
@@ -125,7 +122,6 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
         buf->fps = desc.fps;
         // tile_count already filled
         for(unsigned int i = 0u; i < desc.tile_count; ++i) {
-                memset(&buf->tiles[i], 0, sizeof(buf->tiles[i]));
                 buf->tiles[i].width = desc.width;
                 buf->tiles[i].height = desc.height;
                 buf->tiles[i].data_len = vc_get_linesize(desc.width, desc.color_spec) * desc.height;
@@ -174,7 +170,6 @@ void vf_free(struct video_frame *buf)
         if (buf->callbacks.data_deleter) {
                 buf->callbacks.data_deleter(buf);
         }
-        free(buf->tiles);
         free(buf);
 }
 

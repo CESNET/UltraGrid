@@ -55,6 +55,7 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include "video_codec.h"
@@ -65,12 +66,9 @@ struct video_frame * vf_alloc(int count)
         struct video_frame *buf;
         assert(count > 0);
         
-        buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
+        buf = (struct video_frame *) calloc(1, offsetof (struct video_frame, tiles[count]));
         assert(buf != NULL);
         
-        buf->tiles = (struct tile *) 
-                        calloc(1, sizeof(struct tile) * count);
-        assert(buf->tiles != NULL);
         buf->tile_count = count;
 
         return buf;
@@ -89,7 +87,6 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
         buf->fps = desc.fps;
         // tile_count already filled
         for(unsigned int i = 0u; i < desc.tile_count; ++i) {
-                memset(&buf->tiles[i], 0, sizeof(buf->tiles[i]));
                 buf->tiles[i].width = desc.width;
                 buf->tiles[i].height = desc.height;
                 if(codec_is_const_size(desc.color_spec)){
@@ -139,7 +136,6 @@ void vf_free(struct video_frame *buf)
         if (buf->callbacks.data_deleter) {
                 buf->callbacks.data_deleter(buf);
         }
-        free(buf->tiles);
         free(buf);
 }
 
@@ -364,13 +360,7 @@ double compute_fps(int fps, int fpsd, int fd, int fi)
 }
 
 struct video_frame *vf_get_copy(struct video_frame *original) {
-        struct video_frame *frame_copy;
-
-        frame_copy = (struct video_frame *) malloc(sizeof(struct video_frame));
-        memcpy(frame_copy, original, sizeof(struct video_frame));
-
-        frame_copy->tiles = (struct tile *) malloc(sizeof(struct tile) * frame_copy->tile_count);
-        memcpy(frame_copy->tiles, original->tiles, sizeof(struct tile) * frame_copy->tile_count);
+        struct video_frame *frame_copy = vf_alloc_desc(video_desc_from_frame(original));
 
         for(int i = 0; i < (int) frame_copy->tile_count; ++i) {
                 frame_copy->tiles[i].data = (char *) malloc(frame_copy->tiles[i].data_len);
@@ -427,12 +417,12 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 
 void vf_store_metadata(struct video_frame *f, void *s)
 {
-        memcpy(s, (char *) f + offsetof(struct video_frame, fec_params), VF_METADATA_SIZE);
+        memcpy(s, (char *) f + offsetof(struct video_frame, VF_METADATA_START), VF_METADATA_SIZE);
 }
 
 void vf_restore_metadata(struct video_frame *f, void *s)
 {
-        memcpy((char *) f + offsetof(struct video_frame, fec_params), s, VF_METADATA_SIZE);
+        memcpy((char *) f + offsetof(struct video_frame, VF_METADATA_START), s, VF_METADATA_SIZE);
 }
 
 unsigned int vf_get_data_len(struct video_frame *f)
