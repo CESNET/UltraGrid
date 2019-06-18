@@ -83,6 +83,7 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
         }
         switch (s->out_codec) {
         case RGB:
+        case RGBA:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 GPUJPEG_444_U8_P012);
                 break;
@@ -205,7 +206,6 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
                 ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
                 if (ret != 0) return DECODER_NO_FRAME;
         } else {
-                unsigned int i;
                 unsigned char *line_src, *line_dst;
                 
                 gpujpeg_decoder_output_set_default(&decoder_output);
@@ -218,7 +218,7 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
                 
                 line_dst = dst;
                 line_src = decoder_output.data;
-                for(i = 0u; i < s->desc.height; i++) {
+                for (unsigned i = 0u; i < s->desc.height; i++) {
                         if(s->out_codec == RGB) {
                                 vc_copylineRGB(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);
@@ -231,8 +231,8 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
                         }
                                 
                         line_dst += s->pitch;
-                        line_src += linesize;
-                        
+                        line_src += vc_get_linesize(s->desc.width,
+                                        codec_is_a_rgb(s->out_codec) ? RGB : UYVY);
                 }
         }
 
