@@ -398,6 +398,62 @@ void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict i
         }
 }
 
+void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        const int src_linesize = vc_get_linesize(width, R10k);
+        const int32_t y_r = 190893; //0.18205 << 20
+        const int32_t y_g = 642179; //0.61243 << 20
+        const int32_t y_b = 64833; //0.06183 << 20
+        const int32_t cb_r = -122882; //-0.11719 << 20
+        const int32_t cb_g = -413380; //-0.39423 << 20
+        const int32_t cb_b = 536263; //0.51142 << 20
+        const int32_t cr_r = 536263; //0.51142 << 20
+        const int32_t cr_g = -487085; //-0.46452 << 20
+        const int32_t cr_b = -49168;  //-0.04689 << 20
+        for(int y = 0; y < height; y++) {
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                unsigned char *src = in_data + y * src_linesize;
+                int iterations = width / 2;
+                OPTIMIZED_FOR(int x = 0; x < iterations; x++){
+                        int32_t r = src[0] << 2 | src[1] >> 6;
+                        int32_t g = (src[1] & 0x3f ) << 4 | src[2] >> 4;
+                        int32_t b = (src[2] & 0x0f) << 6 | src[3] >> 2;
+
+                        int32_t res_y = ((r * y_r + g * y_g + b * y_b) >> 20) + 64;
+                        int32_t res_cb = ((r * cb_r + g * cb_g + b * cb_b) >> 20) + 512;
+                        int32_t res_cr = ((r * cr_r + g * cr_g + b * cr_b) >> 20) + 512;
+
+                        res_y = MIN(MAX(res_y, 64), 940);
+
+                        dst_y[x * 2] =  res_y;
+                        src += 4;
+
+                        r = src[0] << 2 | src[1] >> 6;
+                        g = (src[1] & 0x3f ) << 4 | src[2] >> 4;
+                        b = (src[2] & 0x0f) << 6 | src[3] >> 2;
+
+                        res_y = ((r * y_r + g * y_g + b * y_b) >> 20) + 64;
+                        res_cb += ((r * cb_r + g * cb_g + b * cb_b) >> 20) + 512;
+                        res_cr += ((r * cr_r + g * cr_g + b * cr_b) >> 20) + 512;
+
+                        res_cb /= 2;
+                        res_cr /= 2;
+                        res_y = MIN(MAX(res_y, 64), 940);
+                        res_cb = MIN(MAX(res_cb, 64), 960);
+                        res_cr = MIN(MAX(res_cr, 64), 960);
+
+                        dst_y[x * 2 + 1] = res_y;
+                        dst_cb[x] = res_cb;
+                        dst_cr[x] = res_cr;
+
+                        src += 4;
+                }
+
+        }
+}
+
 void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, RGB);

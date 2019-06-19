@@ -216,6 +216,7 @@ uv_to_av_convert rgb_to_gbrp;
 uv_to_av_convert rgba_to_gbrp;
 uv_to_av_convert r10k_to_gbrp10le;
 uv_to_av_convert r12l_to_gbrp12le;
+uv_to_av_convert r10k_to_yuv422p10le;
 
 /**
  * Conversions from UltraGrid to FFMPEG formats.
@@ -245,6 +246,7 @@ static const struct {
         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
         { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
+        { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 };
 
