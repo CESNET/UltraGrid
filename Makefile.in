@@ -101,7 +101,6 @@ OBJS	      = @OBJS@ \
 		src/capture_filter/logo.o \
 		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
-		src/capture_filter/scale.o \
 		src/capture_filter/split.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
