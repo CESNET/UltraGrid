@@ -48,6 +48,8 @@
 #ifndef control_socket_h_
 #define control_socket_h_
 
+#define DEFAULT_CONTROL_PORT 5054
+
 #include <map>
 #include <string>
 

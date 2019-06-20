@@ -133,6 +133,8 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define MAX_CAPTURE_COUNT 17
 
+using rang::fg;
+using rang::style;
 using namespace std;
 
 struct state_uv {
@@ -247,117 +249,97 @@ void exit_uv(int status) {
         should_exit = true;
 }
 
+static void print_help_item(const string &name, const vector<string> &help) {
+        int help_lines = 0;
+
+        cout << style::bold << "\t" << name << style::reset;
+
+        for (auto line : help) {
+                int spaces = help_lines == 0 ? 31 - (int) name.length() : 39;
+                for (int i = 0; i < max(spaces, 0) + 1; ++i) {
+                        cout << " ";
+                }
+                cout << line << "\n";
+                help_lines += 1;
+        }
+
+        if (help_lines == 0) {
+                cout << "\n";
+        }
+        cout << "\n";
+}
+
 static void usage(const char *exec_path, bool full = false)
 {
-        printf("\nUsage: %s [options] address\n\n", exec_path ? exec_path : "<executable_path>");
-        printf("Options:\n\n");
-        printf
-            ("\t-h|--fullhelp              \tshow usage (basic/full)\n");
-        printf("\n");
-        printf
-            ("\t-d <display_device>        \tselect display device, use '-d help'\n");
-        printf("\t                         \tto get list of supported devices\n");
-        printf("\n");
-        printf
-            ("\t-t <capture_device>        \tselect capture device, use '-t help'\n");
-        printf("\t                         \tto get list of supported devices\n");
-        printf("\n");
-        printf("\t-c <cfg>                 \tvideo compression (see '-c help')\n");
-        printf("\n");
-        printf("\t-r <playback_device>     \taudio playback device (see '-r help')\n");
-        printf("\n");
-        printf("\t-s <capture_device>      \taudio capture device (see '-s help')\n");
-        printf("\n");
+        cout << "Usage: " << fg::red << style::bold << (exec_path ? exec_path : "<executable_path>") << fg::reset << " [options] address\n\n" << style::reset;
+        printf("Options:\n");
+        print_help_item("-h | --fullhelp", {"show usage (basic/full)"});
+        print_help_item("-d <display_device>", {"select display device, use '-d help'",
+                        "to get list of supported devices"});
+        print_help_item("-t <capture_device>", {"select capture device, use '-t help'",
+                        "to get list of supported devices"});
+        print_help_item("-c <cfg>", {"video compression (see '-c help')"});
+        print_help_item("-r <playback_device>", {"audio playback device (see '-r help')"});
+        print_help_item("-s <capture_device>", {"audio capture device (see '-s help')"});
         if (full) {
-                printf("\t--verbose[=<level>]      \tprint verbose messages (optinaly specify level [0-%d])\n", LOG_LEVEL_MAX);
-                printf("\n");
-                printf("\t--list-modules           \tprints list of modules\n");
-                printf("\n");
-                printf("\t--control-port <port>[:0|1] \tset control port (default port: 5054)\n");
-                printf("\t                         \tconnection types: 0- Server (default), 1- Client\n");
-                printf("\n");
-                printf("\t--video-protocol <proto> \ttransmission protocol, see '--video-protocol help'\n");
-                printf("\t                         \tfor list. Use --video-protocol rtsp for RTSP server\n");
-                printf("\t                         \t(see --video-protocol rtsp:help for usage)\n");
-                printf("\n");
-                printf("\t--audio-protocol <proto>[:<settings>]\t<proto> can be " AUDIO_PROTOCOLS "\n");
-                printf("\n");
-                printf("\t--protocol <proto>       \tshortcut for '--audio-protocol <proto> --video-protocol <proto>'\n");
-                printf("\n");
+                print_help_item("--verbose[=<level>]", {"print verbose messages (optinaly specify level [0-" + to_string(LOG_LEVEL_MAX) + "])"});
+                print_help_item("--list-modules", {"prints list of modules"});
+                print_help_item("--control-port <port>[:0|1]", {"set control port (default port: " + to_string(DEFAULT_CONTROL_PORT) + ")",
+                                "connection types: 0- Server (default), 1- Client"});
+                print_help_item("--video-protocol <proto>", {"transmission protocol, see '--video-protocol help'",
+                                "for list. Use --video-protocol rtsp for RTSP server",
+                                "(see --video-protocol rtsp:help for usage)"});
+                print_help_item("--audio-protocol <proto>[:<settings>]", {"<proto> can be " AUDIO_PROTOCOLS});
+                print_help_item("--protocol <proto>", {"shortcut for '--audio-protocol <proto> --video-protocol <proto>'"});
 #ifdef HAVE_IPv6
-                printf("\t-4/-6                    \tforce IPv4/IPv6 resolving\n");
-                printf("\n");
+                print_help_item("-4/-6", {"force IPv4/IPv6 resolving"});
 #endif //  HAVE_IPv6
-                printf("\t--mcast-if <iface>       \tbind to specified interface for multicast\n");
-                printf("\n");
-                printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
-                printf("\t                         \tdual-link)\n");
-                printf("\n");
-                printf("\t-p <postprocess> | help  \tpostprocess module\n");
-                printf("\n");
+                print_help_item("--mcast-if <iface>", {"bind to specified interface for multicast"});
+                print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
+                                "dual-link)"});
+                print_help_item("-p <postprocess> | help", {"postprocess module"});
         }
-        printf("\t-f [A:|V:]<settings>     \tFEC settings (audio or video) - use \"none\"\n"
-               "\t                         \t\"mult:<nr>\",\n");
-        printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
-        printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
-        printf("\t                         \t\"rs:<k>:<n>\"\n");
-        printf("\n");
-        printf("\t-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]\n");
-        printf("\t                         \t<port> is base port number, also 3 subsequent\n");
-        printf("\t                         \tports can be used for RTCP and audio\n");
-        printf("\t                         \tstreams. Default: %d.\n", PORT_BASE);
-        printf("\t                         \tYou can also specify all two or four ports\n");
-        printf("\t                         \tdirectly.\n");
-        printf("\n");
-        printf("\t-l <limit_bitrate> | unlimited | auto\tlimit sending bitrate\n");
-        printf("\t                         \tto <limit_bitrate> (with optional k/M/G suffix)\n");
-        printf("\n");
+        print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
+                        "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
+                        "\"rs:<k>:<n>\""});
+        print_help_item("-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]", { "",
+                        "<port> is base port number, also 3",
+                        "subsequent ports can be used for RTCP",
+                        "and audio streams. Default: " + to_string(PORT_BASE) + ".",
+                        "You can also specify all two or four", "ports directly."});
+        print_help_item("-l <limit_bitrate> | unlimited | auto", {"limit sending bitrate",
+                        "to <limit_bitrate> (with optional k/M/G suffix)"});
         if (full) {
-                printf("\t-A <address>             \taudio destination address\n");
-                printf("\t                         \tIf not specified, will use same as for video\n");
-                printf("\n");
+                print_help_item("-A <address>", {"audio destination address",
+                                "If not specified, will use same as for video"});
         }
-        printf("\t--audio-capture-format <fmt> | help format of captured audio\n");
-        printf("\n");
+        print_help_item("--audio-capture-format <fmt> | help", {"format of captured audio"});
         if (full) {
-                printf("\t--audio-channel-map <mapping> | help\n");
-                printf("\n");
+                print_help_item("--audio-channel-map <mapping> | help", {});
         }
-        printf("\t--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help\taudio codec\n");
-        printf("\n");
+        print_help_item("--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help", {"audio codec"});
         if (full) {
-                printf("\t--audio-delay <delay_ms> \tamount of time audio should be delayed to video\n");
-                printf("\t                         \t(may be also negative to delay video)\n");
-                printf("\n");
-                printf("\t--audio-scale <factor> | <method> | help\n");
-                printf("\t                         \tscales received audio\n");
-                printf("\n");
+                print_help_item("--audio-delay <delay_ms>", {"amount of time audio should be delayed to video",
+                                "(may be also negative to delay video)"});
+                print_help_item("--audio-scale <factor> | <method> | help",
+                                {"scales received audio"});
         }
 #if 0
         printf("\t--echo-cancellation      \tapply acoustic echo cancellation to audio\n");
         printf("\n");
 #endif
-        printf("\t--cuda-device <index> | help\tuse specified CUDA device\n");
-        printf("\n");
-        printf("\t--encryption <passphrase>\tkey material for encryption\n");
-        printf("\n");
-        printf("\t--playback <directory> | help  \treplays recorded audio and video\n");
-        printf("\n");
-        printf("\t--record[=<directory>]   \trecord captured audio and video\n");
-        printf("\n");
+        print_help_item("--cuda-device <index> | help", {"use specified CUDA device"});
         if (full) {
-                printf("\t--capture-filter <filter> | help\n");
-                printf("\t                           \tcapture filter(s), must be given before capture device\n");
-                printf("\n");
-                printf("\t--param <params> | help    \tadditional advanced parameters, use help for list\n");
-                printf("\n");
-                printf("\t--pix-fmts                 \tlist of pixel formats\n");
-                printf("\n");
-                printf("\t--video-codecs             \tlist of video codecs\n");
-                printf("\n");
+                print_help_item("--encryption <passphrase>", {"key material for encryption"});
+                print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
+                print_help_item("--record[=<directory>]", {"record captured audio and video"});
+                print_help_item("--capture-filter <filter> | help",
+                                {"capture filter(s), must be given before capture device"});
+                print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
+                print_help_item("--pix-fmts", {"list of pixel formats"});
+                print_help_item("--video-codecs", {"list of video codecs"});
         }
-        printf("\taddress                  \tdestination address\n");
-        printf("\n");
+        print_help_item("address", {"destination address"});
         printf("\n");
 }
 
@@ -635,6 +617,9 @@ int main(int argc, char *argv[])
 
         vidcap_params_set_device(vidcap_params_head, "none");
 
+        print_version();
+        printf("\n");
+
         while ((ch =
                 getopt_long(argc, argv, optstring, getopt_options,
                             NULL)) != -1) {
@@ -676,8 +661,6 @@ int main(int argc, char *argv[])
                         postprocess = optarg;
                         break;
                 case 'v':
-                        print_version();
-                        printf("\n");
                         print_configuration();
                         return EXIT_SUCCESS;
                 case 'c':
@@ -712,8 +695,8 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_PROTOCOL:
                         if (strcmp(optarg, "help") == 0) {
-                                cout << "Specify a " << rang::style::bold << "common" << rang::style::reset << " protocol for both audio and video.\n";
-                                cout << "Audio protocol can be one of: " << rang::style::bold << AUDIO_PROTOCOLS "\n" << rang::style::reset;
+                                cout << "Specify a " << style::bold << "common" << style::reset << " protocol for both audio and video.\n";
+                                cout << "Audio protocol can be one of: " << style::bold << AUDIO_PROTOCOLS "\n" << style::reset;
                                 video_rxtx::create("help", {});
                                 return EXIT_SUCCESS;
                         }
@@ -791,10 +774,8 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case '4':
-                        force_ip_version = 4;
-                        break;
                 case '6':
-                        force_ip_version = 6;
+                        force_ip_version = ch - '0';
                         break;
                 case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
@@ -1068,11 +1049,8 @@ int main(int argc, char *argv[])
                 log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
         }
 
-        print_version();
-        printf("\n");
-
-        auto fmt = rang::style::bold;
-        auto fmt_rst = rang::style::reset;
+        auto fmt = style::bold;
+        auto fmt_rst = style::reset;
         cout << fmt << "Display device   : " << fmt_rst << requested_display << "\n";
         cout << fmt << "Capture device   : " << fmt_rst << vidcap_params_get_driver(vidcap_params_head) << "\n";
         cout << fmt << "Audio capture    : " << fmt_rst << audio_send << "\n";

@@ -60,7 +60,6 @@
 #include "utils/net.h"
 #include "utils/thread.h"
 
-#define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
 
 #ifdef WIN32
