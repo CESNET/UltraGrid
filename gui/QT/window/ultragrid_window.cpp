@@ -48,6 +48,13 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.displayPreview->start();
 	ui.capturePreview->setKey("ultragrid_preview_capture");
 	ui.capturePreview->start();
+
+	QStringList args = QCoreApplication::arguments();
+	int index = args.indexOf("--config");
+	if(index != -1 && args.size() >= index + 1) {
+		QString filename = args.at(index + 1);
+		loadSettingsFile(filename);
+	}
 }
 
 void UltragridWindow::refresh(){
@@ -294,16 +301,8 @@ void UltragridWindow::saveSettings(){
 
 }
 
-void UltragridWindow::loadSettings(){
-	QFileDialog fileDialog(this);
-	fileDialog.setFileMode(QFileDialog::ExistingFile);
-	fileDialog.setNameFilter(tr("Json (*.json)"));
-
-	QStringList fileNames;
-	if (fileDialog.exec())
-		fileNames = fileDialog.selectedFiles();
-
-	QFile inFile(fileNames.first());
+void UltragridWindow::loadSettingsFile(const QString &filename){
+	QFile inFile(filename);
 
 	if (!inFile.open(QIODevice::ReadOnly)) {
 		qWarning("Couldn't open save file.");
@@ -324,6 +323,19 @@ void UltragridWindow::loadSettings(){
 
 	settings.changedAll();
 	setArgs();
+}
+
+void UltragridWindow::loadSettings(){
+	QFileDialog fileDialog(this);
+	fileDialog.setFileMode(QFileDialog::ExistingFile);
+	fileDialog.setNameFilter(tr("Json (*.json)"));
+
+	QStringList fileNames;
+	if (fileDialog.exec())
+		fileNames = fileDialog.selectedFiles();
+
+	loadSettingsFile(fileNames.first());
+
 }
 
 void UltragridWindow::setStartBtnText(QProcess::ProcessState s){

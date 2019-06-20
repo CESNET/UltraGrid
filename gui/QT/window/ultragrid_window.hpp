@@ -28,6 +28,8 @@ private:
 
 	void connectSignals();
 
+	void loadSettingsFile(const QString &filename);
+
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;
