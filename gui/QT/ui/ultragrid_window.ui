@@ -478,7 +478,7 @@
      <x>0</x>
      <y>0</y>
      <width>1018</width>
-     <height>27</height>
+     <height>22</height>
     </rect>
    </property>
    <property name="contextMenuPolicy">
@@ -577,6 +577,9 @@
   <action name="actionTest">
    <property name="text">
     <string>Test</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="actionSave">

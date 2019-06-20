@@ -15,6 +15,9 @@
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
 	//ui.terminal->setVisible(false);
+#ifdef DEBUG
+	ui.actionTest->setVisible(true);
+#endif //DEBUG
 
 	ultragridExecutable = "\"" + UltragridWindow::findUltragridExecutable() + "\"";
 
