@@ -60,10 +60,10 @@
 #include <conio.h>
 #endif
 
-static void execute_command(struct module *root, bool multiple);
 static bool set_tio();
 
 #define CTRL_X 24
+#define CONFIG_FILE "ug-key-map.txt"
 
 using namespace std;
 
@@ -134,6 +134,8 @@ void keyboard_control::start(struct module *root)
         atexit(restore_old_tio);
 #endif
 
+        load_config_map();
+
         m_keyboard_thread = thread(&keyboard_control::run, this);
         m_started = true;
 }
@@ -178,6 +180,11 @@ void keyboard_control::run()
 #endif
                         bool unknown_key_in_first_switch = false;
 
+                        if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
+                                exec_external_commands(key_mapping.at(c).c_str());
+                                goto end_loop;
+                        }
+
                         // This switch processes keys that do not modify UltraGrid
                         // behavior. If some of modifying keys is pressed, warning
                         // is displayed.
@@ -200,7 +207,7 @@ void keyboard_control::run()
                         case 'V':
                                 if (m_locked_against_changes) {
                                         LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n";
-                                        goto after_protected;
+                                        goto end_loop;
                                 } // else process it in next switch
                                 break;
                         case 'h':
@@ -282,7 +289,7 @@ void keyboard_control::run()
                         }
                         case 'c':
                         case 'C':
-                                execute_command(m_root, c == 'C');
+                                execute_command(c == 'C');
                                 break;
                         case 'v':
                         case 'V':
@@ -303,7 +310,7 @@ void keyboard_control::run()
                         }
                 }
 
-after_protected:
+end_loop:
 #ifdef HAVE_TERMIOS_H
                 if (FD_ISSET(m_should_exit_pipe[0], &set)) {
 #else
@@ -421,9 +428,83 @@ void keyboard_control::usage()
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
+
+        if (key_mapping.size() > 0) {
+                cout << "User keybindings:\n";
+                for (auto it : key_mapping) {
+                        cout << "\t   " << it.first <<"   - " << it.second << "\n";
+                }
+                cout << "\n";
+        }
 }
 
-static void execute_command(struct module *root, bool multiple)
+void keyboard_control::load_config_map() {
+        FILE *in = fopen(CONFIG_FILE, "r");
+        if (!in) {
+                return;
+        }
+        char buf[1024];
+        while (fgets(buf, sizeof buf - 1, in)) {
+                if (strlen(buf) > 0 && buf[strlen(buf) - 1] == '\n') { // trim NL
+                        buf[strlen(buf) - 1] = '\0';
+                }
+                if (strstr(buf, "map ") != buf) {
+                        LOG(LOG_LEVEL_ERROR) << "Wrong config: " << buf << "\n";
+                        continue;
+                }
+                const char *command = buf + strlen("map ");
+                if (strlen(command) > 3) {
+                        key_mapping.insert({command[0], string(command + 2)});
+                }
+        }
+        fclose(in);
+}
+
+bool keyboard_control::exec_local_command(const char *command)
+{
+        if (strcmp(command, "localhelp") == 0) {
+                printf("Local help:\n"
+                                "\tmap <X> cmd1[;cmd2..]\n"
+                                "\t\tmaps key to command(s) for control socket\n"
+                                "\tunmap <X>\n\n"
+                                "Mappings can be stored in " CONFIG_FILE "\n\n");
+                return true;
+        } else if (strstr(command, "map ") == command) {
+                command += strlen("map ");
+                if (strlen(command) > 3) {
+                        key_mapping.insert({command[0], string(command + 2)});
+                }
+                return true;
+        } else if (strstr(command, "unmap ") == command) {
+                command += strlen("unmap ");
+                if (strlen(command) >= 1) {
+                        key_mapping.erase(command[0]);
+                }
+                return true;
+        }
+        return false;
+}
+
+void keyboard_control::exec_external_commands(const char *commands)
+{
+        char *cpy = strdup(commands);
+        char *item, *save_ptr, *tmp = cpy;
+        while ((item = strtok_r(tmp, ";", &save_ptr))) {
+                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                strcpy(m->text, "execute ");
+                strncat(m->text, item, sizeof m->text - strlen(m->text) - 1);
+                struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) != RESPONSE_OK) {
+                        LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
+                }
+                free_response(r);
+
+                tmp = nullptr;
+        }
+        free(cpy);
+}
+
+void keyboard_control::execute_command(bool multiple)
 {
         int saved_log_level;
 
@@ -431,10 +512,10 @@ static void execute_command(struct module *root, bool multiple)
         log_level = LOG_LEVEL_QUIET;
         restore_old_tio();
         if (multiple) {
-                printf("Enter commands for control (try \"help\").\n");
+                printf("Enter commands for control (try \"help\" or \"localhelp\").\n");
                 printf("Exit the mode with blank line.\n");
         } else {
-                printf("Enter a command for control (try \"help\"):\n");
+                printf("Enter a command for control (try \"help\" or \"localhelp\"):\n");
         }
         while (1) {
                 struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
@@ -452,11 +533,13 @@ static void execute_command(struct module *root, bool multiple)
                         break;
                 }
 
-                struct response *r = send_message_sync(root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-                if (response_get_status(r) != RESPONSE_OK) {
-                        LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
+                if (!exec_local_command(m->text + strlen("execute "))) {
+                        struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                        if (response_get_status(r) != RESPONSE_OK) {
+                                LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
+                        }
+                        free_response(r);
                 }
-                free_response(r);
 
                 if (!multiple) {
                         break;

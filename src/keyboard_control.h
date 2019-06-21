@@ -38,8 +38,10 @@
 #ifndef keyboard_control_h_
 #define keyboard_control_h_
 
-#include <thread>
 #include <ctime>
+#include <string>
+#include <thread>
+#include <unordered_map>
 
 #ifdef HAVE_TERMIOS_H
 #include "termios.h"
@@ -57,6 +59,12 @@ public:
         void usage();
 
 private:
+        void execute_command(bool multiple);
+        bool exec_local_command(const char *commnad);
+        void exec_external_commands(const char *commnads);
+
+        void load_config_map();
+
         std::thread m_keyboard_thread;
         struct module *m_root;
 #ifdef HAVE_TERMIOS_H
@@ -67,6 +75,8 @@ private:
         bool m_started;
         bool m_locked_against_changes;
         std::time_t m_start_time;
+
+        std::unordered_map<char, std::string> key_mapping; // user defined
 };
 
 #endif // keyboard_control_h_
