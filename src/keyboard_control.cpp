@@ -60,7 +60,7 @@
 #include <conio.h>
 #endif
 
-static void execute_command(struct module *root);
+static void execute_command(struct module *root, bool multiple);
 static bool set_tio();
 
 #define CTRL_X 24
@@ -160,6 +160,8 @@ void keyboard_control::stop()
 
 void keyboard_control::run()
 {
+        int saved_log_level = -1;
+
         while(1) {
 #ifdef HAVE_TERMIOS_H
                 fd_set set;
@@ -207,6 +209,18 @@ void keyboard_control::run()
                         case 'i':
                                 cout << "\n";
                                 info();
+                                break;
+                        case 's':
+                                saved_log_level = log_level;
+                                LOG(LOG_LEVEL_NOTICE) << "Output suspended, press 'q' to continue.\n";
+                                log_level = LOG_LEVEL_QUIET;
+                                break;
+                        case 'q':
+                                if (saved_log_level != -1) {
+                                        log_level = saved_log_level;
+                                        saved_log_level = -1;
+                                        LOG(LOG_LEVEL_NOTICE) << "Output resumed.\n";
+                                }
                                 break;
                         case '\n':
                         case '\r':
@@ -267,7 +281,8 @@ void keyboard_control::run()
                                 break;
                         }
                         case 'c':
-                                execute_command(m_root);
+                        case 'C':
+                                execute_command(m_root, c == 'C');
                                 break;
                         case 'v':
                         case 'V':
@@ -401,41 +416,54 @@ void keyboard_control::usage()
                 "\t   e   - record captured content (toggle)\n" <<
                 "\t   h   - show help\n" <<
                 "\t   i   - show various information\n" <<
-                "\t   c   - execute command through control socket\n" <<
+                "\t  s q  - suspend/continue output\n" <<
+                "\t  c C  - execute command through control socket (capital for multiple)\n" <<
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
 }
 
-static void execute_command(struct module *root)
+static void execute_command(struct module *root, bool multiple)
 {
         int saved_log_level;
-
-        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-
-        strcpy(m->text, "execute ");
 
         saved_log_level = log_level;
         log_level = LOG_LEVEL_QUIET;
         restore_old_tio();
-        printf("Enter a command for control (try \"help\"):\n");
-        printf("control> ");
-        fgets(m->text + strlen(m->text), sizeof m->text - strlen(m->text), stdin);
+        if (multiple) {
+                printf("Enter commands for control (try \"help\").\n");
+                printf("Exit the mode with blank line.\n");
+        } else {
+                printf("Enter a command for control (try \"help\"):\n");
+        }
+        while (1) {
+                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                log_level = LOG_LEVEL_QUIET;
+                printf("control> ");
+                strcpy(m->text, "execute ");
+                fgets(m->text + strlen(m->text), sizeof m->text - strlen(m->text), stdin);
+                log_level = saved_log_level;
+
+                if (m->text[strlen(m->text) - 1] == '\n') { // strip newline
+                        m->text[strlen(m->text) - 1] = '\0';
+                }
+                if (strcmp(m->text, "execute ") == 0) { // empty input
+                        free_message((struct message *) m, nullptr);
+                        break;
+                }
+
+                struct response *r = send_message_sync(root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) != RESPONSE_OK) {
+                        LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
+                }
+                free_response(r);
+
+                if (!multiple) {
+                        break;
+                }
+        }
+
         set_tio();
-        log_level = saved_log_level;
-
-        if (m->text[strlen(m->text) - 1] == '\n') { // strip newline
-                m->text[strlen(m->text) - 1] = '\0';
-        }
-        if (strcmp(m->text, "execute ") == 0) { // empty input
-                return;
-        }
-
-        struct response *r = send_message_sync(root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-        if (response_get_status(r) != RESPONSE_OK) {
-                LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
-        }
-        free_response(r);
 }
 
 static bool set_tio()
