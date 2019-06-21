@@ -118,6 +118,7 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count);
 static void * control_thread(void *args);
 static void * stat_event_thread(void *args);
 static void send_response(fd_t fd, struct response *resp);
+static void print_control_help();
 
 #ifndef HAVE_LINUX
 #define MSG_NOSIGNAL 0
@@ -342,6 +343,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
         } else if (strcasecmp(message, "exit") == 0) {
                 exit_uv(0);
                 resp = new_response(RESPONSE_OK, NULL);
+        } else if (strcasecmp(message, "help") == 0) {
+                print_control_help();
+                return ret;
         } else if (strcasecmp(message, "noop") == 0) {
                 return ret;
         } else if (prefix_matches(message, "stats ") || prefix_matches(message, "event ")) {
@@ -956,5 +960,28 @@ void control_report_event(struct control_state *s, const std::string &report_lin
 bool control_stats_enabled(struct control_state *s)
 {
         return s && s->stats_on;
+}
+
+static void print_control_help() {
+        printf("Control internal commands:\n"
+                        "\texit\n"
+                        "\tpause\n"
+                        "\tplay\n"
+                        "\treciever {pause|play}\n"
+                        "\treset-ssrc\n"
+                        "\t{receiver|sender}-port <XY>\n"
+                        "\tfec {audio|video} <fec-string>\n"
+                        "\tcompress <new-compress>\n"
+                        "\tcompress param <new-compress-param>\n"
+                        "\tvolume {up|down}\n"
+                        "\tav-delay <ms>\n"
+                        "\tmute\n"
+                                "\t\tthe three items above apply to receiver\n"
+                        "\tpostprocess <new_postprocess>|flush\n"
+                        "\tdump-tree\n");
+        printf("\nOther commands can be issued directly to individual "
+                        "modules (see \"dump-tree\"), eg.:\n"
+                        "\tcapture.filter mirror\n"
+                        "\nSometimes those modules support help (eg. \"capture.filter help)\"\n\n");
 }
 

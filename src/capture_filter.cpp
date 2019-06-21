@@ -187,6 +187,11 @@ static struct response *process_message(struct capture_filter *s, struct msg_uni
                         inst->functions->done(inst->state);
                         free(inst);
                 }
+        } else if (strcmp("help", msg->text) == 0) {
+                printf("Capture filter control:\n"
+                                "\tflush      - remove all filters\n"
+                                "\tdelete <x> - delete x-th filter\n"
+                                "\t<filter>   - append a filter named <filter>\n");
         } else {
                 char *fmt = strdup(msg->text);
                 if (create_filter(s, fmt) != 0) {
