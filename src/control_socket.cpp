@@ -129,7 +129,8 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
     size_t rest = count;
     ssize_t w = 0;
 
-    while (rest > 0 && (w = send(fd, p, rest, MSG_NOSIGNAL)) > 0) {
+    while (rest > 0 && ((fd > 2 && (w = send(fd, p, rest, MSG_NOSIGNAL)) > 0) ||
+                            (w = write(fd, p, rest)) > 0)) {
         p += w;
         rest -= w;
     }
@@ -677,21 +678,24 @@ static void process_messages(struct control_state *s)
         struct message *msg;
         while((msg = check_message(&s->mod))) {
 		struct msg_universal *m = (struct msg_universal *) msg;
-		if (strcmp(m->text, "get_port") != 0) {
+		if (strcmp(m->text, "get_port") == 0) {
+                        struct response *r;
+                        uint16_t port = socket_get_recv_port(s->socket_fd);
+                        if (port) {
+                                char port_str[6];
+                                sprintf(port_str, "%hu", port);
+                                r = new_response(RESPONSE_OK, port_str);
+                        } else {
+                                r = new_response(RESPONSE_INT_SERV_ERR, "get_recv_port");
+                        }
+                        free_message(msg, r);
+                } else if (strstr(m->text, "execute ") == m->text) {
+                        process_msg(s, 1, m->text + strlen("execute "), nullptr);
+                        free_message(msg, new_response(RESPONSE_OK, nullptr));
+                } else {
                         free_message(msg, new_response(RESPONSE_NOT_IMPL, NULL));
                         continue;
 		}
-
-                struct response *r;
-		uint16_t port = socket_get_recv_port(s->socket_fd);
-		if (port) {
-                        char port_str[6];
-                        sprintf(port_str, "%hu", port);
-                        r = new_response(RESPONSE_OK, port_str);
-                } else {
-                        r = new_response(RESPONSE_INT_SERV_ERR, "get_recv_port");
-                }
-                free_message(msg, r);
         }
 }
 

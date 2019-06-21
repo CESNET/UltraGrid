@@ -60,6 +60,9 @@
 #include <conio.h>
 #endif
 
+static void execute_command(struct module *root);
+static bool set_tio();
+
 #define CTRL_X 24
 
 using namespace std;
@@ -77,9 +80,9 @@ static void catch_signal(int)
 static struct termios old_tio;
 #endif
 
-#ifdef HAVE_TERMIOS_H
 static void restore_old_tio(void)
 {
+#ifdef HAVE_TERMIOS_H
         struct sigaction sa, sa_old;
         memset(&sa, 0, sizeof sa);
         sa.sa_handler = SIG_IGN;
@@ -89,8 +92,8 @@ static void restore_old_tio(void)
         /* restore the former settings */
         tcsetattr(STDIN_FILENO,TCSANOW,&old_tio);
         sigaction(SIGTTOU, &sa_old, NULL);
-}
 #endif
+}
 
 keyboard_control::keyboard_control() :
         m_root(nullptr),
@@ -124,25 +127,7 @@ void keyboard_control::start(struct module *root)
                 return;
         }
 
-        struct termios new_tio;
-        /* get the terminal settings for stdin */
-        tcgetattr(STDIN_FILENO,&old_tio);
-        /* we want to keep the old setting to restore them a the end */
-        new_tio=old_tio;
-        /* disable canonical mode (buffered i/o) and local echo */
-        new_tio.c_lflag &=(~ICANON & ~ECHO);
-        // Wrap calling of tcsetattr() by handling SIGTTOU. SIGTTOU can be raised if task is
-        // run in background and trying to call tcsetattr(). If so, we disable keyboard
-        // control.
-        struct sigaction sa, sa_old;
-        memset(&sa, 0, sizeof sa);
-        sa.sa_handler = catch_signal;
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGTTOU, &sa, &sa_old);
-        /* set the new settings immediately */
-        tcsetattr(STDIN_FILENO,TCSANOW,&new_tio);
-        sigaction(SIGTTOU, &sa_old, NULL);
-        if (signal_catched) {
+        if (!set_tio()) {
                 log_msg(LOG_LEVEL_WARNING, "[key control] Background task - disabling keyboard control.\n");
                 return;
         }
@@ -209,6 +194,7 @@ void keyboard_control::run()
                         case '-':
                         case 'e':
                         case 'v':
+                        case 'c':
                         case 'V':
                                 if (m_locked_against_changes) {
                                         LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n";
@@ -280,6 +266,9 @@ void keyboard_control::run()
                                 free_response(resp);
                                 break;
                         }
+                        case 'c':
+                                execute_command(m_root);
+                                break;
                         case 'v':
                         case 'V':
                         {
@@ -412,8 +401,69 @@ void keyboard_control::usage()
                 "\t   e   - record captured content (toggle)\n" <<
                 "\t   h   - show help\n" <<
                 "\t   i   - show various information\n" <<
+                "\t   c   - execute command through control socket\n" <<
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
                 "\n";
+}
+
+static void execute_command(struct module *root)
+{
+        int saved_log_level;
+
+        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+
+        strcpy(m->text, "execute ");
+
+        saved_log_level = log_level;
+        log_level = LOG_LEVEL_QUIET;
+        restore_old_tio();
+        printf("Enter a command for control (try \"help\"):\n");
+        printf("control> ");
+        fgets(m->text + strlen(m->text), sizeof m->text - strlen(m->text), stdin);
+        set_tio();
+        log_level = saved_log_level;
+
+        if (m->text[strlen(m->text) - 1] == '\n') { // strip newline
+                m->text[strlen(m->text) - 1] = '\0';
+        }
+        if (strcmp(m->text, "execute ") == 0) { // empty input
+                return;
+        }
+
+        struct response *r = send_message_sync(root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+        if (response_get_status(r) != RESPONSE_OK) {
+                LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
+        }
+        free_response(r);
+}
+
+static bool set_tio()
+{
+#ifdef HAVE_TERMIOS_H
+        struct termios new_tio;
+        /* get the terminal settings for stdin */
+        tcgetattr(STDIN_FILENO,&old_tio);
+        /* we want to keep the old setting to restore them a the end */
+        new_tio=old_tio;
+        /* disable canonical mode (buffered i/o) and local echo */
+        new_tio.c_lflag &=(~ICANON & ~ECHO);
+        // Wrap calling of tcsetattr() by handling SIGTTOU. SIGTTOU can be raised if task is
+        // run in background and trying to call tcsetattr(). If so, we disable keyboard
+        // control.
+        struct sigaction sa, sa_old;
+        memset(&sa, 0, sizeof sa);
+        sa.sa_handler = catch_signal;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGTTOU, &sa, &sa_old);
+        /* set the new settings immediately */
+        tcsetattr(STDIN_FILENO,TCSANOW,&new_tio);
+        sigaction(SIGTTOU, &sa_old, NULL);
+
+        if (!signal_catched) {
+                return true;
+        }
+#endif
+        return false;
 }
 
