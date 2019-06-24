@@ -21,7 +21,6 @@ DECKLINK_PATH = @DECKLINK_PATH@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 IMPORT_C_TARGET = bin/import_control_keyboard$(EXEEXT)
-SWITCHER_TARGET = bin/switcher_control_keyboard$(EXEEXT)
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
 GUI_BUNDLE    = gui/QT/uv-qt.app
@@ -190,10 +189,9 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 IMPORT_CONTROL_KEYBOARD_OBJS = src/import_control_keyboard.o
-SWITCHER_CONTROL_KEYBOARD_OBJS = src/switcher_control_keyboard.o
 
 # -------------------------------------------------------------------------------------------------
-all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(SWITCHER_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
+all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
@@ -207,10 +205,6 @@ $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
 $(IMPORT_C_TARGET): $(IMPORT_CONTROL_KEYBOARD_OBJS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@
-
-$(SWITCHER_TARGET): $(SWITCHER_CONTROL_KEYBOARD_OBJS)
-	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(SWITCHER_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@ -pthread
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
@@ -526,7 +520,7 @@ clean:
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@ @X_OBJ@
-	-rm -rf $(IMPORT_C_TARGET) $(SWITCHER_TARGET)
+	-rm -rf $(IMPORT_C_TARGET)
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean

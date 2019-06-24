@@ -42,7 +42,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <unordered_map>
+#include <map>
 
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>
@@ -84,7 +84,7 @@ private:
         bool m_locked_against_changes;
         std::time_t m_start_time;
 
-        std::unordered_map<char, std::string> key_mapping; // user defined
+        std::map<char, std::string> key_mapping; // user defined
         std::mutex m_lock;
 };
 
