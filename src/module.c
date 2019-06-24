@@ -163,6 +163,7 @@ static const char *module_class_name_pairs[] = {
         [MODULE_CLASS_DISPLAY] = "display",
         [MODULE_CLASS_DECODER] = "decoder",
         [MODULE_CLASS_EXPORTER] = "exporter",
+        [MODULE_CLASS_KEYCONTROL] = "keycontrol",
 };
 
 const char *module_class_name(enum module_class cls)

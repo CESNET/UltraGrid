@@ -95,7 +95,7 @@ static void restore_old_tio(void)
 #endif
 }
 
-keyboard_control::keyboard_control() :
+keyboard_control::keyboard_control(struct module *parent) :
         m_root(nullptr),
 #ifdef HAVE_TERMIOS_H
         m_should_exit_pipe{0, 0},
@@ -106,16 +106,26 @@ keyboard_control::keyboard_control() :
         m_locked_against_changes(true)
 {
         m_start_time = time(NULL);
+
+        m_root = get_root_module(parent);
+        module_init_default(&m_mod);
+        m_mod.cls = MODULE_CLASS_KEYCONTROL;
+        m_mod.priv_data = this;
+        m_mod.new_message = keyboard_control::msg_received_func;
+        module_register(&m_mod, parent);
+}
+
+keyboard_control::~keyboard_control() {
+        module_done(&m_mod);
 }
 
 ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
-void keyboard_control::start(struct module *root)
+void keyboard_control::start()
 {
         if (get_commandline_param("disable-keyboard-control")) {
                 return;
         }
-        m_root = root;
 #ifdef HAVE_TERMIOS_H
         if (pipe(m_should_exit_pipe) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "[key control] Cannot create control pipe!\n");
@@ -180,10 +190,14 @@ void keyboard_control::run()
 #endif
                         bool unknown_key_in_first_switch = false;
 
+                        m_lock.lock();
                         if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
-                                exec_external_commands(key_mapping.at(c).c_str());
+                                string cmd = key_mapping.at(c);
+                                m_lock.unlock();
+                                exec_external_commands(cmd.c_str());
                                 goto end_loop;
                         }
+                        m_lock.unlock();
 
                         // This switch processes keys that do not modify UltraGrid
                         // behavior. If some of modifying keys is pressed, warning
@@ -289,7 +303,7 @@ void keyboard_control::run()
                         }
                         case 'c':
                         case 'C':
-                                execute_command(c == 'C');
+                                read_command(c == 'C');
                                 break;
                         case 'v':
                         case 'V':
@@ -430,7 +444,7 @@ void keyboard_control::usage()
                 "\n";
 
         if (key_mapping.size() > 0) {
-                cout << "User keybindings:\n";
+                cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
                         cout << "\t   " << it.first <<"   - " << it.second << "\n";
                 }
@@ -504,7 +518,13 @@ void keyboard_control::exec_external_commands(const char *commands)
         free(cpy);
 }
 
-void keyboard_control::execute_command(bool multiple)
+void keyboard_control::execute_command(const char *command) {
+        if (!exec_local_command(command)) {
+                exec_external_commands(command);
+        }
+}
+
+void keyboard_control::read_command(bool multiple)
 {
         int saved_log_level;
 
@@ -518,28 +538,20 @@ void keyboard_control::execute_command(bool multiple)
                 printf("Enter a command for control (try \"help\" or \"localhelp\"):\n");
         }
         while (1) {
-                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
                 log_level = LOG_LEVEL_QUIET;
                 printf("control> ");
-                strcpy(m->text, "execute ");
-                fgets(m->text + strlen(m->text), sizeof m->text - strlen(m->text), stdin);
+                char buf[sizeof msg_universal::text];
+                fgets(buf, sizeof buf - 1, stdin);
                 log_level = saved_log_level;
 
-                if (m->text[strlen(m->text) - 1] == '\n') { // strip newline
-                        m->text[strlen(m->text) - 1] = '\0';
-                }
-                if (strcmp(m->text, "execute ") == 0) { // empty input
-                        free_message((struct message *) m, nullptr);
+                if (strlen(buf) == 0 || (strlen(buf) == 1 && buf[0] == '\n')) { // empty input
                         break;
                 }
-
-                if (!exec_local_command(m->text + strlen("execute "))) {
-                        struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-                        if (response_get_status(r) != RESPONSE_OK) {
-                                LOG(LOG_LEVEL_ERROR) << "Could not send a message!\n";
-                        }
-                        free_response(r);
+                if (buf[strlen(buf) - 1] == '\n') { // strip newline
+                        buf[strlen(buf) - 1] = '\0';
                 }
+
+                execute_command(buf);
 
                 if (!multiple) {
                         break;
@@ -576,5 +588,22 @@ static bool set_tio()
         }
 #endif
         return false;
+}
+
+void keyboard_control::msg_received_func(struct module *m) {
+        auto s = static_cast<keyboard_control *>(m->priv_data);
+
+        s->msg_received();
+}
+
+void keyboard_control::msg_received() {
+        struct message *msg;
+        while ((msg = check_message(&m_mod))) {
+                auto m = reinterpret_cast<struct msg_universal *>(msg);
+                lock_guard<mutex> lk(m_lock);
+                execute_command(m->text);
+                struct response *r = new_response(RESPONSE_OK, nullptr);
+                free_message((struct message *) m, r);
+        }
 }
 

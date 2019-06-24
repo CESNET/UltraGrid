@@ -77,6 +77,7 @@ enum module_class {
         MODULE_CLASS_DISPLAY,
         MODULE_CLASS_DECODER,
         MODULE_CLASS_EXPORTER,
+        MODULE_CLASS_KEYCONTROL,
 };
 
 struct module;

@@ -533,7 +533,7 @@ int main(int argc, char *argv[])
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
-        keyboard_control kc{};
+        keyboard_control kc{&uv.root_module};
 
         bool print_capabilities_req = false;
         bool start_paused = false;
@@ -1155,7 +1155,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */
 
         control_start(control);
-        kc.start(&uv.root_module);
+        kc.start();
 
         try {
                 map<string, param_u> params;

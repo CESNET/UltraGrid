@@ -39,31 +39,39 @@
 #define keyboard_control_h_
 
 #include <ctime>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
 
 #ifdef HAVE_TERMIOS_H
-#include "termios.h"
+#include <termios.h>
 #endif
 
-struct module;
+#include "module.h"
 
 class keyboard_control {
 public:
-        keyboard_control();
-        void start(struct module *root);
+        keyboard_control(struct module *parent);
+        ~keyboard_control();
+        void start();
         void stop();
         void run();
         void info();
         void usage();
 
+        static void msg_received_func(struct module *);
+        void msg_received();
+
 private:
-        void execute_command(bool multiple);
+        void read_command(bool multiple);
+        void execute_command(const char *command);
         bool exec_local_command(const char *commnad);
         void exec_external_commands(const char *commnads);
 
         void load_config_map();
+
+        struct module m_mod;
 
         std::thread m_keyboard_thread;
         struct module *m_root;
@@ -77,6 +85,7 @@ private:
         std::time_t m_start_time;
 
         std::unordered_map<char, std::string> key_mapping; // user defined
+        std::mutex m_lock;
 };
 
 #endif // keyboard_control_h_
