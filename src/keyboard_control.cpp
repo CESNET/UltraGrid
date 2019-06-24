@@ -192,7 +192,7 @@ void keyboard_control::run()
 
                         m_lock.lock();
                         if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
-                                string cmd = key_mapping.at(c);
+                                string cmd = key_mapping.at(c).first;
                                 m_lock.unlock();
                                 exec_external_commands(cmd.c_str());
                                 goto end_loop;
@@ -232,9 +232,11 @@ void keyboard_control::run()
                                 info();
                                 break;
                         case 's':
-                                saved_log_level = log_level;
-                                LOG(LOG_LEVEL_NOTICE) << "Output suspended, press 'q' to continue.\n";
-                                log_level = LOG_LEVEL_QUIET;
+                                if (saved_log_level == -1) {
+                                        saved_log_level = log_level;
+                                        LOG(LOG_LEVEL_NOTICE) << "Output suspended, press 'q' to continue.\n";
+                                        log_level = LOG_LEVEL_QUIET;
+                                }
                                 break;
                         case 'q':
                                 if (saved_log_level != -1) {
@@ -437,7 +439,7 @@ void keyboard_control::usage()
                 "\t   e   - record captured content (toggle)\n" <<
                 "\t   h   - show help\n" <<
                 "\t   i   - show various information\n" <<
-                "\t  s q  - suspend/continue output\n" <<
+                "\t  s q  - suspend/resume output\n" <<
                 "\t  c C  - execute command through control socket (capital for multiple)\n" <<
                 "\tCtrl-x - unlock/lock against changes\n" <<
                 "\tCtrl-c - exit\n" <<
@@ -446,7 +448,7 @@ void keyboard_control::usage()
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << "\t   " << it.first <<"   - " << it.second << "\n";
+                        cout << "\t   " << it.first <<"   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
                 }
                 cout << "\n";
         }
@@ -462,13 +464,12 @@ void keyboard_control::load_config_map() {
                 if (strlen(buf) > 0 && buf[strlen(buf) - 1] == '\n') { // trim NL
                         buf[strlen(buf) - 1] = '\0';
                 }
-                if (strstr(buf, "map ") != buf) {
-                        LOG(LOG_LEVEL_ERROR) << "Wrong config: " << buf << "\n";
+                if (strlen(buf) == 0) {
                         continue;
                 }
-                const char *command = buf + strlen("map ");
-                if (strlen(command) > 3) {
-                        key_mapping.insert({command[0], string(command + 2)});
+                if (!exec_local_command(buf)) {
+                        LOG(LOG_LEVEL_ERROR) << "Wrong config: " << buf << "\n";
+                        continue;
                 }
         }
         fclose(in);
@@ -478,16 +479,22 @@ bool keyboard_control::exec_local_command(const char *command)
 {
         if (strcmp(command, "localhelp") == 0) {
                 printf("Local help:\n"
-                                "\tmap <X> cmd1[;cmd2..]\n"
-                                "\t\tmaps key to command(s) for control socket\n"
+                                "\tmap <X> cmd1[;cmd2..][#name]\n"
+                                "\t\tmaps key to command(s) for control socket (with an optional\n\t\tidentifier)\n"
                                 "\tunmap <X>\n\n"
                                 "Mappings can be stored in " CONFIG_FILE "\n\n");
                 return true;
         } else if (strstr(command, "map ") == command) {
-                command += strlen("map ");
-                if (strlen(command) > 3) {
-                        key_mapping.insert({command[0], string(command + 2)});
+                char *ccpy = strdup(command + strlen("map "));
+                if (strlen(ccpy) > 3) {
+                        const char *name = "";
+                        if (strchr(ccpy, '#')) {
+                                name = strchr(ccpy, '#') + 1;
+                                *strchr(ccpy, '#') = '\0';
+                        }
+                        key_mapping.insert({ccpy[0], make_pair(string(ccpy + 2), name)});
                 }
+                free(ccpy);
                 return true;
         } else if (strstr(command, "unmap ") == command) {
                 command += strlen("unmap ");

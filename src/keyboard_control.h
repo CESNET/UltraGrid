@@ -39,10 +39,11 @@
 #define keyboard_control_h_
 
 #include <ctime>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
-#include <map>
+#include <utility>
 
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>
@@ -84,7 +85,9 @@ private:
         bool m_locked_against_changes;
         std::time_t m_start_time;
 
-        std::map<char, std::string> key_mapping; // user defined
+        /// @todo add a flag to determine which keys should be guarded against
+        ///       unintentional pressing
+        std::map<char, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
         std::mutex m_lock;
 };
 
