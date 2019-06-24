@@ -57,9 +57,6 @@ public:
         ~keyboard_control();
         void start();
         void stop();
-        void run();
-        void info();
-        void usage();
 
         static void msg_received_func(struct module *);
         void msg_received();
@@ -71,6 +68,10 @@ private:
         void exec_external_commands(const char *commnads);
 
         void load_config_map();
+
+        void info();
+        void run();
+        void usage();
 
         struct module m_mod;
 

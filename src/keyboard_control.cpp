@@ -47,6 +47,7 @@
 #include "host.h"
 #include "keyboard_control.h"
 #include "messaging.h"
+#include "rang.hpp"
 #include "video.h"
 
 #include <iomanip>
@@ -65,6 +66,7 @@ static bool set_tio();
 #define CTRL_X 24
 #define CONFIG_FILE "ug-key-map.txt"
 
+using rang::style;
 using namespace std;
 
 #ifdef HAVE_TERMIOS_H
@@ -339,10 +341,10 @@ end_loop:
 
 void keyboard_control::info()
 {
-        cout << "Start time: " << asctime(localtime(&m_start_time));
-        cout << "Verbosity level: " << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
-        cout << "Locked against changes: " << (m_locked_against_changes ? "true" : "false") << "\n";
-        cout << "Audio playback delay: " << get_audio_delay() << " ms\n";
+        cout << style::bold << "Start time: " << style::reset << asctime(localtime(&m_start_time));
+        cout << style::bold << "Verbosity level: " << style::reset << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
+        cout << style::bold << "Locked against changes: " << style::reset << (m_locked_against_changes ? "true" : "false") << "\n";
+        cout << style::bold << "Audio playback delay: " << get_audio_delay() << style::reset << " ms\n";
 
         {
                 char path[] = "audio.receiver";
@@ -354,7 +356,7 @@ void keyboard_control::info()
                         double db = 20.0 * log10(vol);
                         std::streamsize p = cout.precision();
                         ios_base::fmtflags f = cout.flags();
-                        cout << "Received audio volume: " << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout << style::bold << "Received audio volume: " << style::reset << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                         cout.precision(p);
                         cout.flags(f);
                 }
@@ -369,7 +371,7 @@ void keyboard_control::info()
                 if (response_get_status(resp) == 200) {
                         int muted;
                         sscanf(response_get_text(resp), "%d", &muted);
-                        cout << "Sended audio status - muted: " << (bool) muted << "\n";
+                        cout << style::bold << "Sended audio status - muted: " << style::reset << (bool) muted << "\n";
                 }
                 free_response(resp);
         }
@@ -383,7 +385,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << "Captured video format: " <<  desc << "\n";
+                        cout << style::bold << "Captured video format: " << style::reset << desc << "\n";
                 }
                 free_response(r);
 	}
@@ -397,7 +399,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << "Received video format: " <<  desc << "\n";
+                        cout << style::bold << "Received video format: " << style::reset <<  desc << "\n";
                 }
                 free_response(r);
 	}
@@ -407,7 +409,7 @@ void keyboard_control::info()
                 strcpy(m->text, "get_port");
                 struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << "Control port: " <<  response_get_text(r) << "\n";
+                        cout << style::bold << "Control port: " << style::reset << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -417,7 +419,7 @@ void keyboard_control::info()
                 strcpy(m->text, "status");
                 struct response *r = send_message_sync(m_root, "exporter", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << "Exporting: " <<  response_get_text(r) << "\n";
+                        cout << style::bold << "Exporting: " << style::reset << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -428,27 +430,27 @@ void keyboard_control::info()
 void keyboard_control::usage()
 {
         cout << "\nAvailable keybindings:\n" <<
-                "\t  * 0  - increase volume\n" <<
-                "\t  / 9  - decrease volume\n" <<
-                "\t   +   - increase audio delay by 10 ms\n" <<
-                "\t   -   - decrease audio delay by 10 ms\n" <<
-                "\t   m   - mute/unmute receiver\n" <<
-                "\t   M   - mute/unmute sender\n" <<
-                "\t   v   - increase verbosity level\n" <<
-                "\t   V   - decrease verbosity level\n" <<
-                "\t   e   - record captured content (toggle)\n" <<
-                "\t   h   - show help\n" <<
-                "\t   i   - show various information\n" <<
-                "\t  s q  - suspend/resume output\n" <<
-                "\t  c C  - execute command through control socket (capital for multiple)\n" <<
-                "\tCtrl-x - unlock/lock against changes\n" <<
-                "\tCtrl-c - exit\n" <<
+                style::bold << "\t  * 0  " << style::reset << "- increase volume\n" <<
+                style::bold << "\t  / 9  " << style::reset << "- decrease volume\n" <<
+                style::bold << "\t   +   " << style::reset << "- increase audio delay by 10 ms\n" <<
+                style::bold << "\t   -   " << style::reset << "- decrease audio delay by 10 ms\n" <<
+                style::bold << "\t   m   " << style::reset << "- mute/unmute receiver\n" <<
+                style::bold << "\t   M   " << style::reset << "- mute/unmute sender\n" <<
+                style::bold << "\t   v   " << style::reset << "- increase verbosity level\n" <<
+                style::bold << "\t   V   " << style::reset << "- decrease verbosity level\n" <<
+                style::bold << "\t   e   " << style::reset << "- record captured content (toggle)\n" <<
+                style::bold << "\t   h   " << style::reset << "- show help\n" <<
+                style::bold << "\t   i   " << style::reset << "- show various information\n" <<
+                style::bold << "\t  s q  " << style::reset << "- suspend/resume output\n" <<
+                style::bold << "\t  c C  " << style::reset << "- execute command through control socket (capital for multiple)\n" <<
+                style::bold << "\tCtrl-x " << style::reset << "- unlock/lock against changes\n" <<
+                style::bold << "\tCtrl-c " << style::reset << "- exit\n" <<
                 "\n";
 
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << "\t   " << it.first <<"   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
+                        cout << style::bold << "\t   " << it.first << style::reset << "   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
                 }
                 cout << "\n";
         }
