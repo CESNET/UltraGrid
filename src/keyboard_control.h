@@ -88,7 +88,7 @@ private:
 
         /// @todo add a flag to determine which keys should be guarded against
         ///       unintentional pressing
-        std::map<char, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
+        std::map<int, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
         std::mutex m_lock;
 };
 

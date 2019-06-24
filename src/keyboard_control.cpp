@@ -48,8 +48,10 @@
 #include "keyboard_control.h"
 #include "messaging.h"
 #include "rang.hpp"
+#include "utils/thread.h"
 #include "video.h"
 
+#include <climits>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -65,6 +67,7 @@ static bool set_tio();
 
 #define CTRL_X 24
 #define CONFIG_FILE "ug-key-map.txt"
+#define MOD_NAME "[key control] "
 
 using rang::style;
 using namespace std;
@@ -125,6 +128,7 @@ ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-ke
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start()
 {
+        set_thread_name("keyboard-control");
         if (get_commandline_param("disable-keyboard-control")) {
                 return;
         }
@@ -172,6 +176,63 @@ void keyboard_control::stop()
 #endif
 }
 
+#ifdef HAVE_TERMIOS_H
+#define GETCH getchar
+#else
+#define GETCH getch
+#endif
+
+/**
+ * Tries to parse at least some small subset of ANSI control sequences not to
+ * be ArrowUp interpreted as '\E', '[' and 'A' individually.
+ *
+ * @todo
+ * * improve coverage and/or find some suitable implemnation (ideally one file,
+ *   not ncurses)
+ * * add macros for KEY_UP etc. (as ncurses have)
+ * * the function can be moved to separate util file
+ */
+static int get_ansi_code() {
+        int c = GETCH();
+        if (c == '[') { // CSI
+                c = '[';
+                while (1) {
+                        c = (c & 0x7fffff) << 8;
+                        int tmp = GETCH();
+                        if (tmp == EOF) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
+                                return -1;
+                        }
+                        c |= tmp;
+                        if (tmp >= 0x40 && tmp <= 0xee) { // final byte
+                                break;
+                        }
+                }
+        } else if (c == 'N' // is this even used?
+                        || c == 'O') { // eg. \EOP - F1-F4 (the rest of Fn is CSI)
+                int tmp = GETCH();
+                if (tmp == EOF) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
+                        return -1;
+                }
+                c = c << 8 | tmp;
+        } else {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control seqence!\n";
+                return -1;
+        }
+        return c;
+}
+
+static string get_code_representation(int ch) {
+        if (isprint(ch)) {
+                return string(1, ch);
+        }
+
+        stringstream oss;
+        oss << "0x" << hex << ch;
+        return oss.str();
+}
+
 void keyboard_control::run()
 {
         int saved_log_level = -1;
@@ -184,12 +245,16 @@ void keyboard_control::run()
                 FD_SET(m_should_exit_pipe[0], &set);
                 select(m_should_exit_pipe[0] + 1, &set, NULL, NULL, NULL);
                 if (FD_ISSET(0, &set)) {
-                        int c = getchar();
 #else
                 usleep(200000);
                 while (kbhit()) {
-                        int c = getch();
 #endif
+                        int c = GETCH();
+                        if (c == '\E') {
+                                if ((c = get_ansi_code()) == -1) {
+                                        goto end_loop;
+                                }
+                        }
                         bool unknown_key_in_first_switch = false;
 
                         m_lock.lock();
@@ -322,7 +387,7 @@ void keyboard_control::run()
                         }
                         default:
                                 if (unknown_key_in_first_switch) {
-                                        LOG(LOG_LEVEL_WARNING) << "Keyboard control: Unrecognized key " << c << " pressed. Press 'h' to help.\n";
+                                        LOG(LOG_LEVEL_WARNING) << "Keyboard control: Unrecognized key 0x" << hex << c << dec << " pressed. Press 'h' to help.\n";
                                 }
 
                         }
@@ -450,7 +515,7 @@ void keyboard_control::usage()
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << style::bold << "\t   " << it.first << style::reset << "   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
+                        cout << style::bold << "\t   " << get_code_representation(it.first) << style::reset << "   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
                 }
                 cout << "\n";
         }
