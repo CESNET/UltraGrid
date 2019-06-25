@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,8 @@
 
 #include "audio/audio.h"
 #include "audio/wav_reader.h"
+#include "messaging.h"
+#include "module.h"
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
@@ -75,7 +77,6 @@
 #define BUFFER_LEN_MAX 40
 #define MAX_CLIENTS 16
 
-#define CONTROL_PORT 15004
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
 
 #define PIPE "/tmp/ultragrid_import.fifo"
@@ -108,15 +109,15 @@ typedef enum {
         SEEK,
         FINALIZE,
         PAUSE
-} message_t;
+} import_message_t;
 
-struct message;
+struct import_message;
 
-struct message {
-        message_t       type;
+struct import_message {
+        import_message_t       type;
         void           *data;
         size_t          data_len;
-        struct message *next;
+        struct import_message *next;
 };
 
 typedef enum {
@@ -131,8 +132,8 @@ struct seek_data {
 };
 
 struct message_queue {
-        struct message *head;
-        struct message *tail;
+        struct import_message *head;
+        struct import_message *tail;
         size_t          len;
 };
 
@@ -154,6 +155,8 @@ struct audio_state {
 }; 
 
 struct vidcap_import_state {
+        struct module mod;
+        struct module *parent;
         struct audio_frame audio_frame;
         struct audio_state audio_state;
         struct video_desc video_desc;
@@ -172,7 +175,6 @@ struct vidcap_import_state {
         volatile int queue_len;
 
         pthread_t thread_id;
-        pthread_t control_thread_id;
 
         struct timeval prev_time;
         int count;
@@ -183,29 +185,17 @@ struct vidcap_import_state {
         int video_reading_threads_count;
         bool should_exit_at_end;
         double force_fps;
-
-        volatile bool exit_control = false;
 };
-
-#ifdef WIN32
-#define WIN32_UNUSED __attribute__((unused))
-#else
-#define WIN32_UNUSED
-#endif
 
 static void * audio_reading_thread(void *args);
 static void * reading_thread(void *args);
-#ifndef WIN32
-static void * control_thread(void *args);
-#endif
 static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
-static void send_message(struct message *msg, struct message_queue *queue);
-static struct message* pop_message(struct message_queue *queue);
+static void send_message(struct import_message *msg, struct message_queue *queue);
+static struct import_message* pop_message(struct message_queue *queue);
 static int flush_processed(struct processed_entry *list);
-
 static void message_queue_clear(struct message_queue *queue);
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len) WIN32_UNUSED;
-static void process_msg(struct vidcap_import_state *state, char *message) WIN32_UNUSED;
+static void vidcap_import_new_message(struct module *);
+static void process_msg(struct vidcap_import_state *state, const char *message);
 
 static void cleanup_common(struct vidcap_import_state *s);
 
@@ -287,6 +277,13 @@ try {
         s->queue_len = 0;
         s->frames_prev = s->frames = 0;
         gettimeofday(&s->t0, NULL);
+
+        s->parent = vidcap_params_get_parent(params);
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DATA;
+        s->mod.priv_data = s;
+        s->mod.new_message = vidcap_import_new_message;
+        module_register(&s->mod, s->parent);
 
         s->video_reading_threads_count = 1; // default is single threaded
 
@@ -486,12 +483,6 @@ try {
                 throw string("Unable to create thread.\n");
         }
 
-#ifndef WIN32
-        if(pthread_create(&s->control_thread_id, NULL, control_thread, (void *) s) != 0) {
-                throw string("Unable to create control thread.\n");
-        }
-#endif
-
         gettimeofday(&s->prev_time, NULL);
 
         *state = s;
@@ -509,7 +500,7 @@ try {
 
 static void exit_reading_threads(struct vidcap_import_state *s)
 {
-        struct message *msg = (struct message *) malloc(sizeof(struct message));
+        struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
 
         msg->type = FINALIZE;
         msg->data = NULL;
@@ -527,7 +518,7 @@ static void exit_reading_threads(struct vidcap_import_state *s)
 
         // audio
         if(s->audio_state.has_audio) {
-                struct message *msg = (struct message *) malloc(sizeof(struct message));
+                struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
 
                 msg->type = FINALIZE;
                 msg->data = NULL;
@@ -562,12 +553,6 @@ static void vidcap_import_finish(void *state)
         struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 
         exit_reading_threads(s);
-
-#ifndef WIN32
-        s->exit_control = true;
-
-        pthread_join(s->control_thread_id, NULL);
-#endif
 }
 
 static int flush_processed(struct processed_entry *list)
@@ -598,6 +583,8 @@ static void cleanup_common(struct vidcap_import_state *s) {
 
                 fclose(s->audio_state.file);
         }
+
+        module_done(&s->mod);
 }
 
 static void vidcap_import_done(void *state)
@@ -608,45 +595,10 @@ static void vidcap_import_done(void *state)
         vidcap_import_finish(state);
 
         cleanup_common(s);
-        free(s);
+        delete s;
 }
 
-/*
- * Message len can be at most buffer_len + 1 (including '\0')
- */
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len)
-{
-        bool ret = false;
-        int i = 0;
-
-        while (i < buffer_len) {
-                if(buffer[i] == '\0' || buffer[i] == '\n' || buffer[i] == '\r') {
-                        ++i;
-                } else {
-                        break;
-                }
-        }
-
-        int start = i;
-
-        for( ; i < buffer_len; ++i) {
-                if(buffer[i] == '\0' || buffer[i] == '\n' || buffer[i] == '\r') {
-                        memcpy(message, buffer + start, i - start);
-                        message[i - start] = '\0';
-                        ret = true;
-                        break;
-                }
-        }
-        
-        if(ret) {
-                memmove(buffer, buffer + i, buffer_len - i);
-                *new_buffer_len = buffer_len - i;
-        }
-
-        return ret;
-}
-
-static void send_message(struct message *msg, struct message_queue *queue)
+static void send_message(struct import_message *msg, struct message_queue *queue)
 {
         if(queue->head) {
                 queue->tail->next = msg;
@@ -658,10 +610,10 @@ static void send_message(struct message *msg, struct message_queue *queue)
         queue->len += 1;
 }
 
-static struct message *pop_message(struct message_queue *queue)
+static struct import_message *pop_message(struct message_queue *queue)
 {
         assert(queue->len > 0);
-        struct message *ret;
+        struct import_message *ret;
 
         ret = queue->head;
         queue->head = queue->head->next;
@@ -674,10 +626,18 @@ static struct message *pop_message(struct message_queue *queue)
         return ret;
 }
 
-static void process_msg(struct vidcap_import_state *s, char *message)
+static void vidcap_import_new_message(struct module *mod) {
+        struct msg_universal *m;
+        while ((m = (struct msg_universal *) check_message(mod))) {
+                process_msg((vidcap_import_state *) mod->priv_data, m->text);
+                free_message((struct message *) m, new_response(RESPONSE_ACCEPTED, "import is processing the request"));
+        }
+}
+
+static void process_msg(struct vidcap_import_state *s, const char *message)
 {
         if(strcasecmp(message, "pause") == 0) {
-                struct message *msg = (struct message *) malloc(sizeof(struct message));
+                struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
                 msg->type = PAUSE;
                 msg->data = NULL;
                 msg->data_len = 0;
@@ -693,9 +653,9 @@ static void process_msg(struct vidcap_import_state *s, char *message)
                         return;
                 }
 
-                char *time_spec = message + strlen("seek ");
+                const char *time_spec = message + strlen("seek ");
 
-                struct message *msg = (struct message *) malloc(sizeof(struct message));
+                struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
                 struct seek_data *data = (struct seek_data *) malloc(sizeof(struct seek_data));
                 msg->type = SEEK;
                 msg->data = data;
@@ -720,11 +680,11 @@ static void process_msg(struct vidcap_import_state *s, char *message)
                         }
                 }
 
-                struct message *audio_msg = NULL;
+                struct import_message *audio_msg = NULL;
 
                 if(s->audio_state.has_audio) {
-                        audio_msg = (struct message *) malloc(sizeof(struct message));
-                        memcpy(audio_msg, msg, sizeof(struct message));
+                        audio_msg = (struct import_message *) malloc(sizeof(struct import_message));
+                        memcpy(audio_msg, msg, sizeof(struct import_message));
 
                         if(audio_msg->data) { // deep copy
                                 audio_msg->data = malloc(msg->data_len);
@@ -762,144 +722,6 @@ struct client {
 
         struct client *next;
 };
-
-#ifndef WIN32
-static void * control_thread(void *args)
-{
-	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
-        fd_t fd;
-        int rc;
-
-        fd = socket(AF_INET6, SOCK_STREAM, 0);
-        assert(fd != INVALID_SOCKET);
-        int val = 1;
-        rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-        if (rc != 0) {
-                perror("Video import - setsockopt");
-        }
-        struct sockaddr_in6 s_in{};
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = in6addr_any;
-        s_in.sin6_port = htons(CONTROL_PORT);
-
-        rc = bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-        if (rc != 0) {
-                perror("Video import: unable to bind communication pipe");
-                CLOSESOCKET(fd);
-                return NULL;
-        }
-        listen(fd, MAX_CLIENTS);
-        struct sockaddr_storage client_addr;
-        socklen_t len;
-
-        unlink(PIPE);
-        errno = 0;
-        rc = mkfifo(PIPE, 0777);
-
-        struct client *clients = NULL;
-        if (rc == 0) {
-                clients = (struct client *) malloc(sizeof(struct client));
-                clients->fd = open(PIPE, O_RDONLY | O_NONBLOCK);
-                assert(clients->fd != -1);
-                clients->pipe = true;
-                clients->buff_len = 0;
-                clients->next = NULL;
-        } else {
-                perror("Video import: unable to create communication pipe");
-                CLOSESOCKET(fd);
-                return NULL;
-        }
-
-        while (!s->exit_control) {
-                fd_set set;
-                FD_ZERO(&set);
-                FD_SET(fd, &set);
-                int max_fd = fd + 1;
-
-                struct client *cur = clients;
-
-                while(cur) {
-                        FD_SET(cur->fd, &set);
-                        if(cur->fd + 1 > max_fd) {
-                                max_fd = cur->fd + 1;
-                        }
-                        cur = cur->next;
-                }
-
-                struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
-                if(select(max_fd, &set, NULL, NULL, &timeout) >= 1) {
-                        if(FD_ISSET(fd, &set)) {
-                                int new_fd = accept(fd, (struct sockaddr *) &client_addr, &len);
-                                if (new_fd != -1) {
-                                        struct client *new_client = (struct client *) malloc(sizeof(struct client));
-                                        new_client->fd = new_fd;
-                                        new_client->next = clients;
-                                        new_client->buff_len = 0;
-                                        new_client->pipe = false;
-                                        clients = new_client;
-                                } else {
-                                        perror("Control socket: cannot accept new connection");
-                                }
-                        }
-
-                        struct client **parent_ptr = &clients;
-                        struct client *cur = clients;
-
-                        while(cur) {
-                                if(FD_ISSET(cur->fd, &set)) {
-                                        ssize_t ret = read(cur->fd, cur->buff + cur->buff_len, 1024 - cur->buff_len);
-                                        if(ret == -1) {
-                                                perror("Error reading socket");
-                                        }
-                                        if(ret == 0) {
-                                                if(!cur->pipe) {
-                                                        CLOSESOCKET(cur->fd);
-                                                        *parent_ptr = cur->next;
-                                                        free(cur);
-                                                        cur = *parent_ptr; // now next
-                                                        continue;
-                                                }
-                                        }
-                                        cur->buff_len += ret;
-                                }
-                                parent_ptr = &cur->next;
-                                cur = cur->next;
-                        }
-                }
-
-                cur = clients;
-                while(cur) {
-                        char msg[1024 + 1];
-                        int cur_buffer_len;
-                        if(parse_msg(cur->buff, cur->buff_len, msg, &cur_buffer_len)) {
-                                fprintf(stderr, "msg: %s\n", msg);
-                                cur->buff_len = cur_buffer_len;
-                                process_msg(s, msg);
-                        } else {
-                                if(cur->buff_len == 1024) {
-                                        fprintf(stderr, "Socket buffer full and no delimited message. Discarding.\n");
-                                        cur->buff_len = 0;
-                                }
-                        }
-
-                        cur = cur->next;
-                }
-        }
-
-        struct client *cur = clients;
-        while(cur) {
-                struct client *tmp = cur;
-                CLOSESOCKET(cur->fd);
-                cur = cur->next;
-                free(tmp);
-        }
-
-        CLOSESOCKET(fd);
-        unlink(PIPE);
-
-        return NULL;
-}
-#endif // WIN32
         
 static void * audio_reading_thread(void *args)
 {
@@ -917,7 +739,7 @@ static void * audio_reading_thread(void *args)
                         }
 
                         while(s->audio_state.message_queue.len > 0) {
-                                struct message *msg = pop_message(&s->audio_state.message_queue);
+                                struct import_message *msg = pop_message(&s->audio_state.message_queue);
                                 if(msg->type == FINALIZE) {
                                         free(msg);
                                         return NULL;
@@ -1056,7 +878,7 @@ static void * reading_thread(void *args)
                         }
 
                         while(s->message_queue.len > 0) {
-                                struct message *msg = pop_message(&s->message_queue);
+                                struct import_message *msg = pop_message(&s->message_queue);
                                 if(msg->type == FINALIZE) {
                                         free(msg);
                                         return NULL;
