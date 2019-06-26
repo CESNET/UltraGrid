@@ -1,11 +1,11 @@
 /**
- * @file   keyboard_control.h
+ * @file   keyboard_control.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * With code taken from Olivier Mehani from http://shtrom.ssji.net/skb/getc.html
+ * With code taken from Olivier Mehani (set_tio()).
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @todo
+ * Consider using some abstraction over terminal control mainly because
+ * differencies between Linux and Windows (ANSI mode or terminfo?)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -219,10 +224,29 @@ static int get_ansi_code() {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control seqence!\n";
                 return -1;
         }
+
         return c;
 }
 
-static string get_code_representation(int ch) {
+static int convert_win_to_ansi_keycode(int c) {
+        if (c == EOF) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
+                return -1;
+        }
+
+        switch (c) {
+        case 0x48: return K_UP;
+        case 0x4b: return K_LEFT;
+        case 0x4d: return K_RIGHT;
+        case 0x50: return K_DOWN;
+        default:
+                   LOG(LOG_LEVEL_WARNING) << MOD_NAME "Cannot map Win keycode 0xe0"
+                           << hex << setfill('0') << setw(2) << c << setw(0) << dec << " to ANSI.\n";
+                   return -1;
+        }
+}
+
+static string get_keycode_representation(int ch) {
         switch (ch) {
         case K_UP: return "KEY_UP";
         case K_DOWN: return "KEY_DOWN";
@@ -232,7 +256,7 @@ static string get_code_representation(int ch) {
         if (ch == ' ') {
                 return "' '";
         }
-        if (isprint(ch)) {
+        if (ch < UCHAR_MAX && isprint(ch)) {
                 return string(1, ch);
         }
 
@@ -260,6 +284,10 @@ void keyboard_control::run()
                         int c = GETCH();
                         if (c == '\E') {
                                 if ((c = get_ansi_code()) == -1) {
+                                        goto end_loop;
+                                }
+                        } else if (c == 0xe0) { // Win keycodes
+                                if ((c = convert_win_to_ansi_keycode(GETCH())) == -1) {
                                         goto end_loop;
                                 }
                         }
@@ -395,7 +423,7 @@ void keyboard_control::run()
                         }
                         default:
                                 if (unknown_key_in_first_switch) {
-                                        LOG(LOG_LEVEL_WARNING) << "Keyboard control: Unrecognized key 0x" << hex << c << dec << " pressed. Press 'h' to help.\n";
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
                                 }
 
                         }
@@ -523,7 +551,7 @@ void keyboard_control::usage()
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << style::bold << "\t" << setw(10) << get_code_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
+                        cout << style::bold << "\t" << setw(10) << get_keycode_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
                 }
                 cout << "\n";
         }
@@ -651,6 +679,9 @@ void keyboard_control::read_command(bool multiple)
         set_tio();
 }
 
+/**
+ * From http://shtrom.ssji.net/skb/getc.html
+ */
 static bool set_tio()
 {
 #ifdef HAVE_TERMIOS_H
