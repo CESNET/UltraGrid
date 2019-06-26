@@ -44,9 +44,7 @@
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
 #endif
-#ifndef WIN32
 #include <libgen.h>
-#endif
 
 #include "host.h"
 #include "utils/thread.h"
