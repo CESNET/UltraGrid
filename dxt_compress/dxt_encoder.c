@@ -31,14 +31,16 @@
 #include "dxt_encoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
+#if defined __APPLE__
+#include <Availability.h>
+#if defined __MAC_10_11
 #include <OpenGL/gl3.h>
-#endif
-#ifndef HAVE_MACOSX /* Linux */
+#endif // defined __MAC_10_11
+#else // ! defined __APPLE__
 #include <GL/glew.h>
 #endif
 
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#if defined __APPLE__ && !defined __MAC_10_11
 #define glGenFramebuffers glGenFramebuffersEXT
 #define glBindFramebuffer glBindFramebufferEXT
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
@@ -159,7 +161,7 @@ static int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         glLinkProgram(encoder->yuv422_to_444_program);
 
         if(!encoder->legacy) {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
             GLint g_vertexLocation;
             GLuint g_vertices;
 
@@ -391,7 +393,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glUniform1f(glGetUniformLocation(encoder->program_compress, "textureWidth"), (encoder->width + 3) / 4 * 4); 
 
     if(!encoder->legacy) {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
         GLint g_vertexLocation;
 
         // ToDo:
@@ -538,7 +540,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                             glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
                             glEnd();
                         } else {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
                             // Compress
                             glBindVertexArray(encoder->g_vao_422);
                             //glDrawElements(GL_TRIANGLE_STRIP, sizeof(m_quad.indices) / sizeof(m_quad.indices[0]), GL_UNSIGNED_SHORT, BUFFER_OFFSET(0));
@@ -638,7 +640,7 @@ dxt_encoder_compress_texture(struct dxt_encoder* encoder, int texture, unsigned 
         glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
         glEnd();
     } else {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
         // Compress
         glBindVertexArray(encoder->g_vao);
         //glDrawElements(GL_TRIANGLE_STRIP, sizeof(m_quad.indices) / sizeof(m_quad.indices[0]), GL_UNSIGNED_SHORT, BUFFER_OFFSET(0));

@@ -31,11 +31,14 @@
 #include "dxt_decoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
+#if defined __APPLE__
+#include <Availability.h>
+#if defined __MAC_10_11
 #include <OpenGL/gl3.h>
-#endif
+#endif // defined __MAC_10_11
+#endif // defined __APPLE__
 
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#if defined __APPLE__ && !defined __MAC_10_11
 #define glGenFramebuffers glGenFramebuffersEXT
 #define glBindFramebuffer glBindFramebufferEXT
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
@@ -234,7 +237,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
                         (GLfloat) decoder->width);
 
             if(!decoder->legacy) {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
                 GLint g_vertexLocation;
                 GLuint g_vertices;
 
@@ -273,7 +276,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
             glUseProgram(0);
     }
     if(!decoder->legacy) {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
         GLint g_vertexLocation;
         GLuint g_vertices;
 
@@ -414,7 +417,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
         glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
         glEnd();
     } else {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
         glBindVertexArray(decoder->g_vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
@@ -474,7 +477,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
                 glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
                 glEnd();
             } else {
-#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+#if ! defined __APPLE__ || defined __MAC_10_11
                 glBindVertexArray(decoder->g_vao_422);
                 glDrawArrays(GL_TRIANGLES, 0, 6);
                 glBindVertexArray(0);
