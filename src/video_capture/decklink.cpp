@@ -202,11 +202,11 @@ public:
                         rightEyeFrame->Release();
 	}
 
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) { return E_NOINTERFACE; }
-	virtual ULONG STDMETHODCALLTYPE AddRef(void) {
+	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) override { return E_NOINTERFACE; }
+	virtual ULONG STDMETHODCALLTYPE  AddRef(void) override {
 		return mRefCount++;
 	}
-	virtual ULONG STDMETHODCALLTYPE  Release(void) {
+	virtual ULONG STDMETHODCALLTYPE  Release(void) override {
 		int32_t newRefValue;
         	
 		newRefValue = mRefCount--;
@@ -289,7 +289,7 @@ public:
 
                 return result;
 	}
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);
+	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*) override;
 };
 
 HRESULT	

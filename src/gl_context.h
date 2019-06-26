@@ -21,7 +21,7 @@
 extern "C" {
 #endif // __cplusplus
 
-#if defined HAVE_MACOSX && ! defined__MAC_10_11
+#if defined HAVE_MACOSX && ! defined __MAC_10_11
 #define glGenFramebuffers glGenFramebuffersEXT
 #define glBindFramebuffer glBindFramebufferEXT
 #define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT

@@ -321,7 +321,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         char fcc_s[5];
                 } u;
                 u.fcc_i = video_frame.FourCC;
-                u.fcc_s[5] = '\0';
+                u.fcc_s[4] = '\0';
                 if (video_frame.FourCC != NDIlib_FourCC_type_UYVY &&
                                 video_frame.FourCC != NDIlib_FourCC_type_RGBA &&
                                 video_frame.FourCC != NDIlib_FourCC_type_BGRA) {
