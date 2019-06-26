@@ -203,20 +203,23 @@ int control_init(int port, int connection_type, struct control_state **state, st
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
                  * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
                 struct sockaddr_storage s_in;
+                socklen_t s_len;
                 memset(&s_in, 0, sizeof(s_in));
                 if (ip_version == 4) {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) &s_in;
                         s_in->sin_family = AF_INET;
                         s_in->sin_addr.s_addr = htonl(INADDR_ANY);
                         s_in->sin_port = htons(s->network_port);
+                        s_len = sizeof(*s_in);
                 } else {
                         struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
                         s_in6->sin6_family = AF_INET6;
                         s_in6->sin6_addr = in6addr_any;
                         s_in6->sin6_port = htons(s->network_port);
+                        s_len = sizeof(*s_in6);
                 }
 
-                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, s_len);
                 if (rc != 0) {
                         perror("Control socket - bind");
                         CLOSESOCKET(s->socket_fd);
