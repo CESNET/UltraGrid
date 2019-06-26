@@ -2853,32 +2853,6 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# Import control - keyboard
-# -------------------------------------------------------------------------------------------------
-FOUND_CURSES=no
-
-if test $system = Linux -o $system = MacOSX; then
-        PKG_CHECK_MODULES([CURSES], [ncursesw], [FOUND_CURSES=yes], [FOUND_CURSES=no])
-        if test $FOUND_CURSES = no; then
-                PKG_CHECK_MODULES([CURSES], [ncurses], [FOUND_CURSES=yes], [FOUND_CURSES=no])
-        fi
-else # Windows
-        AC_CHECK_HEADER(curses.h)
-        AC_CHECK_LIB(pdcurses, initscr)
-        if test $ac_cv_lib_pdcurses_initscr = yes -a \
-                $ac_cv_header_curses_h = yes; then
-                FOUND_CURSES=yes
-                CURSES_LIBS="-lpdcurses"
-        fi
-fi
-
-if test $FOUND_CURSES = yes; then
-        AC_DEFINE([HAVE_CURSES], [1], [Build with curses support])
-fi
-
-AC_SUBST(CURSES_LIBS)
-
-# -------------------------------------------------------------------------------------------------
 # OpenSSL-libcrypto
 # -------------------------------------------------------------------------------------------------
 crypto=no
