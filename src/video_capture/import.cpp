@@ -51,6 +51,7 @@
 
 #include "audio/audio.h"
 #include "audio/wav_reader.h"
+#include "keyboard_control.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/ring_buffer.h"
@@ -72,7 +73,9 @@
 
 #include <condition_variable>
 #include <chrono>
+#include <list>
 #include <mutex>
+#include <utility> // pair
 
 #define BUFFER_LEN_MAX 40
 #define MAX_CLIENTS 16
@@ -86,10 +89,12 @@
 
 using std::condition_variable;
 using std::chrono::duration;
+using std::list;
 using std::min;
 using std::max;
 using std::mutex;
 using std::ostringstream;
+using std::pair;
 using std::string;
 using std::unique_lock;
 
@@ -196,6 +201,7 @@ static int flush_processed(struct processed_entry *list);
 static void message_queue_clear(struct message_queue *queue);
 static void vidcap_import_new_message(struct module *);
 static void process_msg(struct vidcap_import_state *state, const char *message);
+static void vidcap_import_register_keyboard_ctl(struct vidcap_import_state *s);
 
 static void cleanup_common(struct vidcap_import_state *s);
 
@@ -484,6 +490,8 @@ try {
         }
 
         gettimeofday(&s->prev_time, NULL);
+
+        vidcap_import_register_keyboard_ctl(s);
 
         *state = s;
 	return VIDCAP_INIT_OK;
@@ -1131,5 +1139,18 @@ bool import_has_audio(const char *dir) {
         }
         fclose(audio_file);
         return true;
+}
+
+static void vidcap_import_register_keyboard_ctl(struct vidcap_import_state *s) {
+        list<pair<int, string>> keybindings {{K_UP, "seek +60"}, {K_DOWN, "seek -60"}, {K_LEFT, "seek -10"}, {K_RIGHT, "seek +10"}, {' ', "pause"}, {'q', "quit"}};
+        for (auto & i: keybindings) {
+                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                sprintf(m->text, "map #%d capture.data %s#playback %s", i.first, i.second.c_str(), i.second.c_str());
+                struct response *r = send_message_sync(get_root_module(&s->mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                if (response_get_status(r) != RESPONSE_OK) {
+                        log_msg(LOG_LEVEL_ERROR, "Cannot register keyboard control for video switcher (error %d)!\n", response_get_status(r));
+                }
+                free_response(r);
+        }
 }
 

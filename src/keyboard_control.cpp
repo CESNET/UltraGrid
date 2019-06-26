@@ -189,14 +189,13 @@ void keyboard_control::stop()
  * @todo
  * * improve coverage and/or find some suitable implemnation (ideally one file,
  *   not ncurses)
- * * add macros for KEY_UP etc. (as ncurses have)
  * * the function can be moved to separate util file
  */
 static int get_ansi_code() {
         int c = GETCH();
         if (c == '[') { // CSI
                 c = '[';
-                while (1) {
+                while (true) {
                         c = (c & 0x7fffff) << 8;
                         int tmp = GETCH();
                         if (tmp == EOF) {
@@ -224,6 +223,15 @@ static int get_ansi_code() {
 }
 
 static string get_code_representation(int ch) {
+        switch (ch) {
+        case K_UP: return "KEY_UP";
+        case K_DOWN: return "KEY_DOWN";
+        case K_LEFT: return "KEY_LEFT";
+        case K_RIGHT: return "KEY_RIGHT";
+        }
+        if (ch == ' ') {
+                return "' '";
+        }
         if (isprint(ch)) {
                 return string(1, ch);
         }
@@ -515,7 +523,7 @@ void keyboard_control::usage()
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << style::bold << "\t   " << get_code_representation(it.first) << style::reset << "   - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
+                        cout << style::bold << "\t" << setw(10) << get_code_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
                 }
                 cout << "\n";
         }
@@ -548,18 +556,26 @@ bool keyboard_control::exec_local_command(const char *command)
                 printf("Local help:\n"
                                 "\tmap <X> cmd1[;cmd2..][#name]\n"
                                 "\t\tmaps key to command(s) for control socket (with an optional\n\t\tidentifier)\n"
+                                "\tmap #<X> cmd1[;cmd2..][#name]\n"
+                                "\t\tmaps key number (ASCII or multi-byte for non-ASCII) to\n\t\tcommand(s) for control socket (with an optional identifier)\n"
                                 "\tunmap <X>\n\n"
                                 "Mappings can be stored in " CONFIG_FILE "\n\n");
                 return true;
         } else if (strstr(command, "map ") == command) {
                 char *ccpy = strdup(command + strlen("map "));
                 if (strlen(ccpy) > 3) {
-                        const char *name = "";
-                        if (strchr(ccpy, '#')) {
-                                name = strchr(ccpy, '#') + 1;
-                                *strchr(ccpy, '#') = '\0';
+                        int key = ccpy[0];
+                        char *command = ccpy + 2;
+                        if (key == '#' && isdigit(ccpy[1])) {
+                                key = strtol(ccpy + 1, &command, 10);
+                                command += 1; // skip ' '
                         }
-                        key_mapping.insert({ccpy[0], make_pair(string(ccpy + 2), name)});
+                        const char *name = "";
+                        if (strchr(command, '#')) {
+                                name = strchr(command, '#') + 1;
+                                *strchr(command, '#') = '\0';
+                        }
+                        key_mapping.insert({key, make_pair(command, name)});
                 }
                 free(ccpy);
                 return true;
