@@ -94,6 +94,8 @@ struct state_sdl2 {
         bool                    deinterlace{false};
         bool                    vsync{true};
         bool                    nodecorate{false};
+        bool                    fixed_size{false};
+        int                     fixed_w{0}, fixed_h{0};
 
         mutex                   lock;
         condition_variable      frame_consumed_cv;
@@ -223,7 +225,7 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate]*|:help]\n");
+        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]]*|:help|]\n");
         printf("\twhere:\n");
         printf("\t\t   d   - deinterlace\n");
         printf("\t\t  fs   - fullscreen\n");
@@ -235,6 +237,7 @@ static void show_help(void)
         printf("\n");
         printf("\t       novsync - disable sync on VBlank\n");
         printf("\t    nodecorate - disable window border\n");
+        printf("\t fixed_size[=WxH] - use fixed sized window\n");
         printf("\t\t<ridx> - renderer index: ");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
@@ -266,6 +269,27 @@ static const unordered_map<codec_t, uint32_t, hash<int>> pf_mapping = {
 #endif
 };
 
+static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
+        uint32_t format;
+        auto it = pf_mapping.find(desc.color_spec);
+        if (it == pf_mapping.end()) {
+                abort();
+        }
+        format = it->second;
+
+        if (s->texture) {
+                SDL_DestroyTexture(s->texture);
+        }
+
+        s->texture = SDL_CreateTexture(s->renderer, format, SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
+        if (!s->texture) {
+                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError);
+                return false;
+        }
+
+        return true;
+}
+
 static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
@@ -274,6 +298,11 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
                         desc.height);
 
         s->current_display_desc = desc;
+
+        if (s->fixed_size && s->window) {
+                SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
+                return create_texture(s, desc);
+        }
 
         if (s->window) {
                 SDL_DestroyWindow(s->window);
@@ -286,7 +315,9 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         if (get_commandline_param("window-title")) {
                 window_title = get_commandline_param("window-title");
         }
-        s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), desc.width, desc.height, flags);
+        int width = s->fixed_w ? s->fixed_w : desc.width;
+        int height = s->fixed_h ? s->fixed_h : desc.height;
+        s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
                 return FALSE;
@@ -311,16 +342,8 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
 
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
-        uint32_t format;
-        auto it = pf_mapping.find(desc.color_spec);
-        if (it == pf_mapping.end()) {
-                abort();
-        }
-        format = it->second;
 
-        s->texture = SDL_CreateTexture(s->renderer, format, SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
-        if (!s->texture) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError);
+        if (!create_texture(s, desc)) {
                 return FALSE;
         }
 
@@ -399,6 +422,15 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                         s->vsync = false;
                 } else if (strcmp(tok, "nodecorate") == 0) {
                         s->nodecorate = true;
+		} else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
+			s->fixed_size = true;
+			if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
+				char *size = tok + strlen("fixed_size=");
+				if (strchr(size, 'x')) {
+					s->fixed_w = atoi(size);
+					s->fixed_h = atoi(strchr(size, 'x') + 1);
+				}
+			}
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
                         s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
