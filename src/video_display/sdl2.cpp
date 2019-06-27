@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,6 +93,7 @@ struct state_sdl2 {
         bool                    fs{false};
         bool                    deinterlace{false};
         bool                    vsync{true};
+        bool                    nodecorate{false};
 
         mutex                   lock;
         condition_variable      frame_consumed_cv;
@@ -222,7 +223,7 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>]*|:help]\n");
+        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate]*|:help]\n");
         printf("\twhere:\n");
         printf("\t\t   d   - deinterlace\n");
         printf("\t\t  fs   - fullscreen\n");
@@ -232,7 +233,8 @@ static void show_help(void)
                 printf("%s%s", i == 0 ? "" : ", ", SDL_GetVideoDriver(i));
         }
         printf("\n");
-        printf("\t\tnovsync- disable sync on VBlank\n");
+        printf("\t       novsync - disable sync on VBlank\n");
+        printf("\t    nodecorate - disable window border\n");
         printf("\t\t<ridx> - renderer index: ");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
@@ -288,6 +290,10 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
                 return FALSE;
+        }
+
+        if (s->nodecorate) {
+                SDL_SetWindowBordered(s->window, SDL_FALSE);
         }
 
         if (s->renderer) {
@@ -391,6 +397,8 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                         return &display_init_noerr;
                 } else if (strcmp(tok, "novsync") == 0) {
                         s->vsync = false;
+                } else if (strcmp(tok, "nodecorate") == 0) {
+                        s->nodecorate = true;
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
                         s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
