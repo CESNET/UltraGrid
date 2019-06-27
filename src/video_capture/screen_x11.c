@@ -277,7 +277,7 @@ static struct vidcap_type * vidcap_screen_x11_probe(bool verbose)
         return vt;
 }
 
-static int vidcap_screen_x11_init(const struct vidcap_params *params, void **state)
+static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_screen_x11_state *s;
 

@@ -352,7 +352,7 @@ static void usage()
         cout << "\n";
 }
 
-static int vidcap_syphon_init(const struct vidcap_params *params, void **state)
+static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_syphon *s = new state_vidcap_syphon();
 

@@ -211,6 +211,11 @@ audio_codec_t audio_frame2::get_codec() const
         return codec;
 }
 
+char *audio_frame2::get_data(int channel)
+{
+        return channels[channel].data.get();
+}
+
 const char *audio_frame2::get_data(int channel) const
 {
         return channels[channel].data.get();

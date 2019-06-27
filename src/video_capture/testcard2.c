@@ -123,7 +123,7 @@ static int configure_audio(struct testcard_state2 *s)
         return 0;
 }
 
-static int vidcap_testcard2_init(const struct vidcap_params *params, void **state)
+static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state2 *s;
         const char *strip_fmt = NULL;

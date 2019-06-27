@@ -87,7 +87,7 @@ void ug_input_state::frame_arrived(struct video_frame *f)
         }
 }
 
-static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **state)
+static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 {
         if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;

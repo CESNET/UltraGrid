@@ -86,7 +86,7 @@
 
 #include "types.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 5
+#define VIDEO_CAPTURE_ABI_VERSION 6
 
 #ifdef __cplusplus
 extern "C" {
@@ -119,7 +119,7 @@ struct video_capture_info {
          * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
          * @retval other_ptr if initialization succeeded, contains pointer to state
          */
-        int (*init) (const struct vidcap_params *param, void **state);
+        int                    (*init) (struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
 };

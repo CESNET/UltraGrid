@@ -465,7 +465,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 struct tile *out_tile = vf_get_tile(out.get(), x);
                 uint8_t *jpeg_enc_input_data;
 
-                if ((void *) m_decoder != (void *) memcpy) {
+                if (m_decoder != vc_memcpy) {
                         unsigned char *line1 = (unsigned char *) in_tile->data;
                         unsigned char *line2 = (unsigned char *) m_decoded.get();
 

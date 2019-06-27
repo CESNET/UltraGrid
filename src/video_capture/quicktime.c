@@ -1027,7 +1027,7 @@ static struct vidcap_type *vidcap_quicktime_probe(bool verbose)
 }
 
 /* Initialize the QuickTime grabbing system */
-static int vidcap_quicktime_init(const struct vidcap_params *params, void **state)
+static int vidcap_quicktime_init(struct vidcap_params *params, void **state)
 {
         struct qt_grabber_state *s;
 

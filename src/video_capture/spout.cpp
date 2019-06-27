@@ -79,7 +79,7 @@ static void usage()
         printf("\tcodec\n\t\tvideo codec (default: %s)\n", get_codec_name(DEFAULT_CODEC));
 }
 
-static int vidcap_spout_init(const struct vidcap_params *params, void **state)
+static int vidcap_spout_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_spout *s = new state_vidcap_spout();
 

@@ -93,7 +93,7 @@ vidcap_aggregate_probe(bool verbose)
 }
 
 static int
-vidcap_aggregate_init(const struct vidcap_params *params, void **state)
+vidcap_aggregate_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_aggregate_state *s;
 
@@ -118,7 +118,7 @@ vidcap_aggregate_init(const struct vidcap_params *params, void **state)
 
 
         s->devices_cnt = 0;
-        const struct vidcap_params *tmp = params;
+        struct vidcap_params *tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
                 if (vidcap_params_get_driver(tmp) != NULL)
                         s->devices_cnt++;

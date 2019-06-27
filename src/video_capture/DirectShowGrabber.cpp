@@ -859,7 +859,7 @@ static HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
-static int vidcap_dshow_init(const struct vidcap_params *params, void **state) {
+static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 

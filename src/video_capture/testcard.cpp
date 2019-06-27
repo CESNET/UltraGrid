@@ -292,7 +292,7 @@ static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
 
-static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
+static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s;
         char *filename;

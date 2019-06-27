@@ -507,7 +507,7 @@ int get_pf_block_size(codec_t codec)
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
 #ifdef __SSE2__
-        if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
+        if(((uintptr_t) src & 0x0Fu) == 0u && src_linesize % 16 == 0) {
                 vc_deinterlace_aligned(src, src_linesize, lines);
         } else {
                 vc_deinterlace_unaligned(src, src_linesize, lines);
@@ -1259,7 +1259,7 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsign
         }
 
         uint8_t *dst_c = (uint8_t *) dst;
-        OPTIMIZED_FOR (; x <= dst_len - 3; x += 3) {
+        for (; x <= dst_len - 3; x += 3) {
 		register uint32_t in = *src++;
                 *dst_c++ = (in >> rshift) & 0xff;
                 *dst_c++ = (in >> gshift) & 0xff;
@@ -2132,6 +2132,15 @@ void vc_copylineBGRtoRGB(unsigned char * __restrict dst, const unsigned char * _
         vc_copylineRGB(dst, src, dst_len, 16, 8, 0);
 }
 
+void vc_memcpy(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        memcpy(dst, src, dst_len);
+}
+
 /**
  * @brief Converts DPX10 to RGBA
  * @copydetails vc_copyliner10k
@@ -2250,7 +2259,7 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
         }
 
         if (in == out)
-                return (decoder_t) memcpy;
+                return vc_memcpy;
 
         return NULL;
 }

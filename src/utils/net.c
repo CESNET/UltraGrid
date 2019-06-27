@@ -41,7 +41,9 @@
 #include "config_win32.h"
 #endif
 
-#ifndef WIN32
+#ifdef WIN32
+#include <tchar.h>
+#else
 #include <ifaddrs.h>
 #include <netinet/ip.h>
 #include <sys/types.h>
@@ -173,7 +175,6 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 #define WORKING_BUFFER_SIZE 15000
 #define MAX_TRIES 3
 	/* Declare and initialize variables */
-	DWORD dwSize = 0;
 	DWORD dwRetVal = 0;
 	unsigned int i = 0;
 	size_t len_remaining = *len;
@@ -187,10 +188,6 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 
 	PIP_ADAPTER_ADDRESSES pCurrAddresses = NULL;
 	PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
-	PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
-	PIP_ADAPTER_MULTICAST_ADDRESS pMulticast = NULL;
-	IP_ADAPTER_DNS_SERVER_ADDRESS *pDnServer = NULL;
-	IP_ADAPTER_PREFIX *pPrefix = NULL;
 
 	// Allocate a 15 KB buffer to start with.
 	outBufLen = WORKING_BUFFER_SIZE;
@@ -243,7 +240,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 			pCurrAddresses = pCurrAddresses->Next;
 		}
 	} else {
-		printf("Call to GetAdaptersAddresses failed with error: %d\n",
+		printf("Call to GetAdaptersAddresses failed with error: %ld\n",
 				dwRetVal);
 		if (dwRetVal == ERROR_NO_DATA)
 			printf("\tNo addresses were found for the requested parameters\n");
@@ -253,7 +250,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 						NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 						// Default language
 						(LPTSTR) & lpMsgBuf, 0, NULL)) {
-				printf("\tError: %s", lpMsgBuf);
+                                _tprintf(TEXT("\tError: %s"), lpMsgBuf);
 				LocalFree(lpMsgBuf);
 				if (pAddresses)
 					free(pAddresses);
@@ -351,7 +348,7 @@ bool is_addr_multicast(const char *addr)
 
 bool is_ipv6_supported(void)
 {
-        int fd = socket(AF_INET6, SOCK_DGRAM, 0);
+        fd_t fd = socket(AF_INET6, SOCK_DGRAM, 0);
         if (fd == INVALID_SOCKET && errno == EAFNOSUPPORT) {
                 return false;
         }

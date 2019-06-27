@@ -440,7 +440,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 }
 
 static int
-vidcap_rtsp_init(const struct vidcap_params *params, void **state) {
+vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     struct rtsp_state *s;
 

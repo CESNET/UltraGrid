@@ -772,7 +772,7 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
 }
 
 static int
-vidcap_bluefish444_init(const struct vidcap_params *params, void **state)
+vidcap_bluefish444_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_bluefish444_state *s;
         ULONG InputChannels[4] = {

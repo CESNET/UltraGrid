@@ -325,7 +325,7 @@ void state_audio_mixer::worker()
                         participant_frames[participant_index].init(CHANNELS, AC_PCM, BPS, SAMPLE_RATE);
                         static_assert(CHANNELS == 1, "Currently only one channel is implemented here.");
                         participant_frames[participant_index].resize(0, data_len_source);
-                        char *particip_data = (char *) participant_frames[participant_index].get_data(0);
+                        char *particip_data = participant_frames[participant_index].get_data(0);
                         int ret = audio_buffer_read(p.second.m_buffer, particip_data, data_len_source);
                         memset(particip_data, 0, data_len_source - ret);
 

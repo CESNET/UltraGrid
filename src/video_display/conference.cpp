@@ -224,7 +224,7 @@ cv::Mat *TiledImage::getMat(uint32_t ssrc){
         return &getTile(ssrc)->img;
 }
 
-void setTileSize(struct Tile *t, unsigned width, unsigned height){
+static void setTileSize(struct Tile *t, unsigned width, unsigned height){
         float scaleFactor = std::min((float) width / t->img.size().width, (float) height / t->img.size().height);
 
         t->width = t->img.size().width * scaleFactor;
@@ -402,6 +402,12 @@ static void show_help(){
 #endif
 }
 
+static void *display_run_worker(void *arg) {
+        struct display *d = (struct display *) arg;
+        display_run(d);
+        return NULL;
+}
+
 static void *display_conference_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_conference *s;
@@ -492,7 +498,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
         free(fmt_copy);
 
-        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
+        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run_worker,
                         s->common->real_display);
         assert (ret == 0);
 

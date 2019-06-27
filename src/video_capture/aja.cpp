@@ -915,7 +915,7 @@ static void show_help() {
         cout << "\n";
 }
 
-LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
+LINK_SPEC int vidcap_aja_init(struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));

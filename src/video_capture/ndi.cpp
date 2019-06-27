@@ -134,7 +134,7 @@ static void show_help() {
         cout << "\n";
 }
 
-static int vidcap_ndi_init(const struct vidcap_params *params, void **state)
+static int vidcap_ndi_init(struct vidcap_params *params, void **state)
 {
         // Not required, but "correct" (see the SDK documentation)
         if (!NDIlib_initialize()) {

@@ -41,11 +41,12 @@
 #include "config_win32.h"
 #endif
 
+#include <libgen.h>
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
 #endif
-#include <libgen.h>
 
+#include "debug.h"
 #include "host.h"
 #include "utils/thread.h"
 
@@ -78,21 +79,16 @@ void set_thread_name(const char *name) {
         free(prog_name);
         strcat(tmp, name);
         pthread_setname_np(tmp);
-#elif defined WIN32
+#elif defined NDEF // WIN32
 // supported from Windows 10, not yet working
-#if 0
 //#ifdef HAVE_SETTHREADDESCRIPTION
-        const char *prefix = "uv-";\
-        size_t dst_len = (mbstowcs(NULL, prefix, 0) + mbstowcs(NULL, name, 0) + 1) * sizeof(wchar_t);\
-        wchar_t *tmp = (wchar_t *) alloca(dst_len);\
-        mbstowcs(tmp, prefix, dst_len / sizeof(wchar_t));\
-        mbstowcs(tmp + wcslen(tmp), name, dst_len / sizeof(wchar_t) - wcslen(tmp));\
-        SetThreadDescription(GetCurrentThread(), tmp);\
-#else
-	(void) name;
+        const char *prefix = "uv-";
+        size_t dst_len = (mbstowcs(NULL, prefix, 0) + mbstowcs(NULL, name, 0) + 1) * sizeof(wchar_t);
+        wchar_t *tmp = (wchar_t *) alloca(dst_len);
+        mbstowcs(tmp, prefix, dst_len / sizeof(wchar_t));
+        mbstowcs(tmp + wcslen(tmp), name, dst_len / sizeof(wchar_t) - wcslen(tmp));
+        SetThreadDescription(GetCurrentThread(), tmp);
 #endif
-#else
-	(void) name;
-#endif
+	UNUSED(name);
 }
 

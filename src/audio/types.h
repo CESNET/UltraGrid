@@ -99,11 +99,12 @@ typedef struct audio_frame
 }
 audio_frame;
 
+/// Audio channel is a non-owning view on audio_frame2 isolating one channel.
 typedef struct
 {
         int bps;                /* bytes per sample */
         int sample_rate;
-        const char *data; /* data should be at least 4B aligned */
+        const char *data;       /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         audio_codec_t codec;
         double duration;
@@ -151,6 +152,7 @@ public:
         void reset();
         int get_bps() const;
         audio_codec_t get_codec() const;
+        char *get_data(int channel);
         const char *get_data(int channel) const;
         size_t get_data_len(int channel) const;
         double get_duration() const;
@@ -187,6 +189,7 @@ private:
         audio_codec_t codec;
         double duration; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
 };
+
 #endif // __cplusplus
 
 #endif // defined AUDIO_TYPES_H

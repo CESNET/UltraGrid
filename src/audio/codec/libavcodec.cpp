@@ -117,7 +117,9 @@ struct libavcodec_codec_state {
         struct audio_desc   saved_desc;
 
         audio_channel       tmp;
+        char               *tmp_data; ///< tmp.data, but non-const qualified
         audio_channel       output_channel;
+        char               *output_channel_data; ///< output_channel.data, but non-const qualified
 
         void               *samples;
 
@@ -206,8 +208,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         memset(&s->tmp, 0, sizeof(audio_channel));
         memset(&s->output_channel, 0, sizeof(audio_channel));
-        s->tmp.data = (char *) malloc(1024*1024);
-        s->output_channel.data = (char *) malloc(1024*1024);
+        s->tmp_data = (char *) malloc(1024*1024);
+        s->tmp.data = s->tmp_data;
+        s->output_channel_data = (char *) malloc(1024*1024);
+        s->output_channel.data = s->output_channel_data;
 
         if(direction == AUDIO_CODER) {
                 s->output_channel.codec = audio_codec;
@@ -394,22 +398,22 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 if (s->output_channel.bps != channel->bps || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                                 if (s->output_channel.bps == channel->bps) {
-                                        int2float((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
+                                        int2float(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
                                         s->tmp.data_len += channel->data_len;
                                 } else {
                                         size_t data_len = channel->data_len / channel->bps * 4;
                                         unique_ptr<char []> tmp(new char[data_len]);
                                         change_bps((char *) tmp.get(), 4, channel->data, channel->bps, channel->data_len);
-                                        int2float((char *) s->tmp.data + s->tmp.data_len, tmp.get(), data_len);
+                                        int2float(s->tmp_data + s->tmp.data_len, tmp.get(), data_len);
                                         s->tmp.data_len += data_len;
                                 }
                         } else {
-                                change_bps((char *) s->tmp.data + s->tmp.data_len, s->output_channel.bps,
+                                change_bps(s->tmp_data + s->tmp.data_len, s->output_channel.bps,
                                                 channel->data, s->saved_desc.bps, channel->data_len);
                                 s->tmp.data_len += channel->data_len / s->saved_desc.bps * s->output_channel.bps;
                         }
                 } else {
-                        memcpy((char *) s->tmp.data + s->tmp.data_len, channel->data, channel->data_len);
+                        memcpy(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
                         s->tmp.data_len += channel->data_len;
                 }
         }
@@ -430,7 +434,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
 			while (ret == 0) {
 				//assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
-				memcpy((char *) s->output_channel.data + s->output_channel.data_len,
+				memcpy(s->output_channel_data + s->output_channel.data_len,
 						pkt.data, pkt.size);
 				s->output_channel.data_len += pkt.size;
 				av_packet_unref(&pkt);
@@ -470,7 +474,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         }
 
         s->tmp.data_len -= offset;
-        memmove((char *) s->tmp.data, s->tmp.data + offset, s->tmp.data_len);
+        memmove(s->tmp_data, s->tmp.data + offset, s->tmp.data_len);
 
         ///fprintf(stderr, "%d %d\n", i++% 2, s->output_channel.data_len);
         if(s->output_channel.data_len) {
@@ -536,7 +540,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         int data_size = av_samples_get_buffer_size(NULL, channels,
                                         s->av_frame->nb_samples,
                                         s->codec_ctx->sample_fmt, 1);
-                        memcpy((char *) s->output_channel.data + offset, s->av_frame->data[0],
+                        memcpy(s->output_channel_data + offset, s->av_frame->data[0],
                                         data_size);
                         offset += len;
                         s->output_channel.data_len += data_size;
@@ -571,7 +575,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                 unique_ptr<char []> int32_data(unique_ptr<char []>(new char [s->output_channel.data_len]));
                 float2int(int32_data.get(), s->output_channel.data, s->output_channel.data_len);
-                memcpy((char *) s->output_channel.data, int32_data.get(), s->output_channel.data_len);
+                memcpy(s->output_channel_data, int32_data.get(), s->output_channel.data_len);
                 s->output_channel.bps = 4;
         } else {
                 s->output_channel.bps =
@@ -648,8 +652,8 @@ static void libavcodec_done(void *state)
         pthread_mutex_unlock(s->libav_global_lock);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
-        free((void *) s->output_channel.data);
-        free((void *) s->tmp.data);
+        free(s->output_channel_data);
+        free(s->tmp_data);
         av_freep(&s->samples);
         av_frame_free(&s->av_frame);
 

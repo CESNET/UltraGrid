@@ -2423,6 +2423,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
  */
 int rtcp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
+        UNUSED(curr_rtp_ts);
         struct udp_fd_r fd;
 
         check_database(session);
@@ -3182,6 +3183,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
                                                           RTCP_SDES_TOOL, item);
                                         break;
                                 }
+                                /* fall through */
                         case 1:
                                 item =
                                     rtp_get_sdes(session, ssrc,
@@ -3195,6 +3197,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
                                                           item);
                                         break;
                                 }
+                                /* fall through */
                         case 2:
                                 item =
                                     rtp_get_sdes(session, ssrc,
@@ -3208,6 +3211,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
                                                           item);
                                         break;
                                 }
+                                /* fall through */
                         case 3:
                                 item =
                                     rtp_get_sdes(session, ssrc, RTCP_SDES_LOC);
@@ -3219,6 +3223,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
                                                           RTCP_SDES_LOC, item);
                                         break;
                                 }
+                                /* fall through */
                         case 4:
                                 item =
                                     rtp_get_sdes(session, ssrc, RTCP_SDES_PRIV);

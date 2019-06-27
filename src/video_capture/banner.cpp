@@ -86,7 +86,7 @@ static void usage()
         printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
 }
 
-static int vidcap_banner_init(const struct vidcap_params *params, void **state)
+static int vidcap_banner_init(struct vidcap_params *params, void **state)
 {
         struct banner_state *s;
         char *filename;

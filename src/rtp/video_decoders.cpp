@@ -1025,7 +1025,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                         && decoder->video_mode != VIDEO_NORMAL)
                                 continue; /* it is a exception, see NOTES #1 */
 
-                        *decode_line = static_cast<decoder_t>([](unsigned char *dst, const unsigned char *src, int dst_len, int /* rshift */, int /* gshift */, int  /* bshift */) { memcpy(dst, src, dst_len); });
+                        *decode_line = vc_memcpy;
                         decoder->decoder_type = LINE_DECODER;
 
                         if(desc.color_spec == RGBA || /* another exception - we may change shifts */

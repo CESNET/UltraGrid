@@ -434,7 +434,7 @@ next_device:
         return vt;
 }
 
-static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
+static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
         const char *dev_name = DEFAULT_DEVICE;

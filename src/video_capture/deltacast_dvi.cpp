@@ -484,7 +484,7 @@ static const unordered_map<codec_t, ULONG, hash<int>> ug_delta_codec_mapping = {
 };
 
 static int
-vidcap_deltacast_dvi_init(const struct vidcap_params *params, void **state)
+vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_deltacast_dvi_state *s;
         ULONG Width = 0, Height = 0, RefreshRate = 0;

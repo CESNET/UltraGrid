@@ -114,6 +114,12 @@ static struct display *display_proxy_fork(void *state)
         return out;
 }
 
+static void *display_run_worker(void *arg) {
+        struct display *d = (struct display *) arg;
+        display_run(d);
+        return NULL;
+}
+
 static void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         struct state_proxy *s;
@@ -143,7 +149,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
         free(fmt_copy);
 
-        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run,
+        int ret = pthread_create(&s->common->thread_id, NULL, display_run_worker,
                         s->common->real_display);
         assert (ret == 0);
 

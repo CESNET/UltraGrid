@@ -268,7 +268,7 @@ error_format:
 }
 
 static int
-vidcap_import_init(const struct vidcap_params *params, void **state)
+vidcap_import_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_import_state *s = NULL;
         FILE *info = NULL; // metadata file

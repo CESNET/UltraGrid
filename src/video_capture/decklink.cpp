@@ -914,7 +914,7 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
 }
 
 static int
-vidcap_decklink_init(const struct vidcap_params *params, void **state)
+vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 

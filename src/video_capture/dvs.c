@@ -231,7 +231,7 @@ static void show_help(void)
 
 /* External API ***********************************************************************************/
 
-static int vidcap_dvs_init(const struct vidcap_params *params, void **state)
+static int vidcap_dvs_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_dvs_state *s;
         int i;

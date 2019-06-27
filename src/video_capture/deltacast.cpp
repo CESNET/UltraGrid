@@ -324,7 +324,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 }
 
 static int
-vidcap_deltacast_init(const struct vidcap_params *params, void **state)
+vidcap_deltacast_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_deltacast_state *s = nullptr;
         ULONG             Result,DllVersion,NbBoards,ChnType;

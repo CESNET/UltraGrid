@@ -43,7 +43,7 @@
 #include "video_display.h"
 
 extern "C" {
-__declspec(dllimport) int vidcap_aja_init(const struct vidcap_params *params, void **state);
+__declspec(dllimport) int vidcap_aja_init(struct vidcap_params *params, void **state);
 __declspec(dllimport) void vidcap_aja_done(void *state);
 __declspec(dllimport) struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
 __declspec(dllimport) struct vidcap_type *vidcap_aja_probe(bool);
@@ -51,7 +51,7 @@ __declspec(dllimport) volatile bool *aja_should_exit;
 __declspec(dllimport) unsigned int *aja_audio_capture_channels;
 }
 
-static int vidcap_aja_init_proxy(const struct vidcap_params *params, void **state) {
+static int vidcap_aja_init_proxy(struct vidcap_params *params, void **state) {
         aja_should_exit = &should_exit;
         aja_audio_capture_channels = &audio_capture_channels;
         return vidcap_aja_init(params, state);

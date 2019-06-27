@@ -532,7 +532,7 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose)
         return vt;
 }
 
-static int vidcap_avfoundation_init(const struct vidcap_params *params, void **state)
+static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)
 {
         if (strcasecmp(vidcap_params_get_fmt(params), "help") == 0) {
                 [vidcap_avfoundation_state usage: false];

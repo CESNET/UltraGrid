@@ -132,6 +132,7 @@ decoder_func_t vc_copylineBGRtoRGB;
 decoder_func_t vc_copylineDPX10toRGBA;
 decoder_func_t vc_copylineDPX10toRGB;
 decoder_func_t vc_copylineRGB;
+decoder_func_t vc_memcpy;
 
 void vc_copylineToRGBA_inplace(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 

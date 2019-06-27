@@ -1001,7 +1001,7 @@ static bool find_decoder(struct video_desc desc,
         if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
                         && pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
                 *decoded_codec = desc.color_spec;
-                *decoder = (decoder_t)(void *) memcpy;
+                *decoder = vc_memcpy;
         } else {
                 *decoder = get_decoder_from_uv_to_uv(desc.color_spec, pixfmt, decoded_codec);
         }
@@ -1302,7 +1302,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         s->in_frame->pts = frame_seq++;
 
-        if((void *) s->decoder != (void *) memcpy) {
+        if (s->decoder != vc_memcpy) {
                 unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
                 unsigned char *line2 = (unsigned char *) s->decoded;
                 int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);

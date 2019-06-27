@@ -1085,7 +1085,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 }
 
 static int
-vidcap_swmix_init(const struct vidcap_params *params, void **state)
+vidcap_swmix_init(struct vidcap_params *params, void **state)
 {
 	struct vidcap_swmix_state *s;
         struct video_desc desc;
