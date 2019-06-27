@@ -65,6 +65,7 @@
 
 #include <SDL2/SDL.h>
 
+#include <cstdint>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -93,9 +94,9 @@ struct state_sdl2 {
         bool                    fs{false};
         bool                    deinterlace{false};
         bool                    vsync{true};
-        bool                    nodecorate{false};
         bool                    fixed_size{false};
         int                     fixed_w{0}, fixed_h{0};
+        uint32_t                window_flags{0}; ///< user requested flags
 
         mutex                   lock;
         condition_variable      frame_consumed_cv;
@@ -225,7 +226,7 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]]*|:help|]\n");
+        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]:window_flags=<f>]*|:help|]\n");
         printf("\twhere:\n");
         printf("\t\t   d   - deinterlace\n");
         printf("\t\t  fs   - fullscreen\n");
@@ -238,6 +239,7 @@ static void show_help(void)
         printf("\t       novsync - disable sync on VBlank\n");
         printf("\t    nodecorate - disable window border\n");
         printf("\t fixed_size[=WxH] - use fixed sized window\n");
+        printf("\t  window_flags - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n");
         printf("\t\t<ridx> - renderer index: ");
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
@@ -307,7 +309,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         if (s->window) {
                 SDL_DestroyWindow(s->window);
         }
-        int flags = SDL_WINDOW_RESIZABLE;
+        int flags = s->window_flags | SDL_WINDOW_RESIZABLE;
         if (s->fs) {
                 flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
@@ -321,10 +323,6 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
                 return FALSE;
-        }
-
-        if (s->nodecorate) {
-                SDL_SetWindowBordered(s->window, SDL_FALSE);
         }
 
         if (s->renderer) {
@@ -421,7 +419,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 } else if (strcmp(tok, "novsync") == 0) {
                         s->vsync = false;
                 } else if (strcmp(tok, "nodecorate") == 0) {
-                        s->nodecorate = true;
+                        s->window_flags |= SDL_WINDOW_BORDERLESS;
 		} else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
 			s->fixed_size = true;
 			if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
@@ -431,6 +429,14 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
 					s->fixed_h = atoi(strchr(size, 'x') + 1);
 				}
 			}
+                } else if (strstr(tok, "window_flags=") == tok) {
+                        int f;
+                        if (sscanf(tok + strlen("window_flags="), "%i", &f) != 1) {
+                                log_msg(LOG_LEVEL_ERROR, "Wrong window_flags: %s\n", tok);
+                                delete s;
+                                return NULL;
+                        }
+                        s->window_flags |= f;
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
                         s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
