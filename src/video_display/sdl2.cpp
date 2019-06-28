@@ -59,6 +59,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "video.h"
@@ -74,6 +75,8 @@
 #define MAGIC_SDL2   0x3cc234a1
 #define MAX_BUFFER_SIZE   1
 
+using rang::fg;
+using rang::style;
 using namespace std;
 using namespace std::chrono;
 
@@ -228,25 +231,25 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>]*|:help]\n");
+        cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>]*|:help]\n" << style::reset;
         printf("\twhere:\n");
-        printf("\t\t   d   - deinterlace\n");
-        printf("\t\t  fs   - fullscreen\n");
-        printf("\t\t<didx> - display index\n");
-        printf("\t\t<drv>  - one of following: ");
+        cout << style::bold <<"\t\t   d  " << style::reset << " - deinterlace\n";
+        cout << style::bold <<"\t\t  fs  " << style::reset << " - fullscreen\n";
+        cout << style::bold <<"\t\t<didx>" << style::reset << " - display index\n";
+        cout << style::bold <<"\t\t<drv> " << style::reset << " - one of following: ";
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
-                printf("%s%s", i == 0 ? "" : ", ", SDL_GetVideoDriver(i));
+                cout << (i == 0 ? "" : ", ") << style::bold << SDL_GetVideoDriver(i) << style::reset;
         }
-        printf("\n");
-        printf("\t       novsync - disable sync on VBlank\n");
-        printf("\t    nodecorate - disable window border\n");
-        printf("\t fixed_size[=WxH] - use fixed sized window\n");
-        printf("\t  window_flags - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n");
-        printf("\t\t<ridx> - renderer index: ");
+        cout << style::bold <<"\n";
+        cout << style::bold <<"\t       novsync" << style::reset << " - disable sync on VBlank\n";
+        cout << style::bold <<"\t    nodecorate" << style::reset << " - disable window border\n";
+        cout << style::bold <<"\t fixed_size[=WxH]" << style::reset << " - use fixed sized window\n";
+        cout << style::bold <<"\t  window_flags" << style::reset << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
+        cout << style::bold <<"\t\t<ridx>" << style::reset << " - renderer index: ";
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
                 if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
-                        printf("%s%d - %s", i == 0 ? "" : ", ", i, renderer_info.name);
+                        cout << (i == 0 ? "" : ", ") << style::bold << i << style::reset << " - " << style::bold << renderer_info.name << style::reset;
                 }
         }
         printf("\n");
