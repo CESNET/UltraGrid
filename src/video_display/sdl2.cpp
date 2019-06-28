@@ -86,6 +86,8 @@ struct state_sdl2 {
         unsigned long long int  frames{0};
 
         int                     display_idx{0};
+        int                     x{SDL_WINDOWPOS_UNDEFINED},
+                                y{SDL_WINDOWPOS_UNDEFINED};
         int                     renderer_idx{-1};
         SDL_Window             *window{nullptr};
         SDL_Renderer           *renderer{nullptr};
@@ -226,7 +228,7 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]:window_flags=<f>]*|:help|]\n");
+        printf("\t-d sdl[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>]*|:help]\n");
         printf("\twhere:\n");
         printf("\t\t   d   - deinterlace\n");
         printf("\t\t  fs   - fullscreen\n");
@@ -319,7 +321,9 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         }
         int width = s->fixed_w ? s->fixed_w : desc.width;
         int height = s->fixed_h ? s->fixed_h : desc.height;
-        s->window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx), width, height, flags);
+        int x = s->x == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->x;
+        int y = s->y == SDL_WINDOWPOS_UNDEFINED ? SDL_WINDOWPOS_CENTERED_DISPLAY(s->display_idx) : s->y;
+        s->window = SDL_CreateWindow(window_title, x, y, width, height, flags);
         if (!s->window) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create window: %s\n", SDL_GetError());
                 return FALSE;
@@ -437,6 +441,15 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                                 return NULL;
                         }
                         s->window_flags |= f;
+		} else if (strstr(tok, "pos=") == tok) {
+                        tok += strlen("pos=");
+                        if (strchr(tok, ',') == nullptr) {
+                                log_msg(LOG_LEVEL_ERROR, "[SDL] position: %s\n", tok);
+                                delete s;
+                                return NULL;
+                        }
+                        s->x = atoi(tok);
+                        s->y = atoi(strchr(tok, ',') + 1);
                 } else if (strncmp(tok, "renderer=", strlen("renderer=")) == 0) {
                         s->renderer_idx = atoi(tok + strlen("renderer="));
                 } else {
