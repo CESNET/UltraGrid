@@ -97,8 +97,6 @@ using std::min;
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
-static void vc_copylineToUYVY709(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 
@@ -931,7 +929,8 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
 vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
-        uint32_t *d = (uint32_t *) dst;
+        assert((uintptr_t) dst % sizeof(uint32_t) == 0);
+        uint32_t *d = (uint32_t *)(void *) dst;
 
         OPTIMIZED_FOR (int x = 0; x <= dstlen - 32; x += 32) {
                 uint8_t tmp;
@@ -1381,37 +1380,38 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  *
  * Uses Rec. 709 with standard SDI ceiling and floor
  * @copydetails vc_copyliner10k
- * @param[in] source pixel size (3 for RGB, 4 for RGBA)
+ * @param[in] roff     red offset in bytes (0 for RGB)
+ * @param[in] goff     green offset in bytes (1 for RGB)
+ * @param[in] boff     blue offset in bytes (2 for RGB)
+ * @param[in] pix_size source pixel size (3 for RGB, 4 for RGBA)
  */
-static void vc_copylineToUYVY709(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size) {
-        register int r, g, b;
-        register int y1, y2, u ,v;
-        register uint32_t *d = (uint32_t *)(void *) dst;
-
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
-                r = *(src + rshift);
-                g = *(src + gshift);
-                b = *(src + bshift);
-                src += pix_size;
-                y1 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
-                u  = -6619 * r -22151 * g + 28770 * b;
-                v  = 28770 * r - 26149 * g - 2621 * b;
-                r = *(src + rshift);
-                g = *(src + gshift);
-                b = *(src + bshift);
-                src += pix_size;
-                y2 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
-                u += -6619 * r -22151 * g + 28770 * b;
-                v += 28770 * r - 26149 * g - 2621 * b;
-                u = u / 2 + (1<<23);
-                v = v / 2 + (1<<23);
-
-                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
-                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
-                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
-                        (min(max(u, 0), (1<<24)-1) >> 16);
-        }
+#define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
+        register uint32_t *d = (uint32_t *)(void *) dst;\
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += pix_size) {\
+                register int r, g, b;\
+                register int y1, y2, u ,v;\
+                r = src[roff];\
+                g = src[goff];\
+                b = src[boff];\
+                src += pix_size;\
+                y1 = 11993 * r + 40239 * g + 4063 * b + (1<<20);\
+                u  = -6619 * r -22151 * g + 28770 * b;\
+                v  = 28770 * r - 26149 * g - 2621 * b;\
+                r = src[roff];\
+                g = src[goff];\
+                b = src[boff];\
+                src += pix_size;\
+                y2 = 11993 * r + 40239 * g + 4063 * b + (1<<20);\
+                u += -6619 * r -22151 * g + 28770 * b;\
+                v += 28770 * r - 26149 * g - 2621 * b;\
+                u = u / 2 + (1<<23);\
+                v = v / 2 + (1<<23);\
+\
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |\
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |\
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |\
+                        (min(max(u, 0), (1<<24)-1) >> 16);\
+        }\
 }
 
 /**
@@ -1873,7 +1873,8 @@ void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char *
 void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
-        uint32_t *dst32 = (uint32_t *) dst;
+        assert((uintptr_t) dst % sizeof(uint32_t) == 0);
+        uint32_t *dst32 = (uint32_t *)(void *) dst;
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 *dst32++ = src[1] << rshift | src[3] << gshift | src[5] << bshift;
                 src += 6;
