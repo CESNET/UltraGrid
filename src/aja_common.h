@@ -35,10 +35,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iostream>
 #include <map>
 #include <ntv2enums.h>
 
 #include "types.h"
+
+#ifdef _MSC_VER
+#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+#undef LOG
+#define LOG(level) if (level > log_level) ; else std::cerr
+#endif
 
 namespace ultragrid {
 namespace aja {

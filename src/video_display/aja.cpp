@@ -64,7 +64,6 @@
 #include <thread>
 #include <vector>
 
-#include "aja_common.h"
 #include "audio/types.h"
 #include "debug.h"
 #include "host.h"
@@ -72,6 +71,8 @@
 #include "video_display.h"
 #include "rang.hpp"
 #include "video.h"
+
+#include "aja_common.h" // should be included last (overrides log_msg etc.)
 
 #define DEFAULT_MAX_FRAME_QUEUE_LEN 1
 #define MODULE_NAME "[AJA display] "
@@ -87,9 +88,6 @@
 #define SAMPLE_RATE             48000
 
 #ifdef _MSC_VER
-#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
-#undef LOG
-#define LOG(...) std::cerr
 extern "C" __declspec(dllexport) int *aja_display_init_noerr;
 int *aja_display_init_noerr;
 #else

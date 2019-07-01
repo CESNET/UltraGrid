@@ -94,9 +94,6 @@
 namespace aja = ultragrid::aja;
 
 #ifdef _MSC_VER
-#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
-#undef LOG
-#define LOG(...) std::cerr
 extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
 extern "C" __declspec(dllexport) volatile bool *aja_should_exit = NULL;
 volatile int log_level = 5;
