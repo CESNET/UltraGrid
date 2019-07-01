@@ -540,8 +540,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 }
                 s->data = (char *) s->pixmap.data;
                 if (codec == UYVY || codec == v210 || codec == YUYV) {
-                        rgb2yuv422((unsigned char *) s->data, aligned_x,
-                                   vf_get_tile(s->frame, 0)->height);
+                        char *tmp = (char *) malloc(s->size * bpp * 2);
+                        vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) s->data,
+                                        s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
+                        free (s->data);
+                        s->data = tmp;
                 }
 
                 if (codec == v210) {

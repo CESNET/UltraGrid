@@ -425,8 +425,11 @@ void * vidcap_testcard2_thread(void *arg)
 #endif
                             
                 if (s->frame->color_spec == UYVY || s->frame->color_spec == v210) {
-                        rgb2yuv422((unsigned char *) surf->pixels, s->aligned_x,
-                                   s->tile->height);
+                        char *tmp = (char *) malloc(s->size * bpp * 2);
+                        vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) surf->pixels,
+                                        s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
+                        free (surf->pixels);
+                        s->data = tmp;
                 }
 
                 if (s->frame->color_spec == v210) {
