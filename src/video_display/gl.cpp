@@ -341,7 +341,9 @@ static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
 
+#ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
+#endif
 
 #ifdef HAVE_MACOSX
 extern "C" void NSApplicationLoad(void);

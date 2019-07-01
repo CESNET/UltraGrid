@@ -1508,7 +1508,7 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char * __restrict dst, const unsigned cha
         __m128i b;
 
         while(dst_len >= 28){
-                yuv = _mm_lddqu_si128((__m128i const*) src);
+                yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
                 src += 16;
 
                 u = _mm_and_si128(yuv, umask);
@@ -1548,13 +1548,13 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char * __restrict dst, const unsigned cha
                 rgb = _mm_or_si128(_mm_bslli_si128(g, 1), r);
                 rgb = _mm_unpacklo_epi8(rgb, b);
                 rgb = _mm_shuffle_epi8(rgb, rgbshuffle);
-                _mm_storeu_si128((__m128i *) dst, rgb);
+                _mm_storeu_si128((__m128i *)(void *) dst, rgb);
                 dst += 12;
 
                 rgb = _mm_or_si128(_mm_bslli_si128(g, 1), r);
                 rgb = _mm_unpackhi_epi8(rgb, b);
                 rgb = _mm_shuffle_epi8(rgb, rgbshuffle);
-                _mm_storeu_si128((__m128i *) dst, rgb);
+                _mm_storeu_si128((__m128i *)(void *) dst, rgb);
                 dst += 12;
 
                 dst_len -= 24;
@@ -1938,7 +1938,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char * __restrict dst, const unsigned cha
 
         while(dst_len >= 16){
                 //Load first 4 pixels
-                rgb = _mm_lddqu_si128((__m128i const*) src);
+                rgb = _mm_lddqu_si128((__m128i const*)(const void *) src);
 
                 src += 12;
                 rgb = _mm_shuffle_epi8(rgb, shuffle);
@@ -1952,7 +1952,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char * __restrict dst, const unsigned cha
                 b = _mm_and_si128(rgb, mask);
 
                 //Load next 4 pixels
-                rgb = _mm_lddqu_si128((__m128i const*) src);
+                rgb = _mm_lddqu_si128((__m128i const*)(const void *) src);
                 src += 12;
                 rgb = _mm_shuffle_epi8(rgb, shuffle);
                 b = _mm_or_si128(b, _mm_and_si128(rgb, lowmask));
@@ -1990,7 +1990,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char * __restrict dst, const unsigned cha
                 yuv = _mm_or_si128(y, u);
                 yuv = _mm_or_si128(yuv, v);
 
-                _mm_storeu_si128((__m128i *) dst, yuv);
+                _mm_storeu_si128((__m128i *)(void *) dst, yuv);
                 dst += 16;
                 dst_len -= 16;
         }
@@ -2032,7 +2032,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
 
         while(dst_len >= 16){
                 //Load first 4 pixels
-                rgb = _mm_lddqu_si128((__m128i const*) src);
+                rgb = _mm_lddqu_si128((__m128i const*)(const void *) src);
 
                 src += 12;
                 rgb = _mm_shuffle_epi8(rgb, inshuffle);
@@ -2047,7 +2047,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
                 b = _mm_and_si128(rgb, mask);
 
                 //Load next 4 pixels
-                rgb = _mm_lddqu_si128((__m128i const*) src);
+                rgb = _mm_lddqu_si128((__m128i const*)(const void *) src);
                 src += 12;
                 rgb = _mm_shuffle_epi8(rgb, inshuffle);
 				//BB BB BB BB GR GR GR GR
@@ -2068,7 +2068,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
 
                 y = _mm_shuffle_epi8(y, outshuffle);
 
-                _mm_storeu_si128((__m128i *) dst, y);
+                _mm_storeu_si128((__m128i *)(void *) dst, y);
                 dst += 8;
                 dst_len -= 8;
         }
