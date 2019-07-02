@@ -174,6 +174,7 @@ class vidcap_state_aja {
                 void SetupHostBuffers();
                 NTV2VideoFormat GetVideoFormatFromInputSource();
                 void EnableInput(NTV2InputSource source);
+                bool IsInput3Gb(const NTV2InputSource inputSource);
 
                 /**
                   @brief  Starts my frame consumer thread.
@@ -522,6 +523,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                         router.AddConnection (gFrameBufferInput [mInputChannel + offset], gSDIInputOutputs [mInputChannel + offset]);
                         mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat);
                         mDevice.EnableChannel (NTV2Channel (mInputChannel + offset));
+                        mDevice.SetSDIInLevelBtoLevelAConversion (mInputChannel + offset, IsInput3Gb(mInputSource) ? true : false);
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
                 }
@@ -844,6 +846,15 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         }
 
         return ret;
+}
+
+bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
+{
+        bool    is3Gb   (false);
+
+        mDevice.GetSDIInput3GbPresent (is3Gb, ::NTV2InputSourceToChannel (inputSource));
+
+        return is3Gb;
 }
 
 static void show_help() {
