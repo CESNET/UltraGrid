@@ -213,7 +213,8 @@ static void display_sdl_run(void *arg)
                                 }
                                 break;
                         case SDL_WINDOWEVENT:
-                                if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED
+                                // https://forums.libsdl.org/viewtopic.php?p=38342
+                                if (sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED
                                                 || sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED) {
                                         // clear both buffers
                                         SDL_RenderClear(s->renderer);
