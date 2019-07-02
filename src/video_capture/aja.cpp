@@ -733,6 +733,12 @@ void vidcap_state_aja::CaptureFrames (void)
                         currentAudioInAddress &= ~0x7f;  //      Force 128 B alignment (originally there was 4 bytes)
                         currentAudioInAddress += audioReadOffset;
 
+                        if (((currentAudioInAddress + (audioInWrapAddress - audioReadOffset) - mAudioInLastAddress)
+                                                % (audioInWrapAddress - audioReadOffset)) > NTV2_AUDIOSIZE_MAX) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Discarding audio samples!\n";
+                                mAudioInLastAddress = (currentAudioInAddress + audioInWrapAddress - NTV2_AUDIOSIZE_MAX) % audioInWrapAddress;
+                        }
+
                         if (currentAudioInAddress < mAudioInLastAddress) {
                                 //      Audio address has wrapped around the end of the buffer.
                                 //      Do the calculations and transfer from the last address to the end of the buffer...
