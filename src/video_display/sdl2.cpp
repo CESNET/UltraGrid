@@ -101,6 +101,7 @@ struct state_sdl2 {
 
         bool                    fs{false};
         bool                    deinterlace{false};
+        bool                    keep_aspect{false};
         bool                    vsync{true};
         bool                    fixed_size{false};
         int                     fixed_w{0}, fixed_h{0};
@@ -214,8 +215,15 @@ static void display_sdl_run(void *arg)
                                 break;
                         case SDL_WINDOWEVENT:
                                 // https://forums.libsdl.org/viewtopic.php?p=38342
-                                if (sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED
-                                                || sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED) {
+                                if (s->keep_aspect && sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                                        double area = sdl_event.window.data1 * sdl_event.window.data2;
+                                        int width = sqrt(area / ((double) s->current_display_desc.height / s->current_display_desc.width));
+                                        int height = sqrt(area / ((double) s->current_display_desc.width / s->current_display_desc.height));
+                                        SDL_SetWindowSize(s->window, width, height);
+                                        debug_msg("[SDL] resizing to %d x %d\n", width, height);
+                                }
+                                if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED
+                                                || sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                                         // clear both buffers
                                         SDL_RenderClear(s->renderer);
                                         display_frame(s, s->last_frame);
@@ -235,7 +243,7 @@ static void show_help(void)
 {
         SDL_Init(0);
         printf("SDL options:\n");
-        cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>]*|:help]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]\n" << style::reset;
         printf("\twhere:\n");
         cout << style::bold <<"\t\t       d" << style::reset << " - deinterlace\n";
         cout << style::bold <<"\t\t      fs" << style::reset << " - fullscreen\n";
@@ -245,6 +253,7 @@ static void show_help(void)
                 cout << (i == 0 ? "" : ", ") << style::bold << SDL_GetVideoDriver(i) << style::reset;
         }
         cout << style::bold <<"\n";
+        cout << style::bold <<"\t     keep-aspect" << style::reset << " - keep window aspect ratio respecive to the video\n";
         cout << style::bold <<"\t         novsync" << style::reset << " - disable sync on VBlank\n";
         cout << style::bold <<"\t      nodecorate" << style::reset << " - disable window border\n";
         cout << style::bold <<"\tfixed_size[=WxH]" << style::reset << " - use fixed sized window\n";
@@ -437,6 +446,8 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                         s->vsync = false;
                 } else if (strcmp(tok, "nodecorate") == 0) {
                         s->window_flags |= SDL_WINDOW_BORDERLESS;
+                } else if (strcmp(tok, "keep-aspect") == 0) {
+                        s->keep_aspect = true;
 		} else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
 			s->fixed_size = true;
 			if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
