@@ -139,17 +139,17 @@ class vidcap_state_aja {
                 AJAStatus Run();
                 void Quit();
         private:
-                unsigned int           mDeviceIndex;
+                unsigned int           mDeviceIndex{0};
                 CNTV2Card              mDevice;
                 NTV2DeviceID           mDeviceID;                     ///     My device identifier
                 NTV2EveryFrameTaskMode mSavedTaskMode;                /// Used to restore prior every-frame task mode
-                NTV2Channel            mInputChannel;                 ///     My input channel
-                NTV2VideoFormat        mVideoFormat;                  ///     My video format
-                NTV2FrameBufferFormat  mPixelFormat;                  ///     My pixel format
+                NTV2Channel            mInputChannel{NTV2_CHANNEL1};  ///     My input channel
+                NTV2VideoFormat        mVideoFormat{NTV2_FORMAT_UNKNOWN}; ///     My video format
+                NTV2FrameBufferFormat  mPixelFormat{NTV2_FBF_8BIT_YCBCR}; ///     My pixel format
                 NTV2VANCMode           mVancMode;                     ///     VANC enabled?
                 bool                   mWideVanc;                     ///     Wide VANC?
-                NTV2InputSource        mInputSource;                  ///     The input source I'm using
-                NTV2AudioSystem        mAudioSystem;                  ///     The audio system I'm using
+                NTV2InputSource        mInputSource{NTV2_INPUTSOURCE_SDI1};                  ///     The input source I'm using
+                NTV2AudioSystem        mAudioSystem{NTV2_AUDIOSYSTEM_1};                  ///     The audio system I'm using
                 uint32_t               mVideoBufferSize;              ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize;              ///     My audio buffer size, in bytes
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
@@ -159,14 +159,14 @@ class vidcap_state_aja {
                 size_t                 mOutputAudioFrameSize;
                 mutex                  mOutputFrameLock;
                 condition_variable     mOutputFrameReady;
-                bool                   mProgressive;
-                chrono::system_clock::time_point mT0;
-                int                    mFrames;
-                struct audio_frame     mAudio;
-                int                    mMaxAudioChannels;
+                bool                   mProgressive{false};
+                chrono::system_clock::time_point mT0{chrono::system_clock::now()};
+                int                    mFrames{0};
+                struct audio_frame     mAudio{};
+                int                    mMaxAudioChannels{0};
                 NTV2AudioSource        mAudioSource;
                 NTV2TCSource           mTimeCodeSource;                ///< @brief     Time code source
-                bool                   mCheckFor4K;
+                bool                   mCheckFor4K{false};
                 uint32_t               mAudioInLastAddress;    ///< @brief My record of the location of the last audio sample captured
 
                 AJAStatus SetupVideo();
@@ -184,13 +184,7 @@ class vidcap_state_aja {
                 static void     ProducerThreadStatic (vidcap_state_aja * pContext);
 };
 
-vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters, int audioFlags) :
-        mDeviceIndex(0), mInputChannel(NTV2_CHANNEL1), mVideoFormat(NTV2_FORMAT_UNKNOWN),
-        mPixelFormat(NTV2_FBF_8BIT_YCBCR), mInputSource(NTV2_INPUTSOURCE_SDI1),
-        mAudioSystem(NTV2_AUDIOSYSTEM_1),
-        mOutputFrame(0), mProgressive(false),
-        mT0(chrono::system_clock::now()), mFrames(0), mAudio(audio_frame()), mMaxAudioChannels(0),
-        mTimeCodeSource(NTV2_TCSOURCE_DEFAULT), mCheckFor4K(false)
+vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters, int audioFlags)
 {
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3u)   ///< (balanced) analog audio
         for (auto it : parameters) {
@@ -641,7 +635,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.max_size = NTV2_AUDIOSIZE_MAX;
 
 #ifndef _MSC_VER
-        LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized sucessfully: " << audio_desc_from_frame(&mAudio) << "\n";
+        LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized successfully: " << audio_desc_from_frame(&mAudio) << "\n";
 #endif
 
         return AJA_STATUS_SUCCESS;
@@ -798,8 +792,6 @@ void vidcap_state_aja::CaptureFrames (void)
                 mOutputFrameReady.notify_one();
 	}       //      loop til quit signaled
 }       //      CaptureFrames
-
-#define NTV2_AUDIOSIZE_48K (48 * 1024)
 
 struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 {
