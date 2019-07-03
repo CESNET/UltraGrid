@@ -618,7 +618,7 @@ static void *audio_receiver_thread(void *arg)
 #endif
 
 #ifdef WIN32
-        if (s->audio_tx_mode |= MODE_SENDER) {
+        if (s->audio_tx_mode & MODE_SENDER) {
                 log_msg(LOG_LEVEL_WARNING, "Setting non-blocking receiving in MSW because sender and receiver shares a socket. Separate sender and receiver to disable this behavior\n");
                 nonblock = true;
         }
