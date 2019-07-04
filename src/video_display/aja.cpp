@@ -401,19 +401,23 @@ void display::RouteOutputSignal ()
 
         if (mDoMultiChannel) {
                 for (unsigned int i = 0; i < desc.tile_count; ++i) {
+                        //      Multiformat --- route the one output to the CSC video output (RGB) or FrameStore output (YUV)...
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
-                        //      Multiformat --- route the one SDI output to the CSC video output (RGB) or FrameStore output (YUV)...
-                        if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
-                                mDevice.SetSDITransmitEnable (chan, true);
-                        }
-
                         NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !isRGB/*isRGB*/));
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
                         if (isRGB) {
                                 mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt);
                         }
-                        mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
-                        mDevice.SetSDIOutputStandard (chan, outputStandard);
+
+                        if (NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination)) {
+                                if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
+                                        mDevice.SetSDITransmitEnable (chan, true);
+                                }
+
+                                mDevice.SetSDIOutputStandard (chan, outputStandard);
+                                //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        }
+                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
                 }
         } else {
                 NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
