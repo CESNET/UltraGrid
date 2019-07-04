@@ -176,9 +176,11 @@ void vf_free(struct video_frame *buf)
 const char *get_codec_name(codec_t codec) {
         switch (codec) {
                 case UYVY: return "UYVY";
+                case YUYV: return "YUYV";
                 case v210: return "v210";
                 case RGBA: return "RGBA";
                 case RGB: return "RGB";
+                case BGR: return "BGR";
                 case R10k: return "R10k";
                 default:
                            fprintf(stderr, "\nError getting codec name for codec ID %d - unsupported in Windows, report to "
@@ -189,9 +191,11 @@ const char *get_codec_name(codec_t codec) {
 
 codec_t get_codec_from_name(const char *name) {
         if (strcmp(name, "UYVY") == 0) return UYVY;
-        else if (strcmp(name, "UYVY") == 0) return UYVY;
+        else if (strcmp(name, "YUYV") == 0) return YUYV;
+        else if (strcmp(name, "v210") == 0) return v210;
         else if (strcmp(name, "RGBA") == 0) return RGBA;
-        else if (strcmp(name, "RGB") == 0) return UYVY;
+        else if (strcmp(name, "RGB") == 0) return RGB;
+        else if (strcmp(name, "BGR") == 0) return BGR;
         else if (strcmp(name, "R10k") == 0) return R10k;
         else {
                 fprintf(stderr, "\nError getting codec from name \"%s\" - unsupported in Windows, report to "
