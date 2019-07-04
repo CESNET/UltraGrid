@@ -198,11 +198,13 @@ void keyboard_control::stop()
  */
 static int get_ansi_code() {
         int c = GETCH();
+        debug_msg(MOD_NAME "Pressed %d\n", c);
         if (c == '[') { // CSI
                 c = '[';
                 while (true) {
                         c = (c & 0x7fffff) << 8;
                         int tmp = GETCH();
+                        debug_msg(MOD_NAME "Pressed %d\n", tmp);
                         if (tmp == EOF) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
                                 return -1;
@@ -215,6 +217,7 @@ static int get_ansi_code() {
         } else if (c == 'N' // is this even used?
                         || c == 'O') { // eg. \EOP - F1-F4 (the rest of Fn is CSI)
                 int tmp = GETCH();
+                debug_msg(MOD_NAME "Pressed %d\n", tmp);
                 if (tmp == EOF) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
                         return -1;
@@ -282,6 +285,7 @@ void keyboard_control::run()
                 while (kbhit()) {
 #endif
                         int c = GETCH();
+                        debug_msg(MOD_NAME "Pressed %d\n", c);
                         if (c == '\E') {
                                 if ((c = get_ansi_code()) == -1) {
                                         goto end_loop;
