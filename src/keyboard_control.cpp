@@ -232,18 +232,13 @@ static int get_ansi_code() {
 }
 
 static int convert_win_to_ansi_keycode(int c) {
-        if (c == EOF) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                return -1;
-        }
-
         switch (c) {
-        case 0x48: return K_UP;
-        case 0x4b: return K_LEFT;
-        case 0x4d: return K_RIGHT;
-        case 0x50: return K_DOWN;
+        case 0xe048: return K_UP;
+        case 0xe04b: return K_LEFT;
+        case 0xe04d: return K_RIGHT;
+        case 0xe050: return K_DOWN;
         default:
-                   LOG(LOG_LEVEL_WARNING) << MOD_NAME "Cannot map Win keycode 0xe0"
+                   LOG(LOG_LEVEL_WARNING) << MOD_NAME "Cannot map Win keycode 0x"
                            << hex << setfill('0') << setw(2) << c << setw(0) << dec << " to ANSI.\n";
                    return -1;
         }
@@ -290,8 +285,14 @@ void keyboard_control::run()
                                 if ((c = get_ansi_code()) == -1) {
                                         goto end_loop;
                                 }
-                        } else if (c == 0xe0) { // Win keycodes
-                                if ((c = convert_win_to_ansi_keycode(GETCH())) == -1) {
+                        } else if (c == 0x0 || c == 0xe0) { // Win keycodes
+                                int tmp = GETCH();
+                                debug_msg(MOD_NAME "Pressed %d\n", tmp);
+                                if (tmp == EOF) {
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
+                                        goto end_loop;
+                                }
+                                if ((c = convert_win_to_ansi_keycode(c << 8 | tmp)) == -1) {
                                         goto end_loop;
                                 }
                         }
