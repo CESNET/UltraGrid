@@ -245,7 +245,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         } else if (audioFlags & VIDCAP_FLAG_AUDIO_AESEBU) {
                 mAudioSource = NTV2_AUDIO_AES;
         } else if (audioFlags & VIDCAP_FLAG_AUDIO_ANALOG) {
-                mAudioSource = NTV2_AUDIO_MIC;
+                mAudioSource = NTV2_AUDIO_ANALOG;
         } else {
                 mAudioSource = NTV2_AUDIO_SOURCE_INVALID;
         }
