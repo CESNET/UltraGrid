@@ -181,8 +181,8 @@ const char *get_codec_name(codec_t codec) {
                 case RGB: return "RGB";
                 case R10k: return "R10k";
                 default:
-                           fprintf(stderr, "Getting codec name - unsupported in Windows, report to "
-                                           "ultragrid-dev@cesnet.cz\n");
+                           fprintf(stderr, "\nError getting codec name for codec ID %d - unsupported in Windows, report to "
+                                           "ultragrid-dev@cesnet.cz\n", (int) codec);
                            return "_UNSUPPORTED_";
         }
 }
@@ -194,8 +194,8 @@ codec_t get_codec_from_name(const char *name) {
         else if (strcmp(name, "RGB") == 0) return UYVY;
         else if (strcmp(name, "R10k") == 0) return R10k;
         else {
-                fprintf(stderr, "Getting codec from name - unsupported in Windows, report to "
-                                "ultragrid-dev@cesnet.cz\n");
+                fprintf(stderr, "\nError getting codec from name \"%s\" - unsupported in Windows, report to "
+                                "ultragrid-dev@cesnet.cz\n", name);
                 return VIDEO_CODEC_NONE;
         }
 }
