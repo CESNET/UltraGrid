@@ -475,14 +475,14 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mTimeCodeSource = NTV2_TCSOURCE_DEFAULT;
 
         //      Determine the input video signal format...
-        if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
+        if (mVideoFormat == NTV2_FORMAT_UNKNOWN) {
                 mVideoFormat =  GetVideoFormatFromInputSource();
-        //mVideoFormat = NTV2_FORMAT_4x1920x1080p_2500;
-        //mVideoFormat = NTV2_FORMAT_1080p_5000_A;
-        if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
-        {
-                LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format" << endl;
-                return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
+                if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
+                {
+                        LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format" << endl;
+                        return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
+                }
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Detected input signal: " << NTV2VideoFormatToString(mVideoFormat) << "\n";
         }
 
         mAudioSystem = ::NTV2InputSourceToAudioSystem(mInputSource);
