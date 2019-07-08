@@ -48,6 +48,7 @@
 #include "ug_runtime_error.h"
 #include "utils/hresult.h"
 
+#define DEFAULT_WASAPI_BUFLEN_MS 60
 #define MOD_NAME "[WASAPI play.] "
 #define REFTIMES_PER_SEC  10000000
 #define REFTIMES_PER_MILLISEC  10000
@@ -349,7 +350,7 @@ static bool audio_play_wasapi_ctl(void *state, int request, void *data, size_t *
 static int audio_play_wasapi_reconfigure(void *state, struct audio_desc desc)
 {
         auto s = static_cast<struct state_aplay_wasapi *>(state);
-        int buflen_ms = 50;
+        int buflen_ms = DEFAULT_WASAPI_BUFLEN_MS;
         if (get_commandline_param("audio-buffer-len") != nullptr) {
                 buflen_ms = atoi(get_commandline_param("audio-buffer-len"));
         }
