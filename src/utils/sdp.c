@@ -58,6 +58,7 @@
 #endif
 
 #ifdef WIN32
+#define _WIN32_WINNT 0x0600
 #include <stdint.h>
 #include <winsock2.h>
 #endif

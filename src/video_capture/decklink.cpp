@@ -1458,14 +1458,14 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                         audioPacket->GetBytes(&audioFrame);
 
                         if(audio_capture_channels == 1) { // there are actually 2 channels grabbed
-                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1u * s->audio.bps <= s->audio.max_size) {
+                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1u * s->audio.bps <= (unsigned) s->audio.max_size) {
                                         demux_channel(s->audio.data + s->audio.data_len, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, 2 /* channels (originally) */, 0 /* we want first channel */);
                                         s->audio.data_len += audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
                                 } else {
                                         LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
                                 }
                         } else {
-                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= s->audio.max_size) {
+                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= (unsigned) s->audio.max_size) {
                                         memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps);
                                         s->audio.data_len += audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
                                 } else {

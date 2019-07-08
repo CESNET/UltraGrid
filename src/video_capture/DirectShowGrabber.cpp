@@ -798,6 +798,7 @@ static HRESULT ConnectFilters(IGraphBuilder *g, IBaseFilter *fromFilter, IBaseFi
 	return res;
 }
 
+static HRESULT GraphRun(IMediaControl *mc) ATTRIBUTE(unused);
 static HRESULT GraphRun(IMediaControl *mc) {
 	HRESULT res;
 
@@ -819,6 +820,7 @@ static HRESULT GraphRun(IMediaControl *mc) {
 	return res;
 }
 
+static HRESULT GraphPause(IMediaControl *mc) ATTRIBUTE(unused);
 static HRESULT GraphPause(IMediaControl *mc) {
 	HRESULT res;
 
@@ -838,6 +840,7 @@ static HRESULT GraphPause(IMediaControl *mc) {
 	return res;
 }
 
+static HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory) ATTRIBUTE(unused);
 static HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
 {
     IKsPropertySet *pKs = NULL;

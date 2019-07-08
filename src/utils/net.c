@@ -250,7 +250,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 						NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 						// Default language
 						(LPTSTR) & lpMsgBuf, 0, NULL)) {
-                                _tprintf(TEXT("\tError: %s"), lpMsgBuf);
+                                _tprintf(TEXT("\tError: %s"), (char *) lpMsgBuf);
 				LocalFree(lpMsgBuf);
 				if (pAddresses)
 					free(pAddresses);
