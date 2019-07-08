@@ -187,6 +187,18 @@ void keyboard_control::stop()
 #define GETCH getch
 #endif
 
+/*
+ * Input must be 0x80-0xff
+ */
+static int count_utf8_bytes(unsigned int i) {
+        int count = 0;
+        while ((i & 0x80) != 0u) {
+                count++;
+                i <<= 1;
+        }
+        return count;
+}
+
 /**
  * Tries to parse at least some small subset of ANSI control sequences not to
  * be ArrowUp interpreted as '\E', '[' and 'A' individually.
@@ -231,6 +243,32 @@ static int get_ansi_code() {
         return c;
 }
 
+#ifndef WIN32
+static int get_utf8_code(int c) {
+        if (c < 0xc0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF seqence!\n";
+                return -1;
+        }
+        int ones = count_utf8_bytes(c);
+        for (int i = 1; i < ones; ++i) {
+                c = (c & 0x7fffff) << 8;
+                int tmp = GETCH();
+                debug_msg(MOD_NAME "Pressed %d\n", tmp);
+                if (tmp == EOF) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
+                        return -1;
+                }
+                c |= tmp;
+        }
+        if (ones > 4) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported UTF seqence length!\n";
+                return -1;
+        }
+        return c;
+}
+#endif
+
+#ifdef WIN32
 static int convert_win_to_ansi_keycode(int c) {
         switch (c) {
         case 0xe048: return K_UP;
@@ -243,6 +281,7 @@ static int convert_win_to_ansi_keycode(int c) {
                    return -1;
         }
 }
+#endif
 
 static string get_keycode_representation(int ch) {
         switch (ch) {
@@ -285,6 +324,7 @@ void keyboard_control::run()
                                 if ((c = get_ansi_code()) == -1) {
                                         goto end_loop;
                                 }
+#ifdef WIN32
                         } else if (c == 0x0 || c == 0xe0) { // Win keycodes
                                 int tmp = GETCH();
                                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
@@ -295,6 +335,12 @@ void keyboard_control::run()
                                 if ((c = convert_win_to_ansi_keycode(c << 8 | tmp)) == -1) {
                                         goto end_loop;
                                 }
+#else
+                        } else if (c > 0x80) {
+                                if ((c = get_utf8_code(c)) == -1) {
+                                        goto end_loop;
+                                }
+#endif
                         }
                         bool unknown_key_in_first_switch = false;
 
