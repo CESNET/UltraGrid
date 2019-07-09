@@ -319,15 +319,12 @@ static string get_keycode_representation(int64_t ch) {
         case K_LEFT: return "KEY_LEFT";
         case K_RIGHT: return "KEY_RIGHT";
         }
-        if (ch == ' ') {
-                return "' '";
-        }
-        if (ch < UCHAR_MAX && isprint(ch)) {
-                return string(1, ch);
+        if (ch <= UCHAR_MAX && isprint(ch)) {
+                return string("'") + string(1, ch) + "'";
         }
 
         if (is_utf8(ch)) {
-                return get_utf8_representation(ch);
+                return string("'") + get_utf8_representation(ch) + "'";
         }
 
         stringstream oss;
