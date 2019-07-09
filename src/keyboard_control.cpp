@@ -289,6 +289,29 @@ static int64_t convert_win_to_ansi_keycode(int c) {
 }
 #endif
 
+static bool is_utf8(int64_t ch) {
+#ifdef WIN32
+        return false;
+#endif
+
+        unsigned char first_byte;
+        while (ch != 0) {
+                first_byte = ch & 0xff;
+                ch >>= 8;
+        }
+        return first_byte & 0x80; /// @todo UTF-8 validity check would be nice
+}
+
+static string get_utf8_representation(int64_t ch) {
+        char str[9] = "";
+        while (ch != 0) {
+                memmove(str + 1, str, 8);
+                str[0] = ch & 0xff;
+                ch >>= 8;
+        }
+        return str;
+}
+
 static string get_keycode_representation(int64_t ch) {
         switch (ch) {
         case K_UP: return "KEY_UP";
@@ -301,6 +324,10 @@ static string get_keycode_representation(int64_t ch) {
         }
         if (ch < UCHAR_MAX && isprint(ch)) {
                 return string(1, ch);
+        }
+
+        if (is_utf8(ch)) {
+                return get_utf8_representation(ch);
         }
 
         stringstream oss;
