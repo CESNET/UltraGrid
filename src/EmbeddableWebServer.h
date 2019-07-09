@@ -1,4 +1,5 @@
-/* Copyright (c) Forrest Heller - All rights reserved. Released under the BSD 2-clause license:
+/* Copyright (c) 2016, 2019 Forrest Heller, and CONTRIBUTORS (see the end of this file) - All rights reserved.
+Released under the BSD 2-clause license:
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
@@ -14,18 +15,20 @@ Note: If you just want to take connections from a specific inteface/localhost yo
 2. Fill out createResponseForRequest. Use the responseAlloc* functions to return a response or take over the connection
 yourself and return NULL. The easiest way to serve static files is responseAllocServeFileFromRequestPath. The easiest 
 way to serve HTML is responseAllocHTML. The easiest way to serve JSON is responseAllocJSON. The server will free() your
-response once it's been sent. See the README for a quick example and the EWSDemo.cpp file for a more complete demo.
+response once it's been sent. See the README for a quick example and the EWSDemo.cpp file for more examples such as file
+ serving, HTML form processing, and JSON.
 
-EWS runs on Windows, Linux, and Mac OS X. It currently has no hope of running on a platform without dynamic memory
-allocation. It is *not suitable for Internet serving* because it has not been thoroughly designed+tested for security.
-It uses a thread per connection model, where each HTTP connection is handled by a newly spawned thread. This method is
-fairly portable if you have a quickie wrapper around pthreads.
+EWS runs on Windows, Linux, and Mac OS X. It currently requires dynamic memory especially when dealing with strings.
+ It is *not suitable for Internet serving* because it has not been thoroughly designed+tested for security.
+It uses a thread per connection model, where each HTTP connection is handled by a newly spawned thread. This lets
+ certain requests take a long time to handle while other requests can still quickly be handled.
 
 Tips:
 * Use the heapStringAppend*(&response->body) functions to dynamically build a body (see the HTML form POST demo)
+* For debugging use connectionDebugStringCreate
 * Gain extra debugging by enabling ews_print_debug
 * If you want a clean server shutdown you can use serverInit() + acceptConnectionsUntilStopped() + serverDeInit()
-* To include the file in multiple .c files use EWS_HEADER_ONLY in all places but one. This is the opposite of 
+* To include the file in multiple .c/.cpp files use EWS_HEADER_ONLY in all places but one. This is the opposite of
 STB_IMPLEMENTATION if you are familiar with the STB libraries
 * To run a server on a different thread use (even on Windows):
 #include "EmbeddableWebServer.h"
@@ -68,6 +71,7 @@ int main() {
 #include <stdbool.h>
 
 /* History:
+ 2019-01: Version 1.1.0 released
  2016-11: Version 1.0 released */
 
 /* Quick nifty options */
@@ -89,8 +93,8 @@ static bool OptionPrintResponse = false;
 /* contains the Response HTTP status and headers */
 #define RESPONSE_HEADER_SIZE 1024
 
-#define EMBEDDABLE_WEB_SERVER_VERSION_STRING "1.0.0"
-#define EMBEDDABLE_WEB_SERVER_VERSION 0x00010000 // major = [31:16] minor = [15:8] build = [7:0]
+#define EMBEDDABLE_WEB_SERVER_VERSION_STRING "1.1.0"
+#define EMBEDDABLE_WEB_SERVER_VERSION 0x00010100 // major = [31:16] minor = [15:8] build = [7:0]
 
 /* has someone already enabled _CRT_SECURE_NO_WARNINGS? If so, don't enable it again. If not, disable it for us. */
 #ifdef _CRT_SECURE_NO_WARNINGS
@@ -177,7 +181,7 @@ struct Request {
     /* null-terminated HTTP version string (HTTP/1.0) */
     char version[16];
     size_t versionLength;
-    /* null-terminated HTTP path/URI ( /index.html?name=Forrest ) */
+    /* null-terminated HTTP path/URI ( /index.html?name=Forrest%20Heller ) */
     char path[1024];
     size_t pathLength;
     /* null-terminated HTTP path/URI that has been %-unescaped. Used for a file serving */
@@ -316,21 +320,21 @@ char* strdupDecodeGETorPOSTParam(const char* paramNameIncludingEquals, const cha
 char* strdupEscapeForHTML(const char* stringToEscape);
 /* If you have a file you reading/writing across connections you can use this provided pthread mutex so you don't have to make your own */
 /* Need to inspect a header in a request? */
-static const struct Header* headerInRequest(const char* headerName, const struct Request* request);
+const struct Header* headerInRequest(const char* headerName, const struct Request* request);
 /* Get a debug string representing this connection that's easy to print out. wrap it in HTML <pre> tags */
 struct HeapString connectionDebugStringCreate(const struct Connection* connection);
 /* Some really basic dynamic string handling. AppendChar and AppendFormat allocate enough memory and
- these strings are null-terminated so you can pass them into sews_printf */
-static void heapStringInit(struct HeapString* string);
-static void heapStringFreeContents(struct HeapString* string);
-static void heapStringSetToCString(struct HeapString* heapString, const char* cString);
-static void heapStringAppendChar(struct HeapString* string, char c);
-static void heapStringAppendFormat(struct HeapString* string, const char* format, ...) __printflike(2, 0);
-static void heapStringAppendString(struct HeapString* string, const char* stringToAppend);
-static void heapStringAppendFormatV(struct HeapString* string, const char* format, va_list ap);
-static void heapStringAppendHeapString(struct HeapString* target, const struct HeapString* source);
+ these strings are null-terminated so you can pass them into regular string functions. */
+void heapStringInit(struct HeapString* string);
+void heapStringFreeContents(struct HeapString* string);
+void heapStringSetToCString(struct HeapString* heapString, const char* cString);
+void heapStringAppendChar(struct HeapString* string, char c);
+void heapStringAppendFormat(struct HeapString* string, const char* format, ...) __printflike(2, 0);
+void heapStringAppendString(struct HeapString* string, const char* stringToAppend);
+void heapStringAppendFormatV(struct HeapString* string, const char* format, va_list ap);
+void heapStringAppendHeapString(struct HeapString* target, const struct HeapString* source);
 /* functions that help when serving files */
-static const char* MIMETypeFromFile(const char* filename, const uint8_t* contents, size_t contentsLength);
+const char* MIMETypeFromFile(const char* filename, const uint8_t* contents, size_t contentsLength);
 
 /* These are handy if you need to do something like serialize access to a file */
 int serverMutexLock(struct Server* server);
@@ -378,7 +382,7 @@ static void poolStringStartNewString(struct PoolString* poolString, struct Reque
 static void poolStringAppendChar(struct Request* request, struct PoolString* string, char c);
 static bool strEndsWith(const char* big, const char* endsWith);
 static void ignoreSIGPIPE(void);
-static void callWSAStartupIfNecessary(void) __attribute__((unused));
+static void callWSAStartupIfNecessary(void);
 static FILE* fopen_utf8_path(const char* utf8Path, const char* mode);
 static int pathInformationGet(const char* path, struct PathInformation* info);
 static int sendResponseBody(struct Connection* connection, const struct Response* response, ssize_t* bytesSent);
@@ -410,16 +414,25 @@ static int snprintfResponseHeader(char* destination, size_t destinationCapacity,
     static int pthread_mutex_lock(pthread_mutex_t* mutex);
     static int pthread_mutex_unlock(pthread_mutex_t* mutex);
     static int pthread_mutex_destroy(pthread_mutex_t* mutex);
+/* It was pointed out to me that snprintf is implemented in VS2015 and later*/
+#if defined(_MSC_VER) && _MSC_VER < 1900 /* 1900 = VS2015 */
+#define EWS_IMPLEMENT_SPRINTF 1
+#else
+#define EWS_IMPLEMENT_SPRINTF 0
+#endif
+#if EWS_IMPLEMENT_SPRINTF
     static int snprintf(char* destination, size_t length, const char* format, ...);
+#endif
+    static int strcasecmp(const char* utf8String1, const char* utf8String2);
     static wchar_t* strdupWideFromUTF8(const char* utf8String, size_t extraBytes);
     /* windows function aliases */
-    #define strcasecmp _stricmp
     #define strdup(string) _strdup(string)
     #define unlink(file) _unlink(file)
     #define close(x) closesocket(x)
     #define gai_strerror_ansi(x) gai_strerrorA(x)
 #else // WIN32
     #define gai_strerror_ansi(x) gai_strerror(x)
+	#define EWS_IMPLEMENT_SPRINTF 0
 #endif // Linux/Mac OS X
 
 #ifdef EWS_FUZZ_TEST
@@ -437,7 +450,7 @@ typedef enum {
 
 static void URLDecode(const char* encoded, char* decoded, size_t decodedCapacity, URLDecodeType type);
 
-static const struct Header* headerInRequest(const char* headerName, const struct Request* request) {
+const struct Header* headerInRequest(const char* headerName, const struct Request* request) {
     for (size_t i = 0; i < request->headersCount; i++) {
         assert(NULL != request->headers[i].name.contents);
         if (0 == strcasecmp(request->headers[i].name.contents, headerName)) {
@@ -679,6 +692,7 @@ static void heapStringReallocIfNeeded(struct HeapString* string, size_t minimumC
     string->capacity = heapStringNextAllocationSize(minimumCapacity);
     assert(string->capacity > 0 && "We are about to allocate a string with 0 capacity. We should have checked this condition above");
     bool previouslyAllocated = string->contents != NULL;
+    /* Sometimes string->contents is NULL. realloc handles that case so no need for an extra if (NULL) malloc else realloc */
     string->contents = (char*) realloc(string->contents, string->capacity);
 	/* zero out the newly allocated memory */
     memset(&string->contents[string->length], 0, string->capacity - string->length);
@@ -704,7 +718,7 @@ static size_t heapStringNextAllocationSize(size_t required) {
     return powerOf2;
 }
 
-static void heapStringAppendChar(struct HeapString* string, char c) {
+void heapStringAppendChar(struct HeapString* string, char c) {
     heapStringReallocIfNeeded(string, string->length + 2);
     string->contents[string->length] = c;
     string->length++;
@@ -712,14 +726,14 @@ static void heapStringAppendChar(struct HeapString* string, char c) {
     string->contents[string->length] = '\0';
 }
 
-static void heapStringAppendFormat(struct HeapString* string, const char* format, ...) {
+void heapStringAppendFormat(struct HeapString* string, const char* format, ...) {
     va_list ap;
     va_start(ap, format);
     heapStringAppendFormatV(string, format, ap);
     va_end(ap);
 }
 
-static void heapStringSetToCString(struct HeapString* heapString, const char* cString) {
+void heapStringSetToCString(struct HeapString* heapString, const char* cString) {
     size_t cStringLength = strlen(cString);
     heapStringReallocIfNeeded(heapString, cStringLength + 1);
     memcpy(heapString->contents, cString, cStringLength);
@@ -727,7 +741,7 @@ static void heapStringSetToCString(struct HeapString* heapString, const char* cS
     heapString->contents[heapString->length] = '\0';
 }
 
-static void heapStringAppendString(struct HeapString* string, const char* stringToAppend) {
+void heapStringAppendString(struct HeapString* string, const char* stringToAppend) {
     size_t stringToAppendLength = strlen(stringToAppend);
     /* just exit early if the string length is too small */
     if (0 == stringToAppendLength) {
@@ -741,7 +755,7 @@ static void heapStringAppendString(struct HeapString* string, const char* string
     string->contents[string->length] = '\0';
 }
 
-static void heapStringAppendHeapString(struct HeapString* target, const struct HeapString* source) {
+void heapStringAppendHeapString(struct HeapString* target, const struct HeapString* source) {
     heapStringReallocIfNeeded(target, target->length + source->length + 1);
     memcpy(&target->contents[target->length], source->contents, source->length);
     target->length += source->length;
@@ -776,7 +790,7 @@ static bool heapStringIsSaneCString(const struct HeapString* heapString) {
     return true;
 }
 
-static void heapStringAppendFormatV(struct HeapString* string, const char* format, va_list ap) {
+void heapStringAppendFormatV(struct HeapString* string, const char* format, va_list ap) {
     /* Figure out how many characters it would take to print the string */
     va_list apCopy;
     va_copy(apCopy, ap);
@@ -792,13 +806,13 @@ static void heapStringAppendFormatV(struct HeapString* string, const char* forma
     string->contents[string->length] = '\0';
 }
 
-static void heapStringInit(struct HeapString* string) {
+void heapStringInit(struct HeapString* string) {
     string->capacity = 0;
     string->contents = NULL;
     string->length = 0;
 }
 
-static void heapStringFreeContents(struct HeapString* string) {
+void heapStringFreeContents(struct HeapString* string) {
     if (NULL != string->contents) {
         assert(string->capacity > 0 && "A heap string had a capacity > 0 with non-NULL contents which implies a malloc(0)");
         free(string->contents);
@@ -814,8 +828,10 @@ static void heapStringFreeContents(struct HeapString* string) {
         assert(string->capacity == 0 && "Why did a string with a NULL contents have a capacity > 0? This is not correct and may indicate corruption");
     }
 }
+
 struct HeapString connectionDebugStringCreate(const struct Connection* connection) {
-    struct HeapString debugString = {0};
+    struct HeapString debugString;
+    heapStringInit(&debugString);
     heapStringAppendFormat(&debugString, "%s %s from %s:%s\n", connection->request.method, connection->request.path, connection->remoteHost, connection->remotePort);
     heapStringAppendFormat(&debugString, "Request URL Path decoded to '%s'\n", connection->request.pathDecoded);
     heapStringAppendFormat(&debugString, "Bytes sent:%" PRId64 "\n", connection->status.bytesSent);
@@ -1024,7 +1040,7 @@ static bool requestMatchesPathPrefix(const char* requestPathDecoded, const char*
 /*
 Here's how the path logic works:
 
-Lets say I want to serve traffic on the 'releases/current' path out of the 'EWS-1.1' directory. EWS-1.1 has no index.html
+Let's say I want to serve traffic on the 'releases/current' path out of the 'EWS-1.1' directory. EWS-1.1 has no index.html
 pathPrefix = "/releases/current" OR "/releases/current/"
 requestPath = "/releases/current" OR "/releases/current/" OR "/releases/current/page.html"
 
@@ -1119,11 +1135,11 @@ struct Response* responseAllocServeFileFromRequestPath(const char* pathPrefix, c
 #endif
     char* filePathResolved = realpath(filePath.contents, NULL);
     if (NULL == filePathResolved) {
-        printf("Warning: The file path '%s' could not be resolved with realpath. %s = %d\n", filePath.contents, strerror(errno), errno);
+        ews_printf("Warning: The file path '%s' could not be resolved with realpath. %s = %d\n", filePath.contents, strerror(errno), errno);
     }
     char* documentRootResolved = realpath(documentRoot, NULL);
     if (NULL == documentRootResolved) {
-        printf("Warning: Your documentRoot '%s' could not be resolved with realpath. %s = %d\n", documentRoot, strerror(errno), errno);
+        ews_printf("Warning: Your documentRoot '%s' could not be resolved with realpath. %s = %d\n", documentRoot, strerror(errno), errno);
     }
     ews_printf_debug("Resolved documentRoot to '%s' and file path to '%s'\n", documentRoot, filePath.contents);
     if (strlen(filePathResolved) < strlen(documentRootResolved)) {
@@ -1135,6 +1151,7 @@ struct Response* responseAllocServeFileFromRequestPath(const char* pathPrefix, c
     if (pathInfo.isDirectory) {
         if (!OptionListDirectoryContents) {
             ews_printf("Failed to serve directory: OptionListDirectoryContents is false so we aren't serving the directory contents/listing for request '%s' documentRoot '%s', pointing at dir '%s'\n", requestPathDecoded, documentRoot, filePath.contents);
+            heapStringFreeContents(&filePath);
             return responseAllocHTMLWithStatus(403, "Forbidden", "<html><head><title>403 - Forbidden</title></head><body>You are forbidden from accessing this URL.</body></html>");
         }
         /* If it's a directory, see if we can serve up index.html */
@@ -1427,7 +1444,6 @@ static void requestPrintWarnings(const struct Request* request, const char* remo
 
 static struct Connection* connectionAlloc(struct Server* server) {
     struct Connection* connection = (struct Connection*) calloc(1, sizeof(*connection)); // calloc 0's everything which requestParse depends on
-    connection->remoteAddrLength = sizeof(connection->remoteAddr);
     connection->server = server;
     return connection;
 }
@@ -1542,14 +1558,14 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
     int reuse = 1;
     result = setsockopt(server->listenerfd, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse));
     if (0 != result) {
-        ews_printf("Failed to setsockopt SE_REUSEADDR = true with %s = %d. Continuing because we might still succeed...\n", strerror(errno), errno);
+        ews_printf("Failed to setsockopt SO_REUSEADDR = true with %s = %d. Continuing because we might still succeed...\n", strerror(errno), errno);
     }
 
     if (address->sa_family == AF_INET6) {
         int ipv6only = 0;
             result = setsockopt(server->listenerfd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&ipv6only, sizeof(ipv6only));
             if (0 != result) {
-                ews_printf("Failed to setsockopt SE_REUSEADDR = true with %s = %d. Continuing because we might still succeed...\n", strerror(errno), errno);
+                ews_printf("Failed to setsockopt IPV6_V6ONLY = true with %s = %d. This is not supported on BSD/macOS\n", strerror(errno), errno);
             }
     }
     
@@ -1578,6 +1594,7 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
     /* allocate a connection (which sets connection->remoteAddrLength) and accept the next inbound connection */
     struct Connection* nextConnection = connectionAlloc(server);
     while (server->shouldRun) {
+        nextConnection->remoteAddrLength = sizeof(nextConnection->remoteAddr);
         nextConnection->socketfd = accept(server->listenerfd , (struct sockaddr*) &nextConnection->remoteAddr, &nextConnection->remoteAddrLength);
         if (-1 == nextConnection->socketfd) {
             if (errno == EINTR) {
@@ -1702,7 +1719,7 @@ static int sendResponseFile(struct Connection* connection, const struct Response
     } else {
         assert(sizeof(connection->sendRecvBuffer) >= MIMEReadSize);
         actualMIMEReadSize = fread(connection->sendRecvBuffer, 1, MIMEReadSize, fp);
-        if (actualMIMEReadSize == 0) {
+        if (0 == actualMIMEReadSize) {
             ews_printf("Unable to satisfy request for '%s' because we could read the first bunch of bytes to determine MIME type '%s' %s = %d\n", connection->request.path, response->filenameToSend, strerror(errno), errno);
             errorResponse = responseAlloc500InternalErrorHTML("fread for MIME type detection failed");
             goto exit;
@@ -1868,7 +1885,7 @@ int serverMutexUnlock(struct Server* server) {
 }
 
 /* Apache2 has a module called MIME magic or something which does a really good version of this. */
-static const char* MIMETypeFromFile(const char* filename, const uint8_t* contents, size_t contentsLength) {
+const char* MIMETypeFromFile(const char* filename, const uint8_t* contents, size_t contentsLength) {
     static const uint8_t PNGMagic[] = {137, 80, 78, 71, 13, 10, 26, 10}; // http://libpng.org/pub/png/spec/1.2/PNG-Structure.html
     static const uint8_t GIFMagic[] = {'G', 'I', 'F'}; // http://www.onicos.com/staff/iz/formats/gif.html
     static const uint8_t JPEGMagic[] = {0xFF, 0xD8}; // ehh pretty shaky http://www.fastgraph.com/help/jpeg_header_format.html
@@ -2092,7 +2109,7 @@ static int pthread_detach(pthread_t threadHandle) {
     return 0;
 }
 
-#ifndef EWS_DISABLE_SNPRINTF_COMPAT
+#if EWS_IMPLEMENT_SPRINTF /* See comment definition for details - should only be 1 on Windows < Visual Studio 2015 */
 /* I can't just #define this to snprintf_s because that will blow up and call an "invalid parameter handler" if you don't have enough length. */
 static int snprintf(char* destination, size_t length, const char* format, ...) {
     va_list ap;
@@ -2190,12 +2207,10 @@ static void ignoreSIGPIPE() {
     /* not needed on Windows */
 }
 
-#ifndef WIN32
 static int strcasecmp(const char* str1, const char* str2) {
     /* lstrcmpI seems like the closest analog */
     return lstrcmpiA(str1, str2);
 }
-#endif
 
 static int pthread_create(HANDLE* threadHandle, const void* attributes, LPTHREAD_START_ROUTINE threadRoutine, void* params) {
     *threadHandle = CreateThread(NULL, 0, threadRoutine, params, 0, NULL);
@@ -2294,7 +2309,7 @@ static void printIPv4Addresses(uint16_t portInHostOrder) {
     getifaddrs(&addrs);
     struct ifaddrs* p = addrs;
     while (NULL != p) {
-        if (p->ifa_addr->sa_family == AF_INET) {
+        if (NULL != p->ifa_addr && p->ifa_addr->sa_family == AF_INET) {
             char hostname[256];
             getnameinfo(p->ifa_addr, sizeof(struct sockaddr_in), hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
             ews_printf("Probably listening on http://%s:%u\n", hostname, portInHostOrder);
@@ -2334,3 +2349,6 @@ static FILE* fopen_utf8_path(const char* utf8Path, const char* mode) {
 #endif // WIN32 or Linux/Mac OS X
 
 #endif // EWS_HEADER_ONLY
+/* Contributors:
+Martin Pulec - bug fixes, warning fixes, IPv6 support
+Daniel Barry - bug fix (ifa_addr != NULL) */
