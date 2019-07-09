@@ -48,6 +48,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <climits>
+#include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
 #include "debug.h"
 #include "host.h"
 #include "keyboard_control.h"
@@ -55,11 +61,6 @@
 #include "rang.hpp"
 #include "utils/thread.h"
 #include "video.h"
-
-#include <climits>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
 
 #ifdef HAVE_TERMIOS_H
 #include <unistd.h>
@@ -208,14 +209,19 @@ static int count_utf8_bytes(unsigned int i) {
  *   not ncurses)
  * * the function can be moved to separate util file
  */
-static int get_ansi_code() {
-        int c = GETCH();
+static int64_t get_ansi_code() {
+        int64_t c = GETCH();
         debug_msg(MOD_NAME "Pressed %d\n", c);
         if (c == '[') { // CSI
-                c = '[';
+                c = '\E' << 8 | '[';
                 while (true) {
-                        c = (c & 0x7fffff) << 8;
+                        if ((c >> 56u) != 0) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Long control sequence detected!\n";
+                                return -1;
+                        }
+                        c <<= 8;
                         int tmp = GETCH();
+                        assert(tmp < 0x80); // ANSI esc seq should use only 7-bit encoding
                         debug_msg(MOD_NAME "Pressed %d\n", tmp);
                         if (tmp == EOF) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
@@ -234,7 +240,7 @@ static int get_ansi_code() {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
                         return -1;
                 }
-                c = c << 8 | tmp;
+                c = '\E' << 16 | c << 8 | tmp;
         } else {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control seqence!\n";
                 return -1;
@@ -244,7 +250,7 @@ static int get_ansi_code() {
 }
 
 #ifndef WIN32
-static int get_utf8_code(int c) {
+static int64_t get_utf8_code(int c) {
         if (c < 0xc0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF seqence!\n";
                 return -1;
@@ -260,7 +266,7 @@ static int get_utf8_code(int c) {
                 }
                 c |= tmp;
         }
-        if (ones > 4) {
+        if (ones > 7) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported UTF seqence length!\n";
                 return -1;
         }
@@ -269,7 +275,7 @@ static int get_utf8_code(int c) {
 #endif
 
 #ifdef WIN32
-static int convert_win_to_ansi_keycode(int c) {
+static int64_t convert_win_to_ansi_keycode(int c) {
         switch (c) {
         case 0xe048: return K_UP;
         case 0xe04b: return K_LEFT;
@@ -283,7 +289,7 @@ static int convert_win_to_ansi_keycode(int c) {
 }
 #endif
 
-static string get_keycode_representation(int ch) {
+static string get_keycode_representation(int64_t ch) {
         switch (ch) {
         case K_UP: return "KEY_UP";
         case K_DOWN: return "KEY_DOWN";
@@ -318,7 +324,7 @@ void keyboard_control::run()
                 usleep(200000);
                 while (kbhit()) {
 #endif
-                        int c = GETCH();
+                        int64_t c = GETCH();
                         debug_msg(MOD_NAME "Pressed %d\n", c);
                         if (c == '\E') {
                                 if ((c = get_ansi_code()) == -1) {
