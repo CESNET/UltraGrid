@@ -71,7 +71,7 @@ int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
         ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
 
         if(ret < 0){
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to create hwdevice!!\n");
+                log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to create hwdevice!!\n");
                 return ret;
         }
 
@@ -79,7 +79,8 @@ int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
 }
 
 int create_hw_frame_ctx(AVBufferRef *device_ref,
-                AVCodecContext *s,
+                int width,
+                int height,
                 enum AVPixelFormat format,
                 enum AVPixelFormat sw_format,
                 int decode_surfaces,
@@ -87,14 +88,14 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
 {
         *ctx = av_hwframe_ctx_alloc(device_ref);
         if(!*ctx){
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Failed to allocate hwframe_ctx!!\n");
+                log_msg(LOG_LEVEL_ERROR, "[hw accel] Failed to allocate hwframe_ctx!!\n");
                 return -1;
         }
 
         AVHWFramesContext *frames_ctx = (AVHWFramesContext *) (*ctx)->data;
         frames_ctx->format    = format;
-        frames_ctx->width     = s->coded_width;
-        frames_ctx->height    = s->coded_height;
+        frames_ctx->width     = width;
+        frames_ctx->height    = height;
         frames_ctx->sw_format = sw_format;
         frames_ctx->initial_pool_size = decode_surfaces;
 
@@ -102,7 +103,7 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
         if (ret < 0) {
                 av_buffer_unref(ctx);
                 *ctx = NULL;
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to init hwframe_ctx!!\n\n");
+                log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to init hwframe_ctx!!\n\n");
                 return ret;
         }
 

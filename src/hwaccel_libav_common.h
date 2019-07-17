@@ -101,7 +101,8 @@ int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref);
  * @param decode_surfaces Initial pool size
  */
 int create_hw_frame_ctx(AVBufferRef *device_ref,
-                AVCodecContext *s,
+                int width,
+                int height,
                 enum AVPixelFormat format,
                 enum AVPixelFormat sw_format,
                 int decode_surfaces,

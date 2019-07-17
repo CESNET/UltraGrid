@@ -61,7 +61,8 @@ int vdpau_init(struct AVCodecContext *s,
 
         AVBufferRef *hw_frames_ctx = NULL;
         ret = create_hw_frame_ctx(device_ref,
-                        s,
+                        s->coded_width,
+                        s->coded_height,
                         AV_PIX_FMT_VDPAU,
                         s->sw_pix_fmt,
                         DEFAULT_SURFACES,
