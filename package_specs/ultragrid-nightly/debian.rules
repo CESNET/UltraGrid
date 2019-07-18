@@ -1,6 +1,7 @@
 #!/usr/bin/make -f
 
 SHELL=/bin/bash
+PACKAGE=ultragrid-nightly
 DEB_UPSTREAM_URL = https://github.com/CESNET/UltraGrid
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
@@ -12,6 +13,7 @@ CARDCONF_AJA=--disable-aja
 CUDA=--disable-cuda
 VAAPI=--disable-lavc-hw-accel-vaapi
 VDPAU=--disable-lavc-hw-accel-vdpau
+CINEFORM=--disable-cineform
 
 #####################################################
 # > bluefish
@@ -69,6 +71,13 @@ VDPAU=--enable-lavc-hw-accel-vdpau
 #####################################################
 # < vdpau
 #####################################################
+#####################################################
+# > cineform
+#####################################################
+CINEFORM=--enable-cineform
+#####################################################
+# < cineform
+#####################################################
 
 CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DELTACAST) $(CARDCONF_AJA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
@@ -79,6 +88,7 @@ UGLIBDIR=$(LIBDIR)/ultragrid
 
 override_dh_auto_configure:
 	./autogen.sh || true
+	echo "$(CINEFORM)"  ; test "$(CINEFORM)" = "--enable-cineform" && pushd cineform-sdk && cmake -DCMAKE_INSTALL_PREFIX=/usr . && make && popd
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
 		--enable-sdl2 --enable-gl --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
@@ -87,6 +97,7 @@ override_dh_auto_configure:
 		--enable-v4l2 --enable-gpl-build --enable-libavcodec --enable-scale --enable-uyvy \
 		--disable-rtsp \
 		--enable-video-mixer --enable-swmix --enable-ihdtv \
+		$(CINEFORM) \
 		$(VDPAU) \
 		$(VAAPI) \
 		$(CUDA) \
@@ -96,13 +107,13 @@ override_dh_auto_configure:
 #	dh_auto_build -- LDFLAGS="$$LDFLAGS -Wl,-rpath=$(UGLIBDIR)"
 
 override_dh_auto_install:
-	mkdir -p debian/ultragrid-nightly
-	mkdir -p debian/ultragrid*/usr/share/doc/ultragrid
-	mkdir -p debian/ultragrid*/$(UGLIBDIR)
-	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/ultragrid*/usr/share/doc/ultragrid/ultragrid-nightly.version
-	cp speex-*/COPYING debian/ultragrid*/usr/share/doc/ultragrid/COPYING-speex
-	cp dxt_compress/LICENSE debian/ultragrid*/usr/share/doc/ultragrid/LICENSE-dxt_compress
-	cp dxt_compress/LICENSE-rtdxt debian/ultragrid*/usr/share/doc/ultragrid/
+	mkdir -p debian/$(PACKAGE)/usr/share/doc/ultragrid
+	mkdir -p debian/$(PACKAGE)/$(UGLIBDIR)
+	echo $(DEB_VERSION_UPSTREAM)-$(DEB_VERSION_UPSTREAM_REVISION) > debian/$(PACKAGE)/usr/share/doc/ultragrid/ultragrid.version
+	cp speex-*/COPYING debian/$(PACKAGE)/usr/share/doc/ultragrid/COPYING-speex
+	cp dxt_compress/LICENSE debian/$(PACKAGE)/usr/share/doc/ultragrid/LICENSE-dxt_compress
+	cp dxt_compress/LICENSE-rtdxt debian/$(PACKAGE)/usr/share/doc/ultragrid/
+	test "$(CINEFORM)" = "--enable-cineform" && cp cineform-sdk/LICENSE.txt debian/$(PACKAGE)/usr/share/doc/ultragrid/LICENSE-cineform.txt
 	dh_auto_install
 #	cp ${DELTACAST_DIRECTORY}/License.txt usr/share/doc/ultragrid/LICENSE-Deltacast
 #	mkdir -p debian/tmp/$(UGLIBDIR)

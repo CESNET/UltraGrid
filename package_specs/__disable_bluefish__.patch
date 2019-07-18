@@ -13,7 +13,7 @@ diff -rupN a/ultragrid/debian.rules b/ultragrid/debian.rules
 diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 --- a/ultragrid/ultragrid.spec.tpl
 +++ b/ultragrid/ultragrid.spec.tpl
-@@ -126,7 +126,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -127,7 +127,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################
@@ -25,7 +25,7 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 --- a/ultragrid-nightly/debian.rules
 +++ b/ultragrid-nightly/debian.rules
-@@ -16,7 +16,7 @@ VDPAU=--disable-lavc-hw-accel-vdpau
+@@ -18,7 +18,7 @@ CINEFORM=--disable-cineform
  #####################################################
  # > bluefish
  #####################################################
@@ -37,7 +37,7 @@ diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 diff -rupN a/ultragrid-nightly/ultragrid-nightly.spec.tpl b/ultragrid-nightly/ultragrid-nightly.spec.tpl
 --- a/ultragrid-nightly/ultragrid-nightly.spec.tpl
 +++ b/ultragrid-nightly/ultragrid-nightly.spec.tpl
-@@ -126,7 +126,7 @@ UltraGrid developed by Colin Perkins, La
+@@ -137,7 +137,7 @@ UltraGrid developed by Colin Perkins, La
  #####################################################
  # > bluefish
  #####################################################

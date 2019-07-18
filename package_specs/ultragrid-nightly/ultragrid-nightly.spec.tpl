@@ -44,6 +44,14 @@ BuildRequires:	glib2-devel, libcurl-devel
 #####################################################
 # < cuda
 #####################################################
+#####################################################
+# > cineform
+#####################################################
+%define build_cineform 1
+#####################################################
+# < cineform
+#####################################################
+
 
 %if 0%{?cuda} > 0
 	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
@@ -69,6 +77,9 @@ BuildRequires:	cuda-core-9-2, cuda-command-line-tools-9-2, cuda-cudart-dev-9-2, 
 BuildRequires:	libgpujpeg-devel
 %else
 	%define cudaconf --disable-cuda
+%endif
+%if 0%{?build_cineform} > 0
+BuildRequires:	libuuid-devel
 %endif
 
 %define build_conference 1
@@ -165,6 +176,10 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 %setup -q
 
 %build
+%if 0%{?build_cineform} > 0
+	pushd cineform-sdk && cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} . && make && popd
+%endif
+
 # need to run autogen as configure.ac is patched during setup
 ./autogen.sh || true
 
@@ -185,6 +200,11 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 		--disable-video-mixer \
 	%endif
 	%{?cudaconf} \
+	%if 0%{?build_cineform} > 0
+		--enable-cineform \
+	%else
+		--disable-cineform \
+	%endif
 	%if 0%{?cuda} > 0
 		--enable-jpeg \
 	%else
@@ -240,10 +260,12 @@ echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-n
 sh -c "$(ldd bin/uv $(find . -name '*.so*') 2>/dev/null | grep cudart | grep -E '^[[:space:]]+' | sed -r "s#[[:space:]]+([^[:space:]]+)[[:space:]]+=>[[:space:]]+([^[:space:]].*)[[:space:]]+[(][^)]+[)]#cp \"\$(realpath '\2')\" '${RPM_BUILD_ROOT}/%{UGLIBDIR}/\1'#g" | uniq | tr $'\n' ';')"
 %endif
 
+%if 0%{?build_cineform} > 0
+cp cineform-sdk/LICENSE.txt ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/LICENSE-cineform.txt
+%endif
 cp speex-*/COPYING ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/COPYING-speex
 cp dxt_compress/LICENSE ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/LICENSE-dxt_compress
 cp dxt_compress/LICENSE-rtdxt ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid/
-
 
 # dependencies
 find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-provides > install-provides
@@ -311,6 +333,11 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %if 0%{?build_deltacast} > 0
 %{_libdir}/ultragrid/ultragrid_vidcap_deltacast.so
 %{_libdir}/ultragrid/ultragrid_display_deltacast.so
+%endif
+%if 0%{?build_cineform} > 0
+# cineformni
+%{_libdir}/ultragrid/ultragrid_vcompress_cineform.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_cineform.so
 %endif
 %{_libdir}/ultragrid/ultragrid_display_sdl*.so
 # rtsp is broken with current live555

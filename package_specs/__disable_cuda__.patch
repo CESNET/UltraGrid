@@ -25,7 +25,7 @@ diff -rupN a/ultragrid/ultragrid.spec.tpl b/ultragrid/ultragrid.spec.tpl
 diff -rupN a/ultragrid-nightly/debian.rules b/ultragrid-nightly/debian.rules
 --- a/ultragrid-nightly/debian.rules
 +++ b/ultragrid-nightly/debian.rules
-@@ -51,7 +51,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
+@@ -53,7 +53,7 @@ CARDCONF_AJA= --enable-aja --with-aja=/u
  #####################################################
  # > cuda
  #####################################################

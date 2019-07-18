@@ -1,2 +1,3 @@
 debian-disable-hwaccel.patch
 debian-disable-gui.patch
+cineform-min-cmake.patch
