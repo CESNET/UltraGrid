@@ -338,6 +338,7 @@ void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
+#if LIBAVFORMAT_VERSION_MAJOR > 57 || (LIBAVFORMAT_VERSION_MAJOR == 57 && LIBAVFORMAT_VERSION_MINOR >= 23)
 void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
@@ -397,6 +398,7 @@ void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict i
                 }
         }
 }
+#endif
 
 void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
@@ -1493,6 +1495,7 @@ void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_
         free(tmp);
 }
 
+#if LIBAVFORMAT_VERSION_MAJOR > 57 || (LIBAVFORMAT_VERSION_MAJOR == 57 && LIBAVFORMAT_VERSION_MINOR >= 23)
 void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -1585,6 +1588,7 @@ void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 }
         }
 }
+#endif
 
 #ifdef HWACC_VDPAU
 void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,

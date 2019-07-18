@@ -853,10 +853,20 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         sort(available_formats.begin(), available_formats.end(), [bits_per_comp, is_rgb, preferred_subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
                 const struct AVPixFmtDescriptor *pdb = av_pix_fmt_desc_get(b);
+#if defined(FF_API_PLUS1_MINUS1)
                 int deptha = pda->comp[0].depth;
                 int depthb = pdb->comp[0].depth;
+#else
+                int deptha = pda->comp[0].depth_minus1;
+                int depthb = pdb->comp[0].depth_minus1;
+#endif
+#if defined(AV_PIX_FMT_FLAG_RGB)
                 bool rgba = pda->flags & AV_PIX_FMT_FLAG_RGB;
                 bool rgbb = pdb->flags & AV_PIX_FMT_FLAG_RGB;
+#else
+                bool rgba = pda->flags & PIX_FMT_RGB;
+                bool rgbb = pdb->flags & PIX_FMT_RGB;
+#endif
                 int subsa = get_subsampling(a);
                 int subsb = get_subsampling(b);
 
