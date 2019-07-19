@@ -11,6 +11,7 @@
 
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
+#include "audio/codec.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "messaging.h"
@@ -292,6 +293,12 @@ void print_capabilities(struct module *root, bool use_vidcap)
                         cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ")\n";
                 }
                 free(devices);
+        }
+
+        // audio compressions
+        auto codecs = get_audio_codec_list();
+        for(const auto& codec : codecs){
+                cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
 }
 

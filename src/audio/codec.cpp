@@ -90,24 +90,37 @@ struct audio_codec_state {
         int bitrate;
 };
 
+std::vector<std::pair<std::string, bool>> get_audio_codec_list(void){
+        std::vector<std::pair<std::string, bool>> ret;
+
+        for (auto const &it : audio_codec_info) {
+                if(it.first != AC_NONE) {
+                        struct audio_codec_state *st = (struct audio_codec_state *)
+                                audio_codec_init_real(get_name_to_audio_codec(it.first),
+                                                AUDIO_CODER, true);
+                        bool available = false;
+                        if(st){
+                                available = true;
+                                audio_codec_done(st);
+                        }
+                        ret.emplace_back(it.second.name, available);
+                }
+        }
+
+        return ret;
+}
+
 void list_audio_codecs(void) {
         printf("Syntax:\n");
         printf("\t--audio-codec <audio_codec>[:sample_rate=<sampling_rate>][:bitrate=<bitrate>]\n");
         printf("\n");
         printf("Supported audio codecs:\n");
-        for (auto const &it : audio_codec_info) {
-                if(it.first != AC_NONE) {
-                        printf("\t%s", it.second.name);
-                        struct audio_codec_state *st = (struct audio_codec_state *)
-                                audio_codec_init_real(get_name_to_audio_codec(it.first),
-                                                AUDIO_CODER, true);
-                        if(!st) {
-                                printf(" - unavailable");
-                        } else {
-                                audio_codec_done(st);
-                        }
-                        printf("\n");
-                }
+        for (auto const &it : get_audio_codec_list()) {
+                printf("\t%s", it.first.c_str());
+                if(!it.second) {
+                        printf(" - unavailable");
+                } 
+                printf("\n");
         }
 }
 
