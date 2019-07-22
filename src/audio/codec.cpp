@@ -59,7 +59,8 @@
 
 #include "lib_common.h"
 
-#include <limits.h>
+#include <algorithm>
+#include <climits>
 #include <unordered_map>
 
 using namespace std;
@@ -297,16 +298,16 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *f
                 fprintf(stderr, "[Audio decompress] Empty channel returned !\n");
                 return {};
         }
-        /// @todo
-        /// Drop the whole frame? It seems to be better to avoid filling remaining with silence
-        /// since it
-        /// could cause problems if we didn't miss any data but we are processing data from
-        /// different channels not simultaneously.
-        for(int i = 1; i < frame->get_channel_count(); ++i) {
-                if(ret.get_data_len(i) != ret.get_data_len(0)) {
-                        fprintf(stderr, "[Audio decompress] Inequal channel length detected (%zd vs %zd)!\n",
-                                        ret.get_data_len(0), ret.get_data_len(i));
-                        return {};
+        int max_len = 0;
+        for(int i = 0; i < frame->get_channel_count(); ++i) {
+                max_len = max<int>(max_len, ret.get_data_len(i));
+        }
+        for(int i = 0; i < frame->get_channel_count(); ++i) {
+                int len = ret.get_data_len(i);
+                if (len != max_len) {
+                        LOG(LOG_LEVEL_WARNING) << "[Audio decompress] Inequal channel length detected (" << ret.get_data_len(i) << " vs " << max_len << ")!\n",
+                        ret.resize(i, max_len);
+                        memset(ret.get_data(i) + len, 0, max_len - len);
                 }
         }
 
