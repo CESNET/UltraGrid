@@ -2,15 +2,15 @@
 #Script for nightly build
 
 function is_build_enabled() {
-	threshold=$((14*24*60*60))
-	repo="$1"
+	local threshold=$((14*24*60*60))
+	local repo="$1"
 	for arch in $(osc repos | grep -E "\b$repo\b" | sed -r -e 's#^[^\s]+ ##g') ; do
-		builddate=$(osc buildhist  --limit 3 "$repo" "$arch" | tail -n +2 | tail -n 1 | sed -r 's#^([0-9-]+\s[0-9:-]+).*$#\1#g')
+		local builddate=$(osc buildhist  --limit 3 "$repo" "$arch" | tail -n +2 | tail -n 1 | sed -r 's#^([0-9-]+\s[0-9:-]+).*$#\1#g')
 		if test -z "$builddate" ; then
 			continue
 		fi
 
-		builddate=$(date -d "$builddate" '+%s')
+		local builddate=$(date -d "$builddate" '+%s')
 		if test $(($builddate + $threshold)) -gt $(date '+%s') ; then
 			return 0
 		fi
@@ -20,8 +20,8 @@ function is_build_enabled() {
 }
 
 function makelof(){
-	repo="$1"
-	rm binaries/$repo/.fulllist
+	local repo="$1"
+	rm -f binaries/$repo/.fulllist
 	for file in binaries/$repo/* ; do
 		if ! test -f $file ; then
 			continue
@@ -55,16 +55,16 @@ function makereference(){
 }
 
 function gencomp(){
-	reference="$1"
+	local reference="$1"
 	for stat in pkghealth/* ; do
-		reponame=$(echo $stat | cut -d/ -f2)
+		local reponame=$(echo $stat | cut -d/ -f2)
 		comm -2 -3 $stat $reference > stats/$reponame.extras
 		comm -1 -3 $stat $reference > stats/$reponame.missing
 	done
 }
 
 function launch() {
-	PACKAGE="$1"
+	local PACKAGE="$1"
 
 	pushd "$PACKAGE"
 	osc update
@@ -84,7 +84,7 @@ function launch() {
 		makelof $repo  > pkghealth/$repo
 	done
 
-	reference=$(makereference)
+	local reference=$(makereference)
 	rm pkghealth/_sort*
 
 	rm -rf stats
@@ -115,17 +115,17 @@ function usage() {
 }
 
 function launch_diff() {
-	PACKAGE="$1"
-	DIFFFILE="$2"
+	local PACKAGE="$1"
+	local DIFFFILE="$2"
 	if [ -n "$DIFFFILE" ] ; then
-		tmpfile=$(mktemp)
-		exval=0
+		local tmpfile=$(mktemp)
+		local exval=0
 		mkdir -p "$(dirname "$DIFFFILE")"
 		touch "$DIFFFILE"
 		launch "$PACKAGE" >"$tmpfile" 2>&1 || exval=$?
 		diff "$tmpfile" "$DIFFFILE"
-		xv=$?
-		exval=$(($exval + $xv))
+		local xv=$?
+		local exval=$(($exval + $xv))
 		mv "$tmpfile" "$DIFFFILE"
 		return $exval
 	else
@@ -164,11 +164,11 @@ absolute_path_test_regex="^/.*$"
 [[ "$BASE" =~ $absolute_path_test_regex ]] || BASE="$(realpath "${BASE}")"
 [[ "$PACKAGE" =~ $absolute_path_test_regex ]] || PACKAGE="${BASE}/${PACKAGE}"
 
-if tty -s ; then
-	launch_diff "$PACKAGE" "$DIFFFILE" 
-else
+#if tty -s ; then
+#	launch_diff "$PACKAGE" "$DIFFFILE" 
+#else
 	tmpfile=$(mktemp)
 	launch_diff "$PACKAGE" "$DIFFFILE" >"$tmpfile" 2>&1 || cat "$tmpfile"
 	rm "$tmpfile"
-fi
+#fi
 

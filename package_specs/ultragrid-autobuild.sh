@@ -35,7 +35,7 @@ function launch() {
 		return 1
 	fi
 
-	DATE=$(git log --date=short "$REF" | head -n 3 | tail -n 1 | sed 's/[Date: -]//g')
+	DATE=$(git log --date=short "$REF" | grep -E '^Date:\s+' | head -n 20 | sed 's/[Date: -]//g' | sort -n -r | head -n 1)
 
 	popd
 	pushd "$PACKAGE"
