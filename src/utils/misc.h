@@ -38,10 +38,13 @@
 #ifndef UTILS_MISC_H_
 #define UTILS_MISC_H_
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+bool is_wine(void);
 long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str);
 

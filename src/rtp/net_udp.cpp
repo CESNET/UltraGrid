@@ -54,6 +54,7 @@
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
+#include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
 
@@ -66,11 +67,13 @@
 #include <chrono>
 #include <mutex>
 #include <queue>
+#include <utility> // std::swap
 
 using std::condition_variable;
 using std::max;
 using std::mutex;
 using std::queue;
+using std::swap;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
@@ -139,7 +142,8 @@ struct item {
  */
 struct socket_udp_local {
         int mode;               /* IPv4 or IPv6 */
-        fd_t fd;
+        fd_t rx_fd;
+        fd_t tx_fd;
         bool multithreaded;
 #ifdef WIN32
         bool is_wsa_overlapped;
@@ -548,7 +552,7 @@ static char *udp_host_addr6(socket_udp * s)
         }
         addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
 	len = sizeof bound;
-	if (getsockname(s->local->fd, (struct sockaddr *)&bound, &len) == -1) {
+	if (getsockname(s->local->rx_fd, (struct sockaddr *)&bound, &len) == -1) {
 		perror("getsockname");
 		addr6.sin6_port = 0;
 	} else {
@@ -656,6 +660,65 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
         return udp_init_if(addr, NULL, rx_port, tx_port, ttl, force_ip_version, multithreaded);
 }
 
+static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
+        struct sockaddr_storage s_in{};
+        socklen_t sin_len;
+        int reuse = 1;
+        int ipv6only = 0;
+
+        if (ipv6) {
+                if (SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
+                                        sizeof(ipv6only)) != 0) {
+                        socket_error("setsockopt IPV6_V6ONLY");
+                        return false;
+                }
+        }
+#ifdef SO_REUSEPORT
+        if (SETSOCKOPT
+            (fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
+             sizeof(reuse)) != 0) {
+                socket_error("setsockopt SO_REUSEPORT");
+                return false;
+        }
+#endif
+        if (SETSOCKOPT
+            (fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
+             sizeof(reuse)) != 0) {
+                socket_error("setsockopt SO_REUSEADDR");
+                return false;
+        }
+
+        if (!ipv6) {
+                struct sockaddr_in *s_in4 = (struct sockaddr_in *) &s_in;
+                s_in4->sin_family = AF_INET;
+                s_in4->sin_addr.s_addr = htonl(INADDR_ANY);
+                s_in4->sin_port = htons(rx_port);
+                sin_len = sizeof(struct sockaddr_in);
+        } else {
+#ifdef HAVE_IPv6
+                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                s_in6->sin6_family = AF_INET6;
+                s_in6->sin6_addr = in6addr_any;
+                s_in6->sin6_port = htons(rx_port);
+#ifdef HAVE_SIN6_LEN
+                s_in6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
+                sin_len = sizeof(struct sockaddr_in6);
+#endif
+        }
+        if (bind(fd, (struct sockaddr *)&s_in, sin_len) != 0) {
+                socket_error("bind");
+#ifdef WIN32
+                log_msg(LOG_LEVEL_ERROR, "Check if there is no service running on UDP port %d. ", rx_port);
+                if (rx_port == 5004 || rx_port == 5005)
+                        log_msg(LOG_LEVEL_ERROR, "Windows Media Services is usually a good candidate to check and disable.\n");
+#endif
+                return false;
+        }
+
+        return true;
+}
+
 ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
@@ -679,14 +742,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded)
 {
         int ret;
-        int reuse = 1;
-        int ipv6only = 0;
-        struct sockaddr_storage s_in{};
-        socklen_t sin_len;
         unsigned int ifindex;
         socket_udp *s = new socket_udp();
         s->local = new socket_udp_local();
-        s->local->fd = INVALID_SOCKET;
+        s->local->rx_fd =
+                s->local->tx_fd = INVALID_SOCKET;
 
         assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
         s->local->mode = force_ip_version;
@@ -713,70 +773,42 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->local->is_wsa_overlapped = true;
         }
 
-        s->local->fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+        s->local->rx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+        /**
+         * @todo
+         * Check what is needed for multicast.
+         */
+        if (is_addr_multicast(addr)) {
+                s->local->tx_fd = s->local->rx_fd;
+        } else {
+                s->local->tx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+        }
 #else
-        s->local->fd = socket(s->sock.ss_family, SOCK_DGRAM, 0);
+        s->local->rx_fd =
+                s->local->tx_fd = socket(s->sock.ss_family, SOCK_DGRAM, 0);
 #endif
-        if (s->local->fd == INVALID_SOCKET) {
+        if (s->local->rx_fd == INVALID_SOCKET ||
+                        s->local->tx_fd == INVALID_SOCKET) {
                 socket_error("Unable to initialize socket");
                 goto error;
         }
-        if (s->local->mode == IPv6) {
-                if (SETSOCKOPT(s->local->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
-                                        sizeof(ipv6only)) != 0) {
-                        socket_error("setsockopt IPV6_V6ONLY");
-                        goto error;
-                }
-        }
-#ifdef SO_REUSEPORT
-        if (SETSOCKOPT
-            (s->local->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEPORT");
+        // Set properties and bind
+        // The order here is important if using separate socket for RX and TX - in
+        // MSW, first bound socket receives data, in Linux (with Wine) the
+        // second.
+        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port) ||
+                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port))) {
                 goto error;
         }
-#endif
-        if (SETSOCKOPT
-            (s->local->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEADDR");
-                goto error;
-        }
-        if (s->local->mode == IPv4) {
-                struct sockaddr_in *s_in4 = (struct sockaddr_in *) &s_in;
-                s_in4->sin_family = AF_INET;
-                s_in4->sin_addr.s_addr = htonl(INADDR_ANY);
-                s_in4->sin_port = htons(rx_port);
-                sin_len = sizeof(struct sockaddr_in);
-        } else if (s->local->mode == IPv6) {
-#ifdef HAVE_IPv6
-                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
-                s_in6->sin6_family = AF_INET6;
-                s_in6->sin6_addr = in6addr_any;
-                s_in6->sin6_port = htons(rx_port);
-#ifdef HAVE_SIN6_LEN
-                s_in6->sin6_len = sizeof(struct sockaddr_in6);
-#endif
-                sin_len = sizeof(struct sockaddr_in6);
-#endif
-        } else {
-                abort();
-        }
-        if (bind(s->local->fd, (struct sockaddr *)&s_in, sin_len) != 0) {
-                socket_error("bind");
-#ifdef WIN32
-                log_msg(LOG_LEVEL_ERROR, "Check if there is no service running on UDP port %d. ", rx_port);
-                if (rx_port == 5004 || rx_port == 5005)
-                        log_msg(LOG_LEVEL_ERROR, "Windows Media Services is usually a good candidate to check and disable.\n");
-#endif
-                goto error;
+        if (is_wine()) {
+                swap(s->local->rx_fd, s->local->tx_fd);
         }
 
         // if we do not set tx port, fake that is the same as we are bound to
         if (tx_port == 0) {
                 struct sockaddr_storage sin;
                 socklen_t addrlen = sizeof(sin);
-                if (getsockname(s->local->fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                if (getsockname(s->local->rx_fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
                                 sin.ss_family == s->sock.ss_family) {
                         if (s->local->mode == IPv4) {
                                 struct sockaddr_in *s_in4 = (struct sockaddr_in *) &sin;
@@ -784,7 +816,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                                 ((struct sockaddr_in *) &s->sock)->sin_port = s_in4->sin_port;
                         } else if (s->local->mode == IPv6) {
 #ifdef HAVE_IPv6
-                                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                                struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &sin;
                                 tx_port = ntohs(s_in6->sin6_port);
                                 ((struct sockaddr_in6 *) &s->sock)->sin6_port = s_in6->sin6_port;
 #endif
@@ -796,12 +828,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         switch (s->local->mode) {
         case IPv4:
-                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, ttl, ifindex)) {
                         goto error;
                 }
                 break;
         case IPv6:
-                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, ttl, ifindex)) {
                         goto error;
                 }
                 break;
@@ -823,8 +855,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         return s;
 
 error:
-        if (s->local->fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->local->fd);
+        if (s->local->rx_fd != INVALID_SOCKET) {
+                CLOSESOCKET(s->local->rx_fd);
+        }
+        if (s->local->tx_fd != s->local->rx_fd ||
+                        s->local->tx_fd != INVALID_SOCKET) {
+                CLOSESOCKET(s->local->tx_fd);
         }
         delete s->local;
         delete s;
@@ -883,10 +919,10 @@ void udp_exit(socket_udp * s)
 {
         switch (s->local->mode) {
         case IPv4:
-                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->fd);
+                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd);
                 break;
         case IPv6:
-                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->fd);
+                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd);
                 break;
         default:
                 abort();
@@ -907,7 +943,10 @@ void udp_exit(socket_udp * s)
                         }
                         platform_pipe_close(s->local->should_exit_fd[1]);
                 }
-                CLOSESOCKET(s->local->fd);
+                CLOSESOCKET(s->local->rx_fd);
+                if (s->local->tx_fd != s->local->rx_fd) {
+                        CLOSESOCKET(s->local->tx_fd);
+                }
                 delete s->local;
         }
 
@@ -932,13 +971,13 @@ int udp_send(socket_udp * s, char *buffer, int buflen)
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        return sendto(s->local->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
+        return sendto(s->local->tx_fd, buffer, buflen, 0, (struct sockaddr *)&s->sock,
                       s->sock_len);
 }
 
 int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen)
 {
-        return sendto(s->local->fd, buffer, buflen, 0, dst_addr, addrlen);
+        return sendto(s->local->tx_fd, buffer, buflen, 0, dst_addr, addrlen);
 }
 
 #ifdef WIN32
@@ -949,7 +988,7 @@ int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
         assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
 
 	DWORD bytesSent;
-	int ret = WSASendTo(s->local->fd, vector, count, &bytesSent, 0,
+	int ret = WSASendTo(s->local->tx_fd, vector, count, &bytesSent, 0,
 		(struct sockaddr *) &s->sock,
 		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
         if (s->overlapping_active) {
@@ -980,7 +1019,7 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
         msg.msg_controllen = 0;
         msg.msg_flags = 0;
 
-        int ret = sendmsg(s->local->fd, &msg, 0);
+        int ret = sendmsg(s->local->tx_fd, &msg, 0);
         free(d);
         return ret;
 }
@@ -998,9 +1037,9 @@ static void *udp_reader(void *arg)
         while (1) {
                 fd_set fds;
                 FD_ZERO(&fds);
-                FD_SET(s->local->fd, &fds);
+                FD_SET(s->local->rx_fd, &fds);
                 FD_SET(s->local->should_exit_fd[0], &fds);
-                int nfds = max(s->local->fd, s->local->should_exit_fd[0]) + 1;
+                int nfds = max(s->local->rx_fd, s->local->should_exit_fd[0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
@@ -1013,7 +1052,7 @@ static void *udp_reader(void *arg)
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 
-                int size = recvfrom(s->local->fd, (char *) buffer,
+                int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
 
@@ -1055,7 +1094,7 @@ static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags, stru
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        len = recvfrom(s->local->fd, buffer, buflen, flags, src_addr, addrlen);
+        len = recvfrom(s->local->rx_fd, buffer, buflen, flags, src_addr, addrlen);
         if (len > 0) {
                 return len;
         }
@@ -1154,7 +1193,7 @@ int udp_recv_data(socket_udp * s, char **buffer)
 #ifndef WIN32
 int udp_recvv(socket_udp * s, struct msghdr *m)
 {
-        if (recvmsg(s->local->fd, m, 0) == -1) {
+        if (recvmsg(s->local->rx_fd, m, 0) == -1) {
                 perror("recvmsg");
                 return 1;
         }
@@ -1172,17 +1211,17 @@ int udp_recvv(socket_udp * s, struct msghdr *m)
  **/
 void udp_fd_set(socket_udp * s)
 {
-        FD_SET(s->local->fd, &rfd);
-        if (s->local->fd > (fd_t) max_fd) {
-                max_fd = s->local->fd;
+        FD_SET(s->local->rx_fd, &rfd);
+        if (s->local->rx_fd > (fd_t) max_fd) {
+                max_fd = s->local->rx_fd;
         }
 }
 
 void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
 {
-        FD_SET(s->local->fd, &fd_struct->rfd);
-        if (s->local->fd > (fd_t) fd_struct->max_fd) {
-                fd_struct->max_fd = s->local->fd;
+        FD_SET(s->local->rx_fd, &fd_struct->rfd);
+        if (s->local->rx_fd > (fd_t) fd_struct->max_fd) {
+                fd_struct->max_fd = s->local->rx_fd;
         }
 }
 
@@ -1199,12 +1238,12 @@ void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
  **/
 int udp_fd_isset(socket_udp * s)
 {
-        return FD_ISSET(s->local->fd, &rfd);
+        return FD_ISSET(s->local->rx_fd, &rfd);
 }
 
 int udp_fd_isset_r(socket_udp *s, struct udp_fd_r *fd_struct)
 {
-        return FD_ISSET(s->local->fd, &fd_struct->rfd);
+        return FD_ISSET(s->local->rx_fd, &fd_struct->rfd);
 }
 
 
@@ -1257,8 +1296,8 @@ char *udp_host_addr(socket_udp * s)
  **/
 int udp_fd(socket_udp * s)
 {
-        if (s && s->local->fd > 0) {
-                return s->local->fd;
+        if (s && s->local->rx_fd > 0) {
+                return s->local->rx_fd;
         }
         return 0;
 }
@@ -1306,14 +1345,14 @@ int udp_set_recv_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if (SETSOCKOPT(s->local->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
+        if (SETSOCKOPT(s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
+        if(GETSOCKOPT (s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 perror("Unable to get socket buffer size");
                 return FALSE;
@@ -1332,14 +1371,14 @@ int udp_set_send_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
-        if (SETSOCKOPT(s->local->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
+        if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
+        if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 perror("Unable to get socket buffer size");
                 return FALSE;
@@ -1371,10 +1410,10 @@ void udp_flush_recv_buf(socket_udp *s)
         timeout.tv_usec = 0;
 
         FD_ZERO(&select_fd);
-        FD_SET(s->local->fd, &select_fd);
+        FD_SET(s->local->rx_fd, &select_fd);
 
-        while(select(s->local->fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
-                ssize_t bytes = recv(s->local->fd, buf, len, 0);
+        while(select(s->local->rx_fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
+                ssize_t bytes = recv(s->local->rx_fd, buf, len, 0);
                 if(bytes <= 0)
                         break;
         }
@@ -1545,7 +1584,7 @@ int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_
         WSABUF vector;
         vector.buf = buffer;
         vector.len = buflen;
-        int ret = WSASendTo(s->local->fd, &vector, 1, &bytesSent, 0,
+        int ret = WSASendTo(s->local->tx_fd, &vector, 1, &bytesSent, 0,
                         (struct sockaddr *) &s->sock,
                         s->sock_len, o, l);
         if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)

@@ -118,3 +118,15 @@ double unit_evaluate_dbl(const char *str) {
         }
 }
 
+bool is_wine() {
+#ifdef WIN32
+        HMODULE hntdll = GetModuleHandle("ntdll.dll");
+        if(!hntdll) {
+                return false;
+        }
+
+        return GetProcAddress(hntdll, "wine_get_version");
+#endif
+        return false;
+}
+
