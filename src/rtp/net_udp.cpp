@@ -750,6 +750,9 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
         s->local->mode = force_ip_version;
+        if (s->local->mode == 0 && is_addr_multicast(addr)) {
+                s->local->mode = strchr(addr, '.') != nullptr ? 4 : 6;
+        }
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Can't resolve IP address for %s: %s\n", addr,
