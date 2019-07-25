@@ -608,20 +608,12 @@ static void *audio_receiver_thread(void *arg)
         struct pdb_e *cp;
         struct audio_desc device_desc{};
         bool playback_supports_multiple_streams;
-        bool nonblock = false;
 
         struct pbuf_audio_data *current_pbuf = NULL;
 
 #ifdef HAVE_JACK_TRANS
         struct pbuf_audio_data jack_pbuf{};
         current_pbuf = &jack_pbuf;
-#endif
-
-#ifdef WIN32
-        if (s->audio_tx_mode & MODE_SENDER) {
-                log_msg(LOG_LEVEL_WARNING, "Setting non-blocking receiving in MSW because sender and receiver shares a socket. Separate sender and receiver to disable this behavior\n");
-                nonblock = true;
-        }
 #endif
 
         size_t len = sizeof playback_supports_multiple_streams;
@@ -650,9 +642,6 @@ static void *audio_receiver_thread(void *arg)
                         // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the same rate
                                                              // as video frames
                         timeout.tv_usec = 1000; // this stuff really smells !!!
-                        if (nonblock) {
-                                timeout.tv_usec = 0;
-                        }
                         rtp_recv_r(s->audio_network_device, &timeout, ts);
                         pdb_iter_t it;
                         cp = pdb_iter_init(s->audio_participants, &it);
