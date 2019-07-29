@@ -90,8 +90,6 @@
 #define MODULE_NAME      "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
-#define STRINGIFY(A) #A
-
 #define MAX_BUFFER_SIZE 1
 #define SYSTEM_VSYNC 0xFE
 #define SINGLE_BUF 0xFF // use single buffering instead of double
@@ -104,7 +102,8 @@ typedef GLintptr vdpauSurfaceNV;
 
 using namespace std;
 
-static const char * yuv422_to_rgb_fp = STRINGIFY(
+static const char * yuv422_to_rgb_fp = R"raw(
+#version 110
 uniform sampler2D image;
 uniform float imageWidth;
 void main()
@@ -123,13 +122,15 @@ void main()
         gl_FragColor.g = yuv.r - 0.2132 * yuv.g + tmp;
         gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
         gl_FragColor.a = 1.0;
-});
+}
+)raw";
 
 /* DXT YUV (FastDXT) related */
-static const char *fp_display_dxt1 = STRINGIFY(
-        uniform sampler2D yuvtex;
+static const char *fp_display_dxt1 = R"raw(
+#version 110
+uniform sampler2D yuvtex;
 
-        void main(void) {
+void main(void) {
         vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
 
         float Y = 1.1643 * (col[0] - 0.0625);
@@ -142,15 +143,18 @@ static const char *fp_display_dxt1 = STRINGIFY(
 
         gl_FragColor=vec4(R,G,B,1.0);
 }
-);
+)raw";
 
-static const char * vert = STRINGIFY(
+static const char * vert = R"raw(
+#version 110
 void main() {
         gl_TexCoord[0] = gl_MultiTexCoord0;
-        gl_Position = ftransform();}
-);
+        gl_Position = ftransform();
+}
+)raw";
 
-static const char fp_display_dxt5ycocg[] = STRINGIFY(
+static const char fp_display_dxt5ycocg[] = R"raw(
+#version 110
 uniform sampler2D image;
 void main()
 {
@@ -166,7 +170,7 @@ void main()
         Y = color.w;
         gl_FragColor = vec4(Y + Co - Cg, Y + Cg, Y - Co - Cg, 1.0);
 } // main end
-);
+)raw";
 
 #ifdef HWACC_VDPAU
 struct state_vdpau {
