@@ -56,6 +56,7 @@
 #include <string.h>
 
 #define MAX_PORTS 64
+#define MOD_NAME "[JACK playback] "
 
 #ifndef __cplusplus
 #define min(a, b)      (((a) < (b))? (a): (b))
@@ -81,10 +82,15 @@ static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) arg;
 
-        log_msg(LOG_LEVEL_WARNING, "JACK sample rate changed from %d to %d. "
-                        "Runtime change is not supported in UG and will likely "
-                        "cause malfunctioning. If so, pleaser report to %s.",
-                        s->jack_sample_rate, nframes, PACKAGE_BUGREPORT);
+        if (s->jack_sample_rate != 0) {
+                log_msg(LOG_LEVEL_WARNING, "JACK sample rate changed from %d to %d. "
+                                "Runtime change is not supported in UG and will likely "
+                                "cause malfunctioning. If so, pleaser report to %s.",
+                                s->jack_sample_rate, nframes, PACKAGE_BUGREPORT);
+        } else {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Sample rate changed to: %d\n",
+                                nframes);
+        }
 
         s->jack_sample_rate = nframes;
 
@@ -241,6 +247,11 @@ static bool audio_play_jack_query_format(struct state_jack_playback *s, void *da
                 memcpy(&desc, data, sizeof desc);
         }
 
+        if (s->jack_sample_rate <= 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong JACK sample rate detected: %d!",
+                                s->jack_sample_rate);
+                return false;
+        }
         desc = (struct audio_desc){4, s->jack_sample_rate, min(s->jack_ports_count, desc.ch_count), AC_PCM};
 
         memcpy(data, &desc, sizeof desc);
