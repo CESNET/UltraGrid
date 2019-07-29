@@ -355,7 +355,7 @@ static int udp_addr_valid4(const char *dst)
         return FALSE;
 }
 
-static int udp_join_mcast_grp4(unsigned long addr, int fd, int ttl, unsigned int ifindex)
+static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
 {
         if (IN_MULTICAST(ntohl(addr))) {
 #ifndef WIN32
@@ -367,27 +367,27 @@ static int udp_join_mcast_grp4(unsigned long addr, int fd, int ttl, unsigned int
                 imr.imr_interface.s_addr = ifindex;
 
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
+                    (rx_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_ADD_MEMBERSHIP");
                         return FALSE;
                 }
 #ifndef WIN32
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
+                    (tx_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_LOOP");
                         return FALSE;
                 }
 #endif
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
+                    (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_TTL");
                         return FALSE;
                 }
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IP, IP_MULTICAST_IF,
+                    (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
                      (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_IF");
                         return FALSE;
@@ -457,7 +457,7 @@ static int udp_addr_valid6(const char *dst)
         return FALSE;
 }
 
-static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int fd, int ttl, unsigned int ifindex)
+static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
 {
 #ifdef HAVE_IPv6
         if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
@@ -472,25 +472,25 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int fd, int ttl, unsig
 #endif
 
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
+                    (rx_fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_ADD_MEMBERSHIP");
                         return FALSE;
                 }
 
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&loop,
+                    (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
                         return FALSE;
                 }
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
+                    (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_HOPS");
                         return FALSE;
                 }
-                if (SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+                if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_IF");
                         return FALSE;
@@ -722,6 +722,10 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
 ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
+#ifdef WIN32
+ADD_TO_PARAM(udp_disable_multi_socket, "udp-disable-multi-socket",
+         "* disable separate sockets for RX and TX (Win only)\n");
+#endif
 /**
  * udp_init_if:
  * Creates a session for sending and receiving UDP datagrams over IP
@@ -777,11 +781,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         }
 
         s->local->rx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
-        /**
-         * @todo
-         * Check what is needed for multicast.
-         */
-        if (is_addr_multicast(addr)) {
+        if (get_commandline_param("udp-disable-multi-socket")) {
                 s->local->tx_fd = s->local->rx_fd;
         } else {
                 s->local->tx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
@@ -831,12 +831,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         switch (s->local->mode) {
         case IPv4:
-                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, s->local->tx_fd, ttl, ifindex)) {
                         goto error;
                 }
                 break;
         case IPv6:
-                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->local->tx_fd, ttl, ifindex)) {
                         goto error;
                 }
                 break;
