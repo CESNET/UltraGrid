@@ -183,7 +183,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 return NULL;
         } else {
                 if (!silent) {
-                        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using audio encoder: %s\n", s->codec->name);
+                        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using audio %scoder: %s\n", s->codec->name,
+                                        direction == AUDIO_CODER ? "en" : "de");
                 }
         }
 
