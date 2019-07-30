@@ -459,7 +459,7 @@ ADD_TO_PARAM(audio_buffer_len, "audio-buffer-len", "* audio-buffer-len=<ms>\n"
 ADD_TO_PARAM(audio_cap_frames, "audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
 ADD_TO_PARAM(audio_disable_adaptive_buffer, "audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
-                "  Disables audio adaptive playback buffer (JACK)\n");
+                "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
 ADD_TO_PARAM(low_latency_audio, "low-latency-audio", "* low-latency-audio\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n");
 ADD_TO_PARAM(window_title, "window-title", "* window-title=<title>\n"

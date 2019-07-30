@@ -62,7 +62,6 @@ using std::cout;
 
 #define NO_DATA_STOP_SEC 2
 #define MOD_NAME "[CoreAudio play.] "
-#define CA_DIS_AD_B "ca-disable-adaptive-buf"
 
 struct state_ca_playback {
 #ifndef __MAC_10_9
@@ -142,7 +141,7 @@ static bool audio_play_ca_ctl(void *state [[gnu::unused]], int request, void *da
         }
 }
 
-ADD_TO_PARAM(ca_disable_adaptive_buf, CA_DIS_AD_B, "* " CA_DIS_AD_B "\n"
+ADD_TO_PARAM(ca_disable_adaptive_buf, "ca-disable-adaptive-buf", "* ca-disable-adaptive-buf\n"
                 "  Core Audio - use fixed audio playback buffer instead of an adaptive one\n");
 static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
 {
@@ -184,7 +183,10 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
                         buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
                         assert(buf_len_ms > 0 && buf_len_ms < 10000);
                 }
-                if (get_commandline_param(CA_DIS_AD_B)) {
+                if (get_commandline_param("audio-disable-adaptive-buffer") != nullptr || get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
+                        if (get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Param \"ca-disable-adaptive-buf\" is deprecated, use audio-disable-adaptive-bufer instead.\n";
+                        }
                         int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
                         s->buffer = ring_buffer_init(buf_len);
                         s->buffer_fns = &ring_buffer_fns;
