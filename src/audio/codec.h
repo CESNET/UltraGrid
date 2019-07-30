@@ -87,6 +87,7 @@ audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
 const int *audio_codec_get_supported_samplerates(struct audio_codec_state *);
 void audio_codec_done(struct audio_codec_state *);
 
+std::vector<std::pair<std::string, bool>> get_audio_codec_list(void);
 void list_audio_codecs(void);
 
 audio_codec_t get_audio_codec(const char *audio_codec_cfg);

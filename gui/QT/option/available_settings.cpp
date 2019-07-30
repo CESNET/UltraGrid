@@ -28,29 +28,6 @@ static QStringList getProcessOutput(const std::string& executable, const std::st
 	return lines;
 }
 
-static std::vector<std::string> getAvailOpts(const std::string &opt, const std::string &executable){
-	std::vector<std::string> out;
-
-	std::string command;
-	command += " ";
-	command += opt;
-	command += " help";
-
-	QStringList lines = getProcessOutput(executable, command);
-
-	foreach ( const QString &line, lines ) {
-		if(line.size() > 0 && QChar(line[0]).isSpace()) {
-			QString opt = line.trimmed();
-			if(opt != "none"
-					&& !opt.startsWith("--")
-					&& !opt.contains("unavailable"))
-				out.push_back(line.trimmed().toStdString());
-		}
-	}
-
-	return out;
-}
-
 void AvailableSettings::queryAll(const std::string &executable){
 	QStringList lines = getProcessOutput(executable, " --capabilities");
 
@@ -60,11 +37,9 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryCap(lines, VIDEO_CAPTURE_FILTER, "[cap][capture_filter] ");
 	queryCap(lines, AUDIO_SRC, "[cap][audio_cap] ");
 	queryCap(lines, AUDIO_PLAYBACK, "[cap][audio_play] ");
+	queryCap(lines, AUDIO_COMPRESS, "[cap][audio_compress] ");
 	
 	queryCapturers(lines);
-
-	//TODO
-	query(executable, AUDIO_COMPRESS);
 
 #ifdef DEBUG
 	for(const auto &i : capturers){
@@ -146,23 +121,6 @@ void AvailableSettings::queryCap(const QStringList &lines,
 			available[type].push_back(line.mid(capStrLen).toStdString());
 		}
 	}
-}
-
-void AvailableSettings::query(const std::string &executable, SettingType type){
-	std::string opt;
-
-	switch(type){
-		case VIDEO_SRC: opt = "-t"; break;
-		case VIDEO_DISPLAY: opt = "-d"; break;
-		case VIDEO_COMPRESS: opt = "-c"; break;
-		case VIDEO_CAPTURE_FILTER: opt = "--capture-filter"; break;
-		case AUDIO_SRC: opt = "-s"; break;
-		case AUDIO_PLAYBACK: opt = "-r"; break;
-		case AUDIO_COMPRESS: opt = "--audio-codec"; break;
-		default: return;
-	}
-
-	available[type] = getAvailOpts(opt, executable);
 }
 
 bool AvailableSettings::isAvailable(const std::string &name, SettingType type) const{

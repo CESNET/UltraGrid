@@ -193,7 +193,8 @@ int vaapi_init(struct AVCodecContext *s,
                 decode_surfaces += s->thread_count;
 
         ret = create_hw_frame_ctx(ctx->device_ref,
-                        s,
+                        s->coded_width,
+                        s->coded_height,
                         AV_PIX_FMT_VAAPI,
                         s->sw_pix_fmt,
                         decode_surfaces,

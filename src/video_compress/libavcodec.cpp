@@ -73,6 +73,7 @@ extern "C"
 #include <libavutil/hwcontext_vaapi.h>
 #include <libavcodec/vaapi.h>
 }
+#include "hwaccel_libav_common.h"
 #endif
 
 #ifdef HAVE_SWSCALE
@@ -535,49 +536,6 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
 }
 
 #ifdef HWACC_VAAPI
-static int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
-        int ret;
-        ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
-
-        if(ret < 0){
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to create hwdevice!!\n");
-                return ret;
-        }
-
-        return 0;
-}
-
-static int create_hw_frame_ctx(AVBufferRef *device_ref,
-                AVCodecContext *s,
-                enum AVPixelFormat format,
-                enum AVPixelFormat sw_format,
-                int pool_size,
-                AVBufferRef **ctx)
-{
-        *ctx = av_hwframe_ctx_alloc(device_ref);
-        if(!*ctx){
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to allocate hwframe_ctx!!\n");
-                return -1;
-        }
-
-        AVHWFramesContext *frames_ctx = (AVHWFramesContext *) (*ctx)->data;
-        frames_ctx->format    = format;
-        frames_ctx->width     = s->width;
-        frames_ctx->height    = s->height;
-        frames_ctx->sw_format = sw_format;
-        frames_ctx->initial_pool_size = pool_size;
-
-        int ret = av_hwframe_ctx_init(*ctx);
-        if (ret < 0) {
-                av_buffer_unref(ctx);
-                *ctx = NULL;
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init hwframe_ctx!!\n\n");
-                return ret;
-        }
-
-        return 0;
-}
-
 static int vaapi_init(struct AVCodecContext *s){
 
         int pool_size = 20; //Default in ffmpeg examples
@@ -592,7 +550,8 @@ static int vaapi_init(struct AVCodecContext *s){
                 pool_size += s->thread_count;
 
         ret = create_hw_frame_ctx(device_ref,
-                        s,
+                        s->width,
+                        s->height,
                         AV_PIX_FMT_VAAPI,
                         AV_PIX_FMT_NV12,
                         pool_size,
@@ -803,11 +762,11 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 {
         list<enum AVPixelFormat> fmts;
 
-        if (regex_match(codec->name, regex(".*vaapi.*"))) {
 #ifdef HWACC_VAAPI
+        if (regex_match(codec->name, regex(".*vaapi.*"))) {
                 fmts.push_back(AV_PIX_FMT_VAAPI);
-#endif
         }
+#endif
 
         // add the format itself if it matches the ultragrid one
         if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
