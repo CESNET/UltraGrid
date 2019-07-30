@@ -591,39 +591,39 @@ modules: @MODULES@
 @TARGETS@
 
 install: all
-	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
-	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
-	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)/$(bindir)
+	$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 bin/uv $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then \
-		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir);\
-		$(INSTALL) -d -m 755 $(DESTDIR)/$(datadir)/applications;\
-		$(INSTALL) -m 644 data/uv-qt.desktop $(DESTDIR)/$(datadir)/applications;\
-		$(INSTALL) -d -m 755 $(DESTDIR)/$(datadir)/pixmaps;\
-		$(INSTALL) -m 644 data/ultragrid.png $(DESTDIR)/$(datadir)/pixmaps;\
+		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
+		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/applications;\
+		$(INSTALL) -m 644 data/uv-qt.desktop $(DESTDIR)$(datadir)/applications;\
+		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/pixmaps;\
+		$(INSTALL) -m 644 data/ultragrid.png $(DESTDIR)$(datadir)/pixmaps;\
 	fi
 	if [ -n "@MODULES@" ]; then\
-		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
-		$(INSTALL) -m 755 @MODULES@ $(DESTDIR)/$(libdir)/ultragrid/;\
+		$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)/ultragrid;\
+		$(INSTALL) -m 755 @MODULES@ $(DESTDIR)$(libdir)/ultragrid/;\
 	fi
-	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)
-	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
-	$(INSTALL) -d -m 755 $(DESTDIR)/$(docdir)
-	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
-	$(CP) COPYRIGHT $(DESTDIR)/$(docdir)/COPYRIGHT
-	$(CP) speex-1.2rc1/COPYING $(DESTDIR)/$(docdir)/COPYING.speex
-	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)/$(bindir); fi
+	$(INSTALL) -d -m 755 $(DESTDIR)$(uv_datadir)
+	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)$(uv_datadir)
+	$(INSTALL) -d -m 755 $(DESTDIR)$(docdir)
+	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)$(docdir)
+	$(CP) COPYRIGHT $(DESTDIR)$(docdir)COPYRIGHT
+	$(CP) speex-1.2rc1/COPYING $(DESTDIR)$(docdir)COPYING.speex
+	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 
 uninstall:
-	$(RM) $(DESTDIR)/$(bindir)/uv
-	$(RM) $(DESTDIR)/$(bindir)/hd-rum-transcode
-	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
-	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
-	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
-	$(RM) $(DESTDIR)/$(docdir)/COPYRIGHT
-	$(RM) $(DESTDIR)/$(docdir)/COPYING.speex
-	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
+	$(RM) $(DESTDIR)$(bindir)/uv
+	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
+	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
+	$(RM) $(DESTDIR)$(uv_datadir)/ultragrid-bugreport-collect.sh
+	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)$$n; done;
+	$(RM) $(DESTDIR)$(docdir)COPYRIGHT
+	$(RM) $(DESTDIR)$(docdir)COPYING.speex
+	$(RM) $(DESTDIR)$(uv_datadir)ultragrid-bugreport-collect.sh
 	if [ -f "$(GUI_TARGET)" ]; then \
-		$(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`;\
-		$(RM) $(DESTDIR)/$(datadir)/applications/uv-qt.desktop;\
-		$(RM) $(DESTDIR)/$(datadir)/pixmaps/ultragrid.png;\
+		$(RM) $(DESTDIR)$(bindir)/`basename $(GUI_TARGET)`;\
+		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
+		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
