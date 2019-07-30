@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2016 CESNET z.s.p.o.
+ * Copyright (c) 2012-2019 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/audio_buffer.h"
 #include "utils/ring_buffer.h"
 #include "jack_common.h"
 
@@ -55,12 +56,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#define DEFAULT_AUDIO_BUF_LEN_MS 50
+#define MAX_LEN_MS 1000
 #define MAX_PORTS 64
 #define MOD_NAME "[JACK playback] "
 
-#ifndef __cplusplus
-#define min(a, b)      (((a) < (b))? (a): (b))
-#endif
 
 struct state_jack_playback {
         char *jack_ports_pattern;
@@ -68,11 +68,13 @@ struct state_jack_playback {
         jack_client_t *client;
         jack_port_t *output_port[MAX_PORTS];
         struct audio_desc desc;
-        char *channel;
-        float *converted;
+        int max_channel_len; ///< maximal length of channel data that is processed at once
+        float *converted; ///< temporery buffer for int2float (put_frame)
 
         int jack_ports_count;
-        struct ring_buffer *data[MAX_PORTS];
+        void *data; // audio buffer
+        struct audio_buffer_api *buffer_fns;
+        char *tmp; ///< temporary buffer used to demux data
 };
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
@@ -100,26 +102,21 @@ static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
 static int jack_process_callback(jack_nframes_t nframes, void *arg)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) arg;
-        int i;
-	int channels; // actual written channels (max of available and required)
+        int len;
+        int req_len = s->desc.ch_count * nframes * sizeof(float);
+        int nframes_available = nframes;
 
-	channels = s->desc.ch_count;
-	if(channels > s->jack_ports_count)
-		channels = s->jack_ports_count;
-
-        for (i = 0; i < channels; ++i) {
-                if(ring_get_current_size(s->data[i]) <= (int) (nframes * sizeof(float))) {
-                        fprintf(stderr, "[JACK playback] Buffer underflow detected.\n");
-                }
+        len = s->buffer_fns->read(s->data, s->tmp, req_len);
+        if (len != req_len) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Buffer underflow detected.\n");
+                nframes_available = len / s->desc.ch_count / sizeof(float);
         }
-        for (i = 0; i < channels; ++i) {
-                int ret;
+
+        for (int i = 0; i < s->desc.ch_count; ++i) {
                 jack_default_audio_sample_t *out =
-                        jack_port_get_buffer (s->output_port[i], nframes);
-                ret = ring_buffer_read(s->data[i], (char *)out, nframes * sizeof(float));
-                if((unsigned int) ret != nframes * sizeof(float)) {
-                        fprintf(stderr, "[JACK playback] Buffer underflow detected (channel %d).\n", i);
-                }
+                        jack_port_get_buffer (s->output_port[i], nframes_available);
+                assert(out != NULL);
+                demux_channel((char *) out, s->tmp, sizeof(float), len, s->desc.ch_count, i);
         }
 
         return 0;
@@ -252,7 +249,7 @@ static bool audio_play_jack_query_format(struct state_jack_playback *s, void *da
                                 s->jack_sample_rate);
                 return false;
         }
-        desc = (struct audio_desc){4, s->jack_sample_rate, min(s->jack_ports_count, desc.ch_count), AC_PCM};
+        desc = (struct audio_desc){4, s->jack_sample_rate, MIN(s->jack_ports_count, desc.ch_count), AC_PCM};
 
         memcpy(data, &desc, sizeof desc);
         *len = sizeof desc;
@@ -291,27 +288,45 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
                 fprintf(stderr, "[JACK playback] Warning: received %d audio channels, JACK can process only %d.", desc.ch_count, s->jack_ports_count);
         }
 
-        for(i = 0; i < MAX_PORTS; ++i) {
-                ring_buffer_destroy(s->data[i]);
-                s->data[i] = NULL;
+        if (s->buffer_fns) {
+                s->buffer_fns->destroy(s->data);
+                s->buffer_fns = NULL;
+                s->data = NULL;
         }
+
+        {
+                int buf_len_ms = DEFAULT_AUDIO_BUF_LEN_MS;
+                if (get_commandline_param("low-latency-audio")) {
+                        buf_len_ms = 5;
+                }
+                if (get_commandline_param("audio-buffer-len")) {
+                        buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
+                        assert(buf_len_ms > 0 && buf_len_ms < MAX_LEN_MS);
+                }
+                if (get_commandline_param("audio-disable-adaptive-buffer")) {
+                        int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
+                        s->data = ring_buffer_init(buf_len);
+                        s->buffer_fns = &ring_buffer_fns;
+                } else {
+                        s->data = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, buf_len_ms);
+                        s->buffer_fns = &audio_buffer_fns;
+                }
+        }
+
         /* for all channels previously connected */
         for(i = 0; i < desc.ch_count; ++i) {
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
 		fprintf(stderr, "[JACK playback] Port %d: %s\n", i, ports[i]);
         }
-        free(s->channel);
+        free(s->tmp);
         free(s->converted);
         s->desc.bps = desc.bps;
         s->desc.ch_count = desc.ch_count;
         s->desc.sample_rate = desc.sample_rate;
 
-        s->channel = malloc(s->desc.bps * desc.sample_rate);
-        s->converted = (float *) malloc(desc.sample_rate * sizeof(float));
-
-        for(i = 0; i < desc.ch_count; ++i) {
-                s->data[i] = ring_buffer_init(sizeof(float) * s->jack_sample_rate);
-        }
+        s->max_channel_len = (desc.sample_rate / 1000) * MAX_LEN_MS * sizeof(float);
+        s->tmp = malloc(s->max_channel_len);
+        s->converted = malloc(desc.ch_count * s->max_channel_len);
 
         if(jack_activate(s->client)) {
                 fprintf(stderr, "[JACK capture] Cannot activate client.\n");
@@ -333,27 +348,27 @@ static void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         assert(frame->bps == 4);
+        int len = frame->data_len;
 
-        int channel_size = frame->data_len / frame->ch_count;
-
-        for (int i = 0; i < frame->ch_count; ++i) {
-                demux_channel(s->channel, frame->data, frame->bps, frame->data_len, frame->ch_count, i);
-                int2float((char *) s->converted, (char *) s->channel, channel_size);
-                ring_buffer_write(s->data[i], (char *) s->converted, channel_size);
+        if (len >= s->max_channel_len * frame->ch_count) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Long frame: %d!\n", frame->data_len);
+                len = s->max_channel_len * frame->ch_count;
         }
+
+        int2float((char *) s->converted, frame->data, len);
+        s->buffer_fns->write(s->data, (char *) s->converted, len);
 }
 
 static void audio_play_jack_done(void *state)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
-        int i;
 
         jack_client_close(s->client);
-        free(s->channel);
+        free(s->tmp);
         free(s->converted);
         free(s->jack_ports_pattern);
-        for(i = 0; i < MAX_PORTS; ++i) {
-                ring_buffer_destroy(s->data[i]);
+        if (s->buffer_fns) {
+                s->buffer_fns->destroy(s->data);
         }
 
         free(s);
@@ -371,3 +386,4 @@ static const struct audio_playback_info aplay_jack_info = {
 
 REGISTER_MODULE(jack, &aplay_jack_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
+/* vim: set expandtab sw=8: */
