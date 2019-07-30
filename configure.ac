@@ -3098,8 +3098,6 @@ CINEFORM_PATH=cineform-sdk
 CINEFORM_INC=
 CINEFORM_LIB=
 
-CINEFORM_STATIC_PATH=
-
 cineform=no
 
 AC_ARG_ENABLE(cineform,
@@ -3118,17 +3116,24 @@ AC_ARG_WITH(cineform,
             [CINEFORM_PATH=$withval
              ])
 
-if test $system = Windows
-then
-	CINEFORM_STATIC_PATH="${CINEFORM_PATH}/Release/CFHDCodec.lib"
-else
-	CINEFORM_STATIC_PATH="${CINEFORM_PATH}/libCFHDCodec.a"
-fi
+AC_LANG_PUSH([C++])
+AC_CHECK_LIB(CFHDCodec, CFHD_OpenDecoder, [FOUND_CINEFORM=yes; CINEFORM_LIB=-lCFHDCodec], FOUND_CINEFORM=no)
+AC_LANG_POP([C++])
 
-
-if test -n "$CINEFORM_PATH" -a $cross_compile = no
+if test "$FOUND_CINEFORM" = no
 then
-        AC_CHECK_FILES(${CINEFORM_STATIC_PATH}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
+
+        if test $system = Windows
+        then
+                CINEFORM_LIB="${CINEFORM_PATH}/Release/CFHDCodec.lib"
+        else
+                CINEFORM_LIB="${CINEFORM_PATH}/libCFHDCodec.a"
+        fi
+
+        if test -n "$CINEFORM_PATH" -a $cross_compile = no
+        then
+                AC_CHECK_FILES(${CINEFORM_LIB}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
+        fi
 fi
 
 if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
@@ -3136,11 +3141,10 @@ then
         cineform=yes
         CINEFORM_INC="$CINEFORM_INC -I${CINEFORM_PATH}/Common/"
 
-		CINEFORM_LIB="${CINEFORM_STATIC_PATH}"
-		if test $system != Windows
-		then
-			CINEFORM_LIB="${CINEFORM_LIB} -luuid"
-		fi
+        if test $system != Windows
+        then
+                CINEFORM_LIB="${CINEFORM_LIB} -luuid"
+        fi
 
         CINEFORM_COMPRESS_OBJ="src/video_compress/cineform.o"
         CINEFORM_DECOMPRESS_OBJ="src/video_decompress/cineform.o"
