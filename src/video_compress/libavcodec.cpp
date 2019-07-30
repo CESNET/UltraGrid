@@ -768,6 +768,8 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         if (regex_match(codec->name, regex(".*vaapi.*"))) {
                 fmts.push_back(AV_PIX_FMT_VAAPI);
         }
+#else
+        UNUSED(codec);
 #endif
 
         // add the format itself if it matches the ultragrid one
