@@ -123,7 +123,7 @@ static void audio_cap_jack_help(const char *client_name)
         printf("Usage:\n");
         printf("\t-s jack[:name=<n>][:<device>]\n");
         printf("\twhere\n");
-        printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_STRING);
+        printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_NAME);
         printf("\n");
 
         if(!available_devices)
@@ -141,29 +141,32 @@ static void * audio_cap_jack_init(const char *cfg)
         jack_status_t status;
         const char **ports;
         int i;
-        char *client_name = alloca(MAX(strlen(PACKAGE_NAME), cfg ? strlen(cfg) : 0) + 1);
-        const char *source_name = "";
+        char *client_name;
+        const char *source_name = NULL;
+
+        if (cfg == NULL) {
+                cfg = "";
+        }
+        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
         strcpy(client_name, PACKAGE_NAME);
 
-        if (cfg) {
-                char *dup = strdup(cfg);
-                char *tmp = dup, *item, *save_ptr = NULL;
-                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (strcmp(item, "help") == 0) {
-                                audio_cap_jack_help(client_name);
-                                free(dup);
-                                return &audio_init_state_ok;
-                        } if (strstr(item, "name=") == item) {
-                                strcpy(client_name, item + strlen("name="));
-                        } else { // this is the device name
-                                source_name = cfg + (item - dup);
-                                break;
-                        }
-
-                        tmp = NULL;
+        char *dup = strdup(cfg);
+        char *tmp = dup, *item, *save_ptr;
+        while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                if (strcmp(item, "help") == 0) {
+                        audio_cap_jack_help(client_name);
+                        free(dup);
+                        return &audio_init_state_ok;
+                } if (strstr(item, "name=") == item) {
+                        strcpy(client_name, item + strlen("name="));
+                } else { // this is the device name
+                        source_name = cfg + (item - dup);
+                        break;
                 }
-                free(dup);
+
+                tmp = NULL;
         }
+        free(dup);
 
         s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
         if(!s) {

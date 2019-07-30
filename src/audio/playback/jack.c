@@ -153,28 +153,32 @@ static void * audio_play_jack_init(const char *cfg)
         struct state_jack_playback *s;
         const char **ports;
         jack_status_t status;
-        char *client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
-        const char *source_name = "";
+        char *client_name;
+        const char *source_name = NULL;
+
+        if (cfg == NULL) {
+                cfg = "";
+        }
+
+        client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
         strcpy(client_name, PACKAGE_NAME);
 
-        if (cfg) {
-                char *dup = strdup(cfg);
-                char *tmp = dup, *item, *save_ptr;
-                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                        if (strcmp(item, "help") == 0) {
-                                audio_play_jack_help(client_name);
-                                free(dup);
-                                return &audio_init_state_ok;
-                        } if (strstr(item, "name=") == item) {
-                                strcpy(client_name, item + strlen("name="));
-                        } else { // the rest is the device name
-                                source_name = cfg + (item - dup);
-                                break;
-                        }
-                        tmp = NULL;
+        char *dup = strdup(cfg);
+        char *tmp = dup, *item, *save_ptr;
+        while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                if (strcmp(item, "help") == 0) {
+                        audio_play_jack_help(client_name);
+                        free(dup);
+                        return &audio_init_state_ok;
+                } if (strstr(item, "name=") == item) {
+                        strcpy(client_name, item + strlen("name="));
+                } else { // the rest is the device name
+                        source_name = cfg + (item - dup);
+                        break;
                 }
-                free(dup);
+                tmp = NULL;
         }
+        free(dup);
 
         s = calloc(1, sizeof(struct state_jack_playback));
         if(!s) {
@@ -182,7 +186,7 @@ static void * audio_play_jack_init(const char *cfg)
                 goto error;
         }
 
-        s->jack_ports_pattern = strdup(cfg);
+        s->jack_ports_pattern = strdup(source_name);
 
         s->client = jack_client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
