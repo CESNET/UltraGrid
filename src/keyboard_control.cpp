@@ -740,7 +740,9 @@ void keyboard_control::read_command(bool multiple)
                 log_level = LOG_LEVEL_QUIET;
                 printf("control> ");
                 char buf[sizeof msg_universal::text];
-                fgets(buf, sizeof buf - 1, stdin);
+                if (!fgets(buf, sizeof buf - 1, stdin)) {
+                        break;
+                }
                 log_level = saved_log_level;
 
                 if (strlen(buf) == 0 || (strlen(buf) == 1 && buf[0] == '\n')) { // empty input
