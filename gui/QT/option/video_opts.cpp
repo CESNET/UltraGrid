@@ -120,15 +120,6 @@ static const VideoCompressItem videoCodecs[] = {
 	{"Cineform", "cineform", false},
 };
 
-static bool isLibavCodec(const std::string &str){
-	for(const auto &i : videoCodecs){
-		if(i.value == str && i.isLibav)
-			return true;
-	}
-
-	return false;
-}
-
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
     std::vector<SettingItem> res;
 

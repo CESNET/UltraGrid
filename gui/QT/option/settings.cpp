@@ -13,12 +13,6 @@ std::string Option::getParam() const{
 	return param;
 }
 
-static void addSpace(std::string &str){
-	if(!str.empty() && str.back() != ' '){
-		str += ' ';
-	}
-}
-
 std::string Option::getSubVals() const{
 	std::string out;
 
