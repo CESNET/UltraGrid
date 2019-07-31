@@ -25,7 +25,7 @@ void RadioButtonUi::updateUiState(){
     updateUiState(settings->getOption(opt).getValue() == selectedVal);
 }
 
-void RadioButtonUi::optChangeCallback(Option &changedOpt, bool suboption){
+void RadioButtonUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
     if(changedOpt.getName() == opt){
         updateUiState(settings->getOption(opt).getValue() == selectedVal);
     }

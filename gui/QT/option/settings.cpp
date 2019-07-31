@@ -132,7 +132,7 @@ static void fec_builder_callback(Option &opt, bool subopt){
 
 }
 
-static void fec_auto_callback(Option &opt, bool subopt){
+static void fec_auto_callback(Option &opt, bool /*subopt*/){
 	Settings *settings = opt.getSettings();
 
 	if(!settings->getOption("network.fec.auto").isEnabled())

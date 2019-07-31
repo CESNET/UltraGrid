@@ -14,7 +14,7 @@ void CheckableUi::boxClicked(bool checked){
 	emit changed();
 }
 
-void CheckableUi::optChangeCallback(Option &changedOpt, bool suboption){
+void CheckableUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
     if(changedOpt.getName() == opt){
         updateUiState(changedOpt.isEnabled());
     }

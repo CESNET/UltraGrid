@@ -110,7 +110,7 @@ void SettingsUi::refreshAll(){
 	}
 }
 
-void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool suboption){
+void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool /*suboption*/){
 	win->vuMeter->setVisible(opt.isEnabled());
 }
 

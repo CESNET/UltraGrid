@@ -114,7 +114,7 @@ void VuMeterWidget::paintScale(QPainter& painter,
 	}
 }
 
-void VuMeterWidget::paintEvent(QPaintEvent *paintEvent){
+void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 	const int meter_width = 10;
 
 	QPainter painter(this);

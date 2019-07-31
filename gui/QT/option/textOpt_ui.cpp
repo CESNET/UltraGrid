@@ -11,7 +11,7 @@ void TextOptUi::textEdited(const QString &str){
 	emit changed();
 }
 
-void TextOptUi::optChangeCallback(Option &changedOpt, bool suboption){
+void TextOptUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
     if(changedOpt.getName() == opt){
         updateUiState(changedOpt.getValue());
     }
