@@ -117,17 +117,17 @@ void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool /*suboption*/){
 void SettingsUi::addCallbacks(){
 	using namespace std::placeholders;
 
-#define CALLBACK(opt, fun) { opt, std::bind(fun, this, _1, _2) }
+#define OPTION_CALLBACK(opt, fun) { opt, std::bind(fun, this, _1, _2) }
 	const static struct{
 		const char *opt;
 		std::function<void(Option &, bool)> callback;
 	} callbacks[] = {
-		CALLBACK("video.compress", &SettingsUi::jpegLabelCallback),
+		OPTION_CALLBACK("video.compress", &SettingsUi::jpegLabelCallback),
 		{"audio.compress", std::bind(audioCompressionCallback, mainWin, _1, _2)},
 		{"advanced", std::bind(&SettingsUi::refreshAll, this)},
 		{"vuMeter", std::bind(vuMeterCallback, mainWin, _1, _2)},
 	};
-#undef CALLBACK
+#undef OPTION_CALLBACK
 
 	for(const auto & call : callbacks){
 		settings->getOption(call.opt).addOnChangeCallback(call.callback);
