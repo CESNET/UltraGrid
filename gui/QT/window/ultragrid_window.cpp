@@ -137,7 +137,7 @@ void UltragridWindow::outputAvailable(){
 }
 
 void UltragridWindow::start(){
-	if(process.pid() > 0){
+	if(process.processId() > 0){
 		process.terminate();
 		if(!process.waitForFinished(1000))
 			process.kill();
@@ -210,7 +210,7 @@ void UltragridWindow::setArgs(){
 
 void UltragridWindow::closeEvent(QCloseEvent *e){
 
-	if(process.pid() > 0){
+	if(process.processId() > 0){
 		QMessageBox sureMsg;
 		sureMsg.setIcon(QMessageBox::Question);
 		sureMsg.setText(tr("Are you sure?"));
