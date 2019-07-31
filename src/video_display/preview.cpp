@@ -95,20 +95,6 @@ struct state_preview_display {
         struct video_desc desc;
 };
 
-static struct display *display_preview_fork(void *state)
-{
-        shared_ptr<struct state_preview_display_common> s = ((struct state_preview_display *)state)->common;
-        struct display *out;
-        char fmt[2 + sizeof(void *) * 2 + 1] = "";
-        snprintf(fmt, sizeof fmt, "%p", state);
-
-        int rc = initialize_video_display(s->parent,
-                        "preview", fmt, 0, NULL, &out);
-        if (rc == 0) return out; else return NULL;
-
-        return out;
-}
-
 static void show_help(){
         printf("Preview display\n");
         printf("Internal use by GUI only\n");
