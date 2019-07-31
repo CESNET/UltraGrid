@@ -49,7 +49,7 @@ struct ug_connection {
         mutex lock;
 
         volatile bool should_exit = false;
-        int should_exit_fd[2];
+        fd_t should_exit_fd[2];
         thread t;
 
         bool connection_lost = false;
@@ -88,7 +88,7 @@ static void worker(ug_connection &c)
                 FD_ZERO(&fds);
                 FD_SET(c.fd, &fds);
                 FD_SET(c.should_exit_fd[0], &fds);
-                int nfds = std::max<int>(c.fd, c.should_exit_fd[0]) + 1;
+                fd_t nfds = std::max<fd_t>(c.fd, c.should_exit_fd[0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
