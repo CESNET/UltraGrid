@@ -39,11 +39,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	settingsUi.initMainWin(&ui);
 	settingsWindow.init(&settingsUi, &settings);
 
-	checkPreview();
-	startPreview();
-
 	connectSignals();
-	setupPreviewCallbacks();
 
 	setArgs();
 
@@ -58,6 +54,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 		QString filename = args.at(index + 1);
 		loadSettingsFile(filename);
 	}
+
+	checkPreview();
+	startPreview();
+	setupPreviewCallbacks();
 }
 
 void UltragridWindow::refresh(){
@@ -77,11 +77,11 @@ void UltragridWindow::setupPreviewCallbacks(){
 }
 
 void UltragridWindow::checkPreview(){
+	bool enable = true;
 	if(!availableSettings.isAvailable("multiplier", VIDEO_DISPLAY)
 			|| !availableSettings.isAvailable("preview", VIDEO_DISPLAY))
 	{
-		ui.previewCheckBox->setChecked(false);
-		ui.previewCheckBox->setEnabled(false);
+		enable = false;
 
 		QMessageBox warningBox(this);
 		warningBox.setWindowTitle("Preview disabled");
@@ -99,8 +99,7 @@ void UltragridWindow::checkPreview(){
 	QOpenGLFunctions_3_3_Core* funcs =
 		ctx.versionFunctions<QOpenGLFunctions_3_3_Core>();
 	if (!funcs) {
-		ui.previewCheckBox->setChecked(false);
-		ui.previewCheckBox->setEnabled(false);
+		enable = false;
 
 		QMessageBox warningBox(this);
 		warningBox.setWindowTitle("Preview disabled");
@@ -108,6 +107,13 @@ void UltragridWindow::checkPreview(){
 		warningBox.setStandardButtons(QMessageBox::Ok);
 		warningBox.setIcon(QMessageBox::Warning);
 		warningBox.exec();
+	}
+
+	if(!enable){
+		ui.previewCheckBox->setChecked(false);
+		ui.previewCheckBox->setEnabled(false);
+
+		settings.getOption("preview").setValue("f");
 	}
 }
 
