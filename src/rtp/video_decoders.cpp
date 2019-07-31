@@ -1540,7 +1540,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 uint32_t data_pos;
                 uint32_t substream;
                 pckt = cdata->data;
-                enum openssl_mode crypto_mode;
+                enum openssl_mode crypto_mode = MODE_AES128_NONE;
 
                 pt = pckt->pt;
                 hdr = (uint32_t *)(void *) pckt->data;
