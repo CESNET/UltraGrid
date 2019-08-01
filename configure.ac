@@ -2504,11 +2504,18 @@ AC_ARG_ENABLE(jack-transport,
         [jack_trans_req=no])
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
-AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
+AC_CHECK_LIB(jack, jack_client_new, [FOUND_JACK_L=yes]
+                                    [JACK_LIB=-ljack], FOUND_JACK_L=no)
+if test $FOUND_JACK_L = no; then
+        # Windows
+        AC_CHECK_LIB(libjack64, jack_client_new, [FOUND_JACK_L=yes]
+                                                 [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
+fi
+
 if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
-    JACK_TRANS_LIB="-ljack"
+    JACK_TRANS_LIB="$JACK_LIB"
     AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
     jack_trans=yes
 fi
@@ -2527,7 +2534,6 @@ if test $jack_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
-    JACK_LIB="-ljack"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
     ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "$JACK_LIB")
