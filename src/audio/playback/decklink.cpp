@@ -189,7 +189,7 @@ static void *audio_play_decklink_init(const char *cfg)
         int width, height;
 
         log_msg(LOG_LEVEL_WARNING, "Decklink audio playback is most likely broken! Consider using "
-                        "\"-t decklink -r analog\" instead.\n");
+                        "\"-d decklink -r analog\" instead.\n");
 
         if (!blackmagic_api_version_check()) {
                 return NULL;
