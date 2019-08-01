@@ -122,7 +122,8 @@ namespace ultragrid {
 namespace aja {
 
 struct display {
-        display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio, bool novsync, int buf_len);
+        display(string const &device_id, NTV2OutputDestination outputDestination,
+                        NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
@@ -146,10 +147,10 @@ struct display {
         struct video_desc desc{};
         bool mDoMultiChannel; ///< Use multi-format
         NTV2EveryFrameTaskMode mSavedTaskMode = NTV2_TASK_MODE_INVALID; ///< Used to restore the prior task mode
-        NTV2Channel  mOutputChannel = NTV2_CHANNEL1;
+        const NTV2OutputDestination mOutputDestination;
+        NTV2Channel  mOutputChannel;
         NTV2VideoFormat mVideoFormat = NTV2_FORMAT_UNKNOWN;
         NTV2FrameBufferFormat mPixelFormat = NTV2_FBF_INVALID;
-        const NTV2OutputDestination mOutputDestination;
         bool mDoLevelConversion = false;
         bool mEnableVanc = false;
 
@@ -175,7 +176,7 @@ struct display {
         static void show_help();
 };
 
-display::display(string const &device_id, NTV2OutputDestination outputDestination, bool withAudio, bool novsync, int buf_len) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mWithAudio(withAudio) {
+display::display(string const &device_id, NTV2OutputDestination outputDestination, NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mOutputChannel(outputChannel), mWithAudio(withAudio) {
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
         }
@@ -203,11 +204,13 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                 mDevice.SetMultiFormatMode (false);
         }
 
-        mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
+        if (mOutputChannel == NTV2_CHANNEL_INVALID) {
+                mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
 
-        //      Beware -- some devices (e.g. Corvid1) can only output from FrameStore 2...
-        if ((mOutputChannel == NTV2_CHANNEL1) && (!::NTV2DeviceCanDoFrameStore1Display (mDeviceID))) {
-                mOutputChannel = NTV2_CHANNEL2;
+                //      Beware -- some devices (e.g. Corvid1) can only output from FrameStore 2...
+                if ((mOutputChannel == NTV2_CHANNEL1) && (!::NTV2DeviceCanDoFrameStore1Display (mDeviceID))) {
+                        mOutputChannel = NTV2_CHANNEL2;
+                }
         }
         if (UWord (mOutputChannel) >= ::NTV2DeviceGetNumFrameStores (mDeviceID)) {
                 ostringstream oss;
@@ -588,7 +591,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[:device=<d>][:connection=<c>][:novsync][:buffers=<b>][:help] [-r embedded]\n" << rang::style::reset <<
+                "[:device=<d>][:connection=<c>][:channel=<ch>][:novsync][:buffers=<b>][:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
         cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
                 "\t\tdevice identifier (number or name)\n";
@@ -605,6 +608,9 @@ void aja::display::show_help() {
                 dest = (NTV2OutputDestination) ((int) dest + 1);
         }
         cout << "\n";
+
+        cout << rang::style::bold << "\tchannel\n" << rang::style::reset <<
+                "\t\tchannel number to use (advanced, from 1)\n";
 
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
@@ -770,6 +776,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         bool novsync = false;
         int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
+        NTV2Channel outputChannel = NTV2_CHANNEL_INVALID; // if unchanged, select according to output destination
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
 
@@ -796,6 +803,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                         }
                 } else if (strstr(item, "device=") != nullptr) {
                         device_idx = item + strlen("device=");
+                } else if (strstr(item, "channel=") != nullptr) {
+                        outputChannel = (NTV2Channel) (atoi(item + strlen("channel=")) - 1);
                 } else if (strstr(item, "novsync") == item) {
                         novsync = true;
                 } else if (strstr(item, "buffers=") == item) {
@@ -812,7 +821,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, outputDestination, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len);
+                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
