@@ -68,6 +68,7 @@ void AvailableSettings::queryDevices(const QStringList &lines){
 	static std::map<std::string, SettingType> settingTypeMap = {
 		{"video_cap", VIDEO_SRC},
 		{"audio_play", AUDIO_PLAYBACK},
+		{"audio_cap", AUDIO_SRC},
 	};
 
 	foreach ( const QString &line, lines ) {

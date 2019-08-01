@@ -86,12 +86,12 @@ std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings){
     defaultItem.opts.push_back({optStr, ""});
     res.push_back(std::move(defaultItem));
 
-    for(const auto &i : availSettings->getAvailableSettings(AUDIO_SRC)){
+    for(const auto &i : availSettings->getDevices(AUDIO_SRC)){
         SettingItem item;
-        item.name = i;
-        item.opts.push_back({optStr, i});
+        item.name = i.name;
+        item.opts.push_back({optStr, i.type});
         for(const auto &sdi : sdiAudio){
-            if(std::strcmp(sdi, i.c_str()) == 0){
+            if(std::strcmp(sdi, i.type.c_str()) == 0){
                 item.conditions = getSdiCond("video.source");
                 break;
             }
