@@ -290,7 +290,10 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 api->probe(&devices, &count);
                 cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ")\n";
+                        cout << "[capability][device][v2] {"
+                                "\"purpose\":\"audio_play\", "
+                                "\"type\":\"" << devices[i].id << "\", "
+                                "\"name\":\"" << devices[i].name << "\"}\n";
                 }
                 free(devices);
         }
