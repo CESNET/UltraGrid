@@ -352,6 +352,8 @@ static void usage() {
         cout << style::bold << "\t\tdisable_intra_refresh" << style::reset << " - do not use Periodic Intra Refresh (H.264/H.265)\n";
         cout << style::bold << "\t\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
+        cout << style::bold << "\t\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
+                << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
         cout << style::bold << "\t\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\" or \"slice\"\n";
