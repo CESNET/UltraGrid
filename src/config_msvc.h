@@ -62,4 +62,8 @@
 
 #endif
 
+#ifndef PACKAGE_BUGREPORT
+#define PACKAGE_BUGREPORT "ultragrid-dev@cesnet.cz"
+#endif
+
 #endif

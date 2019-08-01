@@ -405,7 +405,8 @@ void display::RouteOutputSignal ()
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                         NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !isRGB/*isRGB*/));
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
-                        if (isRGB) {
+                        if ((isRGB && NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination))
+                                        || (!isRGB && NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))) {
                                 mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt);
                         }
 
@@ -416,8 +417,14 @@ void display::RouteOutputSignal ()
 
                                 mDevice.SetSDIOutputStandard (chan, outputStandard);
                                 //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
+                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        } else if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
+                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), !isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        } else {
+                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Routing for " << NTV2OutputDestinationToString(mOutputDestination)
+                                       << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
+                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
                         }
-                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
                 }
         } else {
                 NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
@@ -448,7 +455,7 @@ void display::RouteOutputSignal ()
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v2)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v3)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v4))
-                        mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt);
         }
 }
 
