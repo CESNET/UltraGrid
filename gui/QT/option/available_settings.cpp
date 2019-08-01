@@ -8,6 +8,7 @@
 #include "available_settings.hpp"
 
 #include <iostream>
+#include <map>
 
 static bool vectorContains(const std::vector<std::string> &v, const std::string & s){
 	for(unsigned i = 0; i < v.size(); i++){
@@ -39,7 +40,7 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryCap(lines, AUDIO_PLAYBACK, "[cap][audio_play] ");
 	queryCap(lines, AUDIO_COMPRESS, "[cap][audio_compress] ");
 	
-	queryCapturers(lines);
+	queryDevices(lines);
 
 #ifdef DEBUG
 	for(const auto &i : capturers){
@@ -56,28 +57,34 @@ void AvailableSettings::queryAll(const std::string &executable){
 #endif
 }
 
-void AvailableSettings::queryCapturers(const QStringList &lines){
-	const char * const capStr = "[capability][capture][v1]";
-	size_t capStrLen = strlen(capStr);
+void AvailableSettings::queryDevices(const QStringList &lines){
+	const char * const devStr = "[capability][device][v2]";
+	size_t devStrLen = strlen(devStr);
 
-	capturers.clear();
+	for(auto& i : devices){
+		i.clear();
+	}
+
+	static std::map<std::string, SettingType> settingTypeMap = {
+		{"video_cap", VIDEO_SRC}
+	};
 
 	foreach ( const QString &line, lines ) {
-		if(line.startsWith(capStr)){
-			QJsonDocument doc = QJsonDocument::fromJson(line.mid(capStrLen).toUtf8());
+		if(line.startsWith(devStr)){
+			QJsonDocument doc = QJsonDocument::fromJson(line.mid(devStrLen).toUtf8());
 			if(!doc.isObject())
 				return;
 
-			Capturer cap;
+			Device dev;
 			QJsonObject obj = doc.object();
 			if(obj.contains("name") && obj["name"].isString()){
-				cap.name = obj["name"].toString().toStdString();
+				dev.name = obj["name"].toString().toStdString();
 			}
 			if(obj.contains("type") && obj["type"].isString()){
-				cap.type = obj["type"].toString().toStdString();
+				dev.type = obj["type"].toString().toStdString();
 			}
 			if(obj.contains("device") && obj["device"].isString()){
-				cap.deviceOpt = obj["device"].toString().toStdString();
+				dev.deviceOpt = obj["device"].toString().toStdString();
 			}
 
 			if(obj.contains("modes") && obj["modes"].isArray()){
@@ -85,7 +92,7 @@ void AvailableSettings::queryCapturers(const QStringList &lines){
 					if(val.isObject()){
 						QJsonObject modeJson = val.toObject();
 
-						CaptureMode mode;
+						DeviceMode mode;
 
 						if(modeJson.contains("name") && modeJson["name"].isString()){
 							mode.name = modeJson["name"].toString().toStdString();
@@ -99,12 +106,17 @@ void AvailableSettings::queryCapturers(const QStringList &lines){
 											modeOpts[key].toString().toStdString()});
 								}
 							}
-							cap.modes.push_back(std::move(mode));
+							dev.modes.push_back(std::move(mode));
 						}
 					}
 				}
 			}
-			capturers.push_back(std::move(cap));
+
+			SettingType settingType = SETTING_TYPE_COUNT;
+			if(obj.contains("purpose") && obj["purpose"].isString()){
+				settingType = settingTypeMap[obj["purpose"].toString().toStdString()];
+			}
+			devices[settingType].push_back(std::move(dev));
 		}
 	}
 }
@@ -131,7 +143,7 @@ std::vector<std::string> AvailableSettings::getAvailableSettings(SettingType typ
 	return available[type];
 }
 
-std::vector<Capturer> AvailableSettings::getCapturers() const{
-	return capturers;
+const std::vector<Device>& AvailableSettings::getDevices(SettingType type) const{
+	return devices[type];
 }
 

@@ -21,34 +21,34 @@ struct SettingVal{
 	std::string val;
 };
 
-struct CaptureMode{
+struct DeviceMode{
 	std::string name;
 	std::vector<SettingVal> opts;
 };
 
-struct Capturer{
+struct Device{
 	std::string name;
 	std::string type;
 	std::string deviceOpt;
 
-	std::vector<CaptureMode> modes;
+	std::vector<DeviceMode> modes;
 };
 
 class AvailableSettings{
 public:
 	void queryCap(const QStringList &lines, SettingType type, const char *capStr);
-	void queryCapturers(const QStringList &lines);
+	void queryDevices(const QStringList &lines);
 
 	void queryAll(const std::string &executable);
 
 	bool isAvailable(const std::string &name, SettingType type) const;
 	std::vector<std::string> getAvailableSettings(SettingType type) const;
 
-	std::vector<Capturer> getCapturers() const;
+	const std::vector<Device>& getDevices(SettingType type) const;
 
 private:
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
-	std::vector<Capturer> capturers;
+	std::vector<Device> devices[SETTING_TYPE_COUNT];
 
 };
 

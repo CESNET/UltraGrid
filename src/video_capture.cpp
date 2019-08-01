@@ -118,7 +118,8 @@ void print_available_capturers()
                 struct vidcap_type *vt = vci->probe(true);
                 printf("[cap][capture] %s\n", item.first.c_str());
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("[capability][capture][v1] {"
+                        printf("[capability][device][v2] {"
+                                        "\"purpose\":\"video_cap\", "
                                         "\"type\":\"%s\", "
                                         "\"device\":\"%s\", "
                                         "\"name\":\"%s\", "

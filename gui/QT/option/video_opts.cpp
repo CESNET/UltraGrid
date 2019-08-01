@@ -37,7 +37,7 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
         res.push_back(std::move(item));
     }
 
-    for(const auto &i : availSettings->getCapturers()){
+    for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
         SettingItem item;
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
@@ -51,7 +51,7 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
 std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings){
     std::vector<SettingItem> res;
 
-    for(const auto &cap : availSettings->getCapturers()){
+    for(const auto &cap : availSettings->getDevices(VIDEO_SRC)){
         for(const auto &mode : cap.modes){
             SettingItem item;
             item.name = mode.name;
