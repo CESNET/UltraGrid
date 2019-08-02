@@ -259,8 +259,11 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 vdi->probe(&devices, &count, &deleter);
                 cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[cap] (" << devices[i].id << ";" << devices[i].name << ";" <<
-                                devices[i].repeatable << ")\n";
+                        cout << "[capability][device][v2] {"
+                                "\"purpose\":\"video_disp\", "
+                                "\"type\":\"" << devices[i].id << "\", "
+                                "\"name\":\"" << devices[i].name << "\", "
+                                "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
                 }
                 deleter ? deleter(devices) : free(devices);
         }

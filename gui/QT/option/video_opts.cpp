@@ -21,6 +21,14 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
     defaultItem.opts.push_back({optStr, ""});
     res.push_back(std::move(defaultItem));
 
+    for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
+        SettingItem item;
+        item.name = i.name;
+        item.opts.push_back({optStr, i.type});
+        item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
+        res.push_back(std::move(item));
+    }
+
     for(const auto &i : availSettings->getAvailableSettings(VIDEO_SRC)){
         SettingItem item;
         item.name = i;
@@ -34,14 +42,6 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
         if(!whiteListed){
             item.conditions.push_back({{{"advanced", "t"}, false}});
         }
-        res.push_back(std::move(item));
-    }
-
-    for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
-        SettingItem item;
-        item.name = i.name;
-        item.opts.push_back({optStr, i.type});
-        item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
         res.push_back(std::move(item));
     }
 
@@ -69,11 +69,8 @@ std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings){
 
 std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
 	const char * const whiteList[] = {
-		"gl",
-		"sdl",
-		"decklink",
-		"aja",
-		"dvs"
+		"dvs",
+		"quicktime"
 	};
 
     const std::string optStr = "video.display";
@@ -84,6 +81,13 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
     defaultItem.name = "None";
     defaultItem.opts.push_back({optStr, ""});
     res.push_back(std::move(defaultItem));
+
+    for(const auto &i : availSettings->getDevices(VIDEO_DISPLAY)){
+        SettingItem item;
+        item.name = i.name;
+        item.opts.push_back({optStr, i.type});
+        res.push_back(std::move(item));
+    }
 
     for(const auto &i : availSettings->getAvailableSettings(VIDEO_DISPLAY)){
         SettingItem item;
