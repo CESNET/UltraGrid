@@ -62,6 +62,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "audio/types.h"
@@ -116,6 +117,7 @@ using std::string;
 using std::thread;
 using std::unique_lock;
 using std::unique_ptr;
+using std::unordered_map;
 using std::vector;
 
 namespace ultragrid {
@@ -337,6 +339,25 @@ AJAStatus display::SetUpVideo ()
                 mDevice.SetEnableVANCData (false);      //      No VANC with RGB pixel formats (for now)
         }
 
+        if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
+                // convert all to RGB SMPTE range
+                if (IsRGBFormat (mPixelFormat)) { // set LUT
+                        NTV2LutType lutType = NTV2_LUTRGBRangeFull_SMPTE;
+                        const int bank = 1; // Bank 0 (RGB->YUV, SMPTE->Full), Bank 1 (YUV->RGB, Full->SMPTE)
+                        mDevice.SetColorCorrectionOutputBank (mOutputChannel, bank);
+                        mDevice.WriteRegister(kVRegLUTType, (ULWord) lutType);
+                        NTV2DoubleArray table(1024);
+                        mDevice.GenerateGammaTable(lutType, bank, table);
+                        mDevice.DownloadLUTToHW(table, table, table, mOutputChannel, bank);
+                } else { // set CSC
+                        mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel);
+                }
+
+                mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB);
+                mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE);
+                mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB);
+        }
+
         //      Subscribe the output interrupt -- it's enabled by default...
         mDevice.SubscribeOutputVerticalEvent (mOutputChannel);
 
@@ -390,6 +411,17 @@ AJAStatus display::SetUpAudio ()
 
 }       //      SetupAudio
 
+const unordered_map<NTV2Channel, NTV2OutputCrosspointID> chanToLutSrc = {
+        {NTV2_CHANNEL1, NTV2_XptLUT1RGB},
+        {NTV2_CHANNEL2, NTV2_XptLUT2RGB},
+        {NTV2_CHANNEL3, NTV2_XptLUT3Out},
+        {NTV2_CHANNEL4, NTV2_XptLUT4Out},
+        {NTV2_CHANNEL5, NTV2_XptLUT5Out},
+        {NTV2_CHANNEL6, NTV2_XptLUT6Out},
+        {NTV2_CHANNEL7, NTV2_XptLUT7Out},
+        {NTV2_CHANNEL8, NTV2_XptLUT8Out}
+};
+
 void display::RouteOutputSignal ()
 {
         const NTV2Standard              outputStandard  (::GetNTV2StandardFromVideoFormat (mVideoFormat));
@@ -408,7 +440,7 @@ void display::RouteOutputSignal ()
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                         NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !isRGB/*isRGB*/));
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
-                        if ((isRGB && NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination))
+                        if ((isRGB && !NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))
                                         || (!isRGB && NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))) {
                                 mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt);
                         }
@@ -422,7 +454,14 @@ void display::RouteOutputSignal ()
                                 //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
                                 mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
                         } else if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
-                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), !isRGB ? cscVidOutXpt : fsVidOutXpt);
+				// convert all to RGB SMPTE range
+                                if (isRGB) { // connect to LUT to convert full->SMPTE range
+                                        auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
+                                        mDevice.Connect(lutInXpt, fsVidOutXpt);
+                                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), chanToLutSrc.at(chan));
+                                } else { // convert to RGB
+                                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), cscVidOutXpt);
+                                }
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Routing for " << NTV2OutputDestinationToString(mOutputDestination)
                                        << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
