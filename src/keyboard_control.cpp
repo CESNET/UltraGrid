@@ -242,7 +242,7 @@ static int64_t get_ansi_code() {
                 }
                 c = '\E' << 16 | c << 8 | tmp;
         } else {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control seqence!\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control sequence!\n";
                 return -1;
         }
 
@@ -252,7 +252,7 @@ static int64_t get_ansi_code() {
 #ifndef WIN32
 static int64_t get_utf8_code(int c) {
         if (c < 0xc0) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF seqence!\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF sequence!\n";
                 return -1;
         }
         int ones = count_utf8_bytes(c);
@@ -267,7 +267,7 @@ static int64_t get_utf8_code(int c) {
                 c |= tmp;
         }
         if (ones > 7) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported UTF seqence length!\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported UTF sequence length!\n";
                 return -1;
         }
         return c;
