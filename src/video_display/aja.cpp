@@ -226,6 +226,7 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 mDevice.EnableOutputInterrupt(chan);
+                mDevice.SetMode(chan, NTV2_MODE_DISPLAY);
         }
 }
 
