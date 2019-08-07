@@ -120,6 +120,14 @@ using std::unique_ptr;
 using std::unordered_map;
 using std::vector;
 
+#define CHECK_EX(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
+        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
+        action_failed;\
+}\
+} while(0)
+#define NOOP ((void)0)
+#define CHECK(cmd) CHECK_EX(cmd, #cmd, NOOP)
+
 namespace ultragrid {
 namespace aja {
 
@@ -198,7 +206,7 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                 mDevice.GetEveryFrameServices (mSavedTaskMode); // Save the current service level
         }
 
-        mDevice.SetEveryFrameServices(NTV2_OEM_TASKS);
+        CHECK(mDevice.SetEveryFrameServices(NTV2_OEM_TASKS));
 
         if (::NTV2DeviceCanDoMultiFormat(mDeviceID) && mDoMultiChannel) {
                 mDevice.SetMultiFormatMode(true);
@@ -225,8 +233,8 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
 
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
-                mDevice.EnableOutputInterrupt(chan);
-                mDevice.SetMode(chan, NTV2_MODE_DISPLAY);
+                CHECK(mDevice.EnableOutputInterrupt(chan));
+                CHECK(mDevice.SetMode(chan, NTV2_MODE_DISPLAY));
         }
 }
 
@@ -234,12 +242,12 @@ display::~display() {
         mDevice.UnsubscribeOutputVerticalEvent (mOutputChannel);
 
         if (!mDoMultiChannel) {
-                mDevice.SetEveryFrameServices (mSavedTaskMode);                 //      Restore the previously saved service level
-                mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t>(getpid()));    //      Release the device
+                CHECK_EX(mDevice.SetEveryFrameServices (mSavedTaskMode), "Restore Service Mode", NOOP); // Restore the previously saved service level
+                CHECK(mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t>(getpid())));     // Release the device
         }
 
         //      Don't leave the audio system active after we exit
-        mDevice.SetAudioOutputReset     (mAudioSystem, true);
+        CHECK_EX(mDevice.SetAudioOutputReset(mAudioSystem, true), "Restore Audio", NOOP);
 }
 
 void display::Init()
@@ -308,13 +316,10 @@ AJAStatus display::SetUpVideo ()
                 }
         }
         if(mDeviceID == DEVICE_ID_KONAIP_1RX_1TX_2110 ||
-                        mDeviceID == DEVICE_ID_KONAIP_2110)
-        {
-                mDevice.SetReference(NTV2_REFERENCE_SFP1_PTP);
-        }
-        else
-        {
-                mDevice.SetReference (NTV2_REFERENCE_FREERUN);
+                        mDeviceID == DEVICE_ID_KONAIP_2110) {
+                CHECK_EX(mDevice.SetReference(NTV2_REFERENCE_SFP1_PTP), "Set Reference SFP1_PTP", NOOP);
+        } else {
+                CHECK_EX(mDevice.SetReference (NTV2_REFERENCE_FREERUN), "Set Reference FREERUN", NOOP);
         }
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
@@ -328,16 +333,13 @@ AJAStatus display::SetUpVideo ()
         if (mEnableVanc && !::IsRGBFormat (mPixelFormat) && NTV2_IS_HD_VIDEO_FORMAT (mVideoFormat))
         {
                 //      Try enabling VANC...
-                mDevice.SetEnableVANCData (true);               //      Enable VANC for non-SD formats, to pass thru captions, etc.
-                if (::Is8BitFrameBufferFormat (mPixelFormat))
-                {
+                CHECK_EX(mDevice.SetEnableVANCData(true), "SetEnableVANCData true", NOOP); // Enable VANC for non-SD formats, to pass thru captions, etc.
+                if (::Is8BitFrameBufferFormat (mPixelFormat)) {
                         //      8-bit FBFs require VANC bit shift...
-                        mDevice.SetVANCShiftMode (mOutputChannel, NTV2_VANCDATA_8BITSHIFT_ENABLE);
-                        mDevice.SetVANCShiftMode (mOutputChannel, NTV2_VANCDATA_8BITSHIFT_ENABLE);
+                        CHECK_EX(mDevice.SetVANCShiftMode(mOutputChannel, NTV2_VANCDATA_8BITSHIFT_ENABLE), "SetVANCShiftMode", NOOP);
                 }
-        }       //      if HD video format
-        else {
-                mDevice.SetEnableVANCData (false);      //      No VANC with RGB pixel formats (for now)
+        } else {
+                CHECK_EX(mDevice.SetEnableVANCData(false), "SetEnableVANCData false", NOOP);;      //      No VANC with RGB pixel formats (for now)
         }
 
         if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
@@ -345,49 +347,43 @@ AJAStatus display::SetUpVideo ()
                 if (IsRGBFormat (mPixelFormat)) { // set LUT
                         NTV2LutType lutType = NTV2_LUTRGBRangeFull_SMPTE;
                         const int bank = 1; // Bank 0 (RGB->YUV, SMPTE->Full), Bank 1 (YUV->RGB, Full->SMPTE)
-                        mDevice.SetColorCorrectionOutputBank (mOutputChannel, bank);
-                        mDevice.WriteRegister(kVRegLUTType, (ULWord) lutType);
+                        CHECK_EX(mDevice.SetColorCorrectionOutputBank(mOutputChannel, bank), "LUT Bank", NOOP);
+                        CHECK_EX(mDevice.WriteRegister(kVRegLUTType, (ULWord) lutType), "LUT Bank Reg", NOOP);
                         NTV2DoubleArray table(1024);
-                        mDevice.GenerateGammaTable(lutType, bank, table);
-                        mDevice.DownloadLUTToHW(table, table, table, mOutputChannel, bank);
+                        CHECK_EX(mDevice.GenerateGammaTable(lutType, bank, table), "Generate Gamma", NOOP);
+                        CHECK_EX(mDevice.DownloadLUTToHW(table, table, table, mOutputChannel, bank), "Download LUT", NOOP);
                 } else { // set CSC
-                        mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel);
+                        CHECK_EX(mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel), "CSC RGB Range", NOOP);
                 }
 
-                mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB);
-                mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE);
-                mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB);
+                CHECK_EX(mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB), "HDMI Sample Struct", NOOP);
+                CHECK_EX(mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE), "HDMI Range", NOOP);
+                CHECK_EX(mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB), "HDMI Color Space", NOOP);
         }
 
         //      Subscribe the output interrupt -- it's enabled by default...
-        mDevice.SubscribeOutputVerticalEvent (mOutputChannel);
+        CHECK_EX(mDevice.SubscribeOutputVerticalEvent(mOutputChannel), "SubscribeOutputVerticalEvent", NOOP);
 
         return AJA_STATUS_SUCCESS;
 
 }       //      SetUpVideo
 
-#define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
-        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
-        action_failed;\
-}\
-} while(0)
-#define NOOP ((void)0)
 AJAStatus display::SetUpAudio ()
 {
         mAudioSystem = NTV2ChannelToAudioSystem(mOutputChannel);
 
         //      It's best to use all available audio channels...
-        CHECK_OK(mDevice.SetNumberAudioChannels(::NTV2DeviceGetMaxAudioChannels(mDeviceID), mAudioSystem), "Unable to set audio channels!", return AJA_STATUS_FAIL);
+        CHECK_EX(mDevice.SetNumberAudioChannels(::NTV2DeviceGetMaxAudioChannels(mDeviceID), mAudioSystem), "Unable to set audio channels!", return AJA_STATUS_FAIL);
 
         //      Assume 48kHz PCM...
-        mDevice.SetAudioRate (NTV2_AUDIO_48K, mAudioSystem);
+        CHECK(mDevice.SetAudioRate (NTV2_AUDIO_48K, mAudioSystem));
 
         //      4MB device audio buffers work best...
-        mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, mAudioSystem);
+        CHECK(mDevice.SetAudioBufferSize(NTV2_AUDIO_BUFFER_BIG, mAudioSystem));
 
         //      Set the SDI output audio embedders to embed audio samples from the output of mAudioSystem...
-        mDevice.SetSDIOutputAudioSystem (mOutputChannel, mAudioSystem);
-        mDevice.SetSDIOutputDS2AudioSystem (mOutputChannel, mAudioSystem);
+        CHECK(mDevice.SetSDIOutputAudioSystem (mOutputChannel, mAudioSystem));
+        CHECK(mDevice.SetSDIOutputDS2AudioSystem (mOutputChannel, mAudioSystem));
 
         //
         //      Loopback mode plays whatever audio appears in the input signal when it's
@@ -396,16 +392,16 @@ AJAStatus display::SetUpAudio ()
         //      in our ring buffer. Audio, therefore, needs to come out of the (buffered) frame
         //      data being played, so loopback must be turned off...
         //
-        mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem);
+        CHECK_EX(mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem), "Disable Audio Loopback", NOOP);
 
-        CHECK_OK(mDevice.SetAudioOutputEraseMode(mAudioSystem, true), "Set erase mode", return AJA_STATUS_FAIL);
+        CHECK_EX(mDevice.SetAudioOutputEraseMode(mAudioSystem, true), "Set erase mode", return AJA_STATUS_FAIL);
 
         //      Reset both the input and output sides of the audio system so that the buffer
         //      pointers are reset to zero and inhibited from advancing.
-        mDevice.SetAudioOutputReset     (mAudioSystem, true);
+        CHECK(mDevice.SetAudioOutputReset(mAudioSystem, true));
         mAudioIsReset = true;
 
-        mDevice.GetAudioWrapAddress     (mAudioOutWrapAddress,   mAudioSystem);
+        CHECK(mDevice.GetAudioWrapAddress(mAudioOutWrapAddress, mAudioSystem));
         mAudioOutLastAddress = 0;
 
         return AJA_STATUS_SUCCESS;
@@ -443,30 +439,35 @@ void display::RouteOutputSignal ()
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
                         if ((isRGB && !NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))
                                         || (!isRGB && NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))) {
-                                mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt);
+                                CHECK_EX(mDevice.Connect(::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/), fsVidOutXpt),
+                                                "Connnect to CSC", NOOP);
                         }
 
                         if (NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination)) {
                                 if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID)) {
-                                        mDevice.SetSDITransmitEnable (chan, true);
+                                        CHECK(mDevice.SetSDITransmitEnable(chan, true));
                                 }
 
-                                mDevice.SetSDIOutputStandard (chan, outputStandard);
+                                CHECK(mDevice.SetSDIOutputStandard(chan, outputStandard));
                                 //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
-                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
+                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt),
+                                                "Connect to CSC", NOOP);
                         } else if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
 				// convert all to RGB SMPTE range
                                 if (isRGB) { // connect to LUT to convert full->SMPTE range
                                         auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
-                                        mDevice.Connect(lutInXpt, fsVidOutXpt);
-                                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), chanToLutSrc.at(chan));
+                                        CHECK_EX(mDevice.Connect(lutInXpt, fsVidOutXpt), "Connect to LUT", NOOP);
+                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), chanToLutSrc.at(chan)),
+                                                        "Connect from LUT", NOOP);
                                 } else { // convert to RGB
-                                        mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), cscVidOutXpt);
+                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), cscVidOutXpt),
+                                                        "Connect from CSC", NOOP);
                                 }
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Routing for " << NTV2OutputDestinationToString(mOutputDestination)
                                        << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
-                                mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt);
+                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt),
+                                                "Connect from CSC or frame store", NOOP);
                         }
                 }
         } else {
@@ -478,7 +479,7 @@ void display::RouteOutputSignal ()
 
                 if (isRGB) {
                         for (unsigned int i = 0; i < desc.tile_count; ++i) {
-                                mDevice.Connect (::GetCSCInputXptFromChannel ((NTV2Channel)((unsigned int) mOutputChannel + i), false/*isKeyInput*/),  fsVidOutXpt);
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel ((NTV2Channel)((unsigned int) mOutputChannel + i), false/*isKeyInput*/),  fsVidOutXpt));
                         }
                 }
 
@@ -487,18 +488,18 @@ void display::RouteOutputSignal ()
                         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID))
                                 mDevice.SetSDITransmitEnable (chan, true);              //      Make it an output
 
-                        mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
-                        mDevice.SetSDIOutputStandard (chan, outputStandard);
+                        CHECK(mDevice.Connect(::GetSDIOutputInputXpt (chan, false/*isDS2*/), isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.SetSDIOutputStandard (chan, outputStandard));
                 }       //      for each output spigot
 
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtAnalogOut1))
-                        mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_ANALOG),  isRGB ? cscVidOutXpt : fsVidOutXpt);
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_ANALOG),  isRGB ? cscVidOutXpt : fsVidOutXpt));
 
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v2)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v3)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v4))
-                        mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt);
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt));
         }
 }
 
@@ -528,7 +529,7 @@ void display::process_frames()
                         break;
                 }
 
-                CHECK_OK(mDevice.WaitForOutputVerticalInterrupt(mOutputChannel), "WaitForOutputVerticalInterrupt", NOOP);
+                CHECK(mDevice.WaitForOutputVerticalInterrupt(mOutputChannel));
                 //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
                 mCurrentOutFrame ^= 1;
                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
@@ -539,7 +540,7 @@ void display::process_frames()
                         //      Check for dropped frames by ensuring the hardware has not started to process
                         //      the buffers that were just filled....
                         uint32_t readBackOut;
-                        mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut);
+                        CHECK(mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut));
 
                         if (readBackOut == mCurrentOutFrame + 2 * i) {
                                 LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame + 2 * i << ", readback out " << readBackOut << endl;
@@ -548,20 +549,20 @@ void display::process_frames()
                                 mFramesProcessed++;
                         }
                         //      Tell the hardware which buffers to start using at the beginning of the next frame...
-                        mDevice.SetOutputFrame((NTV2Channel)((unsigned int)mOutputChannel + i), mCurrentOutFrame + 2 * i);
+                        CHECK(mDevice.SetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), mCurrentOutFrame + 2 * i));
                 }
 
                 if (mWithAudio) {
                         lock_guard<mutex> lk(mAudioLock);
                         if (mAudioIsReset && mAudioLen > 0) {
                                 //      Now that the audio system has some samples to play, playback can be taken out of reset...
-                                mDevice.SetAudioOutputReset (mAudioSystem, false);
+                                CHECK(mDevice.SetAudioOutputReset (mAudioSystem, false));
                                 mAudioIsReset = false;
                         }
 
                         if (mAudioLen > 0) {
                                 uint32_t val;
-                                mDevice.ReadAudioLastOut(val, mOutputChannel);
+                                CHECK(mDevice.ReadAudioLastOut(val, mOutputChannel));
                                 int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
                                 int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
                                 if (latency_ms > 135) {
@@ -572,9 +573,9 @@ void display::process_frames()
                                 }
 
                                 int len = min<int>(mAudioLen, mAudioOutWrapAddress - mAudioOutLastAddress); // length to the wrap-around
-                                mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get()), mAudioOutLastAddress, len);
+                                CHECK(mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get()), mAudioOutLastAddress, len));
                                 if (mAudioLen - len > 0) {
-                                        mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get() + len), 0, mAudioLen - len);
+                                        CHECK(mDevice.DMAWriteAudio(mAudioSystem, reinterpret_cast<ULWord*>(mAudioBuffer.get() + len), 0, mAudioLen - len));
                                         mAudioOutLastAddress = mAudioLen - len;
                                 } else {
                                         mAudioOutLastAddress += len;
