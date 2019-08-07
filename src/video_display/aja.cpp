@@ -353,12 +353,17 @@ AJAStatus display::SetUpVideo ()
                         CHECK_EX(mDevice.GenerateGammaTable(lutType, bank, table), "Generate Gamma", NOOP);
                         CHECK_EX(mDevice.DownloadLUTToHW(table, table, table, mOutputChannel, bank), "Download LUT", NOOP);
                 } else { // set CSC
+			CHECK(mDevice.SetColorSpaceMatrixSelect(NTV2_Rec709Matrix, mOutputChannel));
+			CHECK(mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel));
+			CHECK(mDevice.SetColorSpaceMethod(NTV2_CSC_Method_Original, mOutputChannel));
+			CHECK(mDevice.SetColorSpaceMakeAlphaFromKey(false, mOutputChannel));
                         CHECK_EX(mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel), "CSC RGB Range", NOOP);
                 }
 
                 CHECK_EX(mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB), "HDMI Sample Struct", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE), "HDMI Range", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB), "HDMI Color Space", NOOP);
+                //CHECK(mDevice.SetHDMIOutPrefer420(false));
         }
 
         //      Subscribe the output interrupt -- it's enabled by default...
