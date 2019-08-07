@@ -143,7 +143,7 @@ class vidcap_state_aja {
                 CNTV2Card              mDevice;
                 NTV2DeviceID           mDeviceID{};                   ///     My device identifier
                 NTV2EveryFrameTaskMode mSavedTaskMode{};              /// Used to restore prior every-frame task mode
-                NTV2Channel            mInputChannel{NTV2_CHANNEL1};  ///     My input channel
+                NTV2Channel            mInputChannel{NTV2_CHANNEL_INVALID}; ///     My input channel
                 NTV2VideoFormat        mVideoFormat{NTV2_FORMAT_UNKNOWN}; ///     My video format
                 NTV2FrameBufferFormat  mPixelFormat{NTV2_FBF_8BIT_YCBCR}; ///     My pixel format
                 NTV2VANCMode           mVancMode{};                   ///     VANC enabled?
@@ -194,6 +194,8 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         mCheckFor4K = true;
                 } else if (it.first == "device") {
                         mDeviceIndex = stol(it.second, nullptr, 10);
+                } else if (it.first == "channel") {
+                        mInputChannel = (NTV2Channel) (atoi(it.second.c_str()) - 1);
                 } else if (it.first == "codec") {
                         if (get_codec_from_name(it.second.c_str()) == VIDEO_CODEC_NONE) {
                                 throw string("Unknown codec " + it.second + "!");
@@ -434,7 +436,9 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (!::NTV2DeviceCanDoInputSource (mDeviceID, mInputSource))
                 return AJA_STATUS_BAD_PARAM;    //      Nope
 
-        mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
+        if (mInputChannel == NTV2_CHANNEL_INVALID) {
+                mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
+        }
 
 //      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
         CHECK_OK(mDevice.EnableChannel (mInputChannel), "Cannot enable channel", NOOP);
@@ -857,7 +861,7 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 
 static void show_help() {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t aja[:device=<idx>]" << rang::fg::reset << "[:progressive][:4K][:codec=<pixfmt>][:connection=<c>][:format=<fmt>] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-t aja[:device=<idx>]" << rang::fg::reset << "[:progressive][:4K][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:format=<fmt>] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
         cout << "where\n";
 
         cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
@@ -865,6 +869,9 @@ static void show_help() {
 
         cout << rang::style::bold << "\t4K\n" << rang::style::reset;
         cout << "\t\tVideo input is 4K.\n";
+
+        cout << rang::style::bold << "\tchannel\n" << rang::style::reset;
+        cout << "\t\tChannel number to use (advanced, from 1).\n";
 
         cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
                 "\t\tConnection can be one of: ";
