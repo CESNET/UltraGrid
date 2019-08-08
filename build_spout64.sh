@@ -13,6 +13,12 @@ function run_in_vs_env
     cmd //Q //C call "$vssetup" "&&" "${@:2}"
 }
 
+function run_vs16
+{
+    eval vssetup='C:\\Program\ Files\ \(x86\)\\Microsoft\ Visual\ Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat'
+    cmd //Q //C call "$vssetup" "&&" "$@"
+}
+
 function run_vs12
 {
     run_in_vs_env VS120COMNTOOLS "$@"
@@ -29,7 +35,7 @@ function run_vs10
     run_in_vs_env VS100COMNTOOLS "$@"
 }
 
-run_vs12 cl //DEXPORT_DLL_SYMBOLS src/spout_sender.cpp src/spout_receiver.cpp //LD src/SpoutSDK/VS2012/Binaries/x64/Spout.lib //Fespout_wrapper
+run_vs16 cl //DEXPORT_DLL_SYMBOLS src/spout_sender.cpp src/spout_receiver.cpp //LD src/SpoutSDK/Binaries/x64/Spout.lib //Fespout_wrapper
 cp spout_wrapper.dll /usr/local/bin
 cp spout_wrapper.lib /usr/local/lib
 
