@@ -472,8 +472,8 @@ static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __r
         int src_linesize = vc_get_linesize(width, RGB);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                unsigned char *dst_b = out_frame->data[0] + out_frame->linesize[0] * y;
-                unsigned char *dst_g = out_frame->data[1] + out_frame->linesize[1] * y;
+                unsigned char *dst_g = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_b = out_frame->data[1] + out_frame->linesize[1] * y;
                 unsigned char *dst_r = out_frame->data[2] + out_frame->linesize[2] * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -502,8 +502,8 @@ void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_b = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_g = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -529,8 +529,8 @@ void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict
         int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_b = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_g = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
@@ -646,9 +646,9 @@ void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         uint8_t *buf = (uint8_t *) dst_buffer + y * pitch + x * 3;
                         int src_idx = y * frame->linesize[0] + x;
-                        buf[2] = frame->data[0][src_idx];
-                        buf[1] = frame->data[1][src_idx];
-                        buf[0] = frame->data[2][src_idx];
+                        buf[0] = frame->data[2][src_idx]; // R
+                        buf[1] = frame->data[0][src_idx]; // G
+                        buf[2] = frame->data[1][src_idx]; // B
                 }
         }
 }
@@ -656,14 +656,15 @@ void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
 void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        abort();
         for (int y = 0; y < height; ++y) {
                 uint32_t *line = (uint32_t *) ((uint8_t *) dst_buffer + y * pitch);
                 int src_idx = y * frame->linesize[0];
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *line++ = frame->data[0][src_idx] << rgb_shift[B] |
-                                frame->data[1][src_idx] << rgb_shift[G] |
-                                frame->data[2][src_idx] << rgb_shift[R];
+                        *line++ = frame->data[2][src_idx] << rgb_shift[R] |
+                                frame->data[0][src_idx] << rgb_shift[G] |
+                                frame->data[1][src_idx] << rgb_shift[B];
                         src_idx += 1;
                 }
         }
@@ -674,8 +675,8 @@ void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
@@ -693,8 +694,8 @@ void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
@@ -710,8 +711,8 @@ void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
 		uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
 
@@ -733,8 +734,8 @@ void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
@@ -785,8 +786,8 @@ void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
@@ -802,8 +803,8 @@ void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_b = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_g = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
                 uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
 
