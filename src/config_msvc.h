@@ -43,33 +43,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-static inline char * strtok_r(char *str, const char *delim, char **save);
 
-/*
- * Public domain licensed code taken from:
- * http://en.wikibooks.org/wiki/C_Programming/Strings#The_strtok_function
- */
-static inline char *strtok_r(char *s, const char *delimiters, char **lasts)
-{
-     char *sbegin, *send;
-     sbegin = s ? s : *lasts;
-     sbegin += strspn(sbegin, delimiters);
-     if (*sbegin == '\0') {
-         /* *lasts = ""; */
-         *lasts = sbegin;
-         return NULL;
-     }
-     send = sbegin + strcspn(sbegin, delimiters);
-     if (*send != '\0')
-         *send++ = '\0';
-     *lasts = send;
-     return sbegin;
-}
+#define strtok_r strtok_s
+#ifndef strcasecmp
+#define strcasecmp  _stricmp
+#endif
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
 
 #define ATTRIBUTE(a)
-
-#define snprintf(x, y, ...) sprintf(x, __VA_ARGS__)
-#define strncasecmp(x, y, z) strcmp(x, y)
 
 #endif
 

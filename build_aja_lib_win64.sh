@@ -10,6 +10,12 @@ function run_in_vs_env
     cmd //Q //C call "$vssetup" "&&" "${@:2}"
 }
 
+function run_vs16
+{
+    eval vssetup='C:\\Program\ Files\ \(x86\)\\Microsoft\ Visual\ Studio\\2019\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat'
+    cmd //Q //C call "$vssetup" "&&" "$@"
+}
+
 function run_vs12
 {
     run_in_vs_env VS120COMNTOOLS "$@"
@@ -28,7 +34,7 @@ function run_vs10
 
 export INCLUDE='src;C:\msys64\home\toor\AJA\ajalibraries\ajantv2\includes;C:\msys64\home\toor\AJA\ajalibraries\ajantv2\src\win;C:\msys64\home\toor\AJA\ajaapps\crossplatform\demoapps;C:\msys64\home\toor\AJA\ajalibraries;C:\msys64\home\toor\AJA\ajaapps\crossplatform\demoapps\ntv2capture;$INCLUDE'
 
-run_vs12 cl //LD //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/video_capture/aja.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp ../AJA/lib/libajantv2.lib advapi32.lib user32.lib winmm.lib
+run_vs16 cl //LD //D_XKEYCHECK_H //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/video_capture/aja.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp ../AJA/lib/libajantv2.lib advapi32.lib user32.lib winmm.lib
 cp aja.lib /usr/local/lib
 cp aja.dll /usr/local/bin
 
