@@ -353,12 +353,13 @@ static char *get_val_from_cfg(const char *audio_codec_cfg, const char *key)
 {
         char *cfg = strdup(audio_codec_cfg);
         char *tmp = cfg;
-        char *item, *save_ptr;
+        char *item, *save_ptr, *ret;
 
         while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
                 if (strncasecmp(key, item, strlen(key)) == 0) {
+                        ret = strdup(item + strlen(key));
                         free(tmp);
-                        return strdup(item + strlen(key));
+                        return ret;
                 }
                 cfg = NULL;
         }
