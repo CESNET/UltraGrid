@@ -548,10 +548,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 }
 
                 if (codec == v210) {
-                        s->data =
+                        char *tmp =
                             (char *)tov210((unsigned char *) s->data, aligned_x,
                                            aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
-                        free(s->pixmap.data);
+                        free(s->data); // free old data
+                        s->data = tmp;
                 }
 
                 if (codec == R12L) {
