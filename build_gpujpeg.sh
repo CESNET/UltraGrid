@@ -9,7 +9,7 @@ export PATH=$PATH:$MSVC_PATH/Common7/IDE/:$MSVC_PATH/VC/bin/
 export PATH=$PATH:$CUDA_PATH\\bin
 export INCLUDE=.
 
-nvcc -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*cpp src/gpujpeg*cu
+nvcc -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu
 
 cp gpujpeg.lib /usr/local/lib
 cp gpujpeg.dll /usr/local/bin
