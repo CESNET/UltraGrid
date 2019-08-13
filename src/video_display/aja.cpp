@@ -133,7 +133,8 @@ namespace aja {
 
 struct display {
         display(string const &device_id, NTV2OutputDestination outputDestination,
-                        NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len);
+                        NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len,
+                        bool clearRouting);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
@@ -186,13 +187,17 @@ struct display {
         static void show_help();
 };
 
-display::display(string const &device_id, NTV2OutputDestination outputDestination, NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mOutputChannel(outputChannel), mWithAudio(withAudio) {
+display::display(string const &device_id, NTV2OutputDestination outputDestination, NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len, bool clearRouting) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mOutputChannel(outputChannel), mWithAudio(withAudio) {
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
         }
 
         if (!mDevice.IsDeviceReady(false)) {
                 throw runtime_error(string("Device '") + device_id + "' not ready!");
+        }
+
+        if (clearRouting) {
+                CHECK(mDevice.ClearRouting());
         }
 
         mDeviceID = mDevice.GetDeviceID(); // Keep this ID handy -- it's used frequently
@@ -642,10 +647,16 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[:device=<d>][:connection=<c>][:channel=<ch>][:novsync][:buffers=<b>][:help] [-r embedded]\n" << rang::style::reset <<
+                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:novsync]|:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
-        cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
-                "\t\tdevice identifier (number or name)\n";
+
+        cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
+                "\t\tuse <b> output buffers (default is " << DEFAULT_MAX_FRAME_QUEUE_LEN << ") - higher values increase stability\n"
+                "\t\tbut may also increase latency (when VBlank is enabled)\n";
+
+        cout << rang::style::bold << "\tclear-routing\n" << rang::style::reset <<
+                "\t\tremove all existing signal paths for device\n";
+
         cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
                 "\t\tone of: ";
         NTV2OutputDestination dest = NTV2OutputDestination();
@@ -663,12 +674,11 @@ void aja::display::show_help() {
         cout << rang::style::bold << "\tchannel\n" << rang::style::reset <<
                 "\t\tchannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use, see \"-t aja:help\" to see number of available channels).\n";
 
+        cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
+                "\t\tdevice identifier (number or name)\n";
+
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
-
-        cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
-                "\t\tuse <b> output buffers (default is " << DEFAULT_MAX_FRAME_QUEUE_LEN << ") - higher values increase stability\n"
-                "\t\tbut may also increase latency (when VBlank is enabled)\n";
 
         cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
                 "\t\treceive also audio and embed it to SDI\n";
@@ -824,7 +834,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
 {
         string device_idx{"0"};
         string connection;
-        bool novsync = false;
+        bool novsync = false,
+             clear_routing = false;
         int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         NTV2Channel outputChannel = NTV2_CHANNEL_INVALID; // if unchanged, select according to output destination
@@ -836,6 +847,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 if (strcmp("help", item) == 0) {
                         aja::display::show_help();
                         return aja_display_init_noerr;
+                } else if (strcmp("clear-routing", item) == 0) {
+                        clear_routing = true;
                 } else if (strstr(item, "connection=") != nullptr) {
                         string connection = item + strlen("connection=");
                         NTV2OutputDestination dest = NTV2OutputDestination();
@@ -872,7 +885,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len);
+                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len, clear_routing);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
