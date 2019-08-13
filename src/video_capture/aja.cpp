@@ -241,6 +241,11 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                 }
         }
 
+        if (!NTV2_INPUT_SOURCE_IS_SDI(mInputSource) && mInputChannel == NTV2_CHANNEL_INVALID) {
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Non-SDI source detected - we will use "
+                        "probably channel 1. Consider passing \"channel\" option (see help).\n";
+        }
+
         if (audioFlags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 // this maps according to mInputSource - EMBEDDED (SDI), HDMI or ANALOG
                 mAudioSource = NTV2InputSourceToAudioSource(mInputSource);
@@ -871,7 +876,7 @@ static void show_help() {
         cout << "\t\tVideo input is 4K.\n";
 
         cout << rang::style::bold << "\tchannel\n" << rang::style::reset;
-        cout << "\t\tChannel number to use (advanced, from 1).\n";
+        cout << "\t\tChannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use).\n";
 
         cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
                 "\t\tConnection can be one of: ";
@@ -921,6 +926,7 @@ static void show_help() {
                         }
                         cout << "\n";
                 }
+                cout << rang::style::underline << "\tNumber of frame stores: " << rang::style::reset << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
                 cout << rang::fg::red << "\tno devices found\n" << rang::fg::reset;

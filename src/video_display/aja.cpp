@@ -215,6 +215,11 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
         }
 
         if (mOutputChannel == NTV2_CHANNEL_INVALID) {
+                if (!NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination)) {
+                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Non-SDI destination detected - we will use "
+                                "probably channel 1. Consider passing \"channel\" option (see help).\n";
+                }
+
                 mOutputChannel = ::NTV2OutputDestinationToChannel(mOutputDestination);
 
                 //      Beware -- some devices (e.g. Corvid1) can only output from FrameStore 2...
@@ -656,7 +661,7 @@ void aja::display::show_help() {
         cout << "\n";
 
         cout << rang::style::bold << "\tchannel\n" << rang::style::reset <<
-                "\t\tchannel number to use (advanced, from 1)\n";
+                "\t\tchannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use, see \"-t aja:help\" to see number of available channels).\n";
 
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
