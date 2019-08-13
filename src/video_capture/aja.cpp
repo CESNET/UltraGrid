@@ -538,8 +538,8 @@ AJAStatus vidcap_state_aja::SetupVideo()
                                 break;
                 }
         } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG1) {
-                router.AddConnection (gFrameBufferInput [NTV2_CHANNEL1], NTV2_XptAnalogIn);
-                mDevice.SetFrameBufferFormat (NTV2_CHANNEL1, mPixelFormat);
+                router.AddConnection (gFrameBufferInput [mInputChannel], NTV2_XptAnalogIn);
+                mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
                 mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
         } else if (mInputSource == NTV2_INPUTSOURCE_HDMI1) {
                 NTV2LHIHDMIColorSpace   hdmiColor       (NTV2_LHIHDMIColorSpaceRGB);

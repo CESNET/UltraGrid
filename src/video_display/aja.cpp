@@ -498,8 +498,8 @@ void display::RouteOutputSignal ()
                         }
                 }
 
-                for (NTV2Channel chan (NTV2_CHANNEL1);  ULWord (chan) < numVideoOutputs;  chan = NTV2Channel (chan + 1))
-                {
+                for (ULWord i = 0; i < numVideoOutputs; ++i) {
+                        NTV2Channel chan = (NTV2Channel) ((int) mOutputChannel + i);
                         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID))
                                 mDevice.SetSDITransmitEnable (chan, true);              //      Make it an output
 
