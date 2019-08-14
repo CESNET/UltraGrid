@@ -506,8 +506,7 @@ void display::RouteOutputSignal ()
 		const UWord	numFrameStores(::NTV2DeviceGetNumFrameStores(mDeviceID));
                 mDevice.ClearRouting();		//	Start with clean slate
 
-                if (isRGB)
-                        CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt));
+                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt));
 
                 for (NTV2Channel chan(NTV2_CHANNEL1);  ULWord(chan) < numSDIOutputs;  chan = NTV2Channel(chan+1))
                 {
@@ -529,7 +528,16 @@ void display::RouteOutputSignal ()
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v2)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v3)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v4))
-                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt));
+
+                // connect eventual additional tiles
+                for (unsigned int i = 1; i < desc.tile_count; ++i) {
+                        NTV2Channel chan = (NTV2Channel) ((int) mOutputChannel + i);
+                        const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
+                        if (isRGB)
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt)); // CSC
+                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt));
+                }
         }
 }
 
