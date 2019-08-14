@@ -253,12 +253,6 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
         }
 
         mCurrentOutFrame = mOutputChannel * 2u;
-
-        for (unsigned int i = 0; i < desc.tile_count; ++i) {
-                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
-                CHECK(mDevice.EnableOutputInterrupt(chan));
-                CHECK(mDevice.SetMode(chan, NTV2_MODE_DISPLAY));
-        }
 }
 
 display::~display() {
@@ -389,8 +383,16 @@ AJAStatus display::SetUpVideo ()
                 //CHECK(mDevice.SetHDMIOutPrefer420(false));
         }
 
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
+                NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
+                //	Enable and subscribe to the output interrupts (though it's enabled by default)...
+                CHECK(mDevice.EnableOutputInterrupt(chan));
+                CHECK(mDevice.SubscribeOutputVerticalEvent(chan));
+                //	Set the Frame Store modes
+                CHECK(mDevice.SetMode(chan, NTV2_MODE_DISPLAY));
+        }
+
         //      Subscribe the output interrupt -- it's enabled by default...
-        CHECK_EX(mDevice.SubscribeOutputVerticalEvent(mOutputChannel), "SubscribeOutputVerticalEvent", NOOP);
 
         return AJA_STATUS_SUCCESS;
 
