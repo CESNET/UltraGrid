@@ -134,7 +134,7 @@ namespace aja {
 struct display {
         display(string const &device_id, NTV2OutputDestination outputDestination,
                         NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len,
-                        bool clearRouting);
+                        bool clearRouting, int doMultiChannel /* -1/0/1 */);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
@@ -187,7 +187,13 @@ struct display {
         static void show_help();
 };
 
-display::display(string const &device_id, NTV2OutputDestination outputDestination, NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len, bool clearRouting) : max_frame_queue_len(buf_len), mNovsync(novsync), mOutputDestination(outputDestination), mOutputChannel(outputChannel), mWithAudio(withAudio) {
+display::display(string const &device_id, NTV2OutputDestination outputDestination,
+                NTV2Channel outputChannel, bool withAudio, bool novsync,
+                int buf_len, bool clearRouting, int doMultiChannel)
+        : max_frame_queue_len(buf_len), mNovsync(novsync),
+        mOutputDestination(outputDestination), mOutputChannel(outputChannel),
+        mWithAudio(withAudio)
+{
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
         }
@@ -202,9 +208,16 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
 
         mDeviceID = mDevice.GetDeviceID(); // Keep this ID handy -- it's used frequently
 
-        mDoMultiChannel = NTV2DeviceCanDoMultiFormat(mDeviceID);
+        bool canDoMultiChannel = NTV2DeviceCanDoMultiFormat(mDeviceID);
+        if (!canDoMultiChannel) {
+                if (doMultiChannel != 0) {
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Device " << device_id << " cannot simultaneously handle different video formats.\n";
+                }
+                mDoMultiChannel = false;
+        } else {
+                mDoMultiChannel = doMultiChannel != 0;
+        }
         if (!mDoMultiChannel) {
-                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Device " << device_id << " cannot simultaneously handle different video formats.\n";
                 if (!mDevice.AcquireStreamForApplication(app, static_cast <uint32_t> (getpid()))) {
                         throw runtime_error("Device busy!\n"); // Device is in use by another app -- fail
                 }
@@ -447,6 +460,7 @@ void display::RouteOutputSignal ()
         }
 
         if (mDoMultiChannel) {
+                //	Multiformat --- We may be sharing the device with other processes, so route only one SDI output...
                 for (unsigned int i = 0; i < desc.tile_count; ++i) {
                         //      Multiformat --- route the one output to the CSC video output (RGB) or FrameStore output (YUV)...
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
@@ -485,11 +499,11 @@ void display::RouteOutputSignal ()
                                                 "Connect from CSC or frame store", NOOP);
                         }
                 }
-        } else {
+        } else { //	Not multiformat:  We own the whole device, so connect all possible SDI outputs...
+                 //     Route all possible SDI outputs to CSC video output (RGB) or FrameStore output (YUV)...
                 NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
                 NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
 
-                //      Not multiformat:  Route all possible SDI outputs to CSC video output (RGB) or FrameStore output (YUV)...
                 mDevice.ClearRouting ();
 
                 if (isRGB) {
@@ -647,7 +661,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:novsync]|:help] [-r embedded]\n" << rang::style::reset <<
+                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync]|:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
 
         cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
@@ -676,6 +690,9 @@ void aja::display::show_help() {
 
         cout << rang::style::bold << "\tdevice\n" << rang::style::reset <<
                 "\t\tdevice identifier (number or name)\n";
+
+        cout << rang::style::bold << "\t[no-]multi-channel\n" << rang::style::reset <<
+                "\t\tdo (not) treat the device as a multi-channel\n";
 
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
@@ -836,6 +853,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         string connection;
         bool novsync = false,
              clear_routing = false;
+        int multi_channel = -1;
         int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         NTV2Channel outputChannel = NTV2_CHANNEL_INVALID; // if unchanged, select according to output destination
@@ -847,6 +865,12 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 if (strcmp("help", item) == 0) {
                         aja::display::show_help();
                         return aja_display_init_noerr;
+                } else if (strstr(item, "buffers=") == item) {
+                        buf_len = atoi(item + strlen("buffers="));
+                        if (buf_len <= 0) {
+                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Buffers must be positive!\n";
+                                return nullptr;
+                        }
                 } else if (strcmp("clear-routing", item) == 0) {
                         clear_routing = true;
                 } else if (strstr(item, "connection=") != nullptr) {
@@ -865,18 +889,14 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown destination: " << connection << "!\n";
                                 return nullptr;
                         }
-                } else if (strstr(item, "device=") != nullptr) {
-                        device_idx = item + strlen("device=");
                 } else if (strstr(item, "channel=") != nullptr) {
                         outputChannel = (NTV2Channel) (atoi(item + strlen("channel=")) - 1);
+                } else if (strstr(item, "device=") != nullptr) {
+                        device_idx = item + strlen("device=");
+                } else if (strstr(item, "multi-channel") != nullptr) {
+                        multi_channel = strstr(item, "no-") == nullptr;
                 } else if (strstr(item, "novsync") == item) {
                         novsync = true;
-                } else if (strstr(item, "buffers=") == item) {
-                        buf_len = atoi(item + strlen("buffers="));
-                        if (buf_len <= 0) {
-                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Buffers must be positive!\n";
-                                return nullptr;
-                        }
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
                         return nullptr;
@@ -885,7 +905,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len, clear_routing);
+                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len, clear_routing, multi_channel);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
