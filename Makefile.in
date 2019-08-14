@@ -5,8 +5,8 @@ CC            = @CC@
 CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
-COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX='"@prefix@"' -DLIB_DIR='"@libdir@"' -Wall -Wextra -Wpointer-arith -Werror=implicit-function-declaration -DGF_BITS=16
-CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
+COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX='"@prefix@"' -DLIB_DIR='"@libdir@"' -Wall -Wextra -Wpointer-arith -DGF_BITS=16
+CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -Werror=implicit-function-declaration -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
 CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
