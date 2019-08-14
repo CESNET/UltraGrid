@@ -450,7 +450,7 @@ const unordered_map<NTV2Channel, NTV2OutputCrosspointID> chanToLutSrc = {
 void display::RouteOutputSignal ()
 {
         const NTV2Standard              outputStandard  (::GetNTV2StandardFromVideoFormat (mVideoFormat));
-        const UWord                             numVideoOutputs (::NTV2DeviceGetNumVideoOutputs (mDeviceID));
+        const UWord                     numSDIOutputs (::NTV2DeviceGetNumVideoOutputs (mDeviceID));
         bool                                    isRGB                   (::IsRGBFormat (mPixelFormat));
 
         //      If device has no RGB conversion capability for the desired channel, use YUV instead
@@ -501,34 +501,35 @@ void display::RouteOutputSignal ()
                 }
         } else { //	Not multiformat:  We own the whole device, so connect all possible SDI outputs...
                  //     Route all possible SDI outputs to CSC video output (RGB) or FrameStore output (YUV)...
-                NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
-                NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
+                const NTV2OutputCrosspointID cscVidOutXpt(::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
+                const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
+		const UWord	numFrameStores(::NTV2DeviceGetNumFrameStores(mDeviceID));
+                mDevice.ClearRouting();		//	Start with clean slate
 
-                mDevice.ClearRouting ();
+                if (isRGB)
+                        CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt));
 
-                if (isRGB) {
-                        for (unsigned int i = 0; i < desc.tile_count; ++i) {
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel ((NTV2Channel)((unsigned int) mOutputChannel + i), false/*isKeyInput*/),  fsVidOutXpt));
-                        }
-                }
-
-                for (ULWord i = 0; i < numVideoOutputs; ++i) {
-                        NTV2Channel chan = (NTV2Channel) ((int) mOutputChannel + i);
+                for (NTV2Channel chan(NTV2_CHANNEL1);  ULWord(chan) < numSDIOutputs;  chan = NTV2Channel(chan+1))
+                {
+                        if (chan != mOutputChannel  &&  chan < numFrameStores)
+                                CHECK(mDevice.DisableChannel(chan));              // Disable unused FrameStore
                         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID))
-                                mDevice.SetSDITransmitEnable (chan, true);              //      Make it an output
+                                CHECK(mDevice.SetSDITransmitEnable (chan, true)); // Make it an output
 
-                        CHECK(mDevice.Connect(::GetSDIOutputInputXpt (chan, false/*isDS2*/), isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt));
                         CHECK(mDevice.SetSDIOutputStandard (chan, outputStandard));
-                }       //      for each output spigot
+                }	//	for each SDI output spigot
 
+                //	And connect analog video output, if the device has one...
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtAnalogOut1))
                         CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_ANALOG),  isRGB ? cscVidOutXpt : fsVidOutXpt));
 
+                //	And connect HDMI video output, if the device has one...
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v2)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v3)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v4))
-                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt));
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? cscVidOutXpt : fsVidOutXpt));
         }
 }
 
