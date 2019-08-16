@@ -91,6 +91,7 @@
 #include "video_rxtx.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
+#include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
 
@@ -664,6 +665,10 @@ int main(int argc, char *argv[])
                         print_configuration();
                         return EXIT_SUCCESS;
                 case 'c':
+                        if (!strcmp(optarg, "help")) {
+                                show_compress_help();
+                                return EXIT_SUCCESS;
+                        }
                         requested_compression = optarg;
                         break;
                 case 'H':
@@ -708,9 +713,17 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'r':
+                        if (!strcmp(optarg, "help")) {
+                                audio_capture_print_help();
+                                return EXIT_SUCCESS;
+                        }
                         audio_recv = optarg;                       
                         break;
                 case 's':
+                        if (!strcmp(optarg, "help")) {
+                                audio_playback_help();
+                                return EXIT_SUCCESS;
+                        }
                         audio_send = optarg;
                         break;
                 case 'f':
