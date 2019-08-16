@@ -1,6 +1,8 @@
 /**
  * @file   video_capture/aja.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
  * Copyright (c) 2015-2019 CESNET, z. s. p. o.
@@ -33,6 +35,10 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @todo
+ * Capture what is on the wire (RGB if RGB, YCbCr otherwise)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -108,14 +114,14 @@ volatile bool *aja_should_exit = &should_exit;
 #define LINK_SPEC static
 #endif
 
-#define MODULE_NAME "[AJA cap.] "
-
 #define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
-        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << (msg) << "\n";\
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME << (msg) << "\n";\
         action_failed;\
 }\
 } while(0)
 #define NOOP ((void)0)
+
+#define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd, return AJA_STATUS_FAIL)
 
 using namespace std;
 
@@ -166,10 +172,12 @@ class vidcap_state_aja {
                 int                    mMaxAudioChannels{0};
                 NTV2AudioSource        mAudioSource{};
                 NTV2TCSource           mTimeCodeSource{};              ///< @brief     Time code source
+                bool                   mbFixedReference{false};
                 bool                   mCheckFor4K{false};
                 uint32_t               mAudioInLastAddress{};          ///< @brief My record of the location of the last audio sample captured
                 bool                   mClearRouting{false};
 
+                AJAStatus SetupHDMI();
                 AJAStatus SetupVideo();
                 AJAStatus SetupAudio();
                 void SetupHostBuffers();
@@ -245,7 +253,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         }
 
         if (!NTV2_INPUT_SOURCE_IS_SDI(mInputSource) && mInputChannel == NTV2_CHANNEL_INVALID) {
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Non-SDI source detected - we will use "
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Non-SDI source detected - we will use "
                         "probably channel 1. Consider passing \"channel\" option (see help).\n";
         }
 
@@ -441,6 +449,91 @@ void vidcap_state_aja::EnableInput(NTV2InputSource source)
 
 }
 
+/*
+ * see NTV2FrameGrabber::SetupInput()
+ */
+AJAStatus vidcap_state_aja::SetupHDMI()
+{
+        NTV2LHIHDMIColorSpace	hdmiColor	(NTV2_LHIHDMIColorSpaceRGB);
+        CHECK_RET_FAIL(mDevice.GetHDMIInputColor (hdmiColor, mInputChannel));
+        if (!mbFixedReference)
+                CHECK_RET_FAIL(mDevice.SetReference (::NTV2InputSourceToReferenceSource(mInputSource)));
+
+        // configure hdmi with 2.0 support
+        if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && !mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+                //	Set two sample interleave
+                CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(true, mInputChannel));
+
+                for (unsigned offset = 0; offset < 2; ++offset) {
+                        NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
+                        CHECK_RET_FAIL(mDevice.EnableChannel (channel));
+                        CHECK_RET_FAIL(mDevice.SetMode (channel, NTV2_MODE_CAPTURE));
+                        CHECK_RET_FAIL(mDevice.SetFrameBufferFormat (channel, mPixelFormat));
+                }
+
+                for (unsigned offset = 0; offset < 4; ++offset) {
+                        if ((hdmiColor == NTV2_LHIHDMIColorSpaceYCbCr && IsRGBFormat(mPixelFormat))
+                                        || (hdmiColor == NTV2_LHIHDMIColorSpaceRGB && !IsRGBFormat(mPixelFormat))) {
+                                NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
+                                CHECK_RET_FAIL(mDevice.Connect (::GetCSCInputXptFromChannel (channel),
+                                                        ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/,
+                                                                hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, offset/*hdmiQuadrant*/)));
+                                CHECK_RET_FAIL(mDevice.Connect (GetTSIMuxInputXptFromChannel((NTV2Channel) offset, false/* inLinkB */), GetCSCOutputXptFromChannel (channel, false/* inIsKey */, hdmiColor != NTV2_LHIHDMIColorSpaceRGB /* inIsRGB */)));
+                        } else {
+                                CHECK_RET_FAIL(mDevice.Connect (GetTSIMuxInputXptFromChannel((NTV2Channel) offset, false/* inLinkB */), ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/, hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, offset /*hdmiQuadrant*/)));
+                        }
+                }
+
+                for (unsigned offset = 0; offset < 4; ++offset) {
+                        CHECK_RET_FAIL(mDevice.Connect(GetFrameBufferInputXptFromChannel((NTV2Channel) (offset / 2) /* inChannel */, offset % 2 == 1 /* inIsBInput */),
+                                        GetTSIMuxOutputXptFromChannel((NTV2Channel) (offset / 2), offset % 2 == 1 /* inLinkB */)));
+                }
+        } else if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat) && mDevice.DeviceCanDoHDMIQuadRasterConversion ()) {
+                CHECK_RET_FAIL(mDevice.SetTsiFrameEnable(false, mInputChannel));
+                for (unsigned offset = 0; offset < 4; ++offset) {
+                        NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
+                        CHECK_RET_FAIL(mDevice.EnableChannel (channel));
+                        CHECK_RET_FAIL(mDevice.SetMode (channel, NTV2_MODE_CAPTURE));
+                        CHECK_RET_FAIL(mDevice.SetFrameBufferFormat (channel, mPixelFormat));
+                        if ((hdmiColor == NTV2_LHIHDMIColorSpaceYCbCr && IsRGBFormat(mPixelFormat))
+                                        || (hdmiColor == NTV2_LHIHDMIColorSpaceRGB && !IsRGBFormat(mPixelFormat))) {
+                                CHECK_RET_FAIL(mDevice.Connect (::GetCSCInputXptFromChannel (channel),
+                                                ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/, hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, channel /*hdmiQuadrant*/)));
+                                CHECK_RET_FAIL(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel),
+                                                ::GetCSCOutputXptFromChannel (channel, false/*isKey*/, hdmiColor != NTV2_LHIHDMIColorSpaceRGB /*isRGB*/)));
+                        } else {
+                                CHECK_RET_FAIL(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel),
+                                                ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/, hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, channel /*hdmiQuadrant*/)));
+                        }
+                }	//	loop once for each channel (4 times for 4K/UHD)
+        } else {
+                CHECK_RET_FAIL(mDevice.EnableChannel (mInputChannel));
+                CHECK_RET_FAIL(mDevice.SetMode (mInputChannel, NTV2_MODE_CAPTURE));
+                CHECK_RET_FAIL(mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat));
+                if ((hdmiColor == NTV2_LHIHDMIColorSpaceYCbCr && IsRGBFormat(mPixelFormat))
+                                || (hdmiColor == NTV2_LHIHDMIColorSpaceRGB && !IsRGBFormat(mPixelFormat))) {
+                        CHECK_RET_FAIL(mDevice.Connect (::GetCSCInputXptFromChannel (mInputChannel),
+                                        ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/, hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, 0/*hdmiQuadrant*/)));
+                        CHECK_RET_FAIL(mDevice.Connect (::GetFrameBufferInputXptFromChannel (mInputChannel),
+                                        ::GetCSCOutputXptFromChannel (mInputChannel, false/*isKey*/, hdmiColor != NTV2_LHIHDMIColorSpaceRGB /*isRGB*/)));
+                } else {
+                        CHECK_RET_FAIL(mDevice.Connect (::GetFrameBufferInputXptFromChannel (mInputChannel),
+                                        ::GetInputSourceOutputXpt (mInputSource, false/*isSDI_DS2*/, hdmiColor == NTV2_LHIHDMIColorSpaceRGB /*isHDMI_RGB*/, 0/*hdmiQuadrant*/)));
+                }
+        }
+
+        // configure the qrc if present
+        if (NTV2DeviceGetHDMIVersion(mDeviceID) == 2) {
+                if (NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat)) {
+                        CHECK_RET_FAIL(mDevice.SetHDMIV2Mode (NTV2_HDMI_V2_4K_CAPTURE));
+                } else {
+                        CHECK_RET_FAIL(mDevice.SetHDMIV2Mode (NTV2_HDMI_V2_HDSD_BIDIRECTIONAL));
+                }
+        }
+
+        return AJA_STATUS_SUCCESS;
+}
+
 AJAStatus vidcap_state_aja::SetupVideo()
 {
         //      Set the video format to match the incomming video format.
@@ -452,7 +545,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
         }
 
-//      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
+        //      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
         CHECK_OK(mDevice.EnableChannel (mInputChannel), "Cannot enable channel", NOOP);
 
         //      Enable and subscribe to the interrupts for the channel to be used...
@@ -541,26 +634,9 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 router.AddConnection (gFrameBufferInput [mInputChannel], NTV2_XptAnalogIn);
                 mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
                 mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
-        } else if (mInputSource == NTV2_INPUTSOURCE_HDMI1) {
-                NTV2LHIHDMIColorSpace   hdmiColor       (NTV2_LHIHDMIColorSpaceRGB);
-                mDevice.GetHDMIInputColor (hdmiColor);
-                mDevice.SetReference (NTV2_REFERENCE_HDMI_INPUT);
-                mDevice.SetHDMIV2Mode (NTV2_HDMI_V2_4K_CAPTURE);              //      Allow 4K HDMI capture
-                for (unsigned chan (0);  chan < 4;  chan++) {
-                        mDevice.EnableChannel (NTV2Channel (chan));
-                        mDevice.SetMode (NTV2Channel (chan), NTV2_MODE_CAPTURE);
-                        mDevice.SetFrameBufferFormat (NTV2Channel (chan), mPixelFormat);
-                        if (hdmiColor == NTV2_LHIHDMIColorSpaceYCbCr) {
-                                router.AddConnection (gFrameBufferInput [chan], gHDMIInYUVOutputs [chan]);
-                        } else {
-                                router.AddConnection (gCSCVideoInput [chan], gHDMIInRGBOutputs [chan]);
-                                router.AddConnection (gFrameBufferInput [chan], gCSCVidYUVOutput [chan]);
-                        }
-                        if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
-                                break;
-                }       //      loop once for single channel, or 4 times for 4K/UHD
-        }
-        else {
+        } else if (NTV2_IS_VALID_VIDEO_FORMAT (mVideoFormat)) {
+                SetupHDMI();
+        } else {
                 LOG(LOG_LEVEL_WARNING) << "## DEBUG:  NTV2FrameGrabber::SetupInput:  Bad mInputSource switch value " << ::NTV2InputSourceToChannelSpec (mInputSource);
         }
 
