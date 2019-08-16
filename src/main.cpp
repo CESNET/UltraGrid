@@ -282,7 +282,7 @@ static void usage(const char *exec_path, bool full = false)
         print_help_item("-r <playback_device>", {"audio playback device (see '-r help')"});
         print_help_item("-s <capture_device>", {"audio capture device (see '-s help')"});
         if (full) {
-                print_help_item("--verbose[=<level>]", {"print verbose messages (optinaly specify level [0-" + to_string(LOG_LEVEL_MAX) + "])"});
+                print_help_item("--verbose[=<level>]", {"print verbose messages (optionally specify level [0-" + to_string(LOG_LEVEL_MAX) + "])"});
                 print_help_item("--list-modules", {"prints list of modules"});
                 print_help_item("--control-port <port>[:0|1]", {"set control port (default port: " + to_string(DEFAULT_CONTROL_PORT) + ")",
                                 "connection types: 0- Server (default), 1- Client"});
