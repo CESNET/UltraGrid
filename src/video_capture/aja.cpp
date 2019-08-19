@@ -350,37 +350,6 @@ vidcap_state_aja::~vidcap_state_aja() {
         free(mAudio.data);
 }
 
-static const NTV2InputCrosspointID gCSCVideoInput [] = {
-        NTV2_XptCSC1VidInput, NTV2_XptCSC2VidInput, NTV2_XptCSC3VidInput,
-        NTV2_XptCSC4VidInput, NTV2_XptCSC5VidInput, NTV2_XptCSC6VidInput,
-        NTV2_XptCSC7VidInput, NTV2_XptCSC8VidInput };
-
-static const NTV2OutputCrosspointID gSDIInputOutputs[] = {
-        NTV2_XptSDIIn1, NTV2_XptSDIIn2, NTV2_XptSDIIn3, NTV2_XptSDIIn4,
-        NTV2_XptSDIIn5, NTV2_XptSDIIn6, NTV2_XptSDIIn7, NTV2_XptSDIIn8 };
-
-static const NTV2InputCrosspointID gFrameBufferInput[] = {
-        NTV2_XptFrameBuffer1Input, NTV2_XptFrameBuffer2Input,
-        NTV2_XptFrameBuffer3Input, NTV2_XptFrameBuffer4Input,
-        NTV2_XptFrameBuffer5Input, NTV2_XptFrameBuffer6Input,
-        NTV2_XptFrameBuffer7Input, NTV2_XptFrameBuffer8Input };
-
-static const NTV2OutputCrosspointID gCSCVidRGBOutput[] ATTRIBUTE(unused) = {
-        NTV2_XptCSC1VidRGB, NTV2_XptCSC2VidRGB, NTV2_XptCSC3VidRGB,
-        NTV2_XptCSC4VidRGB, NTV2_XptCSC5VidRGB, NTV2_XptCSC6VidRGB,
-        NTV2_XptCSC7VidRGB, NTV2_XptCSC8VidRGB };
-
-static const NTV2OutputCrosspointID gCSCVidYUVOutput[] = {
-        NTV2_XptCSC1VidYUV, NTV2_XptCSC2VidYUV, NTV2_XptCSC3VidYUV,
-        NTV2_XptCSC4VidYUV, NTV2_XptCSC5VidYUV, NTV2_XptCSC6VidYUV,
-        NTV2_XptCSC7VidYUV, NTV2_XptCSC8VidYUV };
-
-static const NTV2OutputCrosspointID gHDMIInYUVOutputs[] = {
-        NTV2_XptHDMIIn, NTV2_XptHDMIInQ2, NTV2_XptHDMIInQ3, NTV2_XptHDMIInQ4 };
-
-static const NTV2OutputCrosspointID gHDMIInRGBOutputs[] = {
-        NTV2_XptHDMIInRGB, NTV2_XptHDMIInQ2RGB, NTV2_XptHDMIInQ3RGB, NTV2_XptHDMIInQ4RGB };
-
 NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
 {
         NTV2VideoFormat videoFormat     (NTV2_FORMAT_UNKNOWN);
@@ -619,28 +588,30 @@ AJAStatus vidcap_state_aja::SetupVideo()
 
         mDevice.SetReference (NTV2_REFERENCE_FREERUN);
 
-        CNTV2SignalRouter       router;
-
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
-                        router.AddConnection (gFrameBufferInput [mInputChannel + offset], gSDIInputOutputs [mInputChannel + offset]);
+                        mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (NTV2Channel (mInputChannel + offset)));
+                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/));
                         mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat);
                         mDevice.EnableChannel (NTV2Channel (mInputChannel + offset));
-                        mDevice.SetSDIInLevelBtoLevelAConversion (mInputChannel + offset, IsInput3Gb(mInputSource) ? true : false);
+                        mDevice.SetSDIInLevelBtoLevelAConversion (mInputChannel + offset, IsInput3Gb (mInputSource) ? true : false);
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
+                        mDevice.Set4kSquaresEnable(true, NTV2_CHANNEL1);
                 }
         } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG1) {
-                router.AddConnection (gFrameBufferInput [mInputChannel], NTV2_XptAnalogIn);
-                mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
-                mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
+                //mDevice.SetTsiFrameEnable(false, NTV2_CHANNEL1);
+
+                mDevice.Connect (::GetCSCInputXptFromChannel (NTV2_CHANNEL1), NTV2_XptAnalogIn);
+                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2_CHANNEL1), ::GetCSCOutputXptFromChannel (NTV2_CHANNEL1, false/*isKey*/, true/*isRGB*/));
+                mDevice.SetFrameBufferFormat (NTV2_CHANNEL1, mPixelFormat);
+                if (!mbFixedReference)
+                        mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
         } else if (NTV2_IS_VALID_VIDEO_FORMAT (mVideoFormat)) {
                 SetupHDMI();
         } else {
                 LOG(LOG_LEVEL_WARNING) << "## DEBUG:  NTV2FrameGrabber::SetupInput:  Bad mInputSource switch value " << ::NTV2InputSourceToChannelSpec (mInputSource);
         }
-
-        mDevice.ApplySignalRoute (router);
 
         //      Enable and subscribe to the interrupts for the channel to be used...
         mDevice.EnableInputInterrupt (mInputChannel);
