@@ -50,7 +50,7 @@
 
 #include <iomanip>
 #include <sstream>
-#include <unordered_map>
+#include <map>
 
 using namespace std;
 
@@ -60,7 +60,7 @@ typedef struct {
         int y;
 } video_mode_info_t;
 
-const static unordered_map<enum video_mode, video_mode_info_t, hash<int>> video_mode_info = {
+const static map<enum video_mode, video_mode_info_t> video_mode_info = {
         { VIDEO_UNKNOWN, { "(unknown)", 0, 0 }},
         { VIDEO_NORMAL, { "normal", 1, 1 }},
         { VIDEO_DUAL, { "dual-link", 1, 2 }},
@@ -78,19 +78,17 @@ const static unordered_map<enum video_mode, video_mode_info_t, hash<int>> video_
  */
 enum video_mode get_video_mode_from_str(const char *requested_mode) {
         if(strcasecmp(requested_mode, "help") == 0) {
-                printf("Video mode options:\n\t-M {");
+                printf("Video mode options:\n");
                 auto it = video_mode_info.begin();
                 while (it != video_mode_info.end()) {
                         if (it == video_mode_info.begin()) { // omit unknown
                                 ++it;
                                 continue;
                         }
-                        printf(" %s ", it->second.name);
+                        printf("\t%s\n", it->second.name);
                         if (++it != video_mode_info.end()) {
-                                printf("| ");
                         }
                 }
-                printf("}\n");
                 return VIDEO_UNKNOWN;
         } else {
                 for (auto it : video_mode_info) {
