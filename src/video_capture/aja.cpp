@@ -122,6 +122,7 @@ volatile bool *aja_should_exit = &should_exit;
 #define NOOP ((void)0)
 
 #define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd, return AJA_STATUS_FAIL)
+#define CHECK(cmd) CHECK_OK(cmd, #cmd, NOOP)
 
 using namespace std;
 
@@ -592,31 +593,31 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 for (unsigned offset (0);  offset < 4;  offset++) {
                         NTV2Channel SDIChannel = (NTV2Channel) ((int) NTV2InputSourceToChannel (mInputSource) + offset);
                         if (IsRGBFormat(mPixelFormat)) {
-                                mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel));
-                                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/));
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/)));
                         } else {
-                                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
                         }
 
-                        mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat);
-                        mDevice.EnableChannel (NTV2Channel (mInputChannel + offset));
-                        mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) ? true : false);
+                        CHECK(mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat));
+                        CHECK(mDevice.EnableChannel (NTV2Channel (mInputChannel + offset)));
+                        CHECK(mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) ? true : false));
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
-                        mDevice.Set4kSquaresEnable(true, mInputChannel);
+                        CHECK(mDevice.Set4kSquaresEnable(true, mInputChannel));
                 }
         } else if (NTV2_INPUT_SOURCE_IS_ANALOG(mInputSource)) {
                 //mDevice.SetTsiFrameEnable(false, NTV2_CHANNEL1);
 
                 if (IsRGBFormat(mPixelFormat)) {
-                        mDevice.Connect (::GetCSCInputXptFromChannel (mInputChannel), NTV2_XptAnalogIn);
-                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (mInputChannel), ::GetCSCOutputXptFromChannel (mInputChannel, false/*isKey*/, true/*isRGB*/));
+                        CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (mInputChannel), NTV2_XptAnalogIn));
+                        CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (mInputChannel), ::GetCSCOutputXptFromChannel (mInputChannel, false/*isKey*/, true/*isRGB*/)));
                 } else {
-                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel)), NTV2_XptAnalogIn);
+                        CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel)), NTV2_XptAnalogIn));
                 }
-                mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
+                CHECK(mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat));
                 if (!mbFixedReference)
-                        mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
+                        CHECK(mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT));
         } else if (NTV2_IS_VALID_VIDEO_FORMAT (mVideoFormat)) {
                 SetupHDMI();
         } else {
@@ -649,7 +650,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 interlacing,
                 1};
 #ifndef _MSC_VER
-        cout << "[AJA] Detected input video mode: " << desc << endl;
+        cout << MOD_NAME "Detected input video mode: " << desc << endl;
 #endif
         mPool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec) * desc.height);
 
@@ -671,19 +672,19 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
         if (mMaxAudioChannels < (int) *aja_audio_capture_channels) {
-                LOG(LOG_LEVEL_ERROR) << "[AJA] Invalid number of capture channels requested. Requested " <<
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Invalid number of capture channels requested. Requested " <<
                         *aja_audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
                 return AJA_STATUS_FAIL;
         }
         if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
-                LOG(LOG_LEVEL_ERROR) << "[AJA] Unable to set channel count!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable to set channel count!\n";
                 return AJA_STATUS_FAIL;
         }
-        mDevice.SetAudioRate (NTV2_AUDIO_48K, NTV2InputSourceToAudioSystem(mInputSource));
+        CHECK(mDevice.SetAudioRate (NTV2_AUDIO_48K, NTV2InputSourceToAudioSystem(mInputSource)));
 
         //      How big should the on-device audio buffer be?   1MB? 2MB? 4MB? 8MB?
         //      For this demo, 4MB will work best across all platforms (Windows, Mac & Linux)...
-        mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, NTV2InputSourceToAudioSystem(mInputSource));
+        CHECK(mDevice.SetAudioBufferSize (NTV2_AUDIO_BUFFER_BIG, NTV2InputSourceToAudioSystem(mInputSource)));
 
         //
         //      Loopback mode plays whatever audio appears in the input signal when it's
@@ -692,14 +693,14 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         //      in our ring buffer. Audio, therefore, needs to come out of the (buffered) fram
         //      data being played, so loopback must be turned off...
         //
-        mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem);
+        CHECK(mDevice.SetAudioLoopBack (NTV2_AUDIO_LOOPBACK_OFF, mAudioSystem));
 
         //      Reset both the input and output sides of the audio system so that the buffer
         //      pointers are reset to zero and inhibited from advancing.
-        mDevice.SetAudioInputReset(mAudioSystem, true);
+        CHECK(mDevice.SetAudioInputReset(mAudioSystem, true));
 
         //      Ensure that the audio system will capture samples when the reset is removed
-        mDevice.SetAudioCaptureEnable (mAudioSystem, true);
+        CHECK(mDevice.SetAudioCaptureEnable (mAudioSystem, true));
 
         mAudio.bps = 4;
         mAudio.sample_rate = 48000;
@@ -910,7 +911,7 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
 
         if (seconds >= 5) {
-                LOG(LOG_LEVEL_INFO) << "[AJA] " << mFrames << " frames in "
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "" << mFrames << " frames in "
                         << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
                 mT0 = now;
                 mFrames = 0;
