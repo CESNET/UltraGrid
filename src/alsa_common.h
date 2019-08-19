@@ -49,12 +49,14 @@
 static inline void audio_alsa_help(void)
 {
         void **hints;
+        void **hints_it;
 
         color_out(COLOR_OUT_BOLD, "\talsa");
         printf("%27s default ALSA device (same as \"alsa:default\")\n", ":");
         snd_device_name_hint(-1, "pcm", &hints);
-        while(*hints != NULL) {
-                char *tmp = strdup(*(char **) hints);
+        hints_it = hints;
+        while(*hints_it != NULL) {
+                char *tmp = strdup(*(char **) hints_it);
                 char *save_ptr = NULL;
                 char *name_part = NULL;
                 char *desc = NULL;
@@ -84,10 +86,11 @@ static inline void audio_alsa_help(void)
                         }
                 }
                 printf("\n");
-                hints++;
+                hints_it++;
                 free(tmp);
                 free(name);
         }
+        snd_device_name_free_hint(hints);
 }
 
 static const snd_pcm_format_t bps_to_snd_fmts[] = {
