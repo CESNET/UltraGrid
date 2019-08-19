@@ -772,20 +772,20 @@ void vidcap_state_aja::CaptureFrames (void)
         uint32_t        audioInWrapAddress              = 0;
         uint32_t        audioOutWrapAddress             = 0;
         uint32_t        audioBytesCaptured              = 0;
-
+        NTV2FieldID     fieldID = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? NTV2_FIELD0 : NTV2_FIELD1;
 
         mDevice.GetAudioReadOffset      (audioReadOffset, mAudioSystem);
         mDevice.GetAudioWrapAddress     (audioOutWrapAddress, mAudioSystem);
 
         //      Wait to make sure the next two SDK calls will be made during the same frame...
-        mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+        mDevice.WaitForInputFieldID (fieldID, mInputChannel);
 
         currentInFrame  ^= 1;
         mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
 
         //      Wait until the hardware starts filling the new buffers, and then start audio
         //      capture as soon as possible to match the video...
-        mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+        mDevice.WaitForInputFieldID (fieldID, mInputChannel);
         mDevice.SetAudioInputReset (mAudioSystem, false);
 
         mAudioInLastAddress             = audioReadOffset;
@@ -797,7 +797,7 @@ void vidcap_state_aja::CaptureFrames (void)
         while (!*aja_should_exit) {
                 uint32_t *pHostAudioBuffer = NULL;
                 //      Wait until the input has completed capturing a frame...
-                mDevice.WaitForInputFieldID (NTV2_FIELD0, mInputChannel);
+                mDevice.WaitForInputFieldID (fieldID, mInputChannel);
 
                 if (mAudioSource != NTV2_AUDIO_SOURCE_INVALID) {
                         pHostAudioBuffer = reinterpret_cast <uint32_t *> (aligned_malloc(NTV2_AUDIOSIZE_MAX, AJA_PAGE_SIZE));
