@@ -590,21 +590,31 @@ AJAStatus vidcap_state_aja::SetupVideo()
 
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
-                        mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (NTV2Channel (mInputChannel + offset)));
-                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/));
+                        NTV2Channel SDIChannel = (NTV2Channel) ((int) NTV2InputSourceToChannel (mInputSource) + offset);
+                        if (IsRGBFormat(mPixelFormat)) {
+                                mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel));
+                                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/));
+                        } else {
+                                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel));
+                        }
+
                         mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat);
                         mDevice.EnableChannel (NTV2Channel (mInputChannel + offset));
-                        mDevice.SetSDIInLevelBtoLevelAConversion (mInputChannel + offset, IsInput3Gb (mInputSource) ? true : false);
+                        mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) ? true : false);
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
-                        mDevice.Set4kSquaresEnable(true, NTV2_CHANNEL1);
+                        mDevice.Set4kSquaresEnable(true, mInputChannel);
                 }
-        } else if (mInputSource == NTV2_INPUTSOURCE_ANALOG1) {
+        } else if (NTV2_INPUT_SOURCE_IS_ANALOG(mInputSource)) {
                 //mDevice.SetTsiFrameEnable(false, NTV2_CHANNEL1);
 
-                mDevice.Connect (::GetCSCInputXptFromChannel (NTV2_CHANNEL1), NTV2_XptAnalogIn);
-                mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2_CHANNEL1), ::GetCSCOutputXptFromChannel (NTV2_CHANNEL1, false/*isKey*/, true/*isRGB*/));
-                mDevice.SetFrameBufferFormat (NTV2_CHANNEL1, mPixelFormat);
+                if (IsRGBFormat(mPixelFormat)) {
+                        mDevice.Connect (::GetCSCInputXptFromChannel (mInputChannel), NTV2_XptAnalogIn);
+                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (mInputChannel), ::GetCSCOutputXptFromChannel (mInputChannel, false/*isKey*/, true/*isRGB*/));
+                } else {
+                        mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel)), NTV2_XptAnalogIn);
+                }
+                mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
                 if (!mbFixedReference)
                         mDevice.SetReference (NTV2_REFERENCE_ANALOG_INPUT);
         } else if (NTV2_IS_VALID_VIDEO_FORMAT (mVideoFormat)) {
