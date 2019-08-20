@@ -84,10 +84,10 @@ struct state_alsa_capture {
 
 static void audio_cap_alsa_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = malloc(sizeof(struct device_info));
+        const char *whitelist[] = {"pulse", "dsnoop"};
+        audio_alsa_probe(available_devices, count, whitelist, sizeof(whitelist) / sizeof(*whitelist));
         strcpy((*available_devices)[0].id, "alsa");
         strcpy((*available_devices)[0].name, "Default Linux audio input");
-        *count = 1;
 }
 
 static void audio_cap_alsa_help(const char *driver_name)

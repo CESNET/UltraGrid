@@ -45,52 +45,75 @@
 
 #include "debug.h"
 #include "utils/color_out.h"
+#include "types.h"
+
+static inline void audio_alsa_probe(struct device_info **available_devices,
+                                    int *count,
+                                    const char **whitelist,
+                                    size_t whitelist_size)
+{
+        void **hints;
+        snd_device_name_hint(-1, "pcm", &hints);
+
+        size_t device_count = 0;
+        for (void **it = hints; *it != NULL; it++) device_count++;
+
+        *available_devices = calloc(device_count + 1 , sizeof(struct device_info));
+        strcpy((*available_devices)[0].id, "alsa");
+        strcpy((*available_devices)[0].name, "Default Linux audio");
+        *count = 1;
+
+        for(void **it = hints; *it != NULL; it++){
+                char *id = snd_device_name_get_hint(*it, "NAME");
+
+                bool whitelisted = false;
+                for(size_t i = 0; i < whitelist_size; i++){
+                        if(strstr(id, whitelist[i])){
+                                whitelisted = true;
+                                break;
+                        }
+                }
+                if(!whitelisted && whitelist_size > 0) continue;
+
+                strcpy((*available_devices)[*count].id, "alsa:");
+                strcat((*available_devices)[*count].id, id);
+                free(id);
+
+                char *name = snd_device_name_get_hint(*it, "DESC");
+                char *tok = name;
+                while(tok){
+                        char *newline = strchr(tok, '\n');
+                        if(newline){
+                                *newline = '\0';
+                                strcat((*available_devices)[*count].name, tok);
+                                strcat((*available_devices)[*count].name, " - ");
+                                tok = newline + 1;
+                        } else {
+                                strcat((*available_devices)[*count].name, tok);
+                                tok = NULL;
+                        }
+                }
+                free(name);
+                (*count)++;
+        }
+
+        snd_device_name_free_hint(hints);
+}
 
 static inline void audio_alsa_help(void)
 {
-        void **hints;
-        void **hints_it;
-
-        color_out(COLOR_OUT_BOLD, "\talsa");
-        printf("%27s default ALSA device (same as \"alsa:default\")\n", ":");
-        snd_device_name_hint(-1, "pcm", &hints);
-        hints_it = hints;
-        while(*hints_it != NULL) {
-                char *tmp = strdup(*(char **) hints_it);
-                char *save_ptr = NULL;
-                char *name_part = NULL;
-                char *desc = NULL;
-                char *desc_short = NULL;
-                char *desc_long = NULL;
-                char *name = NULL;
-
-                name_part = strtok_r(tmp + 4, "|", &save_ptr);
-                desc = strtok_r(NULL, "|", &save_ptr);
-                if (desc) {
-                        desc_short = strtok_r(desc + 4, "\n", &save_ptr);
-                        desc_long = strtok_r(NULL, "\n", &save_ptr);
-                }
-
-                name = malloc(strlen("alsa:") + strlen(name_part) + 1);
-                strcpy(name, "alsa:");
-                strcat(name, name_part);
-
-                color_out(COLOR_OUT_BOLD, "\t%s", name);
-                int i;
-
-                if (desc_short) {
-                        for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
-                        printf(": %s", desc_short);
-                        if(desc_long) {
-                                printf(" - %s", desc_long);
-                        }
-                }
-                printf("\n");
-                hints_it++;
-                free(tmp);
-                free(name);
+        struct device_info *available_devices;
+        int count;
+        audio_alsa_probe(&available_devices, &count, NULL, 0);
+        strcpy(available_devices[0].id, "alsa");
+        strcpy(available_devices[0].name, "default ALSA device (same as \"alsa:default\")");
+        for(int i = 0; i < count; i++){
+                const char * const id = available_devices[i].id;
+                color_out(COLOR_OUT_BOLD, "\t%s", id);
+                for (int j = 0; j < 30 - (int) strlen(id); ++j) putchar(' ');
+                printf(": %s\n", available_devices[i].name);
         }
-        snd_device_name_free_hint(hints);
+        free(available_devices);
 }
 
 static const snd_pcm_format_t bps_to_snd_fmts[] = {
