@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -401,6 +401,7 @@ AJAStatus display::SetUpVideo ()
 AJAStatus display::SetUpAudio ()
 {
         mAudioSystem = NTV2ChannelToAudioSystem(mOutputChannel);
+        CHECK(mDevice.StartAudioOutput(mAudioSystem));
 
         //      It's best to use all available audio channels...
         CHECK_EX(mDevice.SetNumberAudioChannels(::NTV2DeviceGetMaxAudioChannels(mDeviceID), mAudioSystem), "Unable to set audio channels!", return AJA_STATUS_FAIL);
@@ -412,8 +413,13 @@ AJAStatus display::SetUpAudio ()
         CHECK(mDevice.SetAudioBufferSize(NTV2_AUDIO_BUFFER_BIG, mAudioSystem));
 
         //      Set the SDI output audio embedders to embed audio samples from the output of mAudioSystem...
-        CHECK(mDevice.SetSDIOutputAudioSystem (mOutputChannel, mAudioSystem));
-        CHECK(mDevice.SetSDIOutputDS2AudioSystem (mOutputChannel, mAudioSystem));
+        if (NTV2_OUTPUT_DEST_IS_SDI(mOutputDestination)) {
+                CHECK_EX(mDevice.SetSDIOutputAudioSystem(NTV2OutputDestinationToChannel(mOutputDestination), mAudioSystem), "Unable to set SDI output audio system!", return AJA_STATUS_FAIL);
+                CHECK_EX(mDevice.SetSDIOutputDS2AudioSystem(NTV2OutputDestinationToChannel(mOutputDestination), mAudioSystem), "Unable to set SDI output audio system!", return AJA_STATUS_FAIL);
+        } else {
+                CHECK(mDevice.SetHDMIOutAudioChannels(NTV2_HDMIAudio8Channels));
+                CHECK_EX(mDevice.SetHDMIOutAudioSource8Channel(NTV2_AudioChannel1_8, mAudioSystem), "Unable to set HDMI output audio system!", return AJA_STATUS_FAIL);
+        }
 
         //
         //      Loopback mode plays whatever audio appears in the input signal when it's

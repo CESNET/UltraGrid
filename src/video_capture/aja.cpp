@@ -564,7 +564,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Detected input signal: " << NTV2VideoFormatToString(mVideoFormat) << "\n";
         }
 
-        mAudioSystem = ::NTV2InputSourceToAudioSystem(mInputSource);
+        mAudioSystem = ::NTV2ChannelToAudioSystem(mInputChannel);
 
         //      Set the device video format to whatever we detected at the input...
         mDevice.SetVideoFormat (mVideoFormat, false, false, mInputChannel);
