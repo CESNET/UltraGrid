@@ -40,6 +40,8 @@ datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = $(datarootdir)/doc/ultragrid
 uv_datadir = @datadir@/ultragrid
+mandir = @mandir@
+man1dir = @mandir@/man1
 srcdir        = @srcdir@
 VPATH         = @srcdir@
 
@@ -612,6 +614,7 @@ install: all
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)$(docdir)
 	$(INSTALL) -m 644 $(srcdir)/COPYRIGHT $(DESTDIR)$(docdir)
 	$(CP) $(srcdir)/speex-1.2rc1/COPYING $(DESTDIR)$(docdir)/COPYING.speex
+	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(DESTDIR)$(man1dir)
 	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 
 uninstall:
