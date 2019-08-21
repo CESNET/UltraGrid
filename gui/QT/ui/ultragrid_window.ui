@@ -150,7 +150,11 @@
               <widget class="QComboBox" name="videoModeComboBox"/>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="videoSourceComboBox"/>
+              <widget class="QComboBox" name="videoSourceComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
             </layout>
            </widget>
@@ -172,7 +176,11 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="videoDisplayComboBox"/>
+              <widget class="QComboBox" name="videoDisplayComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
              <item row="1" column="0">
               <widget class="QCheckBox" name="previewCheckBox">
@@ -204,7 +212,11 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="videoCompressionComboBox"/>
+              <widget class="QComboBox" name="videoCompressionComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
              <item row="1" column="0">
               <widget class="QLabel" name="videoBitrateLabel">
@@ -240,7 +252,11 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="audioSourceComboBox"/>
+              <widget class="QComboBox" name="audioSourceComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
              <item row="1" column="0">
               <widget class="QLabel" name="label_5">
@@ -279,7 +295,11 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="audioPlaybackComboBox"/>
+              <widget class="QComboBox" name="audioPlaybackComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
             </layout>
            </widget>
@@ -301,7 +321,11 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QComboBox" name="audioCompressionComboBox"/>
+              <widget class="QComboBox" name="audioCompressionComboBox">
+               <property name="minimumContentsLength">
+                <number>15</number>
+               </property>
+              </widget>
              </item>
              <item row="1" column="0">
               <widget class="QLabel" name="audioBitrateLabel">
