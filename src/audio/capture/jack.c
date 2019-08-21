@@ -59,6 +59,7 @@
 #include "audio/utils.h"
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
+#include "jack_common.h"
 #include <jack/jack.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -110,20 +111,14 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
 
 static void audio_cap_jack_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "jack");
-        strcpy((*available_devices)[0].name, "JACK audio input");
-        *count = 1;
+        *available_devices = audio_jack_probe(PACKAGE_STRING, JackPortIsOutput, count);
 }
 
 static void audio_cap_jack_help(const char *client_name)
 {
-        jack_client_t *client;
-        jack_status_t status;
-        const char **ports;
-        char *last_name = NULL;
-        int i;
-        int channel_count;
+        int count = 0;
+        int i = 0;
+        struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsOutput, &count);
 
         printf("Usage:\n");
         printf("\t-s jack[:name=<n>][:<device>]\n");
@@ -131,42 +126,13 @@ static void audio_cap_jack_help(const char *client_name)
         printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_STRING);
         printf("\n");
 
-        client = jack_client_open(client_name, JackNullOption, &status);
-        if(status & JackFailure) {
-                fprintf(stderr, "[JACK capture] Opening JACK client failed.\n");
+        if(!available_devices)
                 return;
-        }
-
-        ports = jack_get_ports(client, NULL, NULL, JackPortIsOutput);
-        if(ports == NULL) {
-                fprintf(stderr, "[JACK capture] Unable to enumerate ports.\n");
-                return;
-        }
 
         printf("Available devices:\n");
-        i = 0;
-        channel_count = 0;
-        while(ports[i] != NULL) {
-                char *item = strdup(ports[i]);
-                char *save_ptr = NULL;
-                char *name;
-
-                ++channel_count;
-                name = strtok_r(item, "_", &save_ptr);
-                if(last_name && strcmp(last_name, name) != 0) {
-                        printf("\tjack:%s (%d channels)\n", last_name, channel_count);
-                        channel_count = 0;
-                }
-                free(last_name);
-                last_name = strdup(name);
-                free(item);
-                ++i;
+        for(i = 0; i < count; i++){
+                printf("\t%s\n", available_devices[i].name);
         }
-        if(last_name) {
-                printf("\tjack:%s (%d channels)\n", last_name, channel_count);
-        }
-        free(last_name);
-        jack_client_close(client);
 }
 
 static void * audio_cap_jack_init(const char *cfg)
