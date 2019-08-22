@@ -141,7 +141,7 @@ static void * audio_cap_jack_init(const char *cfg)
         jack_status_t status;
         const char **ports;
         int i;
-        char *client_name = alloca(MAX(strlen(PACKAGE_STRING), strlen(cfg)) + 1);
+        char *client_name = alloca(MAX(strlen(PACKAGE_STRING), cfg ? strlen(cfg) : 0) + 1);
         const char *source_name = "";
         strcpy(client_name, PACKAGE_STRING);
 
