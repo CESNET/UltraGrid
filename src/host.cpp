@@ -445,7 +445,10 @@ ADD_TO_PARAM(errors_fatal, "errors-fatal", "* errors-fatal\n"
                 "  Treats every error as a fatal (exits " PACKAGE_NAME ")\n");
 /**
  * Soft version of exit_uv() checks errors-fatal command-line parameters and
- * if set, exits. Otherwise error is ignored.
+ * if set, exit UltraGrid. Otherwise error is ignored.
+ *
+ * Caller code normally continues after this function so the error must not
+ * have been fatal and UltraGrid must remain in a consistent state.
  */
 void error(int status) {
         if (get_commandline_param("errors-fatal")) {

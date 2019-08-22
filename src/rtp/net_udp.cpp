@@ -678,14 +678,14 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
             (fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEPORT");
-                return false;
+                error(EXIT_FAIL_NETWORK);
         }
 #endif
         if (SETSOCKOPT
             (fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEADDR");
-                return false;
+                error(EXIT_FAIL_NETWORK);
         }
 
         if (!ipv6) {
