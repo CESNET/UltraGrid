@@ -146,6 +146,7 @@ static void audio_play_jack_help(const char *client_name)
         for(i = 0; i < count; i++){
                 printf("\t%s\n", available_devices[i].name);
         }
+        free(available_devices);
 }
 
 static void * audio_play_jack_init(const char *cfg)
