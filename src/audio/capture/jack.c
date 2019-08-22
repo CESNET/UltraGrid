@@ -147,8 +147,8 @@ static void * audio_cap_jack_init(const char *cfg)
 
         if (cfg) {
                 char *dup = strdup(cfg);
-                char *tmp = dup, *item, *save_ptr;
-                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                char *item, *save_ptr = NULL;
+                while ((item = strtok_r(dup, ":", &save_ptr)) != NULL) {
                         if (strcmp(item, "help") == 0) {
                                 audio_cap_jack_help(client_name);
                                 free(dup);
@@ -159,8 +159,6 @@ static void * audio_cap_jack_init(const char *cfg)
                                 source_name = cfg + (item - dup);
                                 break;
                         }
-
-                        tmp = NULL;
                 }
                 free(dup);
         }
