@@ -1,3 +1,6 @@
+/**
+ * Following splashscreen data is generated from *data/splashscreen.xcf*
+ */
 /*  GIMP header image file format (RGB)  */
 
 static const unsigned int splash_width = 512;
