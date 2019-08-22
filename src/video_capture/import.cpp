@@ -278,6 +278,14 @@ vidcap_import_init(struct vidcap_params *params, void **state)
 try {
 	printf("vidcap_import_init\n");
 
+        if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
+                printf("Import usage:\n"
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>|:disable_audio}\n"
+                                "\t\t<fps> - overrides FPS from sequence metadata\n");
+                delete s;
+                return VIDCAP_INIT_NOERR;
+        }
+
         s = new vidcap_import_state();
         s->head = s->tail = NULL;
         s->queue_len = 0;
@@ -294,15 +302,8 @@ try {
         s->video_reading_threads_count = 1; // default is single threaded
 
         char *save_ptr = NULL;
-        s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
         char *suffix;
-        if (!s->directory || strcmp(s->directory, "help") == 0) {
-                printf("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>|:disable_audio}\n"
-                                "\t\t<fps> - overrides FPS from sequence metadata\n");
-                delete s;
-                return VIDCAP_INIT_NOERR;
-        }
+        s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (suffix[0] == '\\') { // MSW path
                         assert(strlen(s->directory) == 1); // c:\something -> should be 'c'
