@@ -1,4 +1,4 @@
-#!/bin/sh -exu
+#!/bin/sh -eu
 
 # Requires asciidoc (a2x) and working UltraGrid (uv, hd-rum-transcode) in PATH
 # TODO: add sections EXAMPLES, DESCRIPTION etc.
@@ -13,7 +13,12 @@ bugreport_and_resources() {
 	* GitHub: *<https://github.com/CESNET/UltraGrid>*
 	* Wiki (on-line documentation): *<https://github.com/CESNET/UltraGrid/wiki>*
 	* Main web site: *<http://www.ultragrid.cz>*
+
 	EOF
+}
+
+print_gen() {
+	echo Generated $(echo $1 | sed 's/\.txt$//')
 }
 
 uv_man() {
@@ -34,19 +39,17 @@ uv_man() {
 
 	uv --fullhelp | sed '0,/Options:/d' >> $ASCIIDOC
 
+	bugreport_and_resources >> $ASCIIDOC
 	cat <<-'EOF' >> $ASCIIDOC
-	== REPORTING BUGS ==
-	Report bugs to *ultragrid-dev@cesnet.cz* or use project *GitHub* to describe issues.
+	== SEE ALSO ==
+	hd-rum-transcode(1)
 
-	== RESOURCES ==
-	* GitHub: *<https://github.com/CESNET/UltraGrid>*
-	* Wiki (on-line documentation): *<https://github.com/CESNET/UltraGrid/wiki>*
-	* Main web site: *<http://www.ultragrid.cz>*
 	EOF
 
-	a2x -f manpage -v $ASCIIDOC -D .
+	a2x -f manpage $VERBOSE $ASCIIDOC -D .
 
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
+	print_gen $ASCIIDOC
 }
 
 outdent_output() {
@@ -102,18 +105,35 @@ hd_rum_transcode_man() {
 
 	bugreport_and_resources >> $ASCIIDOC
 
-	a2x -f manpage -v $ASCIIDOC -D .
+	cat <<-'EOF' >> $ASCIIDOC
+	== SEE ALSO ==
+	uv(1)
+
+	EOF
+
+	a2x -f manpage $VERBOSE $ASCIIDOC -D .
 
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
+	print_gen $ASCIIDOC
 }
+
+KEEP_FILES=
+VERBOSE=
 
 if [ "${1-}" = "-d" -o "${1-}" = "--debug" ]; then
 	KEEP_FILES=1
-else
-	KEEP_FILES=
+	VERBOSE="-v"
+	set -x
+elif [ -n "${1-}" ]; then
+	printf "Usage:\n\t$0 [-d|--debug]\nwhere\n\t-d|--debug - print debug info and keep generated AsciiDoc sources\n"
+	return `expr $1 != "-h" && expr $1 != "--help"`
 fi
 
 uv_man
 hd_rum_transcode_man
+
+if [ -t 1 ]; then
+	printf '\e[1mNote: \e[mDo not forget to check the generated manpages!\n'
+fi
 
 # vim: set noexpandtab tw=0:
