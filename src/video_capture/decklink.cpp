@@ -691,8 +691,9 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 
 /* External API ***************************************************************/
 
-static struct vidcap_type *vidcap_decklink_probe(bool verbose)
+static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(void *))
 {
+        *deleter = free;
         auto vt = static_cast<struct vidcap_type *>(calloc(1, sizeof(struct vidcap_type)));
         if (vt == nullptr) {
                 return nullptr;

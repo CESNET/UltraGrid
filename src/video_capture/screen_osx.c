@@ -114,9 +114,10 @@ error:
         exit_uv(EXIT_FAILURE);
 }
 
-static struct vidcap_type * vidcap_screen_osx_probe(bool verbose)
+static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
 {
         struct vidcap_type*		vt;
+        *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {

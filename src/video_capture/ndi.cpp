@@ -396,8 +396,9 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         return nullptr;
 }
 
-static struct vidcap_type *vidcap_ndi_probe(bool verbose)
+static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void *))
 {
+        *deleter = free;
         auto vt = static_cast<struct vidcap_type *>(calloc(1, sizeof(struct vidcap_type)));
         if (vt == nullptr) {
                 return nullptr;

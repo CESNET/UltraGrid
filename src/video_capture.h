@@ -86,7 +86,7 @@
 
 #include "types.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 6
+#define VIDEO_CAPTURE_ABI_VERSION 7
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,7 +111,7 @@ struct vidcap_params;
 #define VIDCAP_INIT_AUDIO_NOT_SUPPOTED -2 ///< card doesn't support audio
 
 struct video_capture_info {
-        struct vidcap_type    *(*probe) (bool verbose);
+        struct vidcap_type    *(*probe) (bool verbose, void (**deleter)(void *));
         /**
          * @param[in] driver configuration string
          * @param[in] param  driver parameters

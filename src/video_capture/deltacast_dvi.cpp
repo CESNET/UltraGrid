@@ -230,9 +230,10 @@ static const char * GetErrorDescription(ULONG CodeError)
 }
 
 static struct vidcap_type *
-vidcap_deltacast_dvi_probe(bool verbose)
+vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
 {
 	struct vidcap_type*		vt;
+        *deleter = free;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {

@@ -972,9 +972,10 @@ LINK_SPEC struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose)
+LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(void *))
 {
         struct vidcap_type *vt;
+        *deleter = free;
 
         vt = (struct vidcap_type *)calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {

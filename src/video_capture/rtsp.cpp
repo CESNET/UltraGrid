@@ -1071,8 +1071,9 @@ get_sdp_filename(const char *url, char *sdp_filename) {
 }
 
 static struct vidcap_type *
-vidcap_rtsp_probe(bool verbose) {
+vidcap_rtsp_probe(bool verbose, void (**deleter)(void *)) {
     UNUSED(verbose);
+    *deleter = free;
     struct vidcap_type *vt;
 
     vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));

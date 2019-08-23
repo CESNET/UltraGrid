@@ -356,9 +356,10 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
 }
 
 static struct vidcap_type *
-vidcap_bluefish444_probe(bool verbose)
+vidcap_bluefish444_probe(bool verbose, void (**deleter)(void *))
 {
 	struct vidcap_type*		vt;
+        *deleter = free;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
 	if (vt != NULL) {

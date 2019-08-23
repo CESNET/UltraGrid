@@ -342,10 +342,11 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
         return out;
 }
 
-static struct vidcap_type *vidcap_bitflow_probe(bool verbose)
+static struct vidcap_type *vidcap_bitflow_probe(bool verbose, void (**deleter)(void *))
 {
         UNUSED(verbose);
         struct vidcap_type *vt;
+        *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {

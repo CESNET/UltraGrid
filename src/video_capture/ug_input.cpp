@@ -196,9 +196,10 @@ static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame 
         }
 }
 
-static struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */)
+static struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */, void (**deleter)(void *))
 {
         struct vidcap_type *vt;
+        *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {

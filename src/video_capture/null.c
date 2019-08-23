@@ -80,9 +80,10 @@ static struct video_frame *vidcap_null_grab(void *state, struct audio_frame **au
         return NULL;
 }
 
-static struct vidcap_type *vidcap_null_probe(bool verbose)
+static struct vidcap_type *vidcap_null_probe(bool verbose, void (**deleter)(void *))
 {
         UNUSED(verbose);
+        *deleter = free;
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));

@@ -115,7 +115,8 @@ void print_available_capturers()
         for (auto && item : vidcaps) {
                 auto vci = static_cast<const struct video_capture_info *>(item.second);
 
-                struct vidcap_type *vt = vci->probe(true);
+                void (*deleter)(void *) = nullptr;
+                struct vidcap_type *vt = vci->probe(true, &deleter);
                 printf("[cap][capture] %s\n", item.first.c_str());
                 for (int i = 0; i < vt->card_count; ++i) {
                         printf("[capability][device][v2] {"
@@ -139,6 +140,11 @@ void print_available_capturers()
 
                         printf("]}\n");
                 }
+                if(!deleter)
+                        deleter = free;
+
+                deleter(vt->cards);
+                deleter(vt);
 
         }
 
