@@ -97,6 +97,7 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
                 (*count)++;
         }
         free(last_name);
+        jack_free(ports);
         jack_client_close(client);
 
         return available_devices;
