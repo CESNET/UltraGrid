@@ -335,6 +335,7 @@ static void tx_done(struct module *mod)
 {
         struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
+        free(tx->rtpenc_h264_state);
         free(tx);
 }
 
