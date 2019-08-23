@@ -73,7 +73,10 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                                 break;
                         }
                 }
-                if(!whitelisted && whitelist_size > 0) continue;
+                if(!whitelisted && whitelist_size > 0) {
+                        free(id);
+                        continue;
+                }
 
                 strcpy((*available_devices)[*count].id, "alsa:");
                 strcat((*available_devices)[*count].id, id);
