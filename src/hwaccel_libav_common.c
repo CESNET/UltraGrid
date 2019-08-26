@@ -67,15 +67,17 @@ void hwaccel_state_reset(struct hw_accel_state *hwaccel){
 }
 
 int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
-        int ret;
-        ret = av_hwdevice_ctx_create(device_ref, type, NULL, NULL, 0);
+        const char *device_paths[] = { NULL, "/dev/dri/renderD128" };
 
-        if(ret < 0){
-                log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to create hwdevice!!\n");
-                return ret;
+        int ret;
+        for(size_t i = 0; i < sizeof(device_paths) / sizeof(*device_paths); i++){
+                ret = av_hwdevice_ctx_create(device_ref, type, device_paths[i], NULL, 0);
+                if(ret == 0)
+                        return 0;
         }
 
-        return 0;
+        log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to create hwdevice!!\n");
+        return ret;
 }
 
 int create_hw_frame_ctx(AVBufferRef *device_ref,
