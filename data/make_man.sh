@@ -18,7 +18,7 @@ bugreport_and_resources() {
 }
 
 print_gen() {
-	echo Generated $(echo $1 | sed 's/\.txt$//')
+	test -n "$DRY_RUN" || echo Generated $(echo $1 | sed 's/\.txt$//')
 }
 
 uv_man() {
@@ -46,7 +46,7 @@ uv_man() {
 
 	EOF
 
-	a2x -f manpage $VERBOSE $ASCIIDOC -D .
+	test -n "$DRY_RUN" || a2x -f manpage $VERBOSE $ASCIIDOC -D .
 
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
 	print_gen $ASCIIDOC
@@ -96,7 +96,7 @@ hd_rum_transcode_man() {
 	*hd-rum-transcode* 8M 5004 receiver1 receiver2 -c JPEG receiver3 # video
 	*hd-rum-transcode* 8M 5006 receiver1 receiver2 receiver3         # audio - no transcoding
 
-	=== Reflector running on local machine ===
+	=== Reflector running on UltraGrid sender machine ===
 	*uv* -t testcard -s testcard '-P 6004:5004:6006:5006' localhost
 	*hd-rum-transcode* 8M 5004 receiver1 receiver2 -c JPEG receiver3 # video
 	*hd-rum-transcode* 8M 5006 receiver1 receiver2 receiver3         # audio
@@ -107,30 +107,87 @@ hd_rum_transcode_man() {
 
 	cat <<-'EOF' >> $ASCIIDOC
 	== SEE ALSO ==
-	uv(1)
+	hd-rum(1) uv(1)
 
 	EOF
 
-	a2x -f manpage $VERBOSE $ASCIIDOC -D .
-
+	test -n "$DRY_RUN" || a2x -f manpage $VERBOSE $ASCIIDOC -D .
 	test -n "$KEEP_FILES" || rm $ASCIIDOC
 	print_gen $ASCIIDOC
 }
 
+usage() {
+	printf "Usage:\n\t$0 [-d|--debug|-h|--help|-k|--keep|-n] [uv|hd-rum-trancode|all]\nwhere\n"
+	printf "\t-d|--debug - print debug info\n"
+	printf "\t-k|--keep - keep generated AsciiDoc sources\n"
+	printf "\t-n - do not generate manpages (can be useful with -k)\n"
+	printf "\n"
+	printf "\tname of man page - specify 'all' generate all manual pages\n"
+}
+
+DRY_RUN=
 KEEP_FILES=
 VERBOSE=
 
-if [ "${1-}" = "-d" -o "${1-}" = "--debug" ]; then
-	KEEP_FILES=1
-	VERBOSE="-v"
-	set -x
-elif [ -n "${1-}" ]; then
-	printf "Usage:\n\t$0 [-d|--debug]\nwhere\n\t-d|--debug - print debug info and keep generated AsciiDoc sources\n"
-	return `expr $1 != "-h" && expr $1 != "--help"`
+TEMP=$(getopt -o 'dhkn' --long 'debug,help,keep' -n "$0" -- "$@")
+
+if [ $? -ne 0 ]; then
+        echo 'Terminating...' >&2
+        exit 1
 fi
 
-uv_man
-hd_rum_transcode_man
+# Note the quotes around "$TEMP": they are essential!
+eval set -- "$TEMP"
+unset TEMP
+
+while true; do
+	case "$1" in
+		'-d'|'--debug')
+			VERBOSE="-v"
+			set -x
+			;;
+		'-h'|'--help')
+			usage
+			exit 0
+			;;
+		'-k'|'--keep')
+			KEEP_FILES=1
+			;;
+		'-n')
+			DRY_RUN=1
+			;;
+		'--')
+			shift
+			break
+			;;
+		*)
+			echo 'Internal error!' >&2
+			exit 1
+			;;
+	esac
+	shift
+done
+
+if [ $# -eq 0 ]; then
+	usage
+	exit 1
+fi
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		all)
+			set -- uv hd-rum-transcode
+			continue
+			;;
+		uv)
+			uv_man
+			;;
+		hd-rum-transcode)
+			hd_rum_transcode_man
+			;;
+	esac
+	shift
+done
 
 if [ -t 1 ]; then
 	printf '\e[1mNote: \e[mDo not forget to check the generated manpages!\n'

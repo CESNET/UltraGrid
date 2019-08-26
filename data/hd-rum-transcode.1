@@ -2,12 +2,12 @@
 .\"     Title: hd-rum-transcode
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/22/2019
+.\"      Date: 08/26/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "HD\-RUM\-TRANSCODE" "1" "08/22/2019" "\ \&" "\ \&"
+.TH "HD\-RUM\-TRANSCODE" "1" "08/26/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -67,7 +67,7 @@ Transcoder can be used as a reflector also for audio (and must be used if audio 
 .SS "Basic example"
 .sp
 \fBhd\-rum\-transcode\fR 8M 5004 receiver1 receiver2 \-c JPEG receiver3 # video \fBhd\-rum\-transcode\fR 8M 5006 receiver1 receiver2 receiver3 # audio \- no transcoding
-.SS "Reflector running on local machine"
+.SS "Reflector running on UltraGrid sender machine"
 .sp
 \fBuv\fR \-t testcard \-s testcard \fI\-P 6004:5004:6006:5006\fR localhost \fBhd\-rum\-transcode\fR 8M 5004 receiver1 receiver2 \-c JPEG receiver3 # video \fBhd\-rum\-transcode\fR 8M 5006 receiver1 receiver2 receiver3 # audio
 .SH "REPORTING BUGS"
@@ -112,4 +112,4 @@ Main web site:
 .RE
 .SH "SEE ALSO"
 .sp
-uv(1)
+hd\-rum(1) uv(1)

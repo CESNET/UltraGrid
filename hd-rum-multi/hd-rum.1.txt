@@ -1,0 +1,40 @@
+// process with 'a2x -f manpage hd-rum.1.txt'
+= hd-rum(1) =
+:doctype: manpage
+
+== NAME ==
+hd-rum - simple UDP packet reflector
+
+== SYNOPSIS ==
+*hd-rum* 'BUF_SIZE' 'PORT' 'ADDRESSES'
+
+== OPTIONS ==
+*BUF_SIZE*::
+    size of network buffer (eg. 8M)
+
+*PORT*::
+    UDP port number to retransmit
+
+*ADDRESSES*::
+    list of addresses to transmit to (separated by spaces)
+
+
+== EXAMPLES ==
+`hd-rum 8M 5004 example.com example.net 93.184.216.34`::
+    Retrasmit traffic on UDP port 5004 to hosts 'example.com', 'example.net' and '93.184.216.34'
+
+== BUGS ==
+* does not support IPv6
+* program occupies exactly one CPU core even if there is no traffic because of busy-waiting loop (*hd-rum-transcode(1)* does not)
+
+== REPORTING BUGS ==
+Report bugs to *ultragrid-dev@cesnet.cz*.
+
+== RESOURCES ==
+* Synchronizing RTP Packet Reflector TR: *<https://www.fi.muni.cz/~xrebok/DOCs/PUBs/synchro_rum.pdf>*
+* Distributed active element in 10 Gbps network paper: *<https://www.researchgate.net/publication/4316461_Distributed_active_element_in_10_Gbps_network>*
+* Reflector usage at UltraGrid wiki *<https://github.com/CESNET/UltraGrid/wiki/Reflector-settings>*
+
+== SEE ALSO ==
+hd-rum-transcode(1)
+
