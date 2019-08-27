@@ -113,7 +113,7 @@ static void show_help() {
                 "\t\t\tURL, typically <ip> or <ip>:<port>\n"
                 "\n";
 
-        cout << "\tavailable sources (tenative, format: name - url):\n";
+        cout << "\tavailable sources (tentative, format: name - url):\n";
         auto pNDI_find = NDIlib_find_create_v2();
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
