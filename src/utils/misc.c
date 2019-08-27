@@ -130,3 +130,19 @@ bool is_wine() {
         return false;
 }
 
+int get_framerate_n(double fps) {
+        int denominator = get_framerate_d(fps);
+        return round(fps * denominator / 100.0) * 100.0; // rounding to 100s to fix inaccuracy errors
+                                                         // eg. 23.98 * 1001 = 24003.98
+}
+
+int get_framerate_d(double fps) {
+        int fps_rounded_x1000 = round(fps) * 1000;
+        if (abs(fps * 1001 - fps_rounded_x1000) <
+                        abs(fps * 1000 - fps_rounded_x1000)) {
+                return 1001;
+        } else {
+                return 1000;
+        }
+}
+

@@ -47,6 +47,8 @@ extern "C" {
 bool is_wine(void);
 long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str);
+int get_framerate_n(double framerate);
+int get_framerate_d(double framerate);
 
 /**
  * @brief Creates FourCC word
