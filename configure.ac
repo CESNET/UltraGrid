@@ -3089,6 +3089,7 @@ AC_CHECK_LIB($NDI_LIB, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
 if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes
 then
         ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-l$NDI_LIB")
+        ADD_MODULE("display_ndi", "src/video_display/ndi.o", "-l$NDI_LIB")
         ndi=yes
 fi
 
