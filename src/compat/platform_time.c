@@ -77,7 +77,7 @@ uint64_t time_since_epoch_in_ms()
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);
 
-        return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+        return ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
 #else
 	clock_serv_t cclock;
 	mach_timespec_t mts;
