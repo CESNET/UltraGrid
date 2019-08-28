@@ -39,6 +39,9 @@
  * Although the NDI SDK provides a C interface, there are constructors for the
  * NDI structs when invoked from C++. So it is needed at least to zero-initialize
  * the structs and check the original constructors.
+ *
+ * There is also async NDI API - it may improve the throughput if needed
+ * (NDIlib_send_send_video_async_v2).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -49,6 +52,8 @@
 
 #include <Processing.NDI.Lib.h>
 
+#include "audio/types.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "types.h"
@@ -62,23 +67,23 @@
 struct display_ndi {
         NDIlib_send_instance_t pNDI_send;
         struct video_desc desc;
+        struct audio_desc audio_desc;
 };
 
 static void display_ndi_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        *deleter = free;
         *count = 1;
         *available_cards = malloc(sizeof(struct device_info));
         strncat((*available_cards)[0].id, "ndi", sizeof (*available_cards)[0].id - 1);
         strncat((*available_cards)[0].name, "NDI", sizeof (*available_cards)[0].name - 1);
         (*available_cards)[0].repeatable = true;
+        *deleter = free;
 }
 
 static void display_ndi_run(void *arg)
 {
         UNUSED(arg);
 }
-
 
 static int display_ndi_reconfigure(void *state, struct video_desc desc)
 {
@@ -96,43 +101,64 @@ static void usage()
         color_out(COLOR_OUT_BOLD, "[:help][:name=<n>]\n");
         printf("\twhere\n");
         color_out(COLOR_OUT_BOLD, "\t\tname\n");
-        printf("\t\t\tname of the server\n");
+        printf("\t\t\tthe name of the server\n");
 }
 
+#define BEGIN_TRY int ret = 0; do
+#define END_TRY while(0);
+#define THROW(x) ret = (x); break;
+#define COMMON
+#define CATCH(x) if (ret == (x))
+#define FAIL (-1)
+#define HELP_SHOWN 1
 static void *display_ndi_init(struct module *parent, const char *fmt, unsigned int flags)
 {
+        UNUSED(flags);
         UNUSED(parent);
 
-        const char *ndi_name = NULL;
-        char *fmt_copy = alloca(strlen(fmt) + 1);
-        strcpy(fmt_copy, fmt);
+        char *fmt_copy = NULL;
+        struct display_ndi *s = NULL;
+        BEGIN_TRY {
+                fmt_copy = strdup(fmt);
 
-        char *tmp = fmt_copy, *item, *save_ptr;
-        while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (strcmp(item, "help") == 0) {
-                        usage();
-                        return &display_init_noerr;
+                const char *ndi_name = NULL;
+                char *tmp = fmt_copy, *item, *save_ptr;
+                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                        if (strcmp(item, "help") == 0) {
+                                usage();
+                                THROW(HELP_SHOWN);
+                        }
+                        if (strstr(item, "name=") != NULL) {
+                                ndi_name = item + strlen("name=");
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
+                                THROW(FAIL);
+                        }
+                        tmp = NULL;
                 }
-                if (strstr(item, "name=") != NULL) {
-                        ndi_name = item + strlen("name=");
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
-                        return NULL;
+
+                if (!NDIlib_initialize()) {
+                        THROW(FAIL);
                 }
-                tmp = NULL;
-        }
 
-        if (!NDIlib_initialize()) {
-                return NULL;
+                s = calloc(1, sizeof(struct display_ndi));
+                NDIlib_send_create_t NDI_send_create_desc = { 0 };
+                NDI_send_create_desc.clock_video = false;
+                NDI_send_create_desc.clock_audio = false;
+                NDI_send_create_desc.p_ndi_name = ndi_name;
+                s->pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
+                if (s->pNDI_send == NULL) {
+                        THROW(FAIL);
+                }
+        } END_TRY
+        COMMON {
+                free(fmt_copy);
         }
-
-        struct display_ndi *s = calloc(1, sizeof(struct display_ndi));
-        NDIlib_send_create_t create_settings = { 0 };
-        create_settings.clock_video = false;
-        create_settings.clock_audio = false;
-        create_settings.p_ndi_name = ndi_name;
-        s->pNDI_send = NDIlib_send_create(&create_settings);
-        if (s->pNDI_send == NULL) {
+        CATCH(HELP_SHOWN) {
+                free(s);
+                return &display_init_noerr;
+        }
+        CATCH(FAIL) {
                 free(s);
                 return NULL;
         }
@@ -156,7 +182,10 @@ static struct video_frame *display_ndi_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_ndi_putf(void *state, struct video_frame *frame, int nonblock)
+/**
+ * flag = PUTF_NONBLOCK is not implemented
+ */
+static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
@@ -164,11 +193,16 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int nonblock
                 return TRUE;
         }
 
+        if (flag == PUTF_DISCARD) {
+                vf_free(frame);
+                return TRUE;
+        }
+
         NDIlib_video_frame_v2_t NDI_video_frame = { 0 };
         NDI_video_frame.xres = s->desc.width;
         NDI_video_frame.yres = s->desc.height;
         NDI_video_frame.FourCC = s->desc.color_spec == RGBA ? NDIlib_FourCC_type_RGBA : NDIlib_FourCC_type_UYVY;
-        NDI_video_frame.p_data = frame->tiles[0].data;
+        NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
         NDI_video_frame.frame_rate_N = get_framerate_n(frame->fps);
         NDI_video_frame.frame_rate_D = get_framerate_d(frame->fps);
         NDI_video_frame.frame_format_type = frame->interlacing = PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
@@ -182,11 +216,10 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int nonblock
 
 static int display_ndi_get_property(void *state, int property, void *val, size_t *len)
 {
-        struct display_ndi *s = (struct display_ndi *) state;
+        UNUSED(state);
         codec_t codecs[] = {RGBA, UYVY};
         int rgb_shift[] = {0, 8, 16};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED};
-        int count = 0;
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -210,6 +243,8 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
                         *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
+                        *len = sizeof(int);
+                        break;
                 case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
                         if (sizeof(supported_il_modes) <= *len) {
                                 memcpy(val, supported_il_modes, sizeof(supported_il_modes));
@@ -218,24 +253,14 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                         }
                         *len = sizeof(supported_il_modes);
                         break;
-#if 0
                 case DISPLAY_PROPERTY_AUDIO_FORMAT:
                         {
                                 assert(*len == sizeof(struct audio_desc));
                                 struct audio_desc *desc = (struct audio_desc *) val;
-                                desc->sample_rate = 48000;
-                                if (desc->ch_count <= 2) {
-                                        desc->ch_count = 2;
-                                } else if (desc->ch_count > 2 && desc->ch_count <= 8) {
-                                        desc->ch_count = 8;
-                                } else {
-                                        desc->ch_count = 16;
-                                }
+                                desc->bps = 4;
                                 desc->codec = AC_PCM;
-                                desc->bps = desc->bps < 3 ? 2 : 4;
                         }
                         break;
-#endif
                 default:
                         return FALSE;
         }
@@ -244,11 +269,31 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
 
 static void display_ndi_put_audio_frame(void *state, struct audio_frame *frame)
 {
+        struct display_ndi *s = (struct display_ndi *) state;
+        assert(frame->bps == 4);
+        float *tmp = malloc(frame->data_len);
+        NDIlib_audio_frame_v2_t NDI_audio_frame = { 0 };
+        NDI_audio_frame.sample_rate = frame->sample_rate;
+        NDI_audio_frame.no_channels = frame->ch_count;
+        NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize;
+        NDI_audio_frame.p_data = tmp;
+        NDI_audio_frame.channel_stride_in_bytes = frame->data_len / frame->ch_count;
+        NDI_audio_frame.no_samples = frame->data_len / frame->ch_count / sizeof(float);
+        int2float((char *) tmp, frame->data, frame->data_len);
+
+        NDIlib_send_send_audio_v2(s->pNDI_send, &NDI_audio_frame);
+        free(tmp);
 }
 
 static int display_ndi_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
+        struct display_ndi *s = (struct display_ndi *) state;
+        s->audio_desc.bps = quant_samples / 8;
+        s->audio_desc.ch_count = channels;
+        s->audio_desc.sample_rate = sample_rate;
+
+        return TRUE;
 }
 
 static const struct video_display_info display_ndi_info = {
@@ -266,4 +311,4 @@ static const struct video_display_info display_ndi_info = {
 
 REGISTER_MODULE(ndi, &display_ndi_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
-/* vim: set expandtab sw=8 cino=N-8: */
+/* vim: set expandtab sw=8: */
