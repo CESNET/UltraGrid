@@ -873,6 +873,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDVideoOutputConversionMode conversion_mode = bmdNoVideoOutputConversion;
         bool use1080psf = false;
 
+        if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                show_help(strcmp(fmt, "fullhelp") == 0);
+                return &display_init_noerr;
+        }
+
         if (!blackmagic_api_version_check()) {
                 return NULL;
         }
@@ -887,116 +892,111 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->devices_cnt = 1;
         s->low_latency = true;
 
-        if(fmt == NULL || strlen(fmt) == 0) {
-                fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
+        if (strlen(fmt) == 0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Card number unset, using first found (see -d decklink:help)!\n";
+        }
 
-        } else if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
-                show_help(strcmp(fmt, "fullhelp") == 0);
-                delete s;
-                return &display_init_noerr;
-        } else {
-                char tmp[strlen(fmt) + 1];
-                strcpy(tmp, fmt);
-                char *ptr;
-                char *save_ptr = 0ul;
+        char tmp[strlen(fmt) + 1];
+        strcpy(tmp, fmt);
+        char *ptr;
+        char *save_ptr = 0ul;
 
-                ptr = strtok_r(tmp, ":", &save_ptr);
-                assert(ptr);
-                int i = 0;
-                bool first_option_is_device = true;
-                while (ptr[i] != '\0') {
-                        if (isdigit(ptr[i++]))
-                                continue;
-                        else
-                                first_option_is_device = false;
+        ptr = strtok_r(tmp, ":", &save_ptr);
+        assert(ptr);
+        int i = 0;
+        bool first_option_is_device = true;
+        while (ptr[i] != '\0') {
+                if (isdigit(ptr[i++]))
+                        continue;
+                else
+                        first_option_is_device = false;
+        }
+        if (first_option_is_device) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
+                                "deprecated. Use \"device=%s\" instead.\n", ptr);
+                if (!parse_devices(ptr, cardId, &s->devices_cnt)) {
+                        delete s;
+                        return NULL;
                 }
-                if (first_option_is_device) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
-                                        "deprecated. Use \"device=%s\" instead.\n", ptr);
-                        if (!parse_devices(ptr, cardId, &s->devices_cnt)) {
+                ptr = strtok_r(NULL, ":", &save_ptr);
+        }
+
+        while (ptr)  {
+                if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
+                        if (!parse_devices(ptr + strlen("device="), cardId, &s->devices_cnt)) {
                                 delete s;
                                 return NULL;
                         }
-                        ptr = strtok_r(NULL, ":", &save_ptr);
-                }
-                
-                while (ptr)  {
-                        if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
-                               if (!parse_devices(ptr + strlen("device="), cardId, &s->devices_cnt)) {
-                                       delete s;
-                                       return NULL;
-                               }
 
-                        } else if (strcasecmp(ptr, "3D") == 0) {
-                                s->stereo = true;
-                        } else if(strcasecmp(ptr, "timecode") == 0) {
-                                s->emit_timecode = true;
-                        } else if(strcasecmp(ptr, "single-link") == 0) {
-                                s->link_req = bmdLinkConfigurationSingleLink;
-                        } else if(strcasecmp(ptr, "dual-link") == 0) {
-                                s->link_req = bmdLinkConfigurationDualLink;
-                        } else if(strcasecmp(ptr, "quad-link") == 0) {
-                                s->link_req = bmdLinkConfigurationQuadLink;
-                        } else if(strstr(ptr, "profile=") == ptr) {
-                                ptr += strlen("profile=");
-                                if (strcmp(ptr, "keep") == 0) {
-                                        s->profile_req = BMD_OPT_KEEP;
-                                } else {
-                                        s->profile_req = (BMDProfileID) bmd_read_fourcc(ptr);
-                                }
-                        } else if(strcasecmp(ptr, "half-duplex") == 0) {
-                                s->profile_req = bmdDuplexHalf;
-                        } else if(strcasecmp(ptr, "LevelA") == 0) {
-                                s->level = 'A';
-                        } else if(strcasecmp(ptr, "LevelB") == 0) {
-                                s->level = 'B';
-                        } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
-                                char *packing = ptr + strlen("HDMI3DPacking=");
-                                if(strcasecmp(packing, "SideBySideHalf") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingSidebySideHalf;
-                                } else if(strcasecmp(packing, "LineByLine") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingLinebyLine;
-                                } else if(strcasecmp(packing, "TopAndBottom") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingTopAndBottom;
-                                } else if(strcasecmp(packing, "FramePacking") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingFramePacking;
-                                } else if(strcasecmp(packing, "LeftOnly") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingRightOnly;
-                                } else if(strcasecmp(packing, "RightOnly") == 0) {
-                                        HDMI3DPacking = bmdVideo3DPackingLeftOnly;
-                                } else {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown HDMI 3D packing %s.\n", packing);
-                                        delete s;
-                                        return NULL;
-                                }
-                        } else if(strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
-                                if (strcasecmp(ptr + strlen("audio_level="), "false") == 0) {
-                                        audio_consumer_levels = 0;
-                                } else {
-                                        audio_consumer_levels = 1;
-                                }
-			} else if(strncasecmp(ptr, "conversion=",
-						strlen("conversion=")) == 0) {
-				conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
-			} else if(strncasecmp(ptr, "Use1080pNotPsF=",
-						strlen("Use1080pNotPsF=")) == 0) {
-				const char *levels = ptr + strlen("Use1080pNotPsF=");
-				if (strcasecmp(levels, "false") == 0) {
-					use1080psf = true;
-				} else {
-					use1080psf = false;
-				}
-                        } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
-                                s->low_latency = strcasecmp(ptr, "low-latency") == 0;
-                        } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
-                                s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
+                } else if (strcasecmp(ptr, "3D") == 0) {
+                        s->stereo = true;
+                } else if(strcasecmp(ptr, "timecode") == 0) {
+                        s->emit_timecode = true;
+                } else if(strcasecmp(ptr, "single-link") == 0) {
+                        s->link_req = bmdLinkConfigurationSingleLink;
+                } else if(strcasecmp(ptr, "dual-link") == 0) {
+                        s->link_req = bmdLinkConfigurationDualLink;
+                } else if(strcasecmp(ptr, "quad-link") == 0) {
+                        s->link_req = bmdLinkConfigurationQuadLink;
+                } else if(strstr(ptr, "profile=") == ptr) {
+                        ptr += strlen("profile=");
+                        if (strcmp(ptr, "keep") == 0) {
+                                s->profile_req = BMD_OPT_KEEP;
                         } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
+                                s->profile_req = (BMDProfileID) bmd_read_fourcc(ptr);
+                        }
+                } else if(strcasecmp(ptr, "half-duplex") == 0) {
+                        s->profile_req = bmdDuplexHalf;
+                } else if(strcasecmp(ptr, "LevelA") == 0) {
+                        s->level = 'A';
+                } else if(strcasecmp(ptr, "LevelB") == 0) {
+                        s->level = 'B';
+                } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
+                        char *packing = ptr + strlen("HDMI3DPacking=");
+                        if(strcasecmp(packing, "SideBySideHalf") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingSidebySideHalf;
+                        } else if(strcasecmp(packing, "LineByLine") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingLinebyLine;
+                        } else if(strcasecmp(packing, "TopAndBottom") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingTopAndBottom;
+                        } else if(strcasecmp(packing, "FramePacking") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingFramePacking;
+                        } else if(strcasecmp(packing, "LeftOnly") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingRightOnly;
+                        } else if(strcasecmp(packing, "RightOnly") == 0) {
+                                HDMI3DPacking = bmdVideo3DPackingLeftOnly;
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown HDMI 3D packing %s.\n", packing);
                                 delete s;
                                 return NULL;
                         }
-                        ptr = strtok_r(NULL, ":", &save_ptr);
+                } else if(strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
+                        if (strcasecmp(ptr + strlen("audio_level="), "false") == 0) {
+                                audio_consumer_levels = 0;
+                        } else {
+                                audio_consumer_levels = 1;
+                        }
+                } else if(strncasecmp(ptr, "conversion=",
+                                        strlen("conversion=")) == 0) {
+                        conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
+                } else if(strncasecmp(ptr, "Use1080pNotPsF=",
+                                        strlen("Use1080pNotPsF=")) == 0) {
+                        const char *levels = ptr + strlen("Use1080pNotPsF=");
+                        if (strcasecmp(levels, "false") == 0) {
+                                use1080psf = true;
+                        } else {
+                                use1080psf = false;
+                        }
+                } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
+                        s->low_latency = strcasecmp(ptr, "low-latency") == 0;
+                } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
+                        s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
+                        delete s;
+                        return NULL;
                 }
+                ptr = strtok_r(NULL, ":", &save_ptr);
         }
 
 	if (s->stereo && s->devices_cnt > 1) {
