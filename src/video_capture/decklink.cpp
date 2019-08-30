@@ -174,6 +174,7 @@ struct vidcap_decklink_state {
 
         uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link;
+        bool                    nosig_send = false; ///< send video even when no signal detected
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -302,9 +303,11 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 
 	if (videoFrame)
 	{
-		if (videoFrame->GetFlags() & bmdFrameHasNoInputSource)
-		{
+                if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
 			log_msg(LOG_LEVEL_INFO, "Frame received (#%d) - No input signal detected\n", s->frames);
+                        if (s->nosig_send) {
+                                newFrameReady = 1;
+                        }
 		} else {
                         newFrameReady = 1; // The new frame is ready to grab
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, videoFrame->GetRowBytes() * videoFrame->GetHeight());
@@ -380,7 +383,7 @@ static map<BMDVideoConnection, string> connection_string_map =  {
 
 /* HELP */
 static int
-decklink_help()
+decklink_help(bool full)
 {
 	IDeckLinkIterator*		deckLinkIterator;
 	IDeckLink*			deckLink;
@@ -388,9 +391,9 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
         printf("\t\tor\n");
-	cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*\n" << style::reset;
+        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*|[full]help\n" << style::reset;
 	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
         printf("\n");
 
@@ -450,6 +453,13 @@ decklink_help()
         cout << style::bold << "single-/dual-/quad-link\n" << style::reset;
         printf("\tUse single-/dual-/quad-link.\n");
         printf("\n");
+
+        if (full) {
+                cout << style::bold << "nosig-send\n" << style::reset;
+                cout << "\tSend video even if no signal was detected (useful when video interrupts\n"
+                        "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
+                cout << "\n";
+        }
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = create_decklink_iterator();
@@ -615,6 +625,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->link = bmdLinkConfigurationDualLink;
         } else if (strcasecmp(opt, "quad-link") == 0) {
                 s->link = bmdLinkConfigurationQuadLink;
+        } else if (strcasecmp(opt, "nosig-send") == 0) {
+                s->nosig_send = true;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -919,9 +931,11 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
+        const char *fmt = vidcap_params_get_fmt(params);
 	struct vidcap_decklink_state *s;
 
 	int dnum, mnum;
+
 
 	IDeckLinkIterator*	deckLinkIterator;
 	IDeckLink*		deckLink;
@@ -933,9 +947,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
-        if (strcmp(vidcap_params_get_fmt(params), "help") == 0 ||
-                        strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0) { // currently the same, compat with DeckLink display
-                decklink_help();
+        if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
+                decklink_help(strcmp(fmt, "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -959,7 +972,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         s->conversion_mode = (BMDVideoInputConversionMode) 0;
 
 	// SET UP device and mode
-        char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
+        char *tmp_fmt = strdup(fmt);
         int ret = settings_init(s, tmp_fmt);
         free(tmp_fmt);
 	if (!ret) {
@@ -1723,4 +1736,4 @@ static const struct video_capture_info vidcap_decklink_info = {
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-/* vim: set expandtab sw=8: */
+/* vi: set expandtab sw=8: */
