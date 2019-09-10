@@ -36,20 +36,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "host.h"
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-
-#include "debug.h"
-#include "lib_common.h"
-#include "video.h"
-#include "video_capture.h"
-
-#include "tv.h"
-
-#include "audio/audio.h"
-#include "deltacast_common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +58,18 @@
 #include <string>
 #include <unordered_map>
 
+#include "audio/audio.h"
+#include "debug.h"
+#include "host.h"
+#include "deltacast_common.h"
+#include "lib_common.h"
+#include "rang.hpp"
+#include "tv.h"
+#include "video.h"
+#include "video_capture.h"
+
+using rang::fg;
+using rang::style;
 using namespace std;
 
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
@@ -126,28 +127,29 @@ static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused))
 
 static void usage(void)
 {
-        printf("-t deltacast-dv[:device=<index>][:channel=<channel>][:codec=<color_spec>]"
-                        "[:edid=<edid>|preset=<format>]\n");
+        cout << "Usage:\n";
+        cout << style::bold << fg::red << "\t-t deltacast-dv" << fg::reset << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:edid=<edid>|preset=<format>]\n" << style::reset;
+        cout << "where\n";
         
-        printf("\t<index> - index of DVI card\n");
+        cout << style::bold << "\t<index>" << style::reset << " - index of DVI card\n";
         print_available_delta_boards();
 
-        printf("\t<channel> may be channel index (for cards which have multiple inputs, max 4)\n");
+        cout << style::bold << "\t<channel>" << style::reset << " may be channel index (for cards which have multiple inputs, max 4)\n";
         
-        printf("\t<edid> may be one of following\n");
-        printf("\t\t0 - load DVI-D EEDID\n");
-        printf("\t\t1 - load DVI-A EEDID\n");
-        printf("\t\t2 - load HDMI EEDID\n");
-        printf("\t\t3 - avoid EEDID loading\n");
+        cout << style::bold << "\t<edid>" << style::reset << " may be one of following\n";
+        cout << style::bold << "\t\t0" << style::reset << " - load DVI-D EEDID\n";
+        cout << style::bold << "\t\t1" << style::reset << " - load DVI-A EEDID\n";
+        cout << style::bold << "\t\t2" << style::reset << " - load HDMI EEDID\n";
+        cout << style::bold << "\t\t3" << style::reset << " - avoid EEDID loading\n";
 
-        printf("\t<color_spec> may be one of following\n");
-        printf("\t\tUYVY\n");
-        printf("\t\tv210\n");
-        printf("\t\tRGBA\n");
-        printf("\t\tBGR (default)\n");
+        cout << style::bold << "\t<color_spec>" << style::reset << " may be one of following\n";
+        cout << style::bold << "\t\tUYVY\n" << style::reset;
+        cout << style::bold << "\t\tv210\n" << style::reset;
+        cout << style::bold << "\t\tRGBA\n" << style::reset;
+        cout << style::bold << "\t\tBGR" << style::reset << " (default)\n";
 
-        printf("\t<preset> may be format description (DVI-A), E-EDID will be ignored\n");
-        printf("\t\tvideo format is in the format <width>x<height>@<fps>\n");
+        cout << style::bold << "\t<preset>" << style::reset << " may be format description (DVI-A), E-EDID will be ignored\n";
+        cout << "\t\tvideo format is in the format " << style::bold << "<width>x<height>@<fps>\n" << style::reset;
 
 }
 
