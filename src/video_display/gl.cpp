@@ -2,10 +2,11 @@
  * @file   video_display/gl.cpp
  * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Martin Piatka    <445597@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1018,6 +1019,7 @@ static void glut_mouse_callback(int /* x */, int /* y */)
 }
 
 #ifdef FREEGLUT
+jmp_buf error_env;
 static void glut_init_error_callback(const char *fmt, va_list ap)
 {
         va_list aq;
@@ -1035,10 +1037,8 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
         va_end(aq);
 
         // This is required - if there is no noexit function call, glutInit()
-        // continues normally until it crashes. This solution (passing
-        // exception through freeglut) works with GCC (see https://stackoverflow.com/questions/490773/how-is-the-c-exception-handling-runtime-implemented). Other possibilty is
-        // to use longjmp() (but saved environment needs to be passed here then).
-        throw EXIT_FAIL_DISPLAY;
+        // continues normally until it crashes.
+        longjmp(error_env, EXIT_FAIL_DISPLAY);
 }
 #endif
 
@@ -1063,13 +1063,15 @@ static bool display_gl_init_opengl(struct state_gl *s)
 
 #ifdef FREEGLUT
         glutInitErrorFunc(glut_init_error_callback);
+        if (setjmp(error_env) == 0) {
 #endif
-        try {
                 glutInit(&uv_argc, uv_argv);
-        } catch (...) {
+#ifdef FREEGLUT
+        } else {
                 exit_uv(EXIT_FAIL_DISPLAY);
                 return false;
         }
+#endif
         glutInitDisplayMode(GLUT_RGBA | (s->vsync == SINGLE_BUF ? GLUT_SINGLE : GLUT_DOUBLE));
 
 #ifdef HAVE_MACOSX
