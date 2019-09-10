@@ -38,6 +38,8 @@
 #ifndef LIB_COMMON_H
 #define LIB_COMMON_H
 
+#include "host.h" // UNIQUE_NAME
+
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define MK_STATIC_REF(A) &A, NULL
@@ -91,6 +93,14 @@ void list_all_modules();
 std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version);
 #endif
 
+#define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname) static void funcname(void)  __attribute__((constructor));\
+\
+static void funcname(void)\
+{\
+        register_library(#name, info, lclass, abi);\
+}\
+struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
+
 /**
  * @brief  Registers module to global modules' registry
  * @param name   name of the module to be used to load the module (Note that
@@ -104,13 +114,7 @@ std::map<std::string, const void *> get_libraries_for_class(enum library_class c
  * multiple modules (eg. audio playback SDI) and without that, function would
  * be defined multiple times under the same name.
  */
-#define REGISTER_MODULE(name, info, lclass, abi) static void mod_reg_##lclass##_##name(void)  __attribute__((constructor));\
-\
-static void mod_reg_##lclass##_##name(void)\
-{\
-        register_library(#name, info, lclass, abi);\
-}\
-struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
+#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME)
 
 #endif // defined LIB_COMMON_H
 

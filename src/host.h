@@ -159,9 +159,16 @@ bool register_mainloop(mainloop_t, void *);
 extern std::unordered_map<std::string, std::string> commandline_params;
 #endif
 
+#define MERGE_(a,b)  a##b
+#define LABEL_(a) MERGE_(unique_name_, a)
+#define UNIQUE_NAME LABEL_(__COUNTER__)
+
 /**
  * Introduces new parameter. Without calling that, parameter from command-line
  * would be rejected.
+ *
+ * @todo
+ * Remove salt - use UNIQUE_NAME instead
  *
  * @param salt  unique salt to be added to identifier. Must be a sequence
  *              of digits, underscores, lowercase and uppercase Latin letters.
