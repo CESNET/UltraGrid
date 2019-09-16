@@ -213,6 +213,7 @@ const static struct{
 	{"advanced", Option::BoolOpt, "", "f", false, "", ""},
 	{"preview", Option::BoolOpt, "", "t", true, "", ""},
 	{"vuMeter", Option::BoolOpt, "", "t", true, "", ""},
+	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
 };
 
 const struct {
@@ -280,6 +281,7 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("network.control_port").getLaunchOption();
 	out += getOption("network.destination").getLaunchOption();
 	out += getOption("decode.hwaccel").getLaunchOption();
+	out += getOption("errors_fatal").getLaunchOption();
 	return out;
 }
 
