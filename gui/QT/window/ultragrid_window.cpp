@@ -372,6 +372,7 @@ void UltragridWindow::processStateChanged(QProcess::ProcessState s){
 }
 
 void UltragridWindow::processFinished(int code, QProcess::ExitStatus status){
+	log.write("Process exited with code: " + QString::number(code) + "\n\n");
 	if(status == QProcess::CrashExit || code != 0){
 		QMessageBox msgBox(this);
 		msgBox.setIcon(QMessageBox::Critical);
