@@ -41,20 +41,6 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryCap(lines, AUDIO_COMPRESS, "[cap][audio_compress] ");
 	
 	queryDevices(lines);
-
-#ifdef DEBUG
-	for(const auto &i : capturers){
-		std::cout << i.name << " : " << i.type
-			<< " : " << i.deviceOpt << std::endl;
-
-		for(const auto &j : i.modes){
-			std::cout << "\t" << j.name << std::endl;
-			for(const auto &k : j.opts){
-				std::cout << "\t\t" << k.opt << " : " << k.val << std::endl;
-			}
-		}
-	}
-#endif
 }
 
 void AvailableSettings::queryDevices(const QStringList &lines){
