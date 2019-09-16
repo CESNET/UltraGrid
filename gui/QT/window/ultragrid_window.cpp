@@ -248,6 +248,7 @@ void UltragridWindow::connectSignals(){
 	connect(&process, SIGNAL(readyReadStandardOutput()), this, SLOT(outputAvailable()));
 	connect(&process, SIGNAL(readyReadStandardError()), this, SLOT(outputAvailable()));
 	connect(&process, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(processStateChanged(QProcess::ProcessState)));
+	connect(&process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
 
 	connect(ui.arguments, SIGNAL(textChanged(const QString &)), this, SLOT(editArgs(const QString &)));
 	connect(ui.editCheckBox, SIGNAL(toggled(bool)), this, SLOT(setArgs()));
@@ -367,6 +368,23 @@ void UltragridWindow::processStateChanged(QProcess::ProcessState s){
 
 	if(s == QProcess::NotRunning){
 		startPreview();
+	}
+}
+
+void UltragridWindow::processFinished(int code, QProcess::ExitStatus status){
+	if(status == QProcess::CrashExit || code != 0){
+		QMessageBox msgBox(this);
+		msgBox.setIcon(QMessageBox::Critical);
+		msgBox.setWindowTitle("UltraGrid error!");
+		msgBox.setText("Ultragrid has exited with an error! If you need help, please send an email "
+				"to ultragrid-dev@cesnet.cz with log attached.");
+		QPushButton *showLogBtn = msgBox.addButton(tr("Show log"), QMessageBox::ActionRole);
+		QPushButton *dissmissBtn = msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
+		msgBox.exec();
+
+		if(msgBox.clickedButton() == showLogBtn){
+			showLog();
+		}
 	}
 }
 
