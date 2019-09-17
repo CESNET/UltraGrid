@@ -54,6 +54,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -107,6 +108,7 @@ using std::chrono::steady_clock;
 using std::condition_variable;
 using std::cout;
 using std::endl;
+using std::hash;
 using std::lock_guard;
 using std::min;
 using std::mutex;
@@ -444,7 +446,7 @@ AJAStatus display::SetUpAudio ()
 
 }       //      SetupAudio
 
-const unordered_map<NTV2Channel, NTV2OutputCrosspointID> chanToLutSrc = {
+const unordered_map<NTV2Channel, NTV2OutputCrosspointID, hash<int>> chanToLutSrc = {
         {NTV2_CHANNEL1, NTV2_XptLUT1RGB},
         {NTV2_CHANNEL2, NTV2_XptLUT2RGB},
         {NTV2_CHANNEL3, NTV2_XptLUT3Out},
