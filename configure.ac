@@ -190,6 +190,13 @@ AC_ARG_ENABLE(depends-version-check,
         [version_check=yes]
         )
 
+build_default=auto
+AC_ARG_ENABLE(all,
+        AS_HELP_STRING([--enable-all], [Enable or disable all features (default is auto)]),
+	[build_default=$enableval],
+        [build_default=auto]
+        )
+
 if test $system = MacOSX -a \( $os_version_major -lt 11 \) -a $version_check = yes
 then
         AC_MSG_WARN([*** Only OS X versions 10.7 and higher are supported.])
@@ -396,6 +403,7 @@ then
     CXXFLAGS="$CXXFLAGS -pipe -W -Wcast-qual -Wcast-align -Wmissing-declarations"
 fi
 
+
 # ------------------------------------------------------------------------------------------------
 # Dynamic libraries stuff
 #
@@ -524,11 +532,7 @@ case "$host_os" in
                 # have omit types, X11 headers have implicit int declarations on some systems
                 # (e.g. Solaris).
                 AC_CACHE_CHECK(whether X11 headers are broken, x11_cv_broken_headers, [
-                        SAVED_CFLAGS=$CFLAGS
-                        CFLAGS="$X_CFLAGS $CFLAGS"
-                        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <X11/Xlib.h>
-                        #include <X11/Xutil.h>]], [[return 0]])],[x11_cv_broken_headers=no],[x11_cv_broken_headers=yes])
-                        CFLAGS=$SAVED_CFLAGS
+
                 ]);
 
                 # If X headers look broken, check if we can use -istdinc.  If so replace
@@ -551,7 +555,7 @@ case "$host_os" in
                         fi
                 fi
                 X_OBJ="src/x11_common.o"
-                LIBS="$LIBS -ldl"
+                LIBS="$LIBS -ldl -lX11" # @todo This shouldn't be hardcoded
                 CFLAGS="$CFLAGS"
                 AC_DEFINE([HAVE_X], [1], [Build with X11 support])
         fi
@@ -580,7 +584,7 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS cards
 dvs=no
-dvs_req=auto
+dvs_req=$build_default
 AC_ARG_ENABLE(dvs,
 [  --disable-dvs           disable DVS (default is auto)]
 [                          Requires: DVS_SDK],
@@ -662,7 +666,7 @@ DECKLINK_INC=
 DECKLINK_LIB=
 DECKLINK_PATH=
 decklink=no
-decklink_req=auto
+decklink_req=$build_default
 
 AC_ARG_ENABLE(decklink,
 [  --disable-decklink      disable DeckLink (default is auto)]
@@ -762,21 +766,19 @@ BLUEFISH444_CAP_OBJ=
 BLUEFISH444_DISP_OBJ=
 BLUEFISH444_INC=
 BLUEFISH444_LIB=
-bluefish444_req=auto
 bluefish444=no
-blue_audio_req=auto
 blue_audio=no
 
 AC_ARG_ENABLE(bluefish444,
 [  --disable-bluefish444   disable Bluefish444 suppport (default is auto)]
 [                          Requires: bluefish444_SDK],
               [bluefish444_req=$enableval],
-              [bluefish444_req=auto]
+              [bluefish444_req=$build_default]
               )
 AC_ARG_ENABLE(blue-audio,
               AS_HELP_STRING([--disable-blue-audio], [disable Bluefish444 audio suppport (default is auto)]),
               [blue_audio_req=$enableval],
-              [blue_audio_req=auto]
+              [blue_audio_req=$build_default]
               )
 BLUEFISH444_PATH=$BLUE_LATEST_SDK
 
@@ -892,7 +894,7 @@ AC_ARG_ENABLE(aja,
 [  --disable-aja           disable AJA suppport (default is auto)]
 [                          Requires: NTV2_SDK],
 [aja_req=$enableval],
-[aja_req=auto])
+[aja_req=$build_default])
 
 if test -n "$NTV2_ROOT"; then
         AJA_PATH=$NTV2_ROOT/..
@@ -988,7 +990,7 @@ AC_ARG_ENABLE(deltacast,
 [  --disable-deltacast     disable DELTACAST suppport (default is auto)]
 [                          Requires: VideoMasterHD_SDK],
               [deltacast_req=$enableval],
-              [deltacast_req=auto]
+              [deltacast_req=$build_default]
               )
 DELTACAST_PATH=$DELTACAST_DIRECTORY
 
@@ -1167,14 +1169,14 @@ AC_ARG_ENABLE(sdl1,
 [  --enable-sdl1           enable SDL1 (default is auto)]
 [                          Requires: sdl >= 1.2.14 ],
     [sdl1_req=$enableval],
-    [sdl1_req=auto]
+    [sdl1_req=$build_default]
     )
 
 AC_ARG_ENABLE(sdl2,
 [  --enable-sdl2           enable SDL2 (disabled if SDL1 is enabled, auto otherwise)]
 [                          Requires: sdl2 ],
     [sdl2_req=$enableval],
-    [sdl2_req=auto]
+    [sdl2_req=$build_default]
     )
 
 if test $sdl1_req = yes -a $sdl2_req = yes; then
@@ -1232,7 +1234,7 @@ fi
 AC_ARG_ENABLE(opencv,
               AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
               [opencv_req=$enableval],
-              [opencv_req=auto])
+              [opencv_req=$build_default])
 
 PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 		AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
@@ -1280,7 +1282,7 @@ AC_ARG_ENABLE(rtsp,
 [  --disable-rtsp          disable RTSP support (default is auto)]
 [                          Requires: rtsp_deps],
     [rtsp_req=$enableval],
-    [rtsp_req=auto]
+    [rtsp_req=$build_default]
     )
 
 PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
@@ -1357,7 +1359,7 @@ sdp_http=no
 AC_ARG_ENABLE(sdp-http,
 [  --enable-sdp-http       enables SDP/HTTP transport (default is enabled)],
     [sdp_http_req=$enableval],
-    [sdp_http_req=yes]
+    [sdp_http_req=$build_default]
     )
 
 if test $sdp_http_req != no
@@ -1381,7 +1383,7 @@ AC_ARG_ENABLE(resize,
 [  --disable-resize        disable resize capture filter (default is auto)]
 [                          Requires: opencv],
     [resize_req=$enableval],
-    [resize_req=auto]
+    [resize_req=$build_default]
     )
 
 if test $resize_req != no -a $HAVE_OPENCV = yes
@@ -1410,7 +1412,7 @@ AC_ARG_ENABLE(blank,
 [  --disable-blank         disable blank capture filter (default is auto)]
 [                          Requires: blank_dep],
     [blank_req=$enableval],
-    [blank_req=auto]
+    [blank_req=$build_default]
     )
 
 PKG_CHECK_MODULES([BLANK], [blank_dep], FOUND_BLANK_DEP=yes, FOUND_BLANK_DEP=no)
@@ -1510,14 +1512,14 @@ AC_ARG_ENABLE(lavc-hw-accel-vdpau,
 [  --disable-lavc-hw-accel-vdpau   disable lavc-hw-accel-vdpau (default is auto)]
 [                          Requires: lavc_hwacc_vdpau_dep],
     [lavc_hwacc_vdpau_req=$enableval],
-    [lavc_hwacc_vdpau_req=auto]
+    [lavc_hwacc_vdpau_req=$build_default]
     )
 
 AC_ARG_ENABLE(lavc-hw-accel-vaapi,
 [  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
 [                          Requires: lavc_hwacc_vaapi_dep],
     [lavc_hwacc_vaapi_req=$enableval],
-    [lavc_hwacc_vaapi_req=auto]
+    [lavc_hwacc_vaapi_req=$build_default]
     )
 
 PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
@@ -1586,7 +1588,7 @@ AC_ARG_ENABLE(libswscale,
 [  --disable-libswscale    disable libswscale support (default is auto)]
 [                          Requires: libswscale libavutil],
 [libswscale_req=$enableval],
-[libswscale_req=auto]
+[libswscale_req=$build_default]
 )
 
 if test $system = Windows; then
@@ -1626,7 +1628,7 @@ AC_ARG_ENABLE(libavcodec,
 [  --disable-libavcodec    disable libavcodec support (default is auto)]
 [                          Requires: libavcodec libavutil],
 [libavcodec_req=$enableval],
-[libavcodec_req=auto]
+[libavcodec_req=$build_default]
 )
 
 if test $system = Windows; then
@@ -1687,7 +1689,7 @@ AC_ARG_ENABLE(gl,
 [  --disable-gl            disable OpenGL (default is auto]
 [                          Requires:  glew GLUT gl],
     [gl_req=$enableval],
-    [gl_req=auto]
+    [gl_req=$build_default]
     )
 
 # this variable is shared multiple times in code, so make sure that change in this
@@ -1920,7 +1922,7 @@ AC_ARG_ENABLE(swmix,
 [  --disable-swmix         disable SW mix (default is auto)]
 [                          Requires: gl],
     [swmix_req=$enableval],
-    [swmix_req=auto]
+    [swmix_req=$build_default]
     )
 
 if test $swmix_req != no -a $OPENGL = yes
@@ -1948,7 +1950,7 @@ AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
 [                          Requires: none (OSX) x11 (Linux)],
     [screen_cap_req=$enableval],
-    [screen_cap_req=auto]
+    [screen_cap_req=$build_default]
     )
 
 case "$system" in
@@ -2026,7 +2028,7 @@ AC_ARG_ENABLE(rtdxt,
 [  --disable-rtdxt         disable Real-Time OpenGL DXT compression (default is auto)]
 [                          Requires: gl],
 	[rtdxt_req=$enableval],
-        [rtdxt_req=auto])
+        [rtdxt_req=$build_default])
 
 
 AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
@@ -2066,7 +2068,7 @@ AC_ARG_ENABLE(uyvy,
 [  --disable-uyvy          disable dummy RGB to UYVY compression (default is auto)]
 [                          Requires: CUDA],
 	[uyvy_req=$enableval],
-        [uyvy_req=auto])
+        [uyvy_req=$build_default])
 
 SAVED_LIBS=$LIBS
 
@@ -2120,7 +2122,7 @@ CUDA_PATH=$CUDA_DIRECTORY
 AC_ARG_ENABLE(cuda,
               AS_HELP_STRING([--disable-cuda], [disable all CUDA code]),
               [cuda_req=$enableval],
-              [cuda_req=auto])
+              [cuda_req=$build_default])
 
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
@@ -2235,7 +2237,7 @@ AC_ARG_ENABLE(jpeg,
 [  --disable-jpeg          disable JPEG compression (auto)]
 [                          Requires: CUDA libgpujpeg ],
 	[jpeg_req=$enableval],
-        [jpeg_req=auto])
+        [jpeg_req=$build_default])
 
 SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
@@ -2316,7 +2318,7 @@ AC_ARG_ENABLE(cuda-dxt,
 [  --disable-cuda-dxt      disable CUDA DXT compression (auto)]
 [                          Requires: CUDA],
 	[cuda_dxt_req=$enableval],
-        [cuda_dxt_req=auto])
+        [cuda_dxt_req=$build_default])
 
 LIBS=$SAVED_LIBS
 
@@ -2346,7 +2348,7 @@ AC_ARG_ENABLE(jpeg_to_dxt,
 [  --disable-jpeg-to-dxt   disable JPEG to DXT transcoder (default is auto)]
 [                          Requires: CUDA libgpujpeg],
               [jpeg_to_dxt_req=$enableval],
-              [jpeg_to_dxt_req=auto])
+              [jpeg_to_dxt_req=$build_default])
 
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
@@ -2380,7 +2382,7 @@ AC_ARG_ENABLE(sage,
 [  --disable-sage          disable SAGE (default is auto)]
 [                          Requires: SAGE],
 	[sage_req=$enableval],
-        [sage_req=auto])
+        [sage_req=$build_default])
 
 AC_ARG_ENABLE(sage-native-dxt5ycocg,
       AS_HELP_STRING([--enable-sage-native-dxt5ycocg], [Assume that SAGE supports native DXT5 YCoCg (default is disable)]),
@@ -2440,7 +2442,7 @@ AC_ARG_ENABLE(portaudio,
 [  --disable-portaudio     disable Portaudio (default is auto)]
 [                          Requires: portaudio-2.0],
 	[portaudio_req=$enableval],
-        [portaudio_req=auto])
+        [portaudio_req=$build_default])
 
 
 SAVED_LIBS=$LIBS
@@ -2527,7 +2529,7 @@ AC_ARG_ENABLE(jack,
 [  --disable-jack          disable JACK (default is auto)]
 [                          Requires: jack],
 	[jack_req=$enableval],
-        [jack_req=auto])
+        [jack_req=$build_default])
 
 if test $jack_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
@@ -2558,7 +2560,7 @@ AC_ARG_ENABLE(alsa,
 [  --disable-alsa          disable ALSA (default is auto)]
 [                          Requires: alsa],
 	[alsa_req=$enableval],
-        [alsa_req=auto])
+        [alsa_req=$build_default])
 AC_CHECK_HEADER(alsa/asoundlib.h)
 SAVED_LIBS=$LIBS
 AC_CHECK_LIB(asound, snd_pcm_open)
@@ -2589,7 +2591,7 @@ coreaudio=no
 AC_ARG_ENABLE(coreaudio,
       AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]),
     [coreaudio_req=$enableval],
-    [coreaudio_req=auto]
+    [coreaudio_req=$build_default]
     )
 
 case $host_os in
@@ -2633,7 +2635,7 @@ AC_ARG_ENABLE(scale,
 [  --disable-scale         disable scale postprocessor (default is auto)]
 [                          Requires: gl],
     [scale_req=$enableval],
-    [scale_req=auto]
+    [scale_req=$build_default]
     )
 
 if test $scale_req != no -a $OPENGL = yes
@@ -2663,7 +2665,7 @@ AC_ARG_ENABLE(text,
 [  --disable-text          disable text postprocessor (default is auto)]
 [                          Requires: text_dep ],
     [text_req=$enableval],
-    [text_req=auto]
+    [text_req=$build_default]
     )
 
 PKG_CHECK_MODULES([TEXT], [text_dep], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
@@ -2767,7 +2769,7 @@ AC_ARG_ENABLE(v4l2,
 [  --disable-v4l2          disable V4L2 support (default is auto)]
 [                          Requires: v4l2_deps],
     [v4l2_req=$enableval],
-    [v4l2_req=auto]
+    [v4l2_req=$build_default]
     )
 
 if test $system = Linux; then
@@ -2791,11 +2793,10 @@ fi
 # DirectShow
 # -----------------------------------------------------------------------------
 dshow=no
-dshow_req=auto
 AC_ARG_ENABLE(dshow,
       AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
     [dshow_req=$enableval],
-    [dshow_req=auto]
+    [dshow_req=$build_default]
     )
 
 if test $system = Windows -a $dshow_req != no; then
@@ -2813,11 +2814,10 @@ fi
 # WASAPI
 # -----------------------------------------------------------------------------
 wasapi=no
-wasapi_req=auto
 AC_ARG_ENABLE(wasapi,
       AS_HELP_STRING([--disable-wasapi], [disable WASAPI support (default is auto)]),
     [wasapi_req=$enableval],
-    [wasapi_req=auto]
+    [wasapi_req=$build_default]
     )
 
 if test $system = Windows -a $wasapi_req != no; then
@@ -2865,7 +2865,7 @@ AC_ARG_ENABLE(openssl,
 [  --disable-openssl       disable OpenSSL support (default is auto)]
 [                          Requires: crypto],
     [crypto_req=$enableval],
-    [crypto_req=auto]
+    [crypto_req=$build_default]
     )
 
 PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
@@ -2896,7 +2896,7 @@ AC_ARG_ENABLE(ldgm-gpu,
 [  --disable-ldgm-gpu      disable GPU accelerated LDGM (default is auto)]
 [                          Requires: CUDA],
     [ldgm_gpu_req=$enableval],
-    [ldgm_gpu_req=auto]
+    [ldgm_gpu_req=$build_default]
     )
 
 if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
@@ -2934,7 +2934,7 @@ AC_ARG_ENABLE(syphon,
 [  --enable-syphon         enables Syphon support (default is auto)]
 [                          Requires: Syphon],
     [syphon_req=$enableval],
-    [syphon_req=auto]
+    [syphon_req=$build_default]
     )
 
 MY_CHECK_FRAMEWORK([Syphon])
@@ -2981,7 +2981,7 @@ AC_ARG_ENABLE(video-mixer,
 [  --disable-video-mixer   disable MCU-like video mixer (default is auto)]
 [                          Requires: opencv],
     [video_mix_req=$enableval],
-    [video_mix_req=auto]
+    [video_mix_req=$build_default]
     )
 
 if test x$HAVE_OPENCV != xno; then
@@ -3048,7 +3048,7 @@ AC_ARG_ENABLE(cmpto-j2k,
 [  --enable-cmpto-j2k      enables Comprimato J2K support (default is auto)]
 [                          Requires: cmpto_j2k],
     [cmpto_j2k_req=$enableval],
-    [cmpto_j2k_req=auto]
+    [cmpto_j2k_req=$build_default]
     )
 
 AC_CHECK_HEADER(cmpto_j2k_enc.h, FOUND_CMPTO_J2K_ENC_H=yes, FOUND_CMPTO_J2K_ENC_H=no)
@@ -3074,7 +3074,7 @@ ndi=no
 AC_ARG_ENABLE(ndi,
 [  --enable-ndi            enables NDI support (default is auto)],
     [ndi_req=$enableval],
-    [ndi_req=auto]
+    [ndi_req=$build_default]
     )
 
 if test $system = Windows; then
@@ -3110,7 +3110,7 @@ AC_ARG_ENABLE(cineform,
               [  --disable-cineform      disable cineform suppport (default is auto)]
               [            Requires: CINEFORM_SDK],
               [cineform_req=$enableval],
-              [cineform_req=auto]
+              [cineform_req=$build_default]
               )
 
 if test -n "$CINEFORM_DIRECTORY"; then

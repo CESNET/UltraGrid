@@ -98,9 +98,6 @@ struct sdp {
     char *sdp_dump;
 };
 
-// this is needed for HTTP server
-static struct sdp *sdp_global;
-
 struct sdp *new_sdp(int ip_version, const char *receiver) {
     assert(ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
@@ -269,6 +266,9 @@ void clean_sdp(struct sdp *sdp){
 // HTTP server stuff
 // --------------------------------------------------------------------
 #ifdef SDP_HTTP
+// this is needed for HTTP server
+static struct sdp *sdp_global;
+
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     UNUSED(connection);
     if (strlen(request->pathDecoded) > 1 && request->pathDecoded[0] == '/' && strcmp(request->pathDecoded + 1, SDP_FILE) == 0) {
