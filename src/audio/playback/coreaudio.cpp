@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,10 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @todo
+ * Remove deprecated instances of ca-disable-adaptive-buf after some transitio period.
  */
 
 #include "config.h"
@@ -350,7 +354,7 @@ static void * audio_play_ca_init(const char *cfg)
                 if(strcmp(cfg, "help") == 0) {
                         cout << "Core Audio playback usage:\n";
                         cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
-                                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param " CA_DIS_AD_B "]\n\n" << style::reset;
+                                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
                         printf("Available CoreAudio devices:\n");
                         audio_play_ca_help(NULL);
                         delete s;
@@ -369,9 +373,10 @@ static void * audio_play_ca_init(const char *cfg)
                 if(ret) goto error;
         }
 
-        if (get_commandline_param(CA_DIS_AD_B) == nullptr) {
+        if (get_commandline_param("ca-disable-adaptive-buf") == nullptr &&
+                        get_commandline_param("audio-disable-adaptive-buffer") == nullptr) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Using adaptive buffer. "
-                        "In case of problems, try \"--param " CA_DIS_AD_B "\" "
+                        "In case of problems, try \"--param audio-disable-adaptive-buffer\" "
                         "option.\n";
         }
 
