@@ -360,12 +360,14 @@ static void *capture_thread(void *arg)
 
         while (!should_exit) {
                 /* Capture and transmit video... */
-                struct audio_frame *audio;
+                struct audio_frame *audio = nullptr;
                 struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);
+
+                if (audio != nullptr) {
+                        audio_sdi_send(uv->audio, audio);
+                }
+
                 if (tx_frame != NULL) {
-                        if(audio) {
-                                audio_sdi_send(uv->audio, audio);
-                        }
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
                         shared_ptr<video_frame> frame;

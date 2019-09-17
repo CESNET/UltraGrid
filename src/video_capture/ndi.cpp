@@ -361,13 +361,6 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 delete du;
                         };
                 }
-                if (s->capture_audio) {
-                        *audio = &s->audio[s->audio_buf_idx];
-                        s->audio_buf_idx = (s->audio_buf_idx + 1) % 2;
-                        s->audio[s->audio_buf_idx].data_len = 0;
-                } else {
-                        *audio = nullptr;
-                }
                 s->frames += 1;
                 s->print_stats();
                 return out;
@@ -377,6 +370,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         case NDIlib_frame_type_audio:
                 if (s->capture_audio) {
                         audio_append(s, &audio_frame);
+                        *audio = &s->audio[s->audio_buf_idx];
+                        s->audio_buf_idx = (s->audio_buf_idx + 1) % 2;
+                        s->audio[s->audio_buf_idx].data_len = 0;
+                } else {
+                        *audio = nullptr;
                 }
                 NDIlib_recv_free_audio_v2(s->pNDI_recv, &audio_frame);
                 break;
