@@ -167,7 +167,6 @@ if test $system = MacOSX; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
         fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
-	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
 fi
 
@@ -510,11 +509,13 @@ AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
 OPENGL=no
 
 SAVED_LIBS=$LIBS
-AC_CHECK_HEADER(GL/glx.h)
 AC_CHECK_HEADER(GL/gl.h)
+AC_CHECK_HEADER(GL/glew.h)
+AC_CHECK_HEADER(GL/glx.h)
 AC_CHECK_LIB(GL, glBindTexture)
 AC_CHECK_LIB(GL, glXCreateNewContext)
 AC_CHECK_LIB(GLEW, glewInit)
+AC_CHECK_LIB(glew32, glewInit)
 AC_CHECK_LIB(X11, XCreateWindow)
 LIBS=$SAVED_LIBS
 
@@ -522,8 +523,9 @@ GL_COMMON_OBJ="src/gl_context.o"
 
 # Linux
 if test "$system" = Linux -a \
-        "$ac_cv_header_GL_glx_h" = yes -a \
         "$ac_cv_header_GL_gl_h" = yes -a \
+        "$ac_cv_header_GL_glew_h" = yes -a \
+        "$ac_cv_header_GL_glx_h" = yes -a \
         "$ac_cv_lib_GL_glBindTexture" = yes -a \
         "$ac_cv_lib_GL_glXCreateNewContext" = yes -a \
         "$ac_cv_lib_GLEW_glewInit" = yes -a \
@@ -543,7 +545,8 @@ then
 fi
 
 # Win32
-if test "$system" = Windows -a "$ac_cv_lib_GLEW_glewInit" = yes
+if test "$system" = Windows -a "$ac_cv_lib_glew32_glewInit" = yes -a \
+        "$ac_cv_header_GL_glew_h" = yes
 then
         OPENGL=yes
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/win32_gl_common.o"
@@ -1659,8 +1662,7 @@ fi
 
 
 # -------------------------------------------------------------------------------------------------
-# OpenGL stuff
-# @todo Remove all the custom stuff and replace with OPENGL_LIB/GL_COMMON_OBJ
+# OpenGL display
 # -------------------------------------------------------------------------------------------------
 GL_INC=
 GL_OBJ=$GL_COMMON_OBJ
@@ -1674,178 +1676,27 @@ AC_ARG_ENABLE(gl,
     [gl_req=$build_default]
     )
 
-# this variable is shared multiple times in code, so make sure that change in this
-# lines does not inferre with something below
-#SAVED_LIBS=$LIBS
-#if test $system = Windows; then
-#	AC_MSG_CHECKING([GLEW presence (library and headers)])
-#	SAVED_LIBS=$LIBS
-#	LIBS="$LIBS -lglew32"
-#	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
-##define _STDCALL_SUPPORTED 1
-##include <GL/glew.h>
-#], [
-#glewInit();
-#		])],
-#		[FOUND_GLEW=yes],[FOUND_GLEW=no])
-#	LIBS=$SAVED_LIBS
-#	AC_MSG_RESULT([$FOUND_GLEW])
-#        #AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
-#else
-#        AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
-#        #PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
-#fi
-#LIBS=$SAVED_LIBS
-#AC_SUBST(FOUND_GLEW)
-#
+GL_OBJ="$GL_OBJ src/video_display/gl.o"
+
 case "$system" in
 	MacOSX)
-	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
-			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no],
-			 [
-		 	  #include <OpenGL/gl.h>
-			  #include <OpenGL/glext.h>
-			 ]
-			)
-
-	if test $FOUND_GL_H = yes
-	then
-                AC_CHECK_FILE(/System/Library/Frameworks/OpenGL.framework/OpenGL, FOUND_GL_L=yes, echo "OpenGL framework not found.")
-
-		if test $gl_req != no -a $FOUND_GL_L = yes
-		then
-			case "$host_os" in
-			*darwin8*)
-				GL_LIB="-framework GLUT -framework OpenGL -framework Cocoa"
-			;;
-			*darwin9*)
-				GL_LIB="-framework GLUT -framework OpenGL -framework Cocoa -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
-			;;
-			*)
-				GL_LIB="-framework GLUT -framework OpenGL -framework Cocoa"
-			;;
-			esac
-
-			#FOUND_GLEW_L=no
-			#AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
-			#		 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
-			#		 [echo "GL/glew.h not found."]
-			#		)
-
-			AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
-
-			AC_CHECK_HEADERS([GLUT/glut.h],
-					 [AC_CHECK_FILE(/System/Library/Frameworks/GLUT.framework/GLUT, FOUND_GLUT=yes, echo "GLUT framework not found.")],
-					 [echo "GLUT/glut.h not found."]
-					)
-			if test "$FOUND_GLUT" = yes
-			then
-				GL_OBJ="$GL_OBJ src/video_display/gl.o"
-				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-                                gl=yes
-			else
-                                GL_LIB=
-				echo "OpenGL (GLUT) libraries not found or not usable."
-			fi
-		else
-			echo "OpenGL libraries not found or not usable."
-		fi
-
-	else
-		echo "OpenGL headers not found or not usable."
-	fi
-	;;
-	Windows)
-	AC_MSG_CHECKING([OpenGL support])
-	SAVED_LIBS=$LIBS
-
-	#AC_MSG_CHECKING([GLEW presence (library and headers)])
-	#SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglew32"
-	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
-#define _STDCALL_SUPPORTED 1
-#include <GL/glew.h>
-], [
-glewInit();
-		])],
-		[FOUND_GLEW=yes],[FOUND_GLEW=no])
-
-	LIBS="$LIBS -lfreeglut -lglew32 -lopengl32"
-	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
-#define _STDCALL_SUPPORTED 1
-#include <GL/glew.h>
-#include <GL/glut.h>
-], [glutMainLoop();
-glewInit();
-glBindTexture(GL_TEXTURE_2D, 0);
-		])],
-		[HAVE_GL=yes],[HAVE_GL=no])
-	LIBS=$SAVED_LIBS
-	AC_MSG_RESULT([$HAVE_GL])
-
-	if test $gl_req != no -a "$HAVE_GL" = yes; then
-		GL_LIB="$GL_LIB -lfreeglut -lglew32 -lopengl32"
-		GL_OBJ="$GL_OBJ src/video_display/gl.o"
-		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-		gl=yes	
-	fi
+                GL_LIB="-framework GLUT $OPENGL_LIB"
+                gl=yes
 	;;
 	*)
-	AC_CHECK_HEADERS([GL/gl.h GL/glx.h ],
-			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no],
-			 [
-		 	  #include <GL/gl.h>
-			  #include <GL/glx.h>
-			 ]
-			)
-
-	if test $FOUND_GL_H = yes
-	then
-		AC_CHECK_LIB(GL, glBindTexture, FOUND_GL_L=yes, FOUND_GL_L=no)
-
-		if test $gl_req != no -a $FOUND_GL_L = yes
-		then
-			GL_LIB="$GL_LIB -lGL"
-
-			AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no, $GL_LIB), FOUND_GLEW=no)
-
-
-			AC_CHECK_HEADERS([GL/glut.h],
-					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.", $GL_LIB)],
-					 [echo "GL/glut.h not found."]
-					)
-			if test "$FOUND_GLUT" = yes -a $FOUND_GLEW = yes
-			then
-				GL_LIB="$GL_LIB -lglut -lGLEW"
-				GL_OBJ="$GL_OBJ src/video_display/gl.o"
-				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-                                gl=yes
-			else
-                                if test "$FOUND_GLUT" = no
-                                then
-                                        AC_MSG_WARN([OpenGL (GLUT) libraries not found or not usable.])
-                                fi
-
-                                if test $FOUND_GLEW = no
-                                then
-                                        AC_MSG_WARN([OpenGL GLEW libraries or headers not found or not usable.])
-                                fi
-			fi
-		else
-			AC_MSG_WARN([OpenGL libraries not found or not usable.])
+                AC_CHECK_HEADERS([GL/glut.h])
+                AC_CHECK_LIB([freeglut], [glutMainLoop], [GLUT_LIB=-lfreeglut],
+			     AC_CHECK_LIB([glut], [glutMainLoop], [GLUT_LIB=-lglut], [GLUT_LIB=""]))
+		if test "$ac_cv_header_GL_glut_h" = yes -a -n "$GLUT_LIB"; then
+			GL_LIB="$GL_LIB $GLUT_LIB $OPENGL_LIB"
+			gl=yes
 		fi
-
-	else
-		AC_MSG_WARN([OpenGL headers (gl.h, glx.h) not found or not usable.])
-	fi
 	;;
 esac
-AC_SUBST(FOUND_GLEW)
 
-if test $gl = yes
+if test $gl = yes -a $gl_req != no
 then
+        AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 	INC="$INC $GL_INC"
 	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB")
 fi
