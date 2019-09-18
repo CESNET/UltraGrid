@@ -70,7 +70,11 @@
 
 #include <algorithm>
 #include <condition_variable>
+#ifdef WIN32
+#include <setjmpex.h>
+#else
 #include <csetjmp>
+#endif
 #include <iostream>
 #include <mutex>
 #include <queue>
