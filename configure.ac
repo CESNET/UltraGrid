@@ -1681,7 +1681,7 @@ GL_OBJ="$GL_OBJ src/video_display/gl.o"
 case "$system" in
 	MacOSX)
                 GL_LIB="-framework GLUT $OPENGL_LIB"
-                gl=yes
+                FOUND_GL=yes
 	;;
 	*)
                 AC_CHECK_HEADERS([GL/glut.h])
@@ -1689,13 +1689,14 @@ case "$system" in
 			     AC_CHECK_LIB([glut], [glutMainLoop], [GLUT_LIB=-lglut], [GLUT_LIB=""]))
 		if test "$ac_cv_header_GL_glut_h" = yes -a -n "$GLUT_LIB"; then
 			GL_LIB="$GL_LIB $GLUT_LIB $OPENGL_LIB"
-			gl=yes
+			FOUND_GL=yes
 		fi
 	;;
 esac
 
-if test $gl = yes -a $gl_req != no
+if test $FOUND_GL = yes -a $gl_req != no
 then
+        gl=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 	INC="$INC $GL_INC"
 	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB")
@@ -2288,7 +2289,7 @@ AC_ARG_ENABLE(jack-transport,
 [  --enable-jack-transport enable JACK transport (default is disable)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
-        [jack_trans_req=no])
+        [jack_trans_req=$build_default])
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, [FOUND_JACK_L=yes]
@@ -2299,7 +2300,7 @@ if test $FOUND_JACK_L = no; then
                                                  [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
 fi
 
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_trans_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
     JACK_TRANS_LIB="$JACK_LIB"
@@ -2489,7 +2490,7 @@ AC_ARG_ENABLE(qt,
 [  --enable-qt             build Qt GUI (default is disabled)]
 [                          Requires: Qt5Core >= 5.4 Qt5Widgets Qt5Gui (for Linux also v4l2) ],
     [qt_req=$enableval],
-    [qt_req=no]
+    [qt_req=$build_default]
     )
 
 AC_ARG_ENABLE(static-qt,
@@ -2508,7 +2509,7 @@ fi
 PKG_CHECK_MODULES(QT, [$QT_GUI_DEP], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 PKG_CONFIG=$SAVED_PKG_CONFIG
 
-if test $qt_req != no -a $FOUND_QT_DEP = yes
+if test $qt_req = yes -a $FOUND_QT_DEP = yes
 then
 	# Retrieve Qt compilation flags
 	CXXFLAGS="$QT_CFLAGS $CXXFLAGS"
