@@ -218,15 +218,6 @@ else # Windows
 fi
 AC_SUBST(CUDA_FLAGS)
 
-if test "$system" = MacOSX; then
-        GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
-else if test "$system" = Linux; then
-        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o src/x11_common.o"
-else
-        GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
-fi
-fi
-
 AC_ARG_VAR([ARCH], [Architecture to build for])
 if test $target_cpu = x86_64 -o $target_cpu = i686
 then
@@ -514,58 +505,50 @@ AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
 
 # -------------------------------------------------------------------------------------------------
-# X Window System
-#
-# Use autoconf inbuilt X location.  Works v. nicely.  Substitution of X vars
-# comes after broken X11 header check and attempted fix.
-X_LIBS=
-X_OBJ=
+# GL common
+# -------------------------------------------------------------------------------------------------
+OPENGL=no
 
-case "$host_os" in
-	*darwin*)
-        ;;
-        *)
-        AC_PATH_XTRA
+SAVED_LIBS=$LIBS
+AC_CHECK_HEADER(GL/glx.h)
+AC_CHECK_HEADER(GL/gl.h)
+AC_CHECK_LIB(GL, glBindTexture)
+AC_CHECK_LIB(GL, glXCreateNewContext)
+AC_CHECK_LIB(GLEW, glewInit)
+AC_CHECK_LIB(X11, XCreateWindow)
+LIBS=$SAVED_LIBS
 
-        if test ! $no_x ; then
-                # Check if X headers are broken.  GCC 2.95 and up reject headers that don't
-                # have omit types, X11 headers have implicit int declarations on some systems
-                # (e.g. Solaris).
-                AC_CACHE_CHECK(whether X11 headers are broken, x11_cv_broken_headers, [
+GL_COMMON_OBJ="src/gl_context.o"
 
-                ]);
+# Linux
+if test "$system" = Linux -a \
+        "$ac_cv_header_GL_glx_h" = yes -a \
+        "$ac_cv_header_GL_gl_h" = yes -a \
+        "$ac_cv_lib_GL_glBindTexture" = yes -a \
+        "$ac_cv_lib_GL_glXCreateNewContext" = yes -a \
+        "$ac_cv_lib_GLEW_glewInit" = yes -a \
+        "$ac_cv_lib_X11_XCreateWindow" = yes
+then
+        OPENGL=yes
+        OPENGL_LIB="-lGLEW -lGL -lX11"
+        GL_COMMON_OBJ="$GL_COMMON_OBJ src/glx_common.o src/x11_common.o"
+fi
 
-                # If X headers look broken, check if we can use -istdinc.  If so replace
-                # -IXDIR with -istdincXDIR to suppress warnings.  NB it is possible to use
-                # -fpermissive, but not in conjunction with -Werror since warnings are still
-                # generated.  Could pull local headers through:
-                #			 's/^\(extern\) \([[A-Za-z0-9]]*($\)/\1 int \2/'
-                if test $x11_cv_broken_headers = yes -a "$GCC" = "yes" ; then
-                        SAVED_X_CFLAGS=$X_CFLAGS
-                        X_CFLAGS=`echo $X_CFLAGS | sed 's%-I%-istdinc%'`
-                        AC_CACHE_CHECK(whether -istdinc fixes X11 headers, x11_cv_gcc_istdinc_works, [
-                                SAVED_CFLAGS=$CFLAGS
-                                CFLAGS="$X_CFLAGS $CFLAGS"
-                                AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <X11/Xlib.h>
-                                #include <X11/Xutil.h>]], [[return 0]])],[x11_cv_gcc_istdinc_works=yes],[x11_cv_gcc_istdinc_works=no])
-                                CFLAGS=$SAVED_CFLAGS
-                        ])
-                        if test $x11_cv_gcc_istdinc_works = no ; then
-                                X_CFLAGS=$SAVED_X_CFLAGS
-                        fi
-                fi
-                X_OBJ="src/x11_common.o"
-                LIBS="$LIBS -ldl -lX11" # @todo This shouldn't be hardcoded
-                CFLAGS="$CFLAGS"
-                AC_DEFINE([HAVE_X], [1], [Build with X11 support])
-        fi
-        ;;
-esac
+# Mac
+if test "$system" = MacOSX
+then
+        OPENGL=yes
+        OPENGL_LIB="-framework OpenGL -framework Cocoa"
+        GL_COMMON_OBJ="$GL_COMMON_OBJ src/mac_gl_common.o"
+fi
 
-AC_SUBST(X_CFLAGS)
-AC_SUBST(X_EXTRA_LIBS)
-AC_SUBST(X_PRE_LIBS)
-AC_SUBST(X_OBJ)
+# Win32
+if test "$system" = Windows -a "$ac_cv_lib_GLEW_glewInit" = yes
+then
+        OPENGL=yes
+        GL_COMMON_OBJ="$GL_COMMON_OBJ src/win32_gl_common.o"
+        OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
+fi
 
 # -------------------------------------------------------------------------------------------------
 # Do we have FireWire/DV support?
@@ -1215,16 +1198,14 @@ then
         SDL_LIB=$SDL2_LIB
         sdl_version=2
         sdl=yes
-else
-if test $sdl1_req != no -a $found_sdl1 = yes
+elif test $sdl1_req != no -a $found_sdl1 = yes
 then
-        SDL1_OBJ="src/video_display/sdl.o"
+        SDL1_OBJ="src/video_display/sdl.o src/x11_common.o"
         AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
         ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
-        SDL_LIB=$SDL1_LIB
+        SDL_LIB="$SDL1_LIB -lX11" # X11 for x11_common.o
         sdl_version=1
         sdl=yes
-fi
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -1470,7 +1451,7 @@ then
         if test $sdl = yes
         then
                 TESTCARD2_OBJ="$TESTCARD_COMMON src/video_capture/testcard2.o"
-                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
+                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB"
                 if test $sdl_version -eq 1; then
                         PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
                 else
@@ -1679,10 +1660,11 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
+# @todo Remove all the custom stuff and replace with OPENGL_LIB/GL_COMMON_OBJ
 # -------------------------------------------------------------------------------------------------
 GL_INC=
 GL_OBJ=$GL_COMMON_OBJ
-GL_LIB=
+GL_LIB=$OPENGL_LIB
 gl=no
 
 AC_ARG_ENABLE(gl,
@@ -1873,44 +1855,6 @@ if test $gl_req = yes -a $gl = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# These tests are shared for OpenGL processing
-# -------------------------------------------------------------------------------------------------
-SAVED_LIBS=$LIBS
-
-AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
-AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
-AC_CHECK_LIB(GL, glBindTexture)
-AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
-AC_CHECK_LIB(X11, XCreateWindow)
-
-LIBS=$SAVED_LIBS
-
-OPENGL=no
-
-# Linux
-if test "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a "$FOUND_GL_H" = yes -a $ac_cv_lib_GL_glBindTexture = yes -a "$system" = Linux
-then
-        OPENGL=yes
-        OPENGL_LIB="-lGLEW -lGL -lX11"
-fi
-
-# Mac
-if test "$system" = MacOSX
-then
-        OPENGL=yes
-        OPENGL_LIB="-framework OpenGL -framework Cocoa"
-fi
-
-# Win32
-if test "$system" = Windows -a "$FOUND_GLEW" = yes
-then
-        OPENGL=yes
-        OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
-fi
-
-
-# -------------------------------------------------------------------------------------------------
 # SW Mix Stuff
 # -------------------------------------------------------------------------------------------------
 SWMIX_INC=
@@ -1928,7 +1872,7 @@ AC_ARG_ENABLE(swmix,
 if test $swmix_req != no -a $OPENGL = yes
 then
         swmix=yes
-        SWMIX_LIB="$OPENGL_LIB $X11_LIB"
+        SWMIX_LIB="$OPENGL_LIB"
         SWMIX_OBJ="$SWMIX_OBJ $GL_COMMON_OBJ src/video_capture/swmix.o"
         ADD_MODULE("vidcap_swmix", "$SWMIX_OBJ", "$SWMIX_LIB")
         AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
@@ -2040,7 +1984,7 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 if test $rtdxt_req != no -a $OPENGL = yes
 then
         rtdxt=yes
-        RTDXT_LIB="$OPENGL_LIB $X_LIBS"
+        RTDXT_LIB="$OPENGL_LIB"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ $GL_COMMON_OBJ dxt_compress/dxt_util.o"
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
@@ -2072,16 +2016,7 @@ AC_ARG_ENABLE(uyvy,
 
 SAVED_LIBS=$LIBS
 
-# Linux
-if test $uyvy_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a "$FOUND_GL_H" = yes -a "$system" = Linux
-then
-        UYVY_LIB=" -lGLEW -lGL -lX11"
-        uyvy=yes
-fi
-
-# Mac
-if test $uyvy_req != no -a "$system" != Linux -a "$gl" = yes
+if test $uyvy_req != no -a "$OPENGL" = yes
 then
         uyvy=yes
 fi
@@ -2091,7 +2026,7 @@ if test $uyvy = yes
 then
         AC_DEFINE([HAVE_COMPRESS_UYVY], [1], [Build with dummy UYVY compression])
         UYVY_COMPRESS_OBJ="$GL_COMMON_OBJ src/video_compress/uyvy.o"
-        ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$UYVY_LIB")
+        ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$OPENGL_LIB")
 fi
 
 if test $uyvy_req = yes -a $uyvy = no; then
@@ -2641,7 +2576,7 @@ AC_ARG_ENABLE(scale,
 if test $scale_req != no -a $OPENGL = yes
 then
         scale=yes
-        SCALE_LIB="$SCALE_LIB $OPENGL_LIB $X11_LIB"
+        SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
         SCALE_OBJ="$SCALE_OBJ $GL_COMMON_OBJ src/vo_postprocess/scale.o"
         ADD_MODULE("vo_pp_scale", "$SCALE_OBJ", "$SCALE_LIB")
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])

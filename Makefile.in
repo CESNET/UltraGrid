@@ -6,7 +6,7 @@ CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
 COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX='"@prefix@"' -DLIB_DIR='"@libdir@"' -Wall -Wextra -Wpointer-arith -DGF_BITS=16
-CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -Werror=implicit-function-declaration -D_GNU_SOURCE
+CFLAGS        = @CFLAGS@ $(COMMON_FLAGS) -Werror=implicit-function-declaration -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
 CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
@@ -516,7 +516,7 @@ clean:
 	-rm -rf $(GUI_BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@ @X_OBJ@
+	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
