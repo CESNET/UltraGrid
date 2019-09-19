@@ -268,7 +268,7 @@ static int attach_input_ports(struct state_jack *s)
          return TRUE;
 }
 
-void * jack_start(char *cfg)
+void * jack_start(const char *cfg)
 {
         struct state_jack *s;
          
@@ -283,7 +283,10 @@ void * jack_start(char *cfg)
         s->receiver = FALSE;
         s->out_channel_count = 0;
         
-        if (settings_init(s, cfg)) {
+        char *cfg_copy = strdup(cfg);
+        int ret = settings_init(s, cfg_copy);
+        free(cfg_copy);
+        if (ret != 0) {
                 fprintf(stderr, "Setting JACK failed. Check configuration ('-j' option).\n");
                 free(s);
                 return NULL;

@@ -60,7 +60,7 @@ extern "C" {
 
 struct audio_frame;
 
-void * jack_start(char *cfg);
+void * jack_start(const char *cfg);
 void jack_send(void *s, struct audio_frame *frame);
 bool jack_receive(void *state, void *data);
 
