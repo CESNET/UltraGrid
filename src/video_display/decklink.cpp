@@ -865,6 +865,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 bool *use1080psf) {
         if (strlen(fmt) == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Card number unset, using first found (see -d decklink:help)!\n";
+                return true;
         }
 
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
