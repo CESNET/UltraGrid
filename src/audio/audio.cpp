@@ -393,11 +393,13 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->receiver = NET_STANDARD;
                 s->sender = NET_STANDARD;
         } else if (strcasecmp(proto, "JACK") == 0) {
-#ifdef HAVE_JACK_TRANS
-                fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
+#ifndef HAVE_JACK_TRANS
+                fprintf(stderr, "[Audio] JACK transport requested, "
                                 "but JACK support isn't compiled.\n");
                 goto error;
 #endif
+                s->sender = NET_JACK;
+                s->receiver = NET_JACK;
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", proto);
                 goto error;
@@ -420,12 +422,19 @@ error:
 
 void audio_start(struct state_audio *s) {
 #ifdef HAVE_JACK_TRANS
-        s->jack_connection = jack_start(s->proto_cfg.c_str());
-        if(s->jack_connection) {
-                if(is_jack_sender(s->jack_connection))
-                        s->sender = NET_JACK;
-                if(is_jack_receiver(s->jack_connection))
-                        s->receiver = NET_JACK;
+        if (s->sender == NET_JACK || s->receiver == NET_JACK) {
+                s->jack_connection = jack_start(s->proto_cfg.c_str());
+                if (s->jack_connection) {
+                        if (!is_jack_sender(s->jack_connection)) {
+                                s->sender = NET_NATIVE;
+                        }
+                        if (!is_jack_receiver(s->jack_connection)) {
+                                s->receiver = NET_NATIVE;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_FATAL, "JACK transport initialization failed!\n");
+                        exit_uv(EXIT_FAIL_AUDIO);
+                }
         }
 #endif
 

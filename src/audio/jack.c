@@ -198,7 +198,7 @@ static int settings_init(struct state_jack *s, char *cfg)
         if (!cfg || cfg[0] == '\0' || strncmp(cfg, "help", strlen("help")) == 0)
         {
                 printf("JACK config:\n"
-                        "\t-j ({tok1|tok2...tokn-1},)*{tokn}\n\n"
+                        "\t--audio-protocol JACK:({tok1|tok2...tokn-1},)*{tokn}\n\n"
                         "\tTokens:\n"
                         "\t\tpi[=<name>]\t\treceive sound from JACK instead of from RTP (optionally select port)\n"
                         "\n"
