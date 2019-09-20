@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -358,17 +358,43 @@ static void usage() {
         cout << style::bold << "\t\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\" or \"slice\"\n";
         cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
-        cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast)\n";
+        cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
         printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
 }
 
+/**
+ * replaces all occurencies of 'from' to 'to' in string 'in'
+ * @note
+ * Replacing pattern must not be longer than the replaced one (because then
+ * we need to extend the string)
+ */
+static void replace_all(char *in, const char *from, const char *to) {
+        assert(strlen(from) >= strlen(to) && "Longer dst pattern than src!");
+        char *tmp = in;
+        while ((tmp = strstr(tmp, from)) != nullptr) {
+                memcpy(tmp, to, strlen(to));
+                if (strlen(to) < strlen(from)) { // move the rest
+                        size_t len = strlen(tmp + strlen(from));
+                        char *src = tmp + strlen(from);
+                        char *dst = tmp + strlen(to);
+                        memmove(dst, src, len);
+                        dst[len] = '\0';
+                }
+                tmp += strlen(from);
+        }
+}
+
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
-        if (fmt == nullptr) {
+        if (!fmt) {
                 return 0;
         }
 
+        // replace all '\:' with DELDEL
+        const char deldel[] = { 127, 127, 0x0 };
+        replace_all(fmt, "\\:", deldel);
         char *item, *save_ptr = NULL;
-        while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+
+        while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                 if(strncasecmp("help", item, strlen("help")) == 0) {
                         usage();
                         return 1;
@@ -414,10 +440,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         char *gop = item + strlen("gop=");
                         s->requested_gop = atoi(gop);
                 } else if (strchr(item, '=')) {
+                        char *c_val_dup = strdup(strchr(item, '=') + 1);
+                        replace_all(c_val_dup, deldel, ":");
                         string key, val;
                         key = string(item, strchr(item, '='));
-                        val = string(strchr(item, '=') + 1);
-                        s->lavc_opts[key] = val;
+                        s->lavc_opts[key] = c_val_dup;
+                        free(c_val_dup);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Error: unknown option %s.\n",
                                         item);
