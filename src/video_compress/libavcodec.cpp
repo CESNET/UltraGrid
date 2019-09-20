@@ -363,65 +363,67 @@ static void usage() {
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
+        if (fmt == nullptr) {
+                return 0;
+        }
+
         char *item, *save_ptr = NULL;
-        if(fmt) {
-                while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
-                        if(strncasecmp("help", item, strlen("help")) == 0) {
-                                usage();
-                                return 1;
-                        } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
-                                char *codec = item + strlen("codec=");
-                                s->requested_codec_id = get_codec_from_name(codec);
-                                if (s->requested_codec_id == VIDEO_CODEC_NONE) {
-                                        log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to find codec: \"%s\"\n", codec);
-                                        return -1;
-                                }
-                        } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
-                                char *bitrate_str = item + strlen("bitrate=");
-                                s->requested_bitrate = unit_evaluate(bitrate_str);
-                                assert(s->requested_bitrate >= 0);
-                        } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
-                                char *bpp_str = item + strlen("bpp=");
-                                s->requested_bpp = unit_evaluate_dbl(bpp_str);
-                                assert(!std::isnan(s->requested_bpp));
-                        } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
-                                char *crf_str = item + strlen("crf=");
-                                s->requested_crf = atof(crf_str);
-                        } else if(strncasecmp("cqp=", item, strlen("cqp=")) == 0) {
-                                char *cqp_str = item + strlen("cqp=");
-                                s->requested_cqp = atoi(cqp_str);
-                        } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
-                                char *subsample_str = item + strlen("subsampling=");
-                                s->requested_subsampling = atoi(subsample_str);
-                                if (s->requested_subsampling != 444 &&
-                                                s->requested_subsampling != 422 &&
-                                                s->requested_subsampling != 420) {
-                                        log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
-                                        return -1;
-                                }
-                        } else if (strcasecmp("disable_intra_refresh", item) == 0) {
-                                s->params.no_periodic_intra = true;
-                        } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
-                                char *threads = item + strlen("threads=");
-                                s->params.thread_mode = threads;
-                        } else if(strncasecmp("encoder=", item, strlen("encoder=")) == 0) {
-                                char *backend = item + strlen("encoder=");
-                                s->backend = backend;
-                        } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
-                                char *gop = item + strlen("gop=");
-                                s->requested_gop = atoi(gop);
-                        } else if (strchr(item, '=')) {
-                                string key, val;
-                                key = string(item, strchr(item, '='));
-                                val = string(strchr(item, '=') + 1);
-                                s->lavc_opts[key] = val;
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, "[lavc] Error: unknown option %s.\n",
-                                                item);
+        while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                if(strncasecmp("help", item, strlen("help")) == 0) {
+                        usage();
+                        return 1;
+                } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
+                        char *codec = item + strlen("codec=");
+                        s->requested_codec_id = get_codec_from_name(codec);
+                        if (s->requested_codec_id == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to find codec: \"%s\"\n", codec);
                                 return -1;
                         }
-                        fmt = NULL;
+                } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
+                        char *bitrate_str = item + strlen("bitrate=");
+                        s->requested_bitrate = unit_evaluate(bitrate_str);
+                        assert(s->requested_bitrate >= 0);
+                } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
+                        char *bpp_str = item + strlen("bpp=");
+                        s->requested_bpp = unit_evaluate_dbl(bpp_str);
+                        assert(!std::isnan(s->requested_bpp));
+                } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
+                        char *crf_str = item + strlen("crf=");
+                        s->requested_crf = atof(crf_str);
+                } else if(strncasecmp("cqp=", item, strlen("cqp=")) == 0) {
+                        char *cqp_str = item + strlen("cqp=");
+                        s->requested_cqp = atoi(cqp_str);
+                } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
+                        char *subsample_str = item + strlen("subsampling=");
+                        s->requested_subsampling = atoi(subsample_str);
+                        if (s->requested_subsampling != 444 &&
+                                        s->requested_subsampling != 422 &&
+                                        s->requested_subsampling != 420) {
+                                log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
+                                return -1;
+                        }
+                } else if (strcasecmp("disable_intra_refresh", item) == 0) {
+                        s->params.no_periodic_intra = true;
+                } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
+                        char *threads = item + strlen("threads=");
+                        s->params.thread_mode = threads;
+                } else if(strncasecmp("encoder=", item, strlen("encoder=")) == 0) {
+                        char *backend = item + strlen("encoder=");
+                        s->backend = backend;
+                } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
+                        char *gop = item + strlen("gop=");
+                        s->requested_gop = atoi(gop);
+                } else if (strchr(item, '=')) {
+                        string key, val;
+                        key = string(item, strchr(item, '='));
+                        val = string(strchr(item, '=') + 1);
+                        s->lavc_opts[key] = val;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Error: unknown option %s.\n",
+                                        item);
+                        return -1;
                 }
+                fmt = NULL;
         }
 
         return 0;
