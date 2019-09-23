@@ -467,6 +467,17 @@ void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_d
         }
 }
 
+void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, R10k);
+        int dst_linesize = vc_get_linesize(width, RGBA);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
+                vc_copyliner10k(dst, src, dst_linesize, 16, 8, 0);
+        }
+}
+
 static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, bool rgba)
 {
         int src_linesize = vc_get_linesize(width, RGB);
