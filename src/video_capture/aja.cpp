@@ -152,7 +152,7 @@ class vidcap_state_aja {
                 NTV2EveryFrameTaskMode mSavedTaskMode{};              /// Used to restore prior every-frame task mode
                 NTV2Channel            mInputChannel{NTV2_CHANNEL_INVALID}; ///     My input channel
                 NTV2VideoFormat        mVideoFormat{NTV2_FORMAT_UNKNOWN}; ///     My video format
-                NTV2FrameBufferFormat  mPixelFormat{NTV2_FBF_8BIT_YCBCR}; ///     My pixel format
+                NTV2FrameBufferFormat  mPixelFormat{NTV2_FBF_INVALID}; ///     My pixel format
                 NTV2VANCMode           mVancMode{};                   ///     VANC enabled?
                 bool                   mWideVanc{};                   ///     Wide VANC?
                 NTV2InputSource        mInputSource{NTV2_INPUTSOURCE_SDI1};                  ///     The input source I'm using
@@ -177,6 +177,7 @@ class vidcap_state_aja {
                 bool                   mCheckFor4K{false};
                 uint32_t               mAudioInLastAddress{};          ///< @brief My record of the location of the last audio sample captured
                 bool                   mClearRouting{false};
+                bool                   mInputIsRGB{false};                    ///< @brief SDI Input is in RGB
 
                 AJAStatus SetupHDMI();
                 AJAStatus SetupVideo();
@@ -248,6 +249,8 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         if (format == NTV2_MAX_NUM_VIDEO_FORMATS) {
                                 throw string("Unknown format " + it.second + "!");
                         }
+                } else if (it.first == "RGB") {
+                        mInputIsRGB = true;
                 } else {
                         throw string("Unknown option: ") + it.first;
                 }
@@ -256,6 +259,10 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         if (!NTV2_INPUT_SOURCE_IS_SDI(mInputSource) && mInputChannel == NTV2_CHANNEL_INVALID) {
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Non-SDI source detected - we will use "
                         "probably channel 1. Consider passing \"channel\" option (see help).\n";
+        }
+
+        if (mPixelFormat == NTV2_FBF_INVALID) {
+                mPixelFormat = mInputIsRGB ? NTV2_FBF_ABGR : NTV2_FBF_8BIT_YCBCR;
         }
 
         if (audioFlags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
@@ -592,16 +599,27 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
                         NTV2Channel SDIChannel = (NTV2Channel) ((int) NTV2InputSourceToChannel (mInputSource) + offset);
-                        if (IsRGBFormat(mPixelFormat)) {
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetCSCOutputXptFromChannel (NTV2Channel (mInputChannel + offset), false/*isKey*/, true/*isRGB*/)));
-                        } else {
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (NTV2Channel (mInputChannel + offset)), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
-                        }
 
-                        CHECK(mDevice.SetFrameBufferFormat (NTV2Channel (mInputChannel + offset), mPixelFormat));
-                        CHECK(mDevice.EnableChannel (NTV2Channel (mInputChannel + offset)));
-                        CHECK(mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) ? true : false));
+			if (mInputIsRGB) {
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, false), ::GetSDIInputOutputXptFromChannel (SDIChannel, false))); // SDIIn ==> DLIn
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
+			}
+
+                        if (IsRGBFormat(mPixelFormat) && !mInputIsRGB) {
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+			} else if (IsRGBFormat(mPixelFormat) && mInputIsRGB) {
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
+                        } else if (!mInputIsRGB) { // && pixel format != RGB
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                        } else { // input == RGB && pixel format != RGB
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+			}
+
+                        CHECK(mDevice.SetFrameBufferFormat (SDIChannel, mPixelFormat));
+                        CHECK(mDevice.EnableChannel (SDIChannel));
+                        CHECK(mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) && !mInputIsRGB ? true : false));
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
                         CHECK(mDevice.Set4kSquaresEnable(true, mInputChannel));
@@ -931,7 +949,7 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 
 static void show_help() {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t aja" << rang::fg::reset << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive]|:help] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-t aja" << rang::fg::reset << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB]|:help] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
         cout << "where\n";
 
         cout << rang::style::bold << "\t4K\n" << rang::style::reset;
@@ -959,6 +977,9 @@ static void show_help() {
 
         cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
         cout << "\t\tVideo input is progressive.\n";
+
+        cout << rang::style::bold << "\tRGB\n" << rang::style::reset;
+        cout << "\t\tSDI video input is in RGB. If no capture pixel format is specified, sets format to RGBA (see https://github.com/CESNET/UltraGrid/wiki/Device-Settings#RGB_over_SDI for details.\n";
 
         cout << "\n";
 
