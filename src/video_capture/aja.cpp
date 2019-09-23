@@ -177,7 +177,7 @@ class vidcap_state_aja {
                 bool                   mCheckFor4K{false};
                 uint32_t               mAudioInLastAddress{};          ///< @brief My record of the location of the last audio sample captured
                 bool                   mClearRouting{false};
-                bool                   mInputIsRGB{false};                    ///< @brief SDI Input is in RGB
+                bool                   mInputIsRGB;                    ///< @brief SDI Input is in RGB otherwise YCbCr
 
                 AJAStatus SetupHDMI();
                 AJAStatus SetupVideo();
@@ -197,6 +197,8 @@ class vidcap_state_aja {
 
 vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & parameters, int audioFlags)
 {
+        bool colorSpaceSet = false; // explicitly set input color spec
+
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3u)   ///< (balanced) analog audio
         for (auto it : parameters) {
                 if (it.first == "progressive") {
@@ -250,7 +252,17 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                                 throw string("Unknown format " + it.second + "!");
                         }
                 } else if (it.first == "RGB") {
+                        if (colorSpaceSet && mInputIsRGB != true) {
+                                throw string("Both RGB and YUV input specified!") + it.first;
+                        }
+                        colorSpaceSet = true;
                         mInputIsRGB = true;
+                } else if (it.first == "YUV") {
+                        if (colorSpaceSet && mInputIsRGB != false) {
+                                throw string("Both RGB and YUV input specified!") + it.first;
+                        }
+                        colorSpaceSet = true;
+                        mInputIsRGB = false;
                 } else {
                         throw string("Unknown option: ") + it.first;
                 }
@@ -262,7 +274,15 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         }
 
         if (mPixelFormat == NTV2_FBF_INVALID) {
-                mPixelFormat = mInputIsRGB ? NTV2_FBF_ABGR : NTV2_FBF_8BIT_YCBCR;
+                if (colorSpaceSet && mInputIsRGB) {
+                        mPixelFormat = NTV2_FBF_ABGR;
+                } else {
+                        mPixelFormat = NTV2_FBF_8BIT_YCBCR;
+                }
+        }
+
+        if (!colorSpaceSet) {
+                mInputIsRGB = IsRGBFormat(mPixelFormat);
         }
 
         if (audioFlags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
@@ -605,14 +625,14 @@ AJAStatus vidcap_state_aja::SetupVideo()
 				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
 			}
 
-                        if (IsRGBFormat(mPixelFormat) && !mInputIsRGB) {
+                        if (IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // convert YUV->RGB
                                 CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
                                 CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
-			} else if (IsRGBFormat(mPixelFormat) && mInputIsRGB) {
+			} else if (IsRGBFormat(mPixelFormat) && mInputIsRGB) { // RGB->RGB
                                 CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
-                        } else if (!mInputIsRGB) { // && pixel format != RGB
+                        } else if (!IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // YUV->YUV
                                 CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
-                        } else { // input == RGB && pixel format != RGB
+                        } else { // RGB->YUV
                                 CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel)));
                                 CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
 			}
@@ -949,7 +969,7 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 
 static void show_help() {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t aja" << rang::fg::reset << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB]|:help] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-t aja" << rang::fg::reset << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB|:YUV]|:help] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
         cout << "where\n";
 
         cout << rang::style::bold << "\t4K\n" << rang::style::reset;
@@ -978,8 +998,8 @@ static void show_help() {
         cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
         cout << "\t\tVideo input is progressive.\n";
 
-        cout << rang::style::bold << "\tRGB\n" << rang::style::reset;
-        cout << "\t\tSDI video input is in RGB. If no capture pixel format is specified, sets format to RGBA (see https://github.com/CESNET/UltraGrid/wiki/Device-Settings#RGB_over_SDI for details.\n";
+        cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset;
+        cout << "\t\tSet SDI video input to RGB or YCbCr explicitly. If capture pixel format is set, expect the same encoding on input. You can override this setting by specifying the signal color space explicitly by this option (see https://github.com/CESNET/UltraGrid/wiki/Device-Settings#RGB_over_SDI for details).\n";
 
         cout << "\n";
 
