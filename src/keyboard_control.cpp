@@ -553,7 +553,7 @@ void keyboard_control::info()
                 if (response_get_status(resp) == 200) {
                         int muted;
                         sscanf(response_get_text(resp), "%d", &muted);
-                        cout << style::bold << "Sended audio status - muted: " << style::reset << (bool) muted << "\n";
+                        cout << style::bold << "Sended audio status - muted: " << style::reset << (muted ? "true" : "false") << "\n";
                 }
                 free_response(resp);
         }
