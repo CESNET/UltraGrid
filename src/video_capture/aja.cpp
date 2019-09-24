@@ -1021,6 +1021,9 @@ static void show_help() {
                 }
                 NTV2FrameBufferFormatSet pix_fmts;
                 if (NTV2DeviceGetSupportedPixelFormats(info.deviceID, pix_fmts)) {
+                        if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(info.deviceID, NTV2_FBF_10BIT_YCBCR)) {
+                                pix_fmts.insert(NTV2_FBF_10BIT_YCBCR); // workaround NTV2 bug
+                        }
                         cout << rang::style::underline << "\tAvailable pixel formats:" << rang::style::reset;
                         for (auto fmt : pix_fmts) {
                                 if (fmt != *pix_fmts.begin()) {
