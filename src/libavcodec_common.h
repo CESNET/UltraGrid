@@ -202,7 +202,7 @@ static const struct {
         { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
         { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
         { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-#if LIBAVFORMAT_VERSION_MAJOR > 57 || (LIBAVFORMAT_VERSION_MAJOR == 57 && LIBAVFORMAT_VERSION_MINOR >= 24)
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100)
         { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
 #endif
         { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
@@ -218,7 +218,7 @@ static const struct {
         { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
         { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
-#if LIBAVFORMAT_VERSION_MAJOR > 55 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 24)
+#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100)
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 #endif
 };
@@ -284,7 +284,7 @@ static const struct {
         {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
         {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
         {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
-#if LIBAVFORMAT_VERSION_MAJOR > 57 || (LIBAVFORMAT_VERSION_MAJOR == 57 && LIBAVFORMAT_VERSION_MINOR >= 24)
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100)
         {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
         {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
 #endif
@@ -319,7 +319,7 @@ static const struct {
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
-#if LIBAVFORMAT_VERSION_MAJOR > 55 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 24)
+#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100)
         {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
