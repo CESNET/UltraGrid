@@ -134,16 +134,6 @@ namespace ultragrid {
 namespace aja {
 
 struct display {
-        display(string const &device_id, NTV2OutputDestination outputDestination,
-                        NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len,
-                        bool clearRouting, int doMultiChannel /* -1/0/1 */);
-        ~display();
-        void Init();
-        AJAStatus SetUpVideo();
-        AJAStatus SetUpAudio();
-        void RouteOutputSignal();
-        int Putf(struct video_frame *frame, int nonblock);
-
         queue<struct video_frame *> frames;
         unsigned int max_frame_queue_len;
         mutex frames_lock;
@@ -184,6 +174,19 @@ struct display {
         steady_clock::time_point mT0 = steady_clock::now();
         int mFrames = 0;
 
+        enum cs { CS_KEEP, CS_RGB, CS_YCBCR } mForceOutputColorSpace; ///< force output color space for SDI
+
+public:
+        display(string const &device_id, NTV2OutputDestination outputDestination,
+                        NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len,
+                        bool clearRouting, int doMultiChannel /* -1/0/1 */, cs force_output_color_space);
+        ~display();
+        void Init();
+        AJAStatus SetUpVideo();
+        AJAStatus SetUpAudio();
+        void RouteOutputSignal();
+        int Putf(struct video_frame *frame, int nonblock);
+
         static NTV2FrameRate getFrameRate(double fps);
         void print_stats();
         static void show_help();
@@ -191,10 +194,10 @@ struct display {
 
 display::display(string const &device_id, NTV2OutputDestination outputDestination,
                 NTV2Channel outputChannel, bool withAudio, bool novsync,
-                int buf_len, bool clearRouting, int doMultiChannel)
+                int buf_len, bool clearRouting, int doMultiChannel, cs force_output_color_space)
         : max_frame_queue_len(buf_len), mNovsync(novsync),
         mOutputDestination(outputDestination), mOutputChannel(outputChannel),
-        mWithAudio(withAudio)
+        mWithAudio(withAudio), mForceOutputColorSpace(force_output_color_space)
 {
         if (!CNTV2DeviceScanner::GetFirstDeviceFromArgument(device_id, mDevice)) {
                 throw runtime_error(string("Device '") + device_id + "' not found!");
@@ -461,12 +464,13 @@ void display::RouteOutputSignal ()
 {
         const NTV2Standard              outputStandard  (::GetNTV2StandardFromVideoFormat (mVideoFormat));
         const UWord                     numSDIOutputs (::NTV2DeviceGetNumVideoOutputs (mDeviceID));
-        bool                                    isRGB                   (::IsRGBFormat (mPixelFormat));
+        bool                            fbIsRGB                   (::IsRGBFormat (mPixelFormat));
+        bool                            outIsRGB = mForceOutputColorSpace == CS_KEEP ? (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination) ? true : fbIsRGB) : mForceOutputColorSpace == CS_RGB;
 
         //      If device has no RGB conversion capability for the desired channel, use YUV instead
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID))
-                        isRGB = false;
+                        fbIsRGB = false;
         }
 
         if (mDoMultiChannel) {
@@ -474,10 +478,9 @@ void display::RouteOutputSignal ()
                 for (unsigned int i = 0; i < desc.tile_count; ++i) {
                         //      Multiformat --- route the one output to the CSC video output (RGB) or FrameStore output (YUV)...
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
-                        NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !isRGB/*isRGB*/));
-                        NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
-                        if ((isRGB && !NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))
-                                        || (!isRGB && NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination))) {
+                        NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !fbIsRGB/*isRGB*/));
+                        NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  fbIsRGB/*isRGB*/,  false/*is425*/));
+                        if (fbIsRGB != outIsRGB) {
                                 CHECK_EX(mDevice.Connect(::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/), fsVidOutXpt),
                                                 "Connnect to CSC", NOOP);
                         }
@@ -488,12 +491,18 @@ void display::RouteOutputSignal ()
                                 }
 
                                 CHECK(mDevice.SetSDIOutputStandard(chan, outputStandard));
-                                //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt);
-                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt),
-                                                "Connect to CSC", NOOP);
+                                //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  fbIsRGB ? cscVidOutXpt : fsVidOutXpt);
+                                if (outIsRGB) {
+                                        CHECK(mDevice.Connect (::GetDLOutInputXptFromChannel(chan), fbIsRGB ? ::GetFrameBufferOutputXptFromChannel(chan, NTV2_IS_FBF_RGB(mPixelFormat)) : cscVidOutXpt)); // DLOut <== FBRGB/CSC
+                                        CHECK(mDevice.Connect (::GetOutputDestInputXpt(mOutputDestination, false), ::GetDLOutOutputXptFromChannel(chan, false))); // SDIOut <== DLOut
+                                        CHECK(mDevice.Connect (::GetOutputDestInputXpt(mOutputDestination, true),  ::GetDLOutOutputXptFromChannel(chan, true)));  // SDIOutDS <== DLOutDS
+                                } else {
+                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), fbIsRGB ? cscVidOutXpt : fsVidOutXpt),
+                                                        "Connect to CSC", NOOP);
+                                }
                         } else if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
 				// convert all to RGB SMPTE range
-                                if (isRGB) { // connect to LUT to convert full->SMPTE range
+                                if (fbIsRGB) { // connect to LUT to convert full->SMPTE range
                                         auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
                                         CHECK_EX(mDevice.Connect(lutInXpt, fsVidOutXpt), "Connect to LUT", NOOP);
                                         CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), chanToLutSrc.at(chan)),
@@ -505,16 +514,16 @@ void display::RouteOutputSignal ()
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Routing for " << NTV2OutputDestinationToString(mOutputDestination)
                                        << " may be incorrect. Please report to " PACKAGE_BUGREPORT ".\n" << endl;
-                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), isRGB ? cscVidOutXpt : fsVidOutXpt),
+                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), fbIsRGB ? cscVidOutXpt : fsVidOutXpt),
                                                 "Connect from CSC or frame store", NOOP);
                         }
                 }
         } else { //	Not multiformat:  We own the whole device, so connect all possible SDI outputs...
                  //     Route all possible SDI outputs to CSC video output (RGB) or FrameStore output (YUV)...
-                const NTV2OutputCrosspointID cscVidOutXpt(::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !isRGB/*isRGB*/));
-                const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (mOutputChannel,  isRGB/*isRGB*/,  false/*is425*/));
+                const NTV2OutputCrosspointID cscVidOutXpt(::GetCSCOutputXptFromChannel (mOutputChannel,  false/*isKey*/,  !fbIsRGB/*isRGB*/));
+                const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (mOutputChannel,  fbIsRGB/*isRGB*/,  false/*is425*/));
 		const UWord	numFrameStores(::NTV2DeviceGetNumFrameStores(mDeviceID));
-                mDevice.ClearRouting();		//	Start with clean slate
+                CHECK(mDevice.ClearRouting());		//	Start with clean slate
 
                 CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (mOutputChannel, false/*isKeyInput*/),  fsVidOutXpt));
 
@@ -525,28 +534,28 @@ void display::RouteOutputSignal ()
                         if (::NTV2DeviceHasBiDirectionalSDI (mDeviceID))
                                 CHECK(mDevice.SetSDITransmitEnable (chan, true)); // Make it an output
 
-                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  fbIsRGB ? cscVidOutXpt : fsVidOutXpt));
                         CHECK(mDevice.SetSDIOutputStandard (chan, outputStandard));
                 }	//	for each SDI output spigot
 
                 //	And connect analog video output, if the device has one...
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtAnalogOut1))
-                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_ANALOG),  isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_ANALOG),  fbIsRGB ? cscVidOutXpt : fsVidOutXpt));
 
                 //	And connect HDMI video output, if the device has one...
                 if (::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v2)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v3)
                                 || ::NTV2DeviceCanDoWidget (mDeviceID, NTV2_WgtHDMIOut1v4))
-                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  isRGB ? fsVidOutXpt : cscVidOutXpt));
+                        CHECK(mDevice.Connect (::GetOutputDestInputXpt (NTV2_OUTPUTDESTINATION_HDMI),  fbIsRGB ? fsVidOutXpt : cscVidOutXpt));
 
                 // connect eventual additional tiles
                 for (unsigned int i = 1; i < desc.tile_count; ++i) {
                         NTV2Channel chan = (NTV2Channel) ((int) mOutputChannel + i);
-                        const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (chan,  isRGB/*isRGB*/,  false/*is425*/));
-                        if (isRGB)
+                        const NTV2OutputCrosspointID fsVidOutXpt(::GetFrameBufferOutputXptFromChannel (chan,  fbIsRGB/*isRGB*/,  false/*is425*/));
+                        if (fbIsRGB)
                                 CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/),  fsVidOutXpt)); // CSC
-                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  isRGB ? cscVidOutXpt : fsVidOutXpt));
+                        CHECK(mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  fbIsRGB ? cscVidOutXpt : fsVidOutXpt));
                 }
         }
 }
@@ -680,7 +689,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync]|:help] [-r embedded]\n" << rang::style::reset <<
+                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:RGB|:YUV]|:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
 
         cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
@@ -715,6 +724,9 @@ void aja::display::show_help() {
 
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
+
+        cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset <<
+                "\t\tforce SDI output to be RGB or YCbCr, otherwise UG keeps the colorspace\n";
 
         cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
                 "\t\treceive also audio and embed it to SDI\n";
@@ -876,6 +888,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         NTV2Channel outputChannel = NTV2_CHANNEL_INVALID; // if unchanged, select according to output destination
+        decltype(aja::display::mForceOutputColorSpace) force_output_color_space = aja::display::cs::CS_KEEP;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
 
@@ -916,6 +929,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                         multi_channel = strstr(item, "no-") == nullptr;
                 } else if (strstr(item, "novsync") == item) {
                         novsync = true;
+                } else if (strcasecmp(item, "RGB") == 0 || strcasecmp(item, "YUV") == 0) {
+                        force_output_color_space = strcasecmp(item, "RGB") == 0 ? aja::display::cs::CS_RGB : aja::display::cs::CS_YCBCR;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
                         return nullptr;
@@ -924,7 +939,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         }
 
         try {
-                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len, clear_routing, multi_channel);
+                auto s = new aja::display(device_idx, outputDestination, outputChannel, (flags & DISPLAY_FLAG_AUDIO_ANY) != 0u, novsync, buf_len, clear_routing, multi_channel, force_output_color_space);
                 return s;
         } catch (runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME << e.what() << "\n";
