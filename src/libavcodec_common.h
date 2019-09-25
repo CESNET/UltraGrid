@@ -13,6 +13,7 @@ extern "C" {
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/version.h>
 
 #ifdef __cplusplus
 }
@@ -25,6 +26,7 @@ extern "C" {
 ///
 /// compat
 ///
+// avcodec
 #ifndef AV_CODEC_CAP_FRAME_THREADS
 #define AV_CODEC_CAP_FRAME_THREADS CODEC_CAP_FRAME_THREADS
 #endif
@@ -41,16 +43,24 @@ extern "C" {
 #define AV_INPUT_BUFFER_PADDING_SIZE FF_INPUT_BUFFER_PADDING_SIZE
 #endif
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 26, 0)
-#define AV_CODEC_ID_AV1 AV_CODEC_ID_NONE
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(54, 24, 0)
+#define AV_CODEC_ID_H264 CODEC_ID_H264
+#define AV_CODEC_ID_JPEG2000 CODEC_ID_JPEG2000
+#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
+#define AV_CODEC_ID_VP8 CODEC_ID_VP8
 #endif
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 8, 0)
-#define av_packet_unref av_free_packet
+// av_frame_* was inbetween moved from lavc to lavu
+#if LIBAVCODEC_VERSION_MAJOR < 55
+#define av_frame_alloc avcodec_alloc_frame
+#define av_frame_free avcodec_free_frame
+#define av_frame_unref avcodec_get_frame_defaults
+#undef av_frame_free
+#define av_frame_free av_free
 #endif
 
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 55, 1)
-#define AV_CODEC_FLAG_INTERLACED_DCT CODEC_FLAG_INTERLACED_DCT
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 0)
+#define AV_CODEC_ID_VP9 AV_CODEC_ID_NONE
 #endif
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(55, 35, 100)
@@ -61,17 +71,20 @@ extern "C" {
 #define avcodec_free_context av_freep
 #endif
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 0)
-#define AV_CODEC_ID_VP9 AV_CODEC_ID_NONE
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 55, 1)
+#define AV_CODEC_FLAG_INTERLACED_DCT CODEC_FLAG_INTERLACED_DCT
 #endif
 
-#if LIBAVCODEC_VERSION_MAJOR < 55
-#define av_frame_alloc avcodec_alloc_frame
-#define av_frame_free avcodec_free_frame
-#define av_frame_unref avcodec_get_frame_defaults
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 8, 0)
+#define av_packet_unref av_free_packet
 #endif
 
-#if LIBAVCODEC_VERSION_MAJOR < 54
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 26, 0)
+#define AV_CODEC_ID_AV1 AV_CODEC_ID_NONE
+#endif
+
+// avutil
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51, 42, 0) // FFMPEG commit 78071a1420b
 #define AV_PIX_FMT_NONE PIX_FMT_NONE
 #define AV_PIX_FMT_NV12 PIX_FMT_NV12
 #define AV_PIX_FMT_BGR24 PIX_FMT_BGR24
@@ -85,15 +98,18 @@ extern "C" {
 #define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
 #define AV_PIX_FMT_YUVJ444P PIX_FMT_YUVJ444P
 #define AV_PIX_FMT_YUYV422 PIX_FMT_YUYV422
-#define AV_CODEC_ID_NONE CODEC_ID_NONE
-#define AV_CODEC_ID_H264 CODEC_ID_H264
-#define AV_CODEC_ID_JPEG2000 CODEC_ID_JPEG2000
-#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
-#define AV_CODEC_ID_VP8 CODEC_ID_VP8
 #define AVPixelFormat PixelFormat
 #define AVCodecID CodecID
-#undef av_frame_free
-#define av_frame_free av_free
+#endif
+
+#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+#define AV_PIX_FMT_GBRP12LE PIX_FMT_NONE
+#elif LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51, 74, 100)
+#define AV_PIX_FMT_GBRP12LE PIX_FMT_GBRP12LE
+#endif
+
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
+#define AV_PIX_FMT_P010LE AV_PIX_FMT_NONE
 #endif
 
 /**
@@ -202,9 +218,7 @@ static const struct {
         { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
         { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
         { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100)
         { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
-#endif
         { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
         { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
         { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
@@ -218,9 +232,7 @@ static const struct {
         { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
         { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
-#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100)
         { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
-#endif
 };
 
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, int * __restrict rgb_shift);
@@ -284,10 +296,8 @@ static const struct {
         {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
         {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
         {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100)
         {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
         {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
-#endif
         // 8-bit YUV
         {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
         {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
@@ -319,11 +329,9 @@ static const struct {
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
-#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100)
         {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
-#endif
         {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
         {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
         {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
