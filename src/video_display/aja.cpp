@@ -226,15 +226,15 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
                 if (!mDevice.AcquireStreamForApplication(app, static_cast <uint32_t> (getpid()))) {
                         throw runtime_error("Device busy!\n"); // Device is in use by another app -- fail
                 }
-                mDevice.GetEveryFrameServices (mSavedTaskMode); // Save the current service level
+                CHECK(mDevice.GetEveryFrameServices (mSavedTaskMode)); // Save the current service level
         }
 
         CHECK(mDevice.SetEveryFrameServices(NTV2_OEM_TASKS));
 
         if (::NTV2DeviceCanDoMultiFormat(mDeviceID) && mDoMultiChannel) {
-                mDevice.SetMultiFormatMode(true);
+                CHECK(mDevice.SetMultiFormatMode(true));
         } else if (::NTV2DeviceCanDoMultiFormat(mDeviceID)) {
-                mDevice.SetMultiFormatMode (false);
+                CHECK(mDevice.SetMultiFormatMode (false));
         }
 
         if (mOutputChannel == NTV2_CHANNEL_INVALID) {
@@ -261,7 +261,7 @@ display::display(string const &device_id, NTV2OutputDestination outputDestinatio
 }
 
 display::~display() {
-        mDevice.UnsubscribeOutputVerticalEvent (mOutputChannel);
+        CHECK(mDevice.UnsubscribeOutputVerticalEvent (mOutputChannel));
 
         if (!mDoMultiChannel) {
                 CHECK_EX(mDevice.SetEveryFrameServices (mSavedTaskMode), "Restore Service Mode", NOOP); // Restore the previously saved service level
@@ -288,10 +288,10 @@ void display::Init()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 mCurrentOutFrame ^= 1;
-                mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i);
+                CHECK(mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i));
 
                 mCurrentOutFrame ^= 1;
-                mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i);
+                CHECK(mDevice.SetOutputFrame(chan, mCurrentOutFrame + 2 * i));
         }
 }
 
@@ -317,7 +317,7 @@ AJAStatus display::SetUpVideo ()
                 mDoLevelConversion = false;
         }
         if (mDoLevelConversion) {
-                mDevice.SetSDIOutLevelAtoLevelBConversion (mOutputChannel, mDoLevelConversion);
+                CHECK(mDevice.SetSDIOutLevelAtoLevelBConversion (mOutputChannel, mDoLevelConversion));
         }
 
         //      Set the frame buffer pixel format for all the channels on the device.
@@ -573,7 +573,7 @@ void display::process_frames()
 {
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
-                mDevice.SubscribeOutputVerticalEvent(chan);
+                CHECK(mDevice.SubscribeOutputVerticalEvent(chan));
         }
 
         while (true) {
@@ -590,7 +590,7 @@ void display::process_frames()
                 //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
                 mCurrentOutFrame ^= 1;
                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                        mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len);
+                        CHECK(mDevice.DMAWriteFrame(mCurrentOutFrame + 2 * i, reinterpret_cast<ULWord*>(frame->tiles[i].data), frame->tiles[i].data_len));
                 }
 
                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
