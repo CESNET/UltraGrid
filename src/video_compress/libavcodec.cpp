@@ -811,8 +811,8 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
         for (auto const & i : ug_to_av_pixfmt_map) { // no to FFMPEG conversion, just UG conversion
-                int codec_subsampling = get_subsampling(i.second);
                 if (get_decoder_from_to(in_desc.color_spec, i.first, true)) {
+                        int codec_subsampling = get_subsampling(i.second);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (!force_conv_to || force_conv_to == i.first)) {
@@ -821,9 +821,9 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                 }
         }
         for (auto const & c : uv_to_av_conversions) { // FFMPEG conversion needed
-                int codec_subsampling = get_subsampling(c.dst);
                 if (c.src == in_desc.color_spec ||
                                 get_decoder_from_to(in_desc.color_spec, c.src, true)) {
+                        int codec_subsampling = get_subsampling(c.dst);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (!force_conv_to || force_conv_to == c.src)) {
