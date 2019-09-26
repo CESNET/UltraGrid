@@ -450,6 +450,43 @@ static bool parse_audio_capture_format(const char *optarg)
         return true;
 }
 
+static bool parse_bitrate(char *optarg, long long int *bitrate) {
+        if (strcmp(optarg, "auto") == 0) {
+                *bitrate = RATE_AUTO;
+                return true;
+        }
+        if (strcmp(optarg, "help") == 0) {
+                const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!]";
+                cout << "Usage:\n" <<
+                        "\tuv " << style::bold << "-l [auto | unlimited | " << numeric_pattern << "]\n" << style::reset <<
+                        "\twhere\n"
+                        "\t\t" << style::bold << "auto" << style::reset << " - spread packets across frame time\n"
+                        "\t\t" << style::bold << "unlimited" << style::reset << " - send packets at a wire speed (in bursts)\n"
+                        "\t\t" << style::bold << numeric_pattern << style::reset << " - send packets exactly at specified bitrate (use an exclamation mark to indicate intentionally very low bitrate)\n" <<
+                        "\n";
+                return true;
+        }
+        if (strcmp(optarg, "unlimited") == 0) {
+                *bitrate = RATE_UNLIMITED;
+                return true;
+        }
+        bool force = false;
+        if (optarg[strlen(optarg) - 1] == '!') {
+                force = true;
+                optarg[strlen(optarg) - 1] = '\0';
+        }
+        *bitrate = unit_evaluate(optarg);
+        if (*bitrate <= 0) {
+                log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
+                return false;
+        }
+        if (*bitrate < 10 * 1000 * 1000 && !force) {
+                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too low, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate, optarg);
+                return false;
+        }
+        return true;
+}
+
 static bool parse_params(char *optarg)
 {
         if (optarg && strcmp(optarg, "help") == 0) {
@@ -767,25 +804,11 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'l':
-                        if(strcmp(optarg, "unlimited") == 0) {
-                                bitrate = RATE_UNLIMITED;
-                        } else if(strcmp(optarg, "auto") == 0) {
-                                bitrate = RATE_AUTO;
-                        } else {
-                                bool force = false;
-                                if (optarg[strlen(optarg) - 1] == '!') {
-                                        force = true;
-                                        optarg[strlen(optarg) - 1] = '\0';
-                                }
-                                bitrate = unit_evaluate(optarg);
-                                if (bitrate <= 0) {
-                                        log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
-                                        return EXIT_FAIL_USAGE;
-                                }
-                                if (bitrate < 10 * 1000 * 1000 && !force) {
-                                        log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too low, use \"-l %s!\" to force if this is not a mistake.\n", bitrate, optarg);
-                                        return EXIT_FAIL_USAGE;
-                                }
+                        if (!parse_bitrate(optarg, &bitrate)) {
+                                return EXIT_FAILURE;
+                        }
+                        if (bitrate == RATE_DEFAULT) {
+                                return EXIT_SUCCESS; // help written
                         }
                         break;
                 case '4':

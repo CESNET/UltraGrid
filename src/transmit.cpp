@@ -684,7 +684,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
                 rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
 
-                // TRAFFIS SHAPER
+                // TRAFFIC SHAPER
                 if (pos < (unsigned int) tile->data_len) { // wait for all but last packet
                         do {
                                 GET_STOPTIME;
