@@ -605,17 +605,26 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         long packet_rate;
         if (tx->bitrate == RATE_UNLIMITED) {
                 packet_rate = 0;
-        } else if (tx->bitrate == RATE_AUTO) {
+        } else {
                 double time_for_frame = 1.0 / frame->fps / frame->tile_count;
                 double interval_between_pkts = time_for_frame / tx->mult_count / packet_count;
-                // use only 75% of the time
+                // use only 75% of the time - we less likely overshot the frame time and
+                // can minimize risk of swapping packets between 2 frames (out-of-order ones)
                 interval_between_pkts = interval_between_pkts * 0.75;
                 // prevent bitrate to be "too low", here 1 Mbps at minimum
                 interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000000.0);
-                packet_rate = interval_between_pkts * 1000ll * 1000 * 1000;
-        } else { // bitrate given manually
-                int avg_packet_size = tile->data_len / packet_count;
-                packet_rate = 1000ll * 1000 * 1000 * avg_packet_size * 8 / tx->bitrate;
+                long long packet_rate_auto = interval_between_pkts * 1000ll * 1000 * 1000;
+
+                if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
+                        packet_rate = packet_rate_auto;
+                } else { // bitrate given manually
+                        long long int bitrate = tx->bitrate | RATE_FLAG_FIXED_RATE;
+                        int avg_packet_size = tile->data_len / packet_count;
+                        packet_rate = 1000ll * 1000 * 1000 * avg_packet_size * 8 / bitrate; // fixed rate
+                        if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
+                                packet_rate = std::max<long long>(packet_rate, packet_rate_auto);
+                        }
+                }
         }
 
         // initialize header array with values (except offset which is different among

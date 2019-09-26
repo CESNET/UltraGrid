@@ -456,13 +456,14 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                 return true;
         }
         if (strcmp(optarg, "help") == 0) {
-                const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!]";
+                const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!][E]";
                 cout << "Usage:\n" <<
                         "\tuv " << style::bold << "-l [auto | unlimited | " << numeric_pattern << "]\n" << style::reset <<
                         "\twhere\n"
                         "\t\t" << style::bold << "auto" << style::reset << " - spread packets across frame time\n"
                         "\t\t" << style::bold << "unlimited" << style::reset << " - send packets at a wire speed (in bursts)\n"
-                        "\t\t" << style::bold << numeric_pattern << style::reset << " - send packets exactly at specified bitrate (use an exclamation mark to indicate intentionally very low bitrate)\n" <<
+                        "\t\t" << style::bold << numeric_pattern << style::reset << " - send packets at most at specified bitrate\n\n" <<
+                        style::bold << "Notes: " << style::reset << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
                         "\n";
                 return true;
         }
@@ -470,19 +471,33 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                 *bitrate = RATE_UNLIMITED;
                 return true;
         }
-        bool force = false;
-        if (optarg[strlen(optarg) - 1] == '!') {
-                force = true;
-                optarg[strlen(optarg) - 1] = '\0';
+        bool force = false, fixed = false;
+        for (int i = 0; i < 2; ++i) {
+                if (optarg[strlen(optarg) - 1] == '!' ||
+                                optarg[strlen(optarg) - 1] == 'E') {
+                        if (optarg[strlen(optarg) - 1] == '!') {
+                                force = true;
+                                optarg[strlen(optarg) - 1] = '\0';
+                        }
+                        if (optarg[strlen(optarg) - 1] == 'E') {
+                                fixed = true;
+                                optarg[strlen(optarg) - 1] = '\0';
+                        }
+                }
         }
         *bitrate = unit_evaluate(optarg);
         if (*bitrate <= 0) {
                 log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
                 return false;
         }
-        if (*bitrate < 10 * 1000 * 1000 && !force) {
-                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too low, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate, optarg);
+        long long mb5 = 5ll * 1000 * 1000, // it'll take 6.4 sec to send 4 MB frame at 5 Mbps
+             gb100 = 100ll * 1000 * 1000 * 1000; // traffic shaping to eg. 40 Gbps may make sense
+        if ((*bitrate < mb5 || *bitrate > gb100) && !force) {
+                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too %s, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate < mb5 ? "low" : "high", optarg);
                 return false;
+        }
+        if (fixed) {
+                *bitrate |= RATE_FLAG_FIXED_RATE;
         }
         return true;
 }

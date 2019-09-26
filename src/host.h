@@ -122,9 +122,10 @@ extern volatile int video_offset;
 int get_audio_delay(void);
 void set_audio_delay(int val);
 
-#define RATE_UNLIMITED 0
-#define RATE_AUTO -1
-#define RATE_DEFAULT -2
+#define RATE_UNLIMITED                0
+#define RATE_AUTO                   (-1)
+#define RATE_DEFAULT                (-2)
+#define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
 
 bool common_preinit(int argc, char *argv[]);
 
