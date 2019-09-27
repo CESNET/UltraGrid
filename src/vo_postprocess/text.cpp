@@ -70,6 +70,7 @@ struct state_text {
         unique_ptr<char []> data;
         string text;
         int width, height; // width in pixels
+        int margin_x, margin_y, text_h;
         struct video_desc saved_desc;
 
         DrawingWand *dw;
@@ -86,9 +87,10 @@ static bool text_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
-#define TEXT_H 36
-#define MARGIN_X 10
-#define MARGIN_Y 10
+// all three macros are divisors of the actual video pixel dimensions
+#define TEXT_H_DIV 30
+#define MARGIN_X_DIV 60
+#define MARGIN_Y_DIV 60
 
 static pthread_once_t vo_postprocess_text_initialized = PTHREAD_ONCE_INIT;
 
@@ -142,8 +144,11 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->in = vf_alloc_desc_data(desc);
 
-        s->width = min<unsigned long>(MARGIN_X + s->text.length() * TEXT_H, desc.width);
-        s->height = min<unsigned long>(2*MARGIN_Y + TEXT_H, desc.height);
+        s->margin_x = desc.width / MARGIN_X_DIV;
+        s->margin_y = desc.height / MARGIN_Y_DIV;
+        s->text_h = desc.height / TEXT_H_DIV;
+        s->width = min<unsigned long>(s->margin_x + s->text.length() * s->text_h, desc.width);
+        s->height = min<unsigned long>(s->margin_y + s->text_h, desc.height);
 
         const char *color;
         const char *color_outline;
@@ -167,7 +172,7 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
         }
 
         s->dw = NewDrawingWand();
-        DrawSetFontSize(s->dw, TEXT_H);
+        DrawSetFontSize(s->dw, s->text_h);
         auto status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
@@ -237,7 +242,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         //fprintf(stderr, "%f %f %f %f %f\n", ret[0], ret[1], ret[2], ret[3], ret[4]);
         unsigned char *data;
         size_t data_len;
-        status = MagickAnnotateImage(s->wand, s->dw, MARGIN_X, MARGIN_Y + TEXT_H, 0, s->text.c_str());
+        status = MagickAnnotateImage(s->wand, s->dw, s->margin_x, s->margin_y + s->text_h, 0, s->text.c_str());
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n");
                 return false;
@@ -266,7 +271,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         return true;
 }
 
-struct video_frame *cf_text_filter(void *state, struct video_frame *f)
+static struct video_frame *cf_text_filter(void *state, struct video_frame *f)
 {
         struct state_text *s = (struct state_text *) state;
 
