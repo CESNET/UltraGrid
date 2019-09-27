@@ -50,7 +50,7 @@ struct rs : public fec {
         rs(const char *cfg);
         virtual ~rs();
         std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame);
-        void decode(char *in, int in_len, char **out, int *len,
+        bool decode(char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &);
 
 private:

@@ -48,7 +48,14 @@ struct video_frame;
 
 struct fec {
         virtual std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>) = 0;
-        virtual void decode(char *in, int in_len, char **out, int *len,
+        /**
+         * @retval true  if whole frame was reconstructed
+         * @retval false if decoder was unable to reconstruct the frame
+         *               However, if it was reconstructed at least partially
+         *               (or the code is a systematic one) and length
+         *               can be read, set len to a non-zero value.
+         */
+        virtual bool decode(char *in, int in_len, char **out, int *len,
                         const std::map<int, int> &) = 0;
         virtual ~fec() {}
 

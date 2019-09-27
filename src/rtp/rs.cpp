@@ -166,7 +166,7 @@ int rs::get_ss(int hdr_len, int len) {
         return ((sizeof(uint32_t) + hdr_len + len) + m_k - 1) / m_k;
 }
 
-void rs::decode(char *in, int in_len, char **out, int *len,
+bool rs::decode(char *in, int in_len, char **out, int *len,
                 std::map<int, int> const & c_m)
 {
         std::map<int, int> m = c_m; // make private copy
@@ -266,8 +266,15 @@ void rs::decode(char *in, int in_len, char **out, int *len,
         //fprintf(stderr, "       %d\n", i);
 
         if (i != m_k) {
-                *len = 0;
-                return;
+                if (c_m.find(0) != c_m.end() && c_m.at(0) >= 4) {
+                        uint32_t out_sz;
+                        memcpy(&out_sz, in, sizeof(out_sz));
+                        *len = out_sz;
+                        *out = (char *) in + sizeof(uint32_t);
+                } else {
+                        *len = 0;
+                }
+                return false;
         }
 
         char **output = (char **) malloc(m_k * sizeof(char *));
@@ -297,6 +304,8 @@ void rs::decode(char *in, int in_len, char **out, int *len,
         *len = out_sz;
         *out = (char *) in + sizeof(uint32_t);
 #endif 
+
+        return true;
 }
 
 static void usage() {

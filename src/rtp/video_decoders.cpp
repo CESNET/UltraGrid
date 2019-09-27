@@ -450,10 +450,6 @@ static void *fec_thread(void *args) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
 
-                                fec_state->decode(data->recv_frame->tiles[pos].data,
-                                                data->recv_frame->tiles[pos].data_len,
-                                                &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
-
                                 if (data->recv_frame->tiles[pos].data_len != (unsigned int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
@@ -461,10 +457,19 @@ static void *fec_thread(void *args) {
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
                                 }
 
-                                if(fec_out_len == 0) {
-                                        verbose_msg("[decoder] FEC: unable to reconstruct data.\n");
+                                bool ret = fec_state->decode(data->recv_frame->tiles[pos].data,
+                                                data->recv_frame->tiles[pos].data_len,
+                                                &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
+
+                                if (ret == false) {
                                         data->is_corrupted = true;
-                                        goto cleanup;
+                                        verbose_msg("[decoder] FEC: unable to reconstruct data.\n");
+                                        if (fec_out_len < (int) sizeof(video_payload_hdr_t)) {
+                                                goto cleanup;
+                                        }
+                                        if (decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
+                                                goto cleanup;
+                                        }
                                 }
 
                                 video_payload_hdr_t video_hdr;
@@ -1785,9 +1790,10 @@ next_packet:
                 frame_size += frame->tiles[i].data_len;
         }
 
-        /// Zero missing parts of framebuffer for compressed video
-        /// @todo this can be done also for FEC but not here
-        if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type != LINE_DECODER) {
+        /// Zero missing parts of framebuffer - this may be useful for compressed video
+        /// (which may be also with FEC - but we use systematic codes therefore it may
+        /// benefit from that as well).
+        if (decoder->decoder_type != LINE_DECODER) {
                 for(int i = 0; i < max_substreams; ++i) {
                         unsigned int last_end = 0;
                         for (auto const & packets : pckt_list[i]) {
