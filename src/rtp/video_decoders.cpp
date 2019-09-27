@@ -1785,6 +1785,25 @@ next_packet:
                 frame_size += frame->tiles[i].data_len;
         }
 
+        /// Zero missing parts of framebuffer for compressed video
+        /// @todo this can be done also for FEC but not here
+        if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type != LINE_DECODER) {
+                for(int i = 0; i < max_substreams; ++i) {
+                        unsigned int last_end = 0;
+                        for (auto const & packets : pckt_list[i]) {
+                                unsigned int start = packets.first;
+                                unsigned int len = packets.second;
+                                if (last_end < start) {
+                                        memset(frame->tiles[i].data + last_end, 0, start - last_end);
+                                }
+                                last_end = start + len;
+                        }
+                        if (last_end < frame->tiles[0].data_len) {
+                                memset(frame->tiles[i].data + last_end, 0, frame->tiles[0].data_len - last_end);
+                        }
+                }
+        }
+
         // format message
         {
                 unique_ptr <frame_msg> fec_msg (new frame_msg(decoder->control, decoder->stats));
