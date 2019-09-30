@@ -680,6 +680,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         return res;
 }
 
+ADD_TO_PARAM(lavd_accept_corrputed, "lavd-accept-corrupted",
+                "* lavd-accept-corrupted[=no]\n"
+                "  Pass corrupted frames to decoder. If decoder isn't error-resilient,\n"
+                "  may crash! Use \"no\" to disable even if enabled by default.\n");
 static int libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_libavcodec_decompress *s =
@@ -689,15 +693,17 @@ static int libavcodec_decompress_get_property(void *state, int property, void *v
 
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
-                        if(*len >= sizeof(int)) {
-#ifdef LAVD_ACCEPT_CORRUPTED
-                                *(int *) val = TRUE;
-#else
-                                *(int *) val = FALSE;
-#endif
-                                *len = sizeof(int);
-                                ret = TRUE;
+                        if (*len < sizeof(int)) {
+                                return FALSE;
                         }
+                        *(int *) val = strcmp(s->codec_ctx->codec->name, "h264") == 0;
+                        if (get_commandline_param("lavd-accept-corrupted")) {
+                                *(int *) val =
+                                        strcmp(get_commandline_param("lavd-accept-corrupted"), "no") != 0;
+                        }
+
+                        *len = sizeof(int);
+                        ret = TRUE;
                         break;
                 default:
                         ret = FALSE;
