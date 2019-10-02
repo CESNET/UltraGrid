@@ -603,6 +603,24 @@ fail:
 }
 #endif
 
+static void print_codec_supp_pix_fmts(const list<enum AVPixelFormat>
+                &req_pix_fmts, const enum AVPixelFormat *first) {
+        char out[1024] = "[lavc] Codec supported pixel formats:";
+        const enum AVPixelFormat *it = first;
+        while (*it != AV_PIX_FMT_NONE) {
+                strncat(out, " ", sizeof out - strlen(out) - 1);
+                strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+        }
+        fprintf(stderr, "%s\n", out);
+        out[0] = '\0';
+        strncat(out, "[lavd] Usable pixel formats:", sizeof out - strlen(out) - 1);
+        for (auto &c : req_pix_fmts) {
+                strncat(out, " ", sizeof out - strlen(out) - 1);
+                strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
+        }
+        fprintf(stderr, "%s\n", out);
+}
+
 /**
  * Finds best pixel format
  *
@@ -619,23 +637,6 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
 {
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
-
-        if (log_level >= LOG_LEVEL_DEBUG) {
-                char out[1024] = "[lavc] Available codec pixel formats:";
-                const enum AVPixelFormat *it = codec_pix_fmts;
-                while (*it != AV_PIX_FMT_NONE) {
-                        strncat(out, " ", sizeof out - strlen(out) - 1);
-                        strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
-                }
-                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
-                out[0] = '\0';
-                strncat(out, "[lavd] Requested pixel formats:", sizeof out - strlen(out) - 1);
-                for (auto &c : req_pix_fmts) {
-                        strncat(out, " ", sizeof out - strlen(out) - 1);
-                        strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
-                }
-                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
-        }
 
         for (auto it = req_pix_fmts.begin(); it != req_pix_fmts.end(); ) {
                 const enum AVPixelFormat *tmp = codec_pix_fmts;
@@ -1075,18 +1076,20 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 get_codec_name(ug_codec), codec->name);
         }
 
-        list<enum AVPixelFormat> requested_pix_fmts;
-        requested_pix_fmts = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
-
         // Try to open the codec context
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmts, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+        list<enum AVPixelFormat> requested_pix_fmt_it = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
+        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
                 }
 	}
+
+        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
+                print_codec_supp_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
+        }
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
