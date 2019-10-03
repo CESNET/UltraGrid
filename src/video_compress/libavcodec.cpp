@@ -362,36 +362,13 @@ static void usage() {
         printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
 }
 
-/**
- * replaces all occurencies of 'from' to 'to' in string 'in'
- * @note
- * Replacing pattern must not be longer than the replaced one (because then
- * we need to extend the string)
- */
-static void replace_all(char *in, const char *from, const char *to) {
-        assert(strlen(from) >= strlen(to) && "Longer dst pattern than src!");
-        char *tmp = in;
-        while ((tmp = strstr(tmp, from)) != nullptr) {
-                memcpy(tmp, to, strlen(to));
-                if (strlen(to) < strlen(from)) { // move the rest
-                        size_t len = strlen(tmp + strlen(from));
-                        char *src = tmp + strlen(from);
-                        char *dst = tmp + strlen(to);
-                        memmove(dst, src, len);
-                        dst[len] = '\0';
-                }
-                tmp += strlen(from);
-        }
-}
-
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         if (!fmt) {
                 return 0;
         }
 
-        // replace all '\:' with DELDEL
-        const char deldel[] = { 127, 127, 0x0 };
-        replace_all(fmt, "\\:", deldel);
+        // replace all '\:' with 2xDEL
+        replace_all(fmt, ESCAPED_COLON, DELDEL);
         char *item, *save_ptr = NULL;
 
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
@@ -441,7 +418,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->requested_gop = atoi(gop);
                 } else if (strchr(item, '=')) {
                         char *c_val_dup = strdup(strchr(item, '=') + 1);
-                        replace_all(c_val_dup, deldel, ":");
+                        replace_all(c_val_dup, DELDEL, ":");
                         string key, val;
                         key = string(item, strchr(item, '='));
                         s->lavc_opts[key] = c_val_dup;

@@ -49,6 +49,9 @@ long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str);
 int get_framerate_n(double framerate);
 int get_framerate_d(double framerate);
+#define DELDEL "\177\177"
+#define ESCAPED_COLON "\\:"
+void replace_all(char *in, const char *from, const char *to);
 
 /**
  * @brief Creates FourCC word

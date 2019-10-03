@@ -146,3 +146,37 @@ int get_framerate_d(double fps) {
         }
 }
 
+/**
+ * @brief Replaces all occurencies of 'from' to 'to' in string 'in'
+ *
+ * Typical use case is to process escaped colon in arguments:
+ * ~~~~~~~~~~~~~~~{.c}
+ * // replace all '\:' with 2xDEL
+ * replace_all(fmt, ESCAPED_COLON, DELDEL);
+ * while ((item = strtok())) {
+ *         char *item_dup = strdup(item);
+ *         replace_all(item_dup, DELDEL, ":");
+ *         free(item_dup);
+ * }
+ * ~~~~~~~~~~~~~~~
+ *
+ * @note
+ * Replacing pattern must not be longer than the replaced one (because then
+ * we need to extend the string)
+ */
+void replace_all(char *in, const char *from, const char *to) {
+        assert(strlen(from) >= strlen(to) && "Longer dst pattern than src!");
+        char *tmp = in;
+        while ((tmp = strstr(tmp, from)) != NULL) {
+                memcpy(tmp, to, strlen(to));
+                if (strlen(to) < strlen(from)) { // move the rest
+                        size_t len = strlen(tmp + strlen(from));
+                        char *src = tmp + strlen(from);
+                        char *dst = tmp + strlen(to);
+                        memmove(dst, src, len);
+                        dst[len] = '\0';
+                }
+                tmp += strlen(from);
+        }
+}
+
