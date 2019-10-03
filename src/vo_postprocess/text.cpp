@@ -60,15 +60,17 @@
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
+#include "rang.hpp"
+#include "utils/misc.h"
 
-#include "tv.h"
-
+using rang::style;
 using namespace std;
 
 struct state_text {
         struct video_frame *in;
         unique_ptr<char []> data;
         string text;
+        int req_x = -1, req_y = -1, req_h = -1;
         int width, height; // width in pixels
         int margin_x, margin_y, text_h;
         struct video_desc saved_desc;
@@ -106,14 +108,41 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if(!config || strcmp(config, "help") == 0) {
-                printf("text video postprocess takes as a parameter text to be drawed. Examples:\n");
-                printf("\t-p text:stream1\n");
-                printf("\t-p \"text:Video stream from location XY\"\n");
+                cout << "text video postprocess takes as a parameter text to be drawed. Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
+                cout << "Usage:\n";
+                cout << style::bold << "\t-p text:<text>\n" << style::reset;
+                cout << style::bold << "\t-p text:x=<x>:y=<y>:h=<text_height>:t=<text>\n" << style::reset;
+                cout << "\nExamples:\n";
+                cout << style::bold << "\t-p text:stream1\n" << style::reset;
+                cout << style::bold << "\t-p text:x=100:y=100:h=20:t=text\n" << style::reset;
+                cout << style::bold << "\t-p \"text:Video stream from location XY\"\n" << style::reset;
+                cout << style::bold << "\t-p \"text:Text can also contains escaped colons - \\:\"\n" << style::reset;
                 printf("\n");
                 return NULL;
         }
+
         s = new state_text();
-        s->text = config;
+
+        char *config_copy = strdup(config);
+        replace_all(config_copy, ESCAPED_COLON, DELDEL);
+        char *tmp = config_copy, *item, *save_ptr;
+        while ((item = strtok_r(tmp, ":", &save_ptr))) {
+                if (strstr(item, "x=") != NULL) {
+                        s->req_x = atoi(item + 2);
+                } else if (strstr(item, "y=") != NULL) {
+                        s->req_y = atoi(item + 2);
+                } else if (strstr(item, "h=") != NULL) {
+                        s->req_h = atoi(item + 2);
+                } else if (strstr(item, "t=") != NULL) {
+                        replace_all(item + 2, DELDEL, ":");
+                        s->text = item + 2;
+                } else {
+                        replace_all(item, DELDEL, ":");
+                        s->text = item;
+                }
+                tmp = NULL;
+        }
+        free(config_copy);
 
         return s;
 }
@@ -144,9 +173,9 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->in = vf_alloc_desc_data(desc);
 
-        s->margin_x = desc.width / MARGIN_X_DIV;
-        s->margin_y = desc.height / MARGIN_Y_DIV;
-        s->text_h = desc.height / TEXT_H_DIV;
+        s->margin_x = s->req_x == -1 ? desc.width / MARGIN_X_DIV : s->req_x;
+        s->margin_y = s->req_y == -1 ? desc.height / MARGIN_Y_DIV : s->req_y;
+        s->text_h = s->req_h == -1 ? desc.height / TEXT_H_DIV : s->req_h;
         s->width = min<unsigned long>(s->margin_x + s->text.length() * s->text_h, desc.width);
         s->height = min<unsigned long>(s->margin_y + s->text_h, desc.height);
 
