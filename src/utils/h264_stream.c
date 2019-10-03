@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "debug.h"
 #include "h264_stream.h"
 
 /***************************** reading ******************************/
@@ -197,6 +198,7 @@ int read_seq_parameter_set_rbsp(sps_t* sps, bs_t* b) {
 //7.3.2.1.1 Scaling list syntax
 void read_scaling_list(bs_t* b, int* scalingList, int sizeOfScalingList, int useDefaultScalingMatrixFlag )
 {
+    UNUSED(useDefaultScalingMatrixFlag);
     int j;
     if(scalingList == NULL)
     {

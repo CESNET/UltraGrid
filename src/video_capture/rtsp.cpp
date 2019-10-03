@@ -270,7 +270,7 @@ show_help() {
         "\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
 }
 
-void
+static void
 rtsp_keepalive_video(void *state) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
@@ -1120,7 +1120,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
 
     uint8_t nalInfo;
     uint8_t type;
-    uint8_t nri;
+    uint8_t nri __attribute__((unused));
     int max_len = 1500, len_nals = 0;
     char *s = (char *) malloc(max_len);
     char *sprop;
