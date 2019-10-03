@@ -736,10 +736,10 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
                                 return decoder;
                         }
                 }
-                for (auto const &conv : uv_to_av_conversions) {
-                        auto decoder = get_decoder_from_to(in, conv.src, use_slow);
-                        if (decoder && conv.dst == av) {
-                                *out = conv.src;
+                for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                        auto decoder = get_decoder_from_to(in, c->src, use_slow);
+                        if (decoder && c->dst == av) {
+                                *out = c->src;
                                 return decoder;
                         }
                 }
@@ -798,14 +798,14 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         }
                 }
         }
-        for (auto const & c : uv_to_av_conversions) { // FFMPEG conversion needed
-                if (c.src == in_desc.color_spec ||
-                                get_decoder_from_to(in_desc.color_spec, c.src, true)) {
-                        int codec_subsampling = get_subsampling(c.dst);
+        for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                if (c->src == in_desc.color_spec ||
+                                get_decoder_from_to(in_desc.color_spec, c->src, true)) {
+                        int codec_subsampling = get_subsampling(c->dst);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
-                                       (!force_conv_to || force_conv_to == c.src)) {
-                                available_formats.push_back(c.dst);
+                                       (!force_conv_to || force_conv_to == c->src)) {
+                                available_formats.push_back(c->dst);
                         }
                 }
         }
@@ -1203,9 +1203,9 @@ static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) 
                 return nullptr;
         }
 
-        for (auto &it : uv_to_av_conversions) {
-                if (it.src == src && it.dst == fmt) {
-                        return it.func;
+        for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                if (c->src == src && c->dst == fmt) {
+                        return c->func;
                 }
         }
 

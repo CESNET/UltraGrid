@@ -383,23 +383,23 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
 
 static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
 
-        for (unsigned int i = 0; i < sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]; ++i) {
-                if (av_to_uv_conversions[i].av_codec != pix_fmt) { // this conversion is not valid
+        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                if (c->av_codec != pix_fmt) { // this conversion is not valid
                         continue;
                 }
 
-                if (av_to_uv_conversions[i].native) {
-                        *ug_pix_fmt = av_to_uv_conversions[i].uv_codec;
+                if (c->native) {
+                        *ug_pix_fmt = c->uv_codec;
                         return true;
                 }
         }
 
-        for (unsigned int i = 0; i < sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]; ++i) {
-                if (av_to_uv_conversions[i].av_codec != pix_fmt) { // this conversion is not valid
+        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                if (c->av_codec != pix_fmt) { // this conversion is not valid
                         continue;
                 }
 
-                *ug_pix_fmt = av_to_uv_conversions[i].uv_codec;
+                *ug_pix_fmt = c->uv_codec;
                 return true;
         }
         return false;
@@ -470,17 +470,17 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                 continue;
                         }
 
-                        for (unsigned int i = 0; i < sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]; ++i) {
-                                if (av_to_uv_conversions[i].av_codec != *fmt_it) // this conversion is not valid
+                        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                                if (c->av_codec != *fmt_it) // this conversion is not valid
                                         continue;
                                 if (state->out_codec == VIDEO_CODEC_NONE) { // just probing internal format
-                                        if (!*use_native_it || av_to_uv_conversions[i].native) {
-                                                state->internal_codec = av_to_uv_conversions[i].uv_codec;
+                                        if (!*use_native_it || c->native) {
+                                                state->internal_codec = c->uv_codec;
                                                 return AV_PIX_FMT_NONE;
                                         }
                                 } else {
-                                        if (state->out_codec == av_to_uv_conversions[i].uv_codec) { // conversion found
-                                                state->internal_codec = av_to_uv_conversions[i].uv_codec; // same as out_codec
+                                        if (state->out_codec == c->uv_codec) { // conversion found
+                                                state->internal_codec = c->uv_codec; // same as out_codec
                                                 return *fmt_it;
                                         }
                                 }
@@ -511,10 +511,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
         av_to_uv_convert_p convert = NULL;
-        for (unsigned int i = 0; i < sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]; ++i) {
-                if (av_to_uv_conversions[i].av_codec == av_codec &&
-                                av_to_uv_conversions[i].uv_codec == out_codec) {
-                        convert = av_to_uv_conversions[i].convert;
+        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                if (c->av_codec == av_codec && c->uv_codec == out_codec) {
+                        convert = c->convert;
                 }
         }
 

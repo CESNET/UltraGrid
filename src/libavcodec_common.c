@@ -1620,3 +1620,110 @@ void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_
 }
 #endif
 
+/**
+ * @brief returns list of available conversion. Terminated by uv_to_av_conversion::src == VIDEO_CODEC_NONE
+ */
+const struct uv_to_av_conversion *get_uv_to_av_conversions() {
+        /**
+         * Conversions from UltraGrid to FFMPEG formats.
+         *
+         * Currently do not add an "upgrade" conversion (UYVY->10b) because also
+         * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
+         * may be used resulting in a precision loss. If needed, put the upgrade
+         * conversions below the others.
+         */
+        static const struct uv_to_av_conversion uv_to_av_conversions[] = {
+                { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
+                { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
+                { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
+                { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
+#endif
+                { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_YUVJ420P, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
+                { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
+                { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
+                { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
+                { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
+                { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
+                { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
+                { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
+                { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
+#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+                { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
+#endif
+                { 0, 0, 0 }
+        };
+        return uv_to_av_conversions;
+}
+
+/**
+ * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
+ */
+const struct av_to_uv_conversion *get_av_to_uv_conversions() {
+        static const struct av_to_uv_conversion av_to_uv_conversions[] = {
+                // 10-bit YUV
+                {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
+                {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
+                {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
+                {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
+                {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
+                {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
+                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
+                {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
+                {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
+                {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
+                {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
+#endif
+                // 8-bit YUV
+                {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
+                {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
+                {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
+                {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
+                {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
+                {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
+                {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
+                {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
+                {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
+                // 8-bit YUV (JPEG color range)
+                {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
+                {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
+                {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
+                {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
+                // 8-bit YUV (NV12)
+                {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
+                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
+                // RGB
+                {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
+                {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
+                {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
+                {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
+                {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
+                {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
+                {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
+#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+                {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
+                {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
+                {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
+#endif
+                {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
+                {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
+                {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
+#ifdef HWACC_VDPAU
+                // HW acceleration
+                {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
+#endif
+                {0, 0, 0, 0}
+        };
+        return av_to_uv_conversions;
+}
+

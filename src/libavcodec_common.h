@@ -204,34 +204,12 @@ uv_to_av_convert r12l_to_gbrp12le;
  * may be used resulting in a precision loss. If needed, put the upgrade
  * conversions below the others.
  */
-static const struct {
+struct uv_to_av_conversion {
         codec_t src;
         enum AVPixelFormat dst;
         pixfmt_callback_t func;
-} uv_to_av_conversions[] = {
-        { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
-        { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
-        { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-        { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
-#endif
-        { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
-        { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
-        { UYVY, AV_PIX_FMT_YUVJ420P, uyvy_to_yuv420p },
-        { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
-        { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
-        { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
-        { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
-        { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
-        { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
-        { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
-        { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
-        { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
-#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
-        { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
-#endif
 };
+const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
 
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, int * __restrict rgb_shift);
 typedef av_to_uv_convert *av_to_uv_convert_p;
@@ -274,7 +252,7 @@ av_to_uv_convert p010le_to_uyvy;
 av_to_uv_convert av_vdpau_to_ug_vdpau;
 #endif
 
-static const struct {
+struct av_to_uv_conversion {
         int av_codec;
         codec_t uv_codec;
         av_to_uv_convert_p convert;
@@ -283,67 +261,9 @@ static const struct {
                      ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
                      ///< also 10,12 bit RGB). Subsampling doesn't need to be respected (we do
                      ///< not have codec for eg. 4:4:4 UYVY).
-} av_to_uv_conversions[] = {
-        // 10-bit YUV
-        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
-        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
-        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
-        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
-        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
-        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
-        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
-        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
-        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-        {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
-        {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
-#endif
-        // 8-bit YUV
-        {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
-        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
-        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
-        {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
-        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
-        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
-        {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
-        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
-        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
-        // 8-bit YUV (JPEG color range)
-        {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
-        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
-        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
-        {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
-        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
-        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
-        {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
-        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
-        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
-        // 8-bit YUV (NV12)
-        {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
-        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
-        // RGB
-        {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
-        {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
-        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
-        {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
-        {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
-        {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
-        {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
-#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
-        {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
-        {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
-        {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
-#endif
-        {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
-        {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
-        {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
-#ifdef HWACC_VDPAU
-        // HW acceleration
-        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
-#endif
 };
 
-
+const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 
 #ifdef __cplusplus
 }
