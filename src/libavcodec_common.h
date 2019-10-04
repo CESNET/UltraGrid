@@ -180,22 +180,6 @@ extern "C" {
 typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
 typedef uv_to_av_convert *pixfmt_callback_t;
 
-uv_to_av_convert uyvy_to_yuv420p;
-uv_to_av_convert uyvy_to_yuv422p;
-uv_to_av_convert uyvy_to_yuv444p;
-uv_to_av_convert uyvy_to_nv12;
-uv_to_av_convert v210_to_yuv420p10le;
-uv_to_av_convert v210_to_yuv422p10le;
-uv_to_av_convert v210_to_yuv444p10le;
-uv_to_av_convert v210_to_p010le;
-uv_to_av_convert rgb_to_bgr0;
-uv_to_av_convert rgb_to_gbrp;
-uv_to_av_convert rgba_to_gbrp;
-uv_to_av_convert r10k_to_gbrp10le;
-uv_to_av_convert r10k_to_bgr0;
-uv_to_av_convert r10k_to_yuv422p10le;
-uv_to_av_convert r12l_to_gbrp12le;
-
 /**
  * Conversions from UltraGrid to FFMPEG formats.
  *
@@ -213,44 +197,6 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
 
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, int * __restrict rgb_shift);
 typedef av_to_uv_convert *av_to_uv_convert_p;
-
-av_to_uv_convert nv12_to_uyvy;
-av_to_uv_convert rgb24_to_uyvy;
-av_to_uv_convert memcpy_data;
-av_to_uv_convert gbrp_to_rgb;
-av_to_uv_convert gbrp_to_rgba;
-av_to_uv_convert gbrp10le_to_r10k;
-av_to_uv_convert gbrp10le_to_rgb;
-av_to_uv_convert gbrp10le_to_rgba;
-av_to_uv_convert gbrp12le_to_r12l;
-av_to_uv_convert gbrp12le_to_rgb;
-av_to_uv_convert gbrp12le_to_rgba;
-av_to_uv_convert rgb48le_to_rgba;
-av_to_uv_convert rgb48le_to_r12l;
-av_to_uv_convert yuv420p_to_uyvy;
-av_to_uv_convert yuv420p_to_v210;
-av_to_uv_convert yuv422p_to_uyvy;
-av_to_uv_convert yuv422p_to_v210;
-av_to_uv_convert yuv444p_to_uyvy;
-av_to_uv_convert yuv444p_to_v210;
-av_to_uv_convert nv12_to_rgb24;
-av_to_uv_convert yuv422p_to_rgb24;
-av_to_uv_convert yuv420p_to_rgb24;
-av_to_uv_convert yuv444p_to_rgb24;
-av_to_uv_convert yuv420p10le_to_v210;
-av_to_uv_convert yuv422p10le_to_v210;
-av_to_uv_convert yuv444p10le_to_v210;
-av_to_uv_convert yuv420p10le_to_uyvy;
-av_to_uv_convert yuv422p10le_to_uyvy;
-av_to_uv_convert yuv444p10le_to_uyvy;
-av_to_uv_convert yuv420p10le_to_rgb24;
-av_to_uv_convert yuv422p10le_to_rgb24;
-av_to_uv_convert yuv444p10le_to_rgb24;
-av_to_uv_convert p010le_to_v210;
-av_to_uv_convert p010le_to_uyvy;
-#ifdef HWACC_VDPAU
-av_to_uv_convert av_vdpau_to_ug_vdpau;
-#endif
 
 struct av_to_uv_conversion {
         int av_codec;

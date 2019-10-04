@@ -63,7 +63,11 @@
 #define MAX(a, b)      (((a) > (b))? (a): (b))
 #define MIN(a, b)      (((a) < (b))? (a): (b))
 
-void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+
+//
+// uv_to_av_convert conversions
+//
+static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -86,7 +90,7 @@ void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict 
         }
 }
 
-void uyvy_to_yuv422p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
+static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -102,7 +106,7 @@ void uyvy_to_yuv422p(AVFrame * __restrict out_frame, unsigned char * __restrict 
         }
 }
 
-void uyvy_to_yuv444p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
+static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -120,7 +124,7 @@ void uyvy_to_yuv444p(AVFrame * __restrict out_frame, unsigned char * __restrict 
         }
 }
 
-void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -202,7 +206,7 @@ void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restrict in_
         }
 }
 
-void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -264,7 +268,7 @@ void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 1) {
                 uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
@@ -298,7 +302,7 @@ void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 1) {
                 uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
@@ -338,7 +342,7 @@ void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -398,7 +402,7 @@ void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict i
         }
 }
 
-void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         const int src_linesize = vc_get_linesize(width, R10k);
         const int32_t y_r = 190893; //0.18205 << 20
@@ -454,7 +458,7 @@ void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, RGB);
         int dst_linesize = vc_get_linesize(width, RGBA);
@@ -465,7 +469,7 @@ void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_d
         }
 }
 
-void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R10k);
         int dst_linesize = vc_get_linesize(width, RGBA);
@@ -496,17 +500,17 @@ static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __r
         }
 }
 
-void rgb_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgb_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, false);
 }
 
-void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, true);
 }
 
-void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
@@ -533,7 +537,7 @@ void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict
 #define BYTE_SWAP(x) x
 #endif
 
-void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
@@ -608,7 +612,10 @@ void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict
         }
 }
 
-void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+//
+// av_to_uv_convert conversions
+//
+static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -626,7 +633,7 @@ void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
         }
 }
 
-void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -635,7 +642,7 @@ void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -646,7 +653,7 @@ void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -662,7 +669,7 @@ void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         abort();
@@ -679,7 +686,7 @@ void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -698,7 +705,7 @@ void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -716,7 +723,7 @@ void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
@@ -738,7 +745,7 @@ void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
 #define BYTE_SWAP(x) x
 #endif
 
-void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -790,7 +797,7 @@ void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -808,7 +815,7 @@ void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
@@ -824,7 +831,7 @@ void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
@@ -833,7 +840,7 @@ void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+static void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
@@ -842,7 +849,7 @@ void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
         }
 }
 
-void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -929,7 +936,7 @@ void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame
         }
 }
 
-void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -992,7 +999,7 @@ void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame
         }
 }
 
-void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1011,7 +1018,7 @@ void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame
         }
 }
 
-void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1048,7 +1055,7 @@ void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame
         }
 }
 
-void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1069,7 +1076,7 @@ void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame
         }
 }
 
-void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1117,7 +1124,7 @@ void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame
  * Changes pixel format from planar YUV 422 to packed RGB.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1148,7 +1155,7 @@ void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
  * Changes pixel format from planar YUV 422 to packed RGB.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1180,7 +1187,7 @@ void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_fram
  * Changes pixel format from planar YUV 422 to packed RGB.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1222,7 +1229,7 @@ void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_fram
  * Changes pixel format from planar YUV 444 to packed RGB.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1246,7 +1253,7 @@ void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_fram
         }
 }
 
-void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1309,7 +1316,7 @@ void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1346,7 +1353,7 @@ void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1389,7 +1396,7 @@ void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1421,7 +1428,7 @@ void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1440,7 +1447,7 @@ void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1461,7 +1468,7 @@ void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
         }
 }
 
-void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
@@ -1475,7 +1482,7 @@ void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_
         free(tmp);
 }
 
-void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1490,7 +1497,7 @@ void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_
         free(tmp);
 }
 
-void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1505,7 +1512,7 @@ void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_
         free(tmp);
 }
 
-void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1567,7 +1574,7 @@ void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
         }
 }
 
-void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1599,7 +1606,7 @@ void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
 }
 
 #ifdef HWACC_VDPAU
-void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(width);
@@ -1620,6 +1627,9 @@ void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_
 }
 #endif
 
+//
+// conversion dispatchers
+//
 /**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::src == VIDEO_CODEC_NONE
  */
