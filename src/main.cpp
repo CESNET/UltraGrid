@@ -857,7 +857,7 @@ int main(int argc, char *argv[])
                         usage(uv_argv[0], true);
                         return EXIT_SUCCESS;
                 case OPT_CUDA_DEVICE:
-#ifdef HAVE_JPEG
+#ifdef HAVE_GPUJPEG
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression;
                                 int ret = compress_init(&uv.root_module, "JPEG:list_devices", &compression);

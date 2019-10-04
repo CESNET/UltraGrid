@@ -2011,20 +2011,20 @@ AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # -------------------------------------------------------------------------------------------------
-# JPEG
-JPEG_OBJ=
-JPEG_COMPRESS_OBJ=
-JPEG_DECOMPRESS_OBJ=
-JPEG_INC=
-JPEG_LIB=
+# GPUJPEG
+GPUJPEG_OBJ=
+GPUJPEG_COMPRESS_OBJ=
+GPUJPEG_DECOMPRESS_OBJ=
+GPUJPEG_INC=
+GPUJPEG_LIB=
 
-jpeg=no
+gpujpeg=no
 
-AC_ARG_ENABLE(jpeg,
-[  --disable-jpeg          disable JPEG compression (auto)]
+AC_ARG_ENABLE(gpujpeg,
+[  --disable-gpujpeg          disable GPUJPEG compression (auto)]
 [                          Requires: CUDA libgpujpeg ],
-	[jpeg_req=$enableval],
-        [jpeg_req=$build_default])
+	[gpujpeg_req=$enableval],
+        [gpujpeg_req=$build_default])
 
 SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
@@ -2039,9 +2039,9 @@ CPPFLAGS=$SAVED_CPPFLAGS
 
 if test $system = Windows
 then
-        JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release -lgpujpeg"
+        GPUJPEG_LIB="$GPUJPEG_LIB -Lgpujpeg/Release -lgpujpeg"
         SAVED_LIBS=$LIBS
-        LIBS="$LIBS $JPEG_LIB"
+        LIBS="$LIBS $GPUJPEG_LIB"
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
         AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
         LIBS=$SAVED_LIBS
@@ -2056,26 +2056,26 @@ else
         PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 fi
 
-if test "$jpeg_req" != no -a \
+if test "$gpujpeg_req" != no -a \
         "$FOUND_CUDA" = yes -a \
         "$found_gpujpeg" = yes
 then
-        jpeg=yes
+        gpujpeg=yes
 
-        JPEG_INC="$JPEG_INC $LIBGPUJPEG_CFLAGS"
-        JPEG_LIB="$JPEG_LIB $LIBGPUJPEG_LIBS"
-        JPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
-        JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
-        AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
-        ADD_MODULE("vcompress_jpeg", "$JPEG_COMPRESS_OBJ", "$JPEG_LIB")
-        ADD_MODULE("vdecompress_jpeg", "$JPEG_DECOMPRESS_OBJ", "$JPEG_LIB")
+        GPUJPEG_INC="$GPUJPEG_INC $LIBGPUJPEG_CFLAGS"
+        GPUJPEG_LIB="$GPUJPEG_LIB $LIBGPUJPEG_LIBS"
+        GPUJPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
+        GPUJPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
+        AC_DEFINE([HAVE_GPUJPEG], [1], [Build with GPUJPEG support])
+        ADD_MODULE("vcompress_jpeg", "$GPUJPEG_COMPRESS_OBJ", "$GPUJPEG_LIB")
+        ADD_MODULE("vdecompress_jpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
 
-	INC="$INC $JPEG_INC"
+	INC="$INC $GPUJPEG_INC"
         CUDA_MESSAGE
 fi
 
-if test $jpeg_req = yes -a $jpeg = no; then
-        AC_MSG_ERROR([JPEG not found]);
+if test $gpujpeg_req = yes -a $gpujpeg = no; then
+        AC_MSG_ERROR([GPUJPEG not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -2128,33 +2128,33 @@ if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# JPEG to DXT plugin
+# GPUJPEG transcode to DXT
 # -------------------------------------------------------------------------------------------------
-jpeg_to_dxt=no
-AC_ARG_ENABLE(jpeg_to_dxt,
-[  --disable-jpeg-to-dxt   disable JPEG to DXT transcoder (default is auto)]
+gpujpeg_to_dxt=no
+AC_ARG_ENABLE(gpujpeg_to_dxt,
+[  --disable-jpeg-to-dxt   disable GPUJPEG DXT transcoder (default is auto)]
 [                          Requires: CUDA libgpujpeg],
-              [jpeg_to_dxt_req=$enableval],
-              [jpeg_to_dxt_req=$build_default])
+              [gpujpeg_to_dxt_req=$enableval],
+              [gpujpeg_to_dxt_req=$build_default])
 
-if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
+if test $gpujpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
 then
         DEFINE_CUDA
         DEFINE_CUDA_DXT
-        jpeg_to_dxt=yes
-        JPEG_TO_DXT_INC=" $CUDA_INC"
-        JPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $JPEG_LIB"
-        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
-        ADD_MODULE("vdecompress_jpeg_to_dxt", $JPEG_TO_DXT_OBJ, "$JPEG_TO_DXT_LIB")
-        AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
+        gpujpeg_to_dxt=yes
+        GPUJPEG_TO_DXT_INC=" $CUDA_INC"
+        GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $JPEG_LIB"
+        GPUJPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
+        ADD_MODULE("vdecompress_jpeg_to_dxt", $JPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
+        AC_DEFINE([HAVE_GPUJPEG_TO_DXT], [1], [Build with GPUJPEG DXT transcode support])
         CUDA_MESSAGE
 fi
 
 
-if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
+if test $gpujpeg_to_dxt = no -a $gpujpeg_to_dxt_req = yes
 then
-        AC_MSG_ERROR([JPEG to DXT transcoder not found])
+        AC_MSG_ERROR([GPUJPEG DXT transcoder not found])
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3043,8 +3043,8 @@ RESULT="$RESULT
 true # set $? to zero
 RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
-RESULT=`add_column "$RESULT" "JPEG" $jpeg $?`
-RESULT=`add_column "$RESULT" "JPEG to DXT" $jpeg_to_dxt $?`
+RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
+RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
 RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
