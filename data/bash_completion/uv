@@ -1,0 +1,14 @@
+_uv() 
+{
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="-h --help --fullhelp -v --version -d -t -c -r -s --verbose --list-modules -4 -6 --pix-fmts --video-codecs -M -p --mcast-if --protocol --audio-codec --audio-capture-format --audio-channel-map --param --capture-filter --video-protocol --audio-protocol -A --audio-delay --encryption -f -l --cuda-device --control-port -P --audio-scale --playback --record"
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+}
+complete -F _uv uv

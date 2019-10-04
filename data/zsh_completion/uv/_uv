@@ -1,0 +1,71 @@
+#compdef uv
+
+_param_cuda_device=(
+    ${(uonzf)$(uv --cuda-device help 2>&1 | grep Device | sed -e 's/Device\ #\(.*\)\:.*/\1/')}
+)
+
+_param_fec=(
+    'mult'
+    'ldgm'
+    'rs'
+    'A\:mult'
+    'V\:ldgm'
+    'V\:rs'
+)
+
+_param_audio_protocol=(
+    ${(s:,:)$(uv --audio-protocol help | tail -n 1 | sed -e 's/.*:\ //' | sed -e 's/,\ /,/g' | sed -e 's/\ or\ /,/')}
+)
+
+_param_audio_capture_format=(
+    ${(s:|:)$(uv --audio-capture-format help | grep  -P '^\t' | head -n 1 | sed -e 's/.*{\(.*\)}\*/\1/g')}
+)
+
+_param_parameters=(
+    ${(uonzf)$(uv --param help | grep '*' | cut -d ' ' -f 2 | sed -e 's/\(.*\)=.*/\1/')}
+)
+
+_uv() {
+    _arguments \
+	    '(- *)'{-h,--help}'[show basic usage]' \
+        '(- *)'--fullhelp'[show full usage]' \
+        '(- *)'{-v,--version}'[output version and build parameters]' \
+        '-d[select display device, use ''-d help'' to get list of supported devices]:device: _values device "${(uonzf)$(uv -d help | grep -P "^\t")}" help' \
+	    '-t[select capture device, use ''-t help'' to get list of supported devices]:device: _values device "${(uonzf)$(uv -t help | grep -P "^\t")}" help' \
+	    '-c[video compression (see ''-c help'')]:compression: _values compression "${(uonzf)$(uv -c help | grep -P "^\t")}" help' \
+	    '-r[audio playback device (see ''-r help'')]:device: _values device "${(uonzf)$(uv -r help | grep -P "^\t")}" help' \
+	    '-s[audio capture device (see ''-s help'')]:device: _values device "${(uonzf)$(uv -s help | grep -P "^\t")}" help'  \
+    	'--verbose[print verbose messages (optionally specify level 0-7)]:verbosity: _values verbosity 0 1 2 3 4 5 6 7' \
+	    '--list-modules[prints list of modules]' \
+        '-4[force IPv4 resolving]' \
+        '-6[force IPv6 resolving]' \
+    	'--pix-fmts[list of pixel formats]' \
+        '--video-codecs[list of video codecs]' \
+        '-M[received video mode (eg tiled-4K, 3D, dual-link)]:mode: _values mode "${(uonzf)$(uv -M help | grep -P "^\t")}" help'  \
+        '-p[postprocess module (see ''-p help'')]:postprocess: _values postprocess "${(uonzf)$(uv -p help | grep -P "^\t")}" help' \
+        '--mcast-if[bind to specified interface for multicast]:iface: _values iface "${(uonzf)$(netstat -i | tail -n +3 | cut -d " " -f 1)}"' \
+    	'--protocol[shortcut for ''--audio-protocol <proto> --video-protocol <proto>'']:protocol: _values protocol "${(uonzf)$(uv --protocol help | grep -P "^\t")}" help' \
+        '--audio-codec[audio compression (see ''--audio-codec help'')]:codec: _values codec "${(uonzf)$(uv --audio-codec help | tail -n +5 | grep -P "^\t")}" help' \
+    	'--audio-capture-format[audio capture format options]:param: _values param "$_param_audio_capture_format[@]" help' \
+        '--audio-channel-map[audio channels mapping (see ''--audio-channel-map help'')]:map: _values map help' \
+        '--param[additional advanced parameters, use help for list]:param: _values param "$_param_parameters[@]" help' \
+        '--capture-filter[capture filter(s), must be given before capture device]:filter: _values filter "${(uonzf)$(uv --capture-filter help 2>&1 | grep -P "^\t")}" help' \
+        '--video-protocol[video transmission protocol (see ''--video-protocol help'')]:protocol: _values protocol "${(uonzf)$(uv --video-protocol help 2>&1 | grep -P "^\t")}" help' \
+        '--audio-protocol[audio transmission protocol (see ''--audio-protocol help'')]:protocol: _values protocol "$_param_audio_protocol[@]" help' \
+        '-A[audio destination address (If not specified, will use same as for video)]:address:' \
+        '--audio-delay[amount of time audio should be delayed to video]:float:' \
+    	'--encryption[key material for encryption]:key:' \
+        '-f[FEC settings]:params: _values params $_param_fec[@]' \
+        '-l[limit sending bitrate to <limit_bitrate> (with optional k/M/G suffix)]:limit: _values limit auto unlimited' \
+    	'--cuda-device[(use specified CUDA device (see ''cuda-device help'')]:index: _values index "$_param_cuda_device[@]" help' \
+    	'--control-port[set control port number (default 5054)]:int:' \
+        '-P[base port number]:int:' \
+        '--audio-scale[received audio scale factor and method (see ''--audio-scale help'')]:params: _values params help mixauto auto none' \
+    	'--playback[replays recorded audio and video]:params: _values params help' \
+        '--record[record captured audio and video (creates default export directory)]' \
+        '--record=[record captured audio and video to specified directory]:directory:_directories' \
+
+    return 0
+}
+
+_uv
