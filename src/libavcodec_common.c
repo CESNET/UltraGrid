@@ -63,6 +63,9 @@
 #define MAX(a, b)      (((a) > (b))? (a): (b))
 #define MIN(a, b)      (((a) < (b))? (a): (b))
 
+#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+#define HAVE_12_AND_14_PLANAR_COLORSPACES 1
+#endif
 
 //
 // uv_to_av_convert conversions
@@ -537,6 +540,7 @@ static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __r
 #define BYTE_SWAP(x) x
 #endif
 
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R12L);
@@ -611,6 +615,7 @@ static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __r
                 }
         }
 }
+#endif
 
 //
 // av_to_uv_convert conversions
@@ -745,6 +750,7 @@ static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
 #define BYTE_SWAP(x) x
 #endif
 
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -830,6 +836,7 @@ static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
                 }
         }
 }
+#endif
 
 static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
@@ -1662,7 +1669,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
-#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
 #endif
                 { 0, 0, 0 }
@@ -1720,7 +1727,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
                 {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
                 {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
-#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
                 {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
                 {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
