@@ -46,6 +46,7 @@
 #include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"
+#include "libgpujpeg/gpujpeg_reader.h"
 #include "libgpujpeg/gpujpeg_version.h"
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
@@ -149,7 +150,11 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 #if LIBGPUJPEG_API_VERSION >= 4
 static decompress_status jpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
 	struct gpujpeg_image_parameters params = { 0 };
+#if LIBGPUJPEG_API_VERSION >= 5
+	if (gpujpeg_reader_get_image_info(buffer, len, &params, NULL) != 0) {
+#else
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
+#endif
 		return DECODER_NO_FRAME;
 	}
 
