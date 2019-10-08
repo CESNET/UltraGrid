@@ -255,7 +255,7 @@ void register_library(const char *name, const void *data, enum library_class cls
         if ((*libraries)[cls].find(name) != (*libraries)[cls].find(name)) {
                 LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" multiple initialization!\n";
         }
-        (*libraries)[cls][name] = {data, abi_version, hidden};
+        (*libraries)[cls][name] = {data, abi_version, static_cast<bool>(hidden)};
 }
 
 const void *load_library(const char *name, enum library_class cls, int abi_version)

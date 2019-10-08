@@ -93,6 +93,17 @@ void list_all_modules();
 std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden = true);
 #endif
 
+/**
+ * Placeholder that installs module via constructor for every macro
+ * REGISTER_MODULE/REGISTER_MODULE_HIDDEN call
+ * @param name     non-quoted module name
+ * @param lclass   class of the module
+ * @param abi      abi version (specific for every class)
+ * @param funcname unique function name that will be used to register
+ *                 the module (as a constructor)
+ * @param hidden   0/1 - whether the module should be visible by eg. '-c help'
+ *                 (for technical and deprecated modules), default true
+ */
 #define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname, hidden) static void funcname(void)  __attribute__((constructor));\
 \
 static void funcname(void)\
