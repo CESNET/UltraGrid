@@ -2037,9 +2037,11 @@ CFLAGS=$SAVED_CFLAGS
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
-if test $system = Windows
+PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
+
+if test "$found_gpujpeg" != yes
 then
-        GPUJPEG_LIB="$GPUJPEG_LIB -Lgpujpeg/Release -lgpujpeg"
+        GPUJPEG_LIB="$GPUJPEG_LIB -lgpujpeg"
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $GPUJPEG_LIB"
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
@@ -2052,8 +2054,6 @@ then
         else
                 found_gpujpeg=no
         fi
-else
-        PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 fi
 
 if test "$gpujpeg_req" != no -a \
