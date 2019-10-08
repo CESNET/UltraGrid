@@ -47,12 +47,13 @@
 #include "video_compress.h"
 #include "module.h"
 #include "lib_common.h"
-#include "libgpujpeg/gpujpeg_encoder.h"
-#include "libgpujpeg/gpujpeg_version.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "utils/synchronized_queue.h"
 #include "utils/video_frame_pool.h"
 #include "video.h"
+
+#include <libgpujpeg/gpujpeg_encoder.h>
+#include <libgpujpeg/gpujpeg_version.h>
 #include <memory>
 #include <map>
 #include <mutex>
@@ -327,7 +328,11 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
                                         return false;
                                 }
                         } else {
-                                if (strcasecmp(tok, "interleaved") == 0) {
+                                if (strcasecmp(tok, "q=") == 0) {
+                                        m_quality = atoi(tok + strlen("q="));
+                                } else if (strcasecmp(tok, "restart=") == 0) {
+                                        m_quality = atoi(tok + strlen("restart="));
+                                } else if (strcasecmp(tok, "interleaved") == 0) {
                                         m_force_interleaved = true;
                                 } else if (strcasecmp(tok, "YUV") == 0) {
                                         m_use_internal_codec = UYVY;
@@ -406,24 +411,28 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << rang::fg::red << rang::style::bold << "-c GPUJPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV]\n" << rang::style::reset;
+                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV]\n");
                 cout << "where\n";
-                cout << rang::style::bold << "\tquality\n" << rang::style::reset
-                        << "\t\tJPEG quality coefficient [0..100] - more is better\n";
-                cout << rang::style::bold << "\trestart interval\n" << rang::style::reset <<
+                cout << BOLD("\tquality\n") <<
+                        "\t\tJPEG quality coefficient [0..100] - more is better\n";
+                cout << BOLD("\trestart interval\n") <<
                         "\t\tInterval between independently entropy encoded block of MCUs,\n"
                         "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
                         "\t\treduces bandwidth at the expense of worse parallelization (if\n"
                         "\t\treset intervals disabled, Huffman encoding is run on CPU). Leave\n"
                         "\t\tuntouched if unsure.\n";
-                cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset <<
-                        "\t\tforce interleaved encoding (default for YCbCr input formats).\n"
+                cout << BOLD("\tinterleaved\n") <<
+                        "\t\tForce interleaved encoding (default for YCbCr input formats).\n"
                         "\t\tNon-interleaved has slightly better performance for RGB at the\n"
                         "\t\texpense of worse compatibility. Therefore this option may be\n"
                         "\t\tenabled safely.\n";
-                cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset <<
+                cout << BOLD("\tRGB|YUV\n") <<
                         "\t\tforce RGB or YUV as an internal JPEG color space (otherwise\n"
-                        "\t\tsource color space is kept)\n";
+                        "\t\tsource color space is kept).\n";
+                cout << "\n";
+                cout << BOLD("Note:") << " instead of positional parameters for "
+                        "quality and restart intervals " << BOLD("\"q=\"") << " and " << BOLD("\"restart=\"") << " can be used.\n";
+                cout << "\n";
                 return &compress_init_noerr;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
