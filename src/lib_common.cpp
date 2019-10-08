@@ -209,6 +209,7 @@ void open_all(const char *pattern) {
 struct lib_info {
         const void *data;
         int abi_version;
+        bool hidden;
 };
 
 // http://stackoverflow.com/questions/1801892/making-mapfind-operation-case-insensitive
@@ -248,13 +249,13 @@ struct init_libraries {
 
 static struct init_libraries loader;
 
-void register_library(const char *name, const void *data, enum library_class cls, int abi_version)
+void register_library(const char *name, const void *data, enum library_class cls, int abi_version, int hidden)
 {
         struct init_libraries loader;
         if ((*libraries)[cls].find(name) != (*libraries)[cls].find(name)) {
                 LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" multiple initialization!\n";
         }
-        (*libraries)[cls][name] = {data, abi_version};
+        (*libraries)[cls][name] = {data, abi_version, hidden};
 }
 
 const void *load_library(const char *name, enum library_class cls, int abi_version)
@@ -293,7 +294,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 }
 
 void list_modules(enum library_class cls, int abi_version) {
-        const auto & class_set = get_libraries_for_class(cls, abi_version);
+        const auto & class_set = get_libraries_for_class(cls, abi_version, false);
         for (auto && item : class_set) {
                 cout << rang::style::bold << "\t" << item.first.c_str() << "\n" << rang::style::reset;
         }
@@ -321,14 +322,16 @@ void list_all_modules() {
         }
 }
 
-map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version)
+map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden)
 {
         map<string, const void *> ret;
         auto it = libraries->find(cls);
         if (it != libraries->end()) {
                 for (auto && item : it->second) {
                         if (abi_version == item.second.abi_version) {
-                                ret[item.first] = item.second.data;
+                                if (include_hidden || !item.second.hidden) {
+                                        ret[item.first] = item.second.data;
+                                }
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << "Module " << item.first << " ABI version mismatch (required " <<
                                         abi_version << ", have " << item.second.abi_version << ")\n";

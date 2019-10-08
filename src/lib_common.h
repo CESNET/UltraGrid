@@ -80,7 +80,7 @@ enum library_class {
 };
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
-void register_library(const char *name, const void *info, enum library_class, int abi_version);
+void register_library(const char *name, const void *info, enum library_class, int abi_version, int hidden);
 void list_modules(enum library_class, int abi_version);
 void list_all_modules();
 #ifdef __cplusplus
@@ -90,14 +90,14 @@ void list_all_modules();
 #ifdef __cplusplus
 #include <map>
 #include <string>
-std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version);
+std::map<std::string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden = true);
 #endif
 
-#define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname) static void funcname(void)  __attribute__((constructor));\
+#define REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, funcname, hidden) static void funcname(void)  __attribute__((constructor));\
 \
 static void funcname(void)\
 {\
-        register_library(#name, info, lclass, abi);\
+        register_library(#name, info, lclass, abi, hidden);\
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 
@@ -114,7 +114,13 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
  * multiple modules (eg. audio playback SDI) and without that, function would
  * be defined multiple times under the same name.
  */
-#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME)
+#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME, 0)
+
+/**
+ * Similar to @ref REGISTER_MODULE but do not show the module under help
+ * of correcponding class (usable for technical or deprecated modules).
+ */
+#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME, 1)
 
 #endif // defined LIB_COMMON_H
 
