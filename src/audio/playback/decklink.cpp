@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2016 CESNET z.s.p.o.
+ * Copyright (c) 2012-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,34 +41,34 @@
 #include "config_win32.h"
 #endif
 
-#include "blackmagic_common.h"
-#include "host.h"
-#include "debug.h"
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#include "video_codec.h"
-#include "tv.h"
-#include "audio/audio_playback.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "video_capture.h"
+#include <iostream>
+
 #include "audio/audio.h"
+#include "audio/audio_playback.h"
 #include "audio/utils.h"
+#include "blackmagic_common.h"
+#include "debug.h"
+#include "host.h"
+#include "lib_common.h"
+#include "rang.hpp"
+#include "tv.h"
+#include "video_codec.h"
+#include "video_capture.h"
 
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
 
-// defined int video_capture/decklink.cpp
-void print_output_modes(IDeckLink *);
+using rang::fg;
+using rang::style;
+using std::cout;
 
 namespace {
 class PlaybackDelegate;
 }
 
 #define DECKLINK_MAGIC 0x415f46d0
-
+#define MOD_NAME "[DeckLink audio play.] "
 
 struct state_decklink {
         uint32_t            magic;
@@ -119,7 +119,7 @@ static void audio_play_decklink_probe(struct device_info **available_devices, in
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
         strcpy((*available_devices)[0].id, "decklink");
-        strcpy((*available_devices)[0].name, "Output through DeckLink device");
+        strcpy((*available_devices)[0].name, "Audio-only output through DeckLink device");
         *count = 1;
 }
 
@@ -130,6 +130,15 @@ static void audio_play_decklink_help(const char *driver_name)
         int                             numDevices = 0;
         HRESULT                         result;
 
+        printf("Audio-only DeckLink output. For simultaneous audio and video use the DeckLink display "
+                        "with analog/embedded audio playback module.\n");
+        printf("Usage:\n");
+        cout << style::bold << fg::red << "\t-r decklink" << fg::reset << "[:<index>][:audioConsumerLevels={true|false}]\n";
+        printf("\n");
+        cout << style::bold << "audioConsumerLevels\n" << style::reset;
+        printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
+        printf("\tIf set false the selected analog input gain levels are used.\n");
+
         UNUSED(driver_name);
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -138,6 +147,8 @@ static void audio_play_decklink_help(const char *driver_name)
         {
                 return;
         }
+
+        printf("Available Blackmagic audio playback devices:\n");
         
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK)
@@ -188,13 +199,6 @@ static void *audio_play_decklink_init(const char *cfg)
         //BMDDisplayMode                    displayMode = bmdModeUnknown;
         int width, height;
 
-        log_msg(LOG_LEVEL_WARNING, "Decklink audio playback is most likely broken! Consider using "
-                        "\"-d decklink -r analog\" instead.\n");
-
-        if (!blackmagic_api_version_check()) {
-                return NULL;
-        }
-
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
         s->audio_consumer_levels = -1;
@@ -203,13 +207,7 @@ static void *audio_play_decklink_init(const char *cfg)
                 cardIdx = 0;
                 fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
         } else if (strcmp(cfg, "help") == 0) {
-                printf("Available Blackmagic audio playback devices:\n");
                 audio_play_decklink_help(NULL);
-                printf("Options:\n");
-                printf("\t-r decklink[:<index>][:audioConsumerLevels={true|false}]\n");
-                printf("audioConsumerLevels\n");
-                printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
-                printf("\tIf set false the selected analog input gain levels are used.\n");
                 free(s);
                 return NULL;
         } else  {
@@ -235,6 +233,13 @@ static void *audio_play_decklink_init(const char *cfg)
                 }
                 free(tmp);
         }
+
+        if (!blackmagic_api_version_check()) {
+                return NULL;
+        }
+
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Audio-only DeckLink output, if also video is needed, use "
+                        "\"-d decklink -r analog\" instead.\n");
 
         // Initialize the DeckLink API
         deckLinkIterator = create_decklink_iterator(true);
