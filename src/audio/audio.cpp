@@ -242,18 +242,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         assert(send_cfg != NULL);
         assert(recv_cfg != NULL);
 
-        if (!strcmp("help", send_cfg)) {
-                audio_capture_print_help();
-                exit_uv(0);
-                return NULL;
-        }
-        
-        if (!strcmp("help", recv_cfg)) {
-                audio_playback_help();
-                exit_uv(0);
-                return NULL;
-        }
-
         if(audio_channel_map &&
                      strcmp("help", audio_channel_map) == 0) {
                 audio_channel_map_usage();

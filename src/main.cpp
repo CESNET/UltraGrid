@@ -767,15 +767,15 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'r':
-                        if (!strcmp(optarg, "help")) {
-                                audio_capture_print_help();
+                        if (strcmp(optarg, "help") == 0) {
+                                audio_playback_help();
                                 return EXIT_SUCCESS;
                         }
                         audio_recv = optarg;                       
                         break;
                 case 's':
-                        if (!strcmp(optarg, "help")) {
-                                audio_playback_help();
+                        if (strcmp(optarg, "help") == 0) {
+                                audio_capture_print_help();
                                 return EXIT_SUCCESS;
                         }
                         audio_send = optarg;
