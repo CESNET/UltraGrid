@@ -173,7 +173,7 @@ void encoder_state::compress(shared_ptr<video_frame> frame)
                         vf_restore_metadata(out.get(), vf_metadata);
                         out->compress_end = time_since_epoch_in_ms();
                 } else {
-                        log_msg(LOG_LEVEL_WARNING, "[JPEG] Failed to encode frame!\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Failed to encode frame!\n");
                         out = shared_ptr<video_frame>(vf_alloc(1), vf_free);
                         vf_restore_metadata(out.get(), vf_metadata);
                 }
@@ -225,7 +225,7 @@ bool encoder_state::configure_with(struct video_desc desc)
                 m_rgb = true;
         }
         if (!m_decoder) { // no easy conversions found, try harder
-                log_msg(LOG_LEVEL_WARNING, "[JPEG] Trying slow decoders!\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Trying slow decoders!\n");
                 try_slow = true;
                 m_decoder = get_decoder_from_to(desc.color_spec, UYVY, try_slow);
                 m_rgb = false;
@@ -235,7 +235,7 @@ bool encoder_state::configure_with(struct video_desc desc)
                 }
         }
         if (!m_decoder) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] Unsupported codec: %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n",
                                 get_codec_name(desc.color_spec));
                 return false;
         }
@@ -244,7 +244,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         if (m_parent_state->m_quality != -1) {
                 m_encoder_param.quality = m_parent_state->m_quality;
         } else {
-                log_msg(LOG_LEVEL_INFO, "[JPEG] setting default encode parameters (quality: %d)\n",
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "setting default encode parameters (quality: %d)\n",
                                 m_encoder_param.quality);
         }
 
@@ -296,7 +296,7 @@ bool encoder_state::configure_with(struct video_desc desc)
                 (m_param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         if(!m_encoder) {
-                log_msg(LOG_LEVEL_ERROR, "[JPEG] Failed to create GPUJPEG encoder.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create GPUJPEG encoder.\n");
                 exit_uv(EXIT_FAILURE);
                 return false;
         }
@@ -317,19 +317,19 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
                         if (isdigit(tok[0]) && pos == 0) {
                                 m_quality = atoi(tok);
                                 if (m_quality <= 0 || m_quality > 100) {
-                                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Quality should be in interval [1-100]!\n");
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality should be in interval [1-100]!\n");
                                         return false;
                                 }
                         } else if (isdigit(tok[0]) && pos == 1) {
                                 m_restart_interval = atoi(tok);
                                 if (m_restart_interval < 0) {
-                                        log_msg(LOG_LEVEL_ERROR, "[JPEG] Error: Restart interval should be non-negative!\n");
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Restart interval should be non-negative!\n");
                                         return false;
                                 }
                         } else {
                                 if (strcasecmp(tok, "interleaved") == 0) {
                                         m_force_interleaved = true;
-                                } else if (strcasecmp(tok, "UYVY") == 0) {
+                                } else if (strcasecmp(tok, "YUV") == 0) {
                                         m_use_internal_codec = UYVY;
                                 } else if (strcasecmp(tok, "RGB") == 0) {
 #if LIBGPUJPEG_API_VERSION >= 4
@@ -339,7 +339,7 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
                                         return false;
 #endif
                                 }
-                                log_msg(LOG_LEVEL_WARNING, "[JPEG] WARNING: Trailing configuration parameters.\n");
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                         }
                         fmt = nullptr;
                         pos += 1;
@@ -406,12 +406,24 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << rang::fg::red << rang::style::bold << "-c GPUJPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:UYVY]\n" << rang::style::reset;
+                cout << "\t" << rang::fg::red << rang::style::bold << "-c GPUJPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV]\n" << rang::style::reset;
                 cout << "where\n";
-                cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset
-                        << "\t\tforce interleaved encoding (default for YCbCr input formats)\n";
-                cout << rang::style::bold << "\tRGB\n" << rang::style::reset
-                        << "\t\tforce RGB or UYVY as an internal JPEG color space\n";
+                cout << rang::style::bold << "\tquality\n" << rang::style::reset
+                        << "\t\tJPEG quality coefficient [0..100] - more is better\n";
+                cout << rang::style::bold << "\trestart interval\n" << rang::style::reset <<
+                        "\t\tInterval between independently entropy encoded block of MCUs,\n"
+                        "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
+                        "\t\treduces bandwidth at the expense of worse parallelization (if\n"
+                        "\t\treset intervals disabled, Huffman encoding is run on CPU). Leave\n"
+                        "\t\tuntouched if unsure.\n";
+                cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset <<
+                        "\t\tforce interleaved encoding (default for YCbCr input formats).\n"
+                        "\t\tNon-interleaved has slightly better performance for RGB at the\n"
+                        "\t\texpense of worse compatibility. Therefore this option may be\n"
+                        "\t\tenabled safely.\n";
+                cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset <<
+                        "\t\tforce RGB or YUV as an internal JPEG color space (otherwise\n"
+                        "\t\tsource color space is kept)\n";
                 return &compress_init_noerr;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
@@ -442,7 +454,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 int ret = gpujpeg_init_device(m_device_id, TRUE);
 
                 if(ret != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[JPEG] initializing CUDA device %d failed.\n", m_device_id);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", m_device_id);
                         exit_uv(EXIT_FAILURE);
                         return {};
                 }
