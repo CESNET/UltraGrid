@@ -860,7 +860,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_GPUJPEG
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression;
-                                int ret = compress_init(&uv.root_module, "JPEG:list_devices", &compression);
+                                int ret = compress_init(&uv.root_module, "GPUJPEG:list_devices", &compression);
                                 if(ret >= 0) {
                                         if(ret == 0) {
                                                 module_done(CAST_MODULE(compression));

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,6 +58,8 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+
+#define MOD_NAME "[GPUJPEG enc.] "
 
 using namespace std;
 
@@ -403,8 +405,8 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
         struct state_video_compress_jpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
-                cout << "JPEG comperssion usage:\n";
-                cout << "\t" << rang::fg::red << rang::style::bold << "-c JPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:UYVY]\n" << rang::style::reset;
+                cout << "GPUJPEG comperssion usage:\n";
+                cout << "\t" << rang::fg::red << rang::style::bold << "-c GPUJPEG" << rang::fg::reset << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:UYVY]\n" << rang::style::reset;
                 cout << "where\n";
                 cout << rang::style::bold << "\tinterleaved\n" << rang::style::reset
                         << "\t\tforce interleaved encoding (default for YCbCr input formats)\n";
@@ -589,8 +591,8 @@ start:
         }
 }
 
-const struct video_compress_info jpeg_info = {
-        "JPEG",
+const struct video_compress_info gpujpeg_info = {
+        "GPUJPEG",
         jpeg_compress_init,
         NULL,
         NULL,
@@ -614,7 +616,30 @@ const struct video_compress_info jpeg_info = {
         }
 };
 
-REGISTER_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+const struct video_compress_info jpeg_info = {
+        "JPEG",
+        [](struct module *parent, const char *opts) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n";
+                return jpeg_compress_init(parent, opts);
+        },
+        NULL,
+        NULL,
+        [](struct module *mod, std::shared_ptr<video_frame> in_frame) {
+                static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->push(in_frame);
+        },
+        [](struct module *mod) {
+                return static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->pop();
+        },
+        NULL,
+        NULL,
+        [] {
+                return list<compress_preset>{};
+        }
+};
+
+
+REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 
 } // end of anonymous namespace
 
