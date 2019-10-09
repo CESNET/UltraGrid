@@ -47,7 +47,8 @@
  * https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation#packet-formats
  * @todo
  * Custom PT allocation seems to be wrong - 20-23, although unassigned, should be
- * used for audio, 24+ for video but 25, 26 and 28 are registered (26 for JPEG).
+ * used for audio, 24+ for video but 25, 26 (JPEG) and 28 are registered (see RFC
+ * 3551, section 6).
  * PT_ENCRYPT_VIDEO_LDGM was moved from 26 to 29.
  */
 #define PT_ITU_T_G711_PCMU  0 /* mU-law std */
