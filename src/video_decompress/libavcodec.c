@@ -695,7 +695,10 @@ static int libavcodec_decompress_get_property(void *state, int property, void *v
                         if (*len < sizeof(int)) {
                                 return FALSE;
                         }
-                        *(int *) val = strcmp(s->codec_ctx->codec->name, "h264") == 0;
+                        *(int *) val = FALSE;
+                        if (s->codec_ctx && strcmp(s->codec_ctx->codec->name, "h264") == 0) {
+                                *(int *) val = TRUE;
+                        }
                         if (get_commandline_param("lavd-accept-corrupted")) {
                                 *(int *) val =
                                         strcmp(get_commandline_param("lavd-accept-corrupted"), "no") != 0;
