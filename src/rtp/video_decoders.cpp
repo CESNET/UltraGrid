@@ -1095,14 +1095,6 @@ after_linedecoder_lookup:
                                                 (*it).second,
                                                 decoder->decompress_state,
                                                 decoder->max_substreams)) {
-                                int res = 0, ret;
-                                size_t size = sizeof(res);
-                                ret = decompress_get_property(decoder->decompress_state[0],
-                                                DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
-                                                &res,
-                                                &size);
-                                decoder->accepts_corrupted_frame = ret && res;
-
                                 decoder->decoder_type = EXTERNAL_DECODER;
                                 goto after_decoder_lookup;
                         }
@@ -1356,6 +1348,12 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         }
                 }
                 decoder->merged_fb = display_mode != DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                int res = 0, ret;
+                size_t size = sizeof(res);
+                ret = decompress_get_property(decoder->decompress_state[0],
+                                DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
+                                &res, &size);
+                decoder->accepts_corrupted_frame = ret && res;
         }
 
         // Pass metadata to receiver thread (it can tweak parameters)
@@ -1402,6 +1400,10 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         return true;
 }
 
+/**
+ * @retval TRUE  if reconfiguration occured
+ * @retval FALSE reconfiguration was not needed
+ */
 static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc,
                 bool force = false, codec_t comp_int_fmt = VIDEO_CODEC_NONE)
