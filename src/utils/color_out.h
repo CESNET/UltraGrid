@@ -2,10 +2,11 @@
  * @file   utils/color_out.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Simple C wrapper around the rang header.
+ * Simple C wrapper around the rang header and utility macros for the
+ * rang.hpp (C++ only)
  */
 /*
- * Copyright (c) 2018 CESNET z.s.p.o.
+ * Copyright (c) 2018-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +42,9 @@
 #define COLOR_OUT_H_
 
 #ifdef __cplusplus
-extern "C" {
+#include "rang.hpp"
+#define BOLD(x) rang::style::bold << x << rang::style::reset
+#define RED(x) rang::fg::red << x << rang::fg::reset
 #endif
 
 #define COLOR_OUT_BOLD      1u
@@ -63,12 +66,10 @@ extern "C" {
 #define COLOR_OUT_CYAN    (7u<<4u)
 #define COLOR_OUT_GRAY    (8u<<4u)
 
-
-void color_out(uint32_t modificators, const char *format, ...);
-
 #ifdef __cplusplus
-}
+extern "C"
 #endif
+	void color_out(uint32_t modificators, const char *format, ...);
 
 #endif // defined COLOR_OUT_H_
 
