@@ -1357,7 +1357,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         out->tiles[0].data_len = 0;
         if (libav_codec_has_extradata(s->out_codec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
                 out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
-                *(uint32_t *) out->tiles[0].data = s->codec_ctx->extradata_size;
+                *(uint32_t *)(void *) out->tiles[0].data = s->codec_ctx->extradata_size;
                 memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
         }
 
