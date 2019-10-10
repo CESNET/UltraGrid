@@ -520,7 +520,7 @@ clean:
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
-	-rm -f Makefile config.status config.cache config.log src/config.h tags
+	-rm -f Makefile config.status config.cache config.log src/config.h cscope.out tags
 
 etags:
 	etags src/*.[ch] src/*/*.[ch]
@@ -632,3 +632,6 @@ uninstall:
 		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
+
+cscope:
+	cscope -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
