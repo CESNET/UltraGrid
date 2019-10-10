@@ -44,6 +44,7 @@
 #ifdef __cplusplus
 #include "rang.hpp"
 #define BOLD(x) rang::style::bold << x << rang::style::reset
+#define GREEN(x) rang::fg::green << x << rang::fg::reset
 #define RED(x) rang::fg::red << x << rang::fg::reset
 #endif
 

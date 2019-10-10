@@ -58,7 +58,7 @@
 #include "host.h"
 #include "keyboard_control.h"
 #include "messaging.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "utils/thread.h"
 #include "video.h"
 
@@ -389,22 +389,25 @@ void keyboard_control::run()
                         switch (c) {
                         case CTRL_X:
                                 m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
-                                LOG(LOG_LEVEL_NOTICE) << "Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n";
+                                cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
                                 break;
                         case '*':
                         case '/':
                         case '9':
                         case '0':
+                        case 'c':
+                        case 'C':
                         case 'm':
                         case 'M':
                         case '+':
                         case '-':
                         case 'e':
+                        case 's':
+                        case 'q':
                         case 'v':
-                        case 'c':
                         case 'V':
                                 if (m_locked_against_changes) {
-                                        LOG(LOG_LEVEL_NOTICE) << "Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n";
+                                        cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
                                         goto end_loop;
                                 } // else process it in next switch
                                 break;
@@ -414,20 +417,6 @@ void keyboard_control::run()
                         case 'i':
                                 cout << "\n";
                                 info();
-                                break;
-                        case 's':
-                                if (saved_log_level == -1) {
-                                        saved_log_level = log_level;
-                                        LOG(LOG_LEVEL_NOTICE) << "Output suspended, press 'q' to continue.\n";
-                                        log_level = LOG_LEVEL_QUIET;
-                                }
-                                break;
-                        case 'q':
-                                if (saved_log_level != -1) {
-                                        log_level = saved_log_level;
-                                        saved_log_level = -1;
-                                        LOG(LOG_LEVEL_NOTICE) << "Output resumed.\n";
-                                }
                                 break;
                         case '\n':
                         case '\r':
@@ -502,6 +491,20 @@ void keyboard_control::run()
                                 cout << "Log level: " << log_level << "\n";
                                 break;
                         }
+                        case 's':
+                                if (saved_log_level == -1) {
+                                        saved_log_level = log_level;
+                                        cout << GREEN("Output suspended, press 'q' to continue.\n");
+                                        log_level = LOG_LEVEL_QUIET;
+                                }
+                                break;
+                        case 'q':
+                                if (saved_log_level != -1) {
+                                        log_level = saved_log_level;
+                                        saved_log_level = -1;
+                                        cout << GREEN( "Output resumed.\n");
+                                }
+                                break;
                         default:
                                 if (unknown_key_in_first_switch) {
                                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
@@ -725,9 +728,7 @@ void keyboard_control::execute_command(const char *command) {
 
 void keyboard_control::read_command(bool multiple)
 {
-        int saved_log_level;
-
-        saved_log_level = log_level;
+        int saved_log_level = log_level;
         log_level = LOG_LEVEL_QUIET;
         restore_old_tio();
         if (multiple) {
@@ -741,6 +742,7 @@ void keyboard_control::read_command(bool multiple)
                 printf("control> ");
                 char buf[sizeof msg_universal::text];
                 if (!fgets(buf, sizeof buf - 1, stdin)) {
+                        log_level = saved_log_level;
                         break;
                 }
                 log_level = saved_log_level;
