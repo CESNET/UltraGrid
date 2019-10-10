@@ -352,6 +352,8 @@ static void usage(const char *exec_path, bool full = false)
  */
 static void *capture_thread(void *arg)
 {
+        set_thread_name(__func__);
+
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
         struct wait_obj *wait_obj;
