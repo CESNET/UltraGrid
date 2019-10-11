@@ -475,6 +475,7 @@ tests: test/run_tests
 	@test/run_tests
 
 UNITTEST_OBJS = unittest/run_tests.o \
+		unittest/get_framerate_test.o \
 		unittest/video_desc_test.o
 
 unittest/run_tests: $(UNITTEST_OBJS) $(OBJS)

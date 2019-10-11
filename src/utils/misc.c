@@ -42,6 +42,7 @@
 #endif
 
 #include <limits.h>
+#include <math.h>
 
 #include "debug.h"
 #include "utils/misc.h"
@@ -137,9 +138,11 @@ int get_framerate_n(double fps) {
 }
 
 int get_framerate_d(double fps) {
+        fps = fps - 0.00001; // we want to round halves down -> base for 10.5 could be 10 rather than 11
         int fps_rounded_x1000 = round(fps) * 1000;
-        if (abs(fps * 1001 - fps_rounded_x1000) <
-                        abs(fps * 1000 - fps_rounded_x1000)) {
+        if (fabs(fps * 1001 - fps_rounded_x1000) <
+                        fabs(fps * 1000 - fps_rounded_x1000)
+                        && fps * 1000 < fps_rounded_x1000) {
                 return 1001;
         } else {
                 return 1000;
