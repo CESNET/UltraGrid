@@ -2064,11 +2064,11 @@ then
 
         GPUJPEG_INC="$GPUJPEG_INC $LIBGPUJPEG_CFLAGS"
         GPUJPEG_LIB="$GPUJPEG_LIB $LIBGPUJPEG_LIBS"
-        GPUJPEG_COMPRESS_OBJ="src/video_compress/jpeg.o"
-        GPUJPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
+        GPUJPEG_COMPRESS_OBJ="src/video_compress/gpujpeg.o"
+        GPUJPEG_DECOMPRESS_OBJ="src/video_decompress/gpujpeg.o "
         AC_DEFINE([HAVE_GPUJPEG], [1], [Build with GPUJPEG support])
-        ADD_MODULE("vcompress_jpeg", "$GPUJPEG_COMPRESS_OBJ", "$GPUJPEG_LIB")
-        ADD_MODULE("vdecompress_jpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
+        ADD_MODULE("vcompress_gpujpeg", "$GPUJPEG_COMPRESS_OBJ", "$GPUJPEG_LIB")
+        ADD_MODULE("vdecompress_gpujpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
 
 	INC="$INC $GPUJPEG_INC"
         CUDA_MESSAGE
@@ -2145,8 +2145,8 @@ then
         gpujpeg_to_dxt=yes
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
         GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $JPEG_LIB"
-        GPUJPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
-        ADD_MODULE("vdecompress_jpeg_to_dxt", $JPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
+        GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
+        ADD_MODULE("vdecompress_gpujpeg_to_dxt", $GPUJPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
         AC_DEFINE([HAVE_GPUJPEG_TO_DXT], [1], [Build with GPUJPEG DXT transcode support])
         CUDA_MESSAGE
 fi

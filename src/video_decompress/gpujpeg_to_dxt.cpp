@@ -1,9 +1,9 @@
 /**
- * @file   video_decompress/jpeg_to_dxt.cpp
+ * @file   video_decompress/gpujpeg_to_dxt.cpp
  * @author Martin Pulec  <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * Copyright (c) 2012-2019, CESNET z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,18 +56,20 @@
 #include "video.h"
 #include "video_decompress.h"
 
+#define MOD_NAME "[GPUJPEG to DXT] "
+
 namespace {
 
 struct thread_data {
         thread_data() :
-                jpeg_decoder(0), desc(), out_codec(), ppb(), dxt_out_buff(0),
+                gpujpeg_decoder(0), desc(), out_codec(), ppb(), dxt_out_buff(0),
                 cuda_dev_index(-1)
         {}
         synchronized_queue<msg *, 1> m_in;
         // currently only for output frames
         synchronized_queue<msg *, 1> m_out;
 
-        struct gpujpeg_decoder  *jpeg_decoder;
+        struct gpujpeg_decoder  *gpujpeg_decoder;
         struct video_desc        desc;
         codec_t                  out_codec;
         int                      ppb;
@@ -100,7 +102,7 @@ struct msg_frame : public msg {
         int data_len;
 };
 
-struct state_decompress_jpeg_to_dxt {
+struct state_decompresss_gpujpeg_to_dxt {
         struct thread_data       thread_data[MAX_CUDA_DEVICES];
         pthread_t                thread_id[MAX_CUDA_DEVICES];
 
@@ -144,7 +146,7 @@ static void *worker_thread(void *arg)
                         struct gpujpeg_decoder_output decoder_output;
 
                         gpujpeg_decoder_output_set_cuda_buffer(&decoder_output);
-                        gpujpeg_decoder_decode(s->jpeg_decoder, (uint8_t *) frame_msg->data, frame_msg->data_len,
+                        gpujpeg_decoder_decode(s->gpujpeg_decoder, (uint8_t *) frame_msg->data, frame_msg->data_len,
                                         &decoder_output);
 
                         if (s->out_codec == DXT1) {
@@ -161,7 +163,7 @@ static void *worker_thread(void *arg)
                                                 output_frame->data_len,
                                                 CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) !=
                                         CUDA_WRAPPER_SUCCESS) {
-                                fprintf(stderr, "[jpeg_to_dxt] unable to copy from device.");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to copy from device.");
                         }
                         s->m_out.push(output_frame);
 
@@ -169,8 +171,8 @@ static void *worker_thread(void *arg)
                 }
         }
 
-        if(s->jpeg_decoder) {
-                gpujpeg_decoder_destroy(s->jpeg_decoder);
+        if(s->gpujpeg_decoder) {
+                gpujpeg_decoder_destroy(s->gpujpeg_decoder);
         }
 
         cuda_wrapper_free(s->dxt_out_buff);
@@ -178,11 +180,11 @@ static void *worker_thread(void *arg)
         return NULL;
 }
 
-static void * jpeg_to_dxt_decompress_init(void)
+static void * gpujpeg_to_dxt_decompress_init(void)
 {
-        struct state_decompress_jpeg_to_dxt *s;
+        struct state_decompresss_gpujpeg_to_dxt *s;
 
-        s = new state_decompress_jpeg_to_dxt;
+        s = new state_decompresss_gpujpeg_to_dxt;
 
         s->free = 0;
         s->occupied_count = 0;
@@ -190,7 +192,7 @@ static void * jpeg_to_dxt_decompress_init(void)
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                 int ret = gpujpeg_init_device(cuda_devices[i], TRUE);
                 if(ret != 0) {
-                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", cuda_devices[0]);
                         delete s;
                         return NULL;
                 }
@@ -205,7 +207,7 @@ static void * jpeg_to_dxt_decompress_init(void)
         return s;
 }
 
-static void flush(struct state_decompress_jpeg_to_dxt *s)
+static void flush(struct state_decompresss_gpujpeg_to_dxt *s)
 {
         if (s->occupied_count > 0) {
                 for (unsigned int i = 0; i < cuda_devices_count; ++i) {
@@ -226,10 +228,10 @@ static void flush(struct state_decompress_jpeg_to_dxt *s)
  * @return 0 to indicate error
  *         otherwise maximal buffer size which ins needed for image of given codec, width, and height
  */
-static int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
+static int gpujpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
+        struct state_decompresss_gpujpeg_to_dxt *s = (struct state_decompresss_gpujpeg_to_dxt *) state;
 
         UNUSED(rshift);
         UNUSED(gshift);
@@ -271,9 +273,9 @@ static int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc des
  */
 static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int ppb)
 {
-        if(s->jpeg_decoder != NULL) {
-                gpujpeg_decoder_destroy(s->jpeg_decoder);
-                s->jpeg_decoder = NULL;
+        if(s->gpujpeg_decoder != NULL) {
+                gpujpeg_decoder_destroy(s->gpujpeg_decoder);
+                s->gpujpeg_decoder = NULL;
         } else {
                 gpujpeg_init_device(cuda_devices[s->cuda_dev_index], 0);
         }
@@ -291,22 +293,22 @@ static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int
         //gpujpeg_init_device(cuda_device, GPUJPEG_OPENGL_INTEROPERABILITY);
 
 #if LIBGPUJPEG_API_VERSION <= 2
-        s->jpeg_decoder = gpujpeg_decoder_create();
+        s->gpujpeg_decoder = gpujpeg_decoder_create();
 #else
-        s->jpeg_decoder = gpujpeg_decoder_create(NULL);
+        s->gpujpeg_decoder = gpujpeg_decoder_create(NULL);
 #endif
-        if(!s->jpeg_decoder) {
-                fprintf(stderr, "Creating JPEG decoder failed.\n");
+        if(!s->gpujpeg_decoder) {
+                log_msg(LOG_LEVEL_ERROR, "Creating GPUJPEG decoder failed.\n");
                 return false;
         }
 
         return true;
 }
 
-static decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static decompress_status gpujpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq, video_frame_callbacks * /* callbacks */, codec_t * /* internal_codec */)
 {
-        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
+        struct state_decompresss_gpujpeg_to_dxt *s = (struct state_decompresss_gpujpeg_to_dxt *) state;
         UNUSED(frame_seq);
 
         msg_frame *message = new msg_frame(src_len);
@@ -332,7 +334,7 @@ static decompress_status jpeg_to_dxt_decompress(void *state, unsigned char *dst,
         return DECODER_GOT_FRAME;
 }
 
-static int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int gpujpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -342,9 +344,9 @@ static int jpeg_to_dxt_decompress_get_property(void *state, int property, void *
         return FALSE;
 }
 
-static void jpeg_to_dxt_decompress_done(void *state)
+static void gpujpeg_to_dxt_decompress_done(void *state)
 {
-        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
+        struct state_decompresss_gpujpeg_to_dxt *s = (struct state_decompresss_gpujpeg_to_dxt *) state;
 
         if(!state) {
                 return;
@@ -364,7 +366,7 @@ static void jpeg_to_dxt_decompress_done(void *state)
         delete s;
 }
 
-static const struct decode_from_to *jpeg_to_dxt_decompress_get_decoders() {
+static const struct decode_from_to *gpujpeg_to_dxt_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
 		{ JPEG, VIDEO_CODEC_NONE, DXT1, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, DXT5, 900 },
@@ -373,15 +375,15 @@ static const struct decode_from_to *jpeg_to_dxt_decompress_get_decoders() {
         return ret;
 }
 
-static const struct video_decompress_info jpeg_to_dxt_info = {
-        jpeg_to_dxt_decompress_init,
-        jpeg_to_dxt_decompress_reconfigure,
-        jpeg_to_dxt_decompress,
-        jpeg_to_dxt_decompress_get_property,
-        jpeg_to_dxt_decompress_done,
-        jpeg_to_dxt_decompress_get_decoders,
+static const struct video_decompress_info gpujpeg_to_dxt_info = {
+        gpujpeg_to_dxt_decompress_init,
+        gpujpeg_to_dxt_decompress_reconfigure,
+        gpujpeg_to_dxt_decompress,
+        gpujpeg_to_dxt_decompress_get_property,
+        gpujpeg_to_dxt_decompress_done,
+        gpujpeg_to_dxt_decompress_get_decoders,
 };
 
-REGISTER_MODULE(jpeg_to_dxt, &jpeg_to_dxt_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
+REGISTER_MODULE(gpujpeg_to_dxt, &gpujpeg_to_dxt_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
 

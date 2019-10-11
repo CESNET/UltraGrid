@@ -1,5 +1,5 @@
 /**
- * @file   src/video_compress/jpeg.cpp
+ * @file   src/video_compress/gpujpeg.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -71,7 +71,7 @@ using namespace std;
 #endif
 
 namespace {
-struct state_video_compress_jpeg;
+struct state_video_compress_gpujpeg;
 
 /**
  * @brief state for single instance of encoder running on one GPU
@@ -82,7 +82,7 @@ private:
         shared_ptr<video_frame> compress_step(shared_ptr<video_frame> frame);
         bool configure_with(struct video_desc desc);
 
-        struct state_video_compress_jpeg        *m_parent_state;
+        struct state_video_compress_gpujpeg        *m_parent_state;
         int                                      m_device_id;
         struct gpujpeg_encoder                  *m_encoder;
         struct video_desc                        m_saved_desc;
@@ -95,7 +95,7 @@ private:
         struct gpujpeg_parameters                m_encoder_param;
         struct gpujpeg_image_parameters          m_param_image;
 public:
-        encoder_state(struct state_video_compress_jpeg *s, int device_id) :
+        encoder_state(struct state_video_compress_gpujpeg *s, int device_id) :
                 m_parent_state(s), m_device_id(device_id), m_encoder{}, m_saved_desc{},
                 m_decoder{}, m_rgb{}, m_encoder_input_linesize{},
                 m_occupied{}
@@ -109,12 +109,12 @@ public:
 
         synchronized_queue<shared_ptr<struct video_frame>, 1> m_in_queue; ///< queue for uncompressed frames
         thread                                   m_thread_id;
-        bool                                     m_occupied; ///< protected by state_video_compress_jpeg::m_occupancy_lock
+        bool                                     m_occupied; ///< protected by state_video_compress_gpujpeg::m_occupancy_lock
 };
 
-struct state_video_compress_jpeg {
+struct state_video_compress_gpujpeg {
 private:
-        state_video_compress_jpeg(struct module *parent, const char *opts);
+        state_video_compress_gpujpeg(struct module *parent, const char *opts);
 
         vector<struct encoder_state *> m_workers;
         bool                           m_uses_worker_threads; ///< true if cuda_devices_count > 1
@@ -126,7 +126,7 @@ private:
         size_t m_ended_count; ///< number of workers ended
 
 public:
-        ~state_video_compress_jpeg() {
+        ~state_video_compress_gpujpeg() {
                 if (m_uses_worker_threads) {
                         for (auto worker : m_workers) {
                                 worker->m_thread_id.join();
@@ -137,7 +137,7 @@ public:
                         delete worker;
                 }
         }
-        static state_video_compress_jpeg *create(struct module *parent, const char *opts);
+        static state_video_compress_gpujpeg *create(struct module *parent, const char *opts);
         bool parse_fmt(char *fmt);
         void push(std::shared_ptr<video_frame> in_frame);
         std::shared_ptr<video_frame> pop();
@@ -158,7 +158,7 @@ public:
 /**
  * @brief Compresses single frame
  *
- * This function is called either from within jpeg_compress_push() if only one
+ * This function is called either from within gpujpeg_compress_push() if only one
  * CUDA device is used to avoid context switches that introduce some overhead
  * (measured ~4% performance drop).
  *
@@ -309,7 +309,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         return true;
 }
 
-bool state_video_compress_jpeg::parse_fmt(char *fmt)
+bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 {
         if(fmt && fmt[0] != '\0') {
                 char *tok, *save_ptr = NULL;
@@ -354,7 +354,7 @@ bool state_video_compress_jpeg::parse_fmt(char *fmt)
         return true;
 }
 
-state_video_compress_jpeg::state_video_compress_jpeg(struct module *parent, const char *opts) :
+state_video_compress_gpujpeg::state_video_compress_gpujpeg(struct module *parent, const char *opts) :
         m_uses_worker_threads{}, m_in_seq{},
         m_out_seq{}, m_ended_count{},
         m_module_data{}, m_restart_interval(-1), m_quality(-1)
@@ -372,7 +372,7 @@ state_video_compress_jpeg::state_video_compress_jpeg(struct module *parent, cons
         m_module_data.cls = MODULE_CLASS_DATA;
         m_module_data.priv_data = this;
         m_module_data.deleter = [](struct module *mod) {
-                struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
+                struct state_video_compress_gpujpeg *s = (struct state_video_compress_gpujpeg *) mod->priv_data;
                 delete s;
         };
 
@@ -380,13 +380,13 @@ state_video_compress_jpeg::state_video_compress_jpeg(struct module *parent, cons
 }
 
 /**
- * Creates JPEG encoding state and creates JPEG workers for every GPU that
+ * Creates GPUJPEG encoding state and creates GPUJPEG workers for every GPU that
  * will be used for compression (if cuda_devices_count > 1).
  */
-state_video_compress_jpeg *state_video_compress_jpeg::create(struct module *parent, const char *opts) {
+state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module *parent, const char *opts) {
         assert(cuda_devices_count > 0);
 
-        auto ret = new state_video_compress_jpeg(parent, opts);
+        auto ret = new state_video_compress_gpujpeg(parent, opts);
 
         for (unsigned int i = 0; i < cuda_devices_count; ++i) {
                 ret->m_workers.push_back(new encoder_state(ret, cuda_devices[i]));
@@ -405,9 +405,9 @@ state_video_compress_jpeg *state_video_compress_jpeg::create(struct module *pare
         return ret;
 }
 
-struct module * jpeg_compress_init(struct module *parent, const char *opts)
+struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
-        struct state_video_compress_jpeg *s;
+        struct state_video_compress_gpujpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
@@ -441,7 +441,7 @@ struct module * jpeg_compress_init(struct module *parent, const char *opts)
         }
 
         try {
-                s = state_video_compress_jpeg::create(parent, opts);
+                s = state_video_compress_gpujpeg::create(parent, opts);
         } catch (...) {
                 return NULL;
         }
@@ -533,7 +533,7 @@ void encoder_state::cleanup_state()
         m_encoder = NULL;
 }
 
-void state_video_compress_jpeg::push(std::shared_ptr<video_frame> in_frame)
+void state_video_compress_gpujpeg::push(std::shared_ptr<video_frame> in_frame)
 {
 
         if (in_frame) {
@@ -569,14 +569,14 @@ void state_video_compress_jpeg::push(std::shared_ptr<video_frame> in_frame)
 /**
  * @brief returns compressed frame
  *
- * This function takes frames from state_video_compress_jpeg::m_out_queue. It checks
+ * This function takes frames from state_video_compress_gpujpeg::m_out_queue. It checks
  * sequential number of frame from queue - if it is in the same order that
- * was sent to encoder, it is returned (according to state_video_compress_jpeg::m_out_seq).
- * If not, it is stored in state_video_compress_jpeg::m_out_frames and this function
+ * was sent to encoder, it is returned (according to state_video_compress_gpujpeg::m_out_seq).
+ * If not, it is stored in state_video_compress_gpujpeg::m_out_frames and this function
  * further waits for frame with appropriate seq. Frames that was not successfully encoded
  * have data_len member set to 0 and are skipped here.
  */
-std::shared_ptr<video_frame> state_video_compress_jpeg::pop()
+std::shared_ptr<video_frame> state_video_compress_gpujpeg::pop()
 {
 start:
         if (m_out_frames.find(m_out_seq) != m_out_frames.end()) {
@@ -614,14 +614,14 @@ start:
 
 const struct video_compress_info gpujpeg_info = {
         "GPUJPEG",
-        jpeg_compress_init,
+        gpujpeg_compress_init,
         NULL,
         NULL,
         [](struct module *mod, std::shared_ptr<video_frame> in_frame) {
-                static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->push(in_frame);
+                static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
         },
         [](struct module *mod) {
-                return static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->pop();
+                return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
         },
         NULL,
         NULL,
@@ -637,19 +637,19 @@ const struct video_compress_info gpujpeg_info = {
         }
 };
 
-const struct video_compress_info jpeg_info = {
+const struct video_compress_info deprecated_jpeg_info = {
         "JPEG",
         [](struct module *parent, const char *opts) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n";
-                return jpeg_compress_init(parent, opts);
+                return gpujpeg_compress_init(parent, opts);
         },
         NULL,
         NULL,
         [](struct module *mod, std::shared_ptr<video_frame> in_frame) {
-                static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->push(in_frame);
+                static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
         },
         [](struct module *mod) {
-                return static_cast<struct state_video_compress_jpeg *>(mod->priv_data)->pop();
+                return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
         },
         NULL,
         NULL,
@@ -660,7 +660,7 @@ const struct video_compress_info jpeg_info = {
 
 
 REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
-REGISTER_HIDDEN_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(jpeg, &deprecated_jpeg_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 
 } // end of anonymous namespace
 

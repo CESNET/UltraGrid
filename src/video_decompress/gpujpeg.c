@@ -1,9 +1,9 @@
 /**
- * @file   video_decompress/jpeg.cpp
+ * @file   video_decompress/gpujpeg.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,9 @@
 #define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
 #endif
 
-struct state_decompress_jpeg {
+#define MOD_NAME "[GPUJPEG dec.] "
+
+struct state_decompress_gpujpeg {
         struct gpujpeg_decoder *decoder;
 
         struct video_desc desc;
@@ -68,9 +70,9 @@ struct state_decompress_jpeg {
         codec_t out_codec;
 };
 
-static int configure_with(struct state_decompress_jpeg *s, struct video_desc desc);
+static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc desc);
 
-static int configure_with(struct state_decompress_jpeg *s, struct video_desc desc)
+static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc desc)
 {
         s->desc = desc;
 
@@ -101,17 +103,17 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
         return TRUE;
 }
 
-static void * jpeg_decompress_init(void)
+static void * gpujpeg_decompress_init(void)
 {
-        struct state_decompress_jpeg *s;
+        struct state_decompress_gpujpeg *s;
 
-        s = (struct state_decompress_jpeg *) calloc(1, sizeof(struct state_decompress_jpeg));
+        s = (struct state_decompress_gpujpeg *) calloc(1, sizeof(struct state_decompress_gpujpeg));
 
         int ret;
         printf("Initializing CUDA device %d...\n", cuda_devices[0]);
         ret = gpujpeg_init_device(cuda_devices[0], TRUE);
         if(ret != 0) {
-                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", cuda_devices[0]);
                 free(s);
                 return NULL;
         }
@@ -120,10 +122,10 @@ static void * jpeg_decompress_init(void)
         return s;
 }
 
-static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
+static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
+        struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
         
         assert(out_codec == RGB || out_codec == RGBA || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
 
@@ -148,7 +150,7 @@ static int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 #if LIBGPUJPEG_API_VERSION >= 4
-static decompress_status jpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
+static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
 	struct gpujpeg_image_parameters params = { 0 };
 #if LIBGPUJPEG_API_VERSION >= 5
 	if (gpujpeg_reader_get_image_info(buffer, len, &params, NULL) != 0) {
@@ -181,19 +183,19 @@ static decompress_status jpeg_probe_internal_codec(unsigned char *buffer, size_t
 }
 #endif
 
-static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
-        struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
+        struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
         int ret;
         struct gpujpeg_decoder_output decoder_output;
         int linesize;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
 #if LIBGPUJPEG_API_VERSION >= 4
-                return jpeg_probe_internal_codec(buffer, src_len, internal_codec);
+                return gpujpeg_probe_internal_codec(buffer, src_len, internal_codec);
 #else
                 assert("Old GPUJPEG, cannot probe!" && 0);
 #endif
@@ -244,7 +246,7 @@ static decompress_status jpeg_decompress(void *state, unsigned char *dst, unsign
         return DECODER_GOT_FRAME;
 }
 
-static int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int gpujpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         UNUSED(s);
@@ -265,9 +267,9 @@ static int jpeg_decompress_get_property(void *state, int property, void *val, si
         return ret;
 }
 
-static void jpeg_decompress_done(void *state)
+static void gpujpeg_decompress_done(void *state)
 {
-        struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
+        struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
 
         if(s->decoder) {
                 gpujpeg_decoder_destroy(s->decoder);
@@ -275,7 +277,7 @@ static void jpeg_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to *jpeg_decompress_get_decoders() {
+static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
 #if LIBGPUJPEG_API_VERSION >= 4
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
@@ -292,14 +294,14 @@ static const struct decode_from_to *jpeg_decompress_get_decoders() {
         return ret;
 }
 
-static const struct video_decompress_info jpeg_info = {
-        jpeg_decompress_init,
-        jpeg_decompress_reconfigure,
-        jpeg_decompress,
-        jpeg_decompress_get_property,
-        jpeg_decompress_done,
-        jpeg_decompress_get_decoders,
+static const struct video_decompress_info gpujpeg_info = {
+        gpujpeg_decompress_init,
+        gpujpeg_decompress_reconfigure,
+        gpujpeg_decompress,
+        gpujpeg_decompress_get_property,
+        gpujpeg_decompress_done,
+        gpujpeg_decompress_get_decoders,
 };
 
-REGISTER_MODULE(jpeg, &jpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
+REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
