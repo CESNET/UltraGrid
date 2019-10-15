@@ -35,6 +35,7 @@ using namespace std;
 static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);
 static const CHAR * GetSubtypeName(const GUID *pSubtype);
 static codec_t get_ug_codec(const GUID *pSubtype);
+static codec_t get_ug_from_subtype_name(const char *subtype_name);
 
 static void ErrorDescription(HRESULT hr)
 { 
@@ -339,7 +340,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 	cout << style::bold << fg::red << "\t-t dshow" << fg::reset << "[:device=<DeviceNumber>][:mode=<ModeNumber>][:RGB]\n" << style::reset;
 	cout << "\t    Flag " << style::bold << "RGB" << style::reset << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
-	cout << style::bold << fg::red << "\t-t dshow:[Device]<DeviceNumber>:RGB:<width>:<height>:<fps>\n\n" << fg::reset << style::reset;
+	cout << style::bold << fg::red << "\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>\n\n" << fg::reset << style::reset;
 
 	bool show_legend = false;
 
@@ -629,9 +630,11 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 					s->modeNumber = atoi(token);
 				} else {
 					s->modeNumber = -1;
-					if (strcmp(token, "YUYV") == 0) s->desc.color_spec = YUYV;
-					else if (strcmp(token, "RGB") == 0) s->desc.color_spec = BGR;
-					else {
+					s->desc.color_spec = get_codec_from_name(token);
+					if (s->desc.color_spec == VIDEO_CODEC_NONE) { // try Win subtype name
+						s->desc.color_spec = get_ug_from_subtype_name(token);
+					}
+					if (s->desc.color_spec == VIDEO_CODEC_NONE) {
 						fprintf(stderr, "[dshow] Unsupported video format: %s. "
                                                                 "Please contact us via %s if you need support for this codec.\n",
                                                                 token, PACKAGE_BUGREPORT);
@@ -1402,6 +1405,15 @@ static codec_t get_ug_codec(const GUID *pSubtype)
         return BitCountMap[LocateSubtype(pSubtype)].ug_codec;
 }
 
+static codec_t get_ug_from_subtype_name(const char *subtype_name) {
+	for (unsigned int i = 0; i < sizeof BitCountMap / sizeof BitCountMap[0]; ++i) {
+		if (strcmp(BitCountMap[i].pName, subtype_name) == 0) {
+			return BitCountMap[i].ug_codec;
+		}
+	}
+	return VIDEO_CODEC_NONE;
+}
+
 static int LocateSubtype(const GUID *pSubtype)
 {
         assert(pSubtype);
@@ -1455,7 +1467,11 @@ static const CHAR * GetSubtypeName(const GUID *pSubtype)
                 memcpy(fourcc, &pSubtype->Data1, 4);
                 return fourcc;
         } else {
-                return GetSubtypeNameA(pSubtype);
+		if (BitCountMap[LocateSubtype(pSubtype)].ug_codec != VIDEO_CODEC_NONE) {
+			return get_codec_name(BitCountMap[LocateSubtype(pSubtype)].ug_codec);
+		} else { // not supported by UG
+			return GetSubtypeNameA(pSubtype);
+		}
         }
 }
 
