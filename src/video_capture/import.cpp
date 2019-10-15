@@ -281,7 +281,7 @@ try {
 
         if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
                 printf("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end:fps=<fps>|:disable_audio}\n"
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|:disable_audio}\n"
                                 "\t\t<fps> - overrides FPS from sequence metadata\n");
                 delete s;
                 return VIDCAP_INIT_NOERR;
