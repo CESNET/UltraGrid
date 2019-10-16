@@ -1744,3 +1744,38 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
         return av_to_uv_conversions;
 }
 
+static const struct {
+        enum AVCodecID av;
+        codec_t uv;
+} av_to_uv_map[] = {
+        { AV_CODEC_ID_H264, H264 },
+        { AV_CODEC_ID_HEVC, H265 },
+        { AV_CODEC_ID_MJPEG, MJPG },
+        { AV_CODEC_ID_JPEG2000, J2K },
+        { AV_CODEC_ID_VP8, VP8 },
+        { AV_CODEC_ID_VP9, VP9 },
+        { AV_CODEC_ID_HUFFYUV, HFYU },
+        { AV_CODEC_ID_FFV1, FFV1 },
+        { AV_CODEC_ID_AV1, AV1 },
+};
+
+codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
+{
+        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
+                if (av_to_uv_map[i].av == av_codec) {
+                        return av_to_uv_map[i].uv;
+                }
+        }
+        return VIDEO_CODEC_NONE;
+}
+
+enum AVCodecID get_ug_to_av_codec(codec_t ug_codec)
+{
+        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
+                if (av_to_uv_map[i].uv == ug_codec) {
+                        return av_to_uv_map[i].av;
+                }
+        }
+        return AV_CODEC_ID_NONE;
+}
+

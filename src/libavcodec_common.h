@@ -211,6 +211,9 @@ struct av_to_uv_conversion {
 
 const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 
+codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
+enum AVCodecID get_ug_to_av_codec(codec_t ug_codec);
+
 #ifdef __cplusplus
 }
 #endif
