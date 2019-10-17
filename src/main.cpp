@@ -495,7 +495,7 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         long long mb5 = 5ll * 1000 * 1000, // it'll take 6.4 sec to send 4 MB frame at 5 Mbps
              gb100 = 100ll * 1000 * 1000 * 1000; // traffic shaping to eg. 40 Gbps may make sense
         if ((*bitrate < mb5 || *bitrate > gb100) && !force) {
-                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too %s, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate < mb5 ? "low" : "high", optarg);
+                log_msg(LOG_LEVEL_WARNING, "Bitrate %lld bps seems to be too %s, use \"-l %s!\" to force if this is not a mistake.\n", *bitrate, *bitrate < mb5 ? "low" : "high", optarg);
                 return false;
         }
         if (fixed) {
