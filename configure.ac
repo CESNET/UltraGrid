@@ -1661,6 +1661,45 @@ if test $libavcodec_req = yes -a $libavcodec = no; then
         AC_MSG_ERROR([Libavcodec not found]);
 fi
 
+# -------------------------------------------------------------------------------------------------
+# File input
+# -------------------------------------------------------------------------------------------------
+file=no
+AC_ARG_ENABLE(file,
+[  --disable-file          disable file input support (default is $build_default)]
+[                          Requires: libavcodec libavformat libavutil],
+[file_req=$enableval],
+[file_req=$build_default]
+)
+
+PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavoformat=yes], [found_libavformat=no])
+if test "$found_libavformat" != yes; then
+        AC_CHECK_HEADERS([libavformat/avformat.h])
+        AC_CHECK_LIB(avformat, avformat_open_input)
+
+        if test $ac_cv_header_libavformat_avformat_h = yes -a \
+                $ac_cv_lib_avformat_avformat_open_input = yes
+        then
+                found_libavformat=yes
+                LIBAVFORMAT_LIBS="-lavformat"
+        else
+                found_libavformat=no
+        fi
+fi
+
+if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes
+then
+        AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
+
+        COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
+        file=yes
+        ADD_MODULE("vidcap_file", "src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+fi
+
+if test $file_req = yes -a $file = no; then
+        AC_MSG_ERROR([File input dependencies not found]);
+fi
+
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL display
@@ -3011,6 +3050,8 @@ add_column() {
 }
 
 true # set $? to zero
+
+# capturers
 RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
@@ -3019,6 +3060,7 @@ RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
+RESULT=`add_column "$RESULT" "File input" $file $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl $?`
 RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`

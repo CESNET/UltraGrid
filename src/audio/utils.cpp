@@ -402,3 +402,16 @@ void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len, 
         }
 }
 
+bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len) {
+        bool ret = true;
+        if (frame->data_len + data_len > (size_t) frame->max_size) {
+                log_msg(LOG_LEVEL_WARNING, "Audio frame overrun, discarding some data.\n");
+                data_len = frame->max_size - frame->data_len;
+                ret = false;
+        }
+        memcpy(frame->data + frame->data_len, data, data_len);
+        frame->data_len += data_len;
+
+        return ret;
+}
+

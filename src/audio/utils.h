@@ -62,7 +62,6 @@ void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
 extern "C" {
 #endif
 
-
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *);
 struct audio_desc audio_desc_from_audio_channel(audio_channel *);
@@ -130,6 +129,12 @@ struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
 int32_t format_from_in_bps(const char * in, int bps);
 void format_to_out_bps(char *out, int bps, int32_t out_value);
 
+/**
+ * Appends data to audio frame
+ *
+ * @returns whether all data has been written
+ */
+bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len);
 
 #ifdef __cplusplus
 }
