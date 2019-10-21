@@ -711,10 +711,10 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
         bool slow[] = {false, true};
         for (auto use_slow : slow) {
-                for (auto const &i : ug_to_av_pixfmt_map) { // no FFMPEG conversion needed
-                        auto decoder = get_decoder_from_to(in, i.first, use_slow);
-                        if (decoder && i.second == av) {
-                                *out = i.first;
+                for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no FFMPEG conversion needed
+                        auto decoder = get_decoder_from_to(in, i->uv_codec, use_slow);
+                        if (decoder && i->av_pixfmt == av) {
+                                *out = i->uv_codec;
                                 return decoder;
                         }
                 }
@@ -763,20 +763,20 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 #endif
 
         // add the format itself if it matches the ultragrid one
-        if (ug_to_av_pixfmt_map.find(in_desc.color_spec) != ug_to_av_pixfmt_map.end()) {
+        if (get_ug_to_av_pixfmt(in_desc.color_spec) != AV_PIX_FMT_NONE) {
                 if (!force_conv_to || force_conv_to == in_desc.color_spec) {
-                        fmts.push_back(ug_to_av_pixfmt_map.find(in_desc.color_spec)->second);
+                        fmts.push_back(get_ug_to_av_pixfmt(in_desc.color_spec));
                 }
         }
 
         vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
-        for (auto const & i : ug_to_av_pixfmt_map) { // no to FFMPEG conversion, just UG conversion
-                if (get_decoder_from_to(in_desc.color_spec, i.first, true)) {
-                        int codec_subsampling = get_subsampling(i.second);
+        for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no to FFMPEG conversion, just UG conversion
+                if (get_decoder_from_to(in_desc.color_spec, i->uv_codec, true)) {
+                        int codec_subsampling = get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
-                                       (!force_conv_to || force_conv_to == i.first)) {
-                                available_formats.push_back(i.second);
+                                       (!force_conv_to || force_conv_to == i->uv_codec)) {
+                                available_formats.push_back(i->av_pixfmt);
                         }
                 }
         }
@@ -951,8 +951,8 @@ static bool find_decoder(struct video_desc desc,
                 codec_t *decoded_codec,
                 decoder_t *decoder)
 {
-        if (ug_to_av_pixfmt_map.find(desc.color_spec) != ug_to_av_pixfmt_map.end()
-                        && pixfmt == ug_to_av_pixfmt_map.find(desc.color_spec)->second) {
+        if (get_ug_to_av_pixfmt(desc.color_spec) != AV_PIX_FMT_NONE
+                        && pixfmt == get_ug_to_av_pixfmt(desc.color_spec)) {
                 *decoded_codec = desc.color_spec;
                 *decoder = vc_memcpy;
         } else {
@@ -1143,8 +1143,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 return false;
         }
         // conversion needed
-        if (ug_to_av_pixfmt_map.find(desc.color_spec) == ug_to_av_pixfmt_map.end()
-                        || ug_to_av_pixfmt_map.find(desc.color_spec)->second != s->selected_pixfmt) {
+        if (get_ug_to_av_pixfmt(desc.color_spec) == AV_PIX_FMT_NONE
+                        || get_ug_to_av_pixfmt(desc.color_spec) != s->selected_pixfmt) {
                 for(int i = 0; i < s->params.cpu_count; ++i) {
                         int chunk_size = s->codec_ctx->height / s->params.cpu_count;
                         chunk_size = chunk_size / 2 * 2;
@@ -1180,8 +1180,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) {
         // no conversion needed
-        if (ug_to_av_pixfmt_map.find(src) != ug_to_av_pixfmt_map.end()
-                        && ug_to_av_pixfmt_map.find(src)->second == fmt) {
+        if (get_ug_to_av_pixfmt(src) != AV_PIX_FMT_NONE
+                        && get_ug_to_av_pixfmt(src) == fmt) {
                 return nullptr;
         }
 

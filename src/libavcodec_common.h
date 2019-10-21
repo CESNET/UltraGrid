@@ -116,34 +116,6 @@ static void print_decoder_error(const char *mod_name, int rc) __attribute__((unu
 static void print_libav_error(int verbosity, const char *msg, int rc)  __attribute__((unused));
 static bool libav_codec_has_extradata(codec_t codec) __attribute__((unused));
 
-#ifdef __cplusplus
-#include <unordered_map>
-#include "types.h"
-
-static const std::unordered_map<codec_t, enum AVPixelFormat, std::hash<int>> ug_to_av_pixfmt_map = {
-        {RGBA, AV_PIX_FMT_RGBA},
-        {UYVY, AV_PIX_FMT_UYVY422},
-        {YUYV,AV_PIX_FMT_YUYV422},
-        //R10k,
-        //v210,
-        //DVS10,
-        //DXT1,
-        //DXT1_YUV,
-        //DXT5,
-        {RGB, AV_PIX_FMT_RGB24},
-        // DPX10,
-        //JPEG,
-        //RAW,
-        //H264,
-        //MJPG,
-        //VP8,
-        {BGR, AV_PIX_FMT_BGR24}
-        //J2K,
-
-};
-
-#endif // __cplusplus
-
 static void print_decoder_error(const char *mod_name, int rc) {
         char buf[1024];
 	switch (rc) {
@@ -213,6 +185,14 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
 enum AVCodecID get_ug_to_av_codec(codec_t ug_codec);
+
+struct uv_to_av_pixfmt {
+        codec_t uv_codec;
+        enum AVPixelFormat av_pixfmt;
+};
+codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(pure);
+enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(pure);
+const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(pure);
 
 #ifdef __cplusplus
 }

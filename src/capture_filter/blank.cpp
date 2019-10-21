@@ -202,8 +202,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         int bpp = get_bpp(codec);
         enum AVPixelFormat av_pixfmt = AV_PIX_FMT_NONE;
 
-        if (ug_to_av_pixfmt_map.find(codec) != ug_to_av_pixfmt_map.end()) {
-                av_pixfmt = ug_to_av_pixfmt_map.at(codec);
+        if (get_ug_to_av_pixfmt(codec) != AV_PIX_FMT_NONE) {
+                av_pixfmt = get_ug_to_av_pixfmt(codec);
         }
 
         if (s->in_relative_units) {
