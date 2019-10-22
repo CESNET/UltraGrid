@@ -136,6 +136,14 @@ void format_to_out_bps(char *out, int bps, int32_t out_value);
  */
 bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len);
 
+/**
+ * Creates a deep copy of src. Both struct and audio_frame::data is malloc'd.
+ *
+ * @param keep_size allocate exactly same storage (audio_frame::max_size) as
+ *                  original frame. If false, the storage may be shorter.
+ */
+struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_size);
+
 #ifdef __cplusplus
 }
 #endif

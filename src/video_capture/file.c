@@ -82,8 +82,8 @@ struct vidcap_state_lavf_decoder {
         struct video_desc video_desc;
 
         struct video_frame *video_frame;
-        struct audio_frame audio_frame[2];
-        int cur_aud_idx;
+        struct audio_frame audio_frame;
+        pthread_mutex_t audio_frame_lock;
 
         pthread_t thread_id;
         pthread_mutex_t lock;
@@ -114,14 +114,13 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
                 avformat_close_input(&s->fmt_ctx);
         }
 
-        for (int i = 0; i < 2; i++) {
-                free(s->audio_frame[i].data);
-        }
+        free(s->audio_frame.data);
         VIDEO_FRAME_DISPOSE(s->video_frame);
 
+        pthread_mutex_destroy(&s->audio_frame_lock);
         pthread_mutex_destroy(&s->lock);
-        pthread_cond_destroy(&s->new_frame_ready);
         pthread_cond_destroy(&s->frame_consumed);
+        pthread_cond_destroy(&s->new_frame_ready);
         free(s->src_filename);
         free(s);
 }
@@ -139,23 +138,26 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s,
                 return;
         }
 
+        pthread_mutex_lock(&s->audio_frame_lock);
         if (av_sample_fmt_is_planar(s->aud_ctx->sample_fmt)) {
                 int bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
-                if (s->audio_frame[s->cur_aud_idx].data_len + plane_count * bps * s->aud_ctx->frame_size > s->audio_frame[s->cur_aud_idx].max_size) {
+                if (s->audio_frame.data_len + plane_count * bps * s->aud_ctx->frame_size > s->audio_frame.max_size) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Audio buffer overflow!\n");
+                        pthread_mutex_unlock(&s->audio_frame_lock);
                         return;
                 }
                 for (int i = 0; i < plane_count; ++i) {
-                        mux_channel(s->audio_frame[s->cur_aud_idx].data + s->audio_frame[s->cur_aud_idx].data_len, (char *) frame->data[i], bps, s->aud_ctx->frame_size * bps, plane_count, i, 1.0);
+                        mux_channel(s->audio_frame.data + s->audio_frame.data_len, (char *) frame->data[i], bps, s->aud_ctx->frame_size * bps, plane_count, i, 1.0);
                 }
-                s->audio_frame[s->cur_aud_idx].data_len += plane_count * bps * s->aud_ctx->frame_size;
+                s->audio_frame.data_len += plane_count * bps * s->aud_ctx->frame_size;
         } else {
-                int data_size = av_samples_get_buffer_size(NULL, s->audio_frame[s->cur_aud_idx].ch_count,
+                int data_size = av_samples_get_buffer_size(NULL, s->audio_frame.ch_count,
                                 s->aud_ctx->frame_size,
                                 s->aud_ctx->sample_fmt, 1);
-                append_audio_frame(&s->audio_frame[s->cur_aud_idx], (char *) frame->data[0],
+                append_audio_frame(&s->audio_frame, (char *) frame->data[0],
                                 data_size);
         }
+        pthread_mutex_unlock(&s->audio_frame_lock);
 }
 
 static void *vidcap_file_worker(void *state) {
@@ -303,9 +305,10 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         s->magic = MAGIC;
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
+        CHECK(pthread_mutex_init(&s->audio_frame_lock, NULL));
         CHECK(pthread_mutex_init(&s->lock, NULL));
-        CHECK(pthread_cond_init(&s->new_frame_ready, NULL));
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
+        CHECK(pthread_cond_init(&s->new_frame_ready, NULL));
 
         if (!vidcap_file_parse_fmt(s, vidcap_params_get_fmt(params))) {
                 vidcap_file_common_cleanup(s);
@@ -341,15 +344,13 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 vidcap_file_common_cleanup(s);
                                 return VIDCAP_INIT_FAIL;
                         }
-                        for (int i = 0; i < 2; i++) {
-                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Input audio sample bps: %s\n",
-                                                av_get_sample_fmt_name(s->aud_ctx->sample_fmt));
-                                s->audio_frame[i].bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
-                                s->audio_frame[i].sample_rate = s->aud_ctx->sample_rate;
-                                s->audio_frame[i].ch_count = s->aud_ctx->channels;
-                                s->audio_frame[i].max_size = s->audio_frame[i].bps * s->audio_frame[i].ch_count * s->audio_frame[i].sample_rate;
-                                s->audio_frame[i].data = malloc(s->audio_frame[i].max_size);
-                        }
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Input audio sample bps: %s\n",
+                                        av_get_sample_fmt_name(s->aud_ctx->sample_fmt));
+                        s->audio_frame.bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
+                        s->audio_frame.sample_rate = s->aud_ctx->sample_rate;
+                        s->audio_frame.ch_count = s->aud_ctx->channels;
+                        s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
+                        s->audio_frame.data = malloc(s->audio_frame.max_size);
                 }
 
                 s->use_audio = true;
@@ -411,6 +412,11 @@ static void vidcap_file_done(void *state) {
         vidcap_file_common_cleanup(s);
 }
 
+static void vidcap_file_dispose_audio(struct audio_frame *f) {
+        free(f->data);
+        free(f);
+}
+
 static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **audio) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         struct video_frame *out;
@@ -426,15 +432,17 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
+        pthread_mutex_lock(&s->audio_frame_lock);
+        *audio = audio_frame_copy(&s->audio_frame, false);
+        (*audio)->dispose = vidcap_file_dispose_audio;
+        s->audio_frame.data_len = 0;
+        pthread_mutex_unlock(&s->audio_frame_lock);
+
         struct timeval t;
         do {
                 gettimeofday(&t, NULL);
         } while (tv_diff(t, s->last_frame) < 1 / s->video_desc.fps);
         s->last_frame = t;
-
-        *audio = &s->audio_frame[s->cur_aud_idx];
-        s->cur_aud_idx = (s->cur_aud_idx + 1) % 2;
-        s->audio_frame[s->cur_aud_idx].data_len = 0;
 
         return out;
 }

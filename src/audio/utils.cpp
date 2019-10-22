@@ -415,3 +415,14 @@ bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len) 
         return ret;
 }
 
+struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_size) {
+        struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
+        memcpy(ret, src, sizeof *ret);
+        if (!keep_size) {
+                ret->max_size = src->data_len;
+        }
+        ret->data = (char *) malloc(ret->max_size);
+        memcpy(ret->data, src->data, src->data_len);
+        return ret;
+}
+
