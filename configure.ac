@@ -1413,6 +1413,7 @@ then
         CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
         BLANK_OBJ="src/capture_filter/blank.o"
+        BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
         ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
         blank=yes
 fi
@@ -1651,7 +1652,7 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
-        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS $LIBSWSCALE_LIB")
+        ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS")
         ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
         ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
 fi
