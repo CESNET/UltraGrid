@@ -367,6 +367,7 @@ static void *capture_thread(void *arg)
 
                 if (audio != nullptr) {
                         audio_sdi_send(uv->audio, audio);
+                        AUDIO_FRAME_DISPOSE(audio);
                 }
 
                 if (tx_frame != NULL) {

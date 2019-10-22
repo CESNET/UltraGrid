@@ -96,8 +96,13 @@ typedef struct audio_frame
         void *network_source;   /* pointer to sockaddr_storage containing
                                    network source that the audio stream came
                                    from. Relevant only for receiver. */
+        void (*dispose)(struct audio_frame *); ///< called by sender when frame was processed
+        void *dispose_udata;    ///< additional data that may the caller use in dispose
 }
 audio_frame;
+
+#define AUDIO_FRAME_DISPOSE(frame) if ((frame) && (frame)->dispose) \
+        (frame)->dispose(frame)
 
 /// Audio channel is a non-owning view on audio_frame2 isolating one channel.
 typedef struct
