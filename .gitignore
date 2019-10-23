@@ -11,6 +11,7 @@ config.h.in
 uv
 bin/
 /build*/
+/documentation/
 lib/
 aclocal.m4
 autom4te.cache

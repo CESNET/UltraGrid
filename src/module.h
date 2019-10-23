@@ -1,14 +1,11 @@
+/**
+ * @file   module.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @ingroup module
+ */
 /*
- * FILE:    module.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2013-2019 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,12 +18,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +34,33 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+/**
+ * @file module.h
+ *
+ * @defgroup module
+ * @{
+ *
+ * ### Module registration
+ * Example:
+ * ```
+ * struct state {
+ *      struct module mod;
+ *      ...
+ * } s;
+ * module_init_default(&s->mod);
+ * s->mod.cls = MODULE_CLASS_<NAME>; // allways needed
+ * s->mod.priv_data = s;             // optional
+ * s->mod.deleter = deleter;         // only used for generic modules, see a note bellow
+ * module_register(&s->mod, s->parent);
+ * ```
+ *
+ * @note
+ * Struct module should be first inside the struct in order to be able to call
+ * @ref CAST_MODULE to it (however, it is currently strictly required only for
+ * @ref tx and @ref video_compress_info modules).
+ */
+
 #ifndef MODULE_H_
 #define MODULE_H_
 
@@ -159,3 +176,6 @@ void dump_tree(struct module *root, int indent);
 #endif
 
 #endif
+/**
+ * @} // group module
+ */

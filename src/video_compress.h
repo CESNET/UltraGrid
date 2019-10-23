@@ -1,12 +1,14 @@
 /**
  * @file   video_compress.h
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @ingroup video_compress
  *
  * @brief API for video compress drivers.
  */
 /*
- * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * Copyright (c) 2009-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +42,27 @@
 
 /**
  * @defgroup video_compress Video Compress
- * @{ */
+ * @{
+ * ### Adding new video compress module
+ * #### Module registration
+ * Deleter is currently called through the @ref module API. Therefore the
+ * compress module must be initialized and deleter set.
+ *
+ * Example:
+ * ```
+ * struct state_vcompress_xy {
+ *      struct module mod; // must be first!
+ *      ...
+ *      <other members>
+ * } *s;
+ * s = calloc(1, sizeof(struct state_vcompress_xy));
+ * module_init_default(&s->mod);
+ * s->mod.cls = MODULE_CLASS_DATA;
+ * s->mod.priv_data = s;
+ * s->mod.deleter = vcompress_xy_free;
+ * module_register(&s->mod, s->parent);
+ * ```
+ */
 #ifndef __video_compress_h
 #define __video_compress_h
 
@@ -57,9 +79,6 @@ struct module;
 
 extern struct module compress_init_noerr;
 
-/** @name API for capture modules
- * @{ */
-
 /**
  * @brief Initializes video compression
  * 
@@ -69,7 +88,6 @@ extern struct module compress_init_noerr;
  */
 typedef struct module *(*compress_init_t)(struct module *parent,
                 const char *cfg);
-/// @}
 
 void show_compress_help(void);
 int compress_init(struct module *parent, const char *config_string, struct compress_state **);
@@ -180,7 +198,7 @@ struct video_compress_info {
 
 std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 
-#endif
+#endif // __cplusplus
 
 #endif /* __video_compress_h */
 /** @} */ // end of video_compress

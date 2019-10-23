@@ -529,6 +529,15 @@ etags:
 ctags:
 	ctags src/*.[ch] src/*/*.[ch]
 
+cscope:
+	cscope -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+
+doc:
+	cd $(srcdir) && doxygen Doxyfile
+
+man:
+	cd $(srcdir)/data && ./make_man.sh all
+
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
 
@@ -634,5 +643,3 @@ uninstall:
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
 
-cscope:
-	cscope -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
