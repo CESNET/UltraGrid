@@ -19,6 +19,7 @@ extern "C" {
 }
 #endif
 
+// component indices to rgb_shift[] (@ref av_to_uv_convert)
 #define R 0
 #define G 1
 #define B 2
@@ -112,42 +113,13 @@ extern "C" {
  */
 #define LAVCD_LOCK_NAME "lavcd_lock"
 
-static void print_decoder_error(const char *mod_name, int rc) __attribute__((unused));
-static void print_libav_error(int verbosity, const char *msg, int rc)  __attribute__((unused));
-static bool libav_codec_has_extradata(codec_t codec) __attribute__((unused));
-
-static void print_decoder_error(const char *mod_name, int rc) {
-        char buf[1024];
-	switch (rc) {
-		case 0:
-			break;
-		case EAGAIN:
-			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
-			break;
-		case EINVAL:
-			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
-			break;
-		default:
-                        av_strerror(rc, buf, 1024);
-                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
-			break;
-	}
-}
-
-static void print_libav_error(int verbosity, const char *msg, int rc) {
-        char errbuf[1024];
-        av_strerror(rc, errbuf, sizeof(errbuf));
-
-        log_msg(verbosity, "%s: %s\n", msg, errbuf);
-}
-
-static bool libav_codec_has_extradata(codec_t codec) {
-        return codec == HFYU || codec == FFV1;
-}
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+void print_decoder_error(const char *mod_name, int rc);
+void print_libav_error(int verbosity, const char *msg, int rc);
+bool libav_codec_has_extradata(codec_t codec);
 
 typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
 typedef uv_to_av_convert *pixfmt_callback_t;

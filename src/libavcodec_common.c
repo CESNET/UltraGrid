@@ -68,6 +68,126 @@
 #endif
 
 //
+// UG <-> FFMPEG format translations
+//
+static const struct {
+        enum AVCodecID av;
+        codec_t uv;
+} av_to_uv_map[] = {
+        { AV_CODEC_ID_H264, H264 },
+        { AV_CODEC_ID_HEVC, H265 },
+        { AV_CODEC_ID_MJPEG, MJPG },
+        { AV_CODEC_ID_JPEG2000, J2K },
+        { AV_CODEC_ID_VP8, VP8 },
+        { AV_CODEC_ID_VP9, VP9 },
+        { AV_CODEC_ID_HUFFYUV, HFYU },
+        { AV_CODEC_ID_FFV1, FFV1 },
+        { AV_CODEC_ID_AV1, AV1 },
+};
+
+codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
+{
+        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
+                if (av_to_uv_map[i].av == av_codec) {
+                        return av_to_uv_map[i].uv;
+                }
+        }
+        return VIDEO_CODEC_NONE;
+}
+
+enum AVCodecID get_ug_to_av_codec(codec_t ug_codec)
+{
+        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
+                if (av_to_uv_map[i].uv == ug_codec) {
+                        return av_to_uv_map[i].av;
+                }
+        }
+        return AV_CODEC_ID_NONE;
+}
+
+/// known UG<->AV pixfmt conversions, terminate with NULL (returned by
+/// get_av_to_ug_pixfmts())
+static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
+        {RGBA, AV_PIX_FMT_RGBA},
+        {UYVY, AV_PIX_FMT_UYVY422},
+        {YUYV,AV_PIX_FMT_YUYV422},
+        //R10k,
+        //v210,
+        //DVS10,
+        //DXT1,
+        //DXT1_YUV,
+        //DXT5,
+        {RGB, AV_PIX_FMT_RGB24},
+        // DPX10,
+        //JPEG,
+        //RAW,
+        //H264,
+        //MJPG,
+        //VP8,
+        {BGR, AV_PIX_FMT_BGR24},
+        //J2K,
+        {0, 0}
+};
+
+codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) {
+        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
+                if (uv_to_av_pixfmts[i].av_pixfmt == av_pixfmt) {
+                        return uv_to_av_pixfmts[i].uv_codec;
+                }
+        }
+        return VIDEO_CODEC_NONE;
+}
+
+enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) {
+        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
+                if (uv_to_av_pixfmts[i].uv_codec == ug_codec) {
+                        return uv_to_av_pixfmts[i].av_pixfmt;
+                }
+        }
+        return AV_PIX_FMT_NONE;
+}
+
+/**
+ * Returns list all known FFMPEG to UG pixfmt conversions. Terminated with NULL
+ * element.
+ */
+const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts() {
+        return uv_to_av_pixfmts;
+}
+
+//
+// utility functions
+//
+void print_decoder_error(const char *mod_name, int rc) {
+        char buf[1024];
+	switch (rc) {
+		case 0:
+			break;
+		case EAGAIN:
+			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
+			break;
+		case EINVAL:
+			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
+			break;
+		default:
+                        av_strerror(rc, buf, 1024);
+                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
+			break;
+	}
+}
+
+void print_libav_error(int verbosity, const char *msg, int rc) {
+        char errbuf[1024];
+        av_strerror(rc, errbuf, sizeof(errbuf));
+
+        log_msg(verbosity, "%s: %s\n", msg, errbuf);
+}
+
+bool libav_codec_has_extradata(codec_t codec) {
+        return codec == HFYU || codec == FFV1;
+}
+
+//
 // uv_to_av_convert conversions
 //
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
@@ -1742,84 +1862,5 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {0, 0, 0, 0}
         };
         return av_to_uv_conversions;
-}
-
-static const struct {
-        enum AVCodecID av;
-        codec_t uv;
-} av_to_uv_map[] = {
-        { AV_CODEC_ID_H264, H264 },
-        { AV_CODEC_ID_HEVC, H265 },
-        { AV_CODEC_ID_MJPEG, MJPG },
-        { AV_CODEC_ID_JPEG2000, J2K },
-        { AV_CODEC_ID_VP8, VP8 },
-        { AV_CODEC_ID_VP9, VP9 },
-        { AV_CODEC_ID_HUFFYUV, HFYU },
-        { AV_CODEC_ID_FFV1, FFV1 },
-        { AV_CODEC_ID_AV1, AV1 },
-};
-
-codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
-{
-        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
-                if (av_to_uv_map[i].av == av_codec) {
-                        return av_to_uv_map[i].uv;
-                }
-        }
-        return VIDEO_CODEC_NONE;
-}
-
-enum AVCodecID get_ug_to_av_codec(codec_t ug_codec)
-{
-        for (unsigned int i = 0; i < sizeof av_to_uv_map / sizeof av_to_uv_map[0]; ++i) {
-                if (av_to_uv_map[i].uv == ug_codec) {
-                        return av_to_uv_map[i].av;
-                }
-        }
-        return AV_CODEC_ID_NONE;
-}
-
-static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
-        {RGBA, AV_PIX_FMT_RGBA},
-        {UYVY, AV_PIX_FMT_UYVY422},
-        {YUYV,AV_PIX_FMT_YUYV422},
-        //R10k,
-        //v210,
-        //DVS10,
-        //DXT1,
-        //DXT1_YUV,
-        //DXT5,
-        {RGB, AV_PIX_FMT_RGB24},
-        // DPX10,
-        //JPEG,
-        //RAW,
-        //H264,
-        //MJPG,
-        //VP8,
-        {BGR, AV_PIX_FMT_BGR24},
-        //J2K,
-        {0, 0}
-};
-
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) {
-        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
-                if (uv_to_av_pixfmts[i].av_pixfmt == av_pixfmt) {
-                        return uv_to_av_pixfmts[i].uv_codec;
-                }
-        }
-        return VIDEO_CODEC_NONE;
-}
-
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) {
-        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
-                if (uv_to_av_pixfmts[i].uv_codec == ug_codec) {
-                        return uv_to_av_pixfmts[i].av_pixfmt;
-                }
-        }
-        return AV_PIX_FMT_NONE;
-}
-
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts() {
-        return uv_to_av_pixfmts;
 }
 
