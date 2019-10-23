@@ -265,7 +265,8 @@ function MODULE_NAME() {
 }
 
 # Adds the module to UltraGrid build system.
-# @param $1 name of the module
+# @param $1 name of the module, should be in format <class>_<name> unless
+#           sure that the modular build won't take place
 # @param $2 object files
 # @param $3 libraries
 # @param $4 static libraries (?)
@@ -1739,7 +1740,7 @@ then
         gl=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 	INC="$INC $GL_INC"
-	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB")
+	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 
 if test $gl_req = yes -a $gl = no; then
