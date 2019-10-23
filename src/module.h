@@ -71,12 +71,13 @@
 #endif
 
 #include "messaging.h"
+#include "utils/misc.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MODULE_MAGIC 0xf1125b44
+#define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
 
 enum module_class {
         MODULE_CLASS_NONE = 0,
@@ -110,6 +111,7 @@ typedef void (*notify_t)(struct module *);
  */
 struct module {
         uint32_t magic;
+        uint32_t priv_magic; ///< optional magic number that can a module set
         pthread_mutex_t lock;
         enum module_class cls;
         struct module *parent;
