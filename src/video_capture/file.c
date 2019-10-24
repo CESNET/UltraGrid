@@ -83,11 +83,13 @@ struct vidcap_state_lavf_decoder {
         struct SwsContext *sws_ctx;
         bool failed;
         bool loop;
+        bool new_msg;
         bool no_decode;
         bool paused;
         bool use_audio;
 
         int video_stream_idx, audio_stream_idx;
+        int64_t last_vid_pts;
 
         struct video_desc video_desc;
 
@@ -177,8 +179,25 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
 
-#define FAILED { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
-#define CHECK_FF(cmd) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); FAILED} } while(0)
+#define CHECK_FF(cmd, action_failed) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); action_failed} } while(0)
+static bool vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
+        struct message *msg;
+        while ((msg = check_message(&s->mod)) != NULL) {
+                struct msg_universal *msg_univ = (struct msg_universal *) msg;
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Message: \"%s\"\n", msg_univ->text);
+                if (strstr(msg_univ->text, "seek ") != NULL) {
+                        const char *count_str = msg_univ->text + strlen("seek ");
+                        int sec = atoi(count_str);
+                        AVRational tb = s->fmt_ctx->streams[s->video_stream_idx]->time_base;
+                        CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, s->fmt_ctx->streams[s->video_stream_idx]->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
+                }
+
+                free_message(msg, new_response(RESPONSE_OK, NULL));
+        }
+        return true;
+}
+
+#define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
 static void *vidcap_file_worker(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         AVPacket pkt;
@@ -186,22 +205,34 @@ static void *vidcap_file_worker(void *state) {
         pkt.size = 0;
         pkt.data = 0;
         while (!s->should_exit) {
+                pthread_mutex_lock(&s->lock);
+                if (s->new_msg) {
+                        vidcap_file_process_messages(s);
+                        s->new_msg = false;
+                }
+                pthread_mutex_unlock(&s->lock);
+
                 int ret = av_read_frame(s->fmt_ctx, &pkt);
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
-                                CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0));
+                                CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
                                 continue;
                         } else {
                                 pthread_mutex_lock(&s->lock);
                                 s->paused = true;
-                                pthread_cond_wait(&s->paused_cv, &s->lock);
-                                pthread_mutex_unlock(&s->lock);
-                                if (should_exit) {
+                                while (!s->should_exit && !s->new_msg) {
+                                        pthread_cond_wait(&s->paused_cv, &s->lock);
+                                }
+                                if (s->should_exit) {
+                                        pthread_mutex_unlock(&s->lock);
                                         break;
+                                } else { // new_msg
+                                        pthread_mutex_unlock(&s->lock);
+                                        continue;
                                 }
                         }
                 }
-                CHECK_FF(ret); // check the return value in the end
+                CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "received %s packet, ID %d, pos %d, size %d\n",
                                 av_get_media_type_string(
@@ -229,6 +260,7 @@ static void *vidcap_file_worker(void *state) {
                         }
                         av_frame_free(&frame);
                 } else if (pkt.stream_index == s->video_stream_idx) {
+                        s->last_vid_pts = pkt.pts;
                         struct video_frame *out;
                         if (s->no_decode) {
                                 out = vf_alloc_desc(s->video_desc);
@@ -332,12 +364,11 @@ static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
 }
 
 static void vidcap_file_new_message(struct module *mod) {
-        struct message *msg;
-        while ((msg = check_message(mod)) != NULL) {
-                struct msg_universal *msg_univ = (struct msg_universal *) msg;
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Message: \"%s\"\n", msg_univ->text);
-                free_message(msg, new_response(RESPONSE_OK, NULL));
-        }
+        struct vidcap_state_lavf_decoder *s = mod->priv_data;
+        pthread_mutex_lock(&s->lock);
+        s->new_msg = true;
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->paused_cv);
 }
 
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
@@ -445,8 +476,11 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
 
-        pthread_create(&s->thread_id, NULL, vidcap_file_worker, s);
+        s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
+
         vidcap_import_register_keyboard_ctl(get_root_module(&s->mod));
+
+        pthread_create(&s->thread_id, NULL, vidcap_file_worker, s);
 
         *state = s;
         return VIDCAP_INIT_OK;
