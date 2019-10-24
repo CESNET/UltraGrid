@@ -39,6 +39,10 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * - selectable pixel format
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -60,22 +64,28 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "libavcodec_common.h"
+#include "messaging.h"
+#include "module.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture/import.h" // vidcap_import_register_keyboard_ctl
 
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
 struct vidcap_state_lavf_decoder {
-        uint32_t magic;
+        struct module mod;
         char *src_filename;
         AVFormatContext *fmt_ctx;
         AVCodecContext *aud_ctx, *vid_ctx;
         struct SwsContext *sws_ctx;
-        bool use_audio;
+        bool failed;
+        bool loop;
         bool no_decode;
+        bool paused;
+        bool use_audio;
 
         int video_stream_idx, audio_stream_idx;
 
@@ -89,6 +99,7 @@ struct vidcap_state_lavf_decoder {
         pthread_mutex_t lock;
         pthread_cond_t new_frame_ready;
         pthread_cond_t frame_consumed;
+        pthread_cond_t paused_cv;
         struct timeval last_frame;
 
         bool should_exit;
@@ -96,8 +107,13 @@ struct vidcap_state_lavf_decoder {
 
 static void vidcap_file_show_help() {
         color_out(0, "Usage:\n");
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "-t file:<name>");
-        color_out(COLOR_OUT_BOLD, "[:nodecode]\n");
+        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t file:<name>");
+        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode]\n");
+        color_out(0, "\t\twhere\n");
+        color_out(COLOR_OUT_BOLD, "\tloop\n");
+        color_out(0, "\t\tloop the playback\n");
+        color_out(COLOR_OUT_BOLD, "\tnodecode\n");
+        color_out(0, "\t\tdon't decompress the video (may not work because required data for correct decompess are in container or UG doesn't recognize the codec)\n");
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -121,12 +137,13 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->frame_consumed);
         pthread_cond_destroy(&s->new_frame_ready);
+        pthread_cond_destroy(&s->paused_cv);
         free(s->src_filename);
+        module_done(&s->mod);
         free(s);
 }
 
-static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s,
-                AVFrame * frame) {
+static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame * frame) {
         int plane_count = av_sample_fmt_is_planar(s->aud_ctx->sample_fmt) ? s->aud_ctx->channels : 1;
         // transform from floats
         if (av_get_alt_sample_fmt(s->aud_ctx->sample_fmt, 0) == AV_SAMPLE_FMT_FLT) {
@@ -160,14 +177,32 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s,
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
 
+#define FAILED { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
+#define CHECK_FF(cmd) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); FAILED} } while(0)
 static void *vidcap_file_worker(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
-        int ret;
         AVPacket pkt;
         av_init_packet(&pkt);
         pkt.size = 0;
         pkt.data = 0;
-        while (!s->should_exit && av_read_frame(s->fmt_ctx, &pkt) >= 0) {
+        while (!s->should_exit) {
+                int ret = av_read_frame(s->fmt_ctx, &pkt);
+                if (ret == AVERROR_EOF) {
+                        if (s->loop) {
+                                CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0));
+                                continue;
+                        } else {
+                                pthread_mutex_lock(&s->lock);
+                                s->paused = true;
+                                pthread_cond_wait(&s->paused_cv, &s->lock);
+                                pthread_mutex_unlock(&s->lock);
+                                if (should_exit) {
+                                        break;
+                                }
+                        }
+                }
+                CHECK_FF(ret); // check the return value in the end
+
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "received %s packet, ID %d, pos %d, size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
@@ -231,6 +266,7 @@ static void *vidcap_file_worker(void *state) {
                                 uint8_t *dst[4] = { (uint8_t *) out->tiles[0].data };
                                 sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
                                                 frame->height, dst, video_dst_linesize);
+                                av_frame_free(&frame);
                                 out->callbacks.dispose = vf_free;
                         }
                         pthread_mutex_lock(&s->lock);
@@ -261,7 +297,9 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                         tmp = NULL;
                         continue;
                 }
-                if (strcmp(item, "nodecode") == 0) {
+                if (strcmp(item, "loop") == 0) {
+                        s->loop = true;
+                } else if (strcmp(item, "nodecode") == 0) {
                         s->no_decode = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
@@ -293,6 +331,15 @@ static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
         return dec_ctx;
 }
 
+static void vidcap_file_new_message(struct module *mod) {
+        struct message *msg;
+        while ((msg = check_message(mod)) != NULL) {
+                struct msg_universal *msg_univ = (struct msg_universal *) msg;
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Message: \"%s\"\n", msg_univ->text);
+                free_message(msg, new_response(RESPONSE_OK, NULL));
+        }
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         if (strlen(vidcap_params_get_fmt(params)) == 0 ||
@@ -302,13 +349,19 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         }
 
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
-        s->magic = MAGIC;
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
         CHECK(pthread_mutex_init(&s->audio_frame_lock, NULL));
         CHECK(pthread_mutex_init(&s->lock, NULL));
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
         CHECK(pthread_cond_init(&s->new_frame_ready, NULL));
+        CHECK(pthread_cond_init(&s->paused_cv, NULL));
+        module_init_default(&s->mod);
+        s->mod.priv_magic = MAGIC;
+        s->mod.cls = MODULE_CLASS_DATA;
+        s->mod.priv_data = s;
+        s->mod.new_message = vidcap_file_new_message;
+        module_register(&s->mod, vidcap_params_get_parent(params));
 
         if (!vidcap_file_parse_fmt(s, vidcap_params_get_fmt(params))) {
                 vidcap_file_common_cleanup(s);
@@ -335,7 +388,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 if (s->audio_stream_idx < 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
-                        return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+                        return VIDCAP_INIT_FAIL;
                 } else {
                         s->aud_ctx = vidcap_file_open_dec_ctx(dec,
                                         s->fmt_ctx->streams[s->audio_stream_idx]);
@@ -389,10 +442,11 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                         s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
                                         0, NULL, NULL, NULL);
                 }
-                // todo s->video_desc.interlacing
+                s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
 
         pthread_create(&s->thread_id, NULL, vidcap_file_worker, s);
+        vidcap_import_register_keyboard_ctl(get_root_module(&s->mod));
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -400,12 +454,13 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
 static void vidcap_file_done(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
-        assert(s->magic == MAGIC);
+        assert(s->mod.priv_magic == MAGIC);
 
         pthread_mutex_lock(&s->lock);
         s->should_exit = true;
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
+        pthread_cond_signal(&s->paused_cv);
 
         pthread_join(s->thread_id, NULL);
 
@@ -417,15 +472,20 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
         free(f);
 }
 
+
 static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **audio) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         struct video_frame *out;
 
-        assert(s->magic == MAGIC);
+        assert(s->mod.priv_magic == MAGIC);
         *audio = NULL;
         pthread_mutex_lock(&s->lock);
-        while (s->video_frame == NULL) {
+        while (s->video_frame == NULL && !s->failed) {
                 pthread_cond_wait(&s->new_frame_ready, &s->lock);
+        }
+        if (s->failed) {
+                pthread_mutex_unlock(&s->lock);
+                return NULL;
         }
         out = s->video_frame;
         s->video_frame = NULL;

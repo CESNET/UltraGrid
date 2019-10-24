@@ -43,6 +43,8 @@ extern "C" {
 #endif
 
 bool import_has_audio(const char *dir);
+// used also by file capture which has the same bindings
+void vidcap_import_register_keyboard_ctl(struct module *root);
 
 #ifdef __cplusplus
 }
