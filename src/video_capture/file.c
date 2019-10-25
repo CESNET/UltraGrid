@@ -42,6 +42,8 @@
 /**
  * @todo
  * - selectable pixel format
+ * - audio-only input
+ * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -68,6 +70,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/time.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/import.h" // vidcap_import_register_keyboard_ctl
@@ -187,8 +190,13 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                 if (strstr(msg->text, "seek ") != NULL) {
                         const char *count_str = msg->text + strlen("seek ");
                         int sec = atoi(count_str);
-                        AVRational tb = s->fmt_ctx->streams[s->video_stream_idx]->time_base;
-                        CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, s->fmt_ctx->streams[s->video_stream_idx]->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
+                        AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
+                        AVRational tb = st->time_base;
+                        CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, st->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
+                        char position[13], duration[13];
+                        format_time_ms(s->last_vid_pts * tb.num * 1000 / tb.den  + sec * 1000, position);
+                        format_time_ms(st->duration * tb.num * 1000 / tb.den, duration);
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Seeking to %s / %s\n", position, duration);
                 } else if (strcmp(msg->text, "pause") == 0) {
                         s->paused = !s->paused;
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%s\n", s->paused ? "paused" : "unpaused");
