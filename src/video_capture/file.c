@@ -180,21 +180,28 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
 }
 
 #define CHECK_FF(cmd, action_failed) do { int rc = cmd; if (rc < 0) { char buf[1024]; av_strerror(rc, buf, 1024); log_msg(LOG_LEVEL_ERROR, MOD_NAME #cmd ": %s\n", buf); action_failed} } while(0)
-static bool vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
-        struct message *msg;
-        while ((msg = check_message(&s->mod)) != NULL) {
-                struct msg_universal *msg_univ = (struct msg_universal *) msg;
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Message: \"%s\"\n", msg_univ->text);
-                if (strstr(msg_univ->text, "seek ") != NULL) {
-                        const char *count_str = msg_univ->text + strlen("seek ");
+static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
+        struct msg_universal *msg;
+        while ((msg = (struct msg_universal *) check_message(&s->mod)) != NULL) {
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Message: \"%s\"\n", msg->text);
+                if (strstr(msg->text, "seek ") != NULL) {
+                        const char *count_str = msg->text + strlen("seek ");
                         int sec = atoi(count_str);
                         AVRational tb = s->fmt_ctx->streams[s->video_stream_idx]->time_base;
                         CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, s->fmt_ctx->streams[s->video_stream_idx]->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
+                } else if (strcmp(msg->text, "pause") == 0) {
+                        s->paused = !s->paused;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%s\n", s->paused ? "paused" : "unpaused");
+                } else if (strcmp(msg->text, "quit") == 0) {
+                        exit_uv(0);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown message: %s\n", msg->text);
+                        free_message((struct message *) msg, new_response(RESPONSE_BAD_REQUEST, "unknown message"));
+                        continue;
                 }
 
-                free_message(msg, new_response(RESPONSE_OK, NULL));
+                free_message((struct message *) msg, new_response(RESPONSE_OK, NULL));
         }
-        return true;
 }
 
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
@@ -210,6 +217,17 @@ static void *vidcap_file_worker(void *state) {
                         vidcap_file_process_messages(s);
                         s->new_msg = false;
                 }
+                if (s->paused) {
+                        while (!s->should_exit && !s->new_msg) {
+                                pthread_cond_wait(&s->paused_cv, &s->lock);
+                        }
+                        pthread_mutex_unlock(&s->lock);
+                        if (s->should_exit) {
+                                break;
+                        } else { // new_msg -> process in next iteration
+                                continue;
+                        }
+                }
                 pthread_mutex_unlock(&s->lock);
 
                 int ret = av_read_frame(s->fmt_ctx, &pkt);
@@ -218,18 +236,8 @@ static void *vidcap_file_worker(void *state) {
                                 CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
                                 continue;
                         } else {
-                                pthread_mutex_lock(&s->lock);
                                 s->paused = true;
-                                while (!s->should_exit && !s->new_msg) {
-                                        pthread_cond_wait(&s->paused_cv, &s->lock);
-                                }
-                                if (s->should_exit) {
-                                        pthread_mutex_unlock(&s->lock);
-                                        break;
-                                } else { // new_msg
-                                        pthread_mutex_unlock(&s->lock);
-                                        continue;
-                                }
+                                continue;
                         }
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
