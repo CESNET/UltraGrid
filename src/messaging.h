@@ -1,12 +1,6 @@
 #ifndef _MESSAGING_H
 #define _MESSAGING_H
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-
 #include "types.h"
 
 #ifdef __cplusplus
