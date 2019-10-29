@@ -85,11 +85,11 @@ private:
         std::thread m_keyboard_thread;
         struct module *m_root;
 #ifdef HAVE_TERMIOS_H
-        int m_should_exit_pipe[2];
+        int m_event_pipe[2];
 #else
-        bool m_should_exit;
         std::condition_variable m_cv;
 #endif
+        bool m_should_exit;
         bool m_started;
         bool m_locked_against_changes;
         std::time_t m_start_time;

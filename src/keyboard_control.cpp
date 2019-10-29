@@ -110,10 +110,9 @@ static void restore_old_tio(void)
 keyboard_control::keyboard_control(struct module *parent) :
         m_root(nullptr),
 #ifdef HAVE_TERMIOS_H
-        m_should_exit_pipe{0, 0},
-#else
-        m_should_exit(false),
+        m_event_pipe{0, 0},
 #endif
+        m_should_exit(false),
         m_started(false),
         m_locked_against_changes(true)
 {
@@ -140,7 +139,7 @@ void keyboard_control::start()
                 return;
         }
 #ifdef HAVE_TERMIOS_H
-        if (pipe(m_should_exit_pipe) != 0) {
+        if (pipe(m_event_pipe) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "[key control] Cannot create control pipe!\n");
                 return;
         }
@@ -168,21 +167,21 @@ void keyboard_control::stop()
         if (!m_started) {
                 return;
         }
-#ifdef HAVE_TERMIOS_H
-        char c = 0;
-        assert(write(m_should_exit_pipe[1], &c, 1) == 1);
-        close(m_should_exit_pipe[1]);
-#else
         unique_lock<mutex> lk(m_lock);
         m_should_exit = true;
         lk.unlock();
+#ifdef HAVE_TERMIOS_H
+        char c = 0;
+        assert(write(m_event_pipe[1], &c, 1) == 1);
+        close(m_event_pipe[1]);
+#else
         m_cv.notify_one();
 #endif
         m_keyboard_thread.join();
         m_started = false;
 
 #ifdef HAVE_TERMIOS_H
-        close(m_should_exit_pipe[0]);
+        close(m_event_pipe[0]);
 #endif
 }
 
@@ -345,8 +344,8 @@ void keyboard_control::run()
                 fd_set set;
                 FD_ZERO(&set);
                 FD_SET(0, &set);
-                FD_SET(m_should_exit_pipe[0], &set);
-                select(m_should_exit_pipe[0] + 1, &set, NULL, NULL, NULL);
+                FD_SET(m_event_pipe[0], &set);
+                select(m_event_pipe[0] + 1, &set, NULL, NULL, NULL);
                 if (FD_ISSET(0, &set)) {
 #else
                 unique_lock<mutex> lk(m_lock);
@@ -521,10 +520,13 @@ void keyboard_control::run()
 
 end_loop:
 #ifdef HAVE_TERMIOS_H
-                if (FD_ISSET(m_should_exit_pipe[0], &set)) {
-#else
-                if (m_should_exit) {
+                if (FD_ISSET(m_event_pipe[0], &set)) {
+                        char c;
+                        read(m_event_pipe[0], &c, 1);
+                }
 #endif
+                lk.lock();
+                if (m_should_exit) {
                         break;
                 }
         }
