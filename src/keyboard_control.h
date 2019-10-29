@@ -38,10 +38,12 @@
 #ifndef keyboard_control_h_
 #define keyboard_control_h_
 
+#include <cinttypes>
 #include <ctime>
 #include <condition_variable>
 #include <map>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 #include <utility>
@@ -76,8 +78,10 @@ private:
 
         void load_config_map();
 
+        int64_t get_next_key();
         void info();
         void run();
+        void signal();
         void usage();
 
         struct module m_mod;
@@ -90,6 +94,7 @@ private:
         std::condition_variable m_cv;
 #endif
         bool m_should_exit;
+        std::queue<int64_t> m_pressed_keys;
         bool m_started;
         bool m_locked_against_changes;
         std::time_t m_start_time;

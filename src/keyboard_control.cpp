@@ -162,6 +162,18 @@ void keyboard_control::start()
         m_started = true;
 }
 
+void keyboard_control::signal()
+{
+#ifdef HAVE_TERMIOS_H
+        char c = 0;
+        if (write(m_event_pipe[1], &c, 1) != 1) {
+                perror(MOD_NAME "m_event_pipe write");
+        }
+#else
+        m_cv.notify_one();
+#endif
+}
+
 void keyboard_control::stop()
 {
         if (!m_started) {
@@ -170,18 +182,13 @@ void keyboard_control::stop()
         unique_lock<mutex> lk(m_lock);
         m_should_exit = true;
         lk.unlock();
-#ifdef HAVE_TERMIOS_H
-        char c = 0;
-        assert(write(m_event_pipe[1], &c, 1) == 1);
-        close(m_event_pipe[1]);
-#else
-        m_cv.notify_one();
-#endif
+        signal();
         m_keyboard_thread.join();
         m_started = false;
 
 #ifdef HAVE_TERMIOS_H
         close(m_event_pipe[0]);
+        close(m_event_pipe[1]);
 #endif
 }
 
@@ -335,29 +342,48 @@ static string get_keycode_representation(int64_t ch) {
         return oss.str();
 }
 
-void keyboard_control::run()
+/**
+ * @returns next key either from keyboard or received via control socket.
+ *          If m_should_exit is set, returns 0.
+ */
+int64_t keyboard_control::get_next_key()
 {
-        int saved_log_level = -1;
+        int64_t c;
+        while (1) {
+                {
+                        unique_lock<mutex> lk(m_lock);
+                        if (m_should_exit) {
+                                return 0;
+                        }
 
-        while(1) {
+                        if (!m_pressed_keys.empty()) {
+                                c = m_pressed_keys.front();
+                                m_pressed_keys.pop();
+                                return c;
+                        }
+                }
 #ifdef HAVE_TERMIOS_H
                 fd_set set;
                 FD_ZERO(&set);
                 FD_SET(0, &set);
                 FD_SET(m_event_pipe[0], &set);
                 select(m_event_pipe[0] + 1, &set, NULL, NULL, NULL);
+
+                if (FD_ISSET(m_event_pipe[0], &set)) {
+                        char c;
+                        read(m_event_pipe[0], &c, 1);
+                        continue; // skip to event processing
+                }
+
                 if (FD_ISSET(0, &set)) {
 #else
-                unique_lock<mutex> lk(m_lock);
-                m_cv.wait_for(lk, milliseconds(200));
-                lk.unlock();
-                while (kbhit()) {
+                if (kbhit()) {
 #endif
                         int64_t c = GETCH();
                         debug_msg(MOD_NAME "Pressed %d\n", c);
                         if (c == '\E') {
                                 if ((c = get_ansi_code()) == -1) {
-                                        goto end_loop;
+                                        continue;
                                 }
 #ifdef WIN32
                         } else if (c == 0x0 || c == 0xe0) { // Win keycodes
@@ -365,169 +391,173 @@ void keyboard_control::run()
                                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
                                 if (tmp == EOF) {
                                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                                        goto end_loop;
+                                        continue;
                                 }
                                 if ((c = convert_win_to_ansi_keycode(c << 8 | tmp)) == -1) {
-                                        goto end_loop;
+                                        continue;
                                 }
 #else
                         } else if (c > 0x80) {
                                 if ((c = get_utf8_code(c)) == -1) {
-                                        goto end_loop;
+                                        continue;
                                 }
 #endif
                         }
-                        bool unknown_key_in_first_switch = false;
+                        return c;
+                }
+#if !defined HAVE_TERMIOS_H
+                // kbhit is non-blockinkg - we don't want to busy-wait
+                unique_lock<mutex> lk(m_lock);
+                m_cv.wait_for(lk, milliseconds(200));
+                lk.unlock();
+#endif
+        }
+}
 
-                        m_lock.lock();
-                        if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
-                                string cmd = key_mapping.at(c).first;
-                                m_lock.unlock();
-                                exec_external_commands(cmd.c_str());
-                                goto end_loop;
-                        }
+void keyboard_control::run()
+{
+        int saved_log_level = -1;
+        int64_t c;
+
+        while ((c = get_next_key())) {
+                bool unknown_key_in_first_switch = false;
+
+                m_lock.lock();
+                if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
+                        string cmd = key_mapping.at(c).first;
                         m_lock.unlock();
-
-                        // This switch processes keys that do not modify UltraGrid
-                        // behavior. If some of modifying keys is pressed, warning
-                        // is displayed.
-                        switch (c) {
-                        case CTRL_X:
-                                m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
-                                cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
-                                break;
-                        case '*':
-                        case '/':
-                        case '9':
-                        case '0':
-                        case 'c':
-                        case 'C':
-                        case 'm':
-                        case 'M':
-                        case '+':
-                        case '-':
-                        case 'e':
-                        case 's':
-                        case 'q':
-                        case 'v':
-                        case 'V':
-                                if (m_locked_against_changes) {
-                                        cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
-                                        goto end_loop;
-                                } // else process it in next switch
-                                break;
-                        case 'h':
-                                usage();
-                                break;
-                        case 'i':
-                                cout << "\n";
-                                info();
-                                break;
-                        case '\n':
-                        case '\r':
-                                cout << endl;
-                                break;
-                        default:
-                                unknown_key_in_first_switch = true;
-                        }
-
-                        // these are settings that are protected by Ctrl-X
-                        switch (c) {
-                        case '*':
-                        case '/':
-                        case '9':
-                        case '0':
-                        case 'm':
-                        {
-                                char path[] = "audio.receiver";
-                                auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                                switch (c) {
-                                case '0':
-                                case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
-                                case '9':
-                                case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
-                                case 'm': m->type = RECEIVER_MSG_MUTE; break;
-                                }
-
-                                auto resp = send_message(m_root, path, (struct message *) m);
-                                free_response(resp);
-                                break;
-                        }
-                        case 'M':
-                        {
-                                char path[] = "audio.sender";
-                                auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                                m->type = SENDER_MSG_MUTE;
-
-                                auto resp = send_message(m_root, path, (struct message *) m);
-                                free_response(resp);
-                                break;
-                        }
-                        case '+':
-                        case '-':
-                        {
-                                int audio_delay = get_audio_delay();
-                                audio_delay += c == '+' ? 10 : -10;
-                                log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
-                                set_audio_delay(audio_delay);
-                                break;
-                        }
-                        case 'e':
-                        {
-                                char path[] = "exporter";
-                                auto m = (struct message *) new_message(sizeof(struct msg_universal));
-                                strcpy(((struct msg_universal *) m)->text, "toggle");
-                                auto resp = send_message(m_root, path, (struct message *) m);
-                                free_response(resp);
-                                break;
-                        }
-                        case 'c':
-                        case 'C':
-                                read_command(c == 'C');
-                                break;
-                        case 'v':
-                        case 'V':
-                        {
-                                if (islower(c)) {
-                                        log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
-                                } else {
-                                        log_level = (log_level - 1 + (LOG_LEVEL_MAX + 1)) % (LOG_LEVEL_MAX + 1);
-                                }
-                                cout << "Log level: " << log_level << "\n";
-                                break;
-                        }
-                        case 's':
-                                if (saved_log_level == -1) {
-                                        saved_log_level = log_level;
-                                        cout << GREEN("Output suspended, press 'q' to continue.\n");
-                                        log_level = LOG_LEVEL_QUIET;
-                                }
-                                break;
-                        case 'q':
-                                if (saved_log_level != -1) {
-                                        log_level = saved_log_level;
-                                        saved_log_level = -1;
-                                        cout << GREEN( "Output resumed.\n");
-                                }
-                                break;
-                        default:
-                                if (unknown_key_in_first_switch) {
-                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
-                                }
-
-                        }
+                        exec_external_commands(cmd.c_str());
+                        continue;
                 }
+                m_lock.unlock();
 
-end_loop:
-#ifdef HAVE_TERMIOS_H
-                if (FD_ISSET(m_event_pipe[0], &set)) {
-                        char c;
-                        read(m_event_pipe[0], &c, 1);
-                }
-#endif
-                lk.lock();
-                if (m_should_exit) {
+                // This switch processes keys that do not modify UltraGrid
+                // behavior. If some of modifying keys is pressed, warning
+                // is displayed.
+                switch (c) {
+                case CTRL_X:
+                        m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
+                        cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
                         break;
+                case '*':
+                case '/':
+                case '9':
+                case '0':
+                case 'c':
+                case 'C':
+                case 'm':
+                case 'M':
+                case '+':
+                case '-':
+                case 'e':
+                case 's':
+                case 'q':
+                case 'v':
+                case 'V':
+                        if (m_locked_against_changes) {
+                                cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
+                                continue;
+                        } // else process it in next switch
+                        break;
+                case 'h':
+                        usage();
+                        break;
+                case 'i':
+                        cout << "\n";
+                        info();
+                        break;
+                case '\n':
+                case '\r':
+                        cout << endl;
+                        break;
+                default:
+                        unknown_key_in_first_switch = true;
+                }
+
+                // these are settings that are protected by Ctrl-X
+                switch (c) {
+                case '*':
+                case '/':
+                case '9':
+                case '0':
+                case 'm':
+                {
+                        char path[] = "audio.receiver";
+                        auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
+                        switch (c) {
+                        case '0':
+                        case '*': m->type = RECEIVER_MSG_INCREASE_VOLUME; break;
+                        case '9':
+                        case '/': m->type = RECEIVER_MSG_DECREASE_VOLUME; break;
+                        case 'm': m->type = RECEIVER_MSG_MUTE; break;
+                        }
+
+                        auto resp = send_message(m_root, path, (struct message *) m);
+                        free_response(resp);
+                        break;
+                }
+                case 'M':
+                {
+                        char path[] = "audio.sender";
+                        auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
+                        m->type = SENDER_MSG_MUTE;
+
+                        auto resp = send_message(m_root, path, (struct message *) m);
+                        free_response(resp);
+                        break;
+                }
+                case '+':
+                case '-':
+                {
+                        int audio_delay = get_audio_delay();
+                        audio_delay += c == '+' ? 10 : -10;
+                        log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
+                        set_audio_delay(audio_delay);
+                        break;
+                }
+                case 'e':
+                {
+                        char path[] = "exporter";
+                        auto m = (struct message *) new_message(sizeof(struct msg_universal));
+                        strcpy(((struct msg_universal *) m)->text, "toggle");
+                        auto resp = send_message(m_root, path, (struct message *) m);
+                        free_response(resp);
+                        break;
+                }
+                case 'c':
+                case 'C':
+                        read_command(c == 'C');
+                        break;
+                case 'v':
+                case 'V':
+                {
+                        if (islower(c)) {
+                                log_level = (log_level + 1) % (LOG_LEVEL_MAX + 1);
+                        } else {
+                                log_level = (log_level - 1 + (LOG_LEVEL_MAX + 1)) % (LOG_LEVEL_MAX + 1);
+                        }
+                        cout << "Log level: " << log_level << "\n";
+                        break;
+                }
+                case 's':
+                        if (saved_log_level == -1) {
+                                saved_log_level = log_level;
+                                cout << GREEN("Output suspended, press 'q' to continue.\n");
+                                log_level = LOG_LEVEL_QUIET;
+                        }
+                        break;
+                case 'q':
+                        if (saved_log_level != -1) {
+                                log_level = saved_log_level;
+                                saved_log_level = -1;
+                                cout << GREEN( "Output resumed.\n");
+                        }
+                        break;
+                default:
+                        if (unknown_key_in_first_switch) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
+                        }
+
                 }
         }
 }
@@ -678,7 +708,9 @@ bool keyboard_control::exec_local_command(const char *command)
                                 "\t\tmaps key to command(s) for control socket (with an optional\n\t\tidentifier)\n"
                                 "\tmap #<X> cmd1[;cmd2..][#name]\n"
                                 "\t\tmaps key number (ASCII or multi-byte for non-ASCII) to\n\t\tcommand(s) for control socket (with an optional identifier)\n"
-                                "\tunmap <X>\n\n"
+                                "\tunmap <X>\n"
+                                "\tpress <num>\n"
+                                "\t\tEmulate pressing key <num>\n\n"
                                 "Mappings can be stored in " CONFIG_FILE "\n\n");
                 return true;
         } else if (strstr(command, "map ") == command) {
@@ -704,6 +736,15 @@ bool keyboard_control::exec_local_command(const char *command)
                 if (strlen(command) >= 1) {
                         key_mapping.erase(command[0]);
                 }
+                return true;
+        } else if (strstr(command, "press ") == command) {
+                const char *key = command + strlen("press ");
+                int64_t k;
+                sscanf(key, "%" SCNi64, &k);
+                unique_lock<mutex> lk(m_lock);
+                m_pressed_keys.push(k);
+                lk.unlock();
+                signal();
                 return true;
         }
         return false;
