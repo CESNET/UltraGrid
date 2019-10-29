@@ -39,6 +39,7 @@
 #define keyboard_control_h_
 
 #include <ctime>
+#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <string>
@@ -87,6 +88,7 @@ private:
         int m_should_exit_pipe[2];
 #else
         bool m_should_exit;
+        std::condition_variable m_cv;
 #endif
         bool m_started;
         bool m_locked_against_changes;

@@ -77,6 +77,7 @@ static bool set_tio();
 
 using rang::style;
 using namespace std;
+using namespace std::chrono;
 
 #ifdef HAVE_TERMIOS_H
 static bool signal_catched = false;
@@ -172,7 +173,10 @@ void keyboard_control::stop()
         assert(write(m_should_exit_pipe[1], &c, 1) == 1);
         close(m_should_exit_pipe[1]);
 #else
+        unique_lock<mutex> lk(m_lock);
         m_should_exit = true;
+        lk.unlock();
+        m_cv.notify_one();
 #endif
         m_keyboard_thread.join();
         m_started = false;
@@ -345,7 +349,9 @@ void keyboard_control::run()
                 select(m_should_exit_pipe[0] + 1, &set, NULL, NULL, NULL);
                 if (FD_ISSET(0, &set)) {
 #else
-                usleep(200000);
+                unique_lock<mutex> lk(m_lock);
+                m_cv.wait_for(lk, milliseconds(200));
+                lk.unlock();
                 while (kbhit()) {
 #endif
                         int64_t c = GETCH();
