@@ -1735,7 +1735,7 @@ case "$system" in
 	;;
 esac
 
-if test $FOUND_GL = yes -a $gl_req != no
+if test "$FOUND_GL" = yes -a $gl_req != no
 then
         gl=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
