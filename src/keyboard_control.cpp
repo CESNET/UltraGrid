@@ -75,7 +75,6 @@ static bool set_tio();
 #define CONFIG_FILE "ug-key-map.txt"
 #define MOD_NAME "[key control] "
 
-using rang::style;
 using namespace std;
 using namespace std::chrono;
 
@@ -537,10 +536,10 @@ void keyboard_control::run()
 
 void keyboard_control::info()
 {
-        cout << style::bold << "Start time: " << style::reset << asctime(localtime(&m_start_time));
-        cout << style::bold << "Verbosity level: " << style::reset << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
-        cout << style::bold << "Locked against changes: " << style::reset << (m_locked_against_changes ? "true" : "false") << "\n";
-        cout << style::bold << "Audio playback delay: " << get_audio_delay() << style::reset << " ms\n";
+        cout << BOLD("Start time: ") << asctime(localtime(&m_start_time));
+        cout << BOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
+        cout << BOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
+        cout << BOLD("Audio playback delay: " << get_audio_delay()) << " ms\n";
 
         {
                 char path[] = "audio.receiver";
@@ -552,7 +551,7 @@ void keyboard_control::info()
                         double db = 20.0 * log10(vol);
                         std::streamsize p = cout.precision();
                         ios_base::fmtflags f = cout.flags();
-                        cout << style::bold << "Received audio volume: " << style::reset << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout << BOLD("Received audio volume: ") << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                         cout.precision(p);
                         cout.flags(f);
                 }
@@ -567,7 +566,7 @@ void keyboard_control::info()
                 if (response_get_status(resp) == 200) {
                         int muted;
                         sscanf(response_get_text(resp), "%d", &muted);
-                        cout << style::bold << "Sended audio status - muted: " << style::reset << (muted ? "true" : "false") << "\n";
+                        cout << BOLD("Sended audio status - muted: ") << (muted ? "true" : "false") << "\n";
                 }
                 free_response(resp);
         }
@@ -581,7 +580,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << style::bold << "Captured video format: " << style::reset << desc << "\n";
+                        cout << BOLD("Captured video format: ") << desc << "\n";
                 }
                 free_response(r);
 	}
@@ -595,7 +594,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << style::bold << "Received video format: " << style::reset <<  desc << "\n";
+                        cout << BOLD("Received video format: ") <<  desc << "\n";
                 }
                 free_response(r);
 	}
@@ -605,7 +604,7 @@ void keyboard_control::info()
                 strcpy(m->text, "get_port");
                 struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << style::bold << "Control port: " << style::reset << response_get_text(r) << "\n";
+                        cout << BOLD("Control port: ") << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -615,7 +614,7 @@ void keyboard_control::info()
                 strcpy(m->text, "status");
                 struct response *r = send_message_sync(m_root, "exporter", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << style::bold << "Exporting: " << style::reset << response_get_text(r) << "\n";
+                        cout << BOLD("Exporting: ") << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -628,31 +627,31 @@ void keyboard_control::info()
 void keyboard_control::usage()
 {
         cout << "\nAvailable keybindings:\n" <<
-                style::bold << "\t  * 0  " << style::reset << "- increase volume" << G('*') << "\n" <<
-                style::bold << "\t  / 9  " << style::reset << "- decrease volume" << G('/') << "\n" <<
-                style::bold << "\t   +   " << style::reset << "- increase audio delay by 10 ms" << G('+') << "\n" <<
-                style::bold << "\t   -   " << style::reset << "- decrease audio delay by 10 ms" << G('-') << "\n" <<
-                style::bold << "\t   m   " << style::reset << "- mute/unmute receiver" << G('m') << "\n" <<
-                style::bold << "\t   M   " << style::reset << "- mute/unmute sender" << G('M') << "\n" <<
-                style::bold << "\t   v   " << style::reset << "- increase verbosity level" << G('v') << "\n" <<
-                style::bold << "\t   V   " << style::reset << "- decrease verbosity level" << G('V') << "\n" <<
-                style::bold << "\t   e   " << style::reset << "- record captured content (toggle)" << G('e') << "\n" <<
-                style::bold << "\t   h   " << style::reset << "- show help" << G('h') << "\n" <<
-                style::bold << "\t   i   " << style::reset << "- show various information" << G('*') << "\n" <<
-                style::bold << "\t  s q  " << style::reset << "- suspend/resume output" << G('s') << G('q') << "\n" <<
-                style::bold << "\t  c C  " << style::reset << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
-                style::bold << "\tCtrl-x " << style::reset << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
-                style::bold << "\tCtrl-c " << style::reset << "- exit " << G(K_CTRL('c')) << "\n" <<
+                BOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
+                BOLD("\t  / 9  ") << "- decrease volume" << G('/') << "\n" <<
+                BOLD("\t   +   ") << "- increase audio delay by 10 ms" << G('+') << "\n" <<
+                BOLD("\t   -   ") << "- decrease audio delay by 10 ms" << G('-') << "\n" <<
+                BOLD("\t   m   ") << "- mute/unmute receiver" << G('m') << "\n" <<
+                BOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
+                BOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
+                BOLD("\t   V   ") << "- decrease verbosity level" << G('V') << "\n" <<
+                BOLD("\t   e   ") << "- record captured content (toggle)" << G('e') << "\n" <<
+                BOLD("\t   h   ") << "- show help" << G('h') << "\n" <<
+                BOLD("\t   i   ") << "- show various information" << G('*') << "\n" <<
+                BOLD("\t  s q  ") << "- suspend/resume output" << G('s') << G('q') << "\n" <<
+                BOLD("\t  c C  ") << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
+                BOLD("\tCtrl-x ") << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
+                BOLD("\tCtrl-c ") << "- exit " << G(K_CTRL('c')) << "\n" <<
                 "\n";
 
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << style::bold << "\t" << setw(10) << get_keycode_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
+                        cout << BOLD("\t" << setw(10) << get_keycode_representation(it.first) << setw(0)) << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
                 }
                 cout << "\n";
         }
-        cout << style::bold << "[g]" << style::reset << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
+        cout << BOLD("[g]") << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
 }
 
 void keyboard_control::load_config_map() {
