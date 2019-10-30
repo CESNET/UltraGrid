@@ -382,9 +382,9 @@ static void gl_show_help(void) {
         printf("\t\t'f'\t\ttoggle fullscreen\n");
         printf("\t\t'q'\t\tquit\n");
         printf("\t\t'd'\t\ttoggle deinterlace\n");
-        printf("\t\t' '\t\tpause video\n");
+        printf("\t\t'p'\t\tpause video\n");
         printf("\t\t's'\t\tscreenshot\n");
-        printf("\t\t'm'\t\tshow/hide cursor\n");
+        printf("\t\t'c'\t\tshow/hide cursor\n");
         printf("\t\t'+'\t\tmake window smaller by a factor of 50%%\n");
         printf("\t\t'-'\t\tmake window twice as big\n");
 }
@@ -991,15 +991,16 @@ static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
                         gl->deinterlace = !gl->deinterlace;
                         printf("Deinterlacing: %s\n", gl->deinterlace ? "ON" : "OFF");
                         break;
-                case ' ':
+                case 'p':
                         gl->paused = !gl->paused;
-                        LOG(LOG_LEVEL_NOTICE) << "[GL] " << (gl->paused ? "Paused (press <space> to unpause)" : "Unpaused") << "\n";
+                        LOG(LOG_LEVEL_NOTICE) << "[GL] " << (gl->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
                         break;
                 case 's':
                         screenshot(gl->current_frame);
                         break;
-                case 'm':
+                case 'c':
                         gl->show_cursor = (state_gl::show_cursor_t) (((int) gl->show_cursor + 1) % 3);
+                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << gl->show_cursor << "\n";
                         glutSetCursor(gl->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
                 case '+':
