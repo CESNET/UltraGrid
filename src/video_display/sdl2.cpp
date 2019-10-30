@@ -58,6 +58,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "keyboard_control.h" // K_*
 #include "lib_common.h"
 #include "rang.hpp"
 #include "video_display.h"
@@ -77,6 +78,7 @@
 
 #define MAGIC_SDL2   0x3cc234a1
 #define MAX_BUFFER_SIZE   1
+#define MOD_NAME "[SDL] "
 
 using rang::fg;
 using rang::style;
@@ -87,6 +89,7 @@ using namespace std::chrono;
 
 struct state_sdl2 {
         uint32_t                magic{MAGIC_SDL2};
+        struct module          *parent{nullptr};
 
         chrono::steady_clock::time_point tv{chrono::steady_clock::now()};
         unsigned long long int  frames{0};
@@ -171,6 +174,19 @@ free_frame:
         }
 }
 
+static int64_t translate_sdl_key_to_ug(int32_t key) {
+        if ((key & SDLK_SCANCODE_MASK) == 0) {
+                return key;
+        }
+        switch (key) {
+        case SDLK_RIGHT: return K_RIGHT;
+        case SDLK_LEFT:  return K_LEFT;
+        case SDLK_DOWN:  return K_DOWN;
+        case SDLK_UP:    return K_UP;
+        }
+        return -1;
+}
+
 static void display_sdl_run(void *arg)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) arg;
@@ -194,6 +210,8 @@ static void display_sdl_run(void *arg)
                                 break;
                         }
                         case SDL_KEYDOWN:
+                                log_msg(LOG_LEVEL_VERBOSE, "[SDL] Pressed key: %s\n",
+                                                SDL_GetKeyName(sdl_event.key.keysym.sym));
                                 switch (sdl_event.key.keysym.sym) {
                                 case SDLK_d:
                                         s->deinterlace = !s->deinterlace;
@@ -208,9 +226,17 @@ static void display_sdl_run(void *arg)
                                         exit_uv(0);
                                         break;
                                 default:
-                                        log_msg(LOG_LEVEL_DEBUG, "[SDL] Unhandled key: %s\n",
-                                                        SDL_GetKeyName(sdl_event.key.keysym.sym));
-                                        break;
+                                        if (translate_sdl_key_to_ug(sdl_event.key.keysym.sym) != -1) {
+                                                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                                                sprintf(m->text, "press %" PRId64, translate_sdl_key_to_ug(sdl_event.key.keysym.sym));
+                                                struct response *r = send_message_sync(get_root_module(s->parent), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                                                if (response_get_status(r) != RESPONSE_OK) {
+                                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set key to keycontrol (error %d)!\n", response_get_status(r));
+                                                }
+                                                free_response(r);
+                                        } else {
+                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s!\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
+                                        }
                                 }
                                 break;
                         case SDL_WINDOWEVENT:
@@ -414,13 +440,13 @@ static void loadSplashscreen(struct state_sdl2 *s) {
 
 static void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        UNUSED(parent);
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid SDL2 module currently doesn't support audio!\n");
                 return NULL;
         }
         const char *driver = NULL;
         struct state_sdl2 *s = new state_sdl2{};
+        s->parent = parent;
 
         if (fmt == NULL) {
                 fmt = "";
