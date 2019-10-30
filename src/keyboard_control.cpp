@@ -71,7 +71,7 @@
 
 static bool set_tio();
 
-#define CTRL_X 24
+#define K_CTRL(x) (1 + tolower(x) - 'a')
 #define CONFIG_FILE "ug-key-map.txt"
 #define MOD_NAME "[key control] "
 
@@ -430,7 +430,7 @@ void keyboard_control::run()
                 }
                 m_lock.unlock();
 
-                if (c == CTRL_X) {
+                if (c == K_CTRL('X')) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
                         cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
                         continue;
@@ -623,33 +623,36 @@ void keyboard_control::info()
         cout << "\n";
 }
 
+#define G(key) (guarded_keys.find(key) != guarded_keys.end() ? " [g]" : "")
+
 void keyboard_control::usage()
 {
         cout << "\nAvailable keybindings:\n" <<
-                style::bold << "\t  * 0  " << style::reset << "- increase volume\n" <<
-                style::bold << "\t  / 9  " << style::reset << "- decrease volume\n" <<
-                style::bold << "\t   +   " << style::reset << "- increase audio delay by 10 ms\n" <<
-                style::bold << "\t   -   " << style::reset << "- decrease audio delay by 10 ms\n" <<
-                style::bold << "\t   m   " << style::reset << "- mute/unmute receiver\n" <<
-                style::bold << "\t   M   " << style::reset << "- mute/unmute sender\n" <<
-                style::bold << "\t   v   " << style::reset << "- increase verbosity level\n" <<
-                style::bold << "\t   V   " << style::reset << "- decrease verbosity level\n" <<
-                style::bold << "\t   e   " << style::reset << "- record captured content (toggle)\n" <<
-                style::bold << "\t   h   " << style::reset << "- show help\n" <<
-                style::bold << "\t   i   " << style::reset << "- show various information\n" <<
-                style::bold << "\t  s q  " << style::reset << "- suspend/resume output\n" <<
-                style::bold << "\t  c C  " << style::reset << "- execute command through control socket (capital for multiple)\n" <<
-                style::bold << "\tCtrl-x " << style::reset << "- unlock/lock against changes\n" <<
-                style::bold << "\tCtrl-c " << style::reset << "- exit\n" <<
+                style::bold << "\t  * 0  " << style::reset << "- increase volume" << G('*') << "\n" <<
+                style::bold << "\t  / 9  " << style::reset << "- decrease volume" << G('/') << "\n" <<
+                style::bold << "\t   +   " << style::reset << "- increase audio delay by 10 ms" << G('+') << "\n" <<
+                style::bold << "\t   -   " << style::reset << "- decrease audio delay by 10 ms" << G('-') << "\n" <<
+                style::bold << "\t   m   " << style::reset << "- mute/unmute receiver" << G('m') << "\n" <<
+                style::bold << "\t   M   " << style::reset << "- mute/unmute sender" << G('M') << "\n" <<
+                style::bold << "\t   v   " << style::reset << "- increase verbosity level" << G('v') << "\n" <<
+                style::bold << "\t   V   " << style::reset << "- decrease verbosity level" << G('V') << "\n" <<
+                style::bold << "\t   e   " << style::reset << "- record captured content (toggle)" << G('e') << "\n" <<
+                style::bold << "\t   h   " << style::reset << "- show help" << G('h') << "\n" <<
+                style::bold << "\t   i   " << style::reset << "- show various information" << G('*') << "\n" <<
+                style::bold << "\t  s q  " << style::reset << "- suspend/resume output" << G('s') << G('q') << "\n" <<
+                style::bold << "\t  c C  " << style::reset << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
+                style::bold << "\tCtrl-x " << style::reset << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
+                style::bold << "\tCtrl-c " << style::reset << "- exit " << G(K_CTRL('c')) << "\n" <<
                 "\n";
 
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << style::bold << "\t" << setw(10) << get_keycode_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << "\n";
+                        cout << style::bold << "\t" << setw(10) << get_keycode_representation(it.first) << setw(0) << style::reset << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
                 }
                 cout << "\n";
         }
+        cout << style::bold << "[g]" << style::reset << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
 }
 
 void keyboard_control::load_config_map() {
