@@ -427,8 +427,8 @@ void keyboard_control::run()
                 m_lock.lock();
                 if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
                         string cmd = key_mapping.at(c).first;
-                        m_lock.unlock();
                         exec_external_commands(cmd.c_str());
+                        m_lock.unlock();
                         continue;
                 }
                 m_lock.unlock();
@@ -720,9 +720,7 @@ bool keyboard_control::exec_local_command(const char *command)
                 const char *key = command + strlen("press ");
                 int64_t k;
                 sscanf(key, "%" SCNi64, &k);
-                unique_lock<mutex> lk(m_lock);
                 m_pressed_keys.push(k);
-                lk.unlock();
                 signal();
                 return true;
         }
@@ -782,7 +780,9 @@ void keyboard_control::read_command(bool multiple)
                         buf[strlen(buf) - 1] = '\0';
                 }
 
+                m_lock.lock();
                 execute_command(buf);
+                m_lock.unlock();
 
                 if (!multiple) {
                         break;
