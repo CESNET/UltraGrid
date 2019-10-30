@@ -158,24 +158,6 @@ const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts() {
 //
 // utility functions
 //
-void print_decoder_error(const char *mod_name, int rc) {
-        char buf[1024];
-	switch (rc) {
-		case 0:
-			break;
-		case EAGAIN:
-			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
-			break;
-		case EINVAL:
-			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
-			break;
-		default:
-                        av_strerror(rc, buf, 1024);
-                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
-			break;
-	}
-}
-
 void print_libav_error(int verbosity, const char *msg, int rc) {
         char errbuf[1024];
         av_strerror(rc, errbuf, sizeof(errbuf));

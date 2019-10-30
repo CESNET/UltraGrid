@@ -117,7 +117,25 @@ extern "C" {
 extern "C" {
 #endif
 
-void print_decoder_error(const char *mod_name, int rc);
+static void print_decoder_error(const char *mod_name, int rc) ATTRIBUTE(unused);
+static void print_decoder_error(const char *mod_name, int rc) {
+        char buf[1024];
+	switch (rc) {
+		case 0:
+			break;
+		case EAGAIN:
+			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
+			break;
+		case EINVAL:
+			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
+			break;
+		default:
+                        av_strerror(rc, buf, 1024);
+                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
+			break;
+	}
+}
+
 void print_libav_error(int verbosity, const char *msg, int rc);
 bool libav_codec_has_extradata(codec_t codec);
 
