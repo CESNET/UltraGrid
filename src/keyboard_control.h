@@ -60,6 +60,7 @@
 #define K_DOWN  0x1b5b42
 #define K_RIGHT 0x1b5b43
 #define K_LEFT  0x1b5b44
+#define K_CTRL(x) (1 + tolower(x) - 'a')
 
 class keyboard_control {
 public:

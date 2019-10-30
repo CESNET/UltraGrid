@@ -71,7 +71,6 @@
 
 static bool set_tio();
 
-#define K_CTRL(x) (1 + tolower(x) - 'a')
 #define CONFIG_FILE "ug-key-map.txt"
 #define MOD_NAME "[key control] "
 
@@ -329,6 +328,11 @@ static string get_keycode_representation(int64_t ch) {
         case K_LEFT: return "KEY_LEFT";
         case K_RIGHT: return "KEY_RIGHT";
         }
+
+        if (ch >= 1 && ch <= 'z' - 'a' + 1) {
+                return string("Ctrl-") + string(1, 'a' + ch - 1);
+        }
+
         if (ch <= UCHAR_MAX && isprint(ch)) {
                 return string("'") + string(1, ch) + "'";
         }
