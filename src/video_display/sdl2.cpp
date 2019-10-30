@@ -174,11 +174,35 @@ free_frame:
         }
 }
 
-static int64_t translate_sdl_key_to_ug(int32_t key) {
-        if ((key & SDLK_SCANCODE_MASK) == 0) {
-                return key;
+static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
+        // ctrl alone -> do not interpret
+        if (sym.sym == SDLK_LCTRL || sym.sym == SDLK_RCTRL) {
+                return 0;
         }
-        switch (key) {
+
+        bool ctrl = false;
+        bool shift = false;
+        if (sym.mod & KMOD_CTRL) {
+                ctrl = true;
+        }
+        sym.mod &= ~KMOD_CTRL;
+
+        if (sym.mod & KMOD_SHIFT) {
+                shift = true;
+        }
+        sym.mod &= ~KMOD_SHIFT;
+
+        if (sym.mod != 0) {
+                return -1;
+        }
+
+        if ((sym.sym & SDLK_SCANCODE_MASK) == 0) {
+                if (shift) {
+                        sym.sym = toupper(sym.sym);
+                }
+                return ctrl ? K_CTRL(sym.sym) : sym.sym;
+        }
+        switch (sym.sym) {
         case SDLK_RIGHT: return K_RIGHT;
         case SDLK_LEFT:  return K_LEFT;
         case SDLK_DOWN:  return K_DOWN;
@@ -210,8 +234,7 @@ static void display_sdl_run(void *arg)
                                 break;
                         }
                         case SDL_KEYDOWN:
-                                log_msg(LOG_LEVEL_VERBOSE, "[SDL] Pressed key: %s\n",
-                                                SDL_GetKeyName(sdl_event.key.keysym.sym));
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
                                 switch (sdl_event.key.keysym.sym) {
                                 case SDLK_d:
                                         s->deinterlace = !s->deinterlace;
@@ -226,10 +249,13 @@ static void display_sdl_run(void *arg)
                                         exit_uv(0);
                                         break;
                                 default:
-                                        if (translate_sdl_key_to_ug(sdl_event.key.keysym.sym) != -1) {
-                                                keycontrol_send_key(get_root_module(s->parent), translate_sdl_key_to_ug(sdl_event.key.keysym.sym));
-                                        } else {
-                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s!\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
+                                        {
+                                                int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
+                                                if (sym > 0) {
+                                                        keycontrol_send_key(get_root_module(s->parent), sym);
+                                                } else if (sym == -1) {
+                                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
+                                                }
                                         }
                                 }
                                 break;
