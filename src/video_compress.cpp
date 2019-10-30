@@ -587,7 +587,7 @@ shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
 
         auto f = proxy->queue.pop();
         if (f) {
-                log_msg(LOG_LEVEL_VERBOSE, "Compressed frame size: %8d; duration: %3ld ms\n", vf_get_data_len(f.get()), f->compress_end - f->compress_start);
+                log_msg(LOG_LEVEL_DEBUG, "Compressed frame size: %8d; duration: %3ld ms\n", vf_get_data_len(f.get()), f->compress_end - f->compress_start);
         }
         return f;
 }

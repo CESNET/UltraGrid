@@ -250,7 +250,7 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "received %s packet, ID %d, pos %d, size %d\n",
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %d, size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
                                 pkt.stream_index, pkt.pos, pkt.size);
