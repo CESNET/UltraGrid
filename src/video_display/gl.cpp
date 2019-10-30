@@ -385,8 +385,8 @@ static void gl_show_help(void) {
         printf("\t\t' '\t\tpause video\n");
         printf("\t\t's'\t\tscreenshot\n");
         printf("\t\t'm'\t\tshow/hide cursor\n");
-        printf("\t\t'+'\t\tmake window smaller by factor 50%%\n");
-        printf("\t\t'-'\t\tmake window twice as bigger\n");
+        printf("\t\t'+'\t\tmake window smaller by a factor of 50%%\n");
+        printf("\t\t'-'\t\tmake window twice as big\n");
 }
 
 static void gl_load_splashscreen(struct state_gl *s)
@@ -559,6 +559,8 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 
 static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor)
 {
+        log_msg(LOG_LEVEL_INFO, MODULE_NAME "glut_resize_window - fullscreen: %d, aspect: %lf, factor %lf\n",
+                        (int) fs, aspect, window_size_factor);
         if (fs) {
                 glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH),
                                glutGet(GLUT_SCREEN_HEIGHT));
@@ -569,6 +571,7 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
                                 window_size_factor *
                                 height);
         }
+        glutPostRedisplay();
 }
 
 /*
