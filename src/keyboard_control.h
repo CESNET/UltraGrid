@@ -44,6 +44,7 @@
 #include <map>
 #include <mutex>
 #include <queue>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -99,8 +100,7 @@ private:
         bool m_locked_against_changes;
         std::time_t m_start_time;
 
-        /// @todo add a flag to determine which keys should be guarded against
-        ///       unintentional pressing
+        std::set<int64_t> guarded_keys;
         std::map<int, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
         std::mutex m_lock;
 };

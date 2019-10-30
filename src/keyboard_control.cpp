@@ -114,7 +114,8 @@ keyboard_control::keyboard_control(struct module *parent) :
 #endif
         m_should_exit(false),
         m_started(false),
-        m_locked_against_changes(true)
+        m_locked_against_changes(true),
+        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '+', '-', 'e', 's', 'q', 'v', 'V' }
 {
         m_start_time = time(NULL);
 
@@ -420,8 +421,6 @@ void keyboard_control::run()
         int64_t c;
 
         while ((c = get_next_key())) {
-                bool unknown_key_in_first_switch = false;
-
                 m_lock.lock();
                 if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
                         string cmd = key_mapping.at(c).first;
@@ -431,50 +430,16 @@ void keyboard_control::run()
                 }
                 m_lock.unlock();
 
-                // This switch processes keys that do not modify UltraGrid
-                // behavior. If some of modifying keys is pressed, warning
-                // is displayed.
-                switch (c) {
-                case CTRL_X:
+                if (c == CTRL_X) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
                         cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
-                        break;
-                case '*':
-                case '/':
-                case '9':
-                case '0':
-                case 'c':
-                case 'C':
-                case 'm':
-                case 'M':
-                case '+':
-                case '-':
-                case 'e':
-                case 's':
-                case 'q':
-                case 'v':
-                case 'V':
-                        if (m_locked_against_changes) {
-                                cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
-                                continue;
-                        } // else process it in next switch
-                        break;
-                case 'h':
-                        usage();
-                        break;
-                case 'i':
-                        cout << "\n";
-                        info();
-                        break;
-                case '\n':
-                case '\r':
-                        cout << endl;
-                        break;
-                default:
-                        unknown_key_in_first_switch = true;
+                        continue;
+                }
+                if (m_locked_against_changes && guarded_keys.find(c) != guarded_keys.end()) {
+                        cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
+                        continue;
                 }
 
-                // these are settings that are protected by Ctrl-X
                 switch (c) {
                 case '*':
                 case '/':
@@ -553,11 +518,19 @@ void keyboard_control::run()
                                 cout << GREEN( "Output resumed.\n");
                         }
                         break;
+                case 'h':
+                        usage();
+                        break;
+                case 'i':
+                        cout << "\n";
+                        info();
+                        break;
+                case '\n':
+                case '\r':
+                        cout << endl;
+                        break;
                 default:
-                        if (unknown_key_in_first_switch) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
-                        }
-
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported key " << get_keycode_representation(c) << " pressed. Press 'h' to help.\n";
                 }
         }
 }
