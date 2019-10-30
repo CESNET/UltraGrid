@@ -94,15 +94,19 @@ extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
-#define LOG_LEVEL_QUIET   0
-#define LOG_LEVEL_FATAL   1
-#define LOG_LEVEL_ERROR   2
-#define LOG_LEVEL_WARNING 3
-#define LOG_LEVEL_NOTICE  4
-#define LOG_LEVEL_INFO    5
-#define LOG_LEVEL_VERBOSE 6
-#define LOG_LEVEL_DEBUG   7
-#define LOG_LEVEL_MAX LOG_LEVEL_DEBUG
+#define LOG_LEVEL_QUIET   0 ///< suppress all logging
+#define LOG_LEVEL_FATAL   1 ///< errors that prevent UG run
+#define LOG_LEVEL_ERROR   2 ///< general errors
+#define LOG_LEVEL_WARNING 3 ///< less severe errors
+#define LOG_LEVEL_NOTICE  4 ///< information that may be interesting
+#define LOG_LEVEL_INFO    5 ///< normal reporting
+#define LOG_LEVEL_VERBOSE 6 ///< display more messages but no more than
+                            ///< one of a kind every ~1 sec
+#define LOG_LEVEL_DEBUG   7 ///< like LOG_LEVEL_VERBOSE, freq. approx.
+                            ///< 1 message every video frame
+#define LOG_LEVEL_DEBUG2  8 ///< even more verbose - eg. every packet can
+                            ///< be logged
+#define LOG_LEVEL_MAX LOG_LEVEL_DEBUG2
 extern volatile int log_level;
 
 #define MODE_SENDER   (1<<0)
