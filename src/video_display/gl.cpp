@@ -970,6 +970,11 @@ static void glut_idle_callback(void)
 }
 
 static int64_t translate_glut_to_ug(int key, bool is_special) {
+#ifdef FREEGLUT
+        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R)) {
+                return 0;
+        }
+#endif // defined FREEGLUT
         if (!is_special) {
                 return key;
         }
@@ -984,7 +989,7 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
 
 static void glut_key_callback(int key, bool is_special)
 {
-        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key " : "Key ", key);
+        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key" : "Key", key);
         switch (key | (is_special ? 0x10000LL : 0)) { // prefix special keys
                 case 'f':
                         gl->fs = !gl->fs;
@@ -1029,10 +1034,16 @@ static void glut_key_callback(int key, bool is_special)
                                         gl->window_size_factor);
                         break;
                 default:
-                        if (translate_glut_to_ug(key, is_special) != -1) {
-                                keycontrol_send_key(get_root_module(&gl->mod),  translate_glut_to_ug(key, is_special));
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                        {
+                                int64_t ugk = translate_glut_to_ug(key, is_special);
+                                if (ugk > 0) {
+                                        if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                                                ugk = K_CTRL(ugk);
+                                        }
+                                        keycontrol_send_key(get_root_module(&gl->mod), ugk);
+                                } else if (ugk != 0) {
+                                        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                                }
                         }
         }
 }
