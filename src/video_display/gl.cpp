@@ -82,6 +82,7 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
+#include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
@@ -342,7 +343,7 @@ static void gl_resize(int width, int height);
 static void gl_render_uyvy(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
 static void glut_idle_callback(void);
-static void glut_key_callback(unsigned char key, int x, int y);
+static void glut_key_callback(int key, bool is_special);
 static void glut_mouse_callback(int x, int y);
 static void glut_close_callback(void);
 static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor);
@@ -968,9 +969,23 @@ static void glut_idle_callback(void)
         }
 }
 
-static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
+static int64_t translate_glut_to_ug(int key, bool is_special) {
+        if (!is_special) {
+                return key;
+        }
+        switch (key) {
+        case GLUT_KEY_LEFT: return K_LEFT;
+        case GLUT_KEY_UP: return K_UP;
+        case GLUT_KEY_RIGHT: return K_RIGHT;
+        case GLUT_KEY_DOWN: return K_DOWN;
+        }
+        return -1;
+}
+
+static void glut_key_callback(int key, bool is_special)
 {
-        switch(key) {
+        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key " : "Key ", key);
+        switch (key | (is_special ? 0x10000LL : 0)) { // prefix special keys
                 case 'f':
                         gl->fs = !gl->fs;
                         glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
@@ -1013,6 +1028,18 @@ static void glut_key_callback(unsigned char key, int /* x */, int /* y */)
                         glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
                                         gl->window_size_factor);
                         break;
+                default:
+                        if (translate_glut_to_ug(key, is_special) != -1) {
+                                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                                sprintf(m->text, "press %" PRId64, translate_glut_to_ug(key, is_special));
+                                struct response *r = send_message_sync(get_root_module(&gl->mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                                if (response_get_status(r) != RESPONSE_OK) {
+                                        log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set key to keycontrol (error %d)!\n", response_get_status(r));
+                                }
+                                free_response(r);
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                        }
         }
 }
 
@@ -1097,7 +1124,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 glutHideWindow();
         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ?  GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
         //glutHideWindow();
-	glutKeyboardFunc(glut_key_callback);
+	glutKeyboardFunc([](unsigned char key, int /*x*/, int /*y*/) { glut_key_callback(key, false); });
+	glutSpecialFunc([](int key, int /*x*/, int /*y*/) { glut_key_callback(key, true); }); // special keys
 	glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
         glutMotionFunc(glut_mouse_callback);
         glutPassiveMotionFunc(glut_mouse_callback);
