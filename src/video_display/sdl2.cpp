@@ -227,13 +227,7 @@ static void display_sdl_run(void *arg)
                                         break;
                                 default:
                                         if (translate_sdl_key_to_ug(sdl_event.key.keysym.sym) != -1) {
-                                                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                                                sprintf(m->text, "press %" PRId64, translate_sdl_key_to_ug(sdl_event.key.keysym.sym));
-                                                struct response *r = send_message_sync(get_root_module(s->parent), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-                                                if (response_get_status(r) != RESPONSE_OK) {
-                                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set key to keycontrol (error %d)!\n", response_get_status(r));
-                                                }
-                                                free_response(r);
+                                                keycontrol_send_key(get_root_module(s->parent), translate_sdl_key_to_ug(sdl_event.key.keysym.sym));
                                         } else {
                                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s!\n", SDL_GetKeyName(sdl_event.key.keysym.sym));
                                         }

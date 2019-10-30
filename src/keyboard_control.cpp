@@ -841,3 +841,21 @@ void keyboard_control::msg_received() {
         }
 }
 
+#define FORCE_UNDEFINED_SYMBOL(x) void* __ ## x ## _fp =(void*)&x;
+/**
+ * This needs to be in uv executable to be able to provide it to GL/SDL
+ * display modules (modular build) therefore FORCE_UNDEFINED_SYMBOL is used
+ * @todo Find a systematic solution
+ */
+void keycontrol_send_key(struct module *root, int64_t key) {
+        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+        sprintf(m->text, "press %" PRId64, key);
+        struct response *r = send_message_sync(root, "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+        if (response_get_status(r) != RESPONSE_OK) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set key to keycontrol (error %d)!\n", response_get_status(r));
+        }
+        free_response(r);
+}
+
+FORCE_UNDEFINED_SYMBOL(keycontrol_send_key)
+

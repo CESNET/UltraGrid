@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,6 +105,8 @@ private:
         std::map<int, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
         std::mutex m_lock;
 };
+
+extern "C" void keycontrol_send_key(struct module *root, int64_t key);
 
 #endif // keyboard_control_h_
 
