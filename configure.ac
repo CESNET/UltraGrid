@@ -1673,10 +1673,12 @@ AC_ARG_ENABLE(file,
 [file_req=$build_default]
 )
 
-PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavoformat=yes], [found_libavformat=no])
+PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
 if test "$found_libavformat" != yes; then
+        SAVED_LIBS=$LIBS
         AC_CHECK_HEADERS([libavformat/avformat.h])
         AC_CHECK_LIB(avformat, avformat_open_input)
+        LIBS=$SAVED_LIBS
 
         if test $ac_cv_header_libavformat_avformat_h = yes -a \
                 $ac_cv_lib_avformat_avformat_open_input = yes
@@ -2331,10 +2333,15 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is disable)]
+[  --enable-jack-transport enable JACK transport (default is $build_default)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
+
+if test $jack_trans_req = yes -a $build_libraries = yes
+then
+        AC_MSG_ERROR([JACK transport is currently incompatible with modular build]);
+fi
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, [FOUND_JACK_L=yes]
@@ -2345,7 +2352,7 @@ if test $FOUND_JACK_L = no; then
                                                  [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
 fi
 
-if test $jack_trans_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a $build_libraries = no
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
     JACK_TRANS_LIB="$JACK_LIB"
