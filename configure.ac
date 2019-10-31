@@ -1957,8 +1957,12 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
+if test -n "$CUDA_PATH"; then
+        CUDA_PATH_SEP="$CUDA_PATH$PATH_SEPARATOR"
+fi
+
 # nvcc is intentional here
-AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH/bin$PATH_SEPARATOR$PATH]dnl
+AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
         [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
 if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
