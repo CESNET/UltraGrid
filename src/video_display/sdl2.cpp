@@ -60,6 +60,7 @@
 #include "host.h"
 #include "keyboard_control.h" // K_*
 #include "lib_common.h"
+#include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
 #include "video_display.h"
@@ -86,10 +87,17 @@ using rang::style;
 using namespace std;
 using namespace std::chrono;
 
+static void show_help(void);
+static void display_sdl2_new_message(struct module *);
+static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_sdl_reconfigure(void *state, struct video_desc desc);
+static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
+
 struct state_sdl2 {
         struct module           mod;
 
         Uint32                  sdl_user_new_frame_event;
+        Uint32                  sdl_user_new_message_event;
 
         chrono::steady_clock::time_point tv{chrono::steady_clock::now()};
         unsigned long long int  frames{0};
@@ -123,21 +131,18 @@ struct state_sdl2 {
         state_sdl2(struct module *parent) {
                 module_init_default(&mod);
                 mod.priv_magic = MAGIC_SDL2;
+                mod.new_message = display_sdl2_new_message;
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
 
-                sdl_user_new_frame_event = SDL_RegisterEvents(1);
+                sdl_user_new_frame_event = SDL_RegisterEvents(2);
                 assert(sdl_user_new_frame_event != (Uint32) -1);
+                sdl_user_new_message_event = sdl_user_new_message_event + 1;
         }
         ~state_sdl2() {
                 module_done(&mod);
         }
 };
-
-static void show_help(void);
-static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock);
-static int display_sdl_reconfigure(void *state, struct video_desc desc);
-static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -243,6 +248,19 @@ static void display_sdl_run(void *arg)
                                 display_frame(s, (struct video_frame *) sdl_event.user.data1);
                         } else { // poison pill received
                                 should_exit_sdl = true;
+                        }
+                } else if (sdl_event.type == s->sdl_user_new_message_event) {
+                        struct msg_universal *msg;
+                        while ((msg = (struct msg_universal *) check_message(&s->mod))) {
+                                struct response *r;
+                                if (strstr(msg->text, "fullscreen") != nullptr) {
+                                        SDL_SetWindowFullscreen(s->window, (s->fs = !s->fs) ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                                        r = new_response(RESPONSE_OK, NULL);
+                                } else {
+                                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
+                                }
+
+                                free_message((struct message*) msg, r);
                         }
                 } else if (sdl_event.type == SDL_KEYDOWN) {
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
@@ -555,6 +573,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         SDL_DisableScreenSaver();
 
         loadSplashscreen(s);
+        keycontrol_register_key(&s->mod, 'f', "fullscreen", "toggle fullscreen");
 
         log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");
 
@@ -668,6 +687,15 @@ static int display_sdl_get_property(void *state, int property, void *val, size_t
                         return FALSE;
         }
         return TRUE;
+}
+
+static void display_sdl2_new_message(struct module *mod)
+{
+        struct state_sdl2 *s = (struct state_sdl2 *) mod;
+
+        SDL_Event event;
+        event.type = s->sdl_user_new_message_event;
+        SDL_PushEvent(&event);
 }
 
 static const struct video_display_info display_sdl2_info = {
