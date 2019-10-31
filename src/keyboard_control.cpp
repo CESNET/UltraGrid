@@ -37,6 +37,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * Consider using some abstraction over terminal control mainly because
  * differencies between Linux and Windows (ANSI mode or terminfo?)
