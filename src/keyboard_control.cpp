@@ -857,6 +857,32 @@ void keycontrol_send_key(struct module *root, int64_t key) {
         }
         free_response(r);
 }
-
 FORCE_UNDEFINED_SYMBOL(keycontrol_send_key)
+
+/** @brief Registers callback message for given key
+ *
+ * @ref message_universal message type is always sent
+ * @param[in] sender_mod  module that should receive the message for key
+ * @param[in] description optional decription (may be NULL)
+ */
+bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const char *message, const char *description) {
+        char receiver_path[1024];
+        if (!module_get_path_str(receiver_mod, receiver_path, sizeof receiver_path)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot format format path for sender!\n");
+                return false;
+        }
+        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+        if (description == nullptr) {
+                description = message;
+        }
+        sprintf(m->text, "map #%" PRId64 " %s %s#%s", key, receiver_path, message, description);
+        struct response *r = send_message_sync(get_root_module(receiver_mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+        if (response_get_status(r) != RESPONSE_OK) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot register keyboard control (error %d)!\n", response_get_status(r));
+                return false;
+        }
+        free_response(r);
+        return true;
+}
+FORCE_UNDEFINED_SYMBOL(keycontrol_register_key)
 

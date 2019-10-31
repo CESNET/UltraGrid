@@ -350,7 +350,6 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
-static void display_gl_register_keyboard_ctl(struct module *mod);
 
 #ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
@@ -529,7 +528,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         }
 
         gl_load_splashscreen(s);
-        display_gl_register_keyboard_ctl(&s->mod);
+        keycontrol_register_key(&s->mod, 'f', "fullscreen", "toggle fullscreen");
 
         /* GLUT callbacks take only some arguments so we need static variable */
         gl = s;
@@ -1886,20 +1885,6 @@ static const struct video_display_info display_gl_info = {
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
 };
-
-static void display_gl_register_keyboard_ctl(struct module *mod) {
-        char my_path[1024];
-        if (!module_get_path_str(mod, my_path, sizeof my_path)) {
-                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot register keyboard control for GL!\n");
-        }
-        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-        sprintf(m->text, "map #%d %s fullscreen#toggle fullscreen", (int) 'f', my_path);
-        struct response *r = send_message_sync(get_root_module(mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-        if (response_get_status(r) != RESPONSE_OK) {
-                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot register keyboard control for GL(error %d)!\n", response_get_status(r));
-        }
-        free_response(r);
-}
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

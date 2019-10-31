@@ -107,6 +107,7 @@ private:
 };
 
 extern "C" void keycontrol_send_key(struct module *root, int64_t key);
+extern "C" bool keycontrol_register_key(struct module *sender_mod, int64_t key, const char *message, const char *description);
 
 #endif // keyboard_control_h_
 
