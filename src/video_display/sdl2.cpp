@@ -60,6 +60,7 @@
 #include "host.h"
 #include "keyboard_control.h" // K_*
 #include "lib_common.h"
+#include "module.h"
 #include "rang.hpp"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -85,11 +86,10 @@ using rang::style;
 using namespace std;
 using namespace std::chrono;
 
-#define SDL_USER_NEWFRAME SDL_USEREVENT
-
 struct state_sdl2 {
-        uint32_t                magic{MAGIC_SDL2};
-        struct module          *parent{nullptr};
+        struct module           mod;
+
+        Uint32                  sdl_user_new_frame_event;
 
         chrono::steady_clock::time_point tv{chrono::steady_clock::now()};
         unsigned long long int  frames{0};
@@ -119,6 +119,19 @@ struct state_sdl2 {
         struct video_frame     *last_frame{nullptr};
 
         queue<struct video_frame *> free_frame_queue;
+
+        state_sdl2(struct module *parent) {
+                module_init_default(&mod);
+                mod.priv_magic = MAGIC_SDL2;
+                mod.cls = MODULE_CLASS_DATA;
+                module_register(&mod, parent);
+
+                sdl_user_new_frame_event = SDL_RegisterEvents(1);
+                assert(sdl_user_new_frame_event != (Uint32) -1);
+        }
+        ~state_sdl2() {
+                module_done(&mod);
+        }
 };
 
 static void show_help(void);
@@ -218,69 +231,64 @@ static void display_sdl_run(void *arg)
 
         while (!should_exit_sdl) {
                 SDL_Event sdl_event;
-                if (SDL_WaitEvent(&sdl_event)) {
-                        switch (sdl_event.type) {
-                        case SDL_USER_NEWFRAME:
-                        {
-                                std::unique_lock<std::mutex> lk(s->lock);
-                                s->buffered_frames_count -= 1;
-                                lk.unlock();
-                                s->frame_consumed_cv.notify_one();
-                                if (sdl_event.user.data1 != NULL) {
-                                        display_frame(s, (struct video_frame *) sdl_event.user.data1);
-                                } else { // poison pill received
-                                        should_exit_sdl = true;
-                                }
-                                break;
+                if (!SDL_WaitEvent(&sdl_event)) {
+                        continue;
+                }
+                if (sdl_event.type == s->sdl_user_new_frame_event) {
+                        std::unique_lock<std::mutex> lk(s->lock);
+                        s->buffered_frames_count -= 1;
+                        lk.unlock();
+                        s->frame_consumed_cv.notify_one();
+                        if (sdl_event.user.data1 != NULL) {
+                                display_frame(s, (struct video_frame *) sdl_event.user.data1);
+                        } else { // poison pill received
+                                should_exit_sdl = true;
                         }
-                        case SDL_KEYDOWN:
-                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
-                                switch (sdl_event.key.keysym.sym) {
-                                case SDLK_d:
-                                        s->deinterlace = !s->deinterlace;
-                                        log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
-                                                        s->deinterlace ? "ON" : "OFF");
-                                        break;
-                                case SDLK_f:
-                                        s->fs = !s->fs;
-                                        SDL_SetWindowFullscreen(s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                                        break;
-                                case SDLK_q:
-                                        exit_uv(0);
-                                        break;
-                                default:
-                                        {
-                                                int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
-                                                if (sym > 0) {
-                                                        keycontrol_send_key(get_root_module(s->parent), sym);
-                                                } else if (sym == -1) {
-                                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
-                                                }
-                                        }
-                                }
+                } else if (sdl_event.type == SDL_KEYDOWN) {
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
+                        switch (sdl_event.key.keysym.sym) {
+                        case SDLK_d:
+                                s->deinterlace = !s->deinterlace;
+                                log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
+                                                s->deinterlace ? "ON" : "OFF");
                                 break;
-                        case SDL_WINDOWEVENT:
-                                // https://forums.libsdl.org/viewtopic.php?p=38342
-                                if (s->keep_aspect && sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                                        double area = sdl_event.window.data1 * sdl_event.window.data2;
-                                        int width = sqrt(area / ((double) s->current_display_desc.height / s->current_display_desc.width));
-                                        int height = sqrt(area / ((double) s->current_display_desc.width / s->current_display_desc.height));
-                                        SDL_SetWindowSize(s->window, width, height);
-                                        debug_msg("[SDL] resizing to %d x %d\n", width, height);
-                                }
-                                if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED
-                                                || sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                                        // clear both buffers
-                                        SDL_RenderClear(s->renderer);
-                                        display_frame(s, s->last_frame);
-                                        SDL_RenderClear(s->renderer);
-                                        display_frame(s, s->last_frame);
-                                }
+                        case SDLK_f:
+                                s->fs = !s->fs;
+                                SDL_SetWindowFullscreen(s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                                 break;
-                        case SDL_QUIT:
+                        case SDLK_q:
                                 exit_uv(0);
                                 break;
+                        default:
+                                {
+                                        int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
+                                        if (sym > 0) {
+                                                keycontrol_send_key(get_root_module(&s->mod), sym);
+                                        } else if (sym == -1) {
+                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
+                                        }
+                                }
                         }
+                } else if (sdl_event.type == SDL_WINDOWEVENT) {
+                        // https://forums.libsdl.org/viewtopic.php?p=38342
+                        if (s->keep_aspect && sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                                double area = sdl_event.window.data1 * sdl_event.window.data2;
+                                int width = sqrt(area / ((double) s->current_display_desc.height / s->current_display_desc.width));
+                                int height = sqrt(area / ((double) s->current_display_desc.width / s->current_display_desc.height));
+                                SDL_SetWindowSize(s->window, width, height);
+                                debug_msg("[SDL] resizing to %d x %d\n", width, height);
+                        }
+                        if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED
+                                        || sdl_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                                // clear both buffers
+                                SDL_RenderClear(s->renderer);
+                                display_frame(s, s->last_frame);
+                                SDL_RenderClear(s->renderer);
+                                display_frame(s, s->last_frame);
+                        }
+                } else if (sdl_event.type == SDL_QUIT) {
+                        exit_uv(0);
+                        break;
                 }
         }
 }
@@ -465,8 +473,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 return NULL;
         }
         const char *driver = NULL;
-        struct state_sdl2 *s = new state_sdl2{};
-        s->parent = parent;
+        struct state_sdl2 *s = new state_sdl2{parent};
 
         if (fmt == NULL) {
                 fmt = "";
@@ -558,7 +565,7 @@ static void display_sdl_done(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
-        assert(s->magic == MAGIC_SDL2);
+        assert(s->mod.priv_magic == MAGIC_SDL2);
 
         vf_free(s->last_frame);
 
@@ -592,7 +599,7 @@ static void display_sdl_done(void *state)
 static struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
-        assert(s->magic == MAGIC_SDL2);
+        assert(s->mod.priv_magic == MAGIC_SDL2);
 
         lock_guard<mutex> lock(s->lock);
 
@@ -613,7 +620,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
-        assert(s->magic == MAGIC_SDL2);
+        assert(s->mod.priv_magic == MAGIC_SDL2);
 
         if (nonblock == PUTF_DISCARD) {
                 vf_free(frame);
@@ -631,7 +638,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock
         s->buffered_frames_count += 1;
         lk.unlock();
         SDL_Event event;
-        event.type = SDL_USER_NEWFRAME;
+        event.type = s->sdl_user_new_frame_event;
         event.user.data1 = frame;
         SDL_PushEvent(&event);
 
