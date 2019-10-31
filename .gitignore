@@ -8,10 +8,13 @@ config.h.in
 *.mp4
 *.h264
 *.log
+*.vim
 uv
 bin/
 /build*/
 /documentation/
+/export*/
+/local/
 lib/
 aclocal.m4
 autom4te.cache
