@@ -41,6 +41,10 @@
  * @todo
  * Consider using some abstraction over terminal control mainly because
  * differencies between Linux and Windows (ANSI mode or terminfo?)
+ *
+ * @todo
+ * - key should not be overriden (eg. preset and custom)
+ * - preset keys and customs ones should be unified (in key mapping)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -114,7 +118,7 @@ keyboard_control::keyboard_control(struct module *parent) :
         m_should_exit(false),
         m_started(false),
         m_locked_against_changes(true),
-        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '+', '-', 'e', 's', 'q', 'v', 'V' }
+        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '+', '-', 'e', 's', 'S', 'v', 'V' }
 {
         m_start_time = time(NULL);
 
@@ -425,15 +429,6 @@ void keyboard_control::run()
         int64_t c;
 
         while ((c = get_next_key())) {
-                m_lock.lock();
-                if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
-                        string cmd = key_mapping.at(c).first;
-                        exec_external_commands(cmd.c_str());
-                        m_lock.unlock();
-                        continue;
-                }
-                m_lock.unlock();
-
                 if (c == K_CTRL('X')) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
                         cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
@@ -443,6 +438,15 @@ void keyboard_control::run()
                         cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
                         continue;
                 }
+
+                m_lock.lock();
+                if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
+                        string cmd = key_mapping.at(c).first;
+                        exec_external_commands(cmd.c_str());
+                        m_lock.unlock();
+                        continue;
+                }
+                m_lock.unlock();
 
                 switch (c) {
                 case '*':
@@ -515,7 +519,7 @@ void keyboard_control::run()
                                 log_level = LOG_LEVEL_QUIET;
                         }
                         break;
-                case 'q':
+                case 'S':
                         if (saved_log_level != -1) {
                                 log_level = saved_log_level;
                                 saved_log_level = -1;
@@ -642,8 +646,8 @@ void keyboard_control::usage()
                 BOLD("\t   V   ") << "- decrease verbosity level" << G('V') << "\n" <<
                 BOLD("\t   e   ") << "- record captured content (toggle)" << G('e') << "\n" <<
                 BOLD("\t   h   ") << "- show help" << G('h') << "\n" <<
-                BOLD("\t   i   ") << "- show various information" << G('*') << "\n" <<
-                BOLD("\t  s q  ") << "- suspend/resume output" << G('s') << G('q') << "\n" <<
+                BOLD("\t   i   ") << "- show various information" << G('i') << "\n" <<
+                BOLD("\t  s S  ") << "- suspend/resume output" << G('s') << G('S') << "\n" <<
                 BOLD("\t  c C  ") << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
                 BOLD("\tCtrl-x ") << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
                 BOLD("\tCtrl-c ") << "- exit " << G(K_CTRL('c')) << "\n" <<
