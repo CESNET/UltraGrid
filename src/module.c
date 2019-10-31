@@ -325,3 +325,30 @@ void dump_tree(struct module *node, int indent) {
         }
 }
 
+/**
+ * Gets textual representation of path from root to module.
+ *
+ * Currently only simple paths are created (class names only)
+ */
+bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
+        assert(buflen > 0);
+        buf[0] = '\0';
+
+        while (mod) {
+                const char *cur_name = module_class_name(mod->cls);
+                if (sizeof(buf) + 1 + sizeof(cur_name) >= buflen) {
+                        return false;
+                }
+                if (strlen(buf) > 0) {
+                        memmove(buf + strlen(cur_name) + 1, buf, strlen(buf) + 1);
+                        buf[strlen(cur_name)] = '.';
+                } else {
+                        buf[strlen(cur_name)] = '\0';
+                }
+                memcpy(buf, cur_name, strlen(cur_name));
+                mod = mod->parent;
+        }
+
+        return true;
+}
+

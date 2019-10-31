@@ -146,6 +146,8 @@ void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
 void append_message_path(char *buf, int buflen, enum module_class modules[]);
+bool module_get_path_str(struct module *mod, char *buf, size_t buflen);
+
 /**
  * @retval NULL if not found
  * @retval non-NULL pointer to the module
