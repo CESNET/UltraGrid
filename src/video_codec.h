@@ -78,27 +78,27 @@ typedef decoder_func_t *decoder_t;
 /// Prints list of suppored codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12);
 /// @returns number of bits per color component
-int              get_bits_per_component(codec_t codec) ATTRIBUTE(pure);
+int              get_bits_per_component(codec_t codec) ATTRIBUTE(const);
 /// @returns number of bytes per pixel
-double           get_bpp(codec_t codec) ATTRIBUTE(pure);
-uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(pure);
-int              get_halign(codec_t codec) ATTRIBUTE(pure);
-const char      *get_codec_name(codec_t codec) ATTRIBUTE(pure);
-const char      *get_codec_name_long(codec_t codec) ATTRIBUTE(pure);
-int              is_codec_opaque(codec_t codec) ATTRIBUTE(pure);
-int              is_codec_interframe(codec_t codec) ATTRIBUTE(pure);
-codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(pure);
-codec_t          get_codec_from_name(const char *name) ATTRIBUTE(pure);
-const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(pure);
-decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(pure);
+double           get_bpp(codec_t codec) ATTRIBUTE(const);
+uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(const);
+int              get_halign(codec_t codec) ATTRIBUTE(const);
+const char      *get_codec_name(codec_t codec) ATTRIBUTE(const);
+const char      *get_codec_name_long(codec_t codec) ATTRIBUTE(const);
+int              is_codec_opaque(codec_t codec) ATTRIBUTE(const);
+int              is_codec_interframe(codec_t codec) ATTRIBUTE(const);
+codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
+codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
+const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
+decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(const);
 
-int get_aligned_length(int width, codec_t codec) ATTRIBUTE(pure);
-int get_pf_block_size(codec_t codec) ATTRIBUTE(pure);
-int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(pure);
-int codec_is_a_rgb(codec_t codec) ATTRIBUTE(pure);
-bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(pure);
-int codec_is_const_size(codec_t codec) ATTRIBUTE(pure);
-bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(pure);
+int get_aligned_length(int width, codec_t codec) ATTRIBUTE(const);
+int get_pf_block_size(codec_t codec) ATTRIBUTE(const);
+int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
+int codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
+bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(const);
+int codec_is_const_size(codec_t codec) ATTRIBUTE(const);
+bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(const);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);

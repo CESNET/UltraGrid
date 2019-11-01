@@ -180,9 +180,9 @@ struct uv_to_av_pixfmt {
         codec_t uv_codec;
         enum AVPixelFormat av_pixfmt;
 };
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(pure);
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(pure);
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(pure);
+codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(const);
+enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(const);
+const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
 
 #ifdef __cplusplus
 }
