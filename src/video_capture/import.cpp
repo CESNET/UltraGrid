@@ -336,6 +336,14 @@ try {
         free(tmp);
         tmp = NULL;
 
+        // strip video.info if user included in path
+        if (strstr(s->directory, "video.info") == s->directory) {
+                strcpy(s->directory, ".");
+        }
+        if (strstr(s->directory, "/video.info") != nullptr) {
+                *strrchr(s->directory, '/') = '\0';
+        }
+
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
 
