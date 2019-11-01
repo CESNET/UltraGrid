@@ -62,11 +62,17 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include <string.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <getopt.h>
+#include <iostream>
+#include <list>
+#include <memory>
+#include <mutex>
 #include <pthread.h>
 #include <rang.hpp>
+#include <string>
+#include <string.h>
+#include <tuple>
 
 #include "control_socket.h"
 #include "debug.h"
@@ -94,10 +100,6 @@
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
-
-#include <iostream>
-#include <memory>
-#include <string>
 
 #define PORT_BASE               5004
 
@@ -138,10 +140,13 @@ using rang::fg;
 using rang::style;
 using namespace std;
 
+static void state_uv_new_message(struct module *mod);
+
 struct state_uv {
         state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
                 module_init_default(&root_module);
                 root_module.cls = MODULE_CLASS_ROOT;
+                root_module.new_message = state_uv_new_message;
                 root_module.priv_data = this;
         }
         ~state_uv() {
@@ -156,7 +161,26 @@ struct state_uv {
         struct module root_module;
 
         video_rxtx *state_video_rxtx;
+
+        mutex lock;
+        list<tuple<void (*)(void *), void *>> should_exit_callbacks;
 };
+
+static void state_uv_new_message(struct module *mod)
+{
+        auto s = (state_uv *) mod->priv_data;
+        struct msg_root *m;
+        while ((m = (struct msg_root *) check_message(mod))) {
+                if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
+                        free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
+                        continue;
+                }
+                unique_lock<mutex> lk(s->lock);
+                s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
+                lk.unlock();
+                free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
+        }
+}
 
 static int exit_status = EXIT_SUCCESS;
 
@@ -248,6 +272,10 @@ static void crash_signal_handler(int sig)
 void exit_uv(int status) {
         exit_status = status;
         should_exit = true;
+        unique_lock<mutex> lk(uv_state->lock);
+        for (auto c : uv_state->should_exit_callbacks) {
+                get<0>(c)(get<1>(c));
+        }
 }
 
 static void print_help_item(const string &name, const vector<string> &help) {

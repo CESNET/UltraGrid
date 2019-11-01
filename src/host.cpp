@@ -15,6 +15,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "messaging.h"
+#include "module.h"
 #include "perf.h"
 #include "rang.hpp"
 #include "video_capture.h"
@@ -439,6 +440,18 @@ bool register_mainloop(mainloop_t m, void *u)
         mainloop_udata = u;
 
         return true;
+}
+
+void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata)
+{
+        auto m = (struct msg_root *) new_message(sizeof(struct msg_root));
+        m->type = ROOT_MSG_REGISTER_SHOULD_EXIT;
+        m->should_exit_callback = callback;
+        m->udata = udata;
+
+        struct response *r = send_message_sync(get_root_module(mod), "root", (struct message *) m, -1, SEND_MESSAGE_FLAG_NO_STORE);
+        assert(response_get_status(r) == RESPONSE_OK);
+        free_response(r);
 }
 
 ADD_TO_PARAM(errors_fatal, "errors-fatal", "* errors-fatal\n"

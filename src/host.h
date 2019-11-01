@@ -153,6 +153,7 @@ void print_pixel_formats(void);
 void print_video_codecs(void);
 
 bool register_mainloop(mainloop_t, void *);
+void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
 
 #ifdef __cplusplus
 }
