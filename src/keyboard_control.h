@@ -106,8 +106,10 @@ private:
         std::mutex m_lock;
 };
 
-extern "C" void keycontrol_send_key(struct module *root, int64_t key);
-extern "C" bool keycontrol_register_key(struct module *sender_mod, int64_t key, const char *message, const char *description);
+// attribute used guaranties that the symbol is present even if not referenced (modular build)
+/// @todo all UG core functions should have the 'used' attribute
+EXTERN_C void keycontrol_send_key(struct module *root, int64_t key) ATTRIBUTE(used);
+EXTERN_C bool keycontrol_register_key(struct module *sender_mod, int64_t key, const char *message, const char *description) ATTRIBUTE(used);
 
 #endif // keyboard_control_h_
 
