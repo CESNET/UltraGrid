@@ -1,9 +1,10 @@
 /**
- * @file   video_capture/import.h
+ * @file   playback.h
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * Abstraction of import and file video capture.
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +36,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_CAPTURE_H_
-#define VIDEO_CAPTURE_H_
+#ifndef PLAYBACK_H_
+#define PLAYBACK_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+EXTERN_C int playback_set_device(char *device_string, size_t buf_len, const char *optarg);
+EXTERN_C void playback_register_keyboard_ctl(struct module *root);
 
-bool import_has_audio(const char *dir);
-// used also by file capture which has the same bindings
-void vidcap_import_register_keyboard_ctl(struct module *root);
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#endif // defined VIDEO_CAPTURE_H_
+#endif // defined PLAYBACK_H_
 

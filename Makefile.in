@@ -59,6 +59,7 @@ OBJS	      = @OBJS@ \
 		src/keyboard_control.o \
 		src/messaging.o \
 		src/perf.o \
+		src/playback.o \
 		src/ntp.o \
 		src/pdb.o \
 		src/tv.o \

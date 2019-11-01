@@ -68,12 +68,12 @@
 #include "libavcodec_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "playback.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/time.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/import.h" // vidcap_import_register_keyboard_ctl
 
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
@@ -337,7 +337,8 @@ static void *vidcap_file_worker(void *state) {
         return NULL;
 }
 
-static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const char *fmt) {
+static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const char *fmt,
+                bool *opportunistic_audio) {
         s->src_filename = strdup(fmt);
         char *tmp = s->src_filename, *item, *saveptr;
         while ((item = strtok_r(tmp, ":", &saveptr)) != NULL) {
@@ -349,6 +350,8 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                         s->loop = true;
                 } else if (strcmp(item, "nodecode") == 0) {
                         s->no_decode = true;
+                } else if (strcmp(item, "opportunistic_audio") == 0) {
+                        *opportunistic_audio = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
                         return false;
@@ -389,6 +392,7 @@ static void vidcap_file_new_message(struct module *mod) {
 
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
+        bool opportunistic_audio = false; // do not fail if audio requested but not found
         if (strlen(vidcap_params_get_fmt(params)) == 0 ||
                         strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 vidcap_file_show_help();
@@ -410,7 +414,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         s->mod.new_message = vidcap_file_new_message;
         module_register(&s->mod, vidcap_params_get_parent(params));
 
-        if (!vidcap_file_parse_fmt(s, vidcap_params_get_fmt(params))) {
+        if (!vidcap_file_parse_fmt(s, vidcap_params_get_fmt(params), &opportunistic_audio)) {
                 vidcap_file_common_cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
@@ -432,7 +436,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         AVCodec *dec;
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
-                if (s->audio_stream_idx < 0) {
+                if (s->audio_stream_idx < 0 && !opportunistic_audio) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
                         return VIDCAP_INIT_FAIL;
@@ -451,9 +455,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         s->audio_frame.ch_count = s->aud_ctx->channels;
                         s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
                         s->audio_frame.data = malloc(s->audio_frame.max_size);
+                        s->use_audio = true;
                 }
-
-                s->use_audio = true;
         }
 
         s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
@@ -494,7 +497,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
 
-        vidcap_import_register_keyboard_ctl(get_root_module(&s->mod));
+        playback_register_keyboard_ctl(&s->mod);
 
         pthread_create(&s->thread_id, NULL, vidcap_file_worker, s);
 

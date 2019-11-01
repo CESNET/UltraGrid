@@ -75,6 +75,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
+#include "playback.h"
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
 #include "ug_runtime_error.h"
@@ -84,7 +85,6 @@
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_capture/import.h"
 #include "video_display.h"
 #include "video_compress.h"
 #include "export.h"
@@ -902,12 +902,13 @@ int main(int argc, char *argv[])
                         export_opts = optarg;
                         break;
                 case OPT_IMPORT:
-                        if (import_has_audio(optarg)) {
-                                audio_send = "embedded";
-                        }
+                        audio_send = "embedded";
                         {
                                 char dev_string[1024];
-                                snprintf(dev_string, sizeof(dev_string), "import:%s", optarg);
+                                int ret;
+                                if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
+                                        return ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                }
                                 vidcap_params_set_device(vidcap_params_tail, dev_string);
                                 vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
                         }

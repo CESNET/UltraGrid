@@ -38,6 +38,8 @@
 #ifndef keyboard_control_h_
 #define keyboard_control_h_
 
+#ifdef __cplusplus
+
 #include <cinttypes>
 #include <ctime>
 #include <condition_variable>
@@ -54,13 +56,6 @@
 #endif
 
 #include "module.h"
-
-// values are byte represenations of escape sequences (without ESC itself)
-#define K_UP    0x1b5b41
-#define K_DOWN  0x1b5b42
-#define K_RIGHT 0x1b5b43
-#define K_LEFT  0x1b5b44
-#define K_CTRL(x) (1 + tolower(x) - 'a')
 
 class keyboard_control {
 public:
@@ -105,6 +100,15 @@ private:
         std::map<int, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
         std::mutex m_lock;
 };
+
+#endif // __cplusplus
+
+// values are byte represenations of escape sequences (without ESC itself)
+#define K_UP    0x1b5b41
+#define K_DOWN  0x1b5b42
+#define K_RIGHT 0x1b5b43
+#define K_LEFT  0x1b5b44
+#define K_CTRL(x) (1 + tolower(x) - 'a')
 
 // attribute used guaranties that the symbol is present even if not referenced (modular build)
 /// @todo all UG core functions should have the 'used' attribute

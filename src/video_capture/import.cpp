@@ -54,10 +54,10 @@
 #include "keyboard_control.h"
 #include "messaging.h"
 #include "module.h"
+#include "playback.h"
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
-#include "video_capture/import.h"
 //#include "audio/audio.h"
 
 #include <stdio.h>
@@ -323,6 +323,7 @@ try {
                         s->o_direct = true;
                 } else if (strcmp(suffix, "noaudio") == 0) {
                         disable_audio = true;
+                } else if (strcmp(suffix, "opportunistic_audio") == 0) { // skip
                 } else if (strcmp(suffix, "exit_at_end") == 0) {
                         s->should_exit_at_end = true;
                 } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
@@ -492,7 +493,7 @@ try {
 
         gettimeofday(&s->prev_time, NULL);
 
-        vidcap_import_register_keyboard_ctl(get_root_module(&s->mod));
+        playback_register_keyboard_ctl(&s->mod);
 
         *state = s;
 	return VIDCAP_INIT_OK;
@@ -1124,34 +1125,4 @@ static const struct video_capture_info vidcap_import_info = {
 };
 
 REGISTER_MODULE(import, &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-
-// EXTERNAL API
-bool import_has_audio(const char *dir) {
-        const char *suffix = "/sound.wav";
-        char *audio_filename = (char *) malloc(strlen(dir) + strlen(suffix) + 1);
-        assert(audio_filename != NULL);
-        strcpy(audio_filename, dir);
-        strcat(audio_filename, suffix);
-
-        FILE *audio_file = fopen(audio_filename, "rb");
-        free(audio_filename);
-        if (!audio_file) {
-                return false;
-        }
-        fclose(audio_file);
-        return true;
-}
-
-void vidcap_import_register_keyboard_ctl(struct module *root) {
-        list<pair<int, string>> keybindings {{K_UP, "seek +60"}, {K_DOWN, "seek -60"}, {K_LEFT, "seek -10"}, {K_RIGHT, "seek +10"}, {' ', "pause"}, {'q', "quit"}};
-        for (auto & i: keybindings) {
-                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                sprintf(m->text, "map #%d capture.data %s#playback %s", i.first, i.second.c_str(), i.second.c_str());
-                struct response *r = send_message_sync(root, "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
-                if (response_get_status(r) != RESPONSE_OK) {
-                        log_msg(LOG_LEVEL_ERROR, "Cannot register keyboard control for video switcher (error %d)!\n", response_get_status(r));
-                }
-                free_response(r);
-        }
-}
 
