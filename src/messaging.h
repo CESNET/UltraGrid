@@ -35,6 +35,21 @@ struct message {
         void *priv_data;
 };
 
+enum msg_root_type {
+        ROOT_MSG_REGISTER_SHOULD_EXIT,
+};
+
+struct msg_root {
+        struct message m;
+        enum msg_root_type type;
+        union {
+                struct {
+                        void (*should_exit_callback)(void *udata);
+                        void *udata;
+                };
+        };
+};
+
 enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
@@ -113,8 +128,8 @@ const char *response_get_text(struct response *r);
 
 void module_check_undelivered_messages(struct module *);
 struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
-#define SEND_MESSAGE_FLAG_QUIET (1<<0)
-#define SEND_MESSAGE_FLAG_NO_STORE (1<<1)
+#define SEND_MESSAGE_FLAG_QUIET    (1<<0) ///< do not print error messages on console (recv not found/queue full)
+#define SEND_MESSAGE_FLAG_NO_STORE (1<<1) ///< if receiver doesn't exist, doesn't store it and retur 404 instead
 struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms, int flags) __attribute__ ((warn_unused_result));
 struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
 struct message *new_message(size_t length) __attribute__ ((warn_unused_result));

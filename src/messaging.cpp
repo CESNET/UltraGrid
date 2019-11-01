@@ -22,6 +22,7 @@
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
+#define MOD_NAME "[messaging] "
 
 using namespace std;
 using namespace ultragrid;
@@ -66,6 +67,21 @@ void free_message_for_child(void *m, struct response *r) {
 
 }
 
+/**
+ * Stores message to module message box. If new_message callback is present it is called. Otherwise it
+ * may take a long time until module reads the message therefore setting timeout_ms is strongly
+ * recommended to prevent freeze (unless knowing that module implements synchronnous message processing
+ * via module::new_message callback).
+ *
+ * If not set otherwise, when receiver doesn't exist, message is stored by nearest existing parent until
+ * it starts (this may be disabled with flag SEND_MESSAGE_FLAG_NO_STORE).
+ *
+ * @param            sync wait for response timeout_ms milliseconds, if false, 202 is immediately returned
+ *                   (or 404 if NO_STORE flag is set and receiver doesn't exist)
+ * @param timeout_ms if sync==true number of ms to wait for response (-1 means infinitely),
+ *                   ignored if sync is false,
+ * @params flags     bit mask of SEND_MESSAGE_FLAG_NO_STORE and SEND_MESSAGE_FLAG_QUIET
+ */
 static struct response *send_message_common(struct module *root, const char *const_path, struct message *msg, bool sync, int timeout_ms, int flags)
 {
         /**
@@ -120,7 +136,13 @@ static struct response *send_message_common(struct module *root, const char *con
                                         return new_response(RESPONSE_ACCEPTED, "(receiver not yet exists)");
                                 } else {
                                         unique_lock<mutex> lk(responder->lock);
-                                        responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
+                                        if (timeout_ms == -1) {
+                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: infinite wait for "
+                                                                "non-existent recv. Please report!\n");
+                                                responder->cv.wait(lk, [responder]{return responder->received_response != NULL;});
+                                        } else {
+                                                responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
+                                        }
                                         if (responder->received_response) {
                                                 struct response *resp = responder->received_response;
                                                 responder->received_response = NULL;
@@ -166,7 +188,15 @@ static struct response *send_message_common(struct module *root, const char *con
                 return new_response(RESPONSE_ACCEPTED, NULL);
         } else {
                 unique_lock<mutex> lk(responder->lock);
-                responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
+                if (timeout_ms == -1) {
+                        if (receiver->new_message == NULL) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: infinite wait for "
+                                                "module without msg notifier. Please report!\n");
+                        }
+                        responder->cv.wait(lk, [responder]{return responder->received_response != NULL;});
+                } else {
+                        responder->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [responder]{return responder->received_response != NULL;});
+                }
                 if (responder->received_response) {
                         struct response *resp = responder->received_response;
                         responder->received_response = NULL;
@@ -177,16 +207,25 @@ static struct response *send_message_common(struct module *root, const char *con
         }
 }
 
+/** @brief Sends message without waiting for response
+ * @copydetails send_message_common
+ */
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
         return send_message_common(root, const_path, msg, false, 0, 0);
 }
 
+/** @brief Sends message without waiting for response
+ * @copydetails send_message_common
+ */
 struct response *send_message_sync(struct module *root, const char *const_path, struct message *msg, int timeout_ms, int flags)
 {
         return send_message_common(root, const_path, msg, true, timeout_ms, flags);
 }
 
+/** @brief Sends message with waiting for response
+ * @copydetails send_message_common
+ */
 void module_check_undelivered_messages(struct module *node)
 {
         pthread_mutex_guard guard(node->lock);
