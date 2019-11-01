@@ -390,6 +390,16 @@ static void vidcap_file_new_message(struct module *mod) {
         pthread_cond_signal(&s->paused_cv);
 }
 
+static void vidcap_file_should_exit(void *state) {
+        struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
+        pthread_mutex_lock(&s->lock);
+        s->should_exit = true;
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->new_frame_ready);
+        pthread_cond_signal(&s->frame_consumed);
+        pthread_cond_signal(&s->paused_cv);
+}
+
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
@@ -498,6 +508,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
 
         playback_register_keyboard_ctl(&s->mod);
+        register_should_exit_callback(&s->mod, vidcap_file_should_exit, s);
 
         pthread_create(&s->thread_id, NULL, vidcap_file_worker, s);
 
@@ -509,11 +520,7 @@ static void vidcap_file_done(void *state) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         assert(s->mod.priv_magic == MAGIC);
 
-        pthread_mutex_lock(&s->lock);
-        s->should_exit = true;
-        pthread_mutex_unlock(&s->lock);
-        pthread_cond_signal(&s->frame_consumed);
-        pthread_cond_signal(&s->paused_cv);
+        vidcap_file_should_exit(s);
 
         pthread_join(s->thread_id, NULL);
 
@@ -533,10 +540,10 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         assert(s->mod.priv_magic == MAGIC);
         *audio = NULL;
         pthread_mutex_lock(&s->lock);
-        while (s->video_frame == NULL && !s->failed) {
+        while (s->video_frame == NULL && !s->failed && !s->should_exit) {
                 pthread_cond_wait(&s->new_frame_ready, &s->lock);
         }
-        if (s->failed) {
+        if (s->failed || s->should_exit) {
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
