@@ -255,6 +255,8 @@ static int64_t get_ansi_code() {
                         return -1;
                 }
                 c = '\E' << 16 | c << 8 | tmp;
+        } else if (c >= 'a' && c <= 'z') {
+                return K_ALT(c);
         } else {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control sequence!\n";
                 return -1;
@@ -308,6 +310,10 @@ static bool is_utf8(int64_t ch) {
         return false;
 #endif
 
+        if (ch < 0) {
+                return false;
+        }
+
         unsigned char first_byte;
         while (ch != 0) {
                 first_byte = ch & 0xff;
@@ -336,6 +342,10 @@ static string get_keycode_representation(int64_t ch) {
 
         if (ch >= 1 && ch <= 'z' - 'a' + 1) {
                 return string("Ctrl-") + string(1, 'a' + ch - 1);
+        }
+
+        if (ch >> 16 == 0 && ch >> 8 == '\e') {
+                return string("Alt-") + string(1, ch & 0xff);
         }
 
         if (ch <= UCHAR_MAX && isprint(ch)) {
@@ -884,6 +894,9 @@ bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const cha
 }
 
 void get_keycode_name(int64_t ch, char *buf, size_t buflen) {
+        if (buflen == 0) {
+                return;
+        }
         string name = get_keycode_representation(ch);
         strncpy(buf, name.c_str(), buflen - 1);
         buf[buflen - 1] = '\0';

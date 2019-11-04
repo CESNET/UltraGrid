@@ -108,7 +108,8 @@ private:
 #define K_DOWN  0x1b5b42
 #define K_RIGHT 0x1b5b43
 #define K_LEFT  0x1b5b44
-#define K_CTRL(x) (1 + tolower(x) - 'a')
+#define K_CTRL(x) (1 + ((x) >= 'A' && (x) <= 'Z' ? (x) - 'A' + 'a' : (x)) - 'a')
+#define K_ALT(x) ('\e' << 8 | (x)) /// exception - include ESC, otherwise Alt-a would become 'a'
 
 #define MAX_KEYCODE_NAME_LEN 8
 
