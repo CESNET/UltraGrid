@@ -76,6 +76,7 @@
 #include <csetjmp>
 #endif
 #include <iostream>
+#include <list>
 #include <mutex>
 #include <queue>
 
@@ -178,6 +179,13 @@ void main()
 } // main end
 )raw";
 
+const static list<pair<char, string>> keybindings {{'f', "toggle fullscreen"},
+        {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
+        {'s', "screnshot"}, {'c', "show/hide cursor"},
+        {'-', "make window smaller by a factor of 50%"},
+        {'+', "make window twice as big"}
+};
+
 #ifdef HWACC_VDPAU
 struct state_vdpau {
         bool initialized = false;
@@ -239,6 +247,8 @@ struct state_vdpau {
         void initMixer(uint32_t w, uint32_t h, VdpChromaType ct);
         void mixerRender(VdpVideoSurface f);
         void uninitMixer();
+
+
 
         void uninit();
 
@@ -333,6 +343,7 @@ static struct state_gl *gl;
 
 /* Prototyping */
 static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
+static bool display_gl_process_key(struct state_gl *s, long long int key);
 static int display_gl_reconfigure(void *state, struct video_desc desc);
 
 static void gl_draw(double ratio, double bottom_offset, bool double_buf);
@@ -380,14 +391,9 @@ static void gl_show_help(void) {
         printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
 
         printf("\n\nKeyboard shortcuts:\n");
-        printf("\t\t'f'\t\ttoggle fullscreen\n");
-        printf("\t\t'q'\t\tquit\n");
-        printf("\t\t'd'\t\ttoggle deinterlace\n");
-        printf("\t\t'p'\t\tpause video\n");
-        printf("\t\t's'\t\tscreenshot\n");
-        printf("\t\t'c'\t\tshow/hide cursor\n");
-        printf("\t\t'+'\t\tmake window smaller by a factor of 50%%\n");
-        printf("\t\t'-'\t\tmake window twice as big\n");
+        for (auto i : keybindings) {
+                cout << "\t\t'" << i.first << "'\t\t" << i.second << "\n";
+        }
 }
 
 static void gl_load_splashscreen(struct state_gl *s)
@@ -528,7 +534,10 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         }
 
         gl_load_splashscreen(s);
-        keycontrol_register_key(&s->mod, 'f', "fullscreen", "toggle fullscreen");
+        for (auto i : keybindings) {
+                char msg[2] = {i.first, '\0'};
+                keycontrol_register_key(&s->mod, i.first, msg, i.second.c_str());
+        }
 
         /* GLUT callbacks take only some arguments so we need static variable */
         gl = s;
@@ -884,14 +893,19 @@ static void glut_idle_callback(void)
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
                         glutSetWindowTitle(msg_univ->text + strlen("win_title "));
                         r = new_response(RESPONSE_OK, NULL);
-                } else if (strstr(msg_univ->text, "fullscreen") != nullptr) {
-                        gl->fs = !gl->fs;
-                        glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
-                                        gl->window_size_factor);
-                        r = new_response(RESPONSE_OK, NULL);
                 } else {
-                        fprintf(stderr, "[GL] Unknown command received: %s\n", msg_univ->text);
-                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
+                        if (strlen(msg_univ->text) != 1) {
+                                r = new_response(RESPONSE_BAD_REQUEST, "Wrong message - neither win-title nor key");
+                        } else {
+                                char key;
+                                sscanf(msg_univ->text, "%c",  &key);
+                                if (!display_gl_process_key(s, key)) {
+                                        log_msg(LOG_LEVEL_WARNING, "[GL] Unknown key received: %s\n", msg_univ->text);
+                                        r = new_response(RESPONSE_BAD_REQUEST, "Wrong key received");
+                                } else {
+                                        r = new_response(RESPONSE_OK, NULL);
+                                }
+                        }
                 }
                 free_message(msg, r);
         }
@@ -993,14 +1007,13 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
         return -1;
 }
 
-static void glut_key_callback(int key, bool is_special)
+static bool display_gl_process_key(struct state_gl *s, long long int key)
 {
-        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key" : "Key", key);
-        switch (key | (is_special ? 0x10000LL : 0)) { // prefix special keys
+        switch (key) {
                 case 'f':
-                        gl->fs = !gl->fs;
-                        glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
-                                        gl->window_size_factor);
+                        s->fs = !s->fs;
+                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
+                                        s->window_size_factor);
                         break;
                 case 'q':
 #if defined FREEGLUT || defined HAVE_MACOSX
@@ -1009,48 +1022,56 @@ static void glut_key_callback(int key, bool is_special)
                         /// @todo
                         /// This shouldn't happen (?). We have either freeglut (Linux, MSW) or
                         /// original GLUT on OS X
-			glutDestroyWindow(gl->window);
+			glutDestroyWindow(s->window);
 			exit(1);
 #endif
                         break;
                 case 'd':
-                        gl->deinterlace = !gl->deinterlace;
-                        printf("Deinterlacing: %s\n", gl->deinterlace ? "ON" : "OFF");
+                        s->deinterlace = !s->deinterlace;
+                        printf("Deinterlacing: %s\n", s->deinterlace ? "ON" : "OFF");
                         break;
                 case 'p':
-                        gl->paused = !gl->paused;
-                        LOG(LOG_LEVEL_NOTICE) << "[GL] " << (gl->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
+                        s->paused = !s->paused;
+                        LOG(LOG_LEVEL_NOTICE) << "[s] " << (s->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
                         break;
                 case 's':
-                        screenshot(gl->current_frame);
+                        screenshot(s->current_frame);
                         break;
                 case 'c':
-                        gl->show_cursor = (state_gl::show_cursor_t) (((int) gl->show_cursor + 1) % 3);
-                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << gl->show_cursor << "\n";
-                        glutSetCursor(gl->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
+                        s->show_cursor = (state_gl::show_cursor_t) (((int) s->show_cursor + 1) % 3);
+                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
+                        glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
                 case '+':
-                        gl->window_size_factor *= 2;
-                        glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
-                                        gl->window_size_factor);
+                        s->window_size_factor *= 2;
+                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
+                                        s->window_size_factor);
                         break;
                 case '-':
-                        gl->window_size_factor /= 2;
-                        glut_resize_window(gl->fs, gl->current_display_desc.height, gl->aspect,
-                                        gl->window_size_factor);
+                        s->window_size_factor /= 2;
+                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
+                                        s->window_size_factor);
                         break;
                 default:
-                        {
-                                int64_t ugk = translate_glut_to_ug(key, is_special);
-                                if (ugk > 0) {
-                                        if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-                                                ugk = K_CTRL(ugk);
-                                        }
-                                        keycontrol_send_key(get_root_module(&gl->mod), ugk);
-                                } else if (ugk != 0) {
-                                        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
-                                }
+                        return false;
+        }
+
+        return true;
+}
+
+static void glut_key_callback(int key, bool is_special)
+{
+        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key" : "Key", key);
+        if (!display_gl_process_key(gl, key | (is_special ? 0x10000LL : 0))) { // prefix special keys; key not found
+                int64_t ugk = translate_glut_to_ug(key, is_special);
+                if (ugk > 0) {
+                        if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                                ugk = K_CTRL(ugk);
                         }
+                        keycontrol_send_key(get_root_module(&gl->mod), ugk);
+                } else if (ugk != 0) {
+                        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                }
         }
 }
 
