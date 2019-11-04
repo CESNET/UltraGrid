@@ -87,9 +87,9 @@ using namespace std::chrono;
 
 static void show_help(void);
 static void display_sdl2_new_message(struct module *);
-static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock);
-static int display_sdl_reconfigure(void *state, struct video_desc desc);
-static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
+static int display_sdl2_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_sdl2_reconfigure(void *state, struct video_desc desc);
+static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 
 struct state_sdl2 {
         struct module           mod;
@@ -150,7 +150,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
                 return;
         }
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
-                if (!display_sdl_reconfigure_real(s, video_desc_from_frame(frame))) {
+                if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
                         goto free_frame;
                 }
         }
@@ -229,7 +229,7 @@ static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
         return -1;
 }
 
-static bool display_sdl_process_key(struct state_sdl2 *s, int64_t key)
+static bool display_sdl2_process_key(struct state_sdl2 *s, int64_t key)
 {
         switch (key) {
         case 'd':
@@ -249,7 +249,7 @@ static bool display_sdl_process_key(struct state_sdl2 *s, int64_t key)
         }
 }
 
-static void display_sdl_run(void *arg)
+static void display_sdl2_run(void *arg)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) arg;
         bool should_exit_sdl = false;
@@ -278,7 +278,7 @@ static void display_sdl_run(void *arg)
                                 if (strstr(msg->text, "win-title ") == msg->text) {
                                         SDL_SetWindowTitle(s->window, msg->text + strlen("win-title "));
                                 } else if (sscanf(msg->text, "%d", &key) == 1) {
-                                        if (!display_sdl_process_key(s, key)) {
+                                        if (!display_sdl2_process_key(s, key)) {
                                                 r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
                                         } else {
                                                 r = new_response(RESPONSE_OK, NULL);
@@ -293,7 +293,7 @@ static void display_sdl_run(void *arg)
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
                         int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
                         if (sym > 0) {
-                                if (!display_sdl_process_key(s, sym)) { // unknown key -> pass to control
+                                if (!display_sdl2_process_key(s, sym)) { // unknown key -> pass to control
                                         keycontrol_send_key(get_root_module(&s->mod), sym);
                                 }
                         } else if (sym == -1) {
@@ -357,7 +357,7 @@ static void show_help(void)
         SDL_Quit();
 }
 
-static int display_sdl_reconfigure(void *state, struct video_desc desc)
+static int display_sdl2_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) state;
 
@@ -398,7 +398,7 @@ static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
         return true;
 }
 
-static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
+static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -471,7 +471,7 @@ static void loadSplashscreen(struct state_sdl2 *s) {
         desc.fps = 1;
         desc.tile_count = 1;
 
-        display_sdl_reconfigure(s, desc);
+        display_sdl2_reconfigure(s, desc);
 
         struct video_frame *frame = vf_alloc_desc_data(desc);
 
@@ -491,10 +491,10 @@ static void loadSplashscreen(struct state_sdl2 *s) {
                 }
         }
 
-        display_sdl_putf(s, frame, PUTF_BLOCKING);
+        display_sdl2_putf(s, frame, PUTF_BLOCKING);
 }
 
-static void *display_sdl_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid SDL2 module currently doesn't support audio!\n");
@@ -592,7 +592,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         return (void *) s;
 }
 
-static void display_sdl_done(void *state)
+static void display_sdl2_done(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -627,7 +627,7 @@ static void display_sdl_done(void *state)
         delete s;
 }
 
-static struct video_frame *display_sdl_getf(void *state)
+static struct video_frame *display_sdl2_getf(void *state)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
         assert(s->mod.priv_magic == MAGIC_SDL2);
@@ -647,7 +647,7 @@ static struct video_frame *display_sdl_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_sdl2_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
@@ -676,7 +676,7 @@ static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock
         return 0;
 }
 
-static int display_sdl_get_property(void *state, int property, void *val, size_t *len)
+static int display_sdl2_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[pf_mapping.size()];
@@ -719,13 +719,13 @@ static const struct video_display_info display_sdl2_info = {
                 strcpy((*available_cards)[0].name, "SDL2 SW display");
                 (*available_cards)[0].repeatable = true;
         },
-        display_sdl_init,
-        display_sdl_run,
-        display_sdl_done,
-        display_sdl_getf,
-        display_sdl_putf,
-        display_sdl_reconfigure,
-        display_sdl_get_property,
+        display_sdl2_init,
+        display_sdl2_run,
+        display_sdl2_done,
+        display_sdl2_getf,
+        display_sdl2_putf,
+        display_sdl2_reconfigure,
+        display_sdl2_get_property,
         NULL,
         NULL
 };
