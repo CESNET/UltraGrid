@@ -70,11 +70,6 @@ using namespace std;
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
-/**This variable represents a pseudostate and may be returned when initialization
- * of module was successful but no state was created (eg. when driver had displayed help).
- */
-int vidcap_init_noerr;
-
 struct vidcap_params;
 
 /**

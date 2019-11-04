@@ -10,10 +10,9 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * @ingroup vidcap
- */
-/**
- * Copyright (c) 2005-2013 CESNET z.s.p.o
+ * @copyright
+ * ```
+ * Copyright (c) 2005-2019 CESNET, z. s. p. o
  * Copyright (c) 2002 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,33 +49,48 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * ```
+ * @ingroup vidcap
  */
 
 /**
  * @defgroup vidcap Video Capture
  *
- * API for video capture. Normal operation is something like:
+ * ## Workflow for video capture
+ *
+ * Normal operation is something like:
  * @code{.c}
  * v = vidcap_init(id);
  * ...
  * while (!done) {
  *     ...
- *     f = vidcap_grab(v, timeout);
- *     ...use the frame "f"
+ *     f = vidcap_grab(v, &a);
+ *     ...use the video frame "f"
+ *     ...use the audio frame "a"
  * }
  * vidcap_done(v);
  * @endcode
  *
  * Where the "id" parameter to vidcap_init() is obtained from
  * the probing API. The vidcap_grab() function returns a pointer
- * to the frame, or NULL if no frame is currently available. It
- * does not block.
+ * to the frame, or NULL if no frame is currently available.
+ *
+ * The vidcap_grab() may block, but not indefinitely (ideally
+ * no longer than 2x frame time) or it should observe global exit
+ * status with register_should_exit_callback() and yield control
+ * when notified.
+ *
+ * ## API for video capturers
+ * Each module should implement API from @ref video_capture_info.
+ * Furthermore, it should register the module with REGISTER_MODULE(). E.g.:
+ *
+ *     REGISTER_MODULE(dvs, &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
  *
  * @note
- * The vidcap_grab() API is currently slightly different - the function does
- * not take the timeout parameter and may block, but only for a short period
- * (ideally no longer than 2x frame time)
+ * The lifetime of captured frame is determined by the fact whether
+ * video_frame_callbacks::dispose is set. If so, the caller calls the callback
+ * when the frame is no longer needed. When set to NULL, the lifetime of the frame
+ * is limited to a next call to vidcap_grab().
  *
  * @{
  */
@@ -105,19 +119,24 @@ struct vidcap_type {
 
 struct vidcap_params;
 
-#define VIDCAP_INIT_OK 0    ///< initialization successful
-#define VIDCAP_INIT_NOERR 1 ///< state not initialized, other action performed (typically help)
-#define VIDCAP_INIT_FAIL -1 ///< error ocured
-#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED -2 ///< card doesn't support audio
+/// @defgroup vidcap_retval Video capture init retval
+/// @{
+#define VIDCAP_INIT_OK                   0  ///< initialization successful
+#define VIDCAP_INIT_NOERR                1  ///< state not initialized, other action performed (typically help)
+#define VIDCAP_INIT_FAIL               (-1) ///< error ocured
+#define VIDCAP_INIT_AUDIO_NOT_SUPPOTED (-2) ///< card does not support audio
+/// @}
 
+/**
+ * API for video capture modules
+ */
 struct video_capture_info {
         struct vidcap_type    *(*probe) (bool verbose, void (**deleter)(void *));
         /**
-         * @param[in] driver configuration string
-         * @param[in] param  driver parameters
-         * @retval NULL if initialization failed
-         * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
-         * @retval other_ptr if initialization succeeded, contains pointer to state
+         * @param[in]  driver configuration string
+         * @param[in]  param  driver parameters
+         * @param[out] param  returned capture state
+         * @returns           one of @ref vidcap_retval
          */
         int                    (*init) (struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
