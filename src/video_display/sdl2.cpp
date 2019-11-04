@@ -143,6 +143,8 @@ struct state_sdl2 {
                 module_done(&mod);
         }
 };
+static const list<pair<char, string>> keybindings{{'d', "toggle deinterlace"},
+                {'f', "toggle fullscreen"}, {'q', "quit"}};
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -229,6 +231,26 @@ static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
         return -1;
 }
 
+static bool display_sdl_process_key(struct state_sdl2 *s, int64_t key)
+{
+        switch (key) {
+        case 'd':
+                s->deinterlace = !s->deinterlace;
+                log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
+                                s->deinterlace ? "ON" : "OFF");
+                return true;
+        case 'f':
+                s->fs = !s->fs;
+                SDL_SetWindowFullscreen(s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                return true;
+        case 'q':
+                exit_uv(0);
+                return true;
+        default:
+                return false;
+        }
+}
+
 static void display_sdl_run(void *arg)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) arg;
@@ -253,39 +275,29 @@ static void display_sdl_run(void *arg)
                         struct msg_universal *msg;
                         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
                                 struct response *r;
-                                if (strstr(msg->text, "fullscreen") != nullptr) {
-                                        SDL_SetWindowFullscreen(s->window, (s->fs = !s->fs) ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                                        r = new_response(RESPONSE_OK, NULL);
+
+                                int key;
+                                if (sscanf(msg->text, "%d", &key) == 1) {
+                                        if (!display_sdl_process_key(s, key)) {
+                                                r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
+                                        } else {
+                                                r = new_response(RESPONSE_OK, NULL);
+                                        }
                                 } else {
-                                        r = new_response(RESPONSE_BAD_REQUEST, NULL);
+                                        r = new_response(RESPONSE_BAD_REQUEST, "Wrong command - not a key");
                                 }
 
                                 free_message((struct message*) msg, r);
                         }
                 } else if (sdl_event.type == SDL_KEYDOWN) {
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Pressed key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
-                        switch (sdl_event.key.keysym.sym) {
-                        case SDLK_d:
-                                s->deinterlace = !s->deinterlace;
-                                log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
-                                                s->deinterlace ? "ON" : "OFF");
-                                break;
-                        case SDLK_f:
-                                s->fs = !s->fs;
-                                SDL_SetWindowFullscreen(s->window, s->fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                                break;
-                        case SDLK_q:
-                                exit_uv(0);
-                                break;
-                        default:
-                                {
-                                        int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
-                                        if (sym > 0) {
-                                                keycontrol_send_key(get_root_module(&s->mod), sym);
-                                        } else if (sym == -1) {
-                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
-                                        }
+                        int64_t sym = translate_sdl_key_to_ug(sdl_event.key.keysym);
+                        if (sym > 0) {
+                                if (!display_sdl_process_key(s, sym)) { // unknown key -> pass to control
+                                        keycontrol_send_key(get_root_module(&s->mod), sym);
                                 }
+                        } else if (sym == -1) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %s (scancode: %d, sym: %d, mod: %d)!\n", SDL_GetKeyName(sdl_event.key.keysym.sym), sdl_event.key.keysym.scancode, sdl_event.key.keysym.sym, sdl_event.key.keysym.mod);
                         }
                 } else if (sdl_event.type == SDL_WINDOWEVENT) {
                         // https://forums.libsdl.org/viewtopic.php?p=38342
@@ -339,10 +351,8 @@ static void show_help(void)
         }
         printf("\n");
         cout << "\n\tKeyboard shortcuts:\n";
-        list<pair<string, string>> sh{{"'d'", "toggle deinterlace"},
-                {"'f'", "toggle fullscreen"}, {"'q'", "quit"}};
-        for (auto i : sh) {
-                cout << style::bold << "\t\t" << i.first << style::reset << "\t - " << i.second << "\n";
+        for (auto i : keybindings) {
+                cout << style::bold << "\t\t'" << i.first << style::reset << "'\t - " << i.second << "\n";
         }
         SDL_Quit();
 }
@@ -573,7 +583,9 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         SDL_DisableScreenSaver();
 
         loadSplashscreen(s);
-        keycontrol_register_key(&s->mod, 'f', "fullscreen", "toggle fullscreen");
+        for (auto i : keybindings) {
+                keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second.c_str());
+        }
 
         log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");
 
