@@ -895,8 +895,8 @@ static void glut_idle_callback(void)
                 auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg_univ->text);
                 struct response *r;
-                if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
-                        glutSetWindowTitle(msg_univ->text + strlen("win_title "));
+                if (strncasecmp(msg_univ->text, "win-title ", strlen("win-title ")) == 0) {
+                        glutSetWindowTitle(msg_univ->text + strlen("win-title "));
                         r = new_response(RESPONSE_OK, NULL);
                 } else {
                         if (strlen(msg_univ->text) == 0) {

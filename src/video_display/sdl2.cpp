@@ -40,8 +40,6 @@
  * @todo
  * Missing from SDL1:
  * * audio (would be perhaps better as an audio playback device)
- * * CoUniverse related things - change title (via message), fixed size,
- *   predefined size etc. Perhaps no longer needed.
  * * autorelease_pool (macOS) - perhaps not needed
  * @todo
  * * frames are copied, better would be to preallocate textures and set
@@ -274,17 +272,19 @@ static void display_sdl_run(void *arg)
                 } else if (sdl_event.type == s->sdl_user_new_message_event) {
                         struct msg_universal *msg;
                         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg->text);
                                 struct response *r;
-
                                 int key;
-                                if (sscanf(msg->text, "%d", &key) == 1) {
+                                if (strstr(msg->text, "win-title ") == msg->text) {
+                                        SDL_SetWindowTitle(s->window, msg->text + strlen("win-title "));
+                                } else if (sscanf(msg->text, "%d", &key) == 1) {
                                         if (!display_sdl_process_key(s, key)) {
                                                 r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
                                         } else {
                                                 r = new_response(RESPONSE_OK, NULL);
                                         }
                                 } else {
-                                        r = new_response(RESPONSE_BAD_REQUEST, "Wrong command - not a key");
+                                        r = new_response(RESPONSE_BAD_REQUEST, "Wrong command");
                                 }
 
                                 free_message((struct message*) msg, r);
