@@ -118,7 +118,7 @@ keyboard_control::keyboard_control(struct module *parent) :
         m_should_exit(false),
         m_started(false),
         m_locked_against_changes(true),
-        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '+', '-', 'e', 's', 'S', 'v', 'V' }
+        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '>', '<', 'e', 's', 'S', 'v', 'V' }
 {
         m_start_time = time(NULL);
 
@@ -479,11 +479,11 @@ void keyboard_control::run()
                         free_response(resp);
                         break;
                 }
-                case '+':
-                case '-':
+                case '>':
+                case '<':
                 {
                         int audio_delay = get_audio_delay();
-                        audio_delay += c == '+' ? 10 : -10;
+                        audio_delay += c == '>' ? 10 : -10;
                         log_msg(LOG_LEVEL_INFO, "New audio delay: %d ms.\n", audio_delay);
                         set_audio_delay(audio_delay);
                         break;
@@ -638,8 +638,8 @@ void keyboard_control::usage()
         cout << "\nAvailable keybindings:\n" <<
                 BOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
                 BOLD("\t  / 9  ") << "- decrease volume" << G('/') << "\n" <<
-                BOLD("\t   +   ") << "- increase audio delay by 10 ms" << G('+') << "\n" <<
-                BOLD("\t   -   ") << "- decrease audio delay by 10 ms" << G('-') << "\n" <<
+                BOLD("\t   >   ") << "- increase audio delay by 10 ms" << G('>') << "\n" <<
+                BOLD("\t   <   ") << "- decrease audio delay by 10 ms" << G('<') << "\n" <<
                 BOLD("\t   m   ") << "- mute/unmute receiver" << G('m') << "\n" <<
                 BOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
                 BOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
