@@ -882,3 +882,9 @@ bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const cha
         return true;
 }
 
+void get_keycode_name(int64_t ch, char *buf, size_t buflen) {
+        string name = get_keycode_representation(ch);
+        strncpy(buf, name.c_str(), buflen - 1);
+        buf[buflen - 1] = '\0';
+}
+
