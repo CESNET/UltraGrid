@@ -110,7 +110,7 @@ private:
 #define K_LEFT  0x1b5b44
 #define K_CTRL(x) (1 + tolower(x) - 'a')
 
-#define MAX_KEYCODE_NAME_LEN 64
+#define MAX_KEYCODE_NAME_LEN 8
 
 // attribute used guaranties that the symbol is present even if not referenced (modular build)
 /// @todo all UG core functions should have the 'used' attribute

@@ -328,10 +328,10 @@ static string get_utf8_representation(int64_t ch) {
 
 static string get_keycode_representation(int64_t ch) {
         switch (ch) {
-        case K_UP: return "KEY_UP";
-        case K_DOWN: return "KEY_DOWN";
-        case K_LEFT: return "KEY_LEFT";
-        case K_RIGHT: return "KEY_RIGHT";
+        case K_UP: return "K_UP";
+        case K_DOWN: return "K_DOWN";
+        case K_LEFT: return "K_LEFT";
+        case K_RIGHT: return "K_RIGHT";
         }
 
         if (ch >= 1 && ch <= 'z' - 'a' + 1) {
@@ -863,6 +863,7 @@ void keycontrol_send_key(struct module *root, int64_t key) {
  * @param[in] description optional decription (may be NULL)
  */
 bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const char *message, const char *description) {
+        assert(strchr(message, '#') == nullptr && strchr(description, '#') == nullptr);
         char receiver_path[1024];
         if (!module_get_path_str(receiver_mod, receiver_path, sizeof receiver_path)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot format format path for sender!\n");
