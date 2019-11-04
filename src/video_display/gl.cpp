@@ -94,7 +94,7 @@
 #include "tv.h"
 
 #define MAGIC_GL         0x1331018e
-#define MODULE_NAME      "[GL] "
+#define MOD_NAME         "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define MAX_BUFFER_SIZE 1
@@ -466,7 +466,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 #ifdef HAVE_LINUX
                                 s->nodecorate = true;
 #else
-				log_msg(LOG_LEVEL_WARNING, "[GL] Nodecorate not supported for current platform!\n");
+				log_msg(LOG_LEVEL_WARNING, MOD_NAME "Nodecorate not supported for current platform!\n");
 #endif
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->vsync = 0;
@@ -488,7 +488,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                         s->syphon_spout_srv_name = "UltraGrid";
                                 }
 #else
-                                log_msg(LOG_LEVEL_ERROR, "[GL] Syphon/Spout support not compiled in.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
                                 free(tmp);
                                 delete s;
                                 return NULL;
@@ -509,7 +509,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                         }
                                 }
                         } else {
-                                log_msg(LOG_LEVEL_ERROR, "[GL] Unknown option: %s\n", tok);
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                                 free(tmp);
                                 delete s;
                                 return NULL;
@@ -520,7 +520,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 		free(tmp);
 	}
 
-        fprintf(stdout,"GL setup: fullscreen: %s, deinterlace: %s\n",
+        log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
@@ -573,7 +573,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 
 static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor)
 {
-        log_msg(LOG_LEVEL_INFO, MODULE_NAME "glut_resize_window - fullscreen: %d, aspect: %lf, factor %lf\n",
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glut_resize_window - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
         if (fs) {
                 glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH),
@@ -637,7 +637,7 @@ static void display_gl_set_sync_on_vblank(int value) {
         if(glXSwapIntervalSGIProc) {
                 glXSwapIntervalSGIProc(value);
         } else {
-                log_msg(LOG_LEVEL_WARNING, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
         }
 #elif WIN32
         BOOL (*wglSwapIntervalEXTProc)(int interval) = 0;
@@ -648,10 +648,10 @@ static void display_gl_set_sync_on_vblank(int value) {
         if (wglSwapIntervalEXTProc) {
                 BOOL ret = wglSwapIntervalEXTProc(value);
                 if (!ret) {
-                        log_msg(LOG_LEVEL_WARNING, "[GL display] Unable to set sync-on-VBlank.\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to set sync-on-VBlank.\n");
                 }
         } else {
-                log_msg(LOG_LEVEL_WARNING, "[GL display] WGL_EXT_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WGL_EXT_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
         }
 #endif
 }
@@ -674,9 +674,9 @@ static void screenshot(struct video_frame *frame)
         strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
                                                time_ptr);
         if (save_video_frame_as_pnm(frame, name)) {
-                log_msg(LOG_LEVEL_NOTICE, "[GL] Generated screenshot \"%s\".\n", name);
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Generated screenshot \"%s\".\n", name);
         } else {
-                log_msg(LOG_LEVEL_ERROR, "[GL] Unable to generate screenshot!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to generate screenshot!\n");
         }
 }
 
@@ -700,7 +700,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         else
                 s->aspect = s->video_aspect;
 
-        fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
+        log_msg(LOG_LEVEL_INFO,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
         if (!s->hide_window)
                 glutShowWindow();
@@ -865,7 +865,8 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
 #endif
                 default:
-                        fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "error: received unsupported codec %s.\n",
+                                        get_codec_name(s->current_display_desc.color_spec));
                         exit_uv(EXIT_FAILURE);
                         return;
 
@@ -892,7 +893,7 @@ static void glut_idle_callback(void)
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
                 auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
-                log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "Received message: %s\n", msg_univ->text);
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg_univ->text);
                 struct response *r;
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
                         glutSetWindowTitle(msg_univ->text + strlen("win_title "));
@@ -904,7 +905,7 @@ static void glut_idle_callback(void)
                                 int64_t key;
                                 int ret = sscanf(msg_univ->text, "%" SCNx64, &key);
                                 if (ret != 1 || !display_gl_process_key(s, key)) {
-                                        log_msg(LOG_LEVEL_WARNING, "[GL] Unknown key received: %s\n", msg_univ->text);
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown key received: %s\n", msg_univ->text);
                                         r = new_response(RESPONSE_BAD_REQUEST, "Wrong key received");
                                 } else {
                                         r = new_response(RESPONSE_OK, NULL);
@@ -987,7 +988,7 @@ static void glut_idle_callback(void)
 
         if (seconds > 5) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[GL] %lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                 s->frames = 0;
                 s->tv = tv;
         }
@@ -1042,7 +1043,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         break;
                 case 'd':
                         s->deinterlace = !s->deinterlace;
-                        printf("Deinterlacing: %s\n", s->deinterlace ? "ON" : "OFF");
+                        log_msg(LOG_LEVEL_NOTICE, "Deinterlacing: %s\n", s->deinterlace ? "ON" : "OFF");
                         break;
                 case 'p':
                         s->paused = !s->paused;
@@ -1053,7 +1054,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         break;
                 case K_ALT('m'):
                         s->show_cursor = (state_gl::show_cursor_t) (((int) s->show_cursor + 1) % 3);
-                        LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
                         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
                 case K_UP:
@@ -1078,11 +1079,11 @@ static void glut_key_callback(int key, bool is_special)
         char name[MAX_KEYCODE_NAME_LEN];
         int64_t ugk = translate_glut_to_ug(key, is_special);
         get_keycode_name(ugk, name, sizeof name);
-        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed, modifiers: %d (UG name: %s)\n",
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%s %d pressed, modifiers: %d (UG name: %s)\n",
                         is_special ? "Special key" : "Key", key, glutGetModifiers(),
                         ugk > 0 ? name : "unknown");
         if (ugk == -1) {
-                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
         }
         if (ugk <= 0) {
                 return;
@@ -1116,7 +1117,7 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
         auto buffer = (char *) alloca(size + 1);
         va_copy(aq, ap);
         if (vsprintf(buffer, fmt, ap) >= 0) {
-                LOG(LOG_LEVEL_ERROR) << "[GL] " << buffer << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << buffer << "\n";
         }
         va_end(aq);
 
@@ -1129,13 +1130,13 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
 static bool display_gl_check_gl_version() {
         auto version = (const char *) glGetString(GL_VERSION);
         if (!version) {
-                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Unable to get OpenGL version!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get OpenGL version!\n");
         }
         if (atof(version) < 2.0) {
-                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
                 return false;
         }
-        log_msg(LOG_LEVEL_INFO, MODULE_NAME "OpenGL 2.0 is supported...\n");
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "OpenGL 2.0 is supported...\n");
         return true;
 }
 
@@ -1194,7 +1195,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (GLEW_OK != err)
         {
                 /* Problem: glewInit failed, something is seriously wrong. */
-                fprintf(stderr, "GLEW Error: %d\n", err);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %d\n", err);
                 return false;
         }
 #endif /* HAVE_LINUX */
