@@ -179,11 +179,11 @@ void main()
 } // main end
 )raw";
 
-const static list<pair<char, string>> keybindings {{'f', "toggle fullscreen"},
+const static list<pair<int64_t, string>> keybindings {{'f', "toggle fullscreen"},
         {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
-        {'s', "screnshot"}, {'c', "show/hide cursor"},
-        {'-', "make window smaller by a factor of 50%"},
-        {'+', "make window twice as big"}
+        {K_ALT('s'), "screenshot"}, {K_ALT('c'), "show/hide cursor"},
+        {K_DOWN, "make window smaller by a factor of 50%"},
+        {K_UP, "make window twice as big"}
 };
 
 #ifdef HWACC_VDPAU
@@ -392,7 +392,9 @@ static void gl_show_help(void) {
 
         printf("\n\nKeyboard shortcuts:\n");
         for (auto i : keybindings) {
-                cout << "\t\t'" << i.first << "'\t\t" << i.second << "\n";
+                char keyname[50];
+                get_keycode_name(i.first, keyname, sizeof keyname);
+                cout << "\t\t" << keyname << "\t\t" << i.second << "\n";
         }
 }
 
@@ -535,7 +537,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
         gl_load_splashscreen(s);
         for (auto i : keybindings) {
-                char msg[2] = {i.first, '\0'};
+                char msg[18];
+                sprintf(msg, "%" PRIx64, i.first);
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.c_str());
         }
 
@@ -889,17 +892,18 @@ static void glut_idle_callback(void)
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
                 auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "Received message: %s\n", msg_univ->text);
                 struct response *r;
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win_title ")) == 0) {
                         glutSetWindowTitle(msg_univ->text + strlen("win_title "));
                         r = new_response(RESPONSE_OK, NULL);
                 } else {
-                        if (strlen(msg_univ->text) != 1) {
+                        if (strlen(msg_univ->text) == 0) {
                                 r = new_response(RESPONSE_BAD_REQUEST, "Wrong message - neither win-title nor key");
                         } else {
-                                char key;
-                                sscanf(msg_univ->text, "%c",  &key);
-                                if (!display_gl_process_key(s, key)) {
+                                int64_t key;
+                                int ret = sscanf(msg_univ->text, "%" SCNx64, &key);
+                                if (ret != 1 || !display_gl_process_key(s, key)) {
                                         log_msg(LOG_LEVEL_WARNING, "[GL] Unknown key received: %s\n", msg_univ->text);
                                         r = new_response(RESPONSE_BAD_REQUEST, "Wrong key received");
                                 } else {
@@ -991,18 +995,28 @@ static void glut_idle_callback(void)
 
 static int64_t translate_glut_to_ug(int key, bool is_special) {
 #ifdef FREEGLUT
-        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R)) {
+        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R)
+                        && (key == GLUT_KEY_ALT_L || key == GLUT_KEY_ALT_R)) {
                 return 0;
         }
 #endif // defined FREEGLUT
-        if (!is_special) {
-                return key;
-        }
-        switch (key) {
-        case GLUT_KEY_LEFT: return K_LEFT;
-        case GLUT_KEY_UP: return K_UP;
-        case GLUT_KEY_RIGHT: return K_RIGHT;
-        case GLUT_KEY_DOWN: return K_DOWN;
+        if (is_special) {
+                switch (key) {
+                case GLUT_KEY_LEFT: return K_LEFT;
+                case GLUT_KEY_UP: return K_UP;
+                case GLUT_KEY_RIGHT: return K_RIGHT;
+                case GLUT_KEY_DOWN: return K_DOWN;
+                }
+        } else {
+                if (glutGetModifiers() == 0) {
+                        return key;
+                }
+                if (glutGetModifiers() == GLUT_ACTIVE_CTRL && isalpha(key)) {
+                        return K_CTRL(key);
+                }
+                if (glutGetModifiers() == GLUT_ACTIVE_ALT && isalpha(key)) {
+                        return K_ALT(key);
+                }
         }
         return -1;
 }
@@ -1034,20 +1048,20 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         s->paused = !s->paused;
                         LOG(LOG_LEVEL_NOTICE) << "[s] " << (s->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
                         break;
-                case 's':
+                case K_ALT('s'):
                         screenshot(s->current_frame);
                         break;
-                case 'c':
+                case K_ALT('m'):
                         s->show_cursor = (state_gl::show_cursor_t) (((int) s->show_cursor + 1) % 3);
                         LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
                         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
-                case '+':
+                case K_UP:
                         s->window_size_factor *= 2;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
                         break;
-                case '-':
+                case K_DOWN:
                         s->window_size_factor /= 2;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
@@ -1061,17 +1075,20 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
 
 static void glut_key_callback(int key, bool is_special)
 {
-        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed\n", is_special ? "Special key" : "Key", key);
-        if (!display_gl_process_key(gl, key | (is_special ? 0x10000LL : 0))) { // prefix special keys; key not found
-                int64_t ugk = translate_glut_to_ug(key, is_special);
-                if (ugk > 0) {
-                        if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-                                ugk = K_CTRL(ugk);
-                        }
-                        keycontrol_send_key(get_root_module(&gl->mod), ugk);
-                } else if (ugk != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
-                }
+        char name[MAX_KEYCODE_NAME_LEN];
+        int64_t ugk = translate_glut_to_ug(key, is_special);
+        get_keycode_name(ugk, name, sizeof name);
+        log_msg(LOG_LEVEL_VERBOSE, MODULE_NAME "%s %d pressed, modifiers: %d (UG name: %s)\n",
+                        is_special ? "Special key" : "Key", key, glutGetModifiers(),
+                        ugk > 0 ? name : "unknown");
+        if (ugk == -1) {
+                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+        }
+        if (ugk <= 0) {
+                return;
+        }
+        if (!display_gl_process_key(gl, ugk)) { // keybinding not found -> pass to control
+                keycontrol_send_key(get_root_module(&gl->mod), ugk);
         }
 }
 
