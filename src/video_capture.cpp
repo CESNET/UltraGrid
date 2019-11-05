@@ -1,5 +1,5 @@
 /**
- * @file   video_capture.c
+ * @file   video_capture.cpp
  * @author Colin Perkins <csp@csperkins.org>
  * @author Martin Benes     <martinbenesh@gmail.com>
  * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
@@ -13,7 +13,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET, z. s. p. o.
  * Copyright (c) 2001-2004 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without

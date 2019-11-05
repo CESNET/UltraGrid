@@ -9,9 +9,9 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * @copyright
- * ```
+ * @ingroup vidcap
+ */
+/*
  * Copyright (c) 2005-2019 CESNET, z. s. p. o
  * Copyright (c) 2002 University of Southern California
  *
@@ -49,8 +49,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * ```
- * @ingroup vidcap
  */
 
 /**
@@ -119,7 +117,9 @@ struct vidcap_type {
 
 struct vidcap_params;
 
-/// @defgroup vidcap_retval Video capture init retval
+/// @name vidcap_retval
+/// @anchor vidcap_retval
+/// Video capture init return values
 /// @{
 #define VIDCAP_INIT_OK                   0  ///< initialization successful
 #define VIDCAP_INIT_NOERR                1  ///< state not initialized, other action performed (typically help)
