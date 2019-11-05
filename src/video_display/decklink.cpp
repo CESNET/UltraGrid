@@ -9,7 +9,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -620,6 +620,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         release_bmd_api_str(modeNameString);
                                         free(modeNameCString);
+                                        deckLinkDisplayMode->Release();
                                         break;
                                 }
                         }
@@ -1063,6 +1064,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         deckLink->Release();
                 dnum++;
         }
+        deckLinkIterator->Release();
         for(int i = 0; i < s->devices_cnt; ++i) {
                 if(s->state[i].deckLink == NULL) {
                         LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId[i] <<" found\n";
