@@ -1296,6 +1296,9 @@ static void display_decklink_done(void *state)
 /**
  * This function returns true if any display mode and any output supports the
  * codec. The codec, however, may not be supported with actual video mode.
+ *
+ * @todo For UltraStudio Pro DoesSupportVideoMode returns E_FAIL on not supported
+ * pixel formats instead of setting supported to false.
  */
 static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMDPixelFormat pf) {
         IDeckLinkDisplayModeIterator     *displayModeIterator;
@@ -1308,14 +1311,16 @@ static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMD
 
         while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
                 BMD_BOOL supported;
-                if (deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdSupportedVideoModeDefault, nullptr, &supported) != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "DoesSupportVideoMode\n");
+                HRESULT res = deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdSupportedVideoModeDefault, nullptr, &supported);
+                deckLinkDisplayMode->Release();
+                if (res != S_OK) {
+                        CALL_AND_CHECK(res, "DoesSupportVideoMode");
                         continue;
                 }
                 if (supported) {
+                        displayModeIterator->Release();
                         return true;
                 }
-                deckLinkDisplayMode->Release();
         }
         displayModeIterator->Release();
 
