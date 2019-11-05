@@ -1,17 +1,19 @@
-
 UltraGrid - A High Definition Collaboratory
+===========================================
 
-   Copyright (c) 2001-2004 University of Southern California 
-   Copyright (c) 2003-2004 University of Glasgow
-   Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
-   Copyright (c) 2005-2019 CESNET z.s.p.o.
-   All rights reserved.
+   * Copyright (c) 2001-2004 University of Southern California 
+   * Copyright (c) 2003-2004 University of Glasgow
+   * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+   * Copyright (c) 2005-2019 CESNET z.s.p.o.
+   * All rights reserved.
 
    This software is distributed under license, see the file COPYRIGHT for
    full terms and conditions.
 
 
 About UltraGrid
+---------------
+
    UltraGrid brought by CESNET's Laboratory of Advanced Networking Technologies
    (Sitola) is a software implementation of high-quality low-latency video and
    audio transmissions using commodity PC and Mac hardware. Supported
@@ -41,62 +43,63 @@ About UltraGrid
 
    The contents of this directory are as follows:
 
-   	COPYRIGHT	Full license terms and conditions
-   	INSTALL		Installation instructions
-	NEWS		Change log and modification history
-	README		This file
-	REPORTING-BUGS	Recommendations for reporting bugs
-	bin/		Compiled binaries
-	src/		Source code for the UltraGrid system
-	test/ 		Source code and binaries for test routines
-	Makefile.in	Build script
-	acconfig.h	"	"
-	config.guess	"	"
-	config.sub	"	"
-	configure	"	"
-	configure.ac	"	"
-	install-sh	"	"
+       COPYRIGHT         Full license terms and conditions
+       INSTALL           Installation instructions
+       NEWS              Change log and modification history
+       README.md         This file
+       REPORTING-BUGS.md Recommendations for reporting bugs
+       bin/              Compiled binaries
+       src/              Source code for the UltraGrid system
+       test/             Source code and binaries for test routines
+       Makefile.in       Build script
+       acconfig.h        "       "
+       config.guess      "       "
+       config.sub        "       "
+       configure         "       "
+       configure.ac      "       "
+       install-shx       "       "
 
 
 Hardware and Software Requirements
+----------------------------------
 
-    Recommended Hardware Setup:
-        64-bit CPU with at least 2 cores
-            Tested version: 2x 2-core Opteron CPUs,64-bit Ubuntu (both latest and LTS), Fedora, Debian and openSUSE 
-        OpenGL3 - compatible card
-            Proprietary drivers strongly recommended
-            DXT compression on GPU is tested with OpenGL 3.3
-            JPEG compression requires NVidia GeForce 4xx or newer
-        For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
-            We test with PCIe Myrinet 10GbE 
-        For SDI send/receive capabilities, DVS, DeckLink, Magewell or Linsys Quad card is required
-            Magewell and Linsys modules in UG support only capturing 
+   Recommended Hardware Setup:
+   - 64-bit CPU with at least 2 cores
+     - Tested version: 2x 2-core Opteron CPUs,64-bit Ubuntu (both latest and LTS), Fedora, Debian and openSUSE 
+   - OpenGL3 - compatible card
+     - Proprietary drivers strongly recommended
+     - DXT compression on GPU is tested with OpenGL 3.3
+     - JPEG compression requires NVidia GeForce 4xx or newer
+   - For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
+     - We test with PCIe Myrinet 10GbE 
+   - For SDI send/receive capabilities, DVS, DeckLink, Magewell or Linsys Quad card is required
+     - Magewell and Linsys modules in UG support only capturing 
 
-        Video capture card should be located on a separate PCI bus from network card if possible.
+   Video capture card should be located on a separate PCI bus from network card if possible.
 
-    Required Software Preliminaries
-        You will need this software (in brackets are optional features for which you'll need it):
+### Required Software Preliminaries
+   You will need this software (in brackets are optional features for which you'll need it):
 
-            X.Org and ATI/NVidia proprietary drivers (receiver - OpenGL/SDL display, sender - RTDXT compression)
-            SDL (SDL display)
-            OpenGL (RTDXT sender or OpenGL display on receiver)
-            GLEW library (DXT sender)
-            DVS SDK/Blackmagic drivers/Quad drivers 
-
-            devel packages need to be installed as well 
-        
-        DVS SDK or VideomasterHD from Deltacast need to be obtained separately
-        because it cannot be distributed with UltraGrid (license). Please refer
-        our wiki for further information (https://github.com/CESNET/UltraGrid/wiki)
+   - X.Org and ATI/NVidia proprietary drivers (receiver - OpenGL/SDL display, sender - RTDXT compression)
+   - SDL (SDL display)
+   - OpenGL (RTDXT sender or OpenGL display on receiver)
+   - GLEW library (DXT sender)
+   - DVS SDK/Blackmagic drivers/Quad drivers 
+     - devel packages need to be installed as well 
+           
+   DVS SDK or VideomasterHD from Deltacast need to be obtained separately
+   because it cannot be distributed with UltraGrid (license). Please refer
+   our [wiki](https://github.com/CESNET/UltraGrid/wiki) for further information.
 
 Using the UltraGrid System
+--------------------------
 
    The file INSTALL gives instructions for building the UltraGrid system. 
    Once the system has been built, the "uv" binary will be present. This
    can be invoked as follows:
 
-   	uv -d <display_device> -m <mtu> hostname	(on the receiver)
-	uv -t <capture_device> -m <mtu> hostname        (on the sender)
+       uv -d <display_device> -m <mtu> hostname        (on the receiver)
+       uv -t <capture_device> -m <mtu> hostname        (on the sender)
 
    The <display_device> is one of the list viewed with '-d help'.
 
@@ -110,8 +113,9 @@ Using the UltraGrid System
    of networks with larger MTU, for example gigabit Ethernet using jumbo
    frames. 
 
-   Further options follow UltraGrid command-line help (-h) or visit our wiki
-   for further information (https://github.com/CESNET/UltraGrid/wiki/Running-UltraGrid)
+   Further options follow UltraGrid command-line help (-h) or visit this
+   [wiki page](https://github.com/CESNET/UltraGrid/wiki/Running-UltraGrid)
+   for further information.
 
    As an example, if a user on host "ormal" wishes to send video captured
    using a DVS HDstation card at 60 frames per second to another user on
@@ -119,11 +123,11 @@ Using the UltraGrid System
    "ormal" would run where 38 indicates video format (here 1080i@30fps) and
    2vuy tells it is an 8-bit YUV codec (also 10-bit is possible):
 
-   	uv -t dvs:38:2vuy curtis
+       uv -t dvs:38:2vuy curtis
 
    while the user on "curtis" would run:
 
-   	uv -d gl ormal
+       uv -d gl ormal
 
    The system requires access to UDP ports 5004 and 5005: you should open
    these ports on any firewall on the network path. Uncompressed high definition
@@ -133,6 +137,7 @@ Using the UltraGrid System
 
 
 Performance Tuning: Network
+---------------------------
 
    To achieve optimum performance with high definition video, it may be
    necessary to tune your system's network parameters to more aggressive
@@ -164,6 +169,7 @@ Performance Tuning: Network
 
 
 Performance Tuning: Display devices
+-----------------------------------
 
    If using a HW grabbing card (eg. DVS) as a display device, the
    key factor limiting performance is PCI bus contention. Ensure that
@@ -171,20 +177,20 @@ Performance Tuning: Display devices
    this typically requires a server class motherboard. On Linux, the
    PCI bus topology can be displayed using "lspci -tv", for example:
 
-	[root@ormal root]# lspci -tv
-	-+-[03]---06.0  Xilinx, Inc.: Unknown device d150
-	 +-[01]-+-02.0-[02]--+-04.0  Adaptec 7899P
-	 |      |            \-04.1  Adaptec 7899P
-	 |      \-0e.0  3Com Corporation 3c985 1000BaseSX
-	 \-[00]-+-00.0  ServerWorks CNB20HE
-		+-00.1  ServerWorks CNB20HE
-		+-00.2  ServerWorks: Unknown device 0006
-		+-00.3  ServerWorks: Unknown device 0006
-		+-04.0  Intel Corporation 82557 [Ethernet Pro 100]
-		+-0e.0  ATI Technologies Inc Rage XL
-		+-0f.0  ServerWorks OSB4
-		\-0f.1  ServerWorks: Unknown device 0211
-	[root@ormal root]# 
+        [root@ormal root]# lspci -tv
+        -+-[03]---06.0  Xilinx, Inc.: Unknown device d150
+         +-[01]-+-02.0-[02]--+-04.0  Adaptec 7899P
+         |      |            \-04.1  Adaptec 7899P
+         |      \-0e.0  3Com Corporation 3c985 1000BaseSX
+         \-[00]-+-00.0  ServerWorks CNB20HE
+                +-00.1  ServerWorks CNB20HE
+                +-00.2  ServerWorks: Unknown device 0006
+                +-00.3  ServerWorks: Unknown device 0006
+                +-04.0  Intel Corporation 82557 [Ethernet Pro 100]
+                +-0e.0  ATI Technologies Inc Rage XL
+                +-0f.0  ServerWorks OSB4
+                \-0f.1  ServerWorks: Unknown device 0211
+        [root@ormal root]# 
 
    showing an DVS card on PCI bus [03] (the card shows as a Xilinx
    device) and a gigabit Ethernet card on PCI bus [02] (the 3Com entry).
@@ -194,10 +200,10 @@ Performance Tuning: Display devices
    drivers. On Linux, basic operability can be checked with following
    commands. If configured properly, both should display driver
    properties:
-	[root@ormal root]# glxinfo
+        [root@ormal root]# glxinfo
         <-- output omitted -->
    and for SDL (accelerated through XVideo:
-	[root@ormal root]# xvinfo
+        [root@ormal root]# xvinfo
         <-- output omitted -->
 
    If you intend to use some of DXT compressions, recommended driver
@@ -207,13 +213,14 @@ Performance Tuning: Display devices
 
 
 Performance Tuning: Other Factors
+---------------------------------
 
    The UltraGrid system will attempt to enable POSIX real-time scheduling
    to improve performance. This behaviour is disabled by default now, because
    it can occupy the whole system when enabled, but it can be stil enabled by
    '--enable-rt' configure option. If you see the message:
 
-	WARNING: Unable to set real-time scheduling
+        WARNING: Unable to set real-time scheduling
 
    when starting the application, this means that the operating system did
    not permit it to enable real-time scheduling. The application will run,
@@ -222,7 +229,7 @@ Performance Tuning: Other Factors
    it should either be run by root, or be made setuid root. A similar
    message:
 
-   	WARNING: System does not support real-time scheduling
+        WARNING: System does not support real-time scheduling
 
    indicates that your operating system does not support POSIX real-time
    scheduling. The application will still run, but performance may be less
@@ -232,5 +239,5 @@ Performance Tuning: Other Factors
    You can find more operating system tweaks at this page:
    https://github.com/CESNET/UltraGrid/wiki/OS-Setup-UltraGrid
 
-				  - * - 
+                                  - * - 
 
