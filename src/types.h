@@ -172,7 +172,7 @@ struct fec_desc {
 
 struct video_frame;
 /**
- * @brief Struct containing callbacks of a vide frame
+ * @brief Struct containing callbacks of a @ref video_frame
  */
 struct video_frame_callbacks {
         /** @note
