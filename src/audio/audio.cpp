@@ -84,6 +84,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "utils/thread.h"
 #include "utils/worker.h"
 
 using namespace std;
@@ -598,6 +599,7 @@ static void audio_decoder_state_deleter(void *state)
 
 static void *audio_receiver_thread(void *arg)
 {
+        set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         // rtp variables
         struct timeval timeout, curr_time;
@@ -924,6 +926,7 @@ static int find_codec_sample_rate(int sample_rate, const int *supported) {
 
 static void *audio_sender_thread(void *arg)
 {
+        set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         struct audio_frame *buffer = NULL;
         audio_frame2_resampler resampler_state;

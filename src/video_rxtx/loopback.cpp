@@ -52,6 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/thread.h"
 #include "video_display.h"
 #include "video_frame.h"
 
@@ -94,6 +95,7 @@ void loopback_video_rxtx::send_frame(std::shared_ptr<video_frame> f)
 
 void *loopback_video_rxtx::receiver_loop()
 {
+        set_thread_name(__func__);
         while (!should_exit) {
                 unique_lock<mutex> lk(m_lock);
                 m_frame_ready.wait_for(lk, milliseconds(100), [this]{return m_frames.size() > 0;});

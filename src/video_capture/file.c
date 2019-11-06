@@ -72,6 +72,7 @@
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/time.h"
+#include "utils/thread.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -214,6 +215,7 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
 
 #define FAIL_WORKER { pthread_mutex_lock(&s->lock); s->failed = true; pthread_mutex_unlock(&s->lock); pthread_cond_signal(&s->new_frame_ready); return NULL; }
 static void *vidcap_file_worker(void *state) {
+        set_thread_name(__func__);
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
         AVPacket pkt;
         av_init_packet(&pkt);

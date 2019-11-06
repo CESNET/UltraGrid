@@ -52,6 +52,7 @@
 #include "rtp/rtp.h"
 #include "transmit.h"
 #include "utils/audio_buffer.h"
+#include "utils/thread.h"
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
@@ -288,6 +289,7 @@ private:
 
 void state_audio_mixer::worker()
 {
+        set_thread_name(__func__);
         chrono::steady_clock::time_point next_frame_time = chrono::steady_clock::now();
 
         static_assert(SAMPLES_PER_FRAME * 1000ll % SAMPLE_RATE == 0, "Sample rate is not evenly divisible by number of samples in frame");
