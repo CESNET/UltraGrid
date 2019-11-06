@@ -72,8 +72,10 @@
 #include <rang.hpp>
 #include <string>
 #include <string.h>
+#include <thread>
 #include <tuple>
 
+#include "compat/platform_pipe.h"
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
@@ -140,17 +142,57 @@ using rang::fg;
 using rang::style;
 using namespace std;
 
-static void state_uv_new_message(struct module *mod);
-
 struct state_uv {
         state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
+                if (platform_pipe_init(should_exit_pipe) != 0) {
+                        abort();
+                }
                 module_init_default(&root_module);
                 root_module.cls = MODULE_CLASS_ROOT;
-                root_module.new_message = state_uv_new_message;
+                root_module.new_message = state_uv::new_message;
                 root_module.priv_data = this;
+                should_exit_thread = thread(should_exit_watcher, this);
         }
         ~state_uv() {
+                broadcast_shoud_exit();
+                should_exit_thread.join();
                 module_done(&root_module);
+                for (int i = 0; i < 2; ++i) {
+                        platform_pipe_close(should_exit_pipe[0]);
+                }
+        }
+        static void should_exit_watcher(state_uv *s) {
+                set_thread_name(__func__);
+                char c;
+                while (read(s->should_exit_pipe[0], &c, 1) != 1) ;
+                unique_lock<mutex> lk(s->lock);
+                for (auto c : s->should_exit_callbacks) {
+                        get<0>(c)(get<1>(c));
+                }
+        }
+        void broadcast_shoud_exit() {
+                char c = 0;
+                unique_lock<mutex> lk(lock);
+                if (should_exit_thread_notified) {
+                        return;
+                }
+                should_exit_thread_notified = true;
+                while (write(should_exit_pipe[1], &c, 1) != 1);
+        }
+        static void new_message(struct module *mod)
+        {
+                auto s = (state_uv *) mod->priv_data;
+                struct msg_root *m;
+                while ((m = (struct msg_root *) check_message(mod))) {
+                        if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
+                                free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
+                                continue;
+                        }
+                        unique_lock<mutex> lk(s->lock);
+                        s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
+                        lk.unlock();
+                        free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
+                }
         }
 
         struct vidcap *capture_device;
@@ -162,25 +204,14 @@ struct state_uv {
 
         video_rxtx *state_video_rxtx;
 
+private:
         mutex lock;
+        fd_t should_exit_pipe[2];
+        thread should_exit_thread;
+        bool should_exit_thread_notified{false};
         list<tuple<void (*)(void *), void *>> should_exit_callbacks;
 };
 
-static void state_uv_new_message(struct module *mod)
-{
-        auto s = (state_uv *) mod->priv_data;
-        struct msg_root *m;
-        while ((m = (struct msg_root *) check_message(mod))) {
-                if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
-                        free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
-                        continue;
-                }
-                unique_lock<mutex> lk(s->lock);
-                s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
-                lk.unlock();
-                free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
-        }
-}
 
 static volatile int exit_status = EXIT_SUCCESS;
 static struct state_uv * volatile uv_state;
@@ -271,14 +302,7 @@ static void crash_signal_handler(int sig)
 void exit_uv(int status) {
         exit_status = status;
         should_exit = true;
-        if (!uv_state) {
-                return;
-        }
-        unique_lock<mutex> lk(uv_state->lock);
-        for (auto c : uv_state->should_exit_callbacks) {
-                get<0>(c)(get<1>(c));
-        }
-        uv_state->should_exit_callbacks.clear();
+        uv_state->broadcast_shoud_exit();
 }
 
 static void print_help_item(const string &name, const vector<string> &help) {
@@ -1426,7 +1450,13 @@ cleanup:
                 vidcap_params_head = next;
         }
 
-        uv_state = NULL;
+        signal(SIGINT, SIG_IGN);
+        signal(SIGTERM, SIG_IGN);
+#ifndef WIN32
+        signal(SIGHUP, SIG_IGN);
+#endif
+        signal(SIGABRT, SIG_IGN);
+        signal(SIGSEGV, SIG_IGN);
 
         printf("Exit\n");
 
