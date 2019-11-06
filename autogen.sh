@@ -12,6 +12,8 @@ cd $srcdir
 aclocal
 autoheader
 autoconf
+# install config.guess config.sub install-sh missing
+automake --add-missing -c 2>&1 || true # actual call will fail - we do not have Makefile.am
 
 CONFIGURE_OPTS=
 

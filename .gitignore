@@ -1,7 +1,9 @@
 configure
 Makefile
+config.guess
 config.h
 config.h.in
+config.sub
 *.o
 *.lo
 *.txt
@@ -20,6 +22,8 @@ aclocal.m4
 autom4te.cache
 config.log
 config.status
+install-sh
+missing
 src/version.h
 *.sw?
 *.orig
