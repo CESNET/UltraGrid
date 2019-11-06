@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -293,8 +293,12 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
         return NULL;
 }
 
-void list_modules(enum library_class cls, int abi_version) {
-        const auto & class_set = get_libraries_for_class(cls, abi_version, false);
+/**
+ * Prints list of modules of given class
+ * @param full  include hidden modules
+ */
+void list_modules(enum library_class cls, int abi_version, bool full) {
+        const auto & class_set = get_libraries_for_class(cls, abi_version, full);
         for (auto && item : class_set) {
                 cout << rang::style::bold << "\t" << item.first.c_str() << "\n" << rang::style::reset;
         }

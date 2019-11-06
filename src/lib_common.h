@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,7 +81,7 @@ enum library_class {
 void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
 void register_library(const char *name, const void *info, enum library_class, int abi_version, int hidden);
-void list_modules(enum library_class, int abi_version);
+void list_modules(enum library_class, int abi_version, bool full);
 void list_all_modules();
 #ifdef __cplusplus
 }

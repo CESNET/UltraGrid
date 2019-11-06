@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -61,10 +61,10 @@ struct vo_postprocess_state {
         void *state;
 };
 
-void show_vo_postprocess_help()
+void show_vo_postprocess_help(bool full)
 {
         printf("Possible postprocess modules:\n");
-        list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION, full);
 }
 
 struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
@@ -75,9 +75,8 @@ struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
         if(!config_string) 
                 return NULL;
 
-        if(strcmp(config_string, "help") == 0)
-        {
-                show_vo_postprocess_help();
+        if (strcmp(config_string, "help") == 0 || strcmp(config_string, "fullhelp") == 0) {
+                show_vo_postprocess_help(strcmp(config_string, "fullhelp") == 0);
                 return NULL;
         }
 

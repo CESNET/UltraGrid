@@ -14,7 +14,7 @@
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2015 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -89,10 +89,10 @@ struct display {
  * of module was successful but no state was created (eg. when driver had displayed help). */
 int display_init_noerr;
 
-void list_video_display_devices()
+void list_video_display_devices(bool full)
 {
         printf("Available display devices:\n");
-        list_modules(LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION, full);
 }
 
 /*
@@ -112,8 +112,8 @@ void list_video_display_devices()
 int initialize_video_display(struct module *parent, const char *requested_display,
                 const char *fmt, unsigned int flags, const char *postprocess, struct display **out)
 {
-        if (postprocess && strcmp(postprocess, "help") == 0) {
-                show_vo_postprocess_help();
+        if (postprocess && (strcmp(postprocess, "help") == 0 || strcmp(postprocess, "fullhelp") == 0)) {
+                show_vo_postprocess_help(strcmp(postprocess, "fullhelp") == 0);
                 return 1;
         }
 

@@ -13,7 +13,7 @@
  * @ingroup display
  */
 /* Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -160,7 +160,7 @@ struct module;
 
 extern int display_init_noerr;
 
-void                     list_video_display_devices(void);
+void                     list_video_display_devices(bool full);
 int                      initialize_video_display(struct module *parent,
                 const char *requested_display, const char *fmt, unsigned int flags,
                 const char *postprocess, struct display **out);

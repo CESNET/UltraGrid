@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,10 +62,10 @@ struct state_audio_playback {
         void *state;
 };
 
-void audio_playback_help()
+void audio_playback_help(bool full)
 {
         printf("Available audio playback devices:\n");
-        list_modules(LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION, full);
 }
 
 int audio_playback_init(const char *device, const char *cfg, struct state_audio_playback **state)

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,10 +107,10 @@ struct state_audio_capture *audio_capture_init_null_device()
         return device;
 }
 
-void audio_capture_print_help()
+void audio_capture_print_help(bool full)
 {
         printf("Available audio capture devices:\n");
-        list_modules(LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION, full);
 }
 
 void audio_capture_done(struct state_audio_capture *s)

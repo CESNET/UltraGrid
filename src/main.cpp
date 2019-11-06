@@ -14,8 +14,8 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2018 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -714,8 +714,8 @@ int main(int argc, char *argv[])
                             NULL)) != -1) {
                 switch (ch) {
                 case 'd':
-                        if (!strcmp(optarg, "help")) {
-                                list_video_display_devices();
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
                                 return 0;
                         }
                         requested_display = optarg;
@@ -726,8 +726,8 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 't':
-                        if (!strcmp(optarg, "help")) {
-                                list_video_capture_devices();
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
                                 return 0;
                         }
                         vidcap_params_set_device(vidcap_params_tail, optarg);
@@ -753,8 +753,8 @@ int main(int argc, char *argv[])
                         print_configuration();
                         return EXIT_SUCCESS;
                 case 'c':
-                        if (!strcmp(optarg, "help")) {
-                                show_compress_help();
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                show_compress_help(strcmp(optarg, "fullhelp") == 0);
                                 return EXIT_SUCCESS;
                         }
                         requested_compression = optarg;
@@ -801,15 +801,15 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'r':
-                        if (strcmp(optarg, "help") == 0) {
-                                audio_playback_help();
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                audio_playback_help(strcmp(optarg, "full") == 0);
                                 return EXIT_SUCCESS;
                         }
                         audio_recv = optarg;                       
                         break;
                 case 's':
-                        if (strcmp(optarg, "help") == 0) {
-                                audio_capture_print_help();
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                audio_capture_print_help(strcmp(optarg, "full") == 0);
                                 return EXIT_SUCCESS;
                         }
                         audio_send = optarg;

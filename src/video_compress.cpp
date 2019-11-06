@@ -6,7 +6,7 @@
  * @brief Video compress functions.
  */
 /*
- * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * Copyright (c) 2011-2019 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -115,10 +115,10 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
 static void compress_done(struct module *mod);
 
 /// @brief Displays list of available compressions.
-void show_compress_help()
+void show_compress_help(bool full)
 {
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
-        list_modules(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION, full);
 }
 
 static void async_poison(struct compress_state_real *s){
@@ -234,9 +234,8 @@ compress_state_real::compress_state_real(struct module *parent, const char *conf
         if (!config_string)
                 throw -1;
 
-        if (strcmp(config_string, "help") == 0)
-        {
-                show_compress_help();
+        if (strcmp(config_string, "help") == 0 || strcmp(config_string, "fullhelp") == 0) {
+                show_compress_help(strcmp(config_string, "fullhelp") == 0);
                 throw 1;
         }
 

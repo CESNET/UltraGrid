@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2017 CESNET z.s.p.o.
+ * Copyright (c) 2013-2019 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -208,9 +208,9 @@ exit:
 
 video_rxtx *video_rxtx::create(string const & proto, std::map<std::string, param_u> const &params)
 {
-        if (proto == "help") {
+        if (proto == "help" || proto == "fullhelp") {
                 printf("Available TX protocols:\n");
-                list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+                list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, proto == "fullhelp");
         }
         auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
         if (vri) {

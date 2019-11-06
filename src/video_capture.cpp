@@ -98,10 +98,10 @@ struct vidcap {
 };
 
 /* API for probing capture devices ****************************************************************/
-void list_video_capture_devices()
+void list_video_capture_devices(bool full)
 {
         printf("Available capture devices:\n");
-        list_modules(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        list_modules(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION, full);
 }
 
 void print_available_capturers()
