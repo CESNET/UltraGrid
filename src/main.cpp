@@ -182,9 +182,8 @@ static void state_uv_new_message(struct module *mod)
         }
 }
 
-static int exit_status = EXIT_SUCCESS;
-
-static struct state_uv *uv_state;
+static volatile int exit_status = EXIT_SUCCESS;
+static struct state_uv * volatile uv_state;
 
 static void signal_handler(int signal)
 {
@@ -272,10 +271,14 @@ static void crash_signal_handler(int sig)
 void exit_uv(int status) {
         exit_status = status;
         should_exit = true;
+        if (!uv_state) {
+                return;
+        }
         unique_lock<mutex> lk(uv_state->lock);
         for (auto c : uv_state->should_exit_callbacks) {
                 get<0>(c)(get<1>(c));
         }
+        uv_state->should_exit_callbacks.clear();
 }
 
 static void print_help_item(const string &name, const vector<string> &help) {
@@ -1422,6 +1425,8 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
+
+        uv_state = NULL;
 
         printf("Exit\n");
 
