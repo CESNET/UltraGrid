@@ -1,5 +1,8 @@
 UltraGrid - A High Definition Collaboratory
 ===========================================
+[![Facebook Follow](https://img.shields.io/badge/Facebook-follow-blue)](https://www.facebook.com/UltraGrid/)
+[![Mastodon Follow](https://img.shields.io/badge/Mastodon-follow-blue)](https://mastodon.technology/@UltraGrid)
+[![Twitter Follow](https://img.shields.io/badge/Twitter-follow-blue)](https://twitter.com/UltraGrid_CZ)
 
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
