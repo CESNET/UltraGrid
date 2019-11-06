@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2017 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2019 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -37,12 +37,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * @file    rtp/video_decoders.cpp
+ * @addtogroup video_rtp_decoder
+ * @{
+ *
+ * @file    video_decoders.cpp
  * @author  Colin Perkins
  * @author  Ladan Gharai
  * @author  Martin Pulec <pulec@cesnet.cz>
  *
- * @addtogroup video_rtp_decoder
  *
  * ## Workflow ##
  *
@@ -86,7 +88,12 @@
  * @todo
  * This code is very very messy, it needs to be rewritten.
  *
- * @{
+ * @note
+ * @anchor vdec_note1
+ * The properties of DXTn do not exactly match - bpp is 0.5, but line (actually 4
+ * lines) is (2 * width) long, so it makes troubles when using line decoder
+ * and tiles. So the fallback is external decoder. The DXT compression is exceptional
+ * in that, that it can be both internally and externally decompressed.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -1028,7 +1035,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                         if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
                                         && decoder->video_mode != VIDEO_NORMAL)
-                                continue; /* it is a exception, see NOTES #1 */
+                                continue; /// DXT1 it is a exception, see @ref vdec_note1
 
                         *decode_line = vc_memcpy;
                         decoder->decoder_type = LINE_DECODER;
