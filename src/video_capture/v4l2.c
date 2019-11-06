@@ -1,32 +1,25 @@
-/*
- * FILE:    v4l2.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+/**
+ * @file    video_capture/v4l2.c
+ * @author  Milos Liska      <xliska@fi.muni.cz>
+ * @author  Martin Piatka    <piatka@cesnet.cz>
+ * @author  Martin Pulec     <martin.pulec@cesnet.cz>
+ */
+ /*
+ * Copyright (c) 2012-2019 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,9 +35,7 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
-
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -337,101 +328,106 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
         *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name        = "v4l2";
-                vt->description = "V4L2 capture";
-
-                vt->card_count = 0;
-                vt->cards = 0;
-
-                if (verbose) {
-                        for (int i = 0; i < 64; ++i) {
-                                char name[32];
-
-                                snprintf(name, 32, "/dev/video%d", i);
-                                int fd = open(name, O_RDWR);
-                                if(fd == -1) continue;
-
-                                struct v4l2_capability capab;
-                                memset(&capab, 0, sizeof capab);
-                                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
-                                        perror("[V4L2] Unable to query device capabilities");
-                                }
-
-                                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
-                                        goto next_device;
-                                }
-
-                                vt->card_count += 1;
-                                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
-                                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
-
-                                struct v4l2_fmtdesc format;
-                                memset(&format, 0, sizeof(format));
-                                format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                                format.index = 0;
-
-                                int fmt_idx = 0;
-				while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
-                                        struct v4l2_frmsizeenum size;
-                                        memset(&size, 0, sizeof(size));
-                                        size.pixel_format = format.pixelformat;
-
-                                        int res = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size);
-
-                                        if(res == -1) {
-                                                fprintf(stderr, "[V4L2] Unable to get frame size iterator.\n");
-                                                goto next_device;
-                                        }
-
-                                        struct v4l2_frmivalenum frame_int;
-                                        memset(&frame_int, 0, sizeof(frame_int));
-                                        frame_int.index = 0;
-                                        frame_int.pixel_format = format.pixelformat;
-
-                                        switch (size.type) {
-                                                case V4L2_FRMSIZE_TYPE_DISCRETE:
-                                                        while(ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
-                                                                frame_int.width = size.discrete.width;
-                                                                frame_int.height = size.discrete.height;
-                                                                frame_int.index = 0;
-
-                                                                res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int);
-
-                                                                if(res == -1) {
-                                                                        fprintf(stderr, "[V4L2] Unable to get FPS.\n");
-                                                                        goto next_device;
-                                                                }
-
-                                                                switch (frame_int.type) {
-                                                                        case V4L2_FRMIVAL_TYPE_DISCRETE:
-                                                                                while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
-                                                                                        write_mode(&vt->cards[vt->card_count - 1].modes[fmt_idx++],
-                                                                                                        size.discrete.width, size.discrete.height,
-                                                                                                        frame_int.discrete.numerator, frame_int.discrete.denominator,
-                                                                                                        format.pixelformat);
-                                                                                        frame_int.index++;
-                                                                                }
-                                                                                break;
-                                                                        default:
-                                                                                break;
-                                                                }
-                                                                size.index++;
-                                                        }
-                                                        break;
-                                                default:
-                                                        break;
-                                        }
-
-					format.index++;
-                                }
-next_device:
-                                close(fd);
-                        }
-                }
+        if (vt == NULL) {
+                return NULL;
         }
+
+        vt->name        = "v4l2";
+        vt->description = "V4L2 capture";
+
+        vt->card_count = 0;
+        vt->cards = 0;
+
+        if (!verbose) {
+                return vt;
+        }
+
+        for (int i = 0; i < 64; ++i) {
+                char name[32];
+
+                snprintf(name, 32, "/dev/video%d", i);
+                int fd = open(name, O_RDWR);
+                if(fd == -1) continue;
+
+                struct v4l2_capability capab;
+                memset(&capab, 0, sizeof capab);
+                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                        perror("[V4L2] Unable to query device capabilities");
+                }
+
+                if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
+                        goto next_device;
+                }
+
+                vt->card_count += 1;
+                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
+                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
+
+                struct v4l2_fmtdesc format;
+                memset(&format, 0, sizeof(format));
+                format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                format.index = 0;
+
+                int fmt_idx = 0;
+                while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+                        struct v4l2_frmsizeenum size;
+                        memset(&size, 0, sizeof(size));
+                        size.pixel_format = format.pixelformat;
+
+                        int res = ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size);
+
+                        if(res == -1) {
+                                fprintf(stderr, "[V4L2] Unable to get frame size iterator.\n");
+                                goto next_device;
+                        }
+
+                        struct v4l2_frmivalenum frame_int;
+                        memset(&frame_int, 0, sizeof(frame_int));
+                        frame_int.index = 0;
+                        frame_int.pixel_format = format.pixelformat;
+
+                        switch (size.type) {
+                                case V4L2_FRMSIZE_TYPE_DISCRETE:
+                                        while(ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
+                                                frame_int.width = size.discrete.width;
+                                                frame_int.height = size.discrete.height;
+                                                frame_int.index = 0;
+
+                                                res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int);
+
+                                                if(res == -1) {
+                                                        fprintf(stderr, "[V4L2] Unable to get FPS.\n");
+                                                        goto next_device;
+                                                }
+
+                                                switch (frame_int.type) {
+                                                        case V4L2_FRMIVAL_TYPE_DISCRETE:
+                                                                while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
+                                                                        write_mode(&vt->cards[vt->card_count - 1].modes[fmt_idx++],
+                                                                                        size.discrete.width, size.discrete.height,
+                                                                                        frame_int.discrete.numerator, frame_int.discrete.denominator,
+                                                                                        format.pixelformat);
+                                                                        frame_int.index++;
+                                                                }
+                                                                break;
+                                                        default:
+                                                                break;
+                                                }
+                                                size.index++;
+                                        }
+                                        break;
+                                default:
+                                        break;
+                        }
+
+                        format.index++;
+                }
+next_device:
+                close(fd);
+        }
+
         return vt;
 }
 
