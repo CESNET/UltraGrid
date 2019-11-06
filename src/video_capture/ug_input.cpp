@@ -151,7 +151,6 @@ static void vidcap_ug_input_done(void *state)
 {
         auto s = (ug_input_state *) state;
 
-        should_exit = true;
         s->receiver_thread.join();
 
         display_put_frame(s->display, NULL, 0);
