@@ -563,9 +563,9 @@ bundle: bundle-nolib
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -r redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -r data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -r data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -r data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
 		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
