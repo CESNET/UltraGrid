@@ -45,6 +45,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture_params.h"
 
 #include "tv.h"
 
@@ -64,9 +65,6 @@
 #endif
 #include <sys/time.h>
 #include <semaphore.h>
-
-#include "video_display.h"
-#include "video_display/deltacast.h"
 
 using namespace std;
 
@@ -281,7 +279,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 throw delta_init_exception();
         }
 
-        if(s->initialize_flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
+        if ((s->initialize_flags & VIDCAP_FLAG_AUDIO_EMBEDDED) == 0u) {
                 if(audio_capture_channels != 1 &&
                                 audio_capture_channels != 2) {
                         log_msg(LOG_LEVEL_ERROR, "[DELTACAST capture] Unable to handle channel count other than 1 or 2.\n");
