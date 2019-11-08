@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * Parsing IPv6 URLs (vidcap_state_ndi::requested_url) - what is the syntax?
  * Looks like NDI doesn't support that yet (question is the position of ":" which

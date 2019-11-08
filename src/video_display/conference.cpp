@@ -35,10 +35,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo
- * Rewrite the code to have more clear state machine!
- */
 
 #include "config.h"
 #include "config_unix.h"

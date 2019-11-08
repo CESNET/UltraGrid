@@ -1,5 +1,5 @@
 /**
- * @file   cineform.cpp
+ * @file   video_compress/cineform.cpp
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  */

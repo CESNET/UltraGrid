@@ -1,5 +1,5 @@
 /**
- * @file   screen_osx.c
+ * @file   video_capture/screen_osx.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

@@ -1,5 +1,5 @@
 /**
- * @file video_capture/aja_win32_stub.cpp
+ * @file aja_win32_stub.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * This is a stub file importing actual dll. It sets some variables that

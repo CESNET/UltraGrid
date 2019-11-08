@@ -31,7 +31,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * @file   video_capture/swmix.c
+ * @file   video_capture/swmix.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief SW video mix is a virtual video mixer.

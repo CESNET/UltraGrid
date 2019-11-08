@@ -1,5 +1,5 @@
 /*
- * FILE:    BasicRTSPOnlyServer.cpp
+ * FILE:    rtsp/BasicRTSPOnlyServer.cpp
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *

@@ -37,6 +37,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * Capture what is on the wire (RGB if RGB, YCbCr otherwise)
  */

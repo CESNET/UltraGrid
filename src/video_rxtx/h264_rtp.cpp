@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/h264_rtp.h
+ * @file   video_rxtx/h264_rtp.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
@@ -39,6 +39,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @note
  * Currently incompatible with upstream version of live555. Works with older
  * version from https://github.com/xanview/live555/, commit 35c375 (live555

@@ -1,5 +1,5 @@
 /**
- * @file    yuri_decoders.h
+ * @file    rtp/yuri_decoders.h
  * @author  Martin Pulec <pulec@cesnet.cz>
  */
 /*

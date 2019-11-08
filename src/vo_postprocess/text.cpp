@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * Add more options - eg. text position and size.
  * Add support for more pixel formats.

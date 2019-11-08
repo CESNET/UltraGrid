@@ -1,5 +1,5 @@
 /**
- * @file   audio/mixer.cpp
+ * @file   audio/playback/mixer.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

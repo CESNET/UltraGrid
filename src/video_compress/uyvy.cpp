@@ -1,5 +1,5 @@
 /**
- * @file   src/video_compress/uyvy.cpp
+ * @file   video_compress/uyvy.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

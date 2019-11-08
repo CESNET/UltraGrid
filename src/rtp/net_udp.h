@@ -1,5 +1,5 @@
 /*
- * FILE:    net_udp.h
+ * FILE:    rtp/net_udp.h
  * AUTHORS: Colin Perkins
  * 
  * Copyright (c) 1998-2000 University College London

@@ -1,5 +1,5 @@
 /**
- * @file   utils/time.h
+ * @file   utils/time.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

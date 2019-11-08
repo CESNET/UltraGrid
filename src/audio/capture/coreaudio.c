@@ -1,5 +1,5 @@
 /**
- * @file   src/audio/capture/coreaudio.c
+ * @file   audio/capture/coreaudio.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

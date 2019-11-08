@@ -1,10 +1,10 @@
 /*
- * FILE:    sdp.c
+ * FILE:    utils/sdp.c
  * AUTHORS: Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2019 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -40,6 +40,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * * exit correctly HTTP thread (but it is a bit tricky because it waits on accept())
  * * createResponseForRequest() should be probably static (in case that other

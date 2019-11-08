@@ -1,5 +1,5 @@
 /**
- * @file   capture_filter/logo.c
+ * @file   capture_filter/logo.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

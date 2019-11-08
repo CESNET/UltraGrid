@@ -1,5 +1,5 @@
 /**
- * @file   src/capture_filter/blank.cpp
+ * @file   capture_filter/blank.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

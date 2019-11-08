@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @note
  * Although the NDI SDK provides a C interface, there are constructors for the
  * NDI structs when invoked from C++. So it is needed at least to zero-initialize

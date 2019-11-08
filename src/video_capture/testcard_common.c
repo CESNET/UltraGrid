@@ -1,5 +1,5 @@
 /*
- * FILE:   testcard_common.c
+ * FILE:   video_capture/testcard_common.c
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>

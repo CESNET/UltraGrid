@@ -12,6 +12,7 @@
  *           Milos Liska      <xliska@fi.muni.cz>
  *           Jiri Matela      <matela@ics.muni.cz>
  *           Dalibor Matura   <255899@mail.muni.cz>
+ *           Martin Pulec     <pulec@cesnet.cz>
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *           David Cassany   <david.cassany@i2cat.net>
  *           Gerard Castillo <gerard.castillo@i2cat.net>
@@ -22,7 +23,7 @@
  * derived from the algorithms published in that specification.
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  * Copyright (c) 1998-2001 University College London

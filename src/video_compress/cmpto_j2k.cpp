@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * Main idea behind the code below is to control how many frames the encoder
  * holds. The codec itself doesn't have a limit, thus without that it is
  * possible to run out of memory. This is possible even in the case when

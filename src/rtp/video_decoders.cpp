@@ -37,14 +37,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * @addtogroup video_rtp_decoder
- * @{
- *
  * @file    video_decoders.cpp
  * @author  Colin Perkins
  * @author  Ladan Gharai
  * @author  Martin Pulec <pulec@cesnet.cz>
- *
+ * @ingroup video_rtp_decoder
  *
  * ## Workflow ##
  *
@@ -1887,4 +1884,3 @@ static void decoder_process_message(struct module *m)
         }
 }
 
-/** @} */

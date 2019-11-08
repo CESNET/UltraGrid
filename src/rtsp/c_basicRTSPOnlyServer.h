@@ -1,5 +1,5 @@
 /*
- * FILE:    c_basicRTSPOnlyServer.h
+ * FILE:    rtsp/c_basicRTSPOnlyServer.h
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *

@@ -1,5 +1,5 @@
 /*
- * FILE:    debug.c
+ * FILE:    debug.cpp
  * PROGRAM: RAT
  * AUTHORS: Isidor Kouvelas
  *          Colin Perkins

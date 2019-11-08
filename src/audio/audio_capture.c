@@ -1,5 +1,5 @@
 /**
- * @file   audio/capture/audio_capture.c
+ * @file   audio/audio_capture.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

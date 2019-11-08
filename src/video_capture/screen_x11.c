@@ -1,5 +1,5 @@
 /**
- * @file   screen_x11.c
+ * @file   video_capture/screen_x11.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

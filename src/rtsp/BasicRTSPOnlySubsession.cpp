@@ -1,5 +1,5 @@
 /*
- * FILE:    BasicRTSPOnlySubsession.cpp
+ * FILE:    rtsp/BasicRTSPOnlySubsession.cpp
  * AUTHORS: David Cassany    <david.cassany@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *

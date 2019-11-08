@@ -1,5 +1,5 @@
 /**
- * @file   audio/portaudio_common.c
+ * @file   audio/portaudio_common.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

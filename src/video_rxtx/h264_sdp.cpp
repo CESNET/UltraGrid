@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/h264_rtp.h
+ * @file   video_rxtx/h264_sdp.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>

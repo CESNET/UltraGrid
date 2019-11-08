@@ -1,5 +1,5 @@
 /**
- * @file   utils/hresult.c
+ * @file   utils/hresult.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

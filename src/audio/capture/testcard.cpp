@@ -1,5 +1,5 @@
 /**
- * @file   audio/capture/testcard.c
+ * @file   audio/capture/testcard.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

@@ -1,5 +1,5 @@
 /**
- * @file   audio/playback/audio_playback.c
+ * @file   audio/audio_playback.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

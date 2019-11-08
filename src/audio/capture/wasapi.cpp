@@ -20,8 +20,9 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 /**
- *  @todo
- *  Probe and help are almost similar - consolide common code.
+ * @file
+ * @todo
+ * Probe and help are almost similar - consolide common code.
  */
 
 #ifdef HAVE_CONFIG_H

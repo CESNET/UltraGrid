@@ -1,5 +1,5 @@
 /**
- * @file   fec.h
+ * @file   rtp/fec.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

@@ -1,5 +1,5 @@
 /**
- * @file   src/video_compres/dxt_glsl.cpp
+ * @file   video_compress/dxt_glsl.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

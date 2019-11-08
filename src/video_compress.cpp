@@ -1,5 +1,5 @@
 /**
- * @file   video_compress.c
+ * @file   video_compress.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @ingroup video_compress
  *

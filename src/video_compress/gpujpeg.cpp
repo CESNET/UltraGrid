@@ -1,5 +1,5 @@
 /**
- * @file   src/video_compress/gpujpeg.cpp
+ * @file   video_compress/gpujpeg.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

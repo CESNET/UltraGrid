@@ -1,5 +1,10 @@
-// DirectShowGrabber.cpp : Defines the exported functions for the DLL application.
-//
+/**
+ * @file video_capture/DirectShowGrabber.cpp
+ * @author Pavel Troubil
+ * @author Martin Pulec  <martin.pulec@cesnet.cz>
+ *
+ * Defines the exported functions for the DLL application.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

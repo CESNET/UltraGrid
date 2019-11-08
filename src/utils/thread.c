@@ -1,9 +1,9 @@
 /**
- * @file   utils/thread.h
+ * @file   utils/thread.c
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET z.s.p.o.
+ * Copyright (c) 2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

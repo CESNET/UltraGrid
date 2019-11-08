@@ -13,7 +13,7 @@
  * Copyright (c)      2004 University of Glasgow
  * Copyright (c) 2002-2003 University of Southern California
  * Copyright (c) 1999-2000 University College London
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2016 CESNET z.s.p.o.
  *
  * Largely based on common/src/btree.c revision 1.7 from the UCL 
  * Robust-Audio Tool v4.2.25. Code is based on the algorithm in:

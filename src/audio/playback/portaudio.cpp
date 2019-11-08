@@ -1,11 +1,12 @@
 /*
- * FILE:    audio/playback/portaudio.c
+ * FILE:    audio/playback/portaudio.cpp
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
  *          Milos Liska      <xliska@fi.muni.cz>
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2005-2016 CESNET z.s.p.o.

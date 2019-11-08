@@ -1,5 +1,5 @@
 /**
- * @file   src/capture_filter/flip.cpp
+ * @file   capture_filter/flip.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

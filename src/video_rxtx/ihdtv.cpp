@@ -1,5 +1,5 @@
 /*
- * FILE:    ihdtv.c
+ * FILE:    ihdtv.cpp
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>

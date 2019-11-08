@@ -1,5 +1,5 @@
 /**
- * @file   src/capture_filter/grayscale.cpp
+ * @file   capture_filter/grayscale.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @todo
  * Remove deprecated instances of ca-disable-adaptive-buf after some transitio period.
  */

@@ -1,9 +1,9 @@
 /**
- * @file   utils/misc.h
+ * @file   utils/misc.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET z.s.p.o.
+ * Copyright (c) 2014-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

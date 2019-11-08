@@ -1,5 +1,5 @@
 /*
- * FILE:   vidcap_null.c
+ * FILE:   video_capture/null.c
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *
  * A fake video capture device, used for systems that either have no capture

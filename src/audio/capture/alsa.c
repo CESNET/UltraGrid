@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * @note
  * In code below, state_alsa_capture::frame::ch_count can differ from
  * state_alsa_capture::min_device_channels, if device doesn't support

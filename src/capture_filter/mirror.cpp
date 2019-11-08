@@ -1,5 +1,5 @@
 /**
- * @file   src/capture_filter/mirror.cpp
+ * @file   capture_filter/mirror.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

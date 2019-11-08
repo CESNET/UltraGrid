@@ -6,12 +6,13 @@
  * @author Milos Liska      <xliska@fi.muni.cz>
  * @author Jiri Matela      <matela@ics.muni.cz>
  * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * @brief This file contains video frame manipulation functions.
  */
 /*
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2005-2019 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

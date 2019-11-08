@@ -1,5 +1,5 @@
 /*
- * FILE:    video_display/sage.c
+ * FILE:    video_display/sage.cpp
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>

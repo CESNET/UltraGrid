@@ -1,5 +1,5 @@
 /**
- * @file   video_decompress/j2k.cpp
+ * @file   video_decompress/cmpto_j2k.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
+ * @file
  * Some of the concepts are similar to encoder (eg. keeping limited number of
  * frames in decoder) so please refer to that file.
  *

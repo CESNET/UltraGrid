@@ -1,5 +1,5 @@
 /**
- * @file   src/utils/vs_split.h
+ * @file   utils/vs_split.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

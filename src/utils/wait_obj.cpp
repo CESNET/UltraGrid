@@ -1,5 +1,5 @@
 /**
- * @file   utils/wait_obj.h
+ * @file   utils/wait_obj.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

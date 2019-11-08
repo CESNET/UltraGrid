@@ -1,9 +1,11 @@
 /**
- * @file   fec.cpp
+ * @file   rtp/fec.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * Common ancesor of FEC modules.
  */
 /*
- * Copyright (c) 2014 CESNET z.s.p.o.
+ * Copyright (c) 2014-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -1,5 +1,5 @@
 /*
- * FILE:   quicktime.c
+ * FILE:   video_capture/quicktime.c
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>

@@ -1,19 +1,10 @@
+/**
+ * @file   video_rxtx/sage.h
+ * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_rxtx/sage.h
- * AUTHORS: Colin Perkins    <csp@csperkins.org>
- *          Ladan Gharai     <ladan@isi.edu>
- *          Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Martin Pulec     <pulec@cesnet.cz>
- *
- * Copyright (c) 2005-2014 CESNET z.s.p.o.
- * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2003-2004 University of Glasgow
+ * Copyright (c) 2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -26,15 +17,8 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
@@ -49,8 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 #ifndef VIDEO_RXTX_SAGE_H_
 #define VIDEO_RXTX_SAGE_H_
 
