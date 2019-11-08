@@ -45,8 +45,10 @@
 #include "video_display.h"
 #include "video_codec.h"
 
+#include <cinttypes>
 #include <condition_variable>
 #include <chrono>
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
@@ -551,7 +553,7 @@ static void display_conference_run(void *state)
                 auto it = s->ssrc_list.begin();
                 while (it != s->ssrc_list.end()) {
                         if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
-                                verbose_msg("Source 0x%08lx timeout. Deleting from conference display.\n", it->first);
+                                verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from conference display.\n", it->first);
 
                                 s->output->removeTile(it->first);
                                 it = s->ssrc_list.erase(it);

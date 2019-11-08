@@ -160,7 +160,7 @@ static int vidcap_banner_init(struct vidcap_params *params, void **state)
                                 goto error;
                         }
 
-                        if (!in || fread(s->data, filesize, 1, in) == 0) {
+                        if (!in || fread(s->data, filesize, 1, in) != 1) {
                                 fprintf(stderr, "Cannot read file %s\n", filename);
                                 goto error;
                         }

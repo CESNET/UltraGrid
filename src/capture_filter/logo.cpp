@@ -56,8 +56,8 @@ using namespace std;
 
 struct state_capture_filter_logo {
         unique_ptr<unsigned char []> logo;
-        unsigned int width, height;
-        int x, y;
+        unsigned int width{}, height{};
+        int x{}, y{};
 };
 
 static int init(struct module *parent, const char *cfg, void **state);

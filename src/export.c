@@ -120,7 +120,6 @@ static bool enable_export(struct exporter *s)
 
         s->exporting = true;
 
-        pthread_mutex_unlock(&s->lock);
         return true;
 
 error:

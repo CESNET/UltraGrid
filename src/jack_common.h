@@ -41,6 +41,7 @@
 
 #include <stdio.h>
 #include <jack/jack.h>
+#include "debug.h"
 #include "types.h"
 
 static inline struct device_info *audio_jack_probe(const char *client_name,
@@ -81,6 +82,11 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
 
                 ++channel_count;
                 name = strtok_r(item, "_", &save_ptr);
+                if (name == NULL) { // shouldn't happen
+                        log_msg(LOG_LEVEL_ERROR, "Incorrect JACK name: %s!\n", ports[i]);
+                        free(item);
+                        continue;
+                }
                 if(last_name && strcmp(last_name, name) != 0) {
                         sprintf(available_devices[*count].name, "jack:%s (%d channels)", last_name, channel_count);
                         sprintf(available_devices[*count].id, "jack:%s", last_name);

@@ -87,7 +87,9 @@ public:
                 std::cerr << style << color;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         unsigned long long time_ms = time_since_epoch_in_ms();
-                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
+                        auto flags = std::cerr.flags();
+                        auto precision = std::cerr.precision();
+                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] " << flags << precision;
                 }
 
                 return std::cerr;

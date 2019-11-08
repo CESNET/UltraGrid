@@ -384,7 +384,7 @@ static int read_dht(struct jpeg_info *param, uint8_t** image)
 			if ( length > 0 ) {
 				length--;
 			} else {
-				log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DHT marker unexpected end when reading bit counts!\n", index);
+				log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DHT marker unexpected end when reading bit counts!\n");
 				return -1;
 			}
 		}
@@ -395,7 +395,7 @@ static int read_dht(struct jpeg_info *param, uint8_t** image)
 			if ( length > 0 ) {
 				length--;
 			} else {
-				log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] [Error] DHT marker unexpected end when reading huffman values!\n", index);
+				log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] DHT marker unexpected end when reading huffman values!\n");
 				return -1;
 			}
 		}
@@ -647,7 +647,7 @@ int jpeg_read_info(uint8_t *image, int len, struct jpeg_info *info)
         for (unsigned int i = 0; i < sizeof req_markers / sizeof req_markers[0]; ++i) {
                 if (!marker_present[req_markers[i]]) {
                         log_msg(LOG_LEVEL_ERROR, "Marker \"%s\" missing in JPEG file!\n",
-                                        req_markers[i]);
+                                        jpeg_marker_name(req_markers[i]));
                         if (req_markers[i] == JPEG_MARKER_SOF0) {
                                 log_msg(LOG_LEVEL_INFO, "Perhaps unsupported JPEG type.\n");
                         }

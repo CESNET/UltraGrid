@@ -44,9 +44,11 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <stdint.h>
+
 #include "compat/platform_time.h"
 #include "debug.h"
-
 #include "host.h"
 #include "rang.hpp"
 
@@ -128,7 +130,7 @@ void debug_dump(void *lp, int len)
         char stuffBuff[10];
         char tmpBuf[10];
 
-        _dprintf("Dump of %ld=%lx bytes\n", len, len);
+        _dprintf("Dump of %d=%x bytes\n", len, len);
         start = 0L;
         while (start < len) {
                 /* start line with pointer position key */
@@ -158,12 +160,6 @@ void debug_dump(void *lp, int len)
                                 strcat(Buff, " ");
                 }
 
-                /* fill out incomplete lines */
-                for (; j < 16; j++) {
-                        strcat(Buff, "   ");
-                        if (j == 7)
-                                strcat(Buff, " ");
-                }
                 strcat(Buff, "  ");
 
                 /* display each character as character value */

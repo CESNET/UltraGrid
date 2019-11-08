@@ -439,6 +439,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     return s->vrtsp_state->frame;
 }
 
+#define FAIL vidcap_rtsp_done(s); show_help(); return VIDCAP_INIT_FAIL;
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
@@ -518,8 +519,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                         sprintf(s->uri, "rtsp:%s:%s", uri_tmp1, uri_tmp2);
                     } else {
                         printf("\n[rtsp] Wrong format for uri! \n");
-                        show_help();
-                        exit(0);
+                        FAIL
                     }
                     break;
                 case 1:
@@ -536,16 +536,14 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                                     s->vrtsp_state->decompress = FALSE;
                                 else {
                                     printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
-                                    show_help();
-                                    exit(0);
+                                    FAIL
                                 }
                             } else
                                 continue;
                         }
                     } else {
                         printf("\n[rtsp] Wrong format for height! \n");
-                        show_help();
-                        exit(0);
+                        FAIL
                     }
                     break;
                 case 2:

@@ -996,8 +996,8 @@ static void glut_idle_callback(void)
 
 static int64_t translate_glut_to_ug(int key, bool is_special) {
 #ifdef FREEGLUT
-        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R)
-                        && (key == GLUT_KEY_ALT_L || key == GLUT_KEY_ALT_R)) {
+        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R
+                        || key == GLUT_KEY_ALT_L || key == GLUT_KEY_ALT_R)) {
                 return 0;
         }
 #endif // defined FREEGLUT
@@ -1131,6 +1131,7 @@ static bool display_gl_check_gl_version() {
         auto version = (const char *) glGetString(GL_VERSION);
         if (!version) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get OpenGL version!\n");
+                return false;
         }
         if (atof(version) < 2.0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");

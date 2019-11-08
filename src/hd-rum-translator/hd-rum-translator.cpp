@@ -397,7 +397,7 @@ static void *writer(void *arg)
                     } else {
                         hd_rum_decompress_append_port(s->decompress, rep->recompress);
                         hd_rum_decompress_set_active(s->decompress, rep->recompress, true);
-                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08lx.\n", host, tx_port, recompress_get_ssrc(rep->recompress));
+                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_ssrc(rep->recompress));
                     }
                 } else {
                     rep->type = replica::type_t::USE_SOCK;

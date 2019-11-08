@@ -44,6 +44,11 @@
 #include "config_win32.h"
 #endif
 
+#include <cinttypes>
+#include <chrono>
+#include <memory>
+
+
 #include "hd-rum-translator/hd-rum-recompress.h"
 
 #include "debug.h"
@@ -51,9 +56,6 @@
 #include "rtp/rtp.h"
 
 #include "video_rxtx/ultragrid_rtp.h"
-
-#include <chrono>
-#include <memory>
 
 using namespace std;
 
@@ -132,7 +134,7 @@ void recompress_process_async(void *state, shared_ptr<video_frame> frame)
         double seconds = chrono::duration_cast<chrono::microseconds>(now - s->t0).count() / 1000000.0;
         if(seconds > 5) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[0x%08lx->%s:%d:0x%08lx] %d frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[0x%08" PRIx32 "->%s:%d:0x%08" PRIx32 "] %d frames in %g seconds = %g FPS\n",
                                 frame->ssrc,
                                 s->host.c_str(), s->tx_port,
                                 s->video_rxtx->get_ssrc(),

@@ -58,6 +58,10 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <inttypes.h>
+#include <stdint.h>
+
 #include "debug.h"
 #include "host.h"
 #include "pdb.h"
@@ -133,7 +137,7 @@ process_sdes(struct pdb *participants, uint32_t ssrc, rtcp_sdes_item * d)
                 /* This can happen, for example, in a partitioned multicast group. Log */
                 /* the event, and add the new participant to the database.             */
                 debug_msg
-                    ("Added previously unseen participant 0x%08x due to receipt of SDES\n",
+                    ("Added previously unseen participant 0x%08" PRIx32 " due to receipt of SDES\n",
                      ssrc);
                 pdb_add(participants, ssrc);
                 e = pdb_get(participants, ssrc);
@@ -189,8 +193,8 @@ process_sdes(struct pdb *participants, uint32_t ssrc, rtcp_sdes_item * d)
         default:
                 free(sdes_item);
                 debug_msg
-                    ("Ignored unknown SDES item (type=0x%02x) from 0x%08x\n",
-                     ssrc);
+                    ("Ignored unknown SDES item (type=0x%02" PRIx32 ") from 0x%08" PRIx32"\n",
+                     d->type, ssrc);
         }
 }
 

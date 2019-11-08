@@ -228,15 +228,13 @@ void pbuf_destroy(struct pbuf *playout_buf) {
         }
 }
 
+/** Add "pkt" to the frame represented by "node". The "node" has
+ * previously been created, and has some coded data already...
+ *
+ * New arrivals are filed to the list in descending sequence number order
+ */
 static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 {
-        /* Add "pkt" to the frame represented by "node". The "node" has    */
-        /* previously been created, and has some coded data already...     */
-
-        /* New arrivals are added at the head of the list, which is stored */
-        /* in descending order of packets as they arrive (NOT necessarily  */
-        /* descending sequence number order, as the network might reorder) */
-
         struct coded_data *tmp, *curr, *prv;
 
         assert(node->rtp_timestamp == pkt->ts);
@@ -259,29 +257,23 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
                 node->cdata = tmp;
         } else {
                 curr = node->cdata;
-                if (curr == NULL){
-                        /* this is bad, out of memory, drop the packet... */
+                while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
+                        prv = curr;
+                        curr = curr->nxt;
+                }
+                if (curr == NULL) {
+                        tmp->nxt = NULL;
+                        tmp->prv = prv;
+                        prv->nxt = tmp;
+                }else if ((int16_t)(tmp->seqno - curr->seqno) > 0){
+                        tmp->nxt = curr;
+                        tmp->prv = curr->prv;
+                        tmp->prv->nxt = tmp;
+                        curr->prv = tmp;
+                } else {
+                        /* this is bad, something went terribly wrong... */
                         free(pkt);
                         free(tmp);
-                } else {
-                        while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
-                                prv = curr;
-                                curr = curr->nxt;
-                        }
-                        if (curr == NULL) {
-                                tmp->nxt = NULL;
-                                tmp->prv = prv;
-                                prv->nxt = tmp;
-                        }else if ((int16_t)(tmp->seqno - curr->seqno) > 0){
-                                tmp->nxt = curr;
-                                tmp->prv = curr->prv;
-                                tmp->prv->nxt = tmp;
-                                curr->prv = tmp;
-                        } else {
-                                /* this is bad, something went terribly wrong... */
-                                free(pkt);
-                                free(tmp);
-                        }
                 }
         }
 }

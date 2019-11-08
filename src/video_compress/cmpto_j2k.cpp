@@ -101,7 +101,7 @@ struct state_video_compress_j2k {
         video_desc saved_desc{}; ///< for pool reconfiguration
         video_desc precompress_desc{};
         video_desc compressed_desc{};
-        void (*convertFunc)(video_frame *dst, video_frame *src);
+        void (*convertFunc)(video_frame *dst, video_frame *src){nullptr};
 };
 
 static void j2k_compressed_frame_dispose(struct video_frame *frame);
@@ -214,6 +214,7 @@ start:
         {
                 unique_lock<mutex> lk(s->lock);
                 s->in_frames--;
+                lk.unlock();
                 s->frame_popped.notify_one();
         }
         if (!img) {
@@ -346,9 +347,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         return &s->module_data;
 
 error:
-        if (s) {
-                delete s;
-        }
+        delete s;
         return NULL;
 }
 

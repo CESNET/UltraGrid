@@ -124,6 +124,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 }
         } else {
                 show_help();
+                delete s;
                 return &display_init_noerr;
         }
         s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());

@@ -46,6 +46,7 @@
 
 #include "debug.h"
 
+#include <cinttypes>
 #include <sstream>
 #include <string>
 #include <stdexcept>
@@ -199,8 +200,8 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                 } else {
                                         destroy_rtp_devices(old_devices);
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08lx to "
-                                                        "0x%08lx.\n", old_ssrc, rtp_my_ssrc(m_network_devices[0]));
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Changed SSRC from 0x%08" PRIx32 " to "
+                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(m_network_devices[0]));
                                 }
                         }
                         break;

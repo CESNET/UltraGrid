@@ -66,9 +66,14 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // defined HAVE_CONFIG_H
+
+#include <inttypes.h>
+
 #include "memory.h"
 #include "debug.h"
 #include "net_udp.h"
@@ -416,7 +421,7 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
         cur->prev = start;
         cur->prev->next = cur;
 
-        debug_msg("Created new rr entry for 0x%08lx from source 0x%08lx\n",
+        debug_msg("Created new rr entry for 0x%08" PRIx32 " from source 0x%08" PRIx32 "\n",
                   rr->ssrc, reporter_ssrc);
         return;
 }
@@ -2518,7 +2523,7 @@ int rtp_add_csrc(struct rtp *session, uint32_t csrc)
         if (!s->should_advertise_sdes) {
                 s->should_advertise_sdes = TRUE;
                 session->csrc_count++;
-                debug_msg("Added CSRC 0x%08lx as CSRC %d\n", csrc,
+                debug_msg("Added CSRC 0x%08" PRIx32 " as CSRC %d\n", csrc,
                           session->csrc_count);
         }
         return TRUE;
@@ -3109,7 +3114,7 @@ static int add_sdes_item(uint8_t * buf, int buflen, int type, const char *val)
         int namelen;
 
         if (val == NULL) {
-                debug_msg("Cannot format SDES item. type=%d val=%xp\n", type,
+                debug_msg("Cannot format SDES item. type=%d val=%p\n", type,
                           val);
                 return 0;
         }
@@ -3516,7 +3521,7 @@ void rtp_update(struct rtp *session, struct timeval curr_time)
                         /* the source is timed out.                                  */
                         if (s->got_bye && (delay > 2.0)) {
                                 debug_msg
-                                    ("Deleting source 0x%08lx due to reception of BYE %f seconds ago...\n",
+                                    ("Deleting source 0x%08" PRIx32 " due to reception of BYE %f seconds ago...\n",
                                      s->ssrc, delay);
                                 delete_source(session, s->ssrc);
                         }
@@ -3536,7 +3541,7 @@ void rtp_update(struct rtp *session, struct timeval curr_time)
                         if ((s->ssrc != rtp_my_ssrc(session))
                             && (delay > (session->rtcp_interval * 5))) {
                                 debug_msg
-                                    ("Deleting source 0x%08lx due to timeout...\n",
+                                    ("Deleting source 0x%08" PRIx32 " due to timeout...\n",
                                      s->ssrc);
                                 delete_source(session, s->ssrc);
                         }

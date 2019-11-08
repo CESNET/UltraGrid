@@ -131,6 +131,7 @@ static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
         s->out_desc.height = s->height ? min<int>(s->height, desc.height) : desc.height;
 
         // make sure that width is divisible by pixel block size
+        assert(get_pf_block_size(desc.color_spec) != 0);
         int linesize = (int) (s->out_desc.width * get_bpp(desc.color_spec)) / get_pf_block_size(desc.color_spec)
                 * get_pf_block_size(desc.color_spec);
         s->out_desc.width = linesize / get_bpp(desc.color_spec);
@@ -147,6 +148,7 @@ static struct video_frame * crop_getf(void *state)
 static bool crop_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         assert(in->tile_count == 1);
+        assert(get_pf_block_size(in->color_spec) != 0);
 
         auto s = static_cast<struct state_crop *>(state);
         int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);

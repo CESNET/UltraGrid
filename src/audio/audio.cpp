@@ -53,6 +53,7 @@
 #include "config_win32.h"
 #endif
 
+#include <cinttypes>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -156,8 +157,8 @@ struct state_audio {
 
         struct tx *tx_session = nullptr;
         
-        pthread_t audio_sender_thread_id,
-                  audio_receiver_thread_id;
+        pthread_t audio_sender_thread_id{},
+                  audio_receiver_thread_id{};
         bool audio_sender_thread_started = false,
              audio_receiver_thread_started = false;
 
@@ -295,10 +296,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        assert(addrs && strlen(addrs) > 0);
+        assert(addrs != nullptr);
         tmp = strdup(addrs);
         s->audio_participants = pdb_init(audio_delay);
         addr = strtok_r(tmp, ",", &unused);
+        assert(addr != nullptr);
 
         s->audio_network_parameters.addr = strdup(addr);
         s->audio_network_parameters.recv_port = recv_port;
@@ -841,8 +843,8 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                         return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                 } else {
                                         rtp_done(old_devices);
-                                        log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08lx to "
-                                                        "0x%08lx.\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
+                                        log_msg(LOG_LEVEL_NOTICE, "[control] Audio: changed SSRC from 0x%08" PRIx32 " to "
+                                                        "0x%08" PRIx32 ".\n", old_ssrc, rtp_my_ssrc(s->audio_network_device));
                                 }
                         }
                         break;

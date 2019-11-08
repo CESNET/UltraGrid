@@ -53,6 +53,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <cinttypes>
 #include <climits>
 #include <cstdint>
 #include <iomanip>
@@ -225,7 +226,7 @@ static int count_utf8_bytes(unsigned int i) {
  */
 static int64_t get_ansi_code() {
         int64_t c = GETCH();
-        debug_msg(MOD_NAME "Pressed %d\n", c);
+        debug_msg(MOD_NAME "Pressed %" PRId32 "\n", c);
         if (c == '[') { // CSI
                 c = '\E' << 8 | '[';
                 while (true) {
@@ -399,7 +400,7 @@ int64_t keyboard_control::get_next_key()
                 if (kbhit()) {
 #endif
                         int64_t c = GETCH();
-                        debug_msg(MOD_NAME "Pressed %d\n", c);
+                        debug_msg(MOD_NAME "Pressed %" PRId64 "\n", c);
                         if (c == '\E') {
                                 if ((c = get_ansi_code()) == -1) {
                                         continue;
@@ -887,6 +888,7 @@ bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const cha
         struct response *r = send_message_sync(get_root_module(receiver_mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
         if (response_get_status(r) != RESPONSE_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot register keyboard control (error %d)!\n", response_get_status(r));
+                free_response(r);
                 return false;
         }
         free_response(r);

@@ -136,7 +136,7 @@ struct state_sdl2 {
 
                 sdl_user_new_frame_event = SDL_RegisterEvents(2);
                 assert(sdl_user_new_frame_event != (Uint32) -1);
-                sdl_user_new_message_event = sdl_user_new_message_event + 1;
+                sdl_user_new_message_event = sdl_user_new_frame_event + 1;
         }
         ~state_sdl2() {
                 module_done(&mod);
@@ -186,7 +186,7 @@ free_frame:
         double seconds = duration_cast<duration<double>>(tv - s->tv).count();
         if (seconds > 5) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[SDL] %d frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[SDL] %llu frames in %g seconds = %g FPS\n",
                                 s->frames, seconds, fps);
                 s->tv = tv;
                 s->frames = 0;
@@ -392,7 +392,7 @@ static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
 
         s->texture = SDL_CreateTexture(s->renderer, format, SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
         if (!s->texture) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError);
+                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError());
                 return false;
         }
 

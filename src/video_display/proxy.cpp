@@ -48,6 +48,7 @@
 #include "video.h"
 #include "video_display.h"
 
+#include <cinttypes>
 #include <condition_variable>
 #include <chrono>
 #include <list>
@@ -200,7 +201,7 @@ static void display_proxy_run(void *state)
                 it = s->disabled_ssrc.begin();
                 while (it != s->disabled_ssrc.end()) {
                         if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
-                                verbose_msg("Source 0x%08lx timeout. Deleting from proxy display.\n", it->first);
+                                verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from proxy display.\n", it->first);
                                 s->disabled_ssrc.erase(it++);
                         } else {
                                 ++it;

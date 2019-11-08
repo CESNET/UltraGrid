@@ -169,7 +169,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[DELTACAST display] %" PRIu32 " frames in %g seconds = %g FPS\n",
+                log_msg(LOG_LEVEL_INFO, "[DELTACAST display] %lu frames in %g seconds = %g FPS\n",
                         s->frames, seconds, fps);
                 s->tv = tv;
                 s->frames = 0;

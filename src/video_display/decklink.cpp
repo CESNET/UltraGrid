@@ -459,6 +459,7 @@ display_decklink_getf(void *state)
                         if (s->stereo) {
                                 IDeckLinkVideoFrame     *deckLinkFrameRight = nullptr;
                                 dynamic_cast<DeckLink3DFrame *>(deckLinkFrame)->GetFrameForRightEye(&deckLinkFrameRight);
+                                assert(deckLinkFrameRight != nullptr);
                                 deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
                                 // release immedieatelly (parent still holds the reference)
                                 deckLinkFrameRight->Release();

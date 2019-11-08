@@ -283,6 +283,7 @@ try {
                                 "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|:disable_audio}\n"
                                 "\t\t<fps> - overrides FPS from sequence metadata\n");
                 delete s;
+                free(tmp);
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -303,7 +304,12 @@ try {
 
         char *save_ptr = NULL;
         char *suffix;
-        s->directory = strdup(strtok_r(tmp, ":", &save_ptr));
+        s->directory = strtok_r(tmp, ":", &save_ptr);
+        if (s->directory == nullptr) {
+                throw string("Wrong directory name!\n");
+        }
+        s->directory = strdup(s->directory); // make a copy
+
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (suffix[0] == '\\') { // MSW path
                         assert(strlen(s->directory) == 1); // c:\something -> should be 'c'

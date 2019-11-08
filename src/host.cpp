@@ -256,6 +256,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 }
         }
 
+        auto precision = cout.precision();
+
         // compressions
         cout << "[cap] Compressions:" << endl;
         auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
@@ -347,6 +349,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
         for(const auto& codec : codecs){
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
+
+        cout << precision;
 }
 
 void print_version()
@@ -451,7 +455,8 @@ void print_pixel_formats(void) {
                 }
 
                 tag = codec_is_a_rgb(c) ? 'R' : 'Y';
-                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << "\n";
+                auto width = cout.width();
+                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << setw(width) << "\n";
         }
 }
 

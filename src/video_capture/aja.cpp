@@ -1104,10 +1104,13 @@ LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(vo
         *deleter = free;
 
         vt = (struct vidcap_type *)calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "aja";
-                vt->description = "AJA capture card";
+        if (vt == nullptr) {
+                return nullptr;
         }
+
+        vt->name = "aja";
+        vt->description = "AJA capture card";
+
         if (!verbose) {
                 return vt;
         }

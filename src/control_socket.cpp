@@ -236,7 +236,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
         } else {
                 if (force_ip_version == 6) {
                         log_msg(LOG_LEVEL_ERROR, "Control socket: IPv6 unimplemented in client mode!\n");
-                        return -1;
+                        goto error;
                 }
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 assert(s->socket_fd != INVALID_SOCKET);
@@ -252,7 +252,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 if(err) {
                         fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
-                        return -1;
+                        goto error;
                 }
                 bool connected = false;
 
@@ -268,21 +268,22 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 if(!connected) {
                         fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
-                        delete s;
-                        return -1;
+                        goto error;
                 }
         }
 
-error:
-        if (s->socket_fd == INVALID_SOCKET) {
-                delete s;
-                return -1;
-        }
 
         module_register(&s->mod, root_module);
 
         *state = s;
         return 0;
+
+error:
+        if (s->socket_fd != INVALID_SOCKET) {
+                CLOSESOCKET(s->socket_fd);
+        }
+        delete s;
+        return -1;
 }
 
 void control_start(struct control_state *s)
@@ -708,7 +709,9 @@ static void set_socket_nonblock(fd_t fd) {
     unsigned long ul;
     ioctlsocket(fd, FIONBIO, &ul);
 #else
-    fcntl(fd, F_SETFL, O_NONBLOCK);
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
+            perror("fcntl");
+    }
 #endif
 }
 

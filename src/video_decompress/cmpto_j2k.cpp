@@ -104,7 +104,7 @@ struct state_decompress_j2k {
 
         void (*convert)(unsigned char *dst_buffer,
                 unsigned char *src_buffer,
-                unsigned int width, unsigned int height);
+                unsigned int width, unsigned int height){nullptr};
 };
 
 #define CHECK_OK(cmd, err_msg, action_fail) do { \

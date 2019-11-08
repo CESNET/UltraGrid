@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2019 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,7 +79,9 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                 }
 
                 strcpy((*available_devices)[*count].id, "alsa:");
-                strcat((*available_devices)[*count].id, id);
+                strncat((*available_devices)[*count].id, id,
+                                sizeof (*available_devices)[*count].id -
+                                strlen((*available_devices)[*count].id) - 1);
                 free(id);
 
                 char *name = snd_device_name_get_hint(*it, "DESC");
@@ -88,11 +90,17 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                         char *newline = strchr(tok, '\n');
                         if(newline){
                                 *newline = '\0';
-                                strcat((*available_devices)[*count].name, tok);
-                                strcat((*available_devices)[*count].name, " - ");
+                                strncat((*available_devices)[*count].name, tok,
+                                                sizeof (*available_devices)[*count].name -
+                                                strlen((*available_devices)[*count].name) - 1);
+                                strncat((*available_devices)[*count].name, " - ",
+                                                sizeof (*available_devices)[*count].name -
+                                                strlen((*available_devices)[*count].name) - 1);
                                 tok = newline + 1;
                         } else {
-                                strcat((*available_devices)[*count].name, tok);
+                                strncat((*available_devices)[*count].name, tok,
+                                                sizeof (*available_devices)[*count].name -
+                                                strlen((*available_devices)[*count].name) - 1);
                                 tok = NULL;
                         }
                 }

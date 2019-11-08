@@ -249,7 +249,7 @@ void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *
         if (codecs12) {
                 printf("\t\t12bits\n");
                 while (*codecs12 != VIDEO_CODEC_NONE) {
-                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs10].name_long);
+                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs12].name_long);
                         codecs12++;
                 }
         }

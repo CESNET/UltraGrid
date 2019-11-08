@@ -144,7 +144,7 @@ static long get_sched_latency_ns(void)
         const char *proc_file = "/proc/sys/kernel/sched_latency_ns";
 
         int fd = open(proc_file, O_RDONLY);
-        if (!fd) {
+        if (fd == -1) {
                 return -1;
         }
 
@@ -572,7 +572,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
         } else {
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %u frames (%lf ms)\n", s->period_size, (double) s->period_size / desc.sample_rate * 1000);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Period size: %lu frames (%lf ms)\n", s->period_size, (double) s->period_size / desc.sample_rate * 1000);
         }
 
         unsigned int buf_len;
@@ -616,7 +616,7 @@ static int audio_play_alsa_reconfigure(void *state, struct audio_desc desc)
 #else
                 audio_buffer_destroy(s->buf);
                 s->audio_buf_len_ms = get_commandline_param("low-latency-audio") ? 5 : s->sched_latency_ms * 2;
-                log_msg(LOG_LEVEL_INFO, "[ALSA play.] Setting audio buffer length: %d ms\n", s->audio_buf_len_ms);
+                log_msg(LOG_LEVEL_INFO, "[ALSA play.] Setting audio buffer length: %ld ms\n", s->audio_buf_len_ms);
                 if (get_commandline_param("audio-buffer-len")) {
                         s->audio_buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
                 }

@@ -92,8 +92,8 @@ private:
         int                                      m_encoder_input_linesize;
         unique_ptr<char []>                      m_decoded;
 
-        struct gpujpeg_parameters                m_encoder_param;
-        struct gpujpeg_image_parameters          m_param_image;
+        struct gpujpeg_parameters                m_encoder_param{};
+        struct gpujpeg_image_parameters          m_param_image{};
 public:
         encoder_state(struct state_video_compress_gpujpeg *s, int device_id) :
                 m_parent_state(s), m_device_id(device_id), m_encoder{}, m_saved_desc{},

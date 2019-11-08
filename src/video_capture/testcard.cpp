@@ -442,8 +442,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 goto error;
                         }
 
-                        if (!in || fread(s->data, filesize, 1, in) == 0) {
-                                fprintf(stderr, "Cannot read file %s\n", filename);
+                        if (!in || fread(s->data, filesize, 1, in) != 1) {
+                                log_msg(LOG_LEVEL_ERROR, "Cannot read file %s\n", filename);
                                 goto error;
                         }
 
