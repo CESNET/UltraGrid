@@ -4,6 +4,7 @@ UltraGrid - A High Definition Collaboratory
 [![Mastodon Follow](https://img.shields.io/badge/Mastodon-follow-blue)](https://mastodon.technology/@UltraGrid)
 [![Twitter Follow](https://img.shields.io/badge/Twitter-follow-blue)](https://twitter.com/UltraGrid_CZ)
 [![Web Visit](https://img.shields.io/badge/web-visit-orange)](http://www.ultragrid.cz)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/2851/badge.svg)](https://scan.coverity.com/projects/2851)
 
 ![UltraGrid Logo](data/logo-1280x540.png)
 
