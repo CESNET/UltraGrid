@@ -525,10 +525,13 @@ distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h cscope.out tags
 
 etags:
-	etags src/*.[ch] src/*/*.[ch]
+	etags $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 ctags:
-	ctags src/*.[ch] src/*/*.[ch]
+	ctags $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+
+ctags-universal:
+	ctags-universal -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 cscope:
 	cscope -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
