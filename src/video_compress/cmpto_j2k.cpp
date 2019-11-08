@@ -214,7 +214,6 @@ start:
         {
                 unique_lock<mutex> lk(s->lock);
                 s->in_frames--;
-                lk.unlock();
                 s->frame_popped.notify_one();
         }
         if (!img) {
