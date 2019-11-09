@@ -278,6 +278,7 @@ static void display_sdl2_run(void *arg)
                                 int key;
                                 if (strstr(msg->text, "win-title ") == msg->text) {
                                         SDL_SetWindowTitle(s->window, msg->text + strlen("win-title "));
+                                        r = new_response(RESPONSE_OK, NULL);
                                 } else if (sscanf(msg->text, "%d", &key) == 1) {
                                         if (!display_sdl2_process_key(s, key)) {
                                                 r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
