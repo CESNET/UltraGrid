@@ -347,7 +347,8 @@ uint32_t bmd_read_fourcc(const char *str) {
         union {
                 uint32_t fourcc;
                 char c4[4];
-        } u{};
+        } u;
+        memset(u.c4, ' ', 4);
         memcpy(u.c4, str, min(strlen(str), sizeof u.c4));
         return htonl(u.fourcc);
 }
