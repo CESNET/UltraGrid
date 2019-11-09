@@ -119,6 +119,7 @@ int platform_pipe_init(fd_t p[2])
         struct params par;
         fd_t sock = open_socket(&par.port);
         if (sock == INVALID_SOCKET) {
+                perror("open_socket");
                 return -1;
         }
 
@@ -126,6 +127,7 @@ int platform_pipe_init(fd_t p[2])
 
         p[0] = accept(sock, NULL, NULL);
         if (p[0] == INVALID_SOCKET) {
+                perror("accept");
                 CLOSESOCKET(sock);
                 return -1;
         }
@@ -133,6 +135,7 @@ int platform_pipe_init(fd_t p[2])
         p[1] = par.sock;
         if (p[1] == INVALID_SOCKET) {
                 CLOSESOCKET(sock);
+                perror("accept");
                 return -1;
         }
         CLOSESOCKET(sock);

@@ -103,6 +103,7 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 
+#define MOD_NAME                "[main] "
 #define PORT_BASE               5004
 
 #define DEFAULT_AUDIO_FEC       "none"
@@ -145,6 +146,7 @@ using namespace std;
 struct state_uv {
         state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
                 if (platform_pipe_init(should_exit_pipe) != 0) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot create pipe!\n";
                         abort();
                 }
                 module_init_default(&root_module);
@@ -164,7 +166,7 @@ struct state_uv {
         static void should_exit_watcher(state_uv *s) {
                 set_thread_name(__func__);
                 char c;
-                while (read(s->should_exit_pipe[0], &c, 1) != 1) ;
+                while (recv(s->should_exit_pipe[0], &c, 1, 0) != 1) perror("recv");
                 unique_lock<mutex> lk(s->lock);
                 for (auto c : s->should_exit_callbacks) {
                         get<0>(c)(get<1>(c));
@@ -177,7 +179,7 @@ struct state_uv {
                         return;
                 }
                 should_exit_thread_notified = true;
-                while (write(should_exit_pipe[1], &c, 1) != 1);
+                while (send(should_exit_pipe[1], &c, 1, 0) != 1) perror("send");
         }
         static void new_message(struct module *mod)
         {
@@ -620,7 +622,6 @@ int main(int argc, char *argv[])
         const char *requested_compression = nullptr;
 
         int force_ip_version = 0;
-        struct state_uv uv{};
         int ch;
 
         const char *audio_codec = nullptr;
@@ -646,7 +647,6 @@ int main(int argc, char *argv[])
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
-        keyboard_control kc{&uv.root_module};
 
         bool print_capabilities_req = false;
         bool start_paused = false;
@@ -721,12 +721,14 @@ int main(int argc, char *argv[])
         }
         optind = 1;
 
-        uv_state = &uv;
-
         if (!common_preinit(argc, argv)) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 return EXIT_FAILURE;
         }
+
+        struct state_uv uv{};
+        uv_state = &uv;
+        keyboard_control kc{&uv.root_module};
 
         vidcap_params_set_device(vidcap_params_head, "none");
 
