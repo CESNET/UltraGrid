@@ -192,6 +192,7 @@ public:
         IDeckLinkVideoFrame          *rightEyeFrame{};
         void                         *pixelFrame{};
         void                         *pixelFrameRight{};
+        IDeckLinkVideoInputFrame     *lastFrame{nullptr};
         uint32_t                      timecode{};
         struct vidcap_decklink_state *s;
         int                           i; ///< index of the device
@@ -202,6 +203,9 @@ public:
         virtual ~VideoDelegate () {
 		if(rightEyeFrame)
                         rightEyeFrame->Release();
+                if (lastFrame) {
+                        lastFrame->Release();
+                }
 	}
 
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) override { return E_NOINTERFACE; }
@@ -297,14 +301,16 @@ public:
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioPacket)
 {
-	// Video
+        bool nosig = false;
 
 	unique_lock<mutex> lk(s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
+	// Video
 	if (videoFrame)
 	{
                 if (videoFrame->GetFlags() & bmdFrameHasNoInputSource) {
+                        nosig = true;
 			log_msg(LOG_LEVEL_INFO, "Frame received (#%d) - No input signal detected\n", s->frames);
                         if (s->nosig_send) {
                                 newFrameReady = 1;
@@ -320,9 +326,15 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 s->audioPackets.push(audioPacket);
         }
 
-        if (videoFrame && newFrameReady) {
+        if (videoFrame && newFrameReady && (!nosig || !lastFrame)) {
                 /// @todo videoFrame should be actually retained until the data are processed
                 videoFrame->GetBytes(&pixelFrame);
+
+                if (lastFrame) {
+                        lastFrame->Release();
+                }
+                lastFrame = videoFrame;
+                lastFrame->AddRef();
 
                 IDeckLinkTimecode *tc = NULL;
                 if (videoFrame->GetTimecode(bmdTimecodeRP188Any, &tc) == S_OK) {
