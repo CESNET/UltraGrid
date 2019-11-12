@@ -226,7 +226,7 @@ static int count_utf8_bytes(unsigned int i) {
  */
 static int64_t get_ansi_code() {
         int64_t c = GETCH();
-        debug_msg(MOD_NAME "Pressed %" PRId32 "\n", c);
+        debug_msg(MOD_NAME "Pressed %" PRId64 "\n", c);
         if (c == '[') { // CSI
                 c = '\E' << 8 | '[';
                 while (true) {

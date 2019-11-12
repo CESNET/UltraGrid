@@ -350,7 +350,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
 
-        cout << precision;
+        std::cout.precision(precision);
 }
 
 void print_version()
@@ -456,7 +456,9 @@ void print_pixel_formats(void) {
 
                 tag = codec_is_a_rgb(c) ? 'R' : 'Y';
                 auto width = cout.width();
+                auto flags = cout.flags();
                 cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << setw(width) << "\n";
+                cout.flags(flags);
         }
 }
 
@@ -468,7 +470,10 @@ void print_video_codecs(void) {
                 }
 
                 tag = is_codec_interframe(c) ? 'I' : '.';
-                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << "\n";
+                auto width = cout.width();
+                auto flags = cout.flags();
+                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << setw(width) << "\n";
+                cout.flags(flags);
         }
 }
 

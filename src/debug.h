@@ -89,7 +89,9 @@ public:
                         unsigned long long time_ms = time_since_epoch_in_ms();
                         auto flags = std::cerr.flags();
                         auto precision = std::cerr.precision();
-                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] " << flags << precision;
+                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
+                        std::cerr.precision(precision);
+                        std::cerr.flags(flags);
                 }
 
                 return std::cerr;
