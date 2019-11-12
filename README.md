@@ -6,7 +6,7 @@ UltraGrid - A High Definition Collaboratory
 [![Web Visit](https://img.shields.io/badge/web-visit-orange)](http://www.ultragrid.cz)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/2851/badge.svg)](https://scan.coverity.com/projects/2851)
 
-![UltraGrid Logo](data/logo-1280x540.png)
+![UltraGrid Logo](data/ultragrid-logo-text.png)
 
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
