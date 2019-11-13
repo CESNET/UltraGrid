@@ -540,7 +540,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
-        int len, got_frame = 0;
+        int got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
 
         if (libav_codec_has_extradata(s->desc.color_spec)) {
@@ -556,11 +556,15 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         s->pkt.data = src;
 
         while (s->pkt.size > 0) {
+                int len;
                 struct timeval t0, t1;
                 gettimeofday(&t0, NULL);
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
 #else
+                if (got_frame) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Decoded frame while compressed data left!\n");
+                }
                 got_frame = 0;
                 int ret = avcodec_send_packet(s->codec_ctx, &s->pkt);
                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
@@ -674,6 +678,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 assert(s->out_codec == HW_VDPAU);
                 s->blacklist_vdpau = false;
                 return DECODER_CANT_DECODE;
+        }
+
+        if (res == DECODER_GOT_FRAME && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
 
         return res;
