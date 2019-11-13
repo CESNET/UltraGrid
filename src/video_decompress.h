@@ -1,37 +1,26 @@
 /**
  * @file video_decompress.h
- * @author Martin Benes     <martinbenesh@gmail.com>
- * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- * @author Petr Holub       <hopet@ics.muni.cz>
- * @author Milos Liska      <xliska@fi.muni.cz>
- * @author Jiri Matela      <matela@ics.muni.cz>
- * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
- * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * @ingroup video_decompress
  * @brief API for video decompress drivers
  */
 /*
- * Copyright (c) 2005-2013 CESNET z.s.p.o.
+ * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -111,8 +100,12 @@ typedef enum {
  * @param[in] frame_seq      sequential number of frame. Subsequent frames
  *                           has sequential number +1. The point is to signalize
  *                           decompressor when one or more frames got lost (interframe compress).
+ * @param callbacks          used only by libavcodec
+ * @param[out] internal_codec internal codec pixel format that was probed (@see DECODER_GOT_CODEC).
+ *                           May be ignored if decoder doesn't announce codec probing (see @ref
+ *                           decode_from_to)
  * @note
- * Currently used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
+ * Frame_seq used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
  * @retval    DECODER_GOT_FRAME        if decompressed successfully
  * @retval    DECODER_GOT_CODEC        successfully returned internal codec
  * @retval    DECODER_NO_FRAME         if the frame wasn't decoded yet
