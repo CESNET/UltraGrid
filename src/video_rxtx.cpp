@@ -208,10 +208,6 @@ exit:
 
 video_rxtx *video_rxtx::create(string const & proto, std::map<std::string, param_u> const &params)
 {
-        if (proto == "help" || proto == "fullhelp") {
-                printf("Available TX protocols:\n");
-                list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, proto == "fullhelp");
-        }
         auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
         if (vri) {
                 auto ret = vri->create(params);
@@ -220,5 +216,11 @@ video_rxtx *video_rxtx::create(string const & proto, std::map<std::string, param
         } else {
                 return nullptr;
         }
+}
+
+void video_rxtx::list(bool full)
+{
+        printf("Available TX protocols:\n");
+        list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, full);
 }
 

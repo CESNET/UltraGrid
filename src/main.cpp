@@ -813,10 +813,11 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_PROTOCOL:
-                        if (strcmp(optarg, "help") == 0) {
+                        if (strcmp(optarg, "help") == 0 ||
+                                        strcmp(optarg, "fullhelp") == 0) {
                                 cout << "Specify a " << style::bold << "common" << style::reset << " protocol for both audio and video.\n";
                                 cout << "Audio protocol can be one of: " << style::bold << AUDIO_PROTOCOLS "\n" << style::reset;
-                                video_rxtx::create("help", {});
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 return EXIT_SUCCESS;
                         }
                         audio_protocol = video_protocol = optarg;

@@ -90,6 +90,7 @@ public:
          */
         virtual void join();
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
+        static void list(bool full);
         std::string m_port_id;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
