@@ -50,6 +50,7 @@ struct wav_metadata {
 #define WAV_HDR_PARSE_READ_ERROR   1
 #define WAV_HDR_PARSE_WRONG_FORMAT 2
 #define WAV_HDR_PARSE_NOT_PCM      3
+#define WAV_HDR_PARSE_INVALID_PARAM 4
 
 #ifdef __cplusplus
 extern "C" {

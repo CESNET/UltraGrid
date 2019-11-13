@@ -573,14 +573,15 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
         char *devices = strdup(devs);
         char *ptr;
         char *save_ptr_dev;
+        char *tmp = devices;
 
         s->devices_cnt = 0;
-        ptr = strtok_r(devices, ",", &save_ptr_dev);
-        do {
+        while ((ptr = strtok_r(tmp, ",", &save_ptr_dev))) {
                 s->devices_cnt += 1;
                 s->state.resize(s->devices_cnt);
                 s->state[s->devices_cnt - 1].device_id = ptr;
-        } while ((ptr = strtok_r(NULL, ",", &save_ptr_dev)));
+                tmp = NULL;
+        }
         free (devices);
 }
 

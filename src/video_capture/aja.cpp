@@ -595,7 +595,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         mAudioSystem = ::NTV2ChannelToAudioSystem(mInputChannel);
 
         //      Set the device video format to whatever we detected at the input...
-        mDevice.SetVideoFormat (mVideoFormat, false, false, mInputChannel);
+        CHECK(mDevice.SetVideoFormat (mVideoFormat, false, false, mInputChannel));
 
         //      Set the frame buffer pixel format for all the channels on the device
         //      (assuming it supports that pixel format -- otherwise default to 8-bit YCbCr)...
@@ -603,19 +603,19 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mPixelFormat = NTV2_FBF_8BIT_YCBCR;
 
         //      Set the pixel format for both device frame buffers...
-        mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat);
+        CHECK(mDevice.SetFrameBufferFormat (mInputChannel, mPixelFormat));
 
         //      Enable and subscribe to the interrupts for the channel to be used...
-        mDevice.EnableInputInterrupt (mInputChannel);
-        mDevice.SubscribeInputVerticalEvent (mInputChannel);
+        CHECK(mDevice.EnableInputInterrupt (mInputChannel));
+        CHECK(mDevice.SubscribeInputVerticalEvent (mInputChannel));
 
         //      Tell the hardware which buffers to use until the main worker thread runs
-        mDevice.SetInputFrame   (mInputChannel,  0);
+        CHECK(mDevice.SetInputFrame   (mInputChannel,  0));
 
         //      Set the Frame Store modes
-        mDevice.SetMode (mInputChannel,  NTV2_MODE_CAPTURE);
+        CHECK(mDevice.SetMode (mInputChannel,  NTV2_MODE_CAPTURE));
 
-        mDevice.SetReference (NTV2_REFERENCE_FREERUN);
+        CHECK(mDevice.SetReference (NTV2_REFERENCE_FREERUN));
 
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
@@ -664,8 +664,8 @@ AJAStatus vidcap_state_aja::SetupVideo()
         }
 
         //      Enable and subscribe to the interrupts for the channel to be used...
-        mDevice.EnableInputInterrupt (mInputChannel);
-        mDevice.SubscribeInputVerticalEvent (mInputChannel);
+        CHECK(mDevice.EnableInputInterrupt (mInputChannel));
+        CHECK(mDevice.SubscribeInputVerticalEvent (mInputChannel));
 
         if (aja::codec_map.find(mPixelFormat) == aja::codec_map.end()) {
                 cerr << "Cannot find valid mapping from AJA pixel format to UltraGrid" << endl;

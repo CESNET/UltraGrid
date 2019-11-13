@@ -77,6 +77,12 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
         READ_N(&bits_per_sample, sizeof(bits_per_sample));
         metadata->bits_per_sample = bits_per_sample;
 
+        if (metadata->ch_count > 100 ||
+                        metadata->sample_rate > 192000 ||
+                        metadata->bits_per_sample > 64) {
+                return WAV_HDR_PARSE_INVALID_PARAM;
+        }
+
         return WAV_HDR_PARSE_OK;
 }
 
@@ -160,6 +166,8 @@ const char *get_wav_error(int errcode)
                         return "Wav header in wrong format";
                 case WAV_HDR_PARSE_NOT_PCM:
                         return "Wav not in PCM";
+                case WAV_HDR_PARSE_INVALID_PARAM:
+                        return "Wrong/unsupported value in header";
                 default:
                         log_msg(LOG_LEVEL_ERROR, "[WAV] Unknown error code %d passed!\n", errcode);
                         return "Unknown error";

@@ -251,15 +251,16 @@ static void * j2k_decompress_init(void)
         return s;
 
 error:
+        if (!s) {
+                return NULL;
+        }
         if (s->settings) {
                 cmpto_j2k_dec_cfg_destroy(s->settings);
         }
         if (s->decoder) {
                 cmpto_j2k_dec_ctx_destroy(s->decoder);
         }
-        if (s) {
-                delete s;
-        }
+        delete s;
         return NULL;
 }
 
