@@ -3,12 +3,29 @@ name: C/C++ CI
 on: [push]
 
 jobs:
-  build:
-
+  Ubuntu:
+    name: run Ubuntu
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v1
+    - name: configure
+      run: ./autogen.sh
+    - name: make
+      run: make
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: make distcheck
+
+  macOS:
+    name: run macOS
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: bootstrap
+      run: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" && brew install autoconf automake libtool pkg-config
     - name: configure
       run: ./autogen.sh
     - name: make
