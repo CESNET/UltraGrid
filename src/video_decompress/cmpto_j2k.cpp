@@ -142,10 +142,11 @@ static void *decompress_j2k_worker(void *args)
                 (struct state_decompress_j2k *) args;
 
         while (true) {
+next_image:
                 struct cmpto_j2k_dec_img *img;
                 int decoded_img_status;
                 CHECK_OK(cmpto_j2k_dec_ctx_get_decoded_img(s->decoder, 1, &img, &decoded_img_status),
-				"Decode image", continue);
+				"Decode image", goto next_image);
 
                 {
                         lock_guard<mutex> lk(s->lock);
@@ -167,7 +168,7 @@ static void *decompress_j2k_worker(void *args)
                 void *dec_data;
                 size_t len;
                 CHECK_OK(cmpto_j2k_dec_img_get_samples(img, &dec_data, &len),
-                                "Error getting samples", cmpto_j2k_dec_img_destroy(img); continue);
+                                "Error getting samples", cmpto_j2k_dec_img_destroy(img); goto next_image);
 
                 char *buffer = (char *) malloc(len);
                 if (s->convert) {
