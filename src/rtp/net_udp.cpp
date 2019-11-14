@@ -48,6 +48,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "memory.h"
 #include "compat/platform_pipe.h"
 #include "compat/platform_semaphore.h"

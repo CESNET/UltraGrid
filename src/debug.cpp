@@ -52,6 +52,8 @@
 #include "host.h"
 #include "rang.hpp"
 
+volatile int log_level = LOG_LEVEL_INFO;
+
 static void _dprintf(const char *format, ...)
 {
         if (log_level < LOG_LEVEL_DEBUG) {

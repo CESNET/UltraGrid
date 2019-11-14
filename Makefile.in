@@ -481,12 +481,24 @@ UNITTEST_OBJS = unittest/run_tests.o \
 		unittest/get_framerate_test.o \
 		unittest/video_desc_test.o
 
-unittest/run_tests: $(UNITTEST_OBJS) $(OBJS)
+UNITTEST_DEPS   = src/compat/platform_time.o \
+		src/debug.o \
+		src/utils/misc.o \
+		src/video.o \
+		src/video_frame.o \
+		src/video_codec.o
+
+unittest/run_tests: $(UNITTEST_OBJS) $(UNITTESTS_DEPS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(UNITTEST_OBJS) $(OBJS) $(LIBS) -lcppunit -o $@
+	$(LINKER) $(LDFLAGS) $(UNITTEST_OBJS) $(UNITTEST_DEPS) $(LIBS) -lcppunit -o $@
 
 unittests: unittest/run_tests
 	@unittest/run_tests
+
+check: @UNITTESTS_TARGET@ # tests
+
+distcheck: all
+	$(TARGET) >/dev/null 2>&1
 
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip

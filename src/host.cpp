@@ -101,8 +101,6 @@ char **uv_argv;
 char *export_dir = NULL;
 volatile bool should_exit = false;
 
-volatile int log_level = LOG_LEVEL_INFO;
-
 volatile int audio_offset;
 volatile int video_offset;
 

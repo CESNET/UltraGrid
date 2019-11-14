@@ -3004,6 +3004,17 @@ if test $cineform_req = yes -a $cineform = no; then
         AC_MSG_ERROR([CINEFORM not found]);
 fi
 
+# ---------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------
+PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
+if test "$cppunit" = yes; then
+        UNITTESTS_TARGET=unittests
+else
+        UNITTESTS_TARGET=
+fi
+AC_SUBST(UNITTESTS_TARGET)
+
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------

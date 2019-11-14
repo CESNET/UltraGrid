@@ -61,6 +61,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "host.h"
 #include "hwaccel_vdpau.h"
 #include "utils/misc.h" // to_fourcc
 #include "video_codec.h"

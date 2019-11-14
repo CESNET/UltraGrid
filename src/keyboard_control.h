@@ -38,6 +38,9 @@
 #ifndef keyboard_control_h_
 #define keyboard_control_h_
 
+#include "host.h"
+#include "module.h"
+
 #ifdef __cplusplus
 
 #include <cinttypes>
@@ -54,8 +57,6 @@
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>
 #endif
-
-#include "module.h"
 
 class keyboard_control {
 public:

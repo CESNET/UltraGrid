@@ -53,6 +53,7 @@
 #include <thread>
 
 #include "debug.h"
+#include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "rtp/net_udp.h" // socket_error

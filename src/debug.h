@@ -42,7 +42,21 @@
 
 #define UNUSED(x)	(x=x)
 
-#include "host.h"
+#define LOG_LEVEL_QUIET   0 ///< suppress all logging
+#define LOG_LEVEL_FATAL   1 ///< errors that prevent UG run
+#define LOG_LEVEL_ERROR   2 ///< general errors
+#define LOG_LEVEL_WARNING 3 ///< less severe errors
+#define LOG_LEVEL_NOTICE  4 ///< information that may be interesting
+#define LOG_LEVEL_INFO    5 ///< normal reporting
+#define LOG_LEVEL_VERBOSE 6 ///< display more messages but no more than
+                            ///< one of a kind every ~1 sec
+#define LOG_LEVEL_DEBUG   7 ///< like LOG_LEVEL_VERBOSE, freq. approx.
+                            ///< 1 message every video frame
+#define LOG_LEVEL_DEBUG2  8 ///< even more verbose - eg. every packet can
+                            ///< be logged
+#define LOG_LEVEL_MAX LOG_LEVEL_DEBUG2
+extern volatile int log_level;
+
 
 #ifdef __cplusplus
 extern "C" {
