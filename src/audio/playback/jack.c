@@ -155,7 +155,7 @@ static void * audio_play_jack_init(const char *cfg)
         const char **ports;
         jack_status_t status;
         char *client_name;
-        const char *source_name = NULL;
+        const char *source_name = "";
 
         if (cfg == NULL) {
                 cfg = "";

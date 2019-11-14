@@ -1252,11 +1252,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         goto error;
                 }
 
-                if (!displayMode) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No display mode found! Try to set to half-duplex mode.\n");
-                        goto error;
-                }
-
                 BMDPixelFormat pf;
                 EXIT_IF_FAILED(set_display_mode_properties(s, tile, displayMode, &pf),
                                 "Could not set display mode properties");

@@ -55,7 +55,7 @@ struct banner_state {
         int count;
         int size;
         int pattern_height;
-        char *data;
+        char *data{};
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame;
 };

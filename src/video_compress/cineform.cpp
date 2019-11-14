@@ -167,8 +167,6 @@ static struct module * cineform_compress_init(struct module *parent, const char 
 
         s = new state_video_compress_cineform();
 
-        std::lock_guard<std::mutex> lock(s->mutex);
-
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
         s->requested_quality = CFHD_ENCODING_QUALITY_DEFAULT;
         s->requested_threads = DEFAULT_THREAD_COUNT;

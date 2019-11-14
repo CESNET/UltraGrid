@@ -367,6 +367,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 rtp_done(devices[index_nest]);
                         }
                         free(devices);
+                        free(tmp);
                         return NULL;
                 }
         }

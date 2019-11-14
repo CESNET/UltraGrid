@@ -352,7 +352,9 @@ bool is_ipv6_supported(void)
         if (fd == INVALID_SOCKET && errno == EAFNOSUPPORT) {
                 return false;
         }
-        CLOSESOCKET(fd);
+        if (fd != INVALID_SOCKET) {
+                CLOSESOCKET(fd);
+        }
         return true;
 }
 

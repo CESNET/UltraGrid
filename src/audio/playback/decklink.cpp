@@ -235,6 +235,7 @@ static void *audio_play_decklink_init(const char *cfg)
         }
 
         if (!blackmagic_api_version_check()) {
+                free(s);
                 return NULL;
         }
 

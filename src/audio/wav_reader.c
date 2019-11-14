@@ -86,6 +86,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
         return WAV_HDR_PARSE_OK;
 }
 
+#define CHECK(cmd, retval) if (cmd == -1) return retval;
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 {
         char buffer[16];
@@ -115,7 +116,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         found_data_chunk = true;
                         metadata->data_size = chunk_size;
                         metadata->data_offset = ftell(wav_file);
-                        fseek(wav_file, chunk_size, SEEK_CUR);
+                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
                         if (chunk_size != 16) {
@@ -128,10 +129,10 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         }
                 } else if (strncmp(buffer, "LIST", 4) == 0) {
                         log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping LIST chunk.\n");
-                        fseek(wav_file, chunk_size, SEEK_CUR);
+                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
                 } else if (strncmp(buffer, "JUNK", 4) == 0) {
                         log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping JUNK chunk.\n");
-                        fseek(wav_file, chunk_size, SEEK_CUR);
+                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[WAV] Unknown chunk \"%4s\" found!\n", buffer);
                         return WAV_HDR_PARSE_WRONG_FORMAT;

@@ -20,7 +20,10 @@ int get_rtsp_server_port(const char *cconfig){
                                 rtps_server_usage();
                                 free(config);
                                 return -1;
-                        } else return port;
+                        } else {
+                                free(config);
+                                return port;
+                        }
                 } else {
                         printf("\n[RTSP SERVER] ERROR - please, enter a port number.\n");
                         rtps_server_usage();
