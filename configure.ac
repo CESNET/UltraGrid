@@ -1848,7 +1848,7 @@ then
         if test $system = MacOSX; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
         else if test $system = Linux; then
-                SCREEN_CAP_OBJ="src/video_capture/screen_x11.o"
+                SCREEN_CAP_OBJ="src/video_capture/screen_x11.o src/x11_common.o"
         fi
         fi
         ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
