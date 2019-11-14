@@ -171,7 +171,7 @@ static int running_from_path(char * uv_argv[]) {
 }
 #endif
 
-void open_all(const char *pattern) {
+void open_all(const char *pattern, list<void *> &libs) {
 #ifdef BUILD_LIBRARIES
         char path[512];
         glob_t glob_buf;
@@ -189,7 +189,8 @@ void open_all(const char *pattern) {
         glob(path, 0, NULL, &glob_buf);
 
         for(unsigned int i = 0; i < glob_buf.gl_pathc; ++i) {
-                if (!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL)) {
+                void *handle = dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL);
+                if (!handle) {
                         char *error = dlerror();
                         verbose_msg("Library %s opening warning: %s \n", glob_buf.gl_pathv[i],
                                         error);
@@ -197,7 +198,9 @@ void open_all(const char *pattern) {
                         if (filename && error) {
                                 lib_errors.emplace(filename, error);
                         }
+                        continue;
                 }
+                libs.push_back(handle);
         }
 
         globfree(&glob_buf);

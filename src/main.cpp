@@ -589,8 +589,11 @@ static bool parse_params(char *optarg)
         return true;
 }
 
+#define EXIT(retval) { common_cleanup(init); return retval; }
+
 int main(int argc, char *argv[])
 {
+        struct init_data *init = nullptr;
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
@@ -721,9 +724,9 @@ int main(int argc, char *argv[])
         }
         optind = 1;
 
-        if (!common_preinit(argc, argv)) {
+        if ((init = common_preinit(argc, argv)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
-                return EXIT_FAILURE;
+                EXIT(EXIT_FAILURE);
         }
 
         struct state_uv uv{};
@@ -742,7 +745,7 @@ int main(int argc, char *argv[])
                 case 'd':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
-                                return 0;
+                                EXIT(0);
                         }
                         requested_display = optarg;
                         if(strchr(optarg, ':')) {
@@ -754,7 +757,7 @@ int main(int argc, char *argv[])
                 case 't':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
-                                return 0;
+                                EXIT(0);
                         }
                         vidcap_params_set_device(vidcap_params_tail, optarg);
                         vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
@@ -763,13 +766,13 @@ int main(int argc, char *argv[])
                         requested_mtu = atoi(optarg);
                         if (requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
                                 log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", requested_mtu);
-                                return EXIT_FAIL_USAGE;
+                                EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'M':
                         decoder_mode = get_video_mode_from_str(optarg);
                         if (decoder_mode == VIDEO_UNKNOWN) {
-                                return strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                EXIT(strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'p':
@@ -777,11 +780,11 @@ int main(int argc, char *argv[])
                         break;
                 case 'v':
                         print_configuration();
-                        return EXIT_SUCCESS;
+                        EXIT(EXIT_SUCCESS);
                 case 'c':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 show_compress_help(strcmp(optarg, "fullhelp") == 0);
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         requested_compression = optarg;
                         break;
@@ -801,7 +804,7 @@ int main(int argc, char *argv[])
                         }
                         if (strcmp(audio_protocol, "help") == 0) {
                                 printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         break;
                 case OPT_VIDEO_PROTOCOL:
@@ -818,7 +821,7 @@ int main(int argc, char *argv[])
                                 cout << "Specify a " << style::bold << "common" << style::reset << " protocol for both audio and video.\n";
                                 cout << "Audio protocol can be one of: " << style::bold << AUDIO_PROTOCOLS "\n" << style::reset;
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         audio_protocol = video_protocol = optarg;
                         if (strchr(optarg, ':')) {
@@ -830,14 +833,14 @@ int main(int argc, char *argv[])
                 case 'r':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_playback_help(strcmp(optarg, "full") == 0);
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         audio_recv = optarg;                       
                         break;
                 case 's':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_capture_print_help(strcmp(optarg, "full") == 0);
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         audio_send = optarg;
                         break;
@@ -859,7 +862,7 @@ int main(int argc, char *argv[])
                         break;
                 case 'h':
                         usage(uv_argv[0], false);
-                        return 0;
+                        EXIT(0);
                 case 'P':
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
@@ -872,7 +875,7 @@ int main(int argc, char *argv[])
                                                 audio_tx_port = atoi(tok);
                                         } else {
                                                 usage(uv_argv[0]);
-                                                return EXIT_FAIL_USAGE;
+                                                EXIT(EXIT_FAIL_USAGE);
                                         }
                                 }
                         } else {
@@ -881,10 +884,10 @@ int main(int argc, char *argv[])
                         break;
                 case 'l':
                         if (!parse_bitrate(optarg, &bitrate)) {
-                                return EXIT_FAILURE;
+                                EXIT(EXIT_FAILURE);
                         }
                         if (bitrate == RATE_DEFAULT) {
-                                return EXIT_SUCCESS; // help written
+                                EXIT(EXIT_SUCCESS); // help written
                         }
                         break;
                 case '4':
@@ -903,12 +906,12 @@ int main(int argc, char *argv[])
                         audio_capture_channels = atoi(optarg);
                         if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
-                                return EXIT_FAIL_USAGE;
+                                EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
                         if (!parse_audio_capture_format(optarg)) {
-                                return EXIT_FAIL_USAGE;
+                                EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case OPT_ECHO_CANCELLATION:
@@ -916,7 +919,7 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_FULLHELP:
                         usage(uv_argv[0], true);
-                        return EXIT_SUCCESS;
+                        EXIT(EXIT_SUCCESS);
                 case OPT_CUDA_DEVICE:
 #ifdef HAVE_GPUJPEG
                         if(strcmp("help", optarg) == 0) {
@@ -926,9 +929,9 @@ int main(int argc, char *argv[])
                                         if(ret == 0) {
                                                 module_done(CAST_MODULE(compression));
                                         }
-                                        return EXIT_SUCCESS;
+                                        EXIT(EXIT_SUCCESS);
                                 } else {
-                                        return EXIT_FAILURE;
+                                        EXIT(EXIT_FAILURE);
                                 }
                         } else {
                                 char *item, *save_ptr = NULL;
@@ -936,7 +939,7 @@ int main(int argc, char *argv[])
                                 while((item = strtok_r(optarg, ",", &save_ptr))) {
                                         if(i >= MAX_CUDA_DEVICES) {
                                                 fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
-                                                return EXIT_FAILURE;
+                                                EXIT(EXIT_FAILURE);
                                         }
                                         cuda_devices[i] = atoi(item);
                                         optarg = NULL;
@@ -947,7 +950,7 @@ int main(int argc, char *argv[])
                         break;
 #else
                         fprintf(stderr, "CUDA support is not enabled!\n");
-                        return EXIT_FAIL_USAGE;
+                        EXIT(EXIT_FAIL_USAGE);
 #endif // HAVE_CUDA
                 case OPT_MCAST_IF:
                         requested_mcast_if = optarg;
@@ -965,7 +968,7 @@ int main(int argc, char *argv[])
                                 char dev_string[1024];
                                 int ret;
                                 if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
-                                        return ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                        EXIT(ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
                                 }
                                 vidcap_params_set_device(vidcap_params_tail, dev_string);
                                 vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
@@ -974,11 +977,11 @@ int main(int argc, char *argv[])
                 case OPT_AUDIO_CODEC:
                         if(strcmp(optarg, "help") == 0) {
                                 list_audio_codecs();
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         audio_codec = optarg;
                         if (!check_audio_codec(optarg)) {
-                                return EXIT_FAIL_USAGE;
+                                EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
@@ -996,11 +999,11 @@ int main(int argc, char *argv[])
 
                                 if(connection_type < 0 || connection_type > 1){
                                         usage(uv_argv[0]);
-                                        return EXIT_FAIL_USAGE;
+                                        EXIT(EXIT_FAIL_USAGE);
                                 }
                                 if ((tok = strtok_r(NULL, ":", &save_ptr))) {
                                         usage(uv_argv[0]);
-                                        return EXIT_FAIL_USAGE;
+                                        EXIT(EXIT_FAIL_USAGE);
                                 }
                         } else {
                                 control_port = atoi(optarg);
@@ -1023,25 +1026,25 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_LIST_MODULES:
                         list_all_modules();
-                        return EXIT_SUCCESS;
+                        EXIT(EXIT_SUCCESS);
                 case OPT_START_PAUSED:
                         start_paused = true;
                         break;
                 case OPT_PARAM:
                         if (!parse_params(optarg)) {
-                                return EXIT_SUCCESS;
+                                EXIT(EXIT_SUCCESS);
                         }
                         break;
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
-                        return EXIT_SUCCESS;
+                        EXIT(EXIT_SUCCESS);
                 case OPT_VIDEO_CODECS:
                         print_video_codecs();
-                        return EXIT_SUCCESS;
+                        EXIT(EXIT_SUCCESS);
                 case '?':
                 default:
                         usage(uv_argv[0]);
-                        return EXIT_FAIL_USAGE;
+                        EXIT(EXIT_FAIL_USAGE);
                 }
         }
 
@@ -1051,7 +1054,7 @@ int main(int argc, char *argv[])
         if (argc > 1) {
                 log_msg(LOG_LEVEL_ERROR, "Multiple receivers given!\n");
                 usage(uv_argv[0]);
-                return EXIT_FAIL_USAGE;
+                EXIT(EXIT_FAIL_USAGE);
         }
 
         if (argc > 0) {
@@ -1181,12 +1184,12 @@ int main(int argc, char *argv[])
         exporter = export_init(&uv.root_module, export_opts, should_export);
         if (!exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
-                return EXIT_FAILURE;
+                EXIT(EXIT_FAILURE);
         }
 
         if (control_init(control_port, connection_type, &control, &uv.root_module, force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
-                return EXIT_FAIL_CONTROL_SOCK;
+                EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
@@ -1460,6 +1463,8 @@ cleanup:
 #endif
         signal(SIGABRT, SIG_IGN);
         signal(SIGSEGV, SIG_IGN);
+
+        common_cleanup(init);
 
         printf("Exit\n");
 

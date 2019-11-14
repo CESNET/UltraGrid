@@ -63,6 +63,11 @@
 #endif /* BUILD_LIBRARIES */
 
 #ifdef __cplusplus
+#include <list>
+void open_all(const char *pattern, std::list<void *> &libs);
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 enum library_class {
@@ -78,7 +83,6 @@ enum library_class {
         LIBRARY_CLASS_VIDEO_POSTPROCESS,
         LIBRARY_CLASS_VIDEO_RXTX,
 };
-void open_all(const char *pattern);
 const void *load_library(const char *name, enum library_class, int abi_version);
 void register_library(const char *name, const void *info, enum library_class, int abi_version, int hidden);
 void list_modules(enum library_class, int abi_version, bool full);

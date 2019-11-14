@@ -113,7 +113,7 @@ static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
         }
 }
 
-static void common_cleanup(struct vidcap_v4l2_state *s) {
+static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         if (!s) {
                 return;
         }
@@ -759,7 +759,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 error:
         free(tmp);
 
-        common_cleanup(s);
+        vidcap_v4l2_common_cleanup(s);
 
         return VIDCAP_INIT_FAIL;
 }
@@ -768,7 +768,7 @@ static void vidcap_v4l2_done(void *state)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
 
-        common_cleanup(s);
+        vidcap_v4l2_common_cleanup(s);
 }
 
 static void vidcap_v4l2_dispose_video_frame(struct video_frame *frame) {

@@ -131,7 +131,9 @@ void set_audio_delay(int val);
 #define RATE_DEFAULT                (-2)
 #define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
 
-bool common_preinit(int argc, char *argv[]);
+struct init_data;
+struct init_data *common_preinit(int argc, char *argv[]);
+void common_cleanup(struct init_data *init_data);
 
 /**
  * @param use_vidcap Use user suplied video capture device to elaborate input format.

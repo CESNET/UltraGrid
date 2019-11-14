@@ -679,8 +679,10 @@ static string format_port_list(struct hd_rum_translator_state *s)
     return oss.str();
 }
 
+#define EXIT(retval) { common_cleanup(init); return retval; }
 int main(int argc, char **argv)
 {
+    struct init_data *init;
     struct hd_rum_translator_state state;
 
     int qsize;
@@ -691,8 +693,8 @@ int main(int argc, char **argv)
     int i;
     struct cmdline_parameters params;
 
-    if (!common_preinit(argc, argv)) {
-        return EXIT_FAILURE;
+    if ((init = common_preinit(argc, argv)) == nullptr) {
+        EXIT(EXIT_FAILURE);
     }
 
     print_version();
@@ -700,7 +702,7 @@ int main(int argc, char **argv)
 
     if (argc == 1) {
         usage(argv[0]);
-        return EXIT_FAILURE;
+        EXIT(EXIT_FAILURE);
     }
 
 #ifndef WIN32
@@ -722,7 +724,7 @@ int main(int argc, char **argv)
     bool ret = parse_fmt(argc, argv, &params);
 
     if (ret == false) {
-        return EXIT_SUCCESS;
+        EXIT(EXIT_SUCCESS);
     }
 
     if (params.verbose) {
@@ -731,7 +733,7 @@ int main(int argc, char **argv)
 
     if ((bufsize = atoi(params.bufsize)) <= 0) {
         fprintf(stderr, "invalid buffer size: %d\n", bufsize);
-        return 1;
+        EXIT(1);
     }
     switch (params.bufsize[strlen(params.bufsize) - 1]) {
     case 'K':
@@ -751,7 +753,7 @@ int main(int argc, char **argv)
 
     if (params.port <= 0) {
         fprintf(stderr, "invalid port: %d\n", params.port);
-        return 1;
+        EXIT(1);
     }
 
     state.qhead = state.qtail = state.queue = qinit(qsize);
@@ -759,7 +761,7 @@ int main(int argc, char **argv)
     /* input socket */
     if ((sock_in = udp_init_if("localhost", NULL, params.port, 0, 255, false, false)) == NULL) {
         perror("input socket");
-        return 2;
+        EXIT(2);
     }
 
     if (udp_set_recv_buf(sock_in, bufsize) != TRUE) {
@@ -773,7 +775,7 @@ int main(int argc, char **argv)
     if (params.control_port != -1) {
         if (control_init(params.control_port, params.control_connection_type, &state.control_state, &state.mod, 0) != 0) {
             fprintf(stderr, "Warning: Unable to create remote control.\n");
-            return EXIT_FAIL_CONTROL_SOCK;
+            EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
         control_start(state.control_state);
     }
@@ -781,7 +783,7 @@ int main(int argc, char **argv)
     // we need only one shared receiver decompressor for all recompressing streams
     state.decompress = hd_rum_decompress_init(&state.mod, params.out_conf, params.capture_filter);
     if(!state.decompress) {
-        return EXIT_FAIL_DECODER;
+        EXIT(EXIT_FAIL_DECODER);
     }
 
     for (i = 0; i < params.host_count; i++) {
@@ -795,7 +797,7 @@ int main(int argc, char **argv)
             state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod, params.hosts[i].force_ip_version);
         } catch (string const &s) {
             fputs(s.c_str(), stderr);
-            return EXIT_FAILURE;
+            EXIT(EXIT_FAILURE);
         }
 
         if(params.hosts[i].compression == NULL) {
@@ -816,7 +818,7 @@ int main(int argc, char **argv)
             if(state.replicas[i]->recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         params.hosts[i].addr);
-                return EXIT_FAILURE;
+                EXIT(EXIT_FAILURE);
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them
@@ -827,7 +829,7 @@ int main(int argc, char **argv)
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
         fprintf(stderr, "cannot create writer thread\n");
-        return 2;
+        EXIT(2);
     }
 
     uint64_t received_data = 0;
@@ -884,7 +886,7 @@ int main(int argc, char **argv)
 
     if (state.qtail->size < 0 && !should_exit) {
         printf("read: %s\n", strerror(err));
-        return 2;
+        EXIT(2);
     }
 
     // pass poisoned pill to the worker
@@ -911,6 +913,8 @@ int main(int argc, char **argv)
     udp_exit(sock_in);
 
     qdestroy(state.queue);
+
+    common_cleanup(init);
 
     printf("Exit\n");
 

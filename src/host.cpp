@@ -63,11 +63,14 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <set>
 #include <sstream>
 
-#ifdef HAVE_X
+#if defined HAVE_X || defined BUILD_LIBRARIES
 #include <dlfcn.h>
+#endif
+#if defined HAVE_X
 #include <X11/Xlib.h>
 /// @todo
 /// The actual SONAME should be actually figured in configure.
@@ -108,8 +111,21 @@ std::unordered_map<std::string, std::string> commandline_params;
 mainloop_t mainloop;
 void *mainloop_udata;
 
-static void common_cleanup()
+struct init_data {
+        list <void *> opened_libs;
+};
+
+void common_cleanup(struct init_data *init)
 {
+        if (init) {
+#if defined BUILD_LIBRARIES
+                for (auto a : init->opened_libs) {
+                        dlclose(a);
+                }
+#endif
+        }
+        delete init;
+
 #ifdef USE_MTRACE
         muntrace();
 #endif
@@ -165,8 +181,10 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
 }
 #endif
 
-bool common_preinit(int argc, char *argv[])
+struct init_data *common_preinit(int argc, char *argv[])
 {
+        struct init_data *init;
+
         uv_argc = argc;
         uv_argv = argv;
 
@@ -205,16 +223,17 @@ bool common_preinit(int argc, char *argv[])
         int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if(err != 0) {
                 fprintf(stderr, "WSAStartup failed with error %d.", err);
-                return false;
+                return nullptr;
         }
         if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
                 fprintf(stderr, "Counld not found usable version of Winsock.\n");
                 WSACleanup();
-                return false;
+                return nullptr;
         }
 #endif
 
-        open_all("ultragrid_*.so"); // load modules
+        init = new init_data{};
+        open_all("ultragrid_*.so", init->opened_libs); // load modules
 
 #ifdef USE_MTRACE
         mtrace();
@@ -223,9 +242,7 @@ bool common_preinit(int argc, char *argv[])
         perf_init();
         perf_record(UVP_INIT, 0);
 
-        atexit(common_cleanup);
-
-        return true;
+        return init;
 }
 
 #include <sstream>
