@@ -193,7 +193,7 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 # -------------------------------------------------------------------------------------------------
-all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
+all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) modules configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
