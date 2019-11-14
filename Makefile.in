@@ -202,7 +202,9 @@ src/dir-stamp:
 $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
+ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
