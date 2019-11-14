@@ -9,11 +9,11 @@ test -z "$srcdir" && srcdir=.
 ORIGDIR=`pwd`
 
 cd $srcdir
-aclocal
-autoheader
-autoconf
 # install config.guess config.sub install-sh missing
 automake --add-missing -c >/dev/null 2>&1 || true # actual call will fail - we do not have Makefile.am
+# Running autoreconf is preferred over aclocal/autoheader/autoconf.
+# It, however, needs to be a little bit bent because we do not use automake.
+autoreconf -i >/dev/null 2>&1 || true
 
 CONFIGURE_OPTS=
 
