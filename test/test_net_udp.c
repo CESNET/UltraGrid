@@ -78,7 +78,7 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv4 loopback) ................................ ");
         fflush(stdout);
-        s1 = udp_init("127.0.0.1", 5004, 5004, 1);
+        s1 = udp_init("127.0.0.1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -131,14 +131,14 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv4 unicast) ................................. ");
         fflush(stdout);
-        s1 = udp_init(hname, 5004, 5005, 1);
+        s1 = udp_init(hname, 5004, 5005, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
                 return 1;
         }
 
-        s2 = udp_init(hname, 5005, 5004, 1);
+        s2 = udp_init(hname, 5005, 5004, 1, 0, false);
         if (s2 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -193,7 +193,7 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv4 multicast) ............................... ");
         fflush(stdout);
-        s1 = udp_init("224.2.0.1", 5004, 5004, 1);
+        s1 = udp_init("224.2.0.1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -245,7 +245,7 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv4 length check) ............................ ");
         fflush(stdout);
-        s1 = udp_init("224.2.0.1", 5004, 5004, 1);
+        s1 = udp_init("224.2.0.1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -301,7 +301,7 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv6 loopback) ................................ ");
         fflush(stdout);
-        s1 = udp_init("::1", 5004, 5004, 1);
+        s1 = udp_init("::1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -354,7 +354,7 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv6 multicast) ............................... ");
         fflush(stdout);
-        s1 = udp_init("ff01::2:7ffe", 5004, 5004, 1);
+        s1 = udp_init("ff01::2:7ffe", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
@@ -421,7 +421,7 @@ int test_net_udp(void)
         fflush(stdout);
         status_parent = 0;
         randomize(buf1, 64);
-        s1 = udp_init("224.2.0.1", 5004, 5004, 1);
+        s1 = udp_init("224.2.0.1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("fail (parent): cannot initialize socket\n");
                 return 1;
@@ -432,7 +432,7 @@ int test_net_udp(void)
                 goto abort_bsd;
         } else if (rc == 0) {
                 /* child */
-                s2 = udp_init("224.2.0.1", 5004, 5004, 1);
+                s2 = udp_init("224.2.0.1", 5004, 5004, 1, 0, false);
                 if (s2 == NULL) {
                         printf("FAIL\n");
                         printf("  Child cannot initialize socket\n");

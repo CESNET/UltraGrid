@@ -40,30 +40,27 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "memory.h"
-#include "video_types.h"
 #include "video_capture.h"
+#include "video_capture_params.h"
 #include "test_video_capture.h"
 
 int test_video_capture(void)
 {
-        struct vidcap_type *vt;
-        int i;
+        struct vidcap *state;
+        struct vidcap_params *params = vidcap_params_allocate();
+        vidcap_params_set_device(params, "none");
 
         printf
-            ("Testing video capture device detection ................................... ");
-        if (vidcap_init_devices() != 0) {
+            ("Testing video capture .................................................... ");
+        if (initialize_video_capture(NULL, params, &state) != VIDCAP_INIT_OK) {
                 printf("FAIL\n");
-                printf("    Cannot probe video capture devices\n");
+                printf("    Cannot initialize NULL capture\n");
                 return 1;
         }
         printf("Ok\n");
+        vidcap_params_free_struct(params);
 
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                printf("    \"%s\"\n", vt->name);
-                printf("        description: %s\n", vt->description);
-                printf("        image size : %dx%d\n", vt->width, vt->height);
-        }
-        vidcap_free_devices();
+        list_video_capture_devices(false);
+
         return 0;
 }

@@ -79,7 +79,7 @@ static void rijndaelVKKAT(FILE * fp, int keyLength)
         memset(keyMaterial, '0', keyLength / 4);
         for (i = 0; i < keyLength; i++) {
                 keyMaterial[i / 4] = byteVal;   /* set only the i-th bit of the i-th test key */
-                r = makeKey(&keyInst, DIR_ENCRYPT, keyLength, keyMaterial);
+                r = makeKey(&keyInst, DIR_ENCRYPT, keyLength, (char *) keyMaterial);
                 if (TRUE != r) {
                         fprintf(stderr, "makeKey error %d\n", r);
                         exit(-1);
@@ -99,7 +99,7 @@ static void rijndaelVKKAT(FILE * fp, int keyLength)
                 }
                 blockPrint(fp, block, "CT");
                 /* now check decryption: */
-                makeKey(&keyInst, DIR_DECRYPT, keyLength, keyMaterial);
+                makeKey(&keyInst, DIR_DECRYPT, keyLength, (char *) keyMaterial);
                 blockDecrypt(&cipherInst, &keyInst, block, 128, block);
                 for (j = 0; j < 16; j++) {
                         assert(block[j] == 0);
@@ -134,7 +134,7 @@ static void rijndaelVTKAT(FILE * fp, int keyLength)
         fflush(fp);
         memset(keyMaterial, 0, sizeof(keyMaterial));
         memset(keyMaterial, '0', keyLength / 4);
-        makeKey(&keyInst, DIR_ENCRYPT, keyLength, keyMaterial);
+        makeKey(&keyInst, DIR_ENCRYPT, keyLength, (char *) keyMaterial);
         fprintf(fp, "KEY=%s\n", keyMaterial);
         for (i = 0; i < 128; i++) {
                 memset(block, 0, 16);
@@ -173,7 +173,7 @@ static void rijndaelTKAT(FILE * fp, int keyLength, FILE * in)
                 for (j = 0; j < keyLength / 4; j++) {
                         fscanf(in, "%c", &keyMaterial[j]);
                 }
-                makeKey(&keyInst, DIR_ENCRYPT, keyLength, keyMaterial);
+                makeKey(&keyInst, DIR_ENCRYPT, keyLength, (char *) keyMaterial);
 
                 fprintf(fp, "KEY=%s\n", keyMaterial);
 
@@ -193,7 +193,7 @@ static void rijndaelTKAT(FILE * fp, int keyLength, FILE * in)
                 for (j = 0; j < keyLength / 4; j++) {
                         fscanf(in, "%c", &keyMaterial[j]);
                 }
-                makeKey(&keyInst, DIR_DECRYPT, keyLength, keyMaterial);
+                makeKey(&keyInst, DIR_DECRYPT, keyLength, (char *) keyMaterial);
 
                 fprintf(fp, "KEY=%s\n", keyMaterial);
 
@@ -231,7 +231,7 @@ static void rijndaelIVKAT(FILE * fp, int keyLength)
         fflush(fp);
         memset(keyMaterial, 0, sizeof(keyMaterial));
         for (i = 0; i < keyLength / 8; i++) {
-                sprintf(&keyMaterial[2 * i], "%02X", i);
+                sprintf((char *) &keyMaterial[2 * i], "%02X", i);
         }
         fprintf(fp, "KEY=%s\n", keyMaterial);
 
@@ -240,7 +240,7 @@ static void rijndaelIVKAT(FILE * fp, int keyLength)
         }
 
         fprintf(fp, "\nIntermediate Ciphertext Values (Encryption)\n\n");
-        makeKey(&keyInst, DIR_ENCRYPT, keyLength, keyMaterial);
+        makeKey(&keyInst, DIR_ENCRYPT, keyLength, (char *) keyMaterial);
         blockPrint(fp, pt, "PT");
         cipherInit(&cipherInst, MODE_ECB, NULL);
         for (i = 1; i < keyInst.Nr; i++) {
@@ -252,7 +252,7 @@ static void rijndaelIVKAT(FILE * fp, int keyLength)
         blockPrint(fp, ct, "CT");
 
         fprintf(fp, "\nIntermediate Ciphertext Values (Decryption)\n\n");
-        makeKey(&keyInst, DIR_DECRYPT, keyLength, keyMaterial);
+        makeKey(&keyInst, DIR_DECRYPT, keyLength, (char *) keyMaterial);
         blockPrint(fp, ct, "CT");
         cipherInit(&cipherInst, MODE_ECB, NULL);
         for (i = 1; i < keyInst.Nr; i++) {
@@ -428,11 +428,11 @@ static void rijndaelECB_MCT(FILE * fp, int keyLength, BYTE direction)
                 fprintf(fp, "\nI=%d\n", i);
                 /* prepare key: */
                 for (j = 0; j < keyLength / 8; j++) {
-                        sprintf(&keyMaterial[2 * j], "%02X", binKey[j]);
+                        sprintf((char *) &keyMaterial[2 * j], "%02X", binKey[j]);
                 }
                 keyMaterial[keyLength / 4] = 0;
                 fprintf(fp, "KEY=%s\n", keyMaterial);
-                makeKey(&keyInst, direction, keyLength, keyMaterial);
+                makeKey(&keyInst, direction, keyLength, (char *) keyMaterial);
                 /* do encryption/decryption: */
                 blockPrint(fp, outBlock,
                            direction == DIR_ENCRYPT ? "PT" : "CT");
@@ -519,11 +519,11 @@ static void rijndaelCBC_MCT(FILE * fp, int keyLength, BYTE direction)
                 fprintf(fp, "\nI=%d\n", i);
                 /* prepare key: */
                 for (j = 0; j < keyLength / 8; j++) {
-                        sprintf(&keyMaterial[2 * j], "%02X", binKey[j]);
+                        sprintf((char *) &keyMaterial[2 * j], "%02X", binKey[j]);
                 }
                 keyMaterial[keyLength / 4] = 0;
                 fprintf(fp, "KEY=%s\n", keyMaterial);
-                r = makeKey(&keyInst, direction, keyLength, keyMaterial);
+                r = makeKey(&keyInst, direction, keyLength, (char *) keyMaterial);
                 if (TRUE != r) {
                         fprintf(stderr, "makeKey error %d\n", r);
                         exit(-1);

@@ -495,7 +495,7 @@ unittest/run_tests: $(UNITTEST_OBJS) $(UNITTESTS_DEPS)
 unittests: unittest/run_tests
 	@unittest/run_tests
 
-check: @UNITTESTS_TARGET@ # tests
+check: @UNITTESTS_TARGET@ tests
 
 distcheck: all
 	$(TARGET) >/dev/null 2>&1

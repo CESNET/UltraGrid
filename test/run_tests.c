@@ -42,16 +42,7 @@
 #include "debug.h"
 #include "test_host.h"
 #include "test_aes.h"
-#include "test_audio_hw.h"
 #include "test_bitstream.h"
-#include "test_codec_dvi.h"
-#include "test_codec_g711.h"
-#include "test_codec_g726.h"
-#include "test_codec_gsm.h"
-#include "test_codec_l16.h"
-#include "test_codec_l8.h"
-#include "test_codec_lpc.h"
-#include "test_codec_vdvi.h"
 #include "test_des.h"
 #include "test_md5.h"
 #include "test_random.h"
@@ -60,6 +51,8 @@
 #include "test_rtp.h"
 #include "test_video_capture.h"
 #include "test_video_display.h"
+
+#define TEST_AV_HW 1
 
 uint32_t RTT;                   /* FIXME: will be removed once the global in main.c is removed */
 
@@ -73,30 +66,22 @@ uint32_t hd_video_mode;
 
 long packet_rate = 13600;
 
+void exit_uv(int ret);
+void exit_uv(int ret)
+{
+        exit(ret);
+}
+
 int main()
 {
         if (test_bitstream() != 0)
                 return 1;
-        if (test_codec_dvi() != 0)
-                return 1;
-        if (test_codec_g711() != 0)
-                return 1;
-        if (test_codec_g726() != 0)
-                return 1;
-        if (test_codec_gsm() != 0)
-                return 1;
-        if (test_codec_l16() != 0)
-                return 1;
-        if (test_codec_l8() != 0)
-                return 1;
-        if (test_codec_lpc() != 0)
-                return 1;
-        if (test_codec_vdvi() != 0)
-                return 1;
         if (test_des() != 0)
                 return 1;
+#if 0
         if (test_aes() != 0)
                 return 1;
+#endif
         if (test_md5() != 0)
                 return 1;
         if (test_random() != 0)
@@ -109,8 +94,6 @@ int main()
                 return 1;
 
 #ifdef TEST_AV_HW
-        if (test_audio_hw() != 0)
-                return 1;
         if (test_video_capture() != 0)
                 return 1;
         if (test_video_display() != 0)
