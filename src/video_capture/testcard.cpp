@@ -294,7 +294,7 @@ static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
 
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
-        struct testcard_state *s;
+        struct testcard_state *s = nullptr;
         char *filename;
         const char *strip_fmt = NULL;
         FILE *in = NULL;

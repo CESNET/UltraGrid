@@ -115,6 +115,7 @@ static void *display_preview_init(struct module *parent, const char *fmt, unsign
                         return s;
                 } else {
                         show_help();
+                        delete s;
                         return &display_init_noerr;
                 }
         }

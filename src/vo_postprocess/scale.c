@@ -107,15 +107,23 @@ static void * scale_init(const char *config) {
         char *tmp = strdup(config);
 
         s = (struct state_scale *) 
-                        malloc(sizeof(struct state_scale));
+                        calloc(1, sizeof(struct state_scale));
         assert(s != NULL);
 
         ptr = strtok_r(tmp, ":", &save_ptr);
-        assert(ptr != NULL);
-        s->scaled_width = atoi(ptr);
-        assert(ptr != NULL);
+        if (ptr != NULL) {
+                s->scaled_width = atoi(ptr);
+        }
         ptr = strtok_r(NULL, ":", &save_ptr);
-        s->scaled_height = atoi(ptr);
+        if (ptr != NULL) {
+                s->scaled_height = atoi(ptr);
+        }
+        if (s->scaled_width <= 0 || s->scaled_height <= 0) {
+                usage();
+                free(tmp);
+                return NULL;
+        }
+
 
         free(tmp);
 
