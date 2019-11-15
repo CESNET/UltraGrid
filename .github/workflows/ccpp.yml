@@ -1,6 +1,18 @@
 name: C/C++ CI
 
-on: [push]
+on:
+  push:
+    paths:
+    - '**.c'
+    - '**.cpp'
+    - '**.cu'
+    - '**.h'
+    - '**.hpp'
+    - '**.m'
+    - '**.mm'
+    - '!gui/**'
+    - 'configure.ac'
+    - 'Makefile.in'
 
 jobs:
   Ubuntu:
