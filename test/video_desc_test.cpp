@@ -4,6 +4,8 @@
 #include "config_win32.h"
 #endif
 
+#ifdef HAVE_CPPUNIT
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -62,3 +64,4 @@ video_desc_test::testIOOperatorSymetry()
         }
 }
 
+#endif // defined HAVE_CPPUNIT

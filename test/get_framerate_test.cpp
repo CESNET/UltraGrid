@@ -4,6 +4,8 @@
 #include "config_win32.h"
 #endif
 
+#ifdef HAVE_CPPUNIT
+
 #include <cppunit/config/SourcePrefix.h>
 #include <cmath>
 #include <string>
@@ -100,3 +102,4 @@ get_framerate_test::test_free()
         }
 }
 
+#endif // defined HAVE_CPPUNIT

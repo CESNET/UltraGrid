@@ -3009,11 +3009,11 @@ fi
 # ---------------------------------------------------------------------
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
 if test "$cppunit" = yes; then
-        UNITTESTS_TARGET=unittests
+        AC_DEFINE([HAVE_CPPUNIT], [1], [Build with CppUnit tests])
 else
-        UNITTESTS_TARGET=
+        CPPUNIT_LIBS=
 fi
-AC_SUBST(UNITTESTS_TARGET)
+AC_SUBST(CPPUNIT_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then

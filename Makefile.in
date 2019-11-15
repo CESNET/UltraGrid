@@ -449,7 +449,9 @@ gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir
 	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
-TEST_OBJS = test/test_bitstream.o \
+TEST_OBJS = test/get_framerate_test.o \
+	    test/video_desc_test.o \
+	    test/test_bitstream.o \
 	    test/test_aes.o \
 	    test/test_des.o \
 	    test/test_md5.o \
@@ -463,7 +465,7 @@ TEST_OBJS = test/test_bitstream.o \
 
 test/run_tests: $(TEST_OBJS) $(OBJS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
+	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o test/run_tests
 
 suggest-tests:
 	@echo ""
@@ -477,25 +479,8 @@ configure-messages:
 tests: test/run_tests
 	@test/run_tests
 
-UNITTEST_OBJS = unittest/run_tests.o \
-		unittest/get_framerate_test.o \
-		unittest/video_desc_test.o
 
-UNITTEST_DEPS   = src/compat/platform_time.o \
-		src/debug.o \
-		src/utils/misc.o \
-		src/video.o \
-		src/video_frame.o \
-		src/video_codec.o
-
-unittest/run_tests: $(UNITTEST_OBJS) $(UNITTESTS_DEPS)
-	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(UNITTEST_OBJS) $(UNITTEST_DEPS) $(LIBS) -lcppunit -o $@
-
-unittests: unittest/run_tests
-	@unittest/run_tests
-
-check: @UNITTESTS_TARGET@ tests
+check: tests
 
 distcheck: all
 	$(TARGET) >/dev/null 2>&1
@@ -539,16 +524,16 @@ distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h cscope.out tags
 
 etags:
-	etags $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+	etags $$(find $(srcdir)/src $(srcdir)/test \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 ctags:
-	ctags $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+	ctags $$(find $(srcdir)/src $(srcdir)/test \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 ctags-universal:
-	ctags-universal -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+	ctags-universal -bv $$(find $(srcdir)/src $(srcdir)/test \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 cscope:
-	cscope -bv $$(find $(srcdir)/src \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
+	cscope -bv $$(find $(srcdir)/src $(srcdir)/test \( -name '*.c' -o -name '*.cpp' -o -name '*.cu' -o -name '*.h' -o -name '*.hpp' -o -name '*.m' -o -name '*.mm' \))
 
 doc:
 	cd $(srcdir) && doxygen Doxyfile

@@ -1,5 +1,5 @@
 /*
- * FILE:    run_tests.c
+ * FILE:    run_tests.cpp
  * AUTHORS: Colin Perkins
  *
  * Copyright (c) 2004 University of Glasgow
@@ -36,10 +36,20 @@
  * $Date: 2008/01/10 11:07:42 $
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif
+
+#ifdef HAVE_CPPUNIT
+#include <cppunit/CompilerOutputter.h>
+#include <cppunit/extensions/TestFactoryRegistry.h>
+#include <cppunit/ui/text/TestRunner.h>
+#endif
+
 #include "debug.h"
+extern "C" {
 #include "test_host.h"
 #include "test_aes.h"
 #include "test_bitstream.h"
@@ -51,10 +61,9 @@
 #include "test_rtp.h"
 #include "test_video_capture.h"
 #include "test_video_display.h"
+}
 
 #define TEST_AV_HW 1
-
-uint32_t RTT;                   /* FIXME: will be removed once the global in main.c is removed */
 
 /* These globals should be fixed in the future as well */
 uint32_t hd_size_x = 1920;
@@ -66,10 +75,11 @@ uint32_t hd_video_mode;
 
 long packet_rate = 13600;
 
-void exit_uv(int ret);
-void exit_uv(int ret)
+extern "C" void exit_uv(int status);
+
+void exit_uv(int status)
 {
-        exit(ret);
+        exit(status);
 }
 
 int main()
@@ -88,7 +98,7 @@ int main()
                 return 1;
         if (test_tv() != 0)
                 return 1;
-        if (test_net_udp() != 0)
+        if (!getenv("UG_SKIP_NET_TESTS") && test_net_udp() != 0)
                 return 1;
         if (test_rtp() != 0)
                 return 1;
@@ -100,5 +110,25 @@ int main()
                 return 1;
 #endif
 
+#ifdef HAVE_CPPUNIT
+        printf("Running CppUnit tests:\n");
+        // Get the top level suite from the registry
+        CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
+
+        // Adds the test to the list of test to run
+        CPPUNIT_NS::TextUi::TestRunner runner;
+        runner.addTest( suite );
+
+        // Change the default outputter to a compiler error format outputter
+        runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
+                                CPPUNIT_NS::stdCOut() ) );
+        // Run the test.
+        bool wasSucessful = runner.run();
+
+        // Return error code 1 if the one of test failed.
+        return wasSucessful ? 0 : 1;
+#else
         return 0;
+#endif
 }
+
