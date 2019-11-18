@@ -37,6 +37,8 @@
 
 #include "shared_mem_frame.hpp"
 
+#include <cmath>
+
 #ifndef GUI_BUILD
 #include "config.h"
 #include "config_unix.h"
