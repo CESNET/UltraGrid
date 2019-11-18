@@ -1,6 +1,9 @@
 #! /bin/sh
 set -e
 
+command -v automake >/dev/null 2>&1 || { echo >&2 "Automake missing. Aborting."; exit 1; }
+command -v autoconf >/dev/null 2>&1 || { echo >&2 "Autoconf missing. Aborting."; exit 1; }
+
 [ -d m4 ] || mkdir m4
 
 srcdir=`dirname $0`
