@@ -169,6 +169,7 @@ struct socket_udp_local {
 struct _socket_udp {
         struct sockaddr_storage sock;
         socklen_t sock_len;
+        unsigned int ifindex; ///< iface index for multicast
 
         struct socket_udp_local *local;
         bool local_is_slave; // whether is the local
@@ -507,7 +508,7 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
 #endif
 }
 
-static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd)
+static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd, unsigned int ifindex)
 {
 #ifdef HAVE_IPv6
         if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
@@ -517,7 +518,7 @@ static void udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd)
                 imr.i6mr_multiaddr = sin6_addr;
 #else
                 imr.ipv6mr_multiaddr = sin6_addr;
-                imr.ipv6mr_interface = 0;
+                imr.ipv6mr_interface = ifindex;
 #endif
 
                 if (SETSOCKOPT
@@ -752,7 +753,6 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded)
 {
         int ret;
-        unsigned int ifindex;
         socket_udp *s = new socket_udp();
         s->local = new socket_udp_local();
         s->local->rx_fd =
@@ -771,7 +771,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         }
         if (iface != NULL) {
 #ifdef HAVE_IF_NAMETOINDEX
-                if ((ifindex = if_nametoindex(iface)) == 0) {
+                if ((s->ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
                         goto error;
                 }
@@ -779,7 +779,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 log_msg(LOG_LEVEL_ERROR, "Cannot set interface name, if_nametoindex not supported.\n");
 #endif
         } else {
-                ifindex = 0;
+                s->ifindex = 0;
         }
 #ifdef WIN32
         if (!is_host_loopback(addr)) {
@@ -837,12 +837,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         switch (s->local->mode) {
         case IPv4:
-                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, s->local->tx_fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
                         goto error;
                 }
                 break;
         case IPv6:
-                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->local->tx_fd, ttl, ifindex)) {
+                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
                         goto error;
                 }
                 break;
@@ -931,7 +931,7 @@ void udp_exit(socket_udp * s)
                 udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock)->sin_addr.s_addr, s->local->rx_fd);
                 break;
         case IPv6:
-                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd);
+                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->ifindex);
                 break;
         default:
                 abort();
