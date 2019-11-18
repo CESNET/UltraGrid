@@ -3,6 +3,7 @@ name: C/C++ CI
 on:
   push:
     paths:
+    - '.github/workflows/ccpp.yml'
     - '**.c'
     - '**.cpp'
     - '**.cu'
@@ -10,7 +11,7 @@ on:
     - '**.hpp'
     - '**.m'
     - '**.mm'
-    - '!gui/**'
+    - 'autogen.sh'
     - 'configure.ac'
     - 'Makefile.in'
 
@@ -21,10 +22,25 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+      with:
+        submodules: true
     - name: bootstrap
-      run: sudo apt install libcppunit-dev
+      run: |
+              sudo apt update
+              sudo apt install libcppunit-dev nvidia-cuda-toolkit qtbase5-dev
+              sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
+              sudo apt install libx11-dev
+              sudo apt install libsdl2-dev
+              sudo apt install libssl-dev
+              sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
+              sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+              sudo apt install libopencv-dev
+              sudo apt install libglib2.0-dev libcurl4-nss-dev
+              sudo apt install qtbase5-dev
+              ( mkdir gpujpeg/build && cd gpujpeg/build && CC=gcc-6 CXX=g++-6 cmake .. && make && sudo make install && sudo ldconfig )
+              ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
     - name: configure
-      run: ./autogen.sh
+      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6
     - name: make
       run: make
     - name: make check
@@ -37,16 +53,77 @@ jobs:
     runs-on: macos-latest
     env:
       UG_SKIP_NET_TESTS: 1
+      LDFLAGS: "-L/usr/local/opt/qt/lib"
+      CPPFLAGS: "-I/usr/local/opt/qt/include"
+      PKG_CONFIG_PATH: "/usr/local/opt/qt/lib/pkgconfig"
     
     steps:
     - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: set-path
+      run: echo "::add-path::/usr/local/opt/qt/bin"
     - name: bootstrap
-      run: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" && brew install autoconf automake cppunit libtool pkg-config
+      run: |
+              brew install autoconf automake cppunit libtool pkg-config
+              brew install ffmpeg portaudio sdl2
+              brew install ossp-uuid # for cineform
+              git submodule update --init
+              ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+              brew install qt
+              #( wget https://download.qt.io/archive/qt/5.13/5.13.2/single/qt-everywhere-src-5.13.2.tar.xz && tar xJf qt-everywhere-src-5.13.2.tar.xz && cd qt-everywhere-src-5.13.2 && ./configure -static -release -nomake examples -opensource -confirm-license -opengl && make -j 6 && sudo make install)
     - name: configure
-      run: ./autogen.sh
+      run: export LDFLAGS CPPFLAGS PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
       run: make
     - name: make check
       run: make check
     - name: make distcheck
       run: make distcheck
+
+  Windows:
+    name: run Window
+    runs-on: windows-latest
+    env:
+      MSYS2_PATH_TYPE: inherit
+    
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Install MSYS2
+      run: choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
+    - name: MSYS2 set env
+      run: |
+              C:\msys64\usr\bin\bash -lc 'echo export PATH=/mingw64/bin:/usr/local/bin:\$PATH >> ~/.bash_profile'
+              C:\msys64\usr\bin\bash -lc 'echo export CPATH=/usr/local/include >> ~/.bash_profile'
+              C:\msys64\usr\bin\bash -lc 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig >> ~/.bash_profile'
+              C:\msys64\usr\bin\bash -lc 'echo export LIBRARY_PATH=/usr/local/lib >> ~/.bash_profile'
+              C:\msys64\usr\bin\bash -lc 'echo cd /d/a/UltraGrid/UltraGrid >> ~/.bash_profile'
+    - name: Install MSYS2 packages
+      run: C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip'
+    - name: Install CUDA
+      run: |
+              choco install --no-progress cuda
+              echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64"
+              C:\msys64\usr\bin\bash -lc 'echo export CPATH=\$CPATH:/c/Program\\\ Files/NVIDIA\\\ GPU\\\ Computing\\\ Toolkit/CUDA/v10.2/include >> ~/.bash_profile'
+    - name: Install FFMPEG
+      run: C:\msys64\usr\bin\bash -lc 'wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && mkdir -p /usr/local/lib /usr/local/bin /usr/local/include && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*'
+    - name: Build GPUJPEG
+      run: C:\msys64\usr\bin\bash -lc 'cd gpujpeg && nvcc -I. -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu && cp gpujpeg.lib /usr/local/lib && cp gpujpeg.dll /usr/local/bin && cp -r libgpujpeg /usr/local/include'
+    - name: configure
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh"
+    - name: make
+      run: C:\msys64\usr\bin\bash -lc "make"
+    - name: make check
+      run: C:\msys64\usr\bin\bash -lc "make check"
+    - name: make dist-check
+      run: C:\msys64\usr\bin\bash -lc "make distcheck"
+    - name: add DLL depends
+      run: C:\msys64\usr\bin\bash -lc 'rm bin/run-tests.exe; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh "$exe"`; do cp "$n" bin; done; done; mv bin UltraGrid-CI-Win'
+    - name: Upload build
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI Windows build
+        path: UltraGrid-CI-Win
