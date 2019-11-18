@@ -241,8 +241,13 @@ void socket_error(const char *msg, ...)
         va_start(ap, msg);
         vsnprintf(buffer, blen, msg, ap);
         va_end(ap);
-        char strerror_buf[255];
+        char strerror_buf[255] = "";
+#if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
+        strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
+        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_buf);
+#else // GNU strerror_r version
         log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
+#endif
 #endif
 }
 
