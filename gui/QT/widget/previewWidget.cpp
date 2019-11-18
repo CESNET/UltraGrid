@@ -50,7 +50,7 @@ static void compileShader(GLuint shaderId, QOpenGLFunctions_3_3_Core *f){
 	if (len > 0){
 		std::vector<char> errorMsg(len+1);
 		f->glGetShaderInfoLog(shaderId, len, NULL, &errorMsg[0]);
-		printf("%s\n", &errorMsg[0]);
+		printf("%s\n", errorMsg.data());
 	}
 }
 

@@ -18,9 +18,8 @@ SettingsWindow::SettingsWindow(QWidget *parent): QDialog(parent){
 	connect(ui.ldgmSimpGpuRadio, SIGNAL(toggled(bool)), this, SIGNAL(changed()));
 }
 
-void SettingsWindow::init(SettingsUi *settingsUi, Settings *s){
+void SettingsWindow::init(SettingsUi *settingsUi){
 	settingsUi->initSettingsWin(&ui);
-	settings = s;
 
 	connect(ui.fecNoneRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));
 	connect(ui.fecMultRadio, SIGNAL(toggled(bool)), this, SLOT(changeFecPage()));

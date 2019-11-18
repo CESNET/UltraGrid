@@ -50,7 +50,6 @@ private:
 
 	double peak[num_channels];
 	double rms[num_channels];
-	int count;
 
 	double barLevel[num_channels];
 	double rmsLevel[num_channels];

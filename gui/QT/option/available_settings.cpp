@@ -101,7 +101,7 @@ void AvailableSettings::queryDevices(const QStringList &lines){
 				}
 			}
 
-			SettingType settingType = SETTING_TYPE_COUNT;
+			SettingType settingType = SETTING_TYPE_UNKNOWN;
 			if(obj.contains("purpose") && obj["purpose"].isString()){
 				settingType = settingTypeMap[obj["purpose"].toString().toStdString()];
 			}

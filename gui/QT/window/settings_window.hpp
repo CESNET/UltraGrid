@@ -11,7 +11,7 @@ class SettingsWindow : public QDialog{
 public:
 	SettingsWindow(QWidget *parent = 0);
 
-	void init(SettingsUi *settingsUi, Settings *s);
+	void init(SettingsUi *settingsUi);
 
 signals:
 	void changed();
@@ -19,7 +19,6 @@ signals:
 
 private:
 	Ui::Settings ui;
-	Settings *settings;
 
 private slots:
 	void changeFecPage();

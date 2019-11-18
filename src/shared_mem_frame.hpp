@@ -82,9 +82,10 @@ private:
 #ifndef GUI_BUILD
         void check_reconf(struct video_desc in_desc);
         static const codec_t preview_codec = RGB;
-        int scaledW, scaledH;
-        int scaleF;
-        int scaledW_pad;
+        int scaledW = 0;
+        int scaledH = 0;
+        int scaleF = 0;
+        int scaledW_pad = 0;
         struct video_desc desc = video_desc();
         std::vector<unsigned char> scaled_frame;
 

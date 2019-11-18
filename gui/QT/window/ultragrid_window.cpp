@@ -37,7 +37,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	settingsUi.init(&settings, &availableSettings);
 	settingsUi.initMainWin(&ui);
-	settingsWindow.init(&settingsUi, &settings);
+	settingsWindow.init(&settingsUi);
 
 	connectSignals();
 

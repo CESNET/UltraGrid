@@ -40,6 +40,7 @@ void VuMeterWidget::updateVolumes(){
 		return;
 	}
 
+	int count; 
 	bool ret = ug_control_get_volumes(ug_c, peak, rms, &count);
 
 	if(!ret){
