@@ -354,7 +354,11 @@ int test_net_udp(void)
         printf
             ("Testing UDP/IP networking (IPv6 multicast) ............................... ");
         fflush(stdout);
-        s1 = udp_init("ff01::2:7ffe", 5004, 5004, 1, 0, false);
+        const char *iface = NULL;
+#ifdef HAVE_MACOSX
+        iface = "en0";
+#endif
+        s1 = udp_init_if("ff01::2:7ffe", iface, 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
