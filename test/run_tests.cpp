@@ -49,6 +49,8 @@
 #endif
 
 #include "debug.h"
+#include "host.h"
+
 extern "C" {
 #include "test_host.h"
 #include "test_aes.h"
@@ -82,32 +84,38 @@ void exit_uv(int status)
         exit(status);
 }
 
-int main()
+int main(int argc, char **argv)
 {
+        bool success = true;
+        struct init_data *init;
+        if ((init = common_preinit(argc, argv)) == NULL) {
+                return 2;
+        }
+
         if (test_bitstream() != 0)
-                return 1;
+                success = false;
         if (test_des() != 0)
-                return 1;
+                success = false;
 #if 0
         if (test_aes() != 0)
-                return 1;
+                success = false;
 #endif
         if (test_md5() != 0)
-                return 1;
+                success = false;
         if (test_random() != 0)
-                return 1;
+                success = false;
         if (test_tv() != 0)
-                return 1;
+                success = false;
         if (!getenv("UG_SKIP_NET_TESTS") && test_net_udp() != 0)
-                return 1;
+                success = false;
         if (test_rtp() != 0)
-                return 1;
+                success = false;
 
 #ifdef TEST_AV_HW
         if (test_video_capture() != 0)
-                return 1;
+                success = false;
         if (test_video_display() != 0)
-                return 1;
+                success = false;
 #endif
 
 #ifdef HAVE_CPPUNIT
@@ -123,12 +131,12 @@ int main()
         runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
                                 CPPUNIT_NS::stdCOut() ) );
         // Run the test.
-        bool wasSucessful = runner.run();
+        success = runner.run() && success;
+#endif
+
+        common_cleanup(init);
 
         // Return error code 1 if the one of test failed.
-        return wasSucessful ? 0 : 1;
-#else
-        return 0;
-#endif
+        return success ? 0 : 1;
 }
 
