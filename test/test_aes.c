@@ -36,6 +36,8 @@
  *
  */
 
+#define __USE_MINGW_ANSI_STDIO 1
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"

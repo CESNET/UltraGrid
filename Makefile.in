@@ -463,9 +463,12 @@ TEST_OBJS = test/get_framerate_test.o \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-test/run_tests: $(TEST_OBJS) $(OBJS)
+bin/run_tests: $(TEST_OBJS) $(OBJS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o test/run_tests
+	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o bin/run_tests
+ifeq ($(SYSTEM),Windows)
+	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+endif
 
 suggest-tests:
 	@echo ""
@@ -476,8 +479,8 @@ configure-messages:
 	@printf "@POST_COMPILE_MSG@"
 
 
-tests: test/run_tests
-	@test/run_tests
+tests: bin/run_tests
+	@bin/run_tests
 
 
 check: tests
@@ -511,7 +514,7 @@ ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 # -------------------------------------------------------------------------------------------------
 clean:
 	-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
-	-rm -f $(TEST_OBJS) test/run_tests
+	-rm -f $(TEST_OBJS) bin/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(GUI_BUNDLE)
