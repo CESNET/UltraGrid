@@ -114,6 +114,7 @@ typedef unsigned int	in_addr_t;
 #define NEED_INET_ATON
 
 #include <time.h>		/* For clock_t */
+#include "compat/alarm.h"
 #include "compat/usleep.h"
 #include "crypto/random.h"
 

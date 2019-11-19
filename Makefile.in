@@ -103,6 +103,7 @@ OBJS	      = @OBJS@ \
 		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
 		src/capture_filter/split.o \
+		src/compat/alarm.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
 		src/compat/platform_pipe.o \

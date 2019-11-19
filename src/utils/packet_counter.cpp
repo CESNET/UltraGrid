@@ -35,6 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // defined HAVE_CONFIG_H
+
 #include "utils/packet_counter.h"
 #include <assert.h>
 #include <stdio.h>
