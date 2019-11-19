@@ -1,0 +1,36 @@
+#!/bin/sh -eu
+
+APPNAME=uv-qt.app
+DIR=$(cd $(dirname $0)/../..; pwd)
+
+if [ $(expr x$0 : x/) -eq 0 ]; then
+        echo "Cannot update when not running with an absolute path!" 1>&2
+        exit 1
+fi
+
+if [ $(expr x$0 : x/Volumes) -gt 0 ]; then
+        echo "Refusing update of mounted image!" 1>&2
+        exit 1
+fi
+
+if [ $(basename $DIR) != $APPNAME ]; then
+        echo "Application name is not ending with $APPNAME" 1>&2
+        exit 1
+fi
+
+UPDATER_DIR=$(mktemp -d /tmp/ug-updater.XXXXXXXX)
+cd $UPDATER_DIR
+
+$DIR/Contents/MacOS/zsync_curl https://github.com/CESNET/UltraGrid/releases/download/nightly/UltraGrid-latest-macos.AppImage.zsync
+
+mkdir mnt
+hdiutil mount -mountpoint mnt *dmg
+
+rm -rf $DIR
+cp -r mnt/$APPNAME $DIR
+
+umount mnt
+
+cd -
+rm -rf $UPDATER_DIR
+
