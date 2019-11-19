@@ -46,6 +46,8 @@
  * Communications of the ACM, Jan 1990, Vol 33 No 1.
  */
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

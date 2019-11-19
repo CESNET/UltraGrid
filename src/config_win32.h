@@ -115,6 +115,7 @@ typedef unsigned int	in_addr_t;
 
 #include <time.h>		/* For clock_t */
 #include "compat/usleep.h"
+#include "crypto/random.h"
 
 #define srand48	lbl_srandom
 #define lrand48 lbl_random
