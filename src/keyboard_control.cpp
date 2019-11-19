@@ -132,7 +132,7 @@ keyboard_control::keyboard_control(struct module *parent) :
 }
 
 keyboard_control::~keyboard_control() {
-        module_done(&m_mod);
+        stop(); // in case that it was not called explicitly
 }
 
 ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
@@ -189,12 +189,14 @@ void keyboard_control::stop()
         lk.unlock();
         signal();
         m_keyboard_thread.join();
-        m_started = false;
 
 #ifdef HAVE_TERMIOS_H
         close(m_event_pipe[0]);
         close(m_event_pipe[1]);
 #endif
+
+        module_done(&m_mod);
+        m_started = false;
 }
 
 #ifdef HAVE_TERMIOS_H

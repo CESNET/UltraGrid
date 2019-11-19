@@ -156,12 +156,16 @@ struct state_uv {
                 should_exit_thread = thread(should_exit_watcher, this);
         }
         ~state_uv() {
-                broadcast_shoud_exit();
+                if (exited) {
+                        return;
+                }
+                broadcast_should_exit();
                 should_exit_thread.join();
                 module_done(&root_module);
                 for (int i = 0; i < 2; ++i) {
                         platform_pipe_close(should_exit_pipe[0]);
                 }
+                exited = true;
         }
         static void should_exit_watcher(state_uv *s) {
                 set_thread_name(__func__);
@@ -172,10 +176,10 @@ struct state_uv {
                         get<0>(c)(get<1>(c));
                 }
         }
-        void broadcast_shoud_exit() {
+        void broadcast_should_exit() {
                 char c = 0;
                 unique_lock<mutex> lk(lock);
-                if (should_exit_thread_notified) {
+                if (exited || should_exit_thread_notified) {
                         return;
                 }
                 should_exit_thread_notified = true;
@@ -211,6 +215,7 @@ private:
         fd_t should_exit_pipe[2];
         thread should_exit_thread;
         bool should_exit_thread_notified{false};
+        bool exited{false};
         list<tuple<void (*)(void *), void *>> should_exit_callbacks;
 };
 
@@ -304,7 +309,7 @@ static void crash_signal_handler(int sig)
 void exit_uv(int status) {
         exit_status = status;
         should_exit = true;
-        uv_state->broadcast_shoud_exit();
+        uv_state->broadcast_should_exit();
 }
 
 static void print_help_item(const string &name, const vector<string> &help) {
@@ -1464,6 +1469,7 @@ cleanup:
         signal(SIGABRT, SIG_IGN);
         signal(SIGSEGV, SIG_IGN);
 
+        uv.~state_uv();
         common_cleanup(init);
 
         printf("Exit\n");
