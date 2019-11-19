@@ -1441,6 +1441,10 @@ cleanup:
         if (uv.state_video_rxtx)
                 uv.state_video_rxtx->join();
 
+        export_destroy(exporter);
+
+        alarm(5); // prevent exit hangs
+
         if(uv.audio)
                 audio_done(uv.audio);
         delete uv.state_video_rxtx;
@@ -1449,8 +1453,6 @@ cleanup:
                 vidcap_done(uv.capture_device);
         if (uv.display_device)
                 display_done(uv.display_device);
-
-        export_destroy(exporter);
 
         kc.stop();
         control_done(control);
