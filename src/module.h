@@ -38,7 +38,7 @@
 /**
  * @file module.h
  *
- * @defgroup module
+ * @defgroup module Module infrastructure
  * @{
  *
  * ### Module registration
