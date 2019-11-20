@@ -389,9 +389,10 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 fprintf(stderr, "[Audio] JACK transport requested, "
                                 "but JACK support isn't compiled.\n");
                 goto error;
-#endif
+#else
                 s->sender = NET_JACK;
                 s->receiver = NET_JACK;
+#endif
         } else {
                 log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", proto);
                 goto error;

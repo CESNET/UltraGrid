@@ -61,10 +61,16 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 
         uint16_t ch_count;
         READ_N(&ch_count, 2);
+        if (ch_count > 100) {
+                return WAV_HDR_PARSE_INVALID_PARAM;
+        }
         metadata->ch_count = ch_count;
 
         uint32_t sample_rate;
         READ_N(&sample_rate, sizeof(sample_rate));
+        if (sample_rate > 192000) {
+                return WAV_HDR_PARSE_INVALID_PARAM;
+        }
         metadata->sample_rate = sample_rate;
 
         uint32_t avg_bytes_per_sec;
@@ -75,13 +81,10 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 
         uint16_t bits_per_sample;
         READ_N(&bits_per_sample, sizeof(bits_per_sample));
-        metadata->bits_per_sample = bits_per_sample;
-
-        if (metadata->ch_count > 100 ||
-                        metadata->sample_rate > 192000 ||
-                        metadata->bits_per_sample > 64) {
+        if (bits_per_sample > 64) {
                 return WAV_HDR_PARSE_INVALID_PARAM;
         }
+        metadata->bits_per_sample = bits_per_sample;
 
         return WAV_HDR_PARSE_OK;
 }
@@ -151,7 +154,9 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 
         log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %u bytes, offset %u.\n",
                         metadata->data_size, metadata->data_offset);
-        fseek(wav_file, metadata->data_offset, SEEK_SET);
+        if (fseek(wav_file, metadata->data_offset, SEEK_SET) != 0) {
+                return WAV_HDR_PARSE_READ_ERROR;
+        }
 
         return WAV_HDR_PARSE_OK;
 }

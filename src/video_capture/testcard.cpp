@@ -120,7 +120,7 @@ struct testcard_state {
         unsigned int grab_audio:1;
 
         unsigned int still_image;
-        enum image_pattern pattern;
+        enum image_pattern pattern {image_pattern::BARS};
         uint32_t blank_color = DEFAULT_BLANK_COLOR;
 };
 

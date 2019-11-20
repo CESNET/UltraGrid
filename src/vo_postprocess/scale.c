@@ -105,6 +105,7 @@ static void * scale_init(const char *config) {
         }
 
         char *tmp = strdup(config);
+        assert(tmp != NULL);
 
         s = (struct state_scale *) 
                         calloc(1, sizeof(struct state_scale));
@@ -123,7 +124,6 @@ static void * scale_init(const char *config) {
                 free(tmp);
                 return NULL;
         }
-
 
         free(tmp);
 

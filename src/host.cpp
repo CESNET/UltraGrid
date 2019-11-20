@@ -365,7 +365,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
 
-        std::cout.precision(precision);
+        cout.precision(precision);
 }
 
 void print_version()
