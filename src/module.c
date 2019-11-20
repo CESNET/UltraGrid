@@ -286,6 +286,7 @@ struct module *get_matching_child(struct module *node, const char *const_path)
         assert(node != NULL);
 
         tmp = path = strdup(const_path);
+        assert(path != NULL);
         if ((item = strtok_r(path, ".", &save_ptr))) {
                 int id_num = 0;
                 char *id_name = NULL;

@@ -121,6 +121,7 @@ static void * scale_init(const char *config) {
         }
         if (s->scaled_width <= 0 || s->scaled_height <= 0) {
                 usage();
+                free(s);
                 free(tmp);
                 return NULL;
         }

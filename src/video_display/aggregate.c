@@ -126,6 +126,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
 
         s->devices_cnt = 0;
         tmp = parse_string = strdup(fmt);
+        assert(tmp != NULL);
         while(strtok_r(tmp, "#", &save_ptr)) {
                 s->devices_cnt++;
                 tmp = NULL;

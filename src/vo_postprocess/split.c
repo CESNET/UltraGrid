@@ -98,6 +98,7 @@ static void * split_init(const char *config) {
                         malloc(sizeof(struct state_split));
 
         char *tmp = strdup(config);
+        assert(tmp != NULL);
         
         item = strtok_r(tmp, ":", &save_ptr);
         s->grid_width = atoi(item);

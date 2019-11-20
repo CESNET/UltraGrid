@@ -152,6 +152,9 @@ static void worker(ug_connection &c)
  */
 struct ug_connection *ug_control_connection_init(int local_port) {
         int fd = socket(AF_INET6, SOCK_STREAM, 0);
+        if (fd == -1) {
+                return nullptr;
+        }
         fd_t should_exit_fd[2];
         struct sockaddr_in6 sin;
         memset(&sin, 0, sizeof sin);
@@ -166,6 +169,7 @@ struct ug_connection *ug_control_connection_init(int local_port) {
 
 	char stats_on[] = "stats on\r\n";
 	if (write_all(fd, stats_on, sizeof stats_on) != sizeof stats_on) {
+                CLOSESOCKET(fd);
                 return NULL;
 	}
 

@@ -344,6 +344,7 @@ static void *vidcap_file_worker(void *state) {
 static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const char *fmt,
                 bool *opportunistic_audio) {
         s->src_filename = strdup(fmt);
+        assert(s->src_filename != NULL);
         char *tmp = s->src_filename, *item, *saveptr;
         while ((item = strtok_r(tmp, ":", &saveptr)) != NULL) {
                 if (tmp != NULL) { // already stored in src_filename

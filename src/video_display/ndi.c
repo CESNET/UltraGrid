@@ -121,6 +121,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
         struct display_ndi *s = NULL;
         BEGIN_TRY {
                 fmt_copy = strdup(fmt);
+                assert(fmt_copy != NULL);
 
                 const char *ndi_name = NULL;
                 char *tmp = fmt_copy, *item, *save_ptr;

@@ -165,6 +165,7 @@ static void * audio_play_jack_init(const char *cfg)
         strcpy(client_name, PACKAGE_NAME);
 
         char *dup = strdup(cfg);
+        assert(dup != NULL);
         char *tmp = dup, *item, *save_ptr;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (strcmp(item, "help") == 0) {

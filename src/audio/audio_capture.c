@@ -138,6 +138,7 @@ struct audio_frame * audio_capture_read(struct state_audio_capture *s)
 unsigned int audio_capture_get_vidcap_flags(const char *const_device_name)
 {
         char *tmp = strdup(const_device_name);
+        assert(tmp != NULL);
         char *save_ptr = NULL;
         char *device_name = strtok_r(tmp, ":", &save_ptr);
         assert(device_name != NULL);
@@ -165,6 +166,7 @@ unsigned int audio_capture_get_vidcap_flags(const char *const_device_name)
 unsigned int audio_capture_get_vidcap_index(const char *const_device_name)
 {
         char *tmp = strdup(const_device_name);
+        assert(tmp != NULL);
         char *save_ptr = NULL;
         unsigned int ret;
 

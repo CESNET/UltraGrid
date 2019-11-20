@@ -11,6 +11,7 @@ int get_rtsp_server_port(const char *cconfig){
         char *tok;
         char *save_ptr = NULL;
         char *config = strdup(cconfig);
+        assert(config != NULL);
         tok = strtok_r(config, ":", &save_ptr);
         if (tok && strcmp(tok,"port") == 0){
                 if ((tok = strtok_r(NULL, ":", &save_ptr))) {

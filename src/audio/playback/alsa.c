@@ -686,6 +686,7 @@ static bool is_default_pulse(void)
         snd_device_name_hint(-1, "pcm", &hints);
         while(*hints != NULL) {
                 char *tmp = strdup(*(char **) hints);
+                assert(tmp != NULL);
                 char *save_ptr = NULL;
                 char *name_part = NULL;
                 char *desc = NULL;

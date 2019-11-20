@@ -77,6 +77,7 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         *count = 0;
         for(i = 0; ports[i] != NULL; i++) {
                 char *item = strdup(ports[i]);
+                assert(item != NULL);
                 char *save_ptr = NULL;
                 char *name;
 
