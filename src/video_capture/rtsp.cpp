@@ -261,7 +261,7 @@ struct rtsp_state {
 static void
 show_help() {
     printf("[rtsp] usage:\n");
-    printf("\t-t rtsp:<uri>:<port>:<width>:<height>[:<decompress>]\n");
+    printf("\t-t rtsp:<uri>:<port>[:<decompress>[:<width>:<height>]]\n");
     printf("\t\t <uri> RTSP server URI\n");
     printf("\t\t <port> receiver port number \n");
     printf(
@@ -439,9 +439,11 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     return s->vrtsp_state->frame;
 }
 
-#define FAIL vidcap_rtsp_done(s); show_help(); return VIDCAP_INIT_FAIL;
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
+
+    log_msg(LOG_LEVEL_WARNING, "RTSP capture module is most likely broken, "
+            "please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
 
     struct rtsp_state *s;
 
@@ -490,8 +492,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->uri = NULL;
     s->curl = NULL;
     char *fmt = NULL;
-    char *uri_tmp1 = NULL;
-    char *uri_tmp2 = NULL;
 
     if (vidcap_params_get_fmt(params)
         && strcmp(vidcap_params_get_fmt(params), "help") == 0)
@@ -499,93 +499,63 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         show_help();
         free(s);
         return VIDCAP_INIT_NOERR;
-    } else {
-        char *tmp = NULL;
-        fmt = strdup(vidcap_params_get_fmt(params));
-        int i = 0;
+    }
 
-        while ((tmp = strtok_r(fmt, ":", &save_ptr))) {
-            switch (i) {
-                case 0:
-                    if (tmp) {
-                        tmp = strtok_r(NULL, ":", &save_ptr);
-                        uri_tmp1 = (char *) malloc(strlen(tmp) + 32);
-                        sprintf(uri_tmp1, "%s", tmp);
-                        tmp = strtok_r(NULL, ":", &save_ptr);
-                        uri_tmp2 = (char *) malloc(strlen(tmp) + 32);
-                        sprintf(uri_tmp2, "%s", tmp);
-                        s->uri = (char *) malloc(1024 + 32);
-                        sprintf(s->uri, "rtsp:%s:%s", uri_tmp1, uri_tmp2);
-                    } else {
-                        printf("\n[rtsp] Wrong format for uri! \n");
-                        FAIL
-                    }
-                    break;
-                case 1:
-                    if (tmp) {  //TODO check if it's a number
-                        s->vrtsp_state->port = atoi(tmp);
-                        //Now checking if we have user and password parameters...
-                        if (s->vrtsp_state->port == 0) {
-                            sprintf(s->uri, "rtsp:%s", uri_tmp1);
-                            s->vrtsp_state->port = atoi(uri_tmp2);
-                            if (tmp) {
-                                if (strcmp(tmp, "true") == 0)
-                                    s->vrtsp_state->decompress = TRUE;
-                                else if (strcmp(tmp, "false") == 0)
-                                    s->vrtsp_state->decompress = FALSE;
-                                else {
-                                    printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
-                                    FAIL
-                                }
-                            } else
-                                continue;
-                        }
-                    } else {
-                        printf("\n[rtsp] Wrong format for height! \n");
-                        FAIL
-                    }
-                    break;
-                case 2:
-                    if (tmp) {
-                        if (strcmp(tmp, "true") == 0)
-                            s->vrtsp_state->decompress = TRUE;
-                        else if (strcmp(tmp, "false") == 0)
-                            s->vrtsp_state->decompress = FALSE;
-                        else {
-                            printf(
-                                "\n[rtsp] Wrong format for boolean decompress flag! \n");
-                            show_help();
-                            exit(0);
-                        }
-                    } else
-                        continue;
-                    break;
-                case 3:
-                    continue;
-            }
-            fmt = NULL;
-            ++i;
-        }
-    }
-    //re-check parameters
-    if (s->vrtsp_state->port == 0) {
-        sprintf(s->uri, "rtsp:%s", uri_tmp1);
-        s->vrtsp_state->port = (int) atoi(uri_tmp2);
-    }
+    char *tmp = NULL;
+    fmt = strdup(vidcap_params_get_fmt(params));
+    int i = 0;
+    const size_t uri_len = 1024;
+    s->uri = (char *) malloc(uri_len);
+    strcpy(s->uri, "rtsp:");
 
     s->vrtsp_state->tile = vf_get_tile(s->vrtsp_state->frame, 0);
     s->vrtsp_state->tile->width = DEFAULT_VIDEO_FRAME_WIDTH/2;
     s->vrtsp_state->tile->height = DEFAULT_VIDEO_FRAME_HEIGHT/2;
 
+    while ((tmp = strtok_r(fmt, ":", &save_ptr))) {
+        switch (i) {
+            case 0:
+                strncat(s->uri, tmp, uri_len - strlen(s->uri) - 1);
+                break;
+            case 1:
+                strncat(s->uri, ":", uri_len - strlen(s->uri) - 1);
+                strncat(s->uri, tmp, uri_len - strlen(s->uri) - 1);
+                break;
+            case 2:
+                if (strcmp(tmp, "true") == 0) {
+                    s->vrtsp_state->decompress = TRUE;
+                } else if (strcmp(tmp, "false") == 0) {
+                    s->vrtsp_state->decompress = FALSE;
+                } else {
+                    printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
+                    vidcap_rtsp_done(s);
+                    show_help();
+                    return VIDCAP_INIT_FAIL;
+                }
+                break;
+            case 3:
+                s->vrtsp_state->tile->width = atoi(tmp);
+                break;
+            case 4:
+                s->vrtsp_state->tile->height = atoi(tmp);
+                break;
+        }
+        fmt = NULL;
+        ++i;
+    }
+
+    //re-check parameters
+    if (i < 2) {
+        printf("\n[rtsp] Not enough parameters!\n");
+        vidcap_rtsp_done(s);
+        show_help();
+        return VIDCAP_INIT_FAIL;
+    }
+
     debug_msg("[rtsp] selected flags:\n");
     debug_msg("\t  uri: %s\n",s->uri);
     debug_msg("\t  port: %d\n", s->vrtsp_state->port);
     debug_msg("\t  decompress: %d\n\n",s->vrtsp_state->decompress);
-
-    if (uri_tmp1 != NULL)
-        free(uri_tmp1);
-    if (uri_tmp2 != NULL)
-        free(uri_tmp2);
 
     len = init_rtsp(s->uri, s->vrtsp_state->port, s, (char *) s->vrtsp_state->h264_offset_buffer);
 
