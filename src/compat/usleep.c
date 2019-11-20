@@ -39,9 +39,10 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#ifdef HAVE_WIN32
+#ifdef WIN32
 
 int usleep(unsigned int usec)
+{
         Sleep(usec / 1000);
 
         return 0;
