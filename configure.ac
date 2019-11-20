@@ -3010,8 +3010,10 @@ fi
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
 if test "$cppunit" = yes; then
         AC_DEFINE([HAVE_CPPUNIT], [1], [Build with CppUnit tests])
+        cppunit=yes
 else
         CPPUNIT_LIBS=
+        cppunit=no
 fi
 AC_SUBST(CPPUNIT_LIBS)
 
@@ -3056,6 +3058,7 @@ RESULT=\
   Library live555 ............. $livemedia
   Qt GUI ...................... $qt_gui
   OpenCV ...................... $opencv
+  CppUnit tests ............... $cppunit
 "
 
 # params: <result> <feature> <bool> 0|1

@@ -132,6 +132,8 @@ int main(int argc, char **argv)
                                 CPPUNIT_NS::stdCOut() ) );
         // Run the test.
         success = runner.run() && success;
+#else
+        printf("CppUnit was not found, skipping CppUnit tests!\n");
 #endif
 
         common_cleanup(init);
