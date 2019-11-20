@@ -1247,10 +1247,12 @@ PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
 
 if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         HAVE_OPENCV=yes
-        opencv="yes (version: $OPENCV_MAJOR)"
+        opencv="yes"
+        opencv_version=" (version: $OPENCV_MAJOR)"
 else
         HAVE_OPENCV=no
         opencv="no"
+        opencv_version=
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3045,21 +3047,15 @@ AC_SUBST(TARGETS)
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
 
-RESULT=\
-"  Target ...................... $target
-  Debug output ................ $debug_output
-  Profiling support ........... $profile
-  IPv6 support ................ $ipv6
-  RT priority ................. $use_rt
-  Standalone modules .......... $build_libraries
-  iHDTV support ............... $ihdtv
-  OpenSSL-libcrypto ........... $crypto
-  CUDA support ................ $FOUND_CUDA$HOST_CC_REPORT
-  Library live555 ............. $livemedia
-  Qt GUI ...................... $qt_gui
-  OpenCV ...................... $opencv
-  CppUnit tests ............... $cppunit
-"
+start_section() {
+        printf "$1\n$2:"
+        true # set $? to zero -> causes add_column to start on new line
+}
+
+end_section() {
+        printf "$1
+        "
+}
 
 # params: <result> <feature> <bool> 0|1
 # 0 - print left column; 1 - print right column
@@ -3075,9 +3071,36 @@ add_column() {
         fi
 }
 
-true # set $? to zero
+RESULT="Target: $target\n"
 
-# capturers
+# features
+RESULT=`start_section "$RESULT" "Features"`
+RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
+RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
+RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
+RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
+RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
+RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
+RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
+RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
+RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
+RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
+RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
+RESULT=`add_column "$RESULT" "CppUnit tests" $cppunit $?`
+RESULT=`end_section "$RESULT"`
+
+# audio
+RESULT=`start_section "$RESULT" "Audio"`
+RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
+RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
+RESULT=`add_column "$RESULT" "JACK" $jack $?`
+RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
+RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
+RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
+RESULT=`end_section "$RESULT"`
+
+# video
+RESULT=`start_section "$RESULT" "Video"`
 RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
@@ -3096,20 +3119,10 @@ RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
+RESULT=`end_section "$RESULT"`
 
-RESULT="$RESULT
-"
-true # set $? to zero
-RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
-RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
-RESULT=`add_column "$RESULT" "JACK" $jack $?`
-RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
-RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
-RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
-
-RESULT="$RESULT
-"
-true # set $? to zero
+# compressions
+RESULT=`start_section "$RESULT" "Compressions"`
 RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
@@ -3118,10 +3131,10 @@ RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
 RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
+RESULT=`end_section "$RESULT"`
 
-RESULT="$RESULT
-"
-true # set $? to zero
+# other
+RESULT=`start_section "$RESULT" "Others"`
 RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
 RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
@@ -3135,14 +3148,12 @@ RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
 RESULT=`add_column "$RESULT" "Testcard extras" $testcard_extras $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
 RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
-
-RESULT="$RESULT
-"
+RESULT=`end_section "$RESULT"`
 
 AC_MSG_RESULT(
 [
-UltraGrid configuration summary:
-])
+UltraGrid configuration summary
+===============================])
 AC_MSG_RESULT([$RESULT])
 
 RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
