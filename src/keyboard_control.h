@@ -85,7 +85,7 @@ private:
         struct module m_mod;
 
         std::thread m_keyboard_thread;
-        struct module *m_root;
+        struct module *m_root, *m_parent;
 #ifdef HAVE_TERMIOS_H
         int m_event_pipe[2];
 #else

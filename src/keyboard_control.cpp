@@ -113,6 +113,7 @@ static void restore_old_tio(void)
 
 keyboard_control::keyboard_control(struct module *parent) :
         m_root(nullptr),
+        m_parent(parent),
 #ifdef HAVE_TERMIOS_H
         m_event_pipe{0, 0},
 #endif
@@ -124,11 +125,6 @@ keyboard_control::keyboard_control(struct module *parent) :
         m_start_time = time(NULL);
 
         m_root = get_root_module(parent);
-        module_init_default(&m_mod);
-        m_mod.cls = MODULE_CLASS_KEYCONTROL;
-        m_mod.priv_data = this;
-        m_mod.new_message = keyboard_control::msg_received_func;
-        module_register(&m_mod, parent);
 }
 
 keyboard_control::~keyboard_control() {
@@ -139,7 +135,6 @@ ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-ke
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start()
 {
-        set_thread_name("keyboard-control");
         if (get_commandline_param("disable-keyboard-control")) {
                 return;
         }
@@ -160,6 +155,12 @@ void keyboard_control::start()
         }
         atexit(restore_old_tio);
 #endif
+
+        module_init_default(&m_mod);
+        m_mod.cls = MODULE_CLASS_KEYCONTROL;
+        m_mod.priv_data = this;
+        m_mod.new_message = keyboard_control::msg_received_func;
+        module_register(&m_mod, m_parent);
 
         load_config_map();
 
@@ -438,6 +439,7 @@ int64_t keyboard_control::get_next_key()
 
 void keyboard_control::run()
 {
+        set_thread_name("keyboard-control");
         int saved_log_level = -1;
         int64_t c;
 
