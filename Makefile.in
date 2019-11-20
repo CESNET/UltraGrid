@@ -28,6 +28,7 @@ SYSTEM	      = @system@
 
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
+TEST_TARGET  = bin/run_tests$(EXEEXT)
 
 PREFIX = @prefix@
 prefix = $(PREFIX)
@@ -464,9 +465,9 @@ TEST_OBJS = test/get_framerate_test.o \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-bin/run_tests: $(TEST_OBJS) $(OBJS)
+$(TEST_TARGET): $(TEST_OBJS) $(OBJS)
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o bin/run_tests
+	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o $@
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
@@ -480,8 +481,8 @@ configure-messages:
 	@printf "@POST_COMPILE_MSG@"
 
 
-tests: bin/run_tests
-	@bin/run_tests
+tests: $(TEST_TARGET)
+	@$(TEST_TARGET)
 
 
 check: tests
