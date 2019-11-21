@@ -68,6 +68,6 @@ void color_out(uint32_t modificators, const char *format, ...) {
         }
         va_end(ap);
 
-        cout << style << color << buffer << rang::style::reset << rang::fg::reset;
+        cout << style << color << buffer << rang::style::reset << rang::fg::reset << std::flush;
 }
 
