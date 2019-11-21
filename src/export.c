@@ -81,10 +81,14 @@ struct exporter *export_init(struct module *parent, const char *path, bool shoul
                 if (strcmp(path, "help") == 0) {
                         color_out(0, "Usage:\n");
                         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-                        color_out(COLOR_OUT_BOLD, "[=<dir>]\n");
+                        color_out(COLOR_OUT_BOLD, "[=<dir>[:paused]]\n");
                         return NULL;
                 }
                 s->dir = strdup(path);
+                if (strstr(s->dir, ":paused")) {
+                        should_export = false; // start paused
+                        *strstr(s->dir, ":paused") = '\0'; // remove ":paused" from dirname
+                }
         } else {
                 s->dir_auto = true;
         }
