@@ -41,6 +41,9 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <sys/types.h>
+#include <dirent.h>
+
 #include "export.h"
 
 #include "audio/export.h"
@@ -129,42 +132,74 @@ error:
         return false;
 }
 
+/**
+ * Tries to create directories export.<date>[-????]
+ * inside directory prefix. If succesful, returns its
+ * name.
+ */
+static char *create_anonymous_dir(const char *prefix)
+{
+        for (int i = 1; i <= 9999; i++) {
+                size_t max_len = strlen(prefix) + 1 + 21;
+                char *name = malloc(max_len);
+                time_t t = time(NULL);
+                struct tm *tmp = localtime(&t);
+                strcpy(name, prefix);
+                strcat(name, "/");
+                strftime(name + strlen(name), max_len, "export.%Y%m%d", tmp);
+                if (i > 1) {
+                        char num[6];
+                        snprintf(num, sizeof num, "-%d", i);
+                        strncat(name, num, sizeof name - strlen(name) - 1);
+                }
+                int ret = platform_mkdir(name);
+                if(ret == -1) {
+                        if(errno == EEXIST) {
+                                continue;
+                        } else {
+                                fprintf(stderr, "[Export] Directory creation failed: %s\n",
+                                                strerror(errno));
+                                return false;
+                        }
+                        free(name);
+                } else {
+                        return name;
+                }
+        }
+        return NULL;
+}
+
+static bool dir_is_empty(const char *dir) {
+        DIR *d = opendir(dir);
+        if (!d) {
+                return false;
+        }
+        readdir(d); // skip . and ..
+        readdir(d);
+        bool ret = readdir(d) == NULL;
+        closedir(d);
+
+        return ret;
+}
+
 static bool create_dir(struct exporter *s)
 {
         if (!s->dir) {
-                for (int i = 1; i <= 9999; i++) {
-                        char name[21];
-                        time_t t = time(NULL);
-                        struct tm *tmp = localtime(&t);
-                        strftime(name, sizeof name, "export.%Y%m%d", tmp);
-                        if (i > 1) {
-                                char num[6];
-                                snprintf(num, sizeof num, "-%d", i);
-                                strncat(name, num, sizeof name - strlen(name) - 1);
-                        }
-                        int ret = platform_mkdir(name);
-                        if(ret == -1) {
-                                if(errno == EEXIST) {
-                                        continue;
-                                } else {
-                                        fprintf(stderr, "[Export] Directory creation failed: %s\n",
-                                                        strerror(errno));
-                                        return false;
-                                }
-                        } else {
-                                s->dir = strdup(name);
-                                break;
-                        }
-                }
+                s->dir = create_anonymous_dir(".");
         } else {
                 int ret = platform_mkdir(s->dir);
                 if(ret == -1) {
-                        if(errno == EEXIST) {
-                                fprintf(stderr, "[Export] Warning: directory %s exists!\n", s->dir);
-                                return false;
-                        } else {
+                        if(errno != EEXIST) {
                                 perror("[Export] Directory creation failed");
                                 return false;
+                        }
+                        if (dir_is_empty(s->dir)) {
+                                log_msg(LOG_LEVEL_NOTICE, "[Export] Warning: directory %s exists but is an emtpy directory - using for export.\n", s->dir);
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, "[Export] Warning: directory %s exists and is not an empty directory! Trying to create subdir.\n", s->dir);
+                                char *prefix = s->dir;
+                                s->dir = create_anonymous_dir(prefix);
+                                free(prefix);
                         }
                 }
         }
