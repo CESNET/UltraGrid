@@ -68,7 +68,7 @@ void debug_dump(void*lp, int len);
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
 ///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
-void log_msg(int log_level, const char *format, ...);
+void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));;
 
 #ifdef __cplusplus
 }

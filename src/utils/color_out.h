@@ -70,7 +70,7 @@
 #ifdef __cplusplus
 extern "C"
 #endif
-	void color_out(uint32_t modificators, const char *format, ...);
+	void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 
 #endif // defined COLOR_OUT_H_
 

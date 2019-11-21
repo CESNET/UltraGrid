@@ -35,11 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "host.h"
-#include "debug.h"
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+#include "host.h"
+#include "debug.h"
 #include "deltacast_common.h"
 #include "lib_common.h"
 #include "tv.h"
