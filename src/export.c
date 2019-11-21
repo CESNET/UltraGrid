@@ -78,6 +78,12 @@ struct exporter *export_init(struct module *parent, const char *path, bool shoul
         pthread_mutex_init(&s->lock, NULL);
 
         if (path) {
+                if (strcmp(path, "help") == 0) {
+                        color_out(0, "Usage:\n");
+                        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
+                        color_out(COLOR_OUT_BOLD, "[=<dir>]\n");
+                        return NULL;
+                }
                 s->dir = strdup(path);
         } else {
                 s->dir_auto = true;
