@@ -247,6 +247,8 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 void print_capabilities(struct module *root, bool use_vidcap)
 {
+        auto precision = cout.precision();
+
         // try to figure out actual input video format
         struct video_desc desc{};
         if (use_vidcap && root) {
@@ -270,8 +272,6 @@ void print_capabilities(struct module *root, bool use_vidcap)
                         usleep(max<int>(100,query_lasted.count())*1000);
                 }
         }
-
-        auto precision = cout.precision();
 
         // compressions
         cout << "[cap] Compressions:" << endl;

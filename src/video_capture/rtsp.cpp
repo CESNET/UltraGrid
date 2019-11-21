@@ -83,11 +83,11 @@
 
 
 /* error handling macros */
-#define my_curl_easy_setopt(A, B, C) \
+#define my_curl_easy_setopt(A, B, C, action_fail) \
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
         fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
         printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-        return -1; \
+        action_fail; \
     }
 
 #define my_curl_easy_perform(A) \
@@ -157,8 +157,6 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
  * @struct rtsp_state
  */
 struct video_rtsp_state {
-    uint32_t *in_codec;
-
     const char *codec;
 
     struct timeval t0, t;
@@ -483,8 +481,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     s->vrtsp_state->new_frame = FALSE;
 
-    s->vrtsp_state->in_codec = (uint32_t *) malloc(sizeof(uint32_t *) * 10);
-
     s->vrtsp_state->frame = vf_alloc(1);
     s->vrtsp_state->h264_offset_buffer = (unsigned char *) malloc(2048);
     s->vrtsp_state->h264_offset_len = 0;
@@ -501,8 +497,9 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         return VIDCAP_INIT_NOERR;
     }
 
-    char *tmp = NULL;
+    char *tmp, *item;
     fmt = strdup(vidcap_params_get_fmt(params));
+    tmp = fmt;
     int i = 0;
     const size_t uri_len = 1024;
     s->uri = (char *) malloc(uri_len);
@@ -512,19 +509,19 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state->tile->width = DEFAULT_VIDEO_FRAME_WIDTH/2;
     s->vrtsp_state->tile->height = DEFAULT_VIDEO_FRAME_HEIGHT/2;
 
-    while ((tmp = strtok_r(fmt, ":", &save_ptr))) {
+    while ((item = strtok_r(fmt, ":", &save_ptr))) {
         switch (i) {
             case 0:
-                strncat(s->uri, tmp, uri_len - strlen(s->uri) - 1);
+                strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
                 break;
             case 1:
                 strncat(s->uri, ":", uri_len - strlen(s->uri) - 1);
-                strncat(s->uri, tmp, uri_len - strlen(s->uri) - 1);
+                strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
                 break;
             case 2:
-                if (strcmp(tmp, "true") == 0) {
+                if (strcmp(item, "true") == 0) {
                     s->vrtsp_state->decompress = TRUE;
-                } else if (strcmp(tmp, "false") == 0) {
+                } else if (strcmp(item, "false") == 0) {
                     s->vrtsp_state->decompress = FALSE;
                 } else {
                     printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
@@ -534,15 +531,16 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                 }
                 break;
             case 3:
-                s->vrtsp_state->tile->width = atoi(tmp);
+                s->vrtsp_state->tile->width = atoi(item);
                 break;
             case 4:
-                s->vrtsp_state->tile->height = atoi(tmp);
+                s->vrtsp_state->tile->height = atoi(item);
                 break;
         }
         fmt = NULL;
         ++i;
     }
+    free(tmp);
 
     //re-check parameters
     if (i < 2) {
@@ -618,8 +616,10 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     if (s->vrtsp_state->decompress) {
         s->vrtsp_state->frame->color_spec = H264;
-        if (init_decompressor(s->vrtsp_state) == 0)
+        if (init_decompressor(s->vrtsp_state) == 0) {
+            vidcap_rtsp_done(s);
             return VIDCAP_INIT_FAIL;
+        }
         s->vrtsp_state->frame->color_spec = UYVY;
     }
 
@@ -660,21 +660,21 @@ static CURL *init_curl() {
 static int
 init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     /* initialize curl */
-    CURL *curl = init_curl();
+    struct rtsp_state *s = (struct rtsp_state *) state;
 
-    if (!curl) {
+    s->curl = init_curl();
+
+    if (!s->curl) {
         return -1;
     }
 
-    struct rtsp_state *s;
-    s = (struct rtsp_state *) state;
     const char *range = "0.000-";
     int len_nals = -1;
     debug_msg("\n[rtsp] request %s\n", VERSION_STR);
     debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
     debug_msg("    Requires cURL V7.20 or greater\n\n");
     const char *url = rtsp_uri;
-    char *uri = (char *) malloc(strlen(url) + 32);
+    s->uri = (char *) malloc(strlen(url) + 32);
     char *sdp_filename = (char *) malloc(strlen(url) + 32);
     char Atransport[256];
     char Vtransport[256];
@@ -690,29 +690,26 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     //THIS AUDIO PORTS ARE AS DEFAULT UG AUDIO PORTS BUT AREN'T RELATED...
     sprintf(Atransport, "RTP/AVP;unicast;client_port=%d-%d", port+2, port + 3);
 
-    my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
+    my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
-    my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
-    my_curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-    my_curl_easy_setopt(curl, CURLOPT_WRITEHEADER, stdout);
-    my_curl_easy_setopt(curl, CURLOPT_URL, url);
+    my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_WRITEHEADER, stdout, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_URL, url, goto error);
 
-    sprintf(uri, "%s", url);
-
-    s->curl = curl;
-    s->uri = uri;
+    sprintf(s->uri, "%s", url);
 
     //TODO TO CHECK CONFIGURING ERRORS
     //CURLOPT_ERRORBUFFER
     //http://curl.haxx.se/libcurl/c/curl_easy_perform.html
 
     /* request server options */
-    if(rtsp_options(curl, uri)==0){
+    if(rtsp_options(s->curl, s->uri)==0){
         goto error;
     }
 
     /* request session description and write response to sdp file */
-    if(rtsp_describe(curl, uri, sdp_filename)==0){
+    if(rtsp_describe(s->curl, s->uri, sdp_filename)==0){
         goto error;
     }
 
@@ -721,26 +718,26 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
     if (strcmp(s->vrtsp_state->codec, "H264") == 0){
         s->vrtsp_state->frame->color_spec = H264;
-        sprintf(uri, "%s/%s", url, s->vrtsp_state->control);
-        debug_msg("\n V URI = %s\n",uri);
-        if(rtsp_setup(curl, uri, Vtransport)==0){
+        sprintf(s->uri, "%s/%s", url, s->vrtsp_state->control);
+        debug_msg("\n V URI = %s\n", s->uri);
+        if(rtsp_setup(s->curl, s->uri, Vtransport)==0){
             goto error;
         }
-        sprintf(uri, "%s", url);
+        sprintf(s->uri, "%s", url);
     }
     if (strcmp(s->artsp_state->codec, "PCMU") == 0){
-        sprintf(uri, "%s/%s", url, s->artsp_state->control);
-        debug_msg("\n A URI = %s\n",uri);
-        if(rtsp_setup(curl, uri, Atransport)==0){
+        sprintf(s->uri, "%s/%s", url, s->artsp_state->control);
+        debug_msg("\n A URI = %s\n", s->uri);
+        if(rtsp_setup(s->curl, s->uri, Atransport)==0){
             goto error;
         }
-        sprintf(uri, "%s", url);
+        sprintf(s->uri, "%s", url);
     }
     if (strlen(s->artsp_state->codec) == 0 && strlen(s->vrtsp_state->codec) == 0){
         goto error;
     }
     else{
-        if(rtsp_play(curl, uri, range)==0){
+        if(rtsp_play(s->curl, s->uri, range)==0){
             goto error;
         }
     }
@@ -748,8 +745,6 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     /* get start nal size attribute from sdp file */
     len_nals = get_nals(sdp_filename, nals, (int *) &s->vrtsp_state->tile->width, (int *) &s->vrtsp_state->tile->height);
 
-    s->curl = curl;
-    s->uri = uri;
     debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->tile->width,s->vrtsp_state->tile->height);
 
     curl_global_cleanup();
@@ -782,7 +777,6 @@ bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
     if(fp == 0){
         debug_msg("unable to open asset %s", sdp_filename);
         free(line);
-        fclose(fp);
         return false;
     }
     fseek(fp, 0, SEEK_END);
@@ -915,9 +909,9 @@ init_decompressor(void *state) {
 static int
 rtsp_get_parameters(CURL *curl, const char *uri) {
     CURLcode res = CURLE_OK;
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_GET_PARAMETER);
+        (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP GET PARAMETERS] curl_easy_perform failed\n");
         error_msg("[RTSP GET PARAMETERS] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
@@ -932,37 +926,26 @@ rtsp_get_parameters(CURL *curl, const char *uri) {
  */
 static int
 rtsp_options(CURL *curl, const char *uri) {
-    char control[1500], *user, *pass, *strtoken;
-    user = (char *) malloc(1500);
-    pass = (char *) malloc(1500);
-    memset(control, 0, 1500);
-    memset(user, 0, 1500);
-    memset(pass, 0, 1500);
+    char control[1500] = "",
+         user[1500] = "",
+         pass[1500] = "",
+         *strtoken;
 
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] OPTIONS %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
 
     sscanf(uri, "rtsp://%s", control);
     strtoken = strtok(control, ":");
     memcpy(user, strtoken, strlen(strtoken));
     strtoken = strtok(NULL, "@");
-    if (strtoken == NULL) {
-        free(user);
-        free(pass);
-        user = NULL;
-        pass = NULL;
-    } else
+    if (strtoken != NULL) {
         memcpy(pass, strtoken, strlen(strtoken));
-    if (user != NULL)
-        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user);
-    if (pass != NULL)
-        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass);
+        my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return -1);
+        my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return -1);
+    }
 
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS);
-
-    free(user);
-    free(pass);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
 
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP OPTIONS] curl_easy_perform failed\n");
@@ -987,9 +970,9 @@ rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
     } else {
         debug_msg("Writing SDP to '%s'\n", sdp_filename);
     }
-    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp);
+    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, goto error);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_DESCRIBE);
+        (long )CURL_RTSPREQ_DESCRIBE, goto error);
 
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP DESCRIBE] curl_easy_perform failed\n");
@@ -997,11 +980,16 @@ rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
         return 0;
     }
 
-    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout);
+    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, goto error);
     if (sdp_fp != stdout) {
         fclose(sdp_fp);
     }
     return 1;
+error:
+    if (sdp_fp != stdout) {
+        fclose(sdp_fp);
+    }
+    return -1;
 }
 
 /**
@@ -1012,9 +1000,9 @@ rtsp_setup(CURL *curl, const char *uri, const char *transport) {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] SETUP %s\n", uri);
     debug_msg("\t TRANSPORT %s\n", transport);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return -1);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP, return -1);
 
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP SETUP] curl_easy_perform failed\n");
@@ -1032,9 +1020,9 @@ static int
 rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] PLAY %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
-    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY);
+    my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY, return -1);
 
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP PLAY] curl_easy_perform failed\n");
@@ -1053,7 +1041,7 @@ rtsp_teardown(CURL *curl, const char *uri) {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] TEARDOWN %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_TEARDOWN);
+        (long )CURL_RTSPREQ_TEARDOWN, return -1);
 
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP TEARD DOWN] curl_easy_perform failed\n");
@@ -1141,16 +1129,16 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
             sprop = strstr(s, "sprop-parameter-sets=");
             if (sprop != NULL) {
                 gsize length;   //gsize is an unsigned int.
-                char *nal_aux, *nals_aux, *nal;
-                nals_aux = (char *) malloc(max_len);
+                char *nal_aux, *nal;
                 memcpy(nals, start_sequence, sizeof(start_sequence));
                 len_nals = sizeof(start_sequence);
                 nal_aux = strstr(sprop, "=");
                 nal_aux++;
                 nal = strtok(nal_aux, ",;");
                 //convert base64 to hex
-                nals_aux = (char *) g_base64_decode(nal, &length);
+                guchar *nals_aux = g_base64_decode(nal, &length);
                 memcpy(nals + len_nals, nals_aux, length);
+                g_free(nals_aux);
                 len_nals += length;
 
                 nalInfo = (uint8_t) nals[4];
@@ -1162,7 +1150,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
                 }
 
                 while ((nal = strtok(NULL, ",;")) != NULL) {
-                    nals_aux = (char *) g_base64_decode(nal, &length);
+                    guchar *nals_aux = g_base64_decode(nal, &length);
                     if (length) {
                         //convert base64 to hex
                         memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
@@ -1181,6 +1169,7 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
                         memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
                         len_nals += sizeof(start_sequence);
                     }
+                    g_free(nals_aux);
                 }
             }
         }

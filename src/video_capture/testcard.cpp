@@ -104,7 +104,7 @@ struct testcard_state {
         int size;
         int pan;
         struct testcard_pixmap pixmap;
-        char *data;
+        char *data {nullptr};
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame;
         int frame_linesize;
