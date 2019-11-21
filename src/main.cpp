@@ -156,6 +156,9 @@ struct state_uv {
                 should_exit_thread = thread(should_exit_watcher, this);
         }
         ~state_uv() {
+                stop();
+        }
+        void stop() {
                 if (exited) {
                         return;
                 }
@@ -1471,7 +1474,7 @@ cleanup:
         signal(SIGABRT, SIG_IGN);
         signal(SIGSEGV, SIG_IGN);
 
-        uv.~state_uv();
+        uv.stop();
         common_cleanup(init);
 
         printf("Exit\n");
