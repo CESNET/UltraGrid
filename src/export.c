@@ -47,6 +47,7 @@
 #include "debug.h"
 #include "messaging.h"
 #include "module.h"
+#include "utils/color_out.h"
 #include "video_export.h"
 
 struct exporter {
@@ -169,7 +170,7 @@ static bool create_dir(struct exporter *s)
         }
 
         if (s->dir) {
-                printf("Using export directory: %s\n", s->dir);
+                color_out(COLOR_OUT_BOLD | COLOR_OUT_YELLOW, "Using export directory: %s\n", s->dir);
                 return true;
         } else {
                 return false;
