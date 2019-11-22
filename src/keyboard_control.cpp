@@ -112,6 +112,7 @@ static void restore_old_tio(void)
 }
 
 keyboard_control::keyboard_control(struct module *parent) :
+        m_mod{},
         m_root(nullptr),
         m_parent(parent),
 #ifdef HAVE_TERMIOS_H

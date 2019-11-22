@@ -247,6 +247,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 void print_capabilities(struct module *root, bool use_vidcap)
 {
+        auto flags = cout.flags();
         auto precision = cout.precision();
 
         // try to figure out actual input video format
@@ -365,6 +366,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
 
+        cout.flags(flags);
         cout.precision(precision);
 }
 

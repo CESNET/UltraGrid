@@ -82,6 +82,7 @@ struct exporter *export_init(struct module *parent, const char *path, bool shoul
                         color_out(0, "Usage:\n");
                         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
                         color_out(COLOR_OUT_BOLD, "[=<dir>[:paused]]\n");
+                        free(s);
                         return NULL;
                 }
                 s->dir = strdup(path);
@@ -165,10 +166,12 @@ static char *create_anonymous_dir(const char *prefix)
                 int ret = platform_mkdir(name);
                 if(ret == -1) {
                         if(errno == EEXIST) {
+                                free(name);
                                 continue;
                         } else {
                                 fprintf(stderr, "[Export] Directory creation failed: %s\n",
                                                 strerror(errno));
+                                free(name);
                                 return false;
                         }
                         free(name);

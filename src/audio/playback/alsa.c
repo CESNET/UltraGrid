@@ -694,6 +694,7 @@ static bool is_default_pulse(void)
                 assert(strlen(tmp) >= 4);
                 name_part = strtok_r(tmp + 4, "|", &save_ptr);
                 if (name_part == NULL) {
+                        free(tmp);
                         continue;
                 }
                 desc = strtok_r(NULL, "|", &save_ptr);

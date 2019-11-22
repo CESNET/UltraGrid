@@ -525,6 +525,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                     s->vrtsp_state->decompress = FALSE;
                 } else {
                     printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
+                    free(tmp);
                     vidcap_rtsp_done(s);
                     show_help();
                     return VIDCAP_INIT_FAIL;
@@ -748,6 +749,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->tile->width,s->vrtsp_state->tile->height);
 
     curl_global_cleanup();
+    free(sdp_filename);
     return len_nals;
 
 error:
@@ -940,7 +942,7 @@ rtsp_options(CURL *curl, const char *uri) {
     memcpy(user, strtoken, strlen(strtoken));
     strtoken = strtok(NULL, "@");
     if (strtoken != NULL) {
-        memcpy(pass, strtoken, strlen(strtoken));
+        strncpy(pass, strtoken, sizeof pass - 1);
         my_curl_easy_setopt(curl, CURLOPT_USERNAME, user, return -1);
         my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass, return -1);
     }
