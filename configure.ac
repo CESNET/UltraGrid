@@ -492,17 +492,18 @@ then
         AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
 fi
 
-# ------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------
 # environment variables
-#
-AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
-AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
-AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
-AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
-AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
-AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
+# ----------------------------------------------------------------------
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])
+AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 AC_ARG_VAR([CINEFORM_DIRECTORY], [Directory to Cineform SDK.])
+AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
+AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
+AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
+AC_ARG_VAR([GENICAM_GENTL64_PATH], [XIMEA SDK library path])
+AC_ARG_VAR([NTV2_ROOT], [Directory to AJA NTV2 SDK (ends with ntv2projects).])
+AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 
 # -------------------------------------------------------------------------------------------------
 # GL common
@@ -1086,6 +1087,42 @@ fi
 
 if test $deltacast_req = yes -a $deltacast = no; then
         AC_MSG_ERROR([Deltacast not found]);
+fi
+
+#----------------------------------------------------------------------
+# XIMEA
+# ---------------------------------------------------------------------
+AC_ARG_ENABLE(ximea,
+[  --disable-ximea         disable XIMEA suppport (default is $build_default)]
+[                          Requires: XIMEA SDK],
+              [ximea_req=$enableval],
+              [ximea_req=$build_default]
+              )
+
+SAVED_CFLAGS=$CFLAGS
+SAVED_LIBS=$LIBS
+XIMEA_LIBS="-lm3api"
+if test -n "$GENICAM_GENTL64_PATH"; then
+        XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/../include"
+fi
+CFLAGS=$SAVED_CFLAGS
+LIBS="$LIBS $XIMEA_LIBS"
+CFLAGS="$CFLAGS $XIMEA_CFLAGS"
+AC_CHECK_LIB(m3api, xiGetImage)
+AC_CHECK_HEADERS([xiApi.h])
+LIBS=$SAVED_LIBS
+CFLAGS=$SAVED_CFLAGS
+if test $ximea_req != no -a $ac_cv_lib_m3api_xiGetImage = yes -a $ac_cv_header_xiApi_h = yes; then
+        CFLAGS="$CFLAGS $XIMEA_CFLAGS"
+	ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
+        ximea=yes
+else
+        ximea=no
+fi
+
+if test $ximea_req = yes -a $ximea = no; then
+        AC_MSG_ERROR([XIMEA SDK not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3115,6 +3152,7 @@ RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
+RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
