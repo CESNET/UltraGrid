@@ -64,11 +64,15 @@ extern "C" {
 
 void debug_dump(void*lp, int len);
 
+#ifndef ATTRIBUTE
+#define ATTRIBUTE(a)
+#endif
+
 #define error_msg(...) log_msg(LOG_LEVEL_ERROR, __VA_ARGS__)
 #define verbose_msg(...) log_msg(LOG_LEVEL_VERBOSE, __VA_ARGS__)
 ///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
-void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));;
+void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 
 #ifdef __cplusplus
 }
