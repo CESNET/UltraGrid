@@ -1619,28 +1619,24 @@ AC_ARG_ENABLE(libavcodec,
 [libavcodec_req=$build_default]
 )
 
-if test $system = Windows; then
-AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
-AC_CHECK_LIB(avcodec, avcodec_open2)
-AC_CHECK_LIB(avutil, av_free)
-if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
-        $ac_cv_header_libavutil_imgutils_h = yes -a \
-        $ac_cv_header_libavutil_opt_h = yes -a \
-        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
-        $ac_cv_lib_avutil_av_free = yes
-then
-        found_libavcodec=yes
-        found_libavutil=yes
-        libavcodec_ge_55=yes # TODO
-        LIBAVCODEC_LIBS="-lavcodec"
-        LIBAVUTIL_LIBS="-lavutil"
-else
-        found_libavcodec=no
-        found_libavutil=no
-fi
-else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
 PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
+
+if test $found_libavcodec = no -o $found_libavutil = no; then
+        AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
+        AC_CHECK_LIB(avcodec, avcodec_open2)
+        AC_CHECK_LIB(avutil, av_free)
+        if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
+                        $ac_cv_header_libavutil_imgutils_h = yes -a \
+                        $ac_cv_header_libavutil_opt_h = yes -a \
+                        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
+                        $ac_cv_lib_avutil_av_free = yes; then
+                found_libavcodec=yes
+                found_libavutil=yes
+                libavcodec_ge_55=yes # TODO
+                LIBAVCODEC_LIBS="-lavcodec"
+                LIBAVUTIL_LIBS="-lavutil"
+        fi
 fi
 
 if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
