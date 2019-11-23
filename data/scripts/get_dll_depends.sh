@@ -25,7 +25,7 @@ find_dll() {
 }
 
 is_not_system_dll() {
-        return $(test $(expr match "$1" '^/c/Windows') -eq 0)
+        return $(test $(expr match "$1" '^/c/[Ww]indows') -eq 0)
 }
 
 if [ $# -eq 0 ]; then
