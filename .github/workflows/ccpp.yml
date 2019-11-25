@@ -65,7 +65,7 @@ jobs:
       run: echo "::add-path::/usr/local/opt/qt/bin"
     - name: bootstrap
       run: |
-              brew install autoconf automake cppunit libtool pkg-config
+              brew install autoconf automake cppunit dylibbundler libtool pkg-config
               brew install ffmpeg portaudio sdl2
               brew install ossp-uuid # for cineform
               git submodule update --init
@@ -75,11 +75,16 @@ jobs:
     - name: configure
       run: export LDFLAGS CPPFLAGS PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
-      run: make
+      run: make osx-gui-dmg
     - name: make check
       run: make check
     - name: make distcheck
       run: make distcheck
+    - name: Upload build
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI macOS build
+        path: UltraGrid.dmg
 
   Windows:
     name: run Window
