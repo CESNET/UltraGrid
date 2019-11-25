@@ -470,6 +470,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         if(vidcap_params_get_fmt(params)) {
                 tmp = strdup(vidcap_params_get_fmt(params));
+                assert(tmp != NULL);
                 char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;
