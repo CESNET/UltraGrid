@@ -269,6 +269,7 @@ static const struct video_capture_info vidcap_banner_info = {
         vidcap_banner_init,
         vidcap_banner_done,
         vidcap_banner_grab,
+        false
 };
 
 REGISTER_MODULE(banner, &vidcap_banner_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

@@ -361,6 +361,7 @@ static const struct video_capture_info vidcap_bitflow_info = {
         vidcap_bitflow_init,
         vidcap_bitflow_done,
         vidcap_bitflow_grab,
+        false
 };
 
 REGISTER_MODULE(bitflow, &vidcap_bitflow_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

@@ -686,6 +686,7 @@ static const struct video_capture_info vidcap_dvs_info = {
         vidcap_dvs_init,
         vidcap_dvs_done,
         vidcap_dvs_grab,
+        false
 };
 
 REGISTER_MODULE(dvs, &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

@@ -583,6 +583,7 @@ static const struct video_capture_info vidcap_deltacast_info = {
         vidcap_deltacast_init,
         vidcap_deltacast_done,
         vidcap_deltacast_grab,
+        false
 };
 
 REGISTER_MODULE(deltacast, &vidcap_deltacast_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

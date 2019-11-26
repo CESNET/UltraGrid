@@ -98,7 +98,7 @@
 
 #include "types.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 7
+#define VIDEO_CAPTURE_ABI_VERSION 8
 
 #ifdef __cplusplus
 extern "C" {
@@ -141,6 +141,7 @@ struct video_capture_info {
         int                    (*init) (struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
+        bool                    use_generic_fps_indicator; ///@todo use everywhere, then remove
 };
 
 struct module;
@@ -153,6 +154,7 @@ int initialize_video_capture(struct module *parent,
                 struct vidcap **state);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
+bool                     vidcap_generic_fps(struct vidcap *state);
 
 #ifdef __cplusplus
 }

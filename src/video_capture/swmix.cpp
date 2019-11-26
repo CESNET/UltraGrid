@@ -1357,6 +1357,7 @@ static const struct video_capture_info vidcap_swmix_info = {
         vidcap_swmix_init,
         vidcap_swmix_done,
         vidcap_swmix_grab,
+        false
 };
 
 REGISTER_MODULE(swmix, &vidcap_swmix_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

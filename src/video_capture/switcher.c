@@ -262,6 +262,7 @@ static const struct video_capture_info vidcap_switcher_info = {
         vidcap_switcher_init,
         vidcap_switcher_done,
         vidcap_switcher_grab,
+        false
 };
 
 REGISTER_MODULE(switcher, &vidcap_switcher_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

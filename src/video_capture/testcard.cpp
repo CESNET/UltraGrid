@@ -100,7 +100,6 @@ enum class image_pattern : int {
 
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
-        int count;
         int size;
         int pan;
         struct testcard_pixmap pixmap;
@@ -598,7 +597,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 s->data = vf_get_tile(s->frame, 0)->data;
         }
 
-        s->count = 0;
         s->last_frame_time = std::chrono::steady_clock::now();
 
         printf("Testcard capture set to %dx%d, bpp %f\n", vf_get_tile(s->frame, 0)->width,
@@ -670,17 +668,6 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         }
 
         state->last_frame_time = curr_time;
-        state->count++;
-
-        double seconds =
-                std::chrono::duration_cast<std::chrono::duration<double>>(curr_time - state->t0).count();
-        if (seconds >= 5.0) {
-                float fps = state->count / seconds;
-                log_msg(LOG_LEVEL_INFO, "[testcard] %d frames in %g seconds = %g FPS\n",
-                                state->count, seconds, fps);
-                state->t0 = curr_time;
-                state->count = 0;
-        }
 
         if (state->grab_audio) {
 #ifdef HAVE_LIBSDL_MIXER
@@ -827,6 +814,7 @@ static const struct video_capture_info vidcap_testcard_info = {
         vidcap_testcard_init,
         vidcap_testcard_done,
         vidcap_testcard_grab,
+        true
 };
 
 REGISTER_MODULE(testcard, &vidcap_testcard_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

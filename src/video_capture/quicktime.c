@@ -1217,6 +1217,7 @@ static const struct video_capture_info vidcap_quicktime_info = {
         vidcap_quicktime_init,
         vidcap_quicktime_done,
         vidcap_quicktime_grab,
+        false
 };
 
 REGISTER_MODULE(quicktime, &vidcap_quicktime_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

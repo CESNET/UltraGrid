@@ -213,6 +213,7 @@ static const struct video_capture_info vidcap_ug_input_info = {
         vidcap_ug_input_init,
         vidcap_ug_input_done,
         vidcap_ug_input_grab,
+        false
 };
 
 REGISTER_MODULE(ug_input, &vidcap_ug_input_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

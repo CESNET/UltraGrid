@@ -62,6 +62,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <chrono>
 #include <cstdlib>
 #include <getopt.h>
 #include <iostream>
@@ -87,6 +88,7 @@
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
 #include "ug_runtime_error.h"
+#include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
@@ -142,6 +144,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 using rang::fg;
 using rang::style;
 using namespace std;
+using namespace std::chrono;
 
 struct state_uv {
         state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
@@ -409,6 +412,21 @@ static void usage(const char *exec_path, bool full = false)
         printf("\n");
 }
 
+static void print_fps(bool should_print, steady_clock::time_point &t0, int &frames) {
+        if (!should_print) {
+                return;
+        }
+        frames += 1;
+        steady_clock::time_point t1 = steady_clock::now();
+        double seconds = duration_cast<duration<double>>(t1 - t0).count();
+        if (seconds >= 5.0) {
+                float fps = frames / seconds;
+                LOG(LOG_LEVEL_INFO) << "[capture] " << frames << " frames in " << seconds << " seconds = " << BOLD(fps << " FPS\n");
+                t0 = t1;
+                frames = 0;
+        }
+}
+
 /**
  * This function captures video and possibly compresses it.
  * It then delegates sending to another thread.
@@ -421,9 +439,10 @@ static void *capture_thread(void *arg)
 
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
-        struct wait_obj *wait_obj;
-
-        wait_obj = wait_obj_init();
+        struct wait_obj *wait_obj = wait_obj_init();
+        steady_clock::time_point t0 = steady_clock::now();
+        int frames = 0;
+        bool should_print_fps = vidcap_generic_fps(uv->capture_device);
 
         while (!should_exit) {
                 /* Capture and transmit video... */
@@ -436,6 +455,7 @@ static void *capture_thread(void *arg)
                 }
 
                 if (tx_frame != NULL) {
+                        print_fps(should_print_fps, t0, frames);
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
                         shared_ptr<video_frame> frame;

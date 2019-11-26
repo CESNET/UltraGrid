@@ -1143,6 +1143,7 @@ static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_init,
         vidcap_aja_done,
         vidcap_aja_grab,
+        false
 };
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
