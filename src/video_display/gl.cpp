@@ -182,8 +182,8 @@ void main()
 const static list<pair<int64_t, string>> keybindings {{'f', "toggle fullscreen"},
         {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
         {K_ALT('s'), "screenshot"}, {K_ALT('c'), "show/hide cursor"},
-        {K_DOWN, "make window smaller by a factor of 50%"},
-        {K_UP, "make window twice as big"}
+        {K_CTRL_DOWN, "make window smaller by a factor of 50%"},
+        {K_CTRL_UP, "make window twice as big"}
 };
 
 #ifdef HWACC_VDPAU
@@ -1002,6 +1002,13 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
         }
 #endif // defined FREEGLUT
         if (is_special) {
+                if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                        switch (key) {
+                        case GLUT_KEY_UP: return K_CTRL_UP;
+                        case GLUT_KEY_DOWN: return K_CTRL_DOWN;
+                        default: return -1;
+                        }
+                }
                 switch (key) {
                 case GLUT_KEY_LEFT: return K_LEFT;
                 case GLUT_KEY_UP: return K_UP;
@@ -1057,12 +1064,12 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
                         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
-                case K_UP:
+                case K_CTRL_UP:
                         s->window_size_factor *= 2;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
                         break;
-                case K_DOWN:
+                case K_CTRL_DOWN:
                         s->window_size_factor /= 2;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
