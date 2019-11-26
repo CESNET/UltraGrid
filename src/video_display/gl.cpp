@@ -182,8 +182,8 @@ void main()
 const static list<pair<int64_t, string>> keybindings {{'f', "toggle fullscreen"},
         {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
         {K_ALT('s'), "screenshot"}, {K_ALT('c'), "show/hide cursor"},
-        {K_CTRL_DOWN, "make window smaller by a factor of 50%"},
-        {K_CTRL_UP, "make window twice as big"}
+        {K_CTRL_DOWN, "make window 10%% smaller"},
+        {K_CTRL_UP, "make window 10%% bigger"}
 };
 
 #ifdef HWACC_VDPAU
@@ -1065,12 +1065,12 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
                         break;
                 case K_CTRL_UP:
-                        s->window_size_factor *= 2;
+                        s->window_size_factor *= 1.1;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
                         break;
                 case K_CTRL_DOWN:
-                        s->window_size_factor /= 2;
+                        s->window_size_factor /= 1.1;
                         glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
                                         s->window_size_factor);
                         break;
@@ -1090,7 +1090,7 @@ static void glut_key_callback(int key, bool is_special)
                         is_special ? "Special key" : "Key", key, glutGetModifiers(),
                         ugk > 0 ? name : "unknown");
         if (ugk == -1) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate%s key %d!\n", is_special ? " special" : "", key);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate%s key %d (modifiers: %d)!\n", is_special ? " special" : "", key, glutGetModifiers());
         }
         if (ugk <= 0) {
                 return;
