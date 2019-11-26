@@ -728,7 +728,11 @@ bool keyboard_control::exec_local_command(const char *command)
                                 name = strchr(command, '#') + 1;
                                 *strchr(command, '#') = '\0';
                         }
-                        key_mapping.insert({key, make_pair(command, name)});
+                        if (key_mapping.find(key) == key_mapping.end()) {
+                                key_mapping.insert({key, make_pair(command, name)});
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Trying to register key shortcut " << get_keycode_representation(key) << ", which is already regestered, ignoring.\n";
+                        }
                 }
                 free(ccpy);
                 return true;
