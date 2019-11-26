@@ -1,0 +1,58 @@
+#!/bin/sh
+
+set -u
+
+DIR=`dirname $0`
+export LD_LIBRARY_PATH=$DIR/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+# there is an issue with running_from_path() which evaluates this executable
+# as being system-installed
+#export PATH=$DIR/bin:$PATH
+export QT_QPA_FONTDIR=$DIR/lib/fonts
+
+usage() {
+        printf "usage:\n"
+        printf "\tUltraGrid [--gui [args]]\n"
+        printf "\t\tinvokes GUI\n"
+        printf "\n"
+        printf "\tUltraGrid --help\n"
+        printf "\t\tprints this help\n"
+        printf "\n"
+        printf "\tUltraGrid --appimage-help\n"
+        printf "\t\tprints AppImage related options\n"
+        printf "\n"
+        printf "\tUltraGrid --update\n"
+        printf "\t\tupdates AppImage\n"
+        printf "\n"
+        printf "\tUltraGrid --tool uv --help\n"
+        printf "\t\tprints command-line UltraGrid help\n"
+        printf "\n"
+        printf "\tUltraGrid --tool <t> [args]\n"
+        printf "\t\tinvokes specified tool\n"
+        printf "\t\ttool may be: $(ls $DIR/bin | tr '\n' ' ')\n"
+        printf "\n"
+        printf "\tUltraGrid args\n"
+        printf "\t\tinvokes command-line UltraGrid\n"
+        printf "\n"
+}
+
+if [ $# -eq 0 ]; then
+        usage
+        $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+elif [ x"$1" = x"--tool" ]; then
+        TOOL=$2
+        shift 2
+        $DIR/bin/$TOOL "$@"
+elif [ x"$1" = x"--gui" ]; then
+        shift
+        $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
+elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
+        usage
+        exit 0
+elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
+        $DIR/appimageupdatetool $APPIMAGE
+        exit 0
+else
+        $DIR/uv-wrapper.sh "$@"
+fi
+
+exit $?
