@@ -70,8 +70,23 @@ jobs:
               brew install ossp-uuid # for cineform
               git submodule update --init
               ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
-              brew install qt
-              #( wget https://download.qt.io/archive/qt/5.13/5.13.2/single/qt-everywhere-src-5.13.2.tar.xz && tar xJf qt-everywhere-src-5.13.2.tar.xz && cd qt-everywhere-src-5.13.2 && ./configure -static -release -nomake examples -opensource -confirm-license -opengl && make -j 6 && sudo make install)
+              #brew install qt
+    - name: Cache static Qt
+      id: cache-qt-mac
+      uses: actions/cache@v1
+      with:
+        path: /usr/local/opt/qt
+        key: cache-qt-mac
+
+    - name: Build static Qt
+      if: steps.cache-qt-mac.outputs.cache-hit != 'true'
+      run: |
+              wget --no-verbose https://download.qt.io/archive/qt/5.13/5.13.2/single/qt-everywhere-src-5.13.2.tar.xz
+              tar xJf qt-everywhere-src-5.13.2.tar.xz
+              cd qt-everywhere-src-5.13.2
+              ./configure -static -release -nomake examples -opensource -confirm-license -opengl -prefix /usr/local/opt/qt
+              make -j 3 && sudo make install
+
     - name: configure
       run: export LDFLAGS CPPFLAGS PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
