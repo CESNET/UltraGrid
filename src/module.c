@@ -136,6 +136,8 @@ void module_done(struct module *module_data)
         pthread_mutex_destroy(&tmp.lock);
 
         free(tmp.name);
+
+        module_data->cls = MODULE_CLASS_NONE;
 }
 
 static const char *module_class_name_pairs[] = {

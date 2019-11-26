@@ -126,10 +126,17 @@ keyboard_control::keyboard_control(struct module *parent) :
         m_start_time = time(NULL);
 
         m_root = get_root_module(parent);
+
+        module_init_default(&m_mod);
+        m_mod.cls = MODULE_CLASS_KEYCONTROL;
+        m_mod.priv_data = this;
+        m_mod.new_message = keyboard_control::msg_received_func;
+        module_register(&m_mod, m_parent);
 }
 
 keyboard_control::~keyboard_control() {
         stop(); // in case that it was not called explicitly
+        module_done(&m_mod);
 }
 
 ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
@@ -156,12 +163,6 @@ void keyboard_control::start()
         }
         atexit(restore_old_tio);
 #endif
-
-        module_init_default(&m_mod);
-        m_mod.cls = MODULE_CLASS_KEYCONTROL;
-        m_mod.priv_data = this;
-        m_mod.new_message = keyboard_control::msg_received_func;
-        module_register(&m_mod, m_parent);
 
         load_config_map();
 
@@ -197,8 +198,8 @@ void keyboard_control::stop()
         close(m_event_pipe[1]);
 #endif
 
-        module_done(&m_mod);
         m_started = false;
+        module_done(&m_mod);
 }
 
 #ifdef HAVE_TERMIOS_H
