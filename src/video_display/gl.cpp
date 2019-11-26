@@ -1019,8 +1019,8 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
                 if (glutGetModifiers() == 0) {
                         return key;
                 }
-                if (glutGetModifiers() == GLUT_ACTIVE_CTRL && isalpha(key)) {
-                        return K_CTRL(key);
+                if (glutGetModifiers() == GLUT_ACTIVE_CTRL && key >= 1 && key <= 26) {
+                        return K_CTRL('a' + key - 1);
                 }
                 if (glutGetModifiers() == GLUT_ACTIVE_ALT && isalpha(key)) {
                         return K_ALT(key);
