@@ -226,6 +226,8 @@ static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
         case SDLK_LEFT:  return K_LEFT;
         case SDLK_DOWN:  return K_DOWN;
         case SDLK_UP:    return K_UP;
+        case SDLK_PAGEDOWN:    return K_PGDOWN;
+        case SDLK_PAGEUP:    return K_PGUP;
         }
         return -1;
 }

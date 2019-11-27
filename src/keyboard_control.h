@@ -105,10 +105,12 @@ private:
 #endif // __cplusplus
 
 // values are byte represenations of escape sequences (without ESC itself)
-#define K_UP    0x1b5b41
-#define K_DOWN  0x1b5b42
-#define K_RIGHT 0x1b5b43
-#define K_LEFT  0x1b5b44
+#define K_UP     0x1b5b41
+#define K_DOWN   0x1b5b42
+#define K_RIGHT  0x1b5b43
+#define K_LEFT   0x1b5b44
+#define K_PGUP   0x1b5b357e
+#define K_PGDOWN 0x1b5b367e
 #define K_CTRL(x) (1 + ((x) >= 'A' && (x) <= 'Z' ? (x) - 'A' + 'a' : (x)) - 'a')
 #define K_CTRL_UP 0x1b5b313b3541LL
 #define K_CTRL_DOWN 0x1b5b313b3542LL

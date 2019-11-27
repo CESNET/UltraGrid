@@ -344,6 +344,8 @@ static string get_keycode_representation(int64_t ch) {
         case K_DOWN: return "K_DOWN";
         case K_LEFT: return "K_LEFT";
         case K_RIGHT: return "K_RIGHT";
+        case K_PGUP: return "K_PGUP";
+        case K_PGDOWN: return "K_PGDOWN";
         }
 
         if (ch >= 1 && ch <= 'z' - 'a' + 1) {

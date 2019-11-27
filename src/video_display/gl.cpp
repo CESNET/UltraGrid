@@ -1014,6 +1014,8 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
                 case GLUT_KEY_UP: return K_UP;
                 case GLUT_KEY_RIGHT: return K_RIGHT;
                 case GLUT_KEY_DOWN: return K_DOWN;
+                case GLUT_KEY_PAGE_UP: return K_PGUP;
+                case GLUT_KEY_PAGE_DOWN: return K_PGDOWN;
                 }
         } else {
                 if (glutGetModifiers() == 0) {
