@@ -79,8 +79,8 @@ jobs:
     runs-on: macos-latest
     env:
       UG_SKIP_NET_TESTS: 1
-      LDFLAGS: "-L/usr/local/opt/qt/lib"
-      CPPFLAGS: "-I/usr/local/opt/qt/include"
+      CPATH: "/usr/local/opt/qt/include"
+      LIBRARY_PATH: "/usr/local/opt/qt/lib"
       PKG_CONFIG_PATH: "/usr/local/opt/qt/lib/pkgconfig"
     
     steps:
@@ -94,7 +94,6 @@ jobs:
               brew install autoconf automake cppunit dylibbundler libtool pkg-config
               brew install ffmpeg portaudio sdl2
               brew install ossp-uuid # for cineform
-              git submodule update --init
               ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
               #brew install qt
     - name: Cache static Qt
@@ -114,7 +113,7 @@ jobs:
               make -j 3 && sudo make install
 
     - name: configure
-      run: export LDFLAGS CPPFLAGS PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
+      run: export CPATH LIBRARY_PATH PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
       run: make osx-gui-dmg
     - name: make check
@@ -128,10 +127,10 @@ jobs:
         path: UltraGrid.dmg
 
   Windows:
-    name: run Window
+    name: run Windows
     runs-on: windows-latest
     env:
-      MSYS2_PATH_TYPE: inherit
+      MSYS2_PATH_TYPE: inherit # MSYS2 inherits PATH from Windows
     
     steps:
     - uses: actions/checkout@v1
@@ -139,6 +138,8 @@ jobs:
         submodules: true
     - name: Install MSYS2
       run: choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
+    - name: Install CUDA
+      run: choco install --no-progress cuda
     - name: MSYS2 set env
       run: |
               C:\msys64\usr\bin\bash -lc 'echo export PATH=/mingw64/bin:/usr/local/bin:\$PATH >> ~/.bash_profile'
@@ -146,18 +147,19 @@ jobs:
               C:\msys64\usr\bin\bash -lc 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo export LIBRARY_PATH=/usr/local/lib >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo cd \`cygpath \$GITHUB_WORKSPACE\` >> ~/.bash_profile'
+              echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64" # cl
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
+              C:\msys64\usr\bin\bash -lc 'echo export CPATH=\$CPATH:/c/Program\\\ Files/NVIDIA\\\ GPU\\\ Computing\\\ Toolkit/CUDA/v10.2/include >> ~/.bash_profile'
     - name: Install MSYS2 packages
       run: C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip'
-    - name: Install CUDA
-      run: |
-              choco install --no-progress cuda
-              echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64"
-              C:\msys64\usr\bin\bash -lc 'echo export CPATH=\$CPATH:/c/Program\\\ Files/NVIDIA\\\ GPU\\\ Computing\\\ Toolkit/CUDA/v10.2/include >> ~/.bash_profile'
     - name: Install FFMPEG
       run: C:\msys64\usr\bin\bash -lc 'wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && mkdir -p /usr/local/lib /usr/local/bin /usr/local/include && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*'
     - name: Build GPUJPEG
       run: C:\msys64\usr\bin\bash -lc 'cd gpujpeg && nvcc -I. -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu && cp gpujpeg.lib /usr/local/lib && cp gpujpeg.dll /usr/local/bin && cp -r libgpujpeg /usr/local/include'
+    - name: Build CineForm
+      run: C:\msys64\usr\bin\bash -lc "cd cineform-sdk && cmake -DBUILD_STATIC=false -G Visual\ Studio\ 16\ 2019 -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig"
     - name: configure
       run: C:\msys64\usr\bin\bash -lc "./autogen.sh"
     - name: make
