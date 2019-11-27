@@ -70,7 +70,6 @@
 #include <memory>
 #include <mutex>
 #include <pthread.h>
-#include <rang.hpp>
 #include <string>
 #include <string.h>
 #include <thread>
@@ -141,8 +140,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define MAX_CAPTURE_COUNT 17
 
-using rang::fg;
-using rang::style;
 using namespace std;
 using namespace std::chrono;
 
@@ -321,7 +318,7 @@ void exit_uv(int status) {
 static void print_help_item(const string &name, const vector<string> &help) {
         int help_lines = 0;
 
-        cout << style::bold << "\t" << name << style::reset;
+        cout << BOLD("\t" << name);
 
         for (auto line : help) {
                 int spaces = help_lines == 0 ? 31 - (int) name.length() : 39;
@@ -340,7 +337,7 @@ static void print_help_item(const string &name, const vector<string> &help) {
 
 static void usage(const char *exec_path, bool full = false)
 {
-        cout << "Usage: " << fg::red << style::bold << (exec_path ? exec_path : "<executable_path>") << fg::reset << " [options] address\n\n" << style::reset;
+        cout << "Usage: " << BOLD(RED((exec_path ? exec_path : "<executable_path>")) << " [options] address\n\n");
         printf("Options:\n");
         print_help_item("-h | --fullhelp", {"show usage (basic/full)"});
         print_help_item("-d <display_device>", {"select display device, use '-d help'",
@@ -546,12 +543,12 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         if (strcmp(optarg, "help") == 0) {
                 const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!][E]";
                 cout << "Usage:\n" <<
-                        "\tuv " << style::bold << "-l [auto | unlimited | " << numeric_pattern << "]\n" << style::reset <<
+                        "\tuv " << BOLD("-l [auto | unlimited | " << numeric_pattern << "]\n") <<
                         "\twhere\n"
-                        "\t\t" << style::bold << "auto" << style::reset << " - spread packets across frame time\n"
-                        "\t\t" << style::bold << "unlimited" << style::reset << " - send packets at a wire speed (in bursts)\n"
-                        "\t\t" << style::bold << numeric_pattern << style::reset << " - send packets at most at specified bitrate\n\n" <<
-                        style::bold << "Notes: " << style::reset << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
+                        "\t\t" << BOLD("auto") << " - spread packets across frame time\n"
+                        "\t\t" << BOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
+                        "\t\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
+                        BOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
                         "\n";
                 return true;
         }
@@ -846,8 +843,8 @@ int main(int argc, char *argv[])
                 case OPT_PROTOCOL:
                         if (strcmp(optarg, "help") == 0 ||
                                         strcmp(optarg, "fullhelp") == 0) {
-                                cout << "Specify a " << style::bold << "common" << style::reset << " protocol for both audio and video.\n";
-                                cout << "Audio protocol can be one of: " << style::bold << AUDIO_PROTOCOLS "\n" << style::reset;
+                                cout << "Specify a " << BOLD("common") << " protocol for both audio and video.\n";
+                                cout << "Audio protocol can be one of: " << BOLD(AUDIO_PROTOCOLS "\n");
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
@@ -1195,18 +1192,16 @@ int main(int argc, char *argv[])
                 log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
         }
 
-        auto fmt = style::bold;
-        auto fmt_rst = style::reset;
-        cout << fmt << "Display device   : " << fmt_rst << requested_display << "\n";
-        cout << fmt << "Capture device   : " << fmt_rst << vidcap_params_get_driver(vidcap_params_head) << "\n";
-        cout << fmt << "Audio capture    : " << fmt_rst << audio_send << "\n";
-        cout << fmt << "Audio playback   : " << fmt_rst << audio_recv << "\n";
-        cout << fmt << "MTU              : " << fmt_rst << requested_mtu << " B\n";
-        cout << fmt << "Video compression: " << fmt_rst << requested_compression << "\n";
-        cout << fmt << "Audio codec      : " << fmt_rst << get_name_to_audio_codec(get_audio_codec(audio_codec)) << "\n";
-        cout << fmt << "Network protocol : " << fmt_rst << video_rxtx::get_long_name(video_protocol) << "\n";
-        cout << fmt << "Audio FEC        : " << fmt_rst << requested_audio_fec << "\n";
-        cout << fmt << "Video FEC        : " << fmt_rst << requested_video_fec << "\n";
+        cout << BOLD("Display device   : ") << requested_display << "\n";
+        cout << BOLD("Capture device   : ") << vidcap_params_get_driver(vidcap_params_head) << "\n";
+        cout << BOLD("Audio capture    : ") << audio_send << "\n";
+        cout << BOLD("Audio playback   : ") << audio_recv << "\n";
+        cout << BOLD("MTU              : ") << requested_mtu << " B\n";
+        cout << BOLD("Video compression: ") << requested_compression << "\n";
+        cout << BOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(audio_codec)) << "\n";
+        cout << BOLD("Network protocol : ") << video_rxtx::get_long_name(video_protocol) << "\n";
+        cout << BOLD("Audio FEC        : ") << requested_audio_fec << "\n";
+        cout << BOLD("Video FEC        : ") << requested_video_fec << "\n";
         cout << "\n";
 
         exporter = export_init(&uv.root_module, export_opts, should_export);
