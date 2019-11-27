@@ -596,15 +596,7 @@ gui-bundle: bundle gui/QT/uv-qt
 
 osx-gui-dmg: gui-bundle
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
-	MBYTES=`du -mc $(GUI_BUNDLE) | tail -n1 | cut -f1`; \
-	       MBYTES=$$(($$MBYTES+2)); \
-	       hdiutil create -megabytes $$MBYTES -fs MS-DOS -volname ULTRAGRID UltraGrid.dmg
-	MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
-		 cp -r "$(GUI_BUNDLE)" "$$MOUNT_PT"; \
-		 hdiutil eject "$$MOUNT_PT"
-	hdiutil convert UltraGrid.dmg -format UDZO -imagekey zlib-level=9 -o UltraGrid-ro.dmg
-	rm UltraGrid.dmg
-	mv UltraGrid-ro.dmg UltraGrid.dmg
+	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
