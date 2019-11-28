@@ -208,6 +208,10 @@ ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 	if [ -n "@XIMEA_DLL@" ]; then $(INSTALL) -m 644 @XIMEA_DLL@ bin; fi
 endif
+ifeq ($(SYSTEM),MacOSX)
+	$(MKDIR_P) Frameworks
+	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
