@@ -39,6 +39,7 @@
 #include "config_unix.h"
 #include "debug.h"
 
+#include <OpenGL/gl.h>
 #import <Syphon/Syphon.h>
 
 #include "syphon_server.h"
