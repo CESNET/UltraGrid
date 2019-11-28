@@ -142,7 +142,9 @@ jobs:
     - name: Install MSYS2
       run: choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
     - name: Install CUDA
-      run: choco install --no-progress cuda
+      run: |
+              Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_441.22_win10.exe -OutFile cuda_inst.exe
+              Start-Process -FilePath "cuda_inst.exe" -ArgumentList "-s nvcc_10.2" -Wait -NoNewWindow
     - name: MSYS2 set env
       run: |
               C:\msys64\usr\bin\bash -lc 'echo export PATH=/mingw64/bin:/usr/local/bin:\$PATH >> ~/.bash_profile'
