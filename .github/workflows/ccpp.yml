@@ -79,9 +79,10 @@ jobs:
     runs-on: macos-latest
     env:
       UG_SKIP_NET_TESTS: 1
-      CPATH: "/usr/local/opt/qt/include"
-      LIBRARY_PATH: "/usr/local/opt/qt/lib"
-      PKG_CONFIG_PATH: "/usr/local/opt/qt/lib/pkgconfig"
+      CPATH: "/usr/local/include:/usr/local/opt/qt/include"
+      LIBRARY_PATH: "/usr/local/lib:/usr/local/opt/qt/lib"
+      PKG_CONFIG_PATH: "/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig"
+      SDKROOT: "macosx10.14" # SDK 10.15 crashes Qt in High Sierra
     
     steps:
     - uses: actions/checkout@v1
@@ -91,11 +92,13 @@ jobs:
       run: echo "::add-path::/usr/local/opt/qt/bin"
     - name: bootstrap
       run: |
+              curl -LO https://github.com/phracker/MacOSX-SDKs/releases/download/10.14-beta4/MacOSX10.14.sdk.tar.xz
+              tar xJf MacOSX10.14.sdk.tar.xz
+              mv MacOSX10.14.sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs
               brew install autoconf automake cppunit dylibbundler libtool pkg-config
               brew install ffmpeg portaudio sdl2
               brew install ossp-uuid # for cineform
               ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
-              #brew install qt
     - name: Cache static Qt
       id: cache-qt-mac
       uses: actions/cache@v1
