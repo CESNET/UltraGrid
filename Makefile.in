@@ -216,6 +216,10 @@ $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
+ifeq ($(SYSTEM),MacOSX)
+	$(MKDIR_P) Frameworks
+	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
