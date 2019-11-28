@@ -41,7 +41,11 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#if defined(__APPLE__)
+#include <m3api/xiApi.h>
+#else
 #include <xiApi.h>
+#endif
 
 #include "debug.h"
 #include "lib_common.h"

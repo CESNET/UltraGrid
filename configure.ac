@@ -1098,27 +1098,52 @@ AC_ARG_ENABLE(ximea,
               [ximea_req=$enableval],
               [ximea_req=$build_default]
               )
-
-SAVED_CFLAGS=$CFLAGS
-SAVED_LIBS=$LIBS
-XIMEA_LIBS="-lm3api"
-if test -n "$GENICAM_GENTL64_PATH"; then
-        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
-fi
-XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
-XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/../include"
-LIBS="$LIBS $XIMEA_LIBS"
-CFLAGS="$CFLAGS $XIMEA_CFLAGS"
-AC_CHECK_LIB(m3api, xiGetImage)
-AC_CHECK_HEADERS([xiApi.h])
-LIBS=$SAVED_LIBS
-CFLAGS=$SAVED_CFLAGS
-if test $ximea_req != no -a $ac_cv_lib_m3api_xiGetImage = yes -a $ac_cv_header_xiApi_h = yes; then
-        CFLAGS="$CFLAGS $XIMEA_CFLAGS"
-	ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
-        ximea=yes
+ximea=no
+if test $system = MacOSX; then
+	MY_CHECK_FRAMEWORK([m3api])
+	if test $my_cv_framework_m3api = yes; then
+                XIMEA_LIBS=$FRAMEWORK_M3API
+                ximea=yes
+        fi
 else
-        ximea=no
+        SAVED_CFLAGS=$CFLAGS
+        SAVED_CPPFLAGS=$CPPFLAGS
+        SAVED_LIBS=$LIBS
+        if test -z "$GENICAM_GENTL64_PATH"; then
+                if test $system = Linux; then
+                        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
+                        XI_LIB_NAME="m3api"
+                        XI_INC_SUFF="/include"
+                else
+                        GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
+                        XI_LIB_NAME="xiapi64"
+                        XI_INC_SUFF=
+                fi
+        fi
+        XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..$XI_INC_SUFF"
+        LIBS="$LIBS $XIMEA_LIBS"
+        CFLAGS="$CFLAGS $XIMEA_CFLAGS"
+        CPPFLAGS="$CPPFLAGS $XIMEA_CFLAGS"
+        AC_CHECK_LIB($XI_LIB_NAME, xiGetImage, HAVE_XI_L=yes, HAVE_XI_L=no)
+        AC_CHECK_HEADERS([xiApi.h])
+        XIMEA_LIBS="-l$XI_LIB_NAME -L$GENICAM_GENTL64_PATH"
+        LIBS=$SAVED_LIBS
+        CFLAGS=$SAVED_CFLAGS
+        CPPFLAGS=$SAVED_CPPFLAGS
+        if test $ximea_req != no -a $HAVE_XI_L = yes -a $ac_cv_header_xiApi_h = yes; then
+                ximea=yes
+                if test $system = Windows; then
+                        XIMEA_DLL="$GENICAM_GENTL64_PATH/${XI_LIB_NAME}.dll"
+                fi
+        fi
+fi
+
+AC_SUBST(XIMEA_DLL)
+
+if test $ximea = yes; then
+        CFLAGS="$CFLAGS $XIMEA_CFLAGS"
+        ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
 fi
 
 if test $ximea_req = yes -a $ximea = no; then
