@@ -203,6 +203,7 @@ src/dir-stamp:
 	touch $@
 
 bin/screen-capture-recorder-x64.dll:
+	$(MKDIR_P) $(dir $@)
 	install $(srcdir)/data/screen-capture-recorder-x64.dll bin
 
 Frameworks/Syphon.framework:
