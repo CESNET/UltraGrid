@@ -625,7 +625,7 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 				} else { // device specified by name
 					s->deviceName = (char *) malloc(sizeof(char) * (strlen(token) + 100));
 					if (s->deviceName == NULL) return false;
-					strcpy_s(s->deviceName, strlen(token), token);
+					strcpy_s(s->deviceName, strlen(token) + 1, token);
 					s->deviceNumber = -1;
 				}
 				break;
@@ -693,7 +693,7 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 					s->deviceNumber = atoi(token);
 				} else { // device specified by name
 					s->deviceName = (char *) malloc(sizeof(char) * (strlen(token) + 100));
-					strcpy_s(s->deviceName, strlen(token), token);
+					strcpy_s(s->deviceName, strlen(token) + 1, token);
 					s->deviceNumber = -1;
 				}
 			} else if (strncmp(token, "mode=", strlen("mode=")) == 0) {
@@ -960,7 +960,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		}
 
 		if (res != S_OK) {
-			fprintf(stderr, "[dshow] vidcap_dshow_init: Device named %s\n was not found.\n", s->deviceName);
+			fprintf(stderr, "[dshow] vidcap_dshow_init: Device named %s was not found.\n", s->deviceName);
 			goto error;
 		}
 	}
