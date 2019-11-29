@@ -342,7 +342,7 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 
 static void show_help(struct vidcap_dshow_state *s) {
 	printf("dshow grabber options:\n");
-	cout << style::bold << fg::red << "\t-t dshow" << fg::reset << "[:device=<DeviceNumber>][:mode=<ModeNumber>][:RGB]\n" << style::reset;
+	cout << style::bold << fg::red << "\t-t dshow" << fg::reset << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]\n" << style::reset;
 	cout << "\t    Flag " << style::bold << "RGB" << style::reset << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
 	cout << style::bold << fg::red << "\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>\n\n" << fg::reset << style::reset;
@@ -1480,7 +1480,7 @@ static const CHAR * GetSubtypeName(const GUID *pSubtype)
         }
 }
 
-static const struct video_capture_info vidcap_dshow_info = {
+extern "C" const struct video_capture_info vidcap_dshow_info = {
         vidcap_dshow_probe,
         vidcap_dshow_init,
         vidcap_dshow_done,

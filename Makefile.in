@@ -1,5 +1,6 @@
 AR            = ar
 RANLIB        = ranlib
+BIN_DEPS      = @BIN_DEPS@
 CP            = cp
 CC            = @CC@
 CXX           = @CXX@
@@ -201,16 +202,19 @@ src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
 	touch $@
 
-$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
+bin/screen-capture-recorder-x64.dll:
+	install $(srcdir)/data/screen-capture-recorder-x64.dll bin
+
+Frameworks/Syphon.framework:
+	$(MKDIR_P) Frameworks
+	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+
+$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 	if [ -n "@XIMEA_DLL@" ]; then $(INSTALL) -m 644 @XIMEA_DLL@ bin; fi
-endif
-ifeq ($(SYSTEM),MacOSX)
-	$(MKDIR_P) Frameworks
-	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
 endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)

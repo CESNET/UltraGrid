@@ -1868,7 +1868,7 @@ case "$system" in
 
 	;;
         Windows)
-                screen_cap=no
+                screen_cap=yes
         ;;
 	*)
                 # Linux
@@ -1907,9 +1907,11 @@ then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
         if test $system = MacOSX; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
-        else if test $system = Linux; then
+        elif test $system = Linux; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_x11.o src/x11_common.o"
-        fi
+        else
+                SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
+                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }bin/screen-capture-recorder-x64.dll"
         fi
         ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
 fi
@@ -2843,6 +2845,7 @@ then
         AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
         LIBS="$LIBS -framework Syphon"
         OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
+        BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
         syphon=yes
 fi
 
@@ -3096,6 +3099,7 @@ fi
 # remove duplicite objs
 OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
+AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
 AC_SUBST(LIB_OBJS)
