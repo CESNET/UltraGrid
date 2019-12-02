@@ -1837,6 +1837,27 @@ if test $swmix_req = yes -a $swmix = no; then
         AC_MSG_ERROR([SW mix was not found (OpenGL libraries missing)]);
 fi
 
+# -----------------------------------------------------------------------------
+# DirectShow
+# -----------------------------------------------------------------------------
+dshow=no
+AC_ARG_ENABLE(dshow,
+      AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
+    [dshow_req=$enableval],
+    [dshow_req=$build_default]
+    )
+
+if test $system = Windows -a $dshow_req != no; then
+        AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
+        ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
+                   "-lstrmiids -luuid -lole32 -loleaut32") #-lstrmbase -ldxguid -ldmoguids
+        dshow=yes
+fi
+
+if test $dshow_req = yes -a $dshow = no; then
+        AC_MSG_ERROR([DirectShow not found]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Screen capture stuff
 # -------------------------------------------------------------------------------------------------
@@ -1847,7 +1868,7 @@ screen_cap=no
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
-[                          Requires: none (OSX) x11 (Linux)],
+[                          Requires: none (OSX) x11 (Linux) dshow (Win)],
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
     )
@@ -1868,7 +1889,7 @@ case "$system" in
 
 	;;
         Windows)
-                screen_cap=yes
+                screen_cap=$dshow
         ;;
 	*)
                 # Linux
@@ -1902,7 +1923,7 @@ case "$system" in
 	;;
 esac
 
-if test $screen_cap = yes
+if test $screen_cap_req != no -a $screen_cap = yes
 then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
         if test $system = MacOSX; then
@@ -1914,6 +1935,8 @@ then
                 BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }bin/screen-capture-recorder-x64.dll"
         fi
         ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
+else
+        screen_cap=no
 fi
 
 if test $screen_cap_req = yes -a $screen_cap = no; then
@@ -2688,27 +2711,6 @@ fi
 
 if test $v4l2_req = yes -a $v4l2 = no; then
         AC_MSG_ERROR([V4L2 not found]);
-fi
-
-# -----------------------------------------------------------------------------
-# DirectShow
-# -----------------------------------------------------------------------------
-dshow=no
-AC_ARG_ENABLE(dshow,
-      AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
-    [dshow_req=$enableval],
-    [dshow_req=$build_default]
-    )
-
-if test $system = Windows -a $dshow_req != no; then
-        AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
-        ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
-                   "-lstrmiids -luuid -lole32 -loleaut32") #-lstrmbase -ldxguid -ldmoguids
-        dshow=yes
-fi
-
-if test $dshow_req = yes -a $dshow = no; then
-        AC_MSG_ERROR([DirectShow not found]);
 fi
 
 # -----------------------------------------------------------------------------
