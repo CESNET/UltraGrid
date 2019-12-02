@@ -1109,19 +1109,22 @@ else
         SAVED_CFLAGS=$CFLAGS
         SAVED_CPPFLAGS=$CPPFLAGS
         SAVED_LIBS=$LIBS
-        if test -z "$GENICAM_GENTL64_PATH"; then
-                if test $system = Linux; then
+        if test $system = Linux; then
+                if test -z "$GENICAM_GENTL64_PATH"; then
                         GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
-                        XI_LIB_NAME="m3api"
-                        XI_INC_SUFF="/include"
-                else
-                        GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
-                        XI_LIB_NAME="xiapi64"
-                        XI_INC_SUFF=
                 fi
+                XI_LIB_NAME="m3api"
+                XI_INC_SUFF="/include"
+        else
+                if test -z "$GENICAM_GENTL64_PATH"; then
+                        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
+                fi
+                GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
+                XI_LIB_NAME="xiapi64"
+                XI_INC_SUFF=
         fi
         XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
-        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..$XI_INC_SUFF"
+        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..${XI_INC_SUFF}"
         LIBS="$LIBS $XIMEA_LIBS"
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"
         CPPFLAGS="$CPPFLAGS $XIMEA_CFLAGS"

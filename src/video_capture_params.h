@@ -47,9 +47,9 @@ extern "C" {
 /** @anchor vidcap_flags
  * @name Initialization Flags
  * @{ */
-#define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1u) ///< HD-SDI embedded audio
-#define VIDCAP_FLAG_AUDIO_AESEBU (1<<2u)   ///< AES/EBU audio
-#define VIDCAP_FLAG_AUDIO_ANALOG (1<<3u)   ///< (balanced) analog audio
+#define VIDCAP_FLAG_AUDIO_EMBEDDED (1u<<1u) ///< HD-SDI embedded audio
+#define VIDCAP_FLAG_AUDIO_AESEBU   (1u<<2u) ///< AES/EBU audio
+#define VIDCAP_FLAG_AUDIO_ANALOG   (1u<<3u) ///< (balanced) analog audio
 
 #define VIDCAP_FLAG_AUDIO_ANY (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)
 /** @} */

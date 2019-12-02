@@ -49,19 +49,21 @@
 
 #include "debug.h"
 #include "lib_common.h"
-#include "utils/misc.h"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 #include "video.h"
 #include "video_capture.h"
 
+#define DEFAULT_TIMEOUT_MS 100
 #define EXPOSURE_DEFAULT_US 10000
 #define MAGIC to_fourcc('X', 'I', 'M', 'E')
 #define MOD_NAME "[XIMEA] "
+#define MICROSEC_IN_SEC 1000000.0
 
 struct state_vidcap_ximea {
         uint32_t magic;
-        int device_id;
-        int exposure_time_us;
+        long device_id;
+        long exposure_time_us;
 
         HANDLE xiH;
 };
@@ -101,16 +103,27 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *c
         }
 
         char *fmt = strdup(cfg);
-        char *save_ptr, *tmp = fmt, *tok;
+        char *save_ptr;
+        char *tmp = fmt;
+        char *tok;
         while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (!strcmp(tok, "help")) {
                         vidcap_ximea_show_help();
                         free(fmt);
                         return VIDCAP_INIT_NOERR;
-                } else if (strstr(tok, "device=")) {
-                        s->device_id = atoi(tok + strlen("device="));
+                }
+                if (strstr(tok, "device=")) {
+                        char *endptr = NULL;
+                        s->device_id = strtol(tok + strlen("device="), &endptr, 0);
+                        if (*endptr != '\0') {
+                                goto error;
+                        }
                 } else if (strstr(tok, "exposure=")) {
-                        s->exposure_time_us = atoi(tok + strlen("exposure="));
+                        char *endptr = NULL;
+                        s->exposure_time_us = strtol(tok + strlen("exposure="), &endptr, 0);
+                        if (*endptr != '\0' || s->exposure < 0) {
+                                goto error;
+                        }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         free(fmt);
@@ -121,6 +134,10 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *c
 
         free(fmt);
         return 0;
+
+error:
+        free(fmt);
+        return VIDCAP_INIT_FAIL;
 }
 
 #define CHECK(cmd) do { \
@@ -171,7 +188,7 @@ static struct video_frame *vidcap_ximea_grab(void *state, struct audio_frame **a
 {
         struct state_vidcap_ximea *s = (struct state_vidcap_ximea *) state;
         assert(s->magic == MAGIC);
-        int timeout_ms = 100;
+        int timeout_ms = DEFAULT_TIMEOUT_MS;
 
         XI_IMG img;
         memset(&img, 0, sizeof img);
@@ -190,7 +207,7 @@ static struct video_frame *vidcap_ximea_grab(void *state, struct audio_frame **a
         d.color_spec = BGR;
         d.tile_count = 1;
         d.interlacing = PROGRESSIVE;
-        d.fps = 1000000l / s->exposure_time_us;
+        d.fps = MICROSEC_IN_SEC / (double) s->exposure_time_us;
 
         struct video_frame *out = vf_alloc_desc(d);
         out->tiles[0].data = img.bp;

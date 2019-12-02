@@ -200,7 +200,6 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
 {
         bool colorSpaceSet = false; // explicitly set input color spec
 
-#define VIDCAP_FLAG_AUDIO_ANALOG (1<<3u)   ///< (balanced) analog audio
         for (auto it : parameters) {
                 if (it.first == "progressive") {
                         mProgressive = true;
