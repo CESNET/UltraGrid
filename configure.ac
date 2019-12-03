@@ -2177,6 +2177,27 @@ AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
+# ---------------------------------------------------------------------
+# CUDA capture
+# ---------------------------------------------------------------------
+cuda_cap=no
+
+AC_ARG_ENABLE(cuda-cap,
+[  --disable-cuda-cap         disable CUDA capture (auto)]
+[                             Requires: CUDA],
+	[cuda_cap_req=$enableval],
+        [cuda_cap_req=$build_default])
+
+if test $cuda_cap_req != no -a $FOUND_CUDA = yes -a $system = Linux; then
+        ADD_MODULE("vidcap_cuda", "src/video_capture/cuda.o", "$CUDA_LIB")
+        cuda_cap=yes
+fi
+
+if test $cuda_cap_req = yes -a $cuda_cap = no; then
+        AC_MSG_ERROR([CUDA capture not found]);
+fi
+
+
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
 GPUJPEG_OBJ=
@@ -3219,6 +3240,7 @@ RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
 RESULT=`add_column "$RESULT" "Bluefish444 (audio: $blue_audio)" $bluefish444 $?`
+RESULT=`add_column "$RESULT" "CUDA capture" $cuda_cap $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`

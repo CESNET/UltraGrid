@@ -249,6 +249,8 @@ static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
         return nullptr;
 }
 
+#define IS_I420(c) (c == I420 || c == CUDA_I420)
+
 /**
  * Configures GPUJPEG encoder with provided parameters.
  */
@@ -258,13 +260,16 @@ bool encoder_state::configure_with(struct video_desc desc)
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG;
 
-        m_decoder = get_decoder(desc.color_spec, &m_enc_input_codec);
-        if (!m_decoder) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n",
-                                get_codec_name(desc.color_spec));
-                return false;
+        if (desc.color_spec == CUDA_I420) {
+                m_decoder = nullptr;
+        } else {
+                m_decoder = get_decoder(desc.color_spec, &m_enc_input_codec);
+                if (!m_decoder) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n",
+                                        get_codec_name(desc.color_spec));
+                        return false;
+                }
         }
-
 
         gpujpeg_set_default_parameters(&m_encoder_param);
         if (m_parent_state->m_quality != -1) {
@@ -285,7 +290,7 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         /* LUMA */
         if (m_parent_state->m_subsampling == 0) {
-                m_encoder_param.sampling_factor[0].vertical = m_enc_input_codec == I420 ? 2 : 1;
+                m_encoder_param.sampling_factor[0].vertical = IS_I420(m_enc_input_codec) ? 2 : 1;
                 m_encoder_param.sampling_factor[0].horizontal = codec_is_a_rgb(m_enc_input_codec) ? 1 : 2;
         } else {
                 m_encoder_param.sampling_factor[0].vertical = m_parent_state->m_subsampling == 420 ? 2 : 1;
@@ -310,10 +315,11 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
-        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : (desc.color_spec == I420 ? GPUJPEG_YCBCR_JPEG : GPUJPEG_YCBCR_BT709);
+        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : (IS_I420(desc.color_spec) ? GPUJPEG_YCBCR_JPEG : GPUJPEG_YCBCR_BT709);
 
 #if LIBGPUJPEG_API_VERSION > 2
         switch (m_enc_input_codec) {
+        case CUDA_I420:
         case I420: m_param_image.pixel_format = GPUJPEG_420_U8_P0P1P2; break;
         case RGB: m_param_image.pixel_format = GPUJPEG_444_U8_P012; break;
 #if GJ_RGBA_SUPP == 1
@@ -534,7 +540,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 struct tile *out_tile = vf_get_tile(out.get(), x);
                 uint8_t *jpeg_enc_input_data;
 
-                if (m_decoder != vc_memcpy) {
+                if (m_decoder && m_decoder != vc_memcpy) {
                         unsigned char *line1 = (unsigned char *) in_tile->data;
                         unsigned char *line2 = (unsigned char *) m_decoded.get();
 
@@ -556,7 +562,11 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 int ret;
 
                 struct gpujpeg_encoder_input encoder_input;
-                gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
+                if (tx->color_spec == CUDA_I420) {
+                        gpujpeg_encoder_input_set_gpu_image(&encoder_input, jpeg_enc_input_data);
+                } else {
+                        gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
+                }
 #if LIBGPUJPEG_API_VERSION <= 2
                 ret = gpujpeg_encoder_encode(m_encoder, &encoder_input, &compressed, &size);
 #else
