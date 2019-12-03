@@ -121,7 +121,7 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *c
                 } else if (strstr(tok, "exposure=")) {
                         char *endptr = NULL;
                         s->exposure_time_us = strtol(tok + strlen("exposure="), &endptr, 0);
-                        if (*endptr != '\0' || s->exposure < 0) {
+                        if (*endptr != '\0' || s->exposure_time_us < 0) {
                                 goto error;
                         }
                 } else {
