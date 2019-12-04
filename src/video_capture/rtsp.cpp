@@ -937,9 +937,10 @@ rtsp_options(CURL *curl, const char *uri) {
     debug_msg("\n[rtsp] OPTIONS %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
 
-    sscanf(uri, "rtsp://%s", control);
+    sscanf(uri, "rtsp://%1500s", control);
     strtoken = strtok(control, ":");
-    memcpy(user, strtoken, strlen(strtoken));
+    assert(strtoken != NULL);
+    strncpy(user, strtoken, sizeof user - 1);
     strtoken = strtok(NULL, "@");
     if (strtoken != NULL) {
         strncpy(pass, strtoken, sizeof pass - 1);

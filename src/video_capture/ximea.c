@@ -103,6 +103,7 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *c
         }
 
         char *fmt = strdup(cfg);
+        assert(fmt != NULL);
         char *save_ptr;
         char *tmp = fmt;
         char *tok;

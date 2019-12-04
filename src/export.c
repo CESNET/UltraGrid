@@ -165,16 +165,14 @@ static char *create_anonymous_dir(const char *prefix)
                 }
                 int ret = platform_mkdir(name);
                 if(ret == -1) {
-                        if(errno == EEXIST) {
+                        if(errno == EEXIST) { // record exists, try next directory
                                 free(name);
                                 continue;
-                        } else {
-                                fprintf(stderr, "[Export] Directory creation failed: %s\n",
-                                                strerror(errno));
-                                free(name);
-                                return false;
                         }
+                        fprintf(stderr, "[Export] Directory creation failed: %s\n",
+                                        strerror(errno));
                         free(name);
+                        return false;
                 } else {
                         return name;
                 }
