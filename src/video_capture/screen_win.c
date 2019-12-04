@@ -65,7 +65,8 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t screen\n");
+        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t screen");
+        color_out(COLOR_OUT_BOLD, "[:width=<w>][:height=<h>][:fps=<f>]\n");
 }
 
 
@@ -95,14 +96,85 @@ static struct vidcap_type * vidcap_screen_win_probe(bool verbose, void (**delete
         return vt;
 }
 
+static bool set_key(const char *key, int val)
+{
+        HKEY hKey = NULL;
+        if (RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\screen-capture-recorder", 0L, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, NULL ) != ERROR_SUCCESS) {
+                // may already exist - try to open it
+                if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\screen-capture-recorder", 0L, KEY_ALL_ACCESS, &hKey ) != ERROR_SUCCESS) {
+                        return false;
+                }
+        }
+        DWORD val_dword = val;
+        if (RegSetValueExA(hKey, key, 0L, REG_DWORD, &val_dword, sizeof val_dword) != ERROR_SUCCESS) {
+                return false;
+        }
+
+        return true;
+}
+
+static bool vidcap_screen_win_process_params(const char *fmt)
+{
+        if (!fmt || fmt[0] == '\0') {
+                return true;
+        }
+        char *fmt_c = strdup(fmt);
+        assert(fmt_c != NULL);
+
+        char *save_ptr;
+        char *tmp = fmt_c;
+        char *tok;
+
+        while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                const char *key;
+                char *val_c;
+                if (strstr(tok, "width=") != NULL) {
+                        key ="capture_width";
+                        val_c = tok + strlen("width=");
+                } else if (strstr(tok, "height=") != NULL) {
+                        key ="capture_height";
+                        val_c = tok + strlen("height=");
+                } else if (strstr(tok, "fps=") != NULL) {
+                        key ="default_max_fps";
+                        val_c = tok + strlen("fps=");
+                } else {
+                        free(fmt_c);
+                        return false;
+                }
+                char *endptr;
+                long val = strtol(val_c, &endptr, 0);
+                if (*endptr != '\0') {
+                        log_msg(LOG_LEVEL_ERROR, "Wrong val: %s\n", val_c);
+                        free(fmt_c);
+                        return false;
+                }
+                if (!set_key(key, val)) {
+                        log_msg(LOG_LEVEL_ERROR, "Cannot set %s=%ld\n", key, val);
+                        free(fmt_c);
+                        return false;
+                }
+
+                tmp = NULL;
+        }
+
+        free(fmt_c);
+        return true;
+}
+
+
 #define CHECK_NOT_NULL_EX(cmd, err_action) do { if ((cmd) == NULL) { log_msg(LOG_LEVEL_ERROR, "[screen] %s\n", #cmd); err_action; } } while(0)
 #define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, return VIDCAP_INIT_FAIL);
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
-        if (vidcap_params_get_fmt(params) &&
-                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+        const char *cfg = vidcap_params_get_fmt(params);
+        if (cfg && strcmp(cfg, "help") == 0) {
                 show_help();
                 return VIDCAP_INIT_NOERR;
+        }
+
+        if (!vidcap_screen_win_process_params(cfg)) {
+                show_help();
+                return VIDCAP_INIT_FAIL;
         }
 
         HMODULE mod;
