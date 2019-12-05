@@ -60,7 +60,7 @@
 
 struct shm {
         int width, height;
-        cudaIpcMemHandle_t *d_ptr;
+        cudaIpcMemHandle_t d_ptr;
         int ug_exited;
 };
 
@@ -72,6 +72,7 @@ struct state_vidcap_cuda {
 	int sem_id;
 };
 
+#define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { fprintf(stderr, "%s\n", cudaGetErrorString(err)); goto error; } } while(0)
 static int vidcap_cuda_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
@@ -90,40 +91,28 @@ static int vidcap_cuda_init(struct vidcap_params *params, void **state)
 
         s->f = vf_alloc_desc(desc);
 
-        cudaError_t err = cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN);
-        if (err != cudaSuccess) {
-                fprintf(stderr, "%s\n", cudaGetErrorString(cudaGetLastError()));
-                goto error;
-        }
-
-        int id = shmget(ftok(SHM_KEY, 1), sizeof(struct shm), IPC_CREAT | 0666);
-        if (id == -1) {
-                perror("shmget");
-                goto error;
-        }
-	if (shmctl(id, IPC_RMID , 0) == -1) {
-		perror("shmctl");
-	}
         if ((s->shm_id = shmget(ftok(SHM_KEY, 1), sizeof(struct shm), IPC_CREAT | 0666)) == -1) {
-                perror("shmget");
-                goto error;
+                if (errno != EEXIST) {
+                        perror("shmget");
+                        goto error;
+                }
         }
         s->shm = shmat(s->shm_id, NULL, 0);
         if (s->shm == (void *) -1) {
                 perror("shmat");
                 goto error;
         }
-        err = cudaIpcGetMemHandle (s->shm->d_ptr, s->f->tiles[0].data);
-        if (err != cudaSuccess) {
-                fprintf(stderr, "%s\n", cudaGetErrorString(cudaGetLastError()));
-                goto error;
-        }
         s->shm->ug_exited = 0;
         s->sem_id = semget(ftok(SEM_KEY, 1), 2, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
-                perror("semget");
-                goto error;
+                if (errno != EEXIST) {
+                        perror("semget");
+                        goto error;
+                }
         }
+
+        CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
+        CUDA_CHECK(cudaIpcGetMemHandle (&s->shm->d_ptr, s->f->tiles[0].data));
 
         struct sembuf op;
         op.sem_num = 0;
