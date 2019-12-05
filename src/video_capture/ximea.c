@@ -60,13 +60,39 @@
 #define MOD_NAME "[XIMEA] "
 #define MICROSEC_IN_SEC 1000000.0
 
+struct ximea_functions {
+        XIAPI XI_RETURN __cdecl (*xiGetNumberDevices)(OUT PDWORD pNumberDevices);
+        XIAPI XI_RETURN __cdecl (*xiGetDeviceInfoString)(IN DWORD DevId, const char* prm, char* value, DWORD value_size);
+        XIAPI XI_RETURN __cdecl (*xiOpenDevice)(IN DWORD DevId, OUT PHANDLE hDevice);
+        XIAPI XI_RETURN __cdecl (*xiSetParamInt)(IN HANDLE hDevice, const char* prm, const int val);
+        XIAPI XI_RETURN __cdecl (*xiStartAcquisition)(IN HANDLE hDevice);
+        XIAPI XI_RETURN __cdecl (*xiGetImage)(IN HANDLE hDevice, IN DWORD timeout, OUT LPXI_IMG img);
+        XIAPI XI_RETURN __cdecl (*xiStopAcquisition)(IN HANDLE hDevice);
+        XIAPI XI_RETURN __cdecl (*xiCloseDevice)(IN HANDLE hDevice);
+};
+
 struct state_vidcap_ximea {
         uint32_t magic;
         long device_id;
         long exposure_time_us;
 
         HANDLE xiH;
+	struct ximea_functions funcs;
 };
+
+static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
+#ifndef RUNTIME_LINKING
+	f->xiGetNumberDevices = xiGetNumberDevices;
+	f->xiGetDeviceInfoString = xiGetDeviceInfoString;
+	f->xiOpenDevice = xiOpenDevice;
+	f->xiSetParamInt = xiSetParamInt;
+	f->xiStartAcquisition = xiStartAcquisition;
+	f->xiGetImage = xiGetImage;
+	f->xiStopAcquisition = xiStopAcquisition;
+	f->xiCloseDevice = xiCloseDevice;
+#endif
+        return true;
+}
 
 static void vidcap_ximea_show_help() {
         color_out(0, "XIMEA usage:\n");
@@ -75,8 +101,14 @@ static void vidcap_ximea_show_help() {
         printf("\n");
         printf("Available devices:\n");
 
+        struct ximea_functions funcs;
+        if (!vidcap_ximea_fill_symbols(&funcs)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot load XIMEA library!\n");
+                return;
+        }
+
         DWORD count;
-        XI_RETURN ret = xiGetNumberDevices(&count);
+        XI_RETURN ret = funcs.xiGetNumberDevices(&count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
                 return;
@@ -90,7 +122,7 @@ static void vidcap_ximea_show_help() {
         for (DWORD i = 0; i < count; ++i) {
                 char name[256];
                 color_out(COLOR_OUT_BOLD, "\t%d) ", (int) i);
-                if (xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
+                if (funcs.xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
                         color_out(0, "%s", name);
                 }
                 color_out(0, "\n");
@@ -156,17 +188,21 @@ static int vidcap_ximea_init(struct vidcap_params *params, void **state)
         struct state_vidcap_ximea *s = calloc(1, sizeof(struct state_vidcap_ximea));
         s->magic = MAGIC;
         s->exposure_time_us = EXPOSURE_DEFAULT_US;
+        if (!vidcap_ximea_fill_symbols(&s->funcs)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot load XIMEA library!\n");
+                goto error;
+        }
         int ret = vidcap_ximea_parse_params(s, vidcap_params_get_fmt(params));
         if (ret != 0) {
                 free(s);
                 return ret;
         }
         
-        CHECK(xiOpenDevice(s->device_id, &s->xiH));
-        CHECK(xiSetParamInt(s->xiH, XI_PRM_EXPOSURE, s->exposure_time_us));
-        CHECK(xiSetParamInt(s->xiH, XI_PRM_IMAGE_DATA_FORMAT, XI_RGB24));
-        CHECK(xiSetParamInt(s->xiH, XI_PRM_AUTO_WB, XI_ON));
-        CHECK(xiStartAcquisition(s->xiH));
+        CHECK(s->funcs.xiOpenDevice(s->device_id, &s->xiH));
+        CHECK(s->funcs.xiSetParamInt(s->xiH, XI_PRM_EXPOSURE, s->exposure_time_us));
+        CHECK(s->funcs.xiSetParamInt(s->xiH, XI_PRM_IMAGE_DATA_FORMAT, XI_RGB24));
+        CHECK(s->funcs.xiSetParamInt(s->xiH, XI_PRM_AUTO_WB, XI_ON));
+        CHECK(s->funcs.xiStartAcquisition(s->xiH));
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -180,8 +216,8 @@ static void vidcap_ximea_done(void *state)
 {
         struct state_vidcap_ximea *s = (struct state_vidcap_ximea *) state;
         assert(s->magic == MAGIC);
-        xiStopAcquisition(s->xiH);
-        xiCloseDevice(s->xiH);
+        s->funcs.xiStopAcquisition(s->xiH);
+        s->funcs.xiCloseDevice(s->xiH);
         free(s);
 }
 
@@ -196,7 +232,7 @@ static struct video_frame *vidcap_ximea_grab(void *state, struct audio_frame **a
         img.size = sizeof img;
 
         *audio = NULL;
-        XI_RETURN ret = xiGetImage(s->xiH, timeout_ms, &img);
+        XI_RETURN ret = s->funcs.xiGetImage(s->xiH, timeout_ms, &img);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot capture frame: %d", (int) ret);
                 return NULL;
@@ -233,8 +269,14 @@ static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(voi
                 return vt;
         }
 
+        struct ximea_functions funcs;
+        if (!vidcap_ximea_fill_symbols(&funcs)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot load XIMEA library!\n");
+                return vt;
+        }
+
         DWORD count;
-        XI_RETURN ret = xiGetNumberDevices(&count);
+        XI_RETURN ret = funcs.xiGetNumberDevices(&count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
                 return vt;
@@ -245,7 +287,7 @@ static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(voi
                 snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "ximea:device=%d", (int) i);
                 char name[256];
                 color_out(COLOR_OUT_BOLD, "%d) ", (int) i);
-                if (xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
+                if (funcs.xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
                         strncpy(vt->cards[i].name, name, sizeof vt->cards[i].name);
                 }
         }
