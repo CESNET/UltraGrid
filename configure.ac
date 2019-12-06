@@ -130,13 +130,12 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-else if expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
+elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 else
         system=Linux
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
-fi
 fi
 AC_MSG_RESULT($system);
 AC_SUBST(system)
@@ -1098,51 +1097,73 @@ AC_ARG_ENABLE(ximea,
               [ximea_req=$enableval],
               [ximea_req=$build_default]
               )
+
+AC_ARG_ENABLE(ximea-runtime-linking,
+[  --disable-ximea-runtime-linking disable XIMEA suppport (default is enable), disabling may result in non-portable build],
+              [ximea_link_runtime=$enableval],
+              [ximea_link_runtime=yes]
+              )
 ximea=no
+
 if test $system = MacOSX; then
-	MY_CHECK_FRAMEWORK([m3api])
-	if test $my_cv_framework_m3api = yes; then
-                XIMEA_LIBS=$FRAMEWORK_M3API
+        MY_CHECK_FRAMEWORK([m3api])
+        if test $my_cv_framework_m3api = yes; then
+                if test $ximea_link_runtime = no; then
+                        XIMEA_LIBS=$FRAMEWORK_M3API
+                fi
                 ximea=yes
         fi
+        if test -z "$GENICAM_GENTL64_PATH"; then
+                GENICAM_GENTL64_PATH="/Library/Frameworks/m3api.framework"
+        fi
+        XI_LIB_NAME="m3api"
 else
-        SAVED_CFLAGS=$CFLAGS
-        SAVED_CPPFLAGS=$CPPFLAGS
-        SAVED_LIBS=$LIBS
         if test $system = Linux; then
                 if test -z "$GENICAM_GENTL64_PATH"; then
                         GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
                 fi
+                XI_LIB_EXT=".so"
                 XI_LIB_NAME="m3api"
+                XI_LIB_PREF="lib"
                 XI_INC_SUFF="/include"
         else
                 if test -z "$GENICAM_GENTL64_PATH"; then
-                        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
+                        GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
                 fi
-                GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
+                XI_LIB_EXT=".dll"
                 XI_LIB_NAME="xiapi64"
                 XI_INC_SUFF=
         fi
-        XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+        SAVED_CFLAGS=$CFLAGS
+        SAVED_CPPFLAGS=$CPPFLAGS
         XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..${XI_INC_SUFF}"
-        LIBS="$LIBS $XIMEA_LIBS"
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"
         CPPFLAGS="$CPPFLAGS $XIMEA_CFLAGS"
-        AC_CHECK_LIB($XI_LIB_NAME, xiGetImage, HAVE_XI_L=yes, HAVE_XI_L=no)
         AC_CHECK_HEADERS([xiApi.h])
-        XIMEA_LIBS="-l$XI_LIB_NAME -L$GENICAM_GENTL64_PATH"
-        LIBS=$SAVED_LIBS
         CFLAGS=$SAVED_CFLAGS
-        CPPFLAGS=$SAVED_CPPFLAGS
+
+        if test $ximea_link_runtime = no; then
+                XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+                SAVED_LIBS=$LIBS
+                LIBS="$LIBS $XIMEA_LIBS"
+                CPPFLAGS=$SAVED_CPPFLAGS
+                AC_CHECK_LIB($XI_LIB_NAME, xiGetImage, HAVE_XI_L=yes, HAVE_XI_L=no)
+                XIMEA_LIBS="-l$XI_LIB_NAME -L$GENICAM_GENTL64_PATH"
+                LIBS=$SAVED_LIBS
+        else
+                HAVE_XI_L=yes
+        fi
+
         if test $ximea_req != no -a $HAVE_XI_L = yes -a $ac_cv_header_xiApi_h = yes; then
                 ximea=yes
-                if test $system = Windows; then
-                        XIMEA_DLL="$GENICAM_GENTL64_PATH/${XI_LIB_NAME}.dll"
-                fi
         fi
 fi
 
-AC_SUBST(XIMEA_DLL)
+if test $ximea = yes -a $ximea_link_runtime = yes; then
+        AC_DEFINE([XIMEA_RUNTIME_LINKING], [1], [Dynamically open XIMEA lib on runtime])
+        AC_DEFINE_UNQUOTED([XIMEA_LIBRARY_NAME], ["$XI_LIB_PREF$XI_LIB_NAME$XI_LIB_EXT"], [Name of the dynamic libarary])
+        AC_DEFINE_UNQUOTED([XIMEA_LIBRARY_PATH], ["$GENICAM_GENTL64_PATH"], [Path to the XI dynamic libarary])
+fi
 
 if test $ximea = yes; then
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"

@@ -47,6 +47,10 @@
 #include <xiApi.h>
 #endif
 
+#ifndef WIN32
+#include <dlfcn.h>
+#endif
+
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
@@ -60,6 +64,15 @@
 #define MOD_NAME "[XIMEA] "
 #define MICROSEC_IN_SEC 1000000.0
 
+#ifdef WIN32
+#define LIB_HANDLE HINSTANCE
+#define dlopen(name, flags) LoadLibraryA(name)
+#define dlsym GetProcAddress
+#define dlclose FreeLibrary
+#else
+#define LIB_HANDLE void *
+#endif
+
 struct ximea_functions {
         XIAPI XI_RETURN __cdecl (*xiGetNumberDevices)(OUT PDWORD pNumberDevices);
         XIAPI XI_RETURN __cdecl (*xiGetDeviceInfoString)(IN DWORD DevId, const char* prm, char* value, DWORD value_size);
@@ -69,6 +82,7 @@ struct ximea_functions {
         XIAPI XI_RETURN __cdecl (*xiGetImage)(IN HANDLE hDevice, IN DWORD timeout, OUT LPXI_IMG img);
         XIAPI XI_RETURN __cdecl (*xiStopAcquisition)(IN HANDLE hDevice);
         XIAPI XI_RETURN __cdecl (*xiCloseDevice)(IN HANDLE hDevice);
+        LIB_HANDLE handle;
 };
 
 struct state_vidcap_ximea {
@@ -80,8 +94,39 @@ struct state_vidcap_ximea {
 	struct ximea_functions funcs;
 };
 
+#define GET_SYMBOL(sym) do {\
+        f->sym = dlsym(f->handle, #sym);\
+        if (f->sym == NULL) {\
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find symbol %s\n", #sym);\
+                return false;\
+        }\
+} while(0)
 static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
-#ifndef RUNTIME_LINKING
+#ifdef XIMEA_RUNTIME_LINKING
+        f->handle = dlopen(XIMEA_LIBRARY_NAME, RTLD_NOW);
+        if (!f->handle) {
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Unable to open library %s): %s!\n",
+                                XIMEA_LIBRARY_NAME, dlerror());
+                char path[strlen(XIMEA_LIBRARY_PATH) + 1 + strlen(XIMEA_LIBRARY_NAME) + 1];
+                strcpy(path, XIMEA_LIBRARY_PATH);
+                strcat(path, "/");
+                strcat(path, XIMEA_LIBRARY_NAME);
+                f->handle = dlopen(path, RTLD_NOW);
+        }
+        if (!f->handle) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open library (name: %s, path: %s): %s!\n",
+                                XIMEA_LIBRARY_NAME, XIMEA_LIBRARY_PATH, dlerror());
+                return false;
+        }
+        GET_SYMBOL(xiGetNumberDevices);
+        GET_SYMBOL(xiGetDeviceInfoString);
+        GET_SYMBOL(xiOpenDevice);
+        GET_SYMBOL(xiSetParamInt);
+        GET_SYMBOL(xiStartAcquisition);
+        GET_SYMBOL(xiGetImage);
+        GET_SYMBOL(xiStopAcquisition);
+        GET_SYMBOL(xiCloseDevice);
+#else
 	f->xiGetNumberDevices = xiGetNumberDevices;
 	f->xiGetDeviceInfoString = xiGetDeviceInfoString;
 	f->xiOpenDevice = xiOpenDevice;
@@ -91,8 +136,20 @@ static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
 	f->xiStopAcquisition = xiStopAcquisition;
 	f->xiCloseDevice = xiCloseDevice;
 #endif
+
         return true;
 }
+
+static void vidcap_ximea_close_lib(struct ximea_functions *f)
+{
+        if (f->handle == NULL) {
+                return;
+        }
+#ifdef XIMEA_RUNTIME_LINKING
+        dlclose(f->handle);
+#endif
+}
+
 
 static void vidcap_ximea_show_help() {
         color_out(0, "XIMEA usage:\n");
@@ -127,6 +184,7 @@ static void vidcap_ximea_show_help() {
                 }
                 color_out(0, "\n");
         }
+        vidcap_ximea_close_lib(&funcs);
 }
 
 static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *cfg) {
@@ -218,6 +276,7 @@ static void vidcap_ximea_done(void *state)
         assert(s->magic == MAGIC);
         s->funcs.xiStopAcquisition(s->xiH);
         s->funcs.xiCloseDevice(s->xiH);
+        vidcap_ximea_close_lib(&s->funcs);
         free(s);
 }
 
@@ -279,6 +338,7 @@ static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(voi
         XI_RETURN ret = funcs.xiGetNumberDevices(&count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
+                vidcap_ximea_close_lib(&funcs);
                 return vt;
         }
 
@@ -291,6 +351,7 @@ static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(voi
                         strncpy(vt->cards[i].name, name, sizeof vt->cards[i].name);
                 }
         }
+        vidcap_ximea_close_lib(&funcs);
 
         return vt;
 }

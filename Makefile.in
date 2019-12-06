@@ -214,7 +214,6 @@ $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
-	if [ -n "@XIMEA_DLL@" ]; then $(INSTALL) -m 644 @XIMEA_DLL@ bin; fi
 endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
