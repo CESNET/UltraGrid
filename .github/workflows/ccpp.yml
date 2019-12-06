@@ -58,6 +58,12 @@ jobs:
               cd /var/tmp && tar xJf qt.tar.xz && mv qt-everywhere-src-* qt
               cd /var/tmp/qt && ./configure -static -release -nomake examples -opensource -confirm-license -opengl -prefix /usr/local/qt
               make -j 3 -C /var/tmp/qt && sudo make -C /var/tmp/qt install
+    - name: Install XIMEA
+      run: |
+              wget https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
+              tar xzf XIMEA_Linux_SP.tgz
+              cd package
+              sudo ./install
     - name: configure
       run: ./autogen.sh --enable-qt --enable-static-qt --with-cuda-host-compiler=gcc-6 --enable-plugins
     - name: make
@@ -105,7 +111,6 @@ jobs:
       with:
         path: /usr/local/opt/qt
         key: cache-qt-mac
-
     - name: Build static Qt
       if: steps.cache-qt-mac.outputs.cache-hit != 'true'
       run: |
@@ -114,7 +119,13 @@ jobs:
               cd qt-everywhere-src-5.13.2
               ./configure -static -release -nomake examples -opensource -confirm-license -opengl -prefix /usr/local/opt/qt
               make -j 3 && sudo make install
-
+    - name: Install XIMEA
+      env:
+        sdk_pass: ${{ secrets.sdk_pass }}
+      run: |
+              if [ -z "$sdk_pass" ]; then exit 0; fi
+              curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O
+              sudo tar xJf m3api.tar.xz -C $(xcrun --show-sdk-path)/$SDKPATH/System/Library/Frameworks
     - name: configure
       run: export CPATH LIBRARY_PATH PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
@@ -165,6 +176,17 @@ jobs:
       run: C:\msys64\usr\bin\bash -lc 'cd gpujpeg && nvcc -I. -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu && cp gpujpeg.lib /usr/local/lib && cp gpujpeg.dll /usr/local/bin && cp -r libgpujpeg /usr/local/include'
     - name: Build CineForm
       run: C:\msys64\usr\bin\bash -lc "cd cineform-sdk && cmake -DBUILD_STATIC=false -G Visual\ Studio\ 16\ 2019 -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig"
+    - name: Install XIMEA
+      env:
+        sdk_pass: ${{ secrets.sdk_pass }}
+      run: |
+              if (!${env:sdk_pass}) { exit 0 }
+              $pair = "sdk:${env:sdk_pass}"
+              $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
+              $basicAuthValue = "Basic $encodedCreds"
+              $Headers = @{Authorization = $basicAuthValue}
+              Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ximea.zip -OutFIle ximea.zip
+              Expand-Archive -LiteralPath 'ximea.zip' -DestinationPath 'C:'
     - name: configure
       run: C:\msys64\usr\bin\bash -lc "./autogen.sh"
     - name: make
