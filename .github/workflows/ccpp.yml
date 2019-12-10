@@ -13,6 +13,7 @@ on:
     - '**.mm'
     - 'autogen.sh'
     - 'configure.ac'
+    - 'data/scripts/**.sh'
     - 'Makefile.in'
 
 jobs:
@@ -20,9 +21,11 @@ jobs:
     name: run Ubuntu
     runs-on: ubuntu-latest
     env:
+      AJA_DIRECTORY: "/var/tmp/ntv2sdk"
       CPATH: "/usr/local/qt/include"
       LIBRARY_PATH: "/usr/local/qt/lib"
       PKG_CONFIG_PATH: "/usr/local/qt/lib/pkgconfig"
+      sdk_pass: ${{ secrets.sdk_pass }}
 
     steps:
     - uses: actions/checkout@v1
@@ -64,6 +67,14 @@ jobs:
               tar xzf XIMEA_Linux_SP.tgz
               cd package
               sudo ./install
+    - name: Install AJA
+      run: |
+              if [ -z "$sdk_pass" ]; then exit 0; fi
+              curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdklinux.zip -O
+              unzip ntv2sdklinux.zip -d /var/tmp
+              mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
+              cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
+              make
     - name: configure
       run: ./autogen.sh --enable-qt --enable-static-qt --with-cuda-host-compiler=gcc-6 --enable-plugins
     - name: make
@@ -84,11 +95,13 @@ jobs:
     name: run macOS
     runs-on: macos-latest
     env:
+      AJA_DIRECTORY: "/var/tmp/ntv2sdk"
       UG_SKIP_NET_TESTS: 1
       CPATH: "/usr/local/include:/usr/local/opt/qt/include"
       LIBRARY_PATH: "/usr/local/lib:/usr/local/opt/qt/lib"
       PKG_CONFIG_PATH: "/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig"
       SDKROOT: "macosx10.14" # SDK 10.15 crashes Qt in High Sierra
+      sdk_pass: ${{ secrets.sdk_pass }}
     
     steps:
     - uses: actions/checkout@v1
@@ -120,12 +133,21 @@ jobs:
               ./configure -static -release -nomake examples -opensource -confirm-license -opengl -prefix /usr/local/opt/qt
               make -j 3 && sudo make install
     - name: Install XIMEA
-      env:
-        sdk_pass: ${{ secrets.sdk_pass }}
       run: |
               if [ -z "$sdk_pass" ]; then exit 0; fi
               curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O
               sudo tar xJf m3api.tar.xz -C $(xcrun --show-sdk-path)/$SDKPATH/System/Library/Frameworks
+    - name: Install AJA
+      run: |
+              if [ -z "$sdk_pass" ]; then exit 0; fi
+              curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O
+              unzip ntv2sdkmac.zip -d /var/tmp
+              mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
+              cd /var/tmp/ntv2sdk/ajalibraries/ajantv2/build
+              xcodebuild -project ajantv2.xcodeproj
+              sudo rm -f /usr/local/lib/libajantv2.dylib
+              sudo cp ../../../bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
+              sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
     - name: configure
       run: export CPATH LIBRARY_PATH PKG_CONFIG_PATH && ./autogen.sh --enable-qt --enable-static-qt
     - name: make
@@ -145,8 +167,15 @@ jobs:
     runs-on: windows-latest
     env:
       MSYS2_PATH_TYPE: inherit # MSYS2 inherits PATH from Windows
+      sdk_pass: ${{ secrets.sdk_pass }}
     
     steps:
+    - name: set env
+      run: |
+              # TODO: use vswhere.exe: https://renenyffenegger.ch/notes/Windows/development/Visual-Studio/environment-variables/index, https://github.com/Microsoft/vswhere/wiki/Examples
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64" # cl
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
     - uses: actions/checkout@v1
       with:
         submodules: true
@@ -156,39 +185,48 @@ jobs:
       run: |
               Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_441.22_win10.exe -OutFile cuda_inst.exe
               Start-Process -FilePath "cuda_inst.exe" -ArgumentList "-s nvcc_10.2" -Wait -NoNewWindow
-    - name: MSYS2 set env
+              echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
+    - name: MSYS2 setup environment
       run: |
+              C:\msys64\usr\bin\bash -lc 'mkdir -p /usr/local/lib /usr/local/bin /usr/local/include'
               C:\msys64\usr\bin\bash -lc 'echo export PATH=/mingw64/bin:/usr/local/bin:\$PATH >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo export CPATH=/usr/local/include >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo export LIBRARY_PATH=/usr/local/lib >> ~/.bash_profile'
               C:\msys64\usr\bin\bash -lc 'echo cd \`cygpath \$GITHUB_WORKSPACE\` >> ~/.bash_profile'
-              echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64" # cl
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
               C:\msys64\usr\bin\bash -lc 'echo export CPATH=\$CPATH:/c/Program\\\ Files/NVIDIA\\\ GPU\\\ Computing\\\ Toolkit/CUDA/v10.2/include >> ~/.bash_profile'
     - name: Install MSYS2 packages
       run: C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip'
-    - name: Install FFMPEG
-      run: C:\msys64\usr\bin\bash -lc 'wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && mkdir -p /usr/local/lib /usr/local/bin /usr/local/include && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*'
-    - name: Build GPUJPEG
-      run: C:\msys64\usr\bin\bash -lc 'cd gpujpeg && nvcc -I. -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu && cp gpujpeg.lib /usr/local/lib && cp gpujpeg.dll /usr/local/bin && cp -r libgpujpeg /usr/local/include'
-    - name: Build CineForm
-      run: C:\msys64\usr\bin\bash -lc "cd cineform-sdk && cmake -DBUILD_STATIC=false -G Visual\ Studio\ 16\ 2019 -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig"
-    - name: Install XIMEA
-      env:
-        sdk_pass: ${{ secrets.sdk_pass }}
+    - name: Build AJA
       run: |
               if (!${env:sdk_pass}) { exit 0 }
               $pair = "sdk:${env:sdk_pass}"
               $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
               $basicAuthValue = "Basic $encodedCreds"
               $Headers = @{Authorization = $basicAuthValue}
-              Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ximea.zip -OutFIle ximea.zip
+              Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkwin.zip -OutFile aja.zip
+              Expand-Archive -LiteralPath 'aja.zip' -DestinationPath 'C:'
+              mv c:\ntv2sdk* c:\AJA
+              cd c:\AJA
+              MSBuild.exe ntv2_vs12.sln -p:PlatformToolset=v142 -p:Configuration=Release -p:Platform=x64 -t:libajantv2
+              C:\msys64\usr\bin\bash -lc "data/scripts/build_aja_lib_win64.sh"
+    - name: Install FFMPEG
+      run: C:\msys64\usr\bin\bash -lc 'wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*'
+    - name: Build GPUJPEG
+      run: C:\msys64\usr\bin\bash -lc 'cd gpujpeg && nvcc -I. -DGPUJPEG_EXPORTS -o gpujpeg.dll --shared src/gpujpeg_*c src/gpujpeg*cu && cp gpujpeg.lib /usr/local/lib && cp gpujpeg.dll /usr/local/bin && cp -r libgpujpeg /usr/local/include'
+    - name: Build CineForm
+      run: C:\msys64\usr\bin\bash -lc "cd cineform-sdk && cmake -DBUILD_STATIC=false -G Visual\ Studio\ 16\ 2019 -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig"
+    - name: Install XIMEA
+      run: |
+              if (!${env:sdk_pass}) { exit 0 }
+              $pair = "sdk:${env:sdk_pass}"
+              $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
+              $basicAuthValue = "Basic $encodedCreds"
+              $Headers = @{Authorization = $basicAuthValue}
+              Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ximea.zip -OutFile ximea.zip
               Expand-Archive -LiteralPath 'ximea.zip' -DestinationPath 'C:'
     - name: configure
-      run: C:\msys64\usr\bin\bash -lc "./autogen.sh"
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja"
     - name: make
       run: C:\msys64\usr\bin\bash -lc "make"
     - name: make check
