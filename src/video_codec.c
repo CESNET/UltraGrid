@@ -1388,7 +1388,7 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  */
 #define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
         register uint32_t *d = (uint32_t *)(void *) dst;\
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += pix_size) {\
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {\
                 register int r, g, b;\
                 register int y1, y2, u ,v;\
                 r = src[roff];\
