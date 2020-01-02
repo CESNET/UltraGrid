@@ -2,19 +2,22 @@ name: C/C++ CI
 
 on:
   push:
+    branches:
+      - master
+      - ci
     paths:
-    - '.github/workflows/ccpp.yml'
-    - '**.c'
-    - '**.cpp'
-    - '**.cu'
-    - '**.h'
-    - '**.hpp'
-    - '**.m'
-    - '**.mm'
-    - 'autogen.sh'
-    - 'configure.ac'
-    - 'data/scripts/**.sh'
-    - 'Makefile.in'
+      - '.github/workflows/ccpp.yml'
+      - '**.c'
+      - '**.cpp'
+      - '**.cu'
+      - '**.h'
+      - '**.hpp'
+      - '**.m'
+      - '**.mm'
+      - 'autogen.sh'
+      - 'configure.ac'
+      - 'data/scripts/**.sh'
+      - 'Makefile.in'
 
 jobs:
   Ubuntu:
