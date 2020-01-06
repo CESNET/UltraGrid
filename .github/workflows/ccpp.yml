@@ -175,10 +175,24 @@ jobs:
     steps:
     - name: set env
       run: |
-              # TODO: use vswhere.exe: https://renenyffenegger.ch/notes/Windows/development/Visual-Studio/environment-variables/index, https://github.com/Microsoft/vswhere/wiki/Examples
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC\14.23.28105\bin\HostX64\x64" # cl
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-              echo "::add-path::C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
+        $vswhere = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $installDir = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (-Not $installDir) {
+          throw "Vswhere failed"
+        }
+        $path = join-path $installDir 'VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt'
+        $pathPresent = test-path $path
+        if (-Not $pathPresent) {
+          throw "MSVS not found"
+        }
+        $version = gc -raw $path
+        if (-Not $version) {
+          throw "Cannot get MSVS version"
+        }
+        $version = $version.Trim()
+        echo "::add-path::$installDir\VC\Tools\MSVC\$version\bin\HostX64\x64" # cl
+        echo "::add-path::$installDir\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+        echo "::add-path::$installDir\MSBuild\Current\Bin"
     - uses: actions/checkout@v1
       with:
         submodules: true
@@ -243,3 +257,5 @@ jobs:
       with:
         name: UltraGrid CI Windows build
         path: UltraGrid-CI-Win
+
+# vi: set expandtab sw=2:
