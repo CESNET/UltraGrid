@@ -1119,13 +1119,13 @@ static void glut_init_error_callback(const char *fmt, va_list ap)
         va_list aq;
         va_copy(aq, ap);
         // get number of required bytes
-        int size = vsnprintf(NULL, 0, fmt, ap);
+        int size = vsnprintf(NULL, 0, fmt, aq);
         va_end(aq);
 
         // format the string
         auto buffer = (char *) alloca(size + 1);
         va_copy(aq, ap);
-        if (vsprintf(buffer, fmt, ap) >= 0) {
+        if (vsprintf(buffer, fmt, aq) >= 0) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << buffer << "\n";
         }
         va_end(aq);
