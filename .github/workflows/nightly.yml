@@ -2,7 +2,7 @@ name: nightly
 
 on:
   schedule:
-    - cron:  '55 14 * * *' # Daily at 6:00 UTC
+    - cron:  '45 8 * * *' # Daily at 6:00 UTC
 
 jobs:
   retag-nightly:
@@ -20,10 +20,11 @@ jobs:
         git push -f origin refs/tags/nightly:refs/tags/nightly
     - name: Update Release
       run: |
-        curl -H "Authorization: token $GITHUB_TOKEN" -X PATCH https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly -T - <<'EOF'
+        sudo apt install jq
+        URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.url')
+        curl -H "Authorization: token $GITHUB_TOKEN" -X PATCH $URL -T - <<'EOF'
         {
           "tag_name": "nightly",
-          "target_commitish": "master",
           "name": "nightly builds",
           "body": "Current builds from GIT master branch. Here are [archived builds](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
           "draft": false,
@@ -31,6 +32,122 @@ jobs:
         }
         EOF
 
+  Ubuntu:
+    needs: retag-nightly
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    name: run Ubuntu
+    runs-on: ubuntu-latest
+    env:
+      sdk_pass: ${{ secrets.sdk_pass }}
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: bootstrap
+      run: .github/scripts/Linux/prepare.sh
+    - name: Cache static Qt
+      id: cache-qt-linux
+      uses: actions/cache@v1
+      with:
+        path: /usr/local/qt
+        key: cache-qt-linux
+    - name: Build static Qt
+      if: steps.cache-qt-linux.outputs.cache-hit != 'true'
+      run: .github/scripts/Linux/build-qt.sh
+    - name: configure
+      run: ./autogen.sh --enable-qt --enable-static-qt --with-cuda-host-compiler=gcc-6 --enable-plugins
+    - name: make
+      run: make
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: make distcheck
+    - name: Create AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-x86_64.AppImage
+    - name: Upload Release Asset
+      run: |
+        sudo apt install jq
+        UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-appimage' -X POST "$UPLOAD_URL?name=UltraGrid-x86_64.AppImage&label=Linux%20build%20%28AppImage%2C%20x86_64%29" -T UltraGrid-x86_64.AppImage
+
+  macOS:
+    needs: retag-nightly
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    name: run macOS
+    runs-on: macos-latest
+    env:
+      sdk_pass: ${{ secrets.sdk_pass }}
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: bootstrap
+      run: .github/scripts/macOS/prepare.sh
+    - name: Cache static Qt
+      id: cache-qt-mac
+      uses: actions/cache@v1
+      with:
+        path: /usr/local/opt/qt
+        key: cache-qt-mac
+    - name: Build static Qt
+      if: steps.cache-qt-mac.outputs.cache-hit != 'true'
+      run: .github/scripts/macOS/build-qt.sh
+    - name: configure
+      run: ./autogen.sh --enable-qt --enable-static-qt
+    - name: make
+      run: make osx-gui-dmg
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: make distcheck
+    - name: Upload Release Asset
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        brew install jq
+        UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-apple-diskimage' -X POST "$UPLOAD_URL?name=UltraGrid.dmg&label=macOS%20build" -T 'Ultragrid.dmg'
+
+  Windows:
+    needs: retag-nightly
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    name: run Windows
+    runs-on: windows-latest
+    env:
+      sdk_pass: ${{ secrets.sdk_pass }}
+    
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Find MSVC
+      run: .github/scripts/Windows/find_msvc.ps1
+    - name: bootsrap
+      run: .github/scripts/Windows/prepare.ps1
+    - name: bootsrap MSYS2
+      run: C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+    - name: configure
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja --enable-qt"
+    - name: make
+      run: C:\msys64\usr\bin\bash -lc "make"
+    - name: make check
+      run: C:\msys64\usr\bin\bash -lc "make check"
+    - name: make dist-check
+      run: C:\msys64\usr\bin\bash -lc "make distcheck"
+    - name: add DLL depends
+      run: |
+        C:\msys64\usr\bin\bash -lc 'cp gui/QT/release/uv-qt.exe bin'
+        C:\msys64\usr\bin\bash -lc 'rm bin/run-tests.exe; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh "$exe"`; do cp "$n" bin; done; done'
+        C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
+        C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-win64'
+        C:\msys64\usr\bin\bash -lc 'zip -9 -r UltraGrid-win64.zip UltraGrid-win64'
+    - name: Upload Release Asset
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm jq'
+        C:\msys64\usr\bin\bash -lc 'UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//'); curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/zip' -X POST "$UPLOAD_URL?name=UltraGrid-win86.zip&label=Windows%20build" -T 'UltraGrid-win64.dmg'
+
 # vi: set expandtab sw=2:
-
-
