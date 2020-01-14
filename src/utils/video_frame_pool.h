@@ -38,16 +38,13 @@
 #ifndef VIDEO_FRAME_POOL_H_
 #define VIDEO_FRAME_POOL_H_
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
 #include "debug.h"
 
 #include "video.h"
 
 #ifdef __cplusplus
 
+#include <cassert>
 #include <condition_variable>
 #include <functional>
 #include <iostream>

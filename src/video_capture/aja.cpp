@@ -44,10 +44,10 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #endif
 #include "config_msvc.h"
+#include "config_unix.h"
+#include "config_win32.h"
 
 #ifdef _MSC_VER
 #include <winsock2.h>

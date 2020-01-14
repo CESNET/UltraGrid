@@ -53,7 +53,7 @@
  * $Date: 2009/12/11 15:29:39 $
  */
 
-#ifndef WIN32
+#ifndef _WIN32
 #ifndef _CONFIG_UNIX_H
 #define _CONFIG_UNIX_H
 

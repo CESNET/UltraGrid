@@ -35,8 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-
 #ifndef _AUDIO_UTILS_H_
 #define _AUDIO_UTILS_H_
 
