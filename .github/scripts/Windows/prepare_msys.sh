@@ -16,7 +16,8 @@ echo cd `cygpath $GITHUB_WORKSPACE` >> ~/.bash_profile
 
 # Install MSYS2 packages
 pacman -Sy --noconfirm automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
-pacman -Sy --noconfirm mingw-w64-x86_64-qt5
+pacman -Sy --noconfirm mingw-w64-x86_64-qt5 mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
+pacman -Sy --noconfirm mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 
 # Build AJA wrapper
 data/scripts/build_aja_lib_win64.sh
