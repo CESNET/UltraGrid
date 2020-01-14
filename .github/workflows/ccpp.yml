@@ -21,6 +21,7 @@ on:
 
 jobs:
   Ubuntu:
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run Ubuntu
     runs-on: ubuntu-latest
     env:
@@ -95,6 +96,7 @@ jobs:
         path: UltraGrid-CI-Linux
 
   macOS:
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run macOS
     runs-on: macos-latest
     env:
@@ -166,6 +168,7 @@ jobs:
         path: UltraGrid.dmg
 
   Windows:
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run Windows
     runs-on: windows-latest
     env:
