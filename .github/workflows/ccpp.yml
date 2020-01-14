@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-      - ci
+      - devel
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
@@ -113,7 +113,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja"
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja --enable-qt"
     - name: make
       run: C:\msys64\usr\bin\bash -lc "make"
     - name: make check
@@ -121,7 +121,11 @@ jobs:
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -lc "make distcheck"
     - name: add DLL depends
-      run: C:\msys64\usr\bin\bash -lc 'rm bin/run-tests.exe; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh "$exe"`; do cp "$n" bin; done; done; mv bin UltraGrid-CI-Win'
+      run: |
+        C:\msys64\usr\bin\bash -lc 'cp gui/QT/release/uv-qt.exe bin'
+        C:\msys64\usr\bin\bash -lc 'rm bin/run-tests.exe; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh "$exe"`; do cp "$n" bin; done; done'
+        C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
+        C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-CI-Win'
     - name: Upload build
       uses: actions/upload-artifact@v1
       with:
