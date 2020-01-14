@@ -1,0 +1,36 @@
+name: nightly
+
+on:
+  schedule:
+    - cron:  '55 14 * * *' # Daily at 6:00 UTC
+
+jobs:
+  retag-nightly:
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: true
+    - name: Retag nightly
+      run: |
+        git tag -f nightly
+        git push -f origin refs/tags/nightly:refs/tags/nightly
+    - name: Update Release
+      run: |
+        curl -H "Authorization: token $GITHUB_TOKEN" -X PATCH https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly -T - <<'EOF'
+        {
+          "tag_name": "nightly",
+          "target_commitish": "master",
+          "name": "nightly builds",
+          "body": "Current builds from GIT master branch. Here are [archived builds](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
+          "draft": false,
+          "prerelease": true
+        }
+        EOF
+
+# vi: set expandtab sw=2:
+
+
