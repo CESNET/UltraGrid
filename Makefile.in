@@ -596,6 +596,14 @@ bundle: bundle-nolib
 # ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
 # as gui/QT/uv-qt.app (referred as $(GUI_BUNDLE))
 gui-bundle: bundle gui/QT/uv-qt
+	@if `which dylibbundler`; then \
+		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
+		dylibbundler -of -p @executable_path/../libs/ -od -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
+		for n in $(GUI_BUNDLE)/Contents/MacOS/uv-qt $(GUI_BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
+			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
+	else \
+		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
+	fi
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
