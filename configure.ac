@@ -3141,6 +3141,24 @@ if test $cineform_req = yes -a $cineform = no; then
 fi
 
 # ---------------------------------------------------------------------
+# VRG
+# ---------------------------------------------------------------------
+vrg=no
+AC_ARG_ENABLE(vrg,
+[  --enable-vrg            enables VRG support (default is disabled)]
+[                          Requires: VRG],
+    [vrg_req=$enableval],
+    [vrg_req=no]
+    )
+
+if test $vrg_req = yes
+then
+        LIBS="$LIBS -lvrgstream"
+        OBJS="$OBJS src/video_display/vrg.o"
+        vrg=yes
+fi
+
+# ---------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
@@ -3255,6 +3273,7 @@ RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
+RESULT=`add_column "$RESULT" "VRG" $vrg $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`end_section "$RESULT"`
 
