@@ -2,7 +2,7 @@ name: nightly
 
 on:
   schedule:
-    - cron:  '45 8 * * *' # Daily at 6:00 UTC
+   - cron:  '0 6 * * *' # Daily at 6:00 UTC
 
 jobs:
   retag-nightly:
@@ -21,7 +21,7 @@ jobs:
     - name: Update Release
       run: |
         sudo apt install jq
-        URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.url')
+        URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.url')
         curl -H "Authorization: token $GITHUB_TOKEN" -X PATCH $URL -T - <<'EOF'
         {
           "tag_name": "nightly",
@@ -66,9 +66,12 @@ jobs:
     - name: Create AppImage
       run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-x86_64.AppImage
     - name: Upload Release Asset
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq
-        UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        .github/scripts/delete-asset.sh nightly UltraGrid-x86_64.AppImage
         curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-appimage' -X POST "$UPLOAD_URL?name=UltraGrid-x86_64.AppImage&label=Linux%20build%20%28AppImage%2C%20x86_64%29" -T UltraGrid-x86_64.AppImage
 
   macOS:
@@ -107,7 +110,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         brew install jq
-        UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
+        .github/scripts/delete-asset.sh nightly UltraGrid.dmg
         curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-apple-diskimage' -X POST "$UPLOAD_URL?name=UltraGrid.dmg&label=macOS%20build" -T 'Ultragrid.dmg'
 
   Windows:
@@ -147,7 +151,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm jq'
-        C:\msys64\usr\bin\bash -lc 'UPLOAD_URL=$(curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//'); curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/zip' -X POST "$UPLOAD_URL?name=UltraGrid-win86.zip&label=Windows%20build" -T 'UltraGrid-win64.dmg'
+        C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm mingw-w64-x86_64-jq'
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/delete-asset.sh nightly UltraGrid-win64.zip'
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/upload-asset.sh nightly UltraGrid-win64.zip application/zip Windows\ build'
 
 # vi: set expandtab sw=2:

@@ -8,16 +8,24 @@ export PATH=/mingw64/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
-export CPATH=$CPATH:/c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/v10.2/include
 EOF
+
+CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
+if test -d "$CUDA_D"; then
+        echo "export CPATH=\$CPATH:'$CUDA_D/include'" >> ~/.bash_profile
+fi
+
 echo cd `cygpath $GITHUB_WORKSPACE` >> ~/.bash_profile
 
 . ~/.bash_profile
 
 # Install MSYS2 packages
-pacman -Sy --noconfirm automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
-pacman -Sy --noconfirm mingw-w64-x86_64-qt5 mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
-pacman -Sy --noconfirm mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
+pacman -Sy --noconfirm --disable-download-timeout automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
+pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
+pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
+pacman -Scc --noconfirm # make some free space
+pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-qt5
+pacman -Scc --noconfirm
 
 # Build AJA wrapper
 data/scripts/build_aja_lib_win64.sh
