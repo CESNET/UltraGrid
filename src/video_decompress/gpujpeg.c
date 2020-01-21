@@ -287,10 +287,12 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, RGB, RGB, 300 },
 		{ JPEG, RGB, RGBA, 400 }, // RGB->RGBA conversion is performed on CPU
 		{ JPEG, UYVY, UYVY, 300 },
-		{ JPEG, RGB, UYVY, 900 },
-		{ JPEG, UYVY, RGB, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
+		{ JPEG, RGB, UYVY, 800 },
+		{ JPEG, UYVY, RGB, 800 },
+		{ JPEG, UYVY, RGBA, 850 },
+		{ JPEG, VIDEO_CODEC_NONE, RGB, 800 },
+		{ JPEG, VIDEO_CODEC_NONE, UYVY, 800 },
+		{ JPEG, VIDEO_CODEC_NONE, RGBA, 850 },
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
