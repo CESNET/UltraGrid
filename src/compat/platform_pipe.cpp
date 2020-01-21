@@ -116,6 +116,35 @@ static void * worker(void *args)
 
 int platform_pipe_init(fd_t p[2])
 {
+#ifdef WIN32
+        // This needs to be called twice, indeed, since WSACleanup will be run
+        // on both ends. This call is also required because not all pipes are
+        // destroyed before common_cleanup which calls WSACleanup
+        WSADATA wsaData;
+        int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (err != 0) {
+                fprintf(stderr, "WSAStartup failed with error %d.", err);
+                return -1;
+        }
+        if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                WSACleanup();
+                return -1;
+        }
+        err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (err != 0) {
+                fprintf(stderr, "WSAStartup failed with error %d.", err);
+                WSACleanup();
+                return -1;
+        }
+        if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                WSACleanup();
+                WSACleanup();
+                return -1;
+        }
+#endif
+
         struct params par;
         fd_t sock = open_socket(&par.port);
         if (sock == INVALID_SOCKET) {
@@ -146,5 +175,8 @@ int platform_pipe_init(fd_t p[2])
 void platform_pipe_close(fd_t pipe)
 {
         CLOSESOCKET(pipe);
+#ifdef WIN32
+        WSACleanup();
+#endif
 }
 
