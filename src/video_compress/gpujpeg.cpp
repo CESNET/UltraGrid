@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,12 @@
 
 using namespace std;
 
+#if LIBGPUJPEG_API_VERSION >= 7
+#define GJ_RGBA_SUPP 1
+#else
+#define GJ_RGBA_SUPP 0
+#endif
+
 // compat
 #if LIBGPUJPEG_API_VERSION <= 2
 #define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
@@ -90,7 +96,6 @@ private:
         video_frame_pool<default_data_allocator> m_pool;
         decoder_t                                m_decoder;
         codec_t                                  m_enc_input_codec{};
-        int                                      m_enc_input_linesize;
         unique_ptr<char []>                      m_decoded;
 
         struct gpujpeg_parameters                m_encoder_param{};
@@ -98,8 +103,7 @@ private:
 public:
         encoder_state(struct state_video_compress_gpujpeg *s, int device_id) :
                 m_parent_state(s), m_device_id(device_id), m_encoder{}, m_saved_desc{},
-                m_decoder{}, m_enc_input_linesize{},
-                m_occupied{}
+                m_decoder{}, m_occupied{}
         {
         }
         ~encoder_state() {
@@ -209,7 +213,20 @@ void encoder_state::worker() {
 
 static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
 {
-        codec_t candidate_codecs[] = { UYVY, RGB };
+        codec_t candidate_codecs[] = { UYVY, RGB,
+#if GJ_RGBA_SUPP == 1
+                RGBA,
+#endif
+        };
+
+        // try exact match - there exists fast RGB->RGBA conversion so without
+        // that RGB would be chosen for RGBA otherwise
+        for (auto &c : candidate_codecs) {
+                if (c == in_codec) {
+                        *out_codec = c;
+                        return vc_memcpy;
+                }
+        }
 
         for (auto &try_slow : { false, true }) {
                 if (try_slow) {
@@ -286,18 +303,15 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
 #if LIBGPUJPEG_API_VERSION > 2
-        m_param_image.pixel_format = m_enc_input_codec == RGB ? GPUJPEG_444_U8_P012 : GPUJPEG_422_U8_P1020;
+        m_param_image.pixel_format = m_enc_input_codec == RGB ? GPUJPEG_444_U8_P012 : (m_enc_input_codec == RGBA ? GPUJPEG_444_U8_P012Z : GPUJPEG_422_U8_P1020);
         m_encoder = gpujpeg_encoder_create(NULL);
 #else
-        m_param_image.sampling_factor = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
+        m_param_image.sampling_factor = m_enc_input_codec == RGB ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
         m_encoder = gpujpeg_encoder_create(&m_encoder_param, &m_param_image);
 #endif
 
         int data_len = desc.width * desc.height * 3;
         m_pool.reconfigure(compressed_desc, data_len);
-
-        m_enc_input_linesize = desc.width *
-                (m_param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         if(!m_encoder) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create GPUJPEG encoder.\n");
@@ -496,10 +510,12 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                         unsigned char *line2 = (unsigned char *) m_decoded.get();
 
                         for (int i = 0; i < (int) in_tile->height; ++i) {
-                                m_decoder(line2, line1, m_enc_input_linesize,
+                                m_decoder(line2, line1,
+                                                vc_get_linesize(desc.width,
+                                                        m_enc_input_codec),
                                                 0, 8, 16);
                                 line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                                line2 += m_enc_input_linesize;
+                                line2 += vc_get_linesize(desc.width, m_enc_input_codec);
                         }
                         jpeg_enc_input_data = (uint8_t *) m_decoded.get();
                 } else {

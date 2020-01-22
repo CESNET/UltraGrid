@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,12 @@
 #include <stdlib.h>
 #include "lib_common.h"
 
+#if LIBGPUJPEG_API_VERSION >= 7
+#define GJ_RGBA_SUPP 1
+#else
+#define GJ_RGBA_SUPP 0
+#endif
+
 // compat
 #if LIBGPUJPEG_API_VERSION <= 2
 #define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
@@ -76,6 +82,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 {
         s->desc = desc;
 
+
 #if LIBGPUJPEG_API_VERSION <= 2
         s->decoder = gpujpeg_decoder_create();
 #else
@@ -85,8 +92,14 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 return FALSE;
         }
         switch (s->out_codec) {
-        case RGB:
         case RGBA:
+#if GJ_RGBA_SUPP == 1
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
+                                s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
+                                GPUJPEG_444_U8_P012Z : GPUJPEG_444_U8_P012);
+                break;
+#endif
+        case RGB:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 GPUJPEG_444_U8_P012);
                 break;
@@ -207,8 +220,11 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         
         gpujpeg_set_device(cuda_devices[0]);
 
-        if((s->out_codec == UYVY || (s->out_codec == RGB && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
-                        s->pitch == linesize) {
+        if (s->pitch == linesize && (s->out_codec == UYVY || s->out_codec == RGB
+#if GJ_RGBA_SUPP == 1
+                                || (s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)
+#endif
+                        )) {
                 gpujpeg_decoder_output_set_custom(&decoder_output, dst);
                 //int data_decompressed_size = decoder_output.data_size;
                     
@@ -228,10 +244,7 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                 line_dst = dst;
                 line_src = decoder_output.data;
                 for (unsigned i = 0u; i < s->desc.height; i++) {
-                        if(s->out_codec == RGB) {
-                                vc_copylineRGB(line_dst, line_src, linesize,
-                                                s->rshift, s->gshift, s->bshift);
-                        } else if(s->out_codec == RGBA) {
+                        if (s->out_codec == RGBA) {
                                 vc_copylineRGBtoRGBA(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);
                         } else {
@@ -285,14 +298,15 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
 #endif
 		{ JPEG, RGB, RGB, 300 },
-		{ JPEG, RGB, RGBA, 400 }, // RGB->RGBA conversion is performed on CPU
+		{ JPEG, RGB, RGBA, 300 + GJ_RGBA_SUPP * 50 }, // 300 when GJ support RGBA natively,
+                                                              // 350 when using CPU conversion
 		{ JPEG, UYVY, UYVY, 300 },
-		{ JPEG, RGB, UYVY, 800 },
-		{ JPEG, UYVY, RGB, 800 },
-		{ JPEG, UYVY, RGBA, 850 },
-		{ JPEG, VIDEO_CODEC_NONE, RGB, 800 },
-		{ JPEG, VIDEO_CODEC_NONE, UYVY, 800 },
-		{ JPEG, VIDEO_CODEC_NONE, RGBA, 850 },
+		{ JPEG, RGB, UYVY, 700 },
+		{ JPEG, UYVY, RGB, 700 },
+		{ JPEG, UYVY, RGBA, 700  + GJ_RGBA_SUPP * 50},
+		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
+		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
+		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 +  GJ_RGBA_SUPP * 50},
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
