@@ -118,6 +118,12 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 
 static void * gpujpeg_decompress_init(void)
 {
+#if LIBGPUJPEG_API_VERSION >= 7
+        if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
+                log_msg(LOG_LEVEL_WARNING, "GPUJPEG API version mismatch! (%d vs %d)\n",
+                                gpujpeg_version(), LIBGPUJPEG_API_VERSION);
+        }
+#endif
         struct state_decompress_gpujpeg *s;
 
         s = (struct state_decompress_gpujpeg *) calloc(1, sizeof(struct state_decompress_gpujpeg));

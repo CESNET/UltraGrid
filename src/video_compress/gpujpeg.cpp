@@ -424,6 +424,12 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
+#if LIBGPUJPEG_API_VERSION >= 7
+        if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
+                LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (" <<
+                                gpujpeg_version() << " vs  " << LIBGPUJPEG_API_VERSION << ")\n";
+        }
+#endif
         struct state_video_compress_gpujpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
