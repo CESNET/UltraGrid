@@ -52,6 +52,7 @@
 #include "utils/video_frame_pool.h"
 #include "video.h"
 
+#include <initializer_list>
 #include <libgpujpeg/gpujpeg_encoder.h>
 #include <libgpujpeg/gpujpeg_version.h>
 #include <memory>
@@ -88,8 +89,8 @@ private:
         struct video_desc                        m_saved_desc;
         video_frame_pool<default_data_allocator> m_pool;
         decoder_t                                m_decoder;
-        bool                                     m_rgb; // input is in RGB
-        int                                      m_encoder_input_linesize;
+        codec_t                                  m_enc_input_codec{};
+        int                                      m_enc_input_linesize;
         unique_ptr<char []>                      m_decoded;
 
         struct gpujpeg_parameters                m_encoder_param{};
@@ -97,7 +98,7 @@ private:
 public:
         encoder_state(struct state_video_compress_gpujpeg *s, int device_id) :
                 m_parent_state(s), m_device_id(device_id), m_encoder{}, m_saved_desc{},
-                m_decoder{}, m_rgb{}, m_encoder_input_linesize{},
+                m_decoder{}, m_enc_input_linesize{},
                 m_occupied{}
         {
         }
@@ -206,6 +207,26 @@ void encoder_state::worker() {
         }
 }
 
+static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
+{
+        codec_t candidate_codecs[] = { UYVY, RGB };
+
+        for (auto &try_slow : { false, true }) {
+                if (try_slow) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Trying slow decoders!\n");
+                }
+                for (auto &c : candidate_codecs) {
+                        decoder_t decoder = get_decoder_from_to(in_codec, c, try_slow);
+                        if (decoder) {
+                                *out_codec = c;
+                                return decoder;
+                        }
+                }
+        }
+
+        return nullptr;
+}
+
 /**
  * Configures GPUJPEG encoder with provided parameters.
  */
@@ -215,31 +236,13 @@ bool encoder_state::configure_with(struct video_desc desc)
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG;
 
-        bool try_slow = false;
-
-        // first determine, if the pixel format is YCbCr or RGB (can be easily
-        // converted to)
-        m_decoder = get_decoder_from_to(desc.color_spec, UYVY, try_slow);
-        m_rgb = false;
-        if (!m_decoder) { // if it is not a YCbCr format, it may be a RGB
-                m_decoder = get_decoder_from_to(desc.color_spec, RGB, try_slow);
-                m_rgb = true;
-        }
-        if (!m_decoder) { // no easy conversions found, try harder
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Trying slow decoders!\n");
-                try_slow = true;
-                m_decoder = get_decoder_from_to(desc.color_spec, UYVY, try_slow);
-                m_rgb = false;
-                if (!m_decoder) { // try conversion to RGB as well
-                        m_decoder = get_decoder_from_to(desc.color_spec, RGB, try_slow);
-                        m_rgb = true;
-                }
-        }
+        m_decoder = get_decoder(desc.color_spec, &m_enc_input_codec);
         if (!m_decoder) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec: %s\n",
                                 get_codec_name(desc.color_spec));
                 return false;
         }
+
 
         gpujpeg_set_default_parameters(&m_encoder_param);
         if (m_parent_state->m_quality != -1) {
@@ -252,7 +255,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         if (m_parent_state->m_restart_interval != -1) {
                 m_encoder_param.restart_interval = m_parent_state->m_restart_interval;
         } else {
-                m_encoder_param.restart_interval = m_rgb ? 8 : 4;
+                m_encoder_param.restart_interval = codec_is_a_rgb(m_enc_input_codec) ? 8 : 4;
         }
 
 	m_encoder_param.verbose = 0;
@@ -260,17 +263,17 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         /* LUMA */
         m_encoder_param.sampling_factor[0].vertical = 1;
-        m_encoder_param.sampling_factor[0].horizontal = m_rgb ? 1 : 2;
+        m_encoder_param.sampling_factor[0].horizontal = codec_is_a_rgb(m_enc_input_codec) ? 1 : 2;
         /* Cb and Cr */
         m_encoder_param.sampling_factor[1].horizontal = 1;
         m_encoder_param.sampling_factor[1].vertical = 1;
         m_encoder_param.sampling_factor[2].horizontal = 1;
         m_encoder_param.sampling_factor[2].vertical = 1;
 
-        m_encoder_param.interleaved = (m_rgb && !m_parent_state->m_force_interleaved) ? 0 : 1;
+        m_encoder_param.interleaved = (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_force_interleaved) ? 0 : 1;
 
         if (m_parent_state->m_use_internal_codec == RGB ||
-                        (m_rgb && !m_parent_state->m_use_internal_codec)) {
+                        (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_use_internal_codec)) {
                 m_encoder_param.color_space_internal = GPUJPEG_RGB;
         }
 
@@ -280,20 +283,20 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
-        m_param_image.color_space = m_rgb ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
+        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
 #if LIBGPUJPEG_API_VERSION > 2
-        m_param_image.pixel_format = m_rgb ? GPUJPEG_444_U8_P012 : GPUJPEG_422_U8_P1020;
+        m_param_image.pixel_format = m_enc_input_codec == RGB ? GPUJPEG_444_U8_P012 : GPUJPEG_422_U8_P1020;
         m_encoder = gpujpeg_encoder_create(NULL);
 #else
-        m_param_image.sampling_factor = m_rgb ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
+        m_param_image.sampling_factor = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
         m_encoder = gpujpeg_encoder_create(&m_encoder_param, &m_param_image);
 #endif
 
         int data_len = desc.width * desc.height * 3;
         m_pool.reconfigure(compressed_desc, data_len);
 
-        m_encoder_input_linesize = desc.width *
+        m_enc_input_linesize = desc.width *
                 (m_param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         if(!m_encoder) {
@@ -493,10 +496,10 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                         unsigned char *line2 = (unsigned char *) m_decoded.get();
 
                         for (int i = 0; i < (int) in_tile->height; ++i) {
-                                m_decoder(line2, line1, m_encoder_input_linesize,
+                                m_decoder(line2, line1, m_enc_input_linesize,
                                                 0, 8, 16);
                                 line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                                line2 += m_encoder_input_linesize;
+                                line2 += m_enc_input_linesize;
                         }
                         jpeg_enc_input_data = (uint8_t *) m_decoded.get();
                 } else {
