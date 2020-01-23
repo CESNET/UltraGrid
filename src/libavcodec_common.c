@@ -174,7 +174,7 @@ bool libav_codec_has_extradata(codec_t codec) {
 //
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
-        for(int y = 0; y < height; y += 2) {
+        for(int y = 0; (y + 1) < height; y += 2) {
                 /*  every even row */
                 unsigned char *src = in_data + y * (width * 2);
                 /*  every odd row */
