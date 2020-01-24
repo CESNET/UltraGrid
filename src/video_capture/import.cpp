@@ -353,7 +353,7 @@ try {
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
 
-        char *audio_filename = (char *) malloc(strlen(s->directory) + sizeof("/soud.wav") + 1);
+        char *audio_filename = (char *) malloc(strlen(s->directory) + strlen("/sound.wav") + 1);
         assert(audio_filename != NULL);
         strcpy(audio_filename, s->directory);
         strcat(audio_filename, "/sound.wav");
