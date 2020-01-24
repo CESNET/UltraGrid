@@ -59,6 +59,7 @@
 #include <map>
 #include <mutex>
 #include <thread>
+#include <set>
 #include <vector>
 
 #define MOD_NAME "[GPUJPEG enc.] "
@@ -151,6 +152,7 @@ public:
         int                     m_restart_interval;
         int                     m_quality;
         bool                    m_force_interleaved = false;
+        int                     m_subsampling = 0; // 444, 422 or 420; 0 -> autoselect
         codec_t                 m_use_internal_codec = VIDEO_CODEC_NONE; // RGB or UYVY,
                                                                          // VIDEO_CODEC_NONE
                                                                          // if no preferrence
@@ -279,8 +281,8 @@ bool encoder_state::configure_with(struct video_desc desc)
 	m_encoder_param.segment_info = 1;
 
         /* LUMA */
-        m_encoder_param.sampling_factor[0].vertical = 1;
-        m_encoder_param.sampling_factor[0].horizontal = codec_is_a_rgb(m_enc_input_codec) ? 1 : 2;
+        m_encoder_param.sampling_factor[0].vertical = m_parent_state->m_subsampling == 420 ? 2 : 1;
+        m_encoder_param.sampling_factor[0].horizontal = m_parent_state->m_subsampling == 0 ? (codec_is_a_rgb(m_enc_input_codec) ? 1 : 2) : (m_parent_state->m_subsampling == 444 ? 1 : 2);
         /* Cb and Cr */
         m_encoder_param.sampling_factor[1].horizontal = 1;
         m_encoder_param.sampling_factor[1].vertical = 1;
@@ -360,6 +362,9 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                                         log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
                                         return false;
 #endif
+                                } else if (strstr(tok, "subsampling=") == tok) {
+                                        m_subsampling = atoi(tok + strlen("subsampling="));
+                                        assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
                                 }
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                         }
@@ -434,7 +439,7 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV]\n");
+                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV][:subsampling=<sub>]\n");
                 cout << "where\n";
                 cout << BOLD("\tquality\n") <<
                         "\t\tJPEG quality coefficient [0..100] - more is better\n";
@@ -452,6 +457,8 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 cout << BOLD("\tRGB|YUV\n") <<
                         "\t\tforce RGB or YUV as an internal JPEG color space (otherwise\n"
                         "\t\tsource color space is kept).\n";
+                cout << BOLD("\t<sub>\n") <<
+                        "\t\tUse specified JPEG subsampling (444, 422 or 420).\n";
                 cout << "\n";
                 cout << BOLD("Note:") << " instead of positional parameters for "
                         "quality and restart intervals " << BOLD("\"q=\"") << " and " << BOLD("\"restart=\"") << " can be used.\n";
