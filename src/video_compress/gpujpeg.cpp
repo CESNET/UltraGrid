@@ -330,47 +330,48 @@ bool encoder_state::configure_with(struct video_desc desc)
 
 bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 {
-        if(fmt && fmt[0] != '\0') {
-                char *tok, *save_ptr = NULL;
-                int pos = 0;
-                while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
-                        if (isdigit(tok[0]) && pos == 0) {
-                                m_quality = atoi(tok);
-                                if (m_quality <= 0 || m_quality > 100) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality should be in interval [1-100]!\n");
-                                        return false;
-                                }
-                        } else if (isdigit(tok[0]) && pos == 1) {
-                                m_restart_interval = atoi(tok);
-                                if (m_restart_interval < 0) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Restart interval should be non-negative!\n");
-                                        return false;
-                                }
-                        } else {
-                                if (strcasecmp(tok, "q=") == 0) {
-                                        m_quality = atoi(tok + strlen("q="));
-                                } else if (strcasecmp(tok, "restart=") == 0) {
-                                        m_quality = atoi(tok + strlen("restart="));
-                                } else if (strcasecmp(tok, "interleaved") == 0) {
-                                        m_force_interleaved = true;
-                                } else if (strcasecmp(tok, "YUV") == 0) {
-                                        m_use_internal_codec = UYVY;
-                                } else if (strcasecmp(tok, "RGB") == 0) {
-#if LIBGPUJPEG_API_VERSION >= 4
-                                        m_use_internal_codec = RGB;
-#else
-                                        log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
-                                        return false;
-#endif
-                                } else if (strstr(tok, "subsampling=") == tok) {
-                                        m_subsampling = atoi(tok + strlen("subsampling="));
-                                        assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
-                                }
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
+        if (!fmt || fmt[0] == '\0') {
+                return true;
+        }
+        char *tok, *save_ptr = NULL;
+        int pos = 0;
+        while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
+                if (isdigit(tok[0]) && pos == 0) {
+                        m_quality = atoi(tok);
+                        if (m_quality <= 0 || m_quality > 100) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Quality should be in interval [1-100]!\n");
+                                return false;
                         }
-                        fmt = nullptr;
-                        pos += 1;
+                } else if (isdigit(tok[0]) && pos == 1) {
+                        m_restart_interval = atoi(tok);
+                        if (m_restart_interval < 0) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error: Restart interval should be non-negative!\n");
+                                return false;
+                        }
+                } else {
+                        if (strcasecmp(tok, "q=") == 0) {
+                                m_quality = atoi(tok + strlen("q="));
+                        } else if (strcasecmp(tok, "restart=") == 0) {
+                                m_quality = atoi(tok + strlen("restart="));
+                        } else if (strcasecmp(tok, "interleaved") == 0) {
+                                m_force_interleaved = true;
+                        } else if (strcasecmp(tok, "YUV") == 0) {
+                                m_use_internal_codec = UYVY;
+                        } else if (strcasecmp(tok, "RGB") == 0) {
+#if LIBGPUJPEG_API_VERSION >= 4
+                                m_use_internal_codec = RGB;
+#else
+                                log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
+                                return false;
+#endif
+                        } else if (strstr(tok, "subsampling=") == tok) {
+                                m_subsampling = atoi(tok + strlen("subsampling="));
+                                assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
+                        }
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                 }
+                fmt = nullptr;
+                pos += 1;
         }
 
         return true;
