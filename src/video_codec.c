@@ -118,7 +118,7 @@ struct codec_info_t {
                                          ///< when display gets requestes compressed codec
                                          ///< (otherwise division by zero occurs).
         int bits_per_channel;            ///< Number of bits per color channel
-        int block_size;                  ///< Bytes per pixel block (pixelformats only)
+        int block_size;                  ///< Bytes per pixel block (packed pixelformats only)
         unsigned rgb:1;                  ///< Whether pixelformat is RGB
         unsigned opaque:1;               ///< If codec is opaque (= compressed)
         unsigned interframe:1;           ///< Indicates if compression is interframe
@@ -187,6 +187,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
+        [I420] =  {"I420", "I420",
+                to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "i420"},
 };
 
 /**
