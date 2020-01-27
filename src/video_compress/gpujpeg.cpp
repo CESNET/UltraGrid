@@ -77,6 +77,9 @@ using namespace std;
 #define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
 #define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
 #endif
+#if LIBGPUJPEG_API_VERSION < 7
+#define GPUJPEG_YCBCR_JPEG GPUJPEG_YCBCR_BT601_256LVLS
+#endif
 
 namespace {
 struct state_video_compress_gpujpeg;
@@ -281,8 +284,13 @@ bool encoder_state::configure_with(struct video_desc desc)
 	m_encoder_param.segment_info = 1;
 
         /* LUMA */
-        m_encoder_param.sampling_factor[0].vertical = m_parent_state->m_subsampling == 420 ? 2 : 1;
-        m_encoder_param.sampling_factor[0].horizontal = m_parent_state->m_subsampling == 0 ? (codec_is_a_rgb(m_enc_input_codec) ? 1 : 2) : (m_parent_state->m_subsampling == 444 ? 1 : 2);
+        if (m_parent_state->m_subsampling == 0) {
+                m_encoder_param.sampling_factor[0].vertical = m_enc_input_codec == I420 ? 2 : 1;
+                m_encoder_param.sampling_factor[0].horizontal = codec_is_a_rgb(m_enc_input_codec) ? 1 : 2;
+        } else {
+                m_encoder_param.sampling_factor[0].vertical = m_parent_state->m_subsampling == 420 ? 2 : 1;
+                m_encoder_param.sampling_factor[0].horizontal = m_parent_state->m_subsampling == 444 ? 1 : 2;
+        }
         /* Cb and Cr */
         m_encoder_param.sampling_factor[1].horizontal = 1;
         m_encoder_param.sampling_factor[1].vertical = 1;
@@ -302,10 +310,17 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
-        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
+        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : (desc.color_spec == I420 ? GPUJPEG_YCBCR_JPEG : GPUJPEG_YCBCR_BT709);
 
 #if LIBGPUJPEG_API_VERSION > 2
-        m_param_image.pixel_format = m_enc_input_codec == RGB ? GPUJPEG_444_U8_P012 : (m_enc_input_codec == RGBA ? GPUJPEG_444_U8_P012Z : GPUJPEG_422_U8_P1020);
+        switch (m_enc_input_codec) {
+        case I420: m_param_image.pixel_format = GPUJPEG_420_U8_P0P1P2; break;
+        case RGB: m_param_image.pixel_format = GPUJPEG_444_U8_P012; break;
+#if GJ_RGBA_SUPP == 1
+        case RGBA: m_param_image.pixel_format = GPUJPEG_444_U8_P012Z; break;
+#endif
+        default: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
+        }
         m_encoder = gpujpeg_encoder_create(NULL);
 #else
         m_param_image.sampling_factor = m_enc_input_codec == RGB ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
