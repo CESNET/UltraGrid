@@ -339,4 +339,3 @@ static const struct video_decompress_info gpujpeg_info = {
 
 REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
-/* vi: set expandtab sw=8: */
