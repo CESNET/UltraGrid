@@ -89,13 +89,6 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         }
         s->magic = MAGIC_VRG;
 
-        enum VrgStreamApiError ret = vrgStreamInit(VR_RGBA);
-        if (ret != Ok) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
-                delete s;
-                return NULL;
-        }
-
         return s;
 }
 
@@ -167,6 +160,7 @@ static int display_vrg_get_property(void *state, int property, void *val, size_t
 {
         UNUSED(state);
         codec_t codecs[] = {
+                I420,
                 RGBA,
         };
         int rgb_shift[] = {0, 8, 16};
@@ -200,8 +194,15 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
 {
         struct state_vrg *s = (struct state_vrg *) state;
         assert(s->magic == MAGIC_VRG);
+        assert(desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
+
+        enum VrgStreamApiError ret = vrgStreamInit(desc.color_spec == RGBA ? VR_RGBA : YUV420);
+        if (ret != Ok) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
+                return FALSE;
+        }
 
         return TRUE;
 }
