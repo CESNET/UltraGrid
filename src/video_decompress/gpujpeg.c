@@ -92,6 +92,10 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 return FALSE;
         }
         switch (s->out_codec) {
+        case I420:
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_JPEG,
+                                GPUJPEG_420_U8_P0P1P2);
+                break;
         case RGBA:
 #if GJ_RGBA_SUPP == 1
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
@@ -146,7 +150,8 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
         
-        assert(out_codec == RGB || out_codec == RGBA || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
+        assert(out_codec == I420 || out_codec == RGB || out_codec == RGBA
+                        || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
 
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
@@ -193,7 +198,11 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	case GPUJPEG_YCBCR_BT601:
 	case GPUJPEG_YCBCR_BT601_256LVLS:
 	case GPUJPEG_YCBCR_BT709:
-		*internal_codec = UYVY;
+#if LIBGPUJPEG_API_VERSION < 8
+                *internal_codec = UYVY;
+#else
+                *internal_codec = params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
+#endif
 		break;
 	default:
 		return DECODER_NO_FRAME;
@@ -254,13 +263,12 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                                 vc_copylineRGBtoRGBA(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);
                         } else {
-                                assert(s->out_codec == UYVY);
+                                assert(s->out_codec == UYVY || s->out_codec == I420);
                                 memcpy(line_dst, line_src, linesize);
                         }
                                 
                         line_dst += s->pitch;
-                        line_src += vc_get_linesize(s->desc.width,
-                                        codec_is_a_rgb(s->out_codec) ? RGB : UYVY);
+                        line_src += vc_get_linesize(s->desc.width, s->out_codec);
                 }
         }
 
@@ -307,6 +315,8 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, RGB, RGBA, 300 + GJ_RGBA_SUPP * 50 }, // 300 when GJ support RGBA natively,
                                                               // 350 when using CPU conversion
 		{ JPEG, UYVY, UYVY, 300 },
+		{ JPEG, I420, I420, 300 },
+		{ JPEG, I420, UYVY, 500 },
 		{ JPEG, RGB, UYVY, 700 },
 		{ JPEG, UYVY, RGB, 700 },
 		{ JPEG, UYVY, RGBA, 700  + GJ_RGBA_SUPP * 50},
@@ -329,3 +339,4 @@ static const struct video_decompress_info gpujpeg_info = {
 
 REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
+/* vi: set expandtab sw=8: */
