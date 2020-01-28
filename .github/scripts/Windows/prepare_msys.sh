@@ -15,6 +15,12 @@ if test -d "$CUDA_D"; then
         echo "export CPATH=\$CPATH:'$CUDA_D/include'" >> ~/.bash_profile
 fi
 
+if test -d /c/Program\ Files/NewTek; then
+        NDI_D=$(ls -d /c/Program\ Files/NewTek/*SDK)
+        echo "export CPATH=\$CPATH:'$NDI_D/Include'" >> ~/.bash_profile
+        echo "export LIBRARY_PATH=\$LIBRARY_PATH:'$NDI_D/Lib/x64'" >> ~/.bash_profile
+fi
+
 echo cd `cygpath $GITHUB_WORKSPACE` >> ~/.bash_profile
 
 . ~/.bash_profile
