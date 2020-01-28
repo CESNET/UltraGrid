@@ -41,6 +41,9 @@
 #include "config_win32.h"
 
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
 
 // VrgInputFormat::RGBA conflicts with codec_t::RGBA
 #define RGBA VR_RGBA
@@ -53,12 +56,17 @@
 #include "video.h"
 #include "video_display.h"
 
+#define MAX_QUEUE_SIZE 1
 #define MOD_NAME "[VRG] "
 #define MAGIC_VRG to_fourcc('V', 'R', 'G', ' ')
 
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
+using std::condition_variable;
+using std::mutex;
+using std::queue;
+using std::unique_lock;
 
 struct state_vrg {
         uint32_t magic;
@@ -67,6 +75,10 @@ struct state_vrg {
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
         long long int frames_last;
+
+        queue<struct video_frame *> queue;
+        mutex lock;
+        condition_variable cv;
 };
 
 static void display_vrg_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -92,9 +104,63 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         return s;
 }
 
-static void display_vrg_run(void *arg)
+static void display_vrg_run(void *state)
 {
-        UNUSED(arg);
+        struct state_vrg *s = (struct state_vrg *) state;
+        codec_t configured_codec = VIDEO_CODEC_NONE;
+
+        while (1) {
+                unique_lock<mutex> lk(s->lock);
+                s->cv.wait(lk, [s]{ return s->queue.size() > 0; });
+                struct video_frame *f = s->queue.front();
+                s->queue.pop();
+                lk.unlock();
+
+                if (f == nullptr) { // poison pill
+                        break;
+                }
+
+                if (configured_codec != f->color_spec) {
+                        enum VrgStreamApiError ret = vrgStreamInit(f->color_spec == RGBA ? VR_RGBA : YUV420);
+                        if (ret != Ok) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
+                                vf_free(f);
+                                continue;
+                        }
+                        configured_codec = f->color_spec;
+                }
+
+                enum VrgStreamApiError ret;
+                high_resolution_clock::time_point t_start = high_resolution_clock::now();
+                ret = vrgStreamSubmitFrame(s->frames, f->tiles[0].data);
+                if (ret != Ok) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
+                }
+                high_resolution_clock::time_point t_end = high_resolution_clock::now();
+                LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
+                        duration_cast<microseconds>(t_start - t_end).count() / 1000000.0
+                        << " seconds\n";
+
+                // calling vrgStreamRenderFrame sometime freezes
+                //struct RenderPacket render_packet;
+                //ret = vrgStreamRenderFrame(s->frames, &render_packet);
+                //if (ret != Ok) {
+                //        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
+                //}
+
+                high_resolution_clock::time_point now = high_resolution_clock::now();
+                double seconds = duration_cast<microseconds>(now - s->t0).count() / 1000000.0;
+                if (seconds >= 5) {
+                        long long frames = s->frames - s->frames_last;
+                        LOG(LOG_LEVEL_INFO) << "[VRG] " << frames << " frames in "
+                                << seconds << " seconds = " <<  frames / seconds << " FPS\n";
+                        s->t0 = now;
+                        s->frames_last = s->frames;
+                }
+
+                s->frames += 1;
+                vf_free(f);
+        }
 }
 
 static void display_vrg_done(void *state)
@@ -122,36 +188,14 @@ static int display_vrg_putf(void *state, struct video_frame *frame, int flags)
                 return 0;
         }
 
-        enum VrgStreamApiError ret;
-        high_resolution_clock::time_point t_start = high_resolution_clock::now();
-        ret = vrgStreamSubmitFrame(s->frames, frame->tiles[0].data);
-        if (ret != Ok) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
+        unique_lock<mutex> lk(s->lock);
+        if ((flags & PUTF_NONBLOCK) != 0u && s->queue.size() >= MAX_QUEUE_SIZE) {
+                vf_free(frame);
+                return 1;
         }
-        high_resolution_clock::time_point t_end = high_resolution_clock::now();
-        LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
-                duration_cast<microseconds>(t_start - t_end).count() / 1000000.0
-                        << " seconds\n";
-
-        // calling vrgStreamRenderFrame sometime freezes
-        //struct RenderPacket render_packet;
-        //ret = vrgStreamRenderFrame(s->frames, &render_packet);
-        //if (ret != Ok) {
-        //        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
-        //}
-
-        high_resolution_clock::time_point now = high_resolution_clock::now();
-        double seconds = duration_cast<microseconds>(now - s->t0).count() / 1000000.0;
-        if (seconds >= 5) {
-                long long frames = s->frames - s->frames_last;
-                LOG(LOG_LEVEL_INFO) << "[VRG] " << frames << " frames in "
-                        << seconds << " seconds = " <<  frames / seconds << " FPS\n";
-                s->t0 = now;
-                s->frames_last = s->frames;
-        }
-
-        s->frames += 1;
-        vf_free(frame);
+        s->queue.push(frame);
+        lk.unlock();
+        s->cv.notify_one();
 
         return 0;
 }
@@ -197,12 +241,6 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
         assert(desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
-
-        enum VrgStreamApiError ret = vrgStreamInit(desc.color_spec == RGBA ? VR_RGBA : YUV420);
-        if (ret != Ok) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
-                return FALSE;
-        }
 
         return TRUE;
 }
