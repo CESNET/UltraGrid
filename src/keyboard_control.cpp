@@ -721,7 +721,7 @@ bool keyboard_control::exec_local_command(const char *command)
                         int key = ccpy[0];
                         char *command = ccpy + 2;
                         if (key == '#' && isdigit(ccpy[1])) {
-                                key = strtol(ccpy + 1, &command, 10);
+                                key = strtoll(ccpy + 1, &command, 10);
                                 command += 1; // skip ' '
                         }
                         const char *name = "";
