@@ -19,18 +19,20 @@ brew install ossp-uuid # for cineform
 ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
 
 # Install XIMEA
-if [ -z "$sdk_pass" ]; then exit 0; fi
-curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O
-sudo tar xJf m3api.tar.xz -C $(xcrun --show-sdk-path)/$SDKPATH/System/Library/Frameworks
+if [ -n "$sdk_pass" ]; then
+        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O
+        sudo tar xJf m3api.tar.xz -C $(xcrun --show-sdk-path)/$SDKPATH/System/Library/Frameworks
+fi
 
 # Install AJA
-if [ -z "$sdk_pass" ]; then exit 0; fi
-curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O
-unzip ntv2sdkmac.zip -d /var/tmp
-mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
-cd /var/tmp/ntv2sdk/ajalibraries/ajantv2/build
-xcodebuild -project ajantv2.xcodeproj
-sudo rm -f /usr/local/lib/libajantv2.dylib
-sudo cp ../../../bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
-sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
+if [ -n "$sdk_pass" ]; then
+        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O
+        unzip ntv2sdkmac.zip -d /var/tmp
+        mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
+        cd /var/tmp/ntv2sdk/ajalibraries/ajantv2/build
+        xcodebuild -project ajantv2.xcodeproj
+        sudo rm -f /usr/local/lib/libajantv2.dylib
+        sudo cp ../../../bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
+        sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
+fi
 

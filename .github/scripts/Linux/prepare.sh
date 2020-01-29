@@ -29,10 +29,11 @@ cd package
 sudo ./install
 
 # Install AJA
-if [ -z "$sdk_pass" ]; then exit 0; fi
-curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdklinux.zip -O
-unzip ntv2sdklinux.zip -d /var/tmp
-mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
-cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
-make
+if [ -n "$sdk_pass" ]; then
+        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdklinux.zip -O
+        unzip ntv2sdklinux.zip -d /var/tmp
+        mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
+        cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
+        make
+fi
 

@@ -114,7 +114,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja --enable-qt"
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-qt"
     - name: make
       run: C:\msys64\usr\bin\bash -lc "make"
     - name: make check
