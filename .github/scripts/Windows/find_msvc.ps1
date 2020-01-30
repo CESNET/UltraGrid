@@ -1,4 +1,4 @@
-Set-PSDebug -Trace 1
+#Set-PSDebug -Trace 1
 
 # Find VS
 $vswhere = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"

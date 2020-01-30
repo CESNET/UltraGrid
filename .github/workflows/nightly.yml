@@ -1,8 +1,25 @@
 name: nightly
 
 on:
-  schedule:
-   - cron:  '0 6 * * *' # Daily at 6:00 UTC
+  #schedule:
+  #- cron:  '0 6 * * *' # Daily at 6:00 UTC
+  push:
+    branches:
+      - ci-nightly
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/nightly.yml'
+      - '**.c'
+      - '**.cpp'
+      - '**.cu'
+      - '**.h'
+      - '**.hpp'
+      - '**.m'
+      - '**.mm'
+      - 'autogen.sh'
+      - 'configure.ac'
+      - 'data/scripts/**.sh'
+      - 'Makefile.in'
 
 jobs:
   retag-nightly:
@@ -70,9 +87,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq
-        UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
         .github/scripts/delete-asset.sh nightly UltraGrid-x86_64.AppImage
-        curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-appimage' -X POST "$UPLOAD_URL?name=UltraGrid-x86_64.AppImage&label=Linux%20build%20%28AppImage%2C%20x86_64%29" -T UltraGrid-x86_64.AppImage
+        .github/scripts/upload-asset.sh nightly UltraGrid-x86_64.AppImage application/x-appimage Linux%20build
 
   macOS:
     needs: retag-nightly
@@ -110,9 +126,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         brew install jq
-        UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly | jq -r '.upload_url' | sed 's/{.*}//')
         .github/scripts/delete-asset.sh nightly UltraGrid.dmg
-        curl -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/x-apple-diskimage' -X POST "$UPLOAD_URL?name=UltraGrid.dmg&label=macOS%20build" -T 'Ultragrid.dmg'
+        .github/scripts/upload-asset.sh nightly UltraGrid.dmg application/x-apple-diskimage macOS%20build
 
   Windows:
     needs: retag-nightly
@@ -133,7 +148,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-aja --enable-qt --disable-ndi"
+      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-qt --disable-ndi"
     - name: make
       run: C:\msys64\usr\bin\bash -lc "make"
     - name: make check
@@ -143,7 +158,7 @@ jobs:
     - name: add DLL depends
       run: |
         C:\msys64\usr\bin\bash -lc 'cp gui/QT/release/uv-qt.exe bin'
-        C:\msys64\usr\bin\bash -lc 'rm bin/run-tests.exe; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh "$exe"`; do cp "$n" bin; done; done'
+        C:\msys64\usr\bin\bash -lc 'rm bin/run_tests.exe; IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done'
         C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
         C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-win64'
         C:\msys64\usr\bin\bash -lc 'zip -9 -r UltraGrid-win64.zip UltraGrid-win64'
@@ -151,8 +166,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -lc 'pacman -Sy --noconfirm mingw-w64-x86_64-jq'
         C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/delete-asset.sh nightly UltraGrid-win64.zip'
-        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/upload-asset.sh nightly UltraGrid-win64.zip application/zip Windows\ build'
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/upload-asset.sh nightly UltraGrid-win64.zip application/zip Windows%20build'
 
 # vi: set expandtab sw=2:

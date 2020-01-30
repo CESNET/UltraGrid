@@ -33,8 +33,10 @@ pacman -Scc --noconfirm # make some free space
 pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-qt5
 pacman -Scc --noconfirm
 
-# Build AJA wrapper
-data/scripts/build_aja_lib_win64.sh
+# Build AJA wrapper if we have SDK
+if test -d /c/AJA; then
+        data/scripts/build_aja_lib_win64.sh
+fi
 
 # Install FFMPEG
 wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*
