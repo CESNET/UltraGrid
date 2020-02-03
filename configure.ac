@@ -910,26 +910,25 @@ then
                         NTV2_13=yes
                 fi
         fi
-else
-if test $system = Windows
+elif test $system = Windows
 then
-        if test "$aja_req" = yes
-        then
-                ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
-                aja=yes
-        fi
+        AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
 else # MacOSX
         AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
         if test "$FOUND_LIBAJA" = yes; then
                 AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
         fi
 fi
-fi
 
-# this is used only for Mac and Linux
 if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
 then
         aja=yes
+fi
+
+if test $aja = yes -a $system = Windows; then
+        ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
+elif test $aja = yes # Linux and macOS
+then
         if test $system = Linux -a "$NTV2_13" != yes
 	then
                 AJA_INC="$AJA_INC -I${AJA_PATH}/ntv2projects/classes -I${AJA_PATH}/ajaapi -I${AJA_PATH}/ntv2projects/includes -I${AJA_PATH}/ntv2projects/democlasses"
