@@ -339,12 +339,12 @@ static string get_utf8_representation(int64_t ch) {
 
 static string get_keycode_representation(int64_t ch) {
         switch (ch) {
-        case K_UP: return "K_UP";
-        case K_DOWN: return "K_DOWN";
-        case K_LEFT: return "K_LEFT";
-        case K_RIGHT: return "K_RIGHT";
-        case K_PGUP: return "K_PGUP";
-        case K_PGDOWN: return "K_PGDOWN";
+        case K_UP: return "Up";
+        case K_DOWN: return "Down";
+        case K_LEFT: return "Left";
+        case K_RIGHT: return "Right";
+        case K_PGUP: return "Page-Up";
+        case K_PGDOWN: return "Page-Dn";
         case K_CTRL_UP: return "Ctrl-Up";
         case K_CTRL_DOWN: return "Ctrl-Dn";
         }
