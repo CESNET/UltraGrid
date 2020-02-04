@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -182,8 +182,8 @@ void main()
 const static list<pair<int64_t, string>> keybindings {{'f', "toggle fullscreen"},
         {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
         {K_ALT('s'), "screenshot"}, {K_ALT('c'), "show/hide cursor"},
-        {K_CTRL_DOWN, "make window 10%% smaller"},
-        {K_CTRL_UP, "make window 10%% bigger"}
+        {K_CTRL_DOWN, "make window 10% smaller"},
+        {K_CTRL_UP, "make window 10% bigger"}
 };
 
 #ifdef HWACC_VDPAU
