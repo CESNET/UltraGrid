@@ -5,7 +5,7 @@
  * With code taken from Olivier Mehani (set_tio()).
  */
 /*
- * Copyright (c) 2015-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -345,6 +345,8 @@ static string get_keycode_representation(int64_t ch) {
         case K_RIGHT: return "K_RIGHT";
         case K_PGUP: return "K_PGUP";
         case K_PGDOWN: return "K_PGDOWN";
+        case K_CTRL_UP: return "Ctrl-Up";
+        case K_CTRL_DOWN: return "Ctrl-Dn";
         }
 
         if (ch >= 1 && ch <= 'z' - 'a' + 1) {
