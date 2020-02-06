@@ -933,7 +933,7 @@ int main(int argc, char *argv[])
                         log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
                                         "Use \"--audio-capture-format channels=<count>\" instead.\n");
                         audio_capture_channels = atoi(optarg);
-                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS) {
+                        if (audio_capture_channels < 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
                                 EXIT(EXIT_FAIL_USAGE);
                         }
