@@ -83,7 +83,6 @@ void error(int status);
 void exit_uv(int status);
 
 #define DEFAULT_AUDIO_CAPTURE_CHANNELS 1
-#define MAX_AUDIO_CAPTURE_CHANNELS 64
 extern unsigned int audio_capture_channels;
 extern unsigned int audio_capture_bps;         // user-specified bps, if zero, module should choose
                                                // best bps by itself

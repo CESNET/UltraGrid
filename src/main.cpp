@@ -506,7 +506,7 @@ static bool parse_audio_capture_format(const char *optarg)
                 if (strncmp(item, "channels=", strlen("channels=")) == 0) {
                         item += strlen("channels=");
                         audio_capture_channels = strtol(item, &endptr, 10);
-                        if (audio_capture_channels < 1 || audio_capture_channels > MAX_AUDIO_CAPTURE_CHANNELS || endptr != item + strlen(item)) {
+                        if (audio_capture_channels < 1 || endptr != item + strlen(item)) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
                                 return false;
                         }
