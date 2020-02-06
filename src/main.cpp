@@ -839,6 +839,10 @@ int main(int argc, char *argv[])
                                 *delim = '\0';
                                 video_protocol_opts = delim + 1;
                         }
+                        if (strcmp(video_protocol, "help") == 0) {
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                                EXIT(EXIT_SUCCESS);
+                        }
                         break;
                 case OPT_PROTOCOL:
                         if (strcmp(optarg, "help") == 0 ||
