@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 
 #######################################
 # USAGE
@@ -35,7 +35,13 @@ function run_vs10
     run_in_vs_env VS100COMNTOOLS "$@"
 }
 
-run_vs16 cl //DEXPORT_DLL_SYMBOLS src/spout_sender.cpp src/spout_receiver.cpp //LD src/SpoutSDK/Binaries/x64/Spout.lib //Fespout_wrapper
+LIBDIR=${1:-src/SpoutSDK/Binaries/x64}
+MSVS_PATH=`/c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/Installer/vswhere.exe -latest -property installationPath`
+
+eval vssetup=\"$MSVS_PATH\"'\\VC\\Auxiliary\\Build\\vcvars64.bat'
+cmd //Q //C call "$vssetup" "&&" cl //DEXPORT_DLL_SYMBOLS src/spout_sender.cpp src/spout_receiver.cpp //LD $LIBDIR/Spout.lib //Fespout_wrapper
+
 cp spout_wrapper.dll /usr/local/bin
 cp spout_wrapper.lib /usr/local/lib
+cp $LIBDIR/Spout.dll /usr/local/bin
 

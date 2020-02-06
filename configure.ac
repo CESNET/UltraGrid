@@ -2884,13 +2884,19 @@ fi
 # ------------------------------------------------------------------------------
 spout=no
 AC_ARG_ENABLE(spout,
-[  --enable-spout          enables Spout support (default is disabled)]
+[  --enable-spout          enables Spout support (default is auto)]
 [                          Requires: Spout],
     [spout_req=$enableval],
-    [spout_req=no]
+    [spout_req=auto]
     )
 
-if test $spout_req == yes
+FOUND_SPOUT_WRAPPER=no
+if test $system = Windows
+then
+        AC_CHECK_LIB(spout_wrapper, spout_create_receiver, [FOUND_SPOUT_WRAPPER=yes])
+fi
+
+if test $spout_req != no -a $FOUND_SPOUT_WRAPPER = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
         LIBS="$LIBS -lspout_wrapper"
