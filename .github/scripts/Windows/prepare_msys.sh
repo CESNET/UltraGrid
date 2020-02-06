@@ -46,6 +46,12 @@ git checkout 35c375
 make install
 cd ..
 
+# Install SPOUT
+wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer
+unzip SpoutSDK.zip -d src
+MSBuild.exe -p:PlatformToolset=v142  -p:Configuration=Release -p:Platform=x64 src/SpoutSDK/VS2012
+data/scripts/build_spout64.sh src/SpoutSDK/VS2012/x64/Release
+
 # Install FFMPEG
 wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*
 
