@@ -38,6 +38,14 @@ if test -d /c/AJA; then
         data/scripts/build_aja_lib_win64.sh
 fi
 
+# Install live555
+git clone https://github.com/xanview/live555/
+cd live555
+git checkout 35c375
+./genMakefiles mingw
+make install
+cd ..
+
 # Install FFMPEG
 wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-latest-win64-dev.zip && wget --no-verbose https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-latest-win64-shared.zip && unzip ffmpeg-latest-win64-dev.zip && unzip ffmpeg-latest-win64-shared.zip && cp -r ffmpeg-latest-win64-dev/include/* /usr/local/include && cp -r ffmpeg-latest-win64-dev/lib/* /usr/local/lib && cp -r ffmpeg-latest-win64-shared/bin/* /usr/local/bin && rm -rf ffmpeg-latest-*
 

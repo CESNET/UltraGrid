@@ -27,7 +27,7 @@ jobs:
       run: |
         sudo apt install qtbase5-dev
     - name: configure
-      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins
+      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
     - name: Build with cov-build
       run: |
         /tmp/cov-analysis*/bin/cov-build --dir cov-int make -j 2

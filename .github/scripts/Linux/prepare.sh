@@ -37,3 +37,12 @@ if [ -n "$sdk_pass" ]; then
         make
 fi
 
+# Install live555
+git clone https://github.com/xanview/live555/
+cd live555
+git checkout 35c375
+./genMakefiles linux-64bit
+sudo make install CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+
+cd ..
+

@@ -36,3 +36,10 @@ if [ -n "$sdk_pass" ]; then
         sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
 fi
 
+# Install live555
+git clone https://github.com/xanview/live555/
+cd live555
+git checkout 35c375
+./genMakefiles macosx
+make install
+cd ..
