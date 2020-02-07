@@ -554,6 +554,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 cdata = cdata->nxt;
         }
 
+        s->frame_size = received_frame.get_data_len();
         audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
         if (!decompressed) {
                 return FALSE;

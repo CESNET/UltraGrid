@@ -160,6 +160,7 @@ public:
         char *get_data(int channel);
         const char *get_data(int channel) const;
         size_t get_data_len(int channel) const;
+        size_t get_data_len() const;
         double get_duration() const;
         int get_channel_count() const;
         int get_sample_count() const;

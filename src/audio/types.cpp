@@ -226,6 +226,19 @@ size_t audio_frame2::get_data_len(int channel) const
         return channels[channel].len;
 }
 
+/**
+ * Returns length of all channels in bytes
+ */
+size_t audio_frame2::get_data_len() const
+{
+        size_t len = 0;
+        for (int i = 0; i < get_channel_count(); ++i) {
+                len += get_data_len(i);
+        }
+
+        return len;
+}
+
 double audio_frame2::get_duration() const
 {
         if (codec == AC_PCM) {

@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -99,6 +99,8 @@ enum audio_transport_device {
         NET_STANDARD
 };
 
+#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
+
 struct audio_network_parameters {
         char *addr = nullptr;
         int recv_port = 0;
@@ -177,6 +179,8 @@ struct state_audio {
         double volume = 1.0; // receiver volume scale
         bool muted_receiver = false;
         bool muted_sender = false;
+
+        size_t recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
 };
 
 /** 
@@ -512,7 +516,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
                 rtp_set_option(r, RTP_OPT_RECORD_SOURCE, TRUE);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
-                rtp_set_recv_buf(r, 256*1024);
+                rtp_set_recv_buf(r, DEFAULT_AUDIO_RECV_BUF_SIZE);
         }
 
         return r;
@@ -599,6 +603,17 @@ static void audio_decoder_state_deleter(void *state)
         audio_decoder_destroy(s->pbuf_data.decoder);
 
         free(s);
+}
+
+static void audio_update_recv_buf(struct state_audio *s, size_t curr_frame_len)
+{
+        size_t new_size = curr_frame_len * 2;
+
+        if (new_size > s->recv_buf_size) {
+                s->recv_buf_size = new_size;
+                debug_msg("[Audio receiver] Recv buffer adjusted to %zd\n", new_size);
+                rtp_set_recv_buf(s->audio_network_device, s->recv_buf_size);
+        }
 }
 
 static void *audio_receiver_thread(void *arg)
@@ -737,23 +752,25 @@ static void *audio_receiver_thread(void *arg)
                                 rtp_flush_recv_buf(s->audio_network_device);
                         }
 
-                        if(!failed) {
-                                if (!playback_supports_multiple_streams) {
-                                        audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
-                                } else {
-                                        pdb_iter_t it;
-                                        cp = pdb_iter_init(s->audio_participants, &it);
-                                        while (cp != NULL) {
-                                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                                if (dec_state && dec_state->enabled && dec_state->pbuf_data.buffer.data_len > 0) {
-                                                        struct audio_frame *f = &dec_state->pbuf_data.buffer;
-                                                        f->network_source = &dec_state->pbuf_data.source;
-                                                        audio_playback_put_frame(s->audio_playback_device, f);
-                                                }
-                                                cp = pdb_iter_next(&it);
+                        if (failed) {
+                                continue;
+                        }
+                        audio_update_recv_buf(s, current_pbuf->frame_size);
+                        if (!playback_supports_multiple_streams) {
+                                audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
+                        } else {
+                                pdb_iter_t it;
+                                cp = pdb_iter_init(s->audio_participants, &it);
+                                while (cp != NULL) {
+                                        struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
+                                        if (dec_state && dec_state->enabled && dec_state->pbuf_data.buffer.data_len > 0) {
+                                                struct audio_frame *f = &dec_state->pbuf_data.buffer;
+                                                f->network_source = &dec_state->pbuf_data.source;
+                                                audio_playback_put_frame(s->audio_playback_device, f);
                                         }
-                                        pdb_iter_done(&it);
+                                        cp = pdb_iter_next(&it);
                                 }
+                                pdb_iter_done(&it);
                         }
                 }
         }

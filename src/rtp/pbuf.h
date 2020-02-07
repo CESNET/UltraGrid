@@ -100,6 +100,7 @@ struct pbuf_audio_data {
         struct state_audio_decoder *decoder;
 
         bool reconfigured;
+        size_t frame_size; ///< currently decoded audio frame size (used similarly as vcodec_state::max_frame_size to allow caller adjust buffers if needed)
 };
 
 /**
