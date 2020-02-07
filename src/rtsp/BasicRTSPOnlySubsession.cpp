@@ -243,7 +243,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			msgV1->tx_port = ntohs(Vdestination->rtpPort.num());
 			msgV1->type = SENDER_MSG_CHANGE_PORT;
 			resp = send_message(fmod, pathV, (struct message *) msgV1);
-			resp = NULL;
+			free_response(resp);
 
 			//CHANGE DST ADDRESS
 			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
@@ -253,7 +253,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
 			resp = send_message(fmod, pathV, (struct message *) msgV2);
-			resp = NULL;
+			free_response(resp);
 		}
 	}
 
@@ -347,3 +347,4 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned /* clientSessionId */,
 		}
 	}
 }
+/* vi: set noexpandtab: */
