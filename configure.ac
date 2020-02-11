@@ -1126,7 +1126,10 @@ else
                 XI_LIB_PREF="lib"
                 XI_INC_SUFF="/include"
         else
-                if test -z "$GENICAM_GENTL64_PATH"; then
+                if test -n "$GENICAM_GENTL64_PATH"; then
+                        # the env var contains actually something like "C:\XIMEA\GenTL Producer\x64"
+                        GENICAM_GENTL64_PATH=$(realpath "$GENICAM_GENTL64_PATH=C:/XIMEA/API/x64")
+                else
                         GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
                 fi
                 XI_LIB_EXT=".dll"
