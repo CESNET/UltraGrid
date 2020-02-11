@@ -1,0 +1,179 @@
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/apis/BlueHancUtils/Makefile b/EpochLinuxDriver_V5_11_0_26/apis/BlueHancUtils/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/apis/BlueHancUtils/Makefile	2016-11-16 22:45:12.917115721 +0100
++++ b/EpochLinuxDriver_V5_11_0_26/apis/BlueHancUtils/Makefile	2016-11-16 22:49:23.145473987 +0100
+@@ -5,20 +5,16 @@ BLUE_RELEASE_DIR=../../release/driver
+ CPP=g++
+ SRC = CC_EIA708B_Parser.cpp EmbAudioUtil.cpp HDVancUtil.cpp BlueHancFrame.cpp
+ CFLAGS = -Wall -fpic -g -I/usr/include -I. -I$(BLUE_RELEASE_DIR)/inc
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ BLUE_MACHINE_ARCH=$(shell uname -m)
+ 
+ ifeq ($(BLUE_MACHINE_ARCH) ,x86_64)
+ TARGET=libBlueANCUtils64.so
+-ifeq ($(shell if test -d "/usr/lib64/"; then echo yes; fi),yes)
+-SYSTEM_LIB_DIR=lib64
+-else
+-SYSTEM_LIB_DIR=lib
+-endif
+ CFLAGS += -m64
+ else
+ TARGET=libBlueANCUtils.so
+-SYSTEM_LIB_DIR=lib
+ endif
+ OBJS = $(TARGET)
+ 
+@@ -30,12 +26,13 @@ $(SRC:.cpp=.o):
+ $(TARGET):	$(SRC:.cpp=.o)
+ 		$(CPP) -g -shared -Wl,-soname,$(TARGET) -o $(TARGET) $^ -lc
+ install: all
+-		-cp -f $(TARGET) /usr/$(SYSTEM_LIB_DIR)/$(TARGET)
++		mkdir -p $(DESTDIR)$(libdir)
++		-cp -f $(TARGET) $(DESTDIR)$(libdir)/$(TARGET)
+ 		-cp $(TARGET) $(BLUE_RELEASE_DIR)/lib
+ 		-cp BlueHancUtils.h $(BLUE_RELEASE_DIR)/inc
+ 		-cp BlueHancFrame.h $(BLUE_RELEASE_DIR)/inc
+ 		-cp BlueHANC.h $(BLUE_RELEASE_DIR)/inc
+-		-cp $(TARGET) /usr/$(SYSTEM_LIB_DIR)/
++		-cp $(TARGET) $(DESTDIR)$(libdir)/
+ 
+ clean:
+ 	rm -f *.o
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvet/Makefile b/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvet/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvet/Makefile	2018-05-11 09:07:27.172290669 +0200
++++ b/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvet/Makefile	2018-05-11 09:09:19.110281219 +0200
+@@ -5,6 +5,8 @@ OBJS = $(TARGET)
+ SRC = BlueVelvet_i.cpp BlueVelvet_Audio.cpp BlueVelvet_VideoOut.cpp BlueVelvet_Dma.cpp BlueVelvet_VideoIn.cpp BlueVelvet4_i.cpp BlueAudioConvert.cpp CardIORouting.cpp DeviceInterface.cpp AudioPlaybackDevice.cpp
+ #CFLAGS = -Wall -fpic -g -I/usr/include -I. -I../Inc
+ CFLAGS = -Wall -O3 -fpic -g -I/usr/include -I. -I$(BLUE_RELEASE_DIR)/inc  -Wno-unused
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ BLUE_MACHINE_ARCH=$(shell uname -m)
+ 
+@@ -13,11 +15,6 @@ TARGET=libBlueVelvet64.so
+ TARGET_GPUDIRECT=$(BLUE_RELEASE_DIR)/lib/libdvp64.so
+ TARGET_BLUEGPUDIRECT=$(BLUE_RELEASE_DIR)/lib/libBlueGpuDirect64.so
+ 
+-ifeq ($(shell if test -d "/usr/lib64/"; then echo yes; fi),yes)
+-SYSTEM_LIB_DIR=lib64
+-else
+-SYSTEM_LIB_DIR=lib
+-endif
+ CFLAGS += -m64
+ endif
+ 
+@@ -29,10 +26,11 @@ $(SRC:.cpp=.o):
+ $(TARGET):	$(SRC:.cpp=.o)
+ 		$(CPP) -g -shared -Wl,-soname,$(TARGET) -o $(TARGET) $^  -lc  -L.
+ install: all
+-		- cp -f $(TARGET) /usr/$(SYSTEM_LIB_DIR)/$(TARGET)
+-		- cp -f $(TARGET_GPUDIRECT) /usr/$(SYSTEM_LIB_DIR)/
+-		- cp -f $(TARGET_BLUEGPUDIRECT) /usr/$(SYSTEM_LIB_DIR)/
+-		- cp -f $(TARGET) $(BLUE_RELEASE_DIR)/lib/
++		mkdir -p $(DESTDIR)$(libdir)
++		cp -f $(TARGET) $(DESTDIR)$(libdir)/$(TARGET)
++		cp -f $(TARGET_GPUDIRECT) $(DESTDIR)$(libdir)/
++		cp -f $(TARGET_BLUEGPUDIRECT) $(DESTDIR)$(libdir)/
++		cp -f $(TARGET) $(BLUE_RELEASE_DIR)/lib/
+ 		cp -f BlueVelvet_c.h $(BLUE_RELEASE_DIR)/inc
+ 		cp -f BlueVelvet.h $(BLUE_RELEASE_DIR)/inc
+ clean:
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvetC/lin/Makefile b/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvetC/lin/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvetC/lin/Makefile	2016-11-16 22:45:12.917115721 +0100
++++ b/EpochLinuxDriver_V5_11_0_26/apis/BlueVelvetC/lin/Makefile	2016-11-16 22:51:03.715201566 +0100
+@@ -5,20 +5,16 @@ BLUE_RELEASE_DIR=../../../release/driver
+ CPP=g++
+ SRC = BlueVelvetC_i.cpp ../BlueUtils.cpp ../BlueVelvetCUtils.cpp ../BlueVelvetCHancUtils.cpp
+ CFLAGS = -Wall -fpic -g -I/usr/include -I. -I$(BLUE_RELEASE_DIR)/inc -DBLUE_LINUX_CODE
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ BLUE_MACHINE_ARCH=$(shell uname -m)
+ 
+ ifeq ($(BLUE_MACHINE_ARCH) ,x86_64)
+ TARGET=libBlueVelvetC64.so
+-ifeq ($(shell if test -d "/usr/lib64/"; then echo yes; fi),yes)
+-SYSTEM_LIB_DIR=lib64
+-else
+-SYSTEM_LIB_DIR=lib
+-endif
+ CFLAGS += -m64
+ else
+ TARGET=libBlueVelvetC.so
+-SYSTEM_LIB_DIR=lib
+ endif
+ OBJS = $(TARGET)
+ 
+@@ -30,12 +26,13 @@ $(SRC:.cpp=.o):
+ $(TARGET):	$(SRC:.cpp=.o)
+ 		$(CPP) -g -shared -Wl,-soname,$(TARGET) -o $(TARGET) $^ -lc
+ install: all
+-		-cp -f $(TARGET) /usr/$(SYSTEM_LIB_DIR)/$(TARGET)
++		mkdir -p $(DESTDIR)$(libdir)
++		-cp -f $(TARGET) $(DESTDIR)$(libdir)/$(TARGET)
+ 		-cp $(TARGET) $(BLUE_RELEASE_DIR)/lib
+ 		-cp ../BlueVelvetC.h $(BLUE_RELEASE_DIR)/inc
+ 		-cp ../BlueVelvetCUtils.h $(BLUE_RELEASE_DIR)/inc
+ 		-cp ../BlueVelvetCDefines.h $(BLUE_RELEASE_DIR)/inc
+-		-cp $(TARGET) /usr/$(SYSTEM_LIB_DIR)/
++		-cp $(TARGET) $(DESTDIR)$(libdir)/
+ 
+ clean:
+ 	rm -f *.o
+diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/PlaybackVideo/GLTeapot/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/PlaybackVideo/GLTeapot/Makefile
+--- a/EpochLinuxDriver_V5_11_0_26/samples/PlaybackVideo/GLTeapot/Makefile	2016-11-16 22:45:12.917115721 +0100
++++ b/EpochLinuxDriver_V5_11_0_26/samples/PlaybackVideo/GLTeapot/Makefile	2016-11-16 22:53:02.873242988 +0100
+@@ -6,6 +6,8 @@ CC = g++
+ CFLAGS = -g 
+ OPENGLLIB=-lGL -lGLU -lglut -lGLEW
+ SRC =  BlueTeaPotGenerator.cpp BluePlaybackHardware.cpp BlueCaptureHardware.cpp shader.cpp
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ BLUE_MACHINE_ARCH=$(shell uname -m)
+ ifeq ($(BLUE_MACHINE_ARCH) ,x86_64)
+@@ -14,9 +16,7 @@ BLUE_HANC_LIB=-lBlueANCUtils64
+ else
+ ifeq ($(BLUE_MACHINE_ARCH) ,ppc64)
+ CFLAGS += -m64
+-BLUE_LIB_DIR=lib64
+ else
+-BLUE_LIB_DIR=lib
+ BLUE_HANC_LIB=-lBlueANCUtils
+ endif
+ endif
+
+--- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/AVCaptureApp/Makefile	2018-06-07 07:25:08.918546493 +0200
++++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/AVCaptureApp/Makefile	2018-06-07 09:06:12.122593421 +0200
+@@ -6,16 +6,16 @@ OBJS = $(TARGET)
+ SRC = BlueUtils.cpp BlueAVSource.cpp BlueVideoSourceFifo.cpp BlueFishCard.cpp AppMain.cpp
+ SDK_DIR=../../../release/driver
+ CFLAGS = -Wall -O3 -fpic -g -I/usr/include -I. -I$(SDK_DIR)/inc
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ BLUE_MACHINE_ARCH=$(shell uname -m)
+ 
+ ifeq ($(BLUE_MACHINE_ARCH) ,x86_64)
+-SYSTEM_LIB_DIR=lib64
+ CFLAGS += -m64
+ BLUE_VELVET_LIB=-lBlueVelvet64
+ BLUE_HANC_LIB=-lBlueANCUtils64
+ else
+-SYSTEM_LIB_DIR=lib
+ BLUE_VELVET_LIB=-lBlueVelvet
+ BLUE_HANC_LIB=-lBlueANCUtils
+ endif
+@@ -27,7 +27,9 @@ $(SRC:.cpp=.o):
+ 
+ $(TARGET):	$(SRC:.cpp=.o)
+ 		$(CPP) -g -shared -Wl,-soname,$(TARGET) -o $(TARGET) $^ -$(BLUE_VELVET_LIB)
+-		cp $(TARGET) /usr/$(SYSTEM_LIB_DIR)/
++		mkdir -p $(DESTDIR)$(libdir)
++		cp $(TARGET) $(DESTDIR)$(libdir)/
++
+ 
+ $(TARGET_APP):	$(SRC:.cpp=.o)
+ 		$(CPP) -o $(TARGET_APP) $^ $(BLUE_VELVET_LIB) -L$(SDK_DIR)/lib/ $(Cpp) $(CFLAGS) -I$(SDK_DIR)/inc -L$(SDK_DIR)/lib/  -L/usr/local/lib -L/usr/lib/nvidia-current/ -lpthread $(BLUE_HANC_LIB) -lGL -lGLU -lglut -lGLEW

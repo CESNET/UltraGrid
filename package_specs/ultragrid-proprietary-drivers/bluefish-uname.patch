@@ -1,19 +1,7 @@
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/applications/Makefile b/EpochLinuxDriver_V5_11_0_26/applications/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/applications/Makefile	2016-10-31 10:41:08.496766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/applications/Makefile	2016-10-31 10:44:38.000774517 +0100
-@@ -2,7 +2,7 @@ OBJS = $(TARGET).o
- CC = g++
- SDK_DIR =../release/driver
-
--LINUX_KERNEL_VERSION := $(shell uname -r)
-+LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)
- KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
- BLUE_MACHINE_ARCH=$(shell uname -m)
- 
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile b/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile	2016-10-31 10:41:08.676766808 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile	2016-10-31 10:44:38.012774518 +0100
-@@ -35,7 +35,7 @@ obj ?= .
+diff -rupN a/Bluefish_linux_driver_6_0_1_21/drivers/lin/BlueGum/Makefile b/Bluefish_linux_driver_6_0_1_21/drivers/lin/BlueGum/Makefile
+--- a/Bluefish_linux_driver_6_0_1_21/drivers/lin/BlueGum/Makefile	2020-01-16 12:21:43.738529401 +0100
++++ b/Bluefish_linux_driver_6_0_1_21/drivers/lin/BlueGum/Makefile	2020-01-16 12:38:56.497313834 +0100
+@@ -33,7 +33,7 @@ obj ?= .
  
  PWD := $(shell pwd)
  MODULE_OBJECT := $(MODULE_NAME).ko
@@ -21,22 +9,22 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_26/drivers/orac/Makefile b/EpochLinuxDrive
 +KERNEL_UNAME   := $(shell ls -1 /lib/modules | sort | head -n 1)
  KERNEL_SOURCES := /lib/modules/$(KERNEL_UNAME)/build/
  
- EXTRA_CFLAGS += -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE  -DNTRM -D_GNU_SOURCE -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE -DUSE_NEW_VIDEO_FIFO
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile	2016-10-31 10:41:08.500766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureAncillary/ReadClosedCaptions/Makefile	2016-10-31 10:44:38.000774517 +0100
-@@ -2,7 +2,7 @@ OBJS = $(TARGET).o
- CC = g++
- SDK_DIR =../../../release/driver
+ EXTRA_CFLAGS += -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE  -DNTRM -D_GNU_SOURCE -D_LOOSE_KERNEL_NAMES -D__KERNEL__ -DMODULE -DUSE_NEW_VIDEO_FIFO #-DDEBUG 
+diff -rupN a/Bluefish_linux_driver_6_0_1_21/scripts/LoadBlueGumDriver.sh b/Bluefish_linux_driver_6_0_1_21/scripts/LoadBlueGumDriver.sh
+--- a/Bluefish_linux_driver_6_0_1_21/scripts/LoadBlueGumDriver.sh	2020-01-16 12:21:43.738529401 +0100
++++ b/Bluefish_linux_driver_6_0_1_21/scripts/LoadBlueGumDriver.sh	2020-01-16 12:38:39.857011979 +0100
+@@ -4,7 +4,7 @@ group="users"
+ blueGumDriverId="bluefishbluegum"
+ blueGumModuleName="BlueGumDriver64"
+ blueDevice="bluefishbluegum"
+-kversion=`uname -r | cut -c1-3`
++kversion=`ls -1 /lib/modules | sort | head -n 1 | cut -c1-3`
+ BlueGumDriver="BlueGumDriver64"
+ BlueGumDriverPath="../drivers/lin/BlueGum/"
  
--LINUX_KERNEL_VERSION := $(shell uname -r)
-+LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)
- KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
- BLUE_MACHINE_ARCH=$(shell uname -m)
- 
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile	2016-10-31 10:41:08.536766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevices/Makefile	2016-10-31 10:44:38.008774518 +0100
+diff -rupN a/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoDevices/Makefile b/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoDevices/Makefile
+--- a/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoDevices/Makefile	2020-01-16 12:21:43.686528452 +0100
++++ b/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoDevices/Makefile	2020-01-16 12:39:31.581950112 +0100
 @@ -1,7 +1,7 @@
  OBJS = $(TARGET).o
  CC = gcc
@@ -46,36 +34,12 @@ diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoDevi
  KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
  BLUE_MACHINE_ARCH=$(shell uname -m)
  
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile	2016-10-31 10:41:08.536766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/samples/CaptureVideo/V4L2/EnumVideoModes/Makefile	2016-10-31 10:44:38.008774518 +0100
+diff -rupN a/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoModes/Makefile b/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoModes/Makefile
+--- a/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoModes/Makefile	2020-01-16 12:21:43.686528452 +0100
++++ b/Bluefish_linux_driver_6_0_1_21/SDKSamples/lin/V4L2/EnumVideoModes/Makefile	2020-01-16 12:39:17.829700734 +0100
 @@ -1,7 +1,7 @@
  OBJS = $(TARGET).o
  CC = gcc
- 
--LINUX_KERNEL_VERSION := $(shell uname -r)
-+LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)
- KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
- BLUE_MACHINE_ARCH=$(shell uname -m)
- 
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile	2016-10-31 10:41:08.500766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/samples/Duplex/Makefile	2016-10-31 10:44:38.004774517 +0100
-@@ -2,7 +2,7 @@ OBJS = $(TARGET).o
- CC = g++
- SDK_DIR=../../release/driver
- 
--LINUX_KERNEL_VERSION := $(shell uname -r)
-+LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)
- KERNELDIR := /lib/modules/$(LINUX_KERNEL_VERSION)/build
- BLUE_MACHINE_ARCH=$(shell uname -m)
- 
-diff -rupN a/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile b/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile
---- a/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile	2016-10-31 10:41:08.536766802 +0100
-+++ b/EpochLinuxDriver_V5_11_0_26/samples/misc/Makefile	2016-10-31 10:44:38.008774518 +0100
-@@ -2,7 +2,7 @@ OBJS = $(TARGET).o
- CC = g++
- SDK_DIR =../../release/driver
  
 -LINUX_KERNEL_VERSION := $(shell uname -r)
 +LINUX_KERNEL_VERSION := $(shell ls -1 /lib/modules | sort | head -n 1)

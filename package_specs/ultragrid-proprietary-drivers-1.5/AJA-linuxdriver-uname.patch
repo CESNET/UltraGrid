@@ -1,0 +1,45 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile b/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
+--- a/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
++++ b/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
+@@ -7,7 +7,7 @@
+ DIR := $(strip $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST)))))
+ 
+ #DRIVERDIR	?= $(DIR)
+-KDIR		?= /lib/modules/$(shell uname -r)/build
++KDIR		?= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
+ 
+ # EXTRA_DEPS = -DNTV2_DEPRECATE_14_0 -DNTV2_DEPRECATE_14_1 
+ 
+diff -rupN a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
+--- a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
++++ b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
+@@ -1461,7 +1461,7 @@ cat <<_ASUNAME
+ 
+ hostname = `(hostname || uname -n) 2>/dev/null | sed 1q`
+ uname -m = `(uname -m) 2>/dev/null || echo unknown`
+-uname -r = `(uname -r) 2>/dev/null || echo unknown`
++uname -r = `(ls -1 /lib/modules | sort | head -n 1) 2>/dev/null || echo unknown`
+ uname -s = `(uname -s) 2>/dev/null || echo unknown`
+ uname -v = `(uname -v) 2>/dev/null || echo unknown`
+ 
+@@ -1813,7 +1813,7 @@ FL_API_VERSION=${FL_MAJOR_VERSION}.${FL_
+ 
+ 
+ uname=`uname`
+-uversion=`uname -r | sed -e '1,$s/[^0-9]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[^0-9]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi
+diff -rupN a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
+--- a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
++++ b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
+@@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
+ 
+ dnl Get the operating system and version number...
+ uname=`uname`
+-uversion=`uname -r | sed -e '1,$s/[[^0-9]]//g'`
++uversion=`ls -1 /lib/modules | sort | head -n 1 | sed -e '1,$s/[[^0-9]]//g'`
+ if test "x$uname" = xIRIX64; then
+     uname="IRIX"
+ fi

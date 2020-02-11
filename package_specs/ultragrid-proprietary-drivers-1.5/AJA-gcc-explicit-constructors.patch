@@ -1,0 +1,13 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h b/ntv2sdklinux_14.2.0.6/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
+--- a/ntv2sdklinux_14.2.0.6/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
++++ b/ntv2sdklinux_14.2.0.6/ajalibraries/ajantv2/includes/ntv2formatdescriptor.h
+@@ -29,7 +29,8 @@ public:
+ 	/**
+ 		@brief	My default constructor initializes me in an "invalid" state.
+ 	**/
+-	explicit		NTV2FormatDescriptor ();	///< @brief	My default constructor
++	NTV2FormatDescriptor ();	///< @brief	My default constructor
++	/** gcc-6 does not allow to call explicit default constructor calls in array initializations */
+ 
+ 	/**
+ 		@brief	Construct from line and pixel count, plus line pitch.

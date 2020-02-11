@@ -1,39 +1,43 @@
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile	2017-11-07 16:16:01.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -1,13 +1,15 @@
- #################################
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x64/Makefile	2020-01-24 11:24:20.692855978 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x64/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -2,16 +2,14 @@
  # VideoMasterHD
  #################################
--
+ 
 +DESTDIR ?= /
 +libdir ?= /usr/lib
  default:
  	
  install:
 -	cp libvideomasterhd.so.1.0.1 /usr/lib
+-	chmod 755 /usr/lib/libvideomasterhd.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/lib/libvideomasterhd.so.1 /usr/lib/libvideomasterhd.so 
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libvideomasterhd.so.1 /usr/lib/libvideomasterhd.so; fi 
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libvideomasterhd.so.1 /usr/local/lib/libvideomasterhd.so; fi 	
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libvideomasterhd.so.1 /usr/lib64/libvideomasterhd.so; fi 
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libvideomasterhd.so.1 /usr/local/lib64/libvideomasterhd.so; fi 
+-	
+-	
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)
++	chmod 755 $(DESTDIR)$(libdir)/libvideomasterhd.so.1.0.1
 +	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
-+	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so 
- 
++	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so
  	
- 	
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile	2017-11-07 16:16:02.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -5,18 +5,13 @@
- #################################
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x86/Makefile	2020-01-24 11:24:20.692855978 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD/x86/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -6,25 +6,16 @@
  # Setup common variables
  #################################
--
+ 
 -LBITS := $(shell getconf LONG_BIT)
 -ifeq ($(LBITS),64)
 -TARGET_DIR := lib32
 -else
 -TARGET_DIR := lib
+-PLATFORM := 32
 -endif
 +DESTDIR ?= /
 +libdir ?= /usr/lib
@@ -41,18 +45,27 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD/x86/Makefile b/
  default:
  	
  install:
--
+ 
 -	cp libvideomasterhd.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd.so.1.0.1
+-	chmod 755 /usr/$(TARGET_DIR)/libvideomasterhd.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/$(TARGET_DIR)/libvideomasterhd.so
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/$(TARGET_DIR)/libvideomasterhd.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/local/$(TARGET_DIR)/libvideomasterhd.so; fi
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1.0.1
-+	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
++	chmod 755 $(DESTDIR)$(libdir)/libvideomasterhd.so.1.0.1
 +	ln -sf libvideomasterhd.so.1 $(DESTDIR)$(libdir)/libvideomasterhd.so
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile	2017-11-07 16:16:02.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -1,11 +1,13 @@
++	ln -sf libvideomasterhd.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd.so.1
+ 	
+-ifneq ($(LBITS),64)
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd.so; fi	
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd.so.1 /usr/local/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd.so; fi
+-endif
+\ No newline at end of file
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x64/Makefile	2020-01-24 11:24:20.692855978 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x64/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -1,16 +1,12 @@
  #################################
  # VideoMasterHD_Audio
  #################################
@@ -63,17 +76,22 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x64/Makef
  
  install:
 -	cp libvideomasterhd_audio.so.1.0.1 /usr/lib
+-	chmod 755 /usr/lib/libvideomasterhd_audio.so.1.0.1
+-
 -	/sbin/ldconfig
--	ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/lib/libvideomasterhd_audio.so 
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/lib/libvideomasterhd_audio.so; fi
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/local/lib/libvideomasterhd_audio.so; fi 	
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/lib64/libvideomasterhd_audio.so; fi 
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_audio.so.1 /usr/local/lib64/libvideomasterhd_audio.so; fi 
+-
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)
 +	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
 +	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so 
- 
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile	2017-11-07 16:16:02.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -5,18 +5,13 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x86/Makefile	2020-01-24 11:24:20.692855978 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Audio/x86/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -5,26 +5,13 @@
  #################################
  # Setup common variables
  #################################
@@ -83,25 +101,147 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Audio/x86/Makef
 -TARGET_DIR := lib32
 -else
 -TARGET_DIR := lib
+-PLATFORM := 32
 -endif
 +DESTDIR ?= /
 +libdir ?= /usr/lib
  
  default:
- 
+ 	
  install:
 -
 -	cp libvideomasterhd_audio.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1.0.1
+-	chmod 755 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so 
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_audio.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/local/$(TARGET_DIR)/libvideomasterhd_audio.so; fi
+-	
+-ifneq ($(LBITS),64)
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_audio.so; fi	
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_audio.so.1 /usr/local/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_audio.so; fi
+-endif
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1.0.1
 +	ln -sf libvideomasterhd_audio.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so.1
 +	ln -sf libvideomasterhd_audio.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_audio.so
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile	2017-11-07 16:16:03.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -1,12 +1,15 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x64/Makefile	2020-01-24 11:24:20.696856047 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x64/Makefile	2020-01-24 11:53:41.539249866 +0100
+@@ -2,31 +2,23 @@
+ # VideoMasterHD_SP
+ #################################
+ 
++DESTDIR ?= /
++libdir ?= /usr/lib
++
+ default:
+ 
+ install:
+-	cp libvideomasterhd_sp.so.1.0.1 /usr/lib
+-	cp libFlxComm64.so.2016.03 /usr/lib
+-	cp libFlxCore64.so.2016.03 /usr/lib
+-	chmod 755 /usr/lib/libvideomasterhd_sp.so.1.0.1
+-	chmod 755 /usr/lib/libFlxComm64.so.2016.03
+-	chmod 755 /usr/lib/libFlxCore64.so.2016.03
+-	/sbin/ldconfig
+-
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/lib/libvideomasterhd_sp.so; fi 
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/local/lib/libvideomasterhd_sp.so; fi 	
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/lib64/libvideomasterhd_sp.so; fi 
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/local/lib64/libvideomasterhd_sp.so; fi 
+-
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/lib/libFlxComm64.so; fi
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/local/lib/libFlxComm64.so; fi
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/lib64/libFlxComm64.so; fi
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/local/lib64/libFlxComm64.so; fi
+-	
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/lib/libFlxCore64.so; fi
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/local/lib/libFlxCore64.so; fi
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/lib64/libFlxCore64.so; fi
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/local/lib64/libFlxCore64.so; fi
+-
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1.0.1
++	cp libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)/
++	cp libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)/
++	chmod 755 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1.0.1
++	chmod 755 $(DESTDIR)$(libdir)/libFlxComm64.so.2016.03
++	chmod 755 $(DESTDIR)$(libdir)/libFlxCore64.so.2016.03
++	#/sbin/ldconfig
++
++	ln -sf ./libvideomasterhd_sp.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so
++	ln -sf ./libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1
++	ln -sf ./libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)/libFlxComm64.so
++	ln -sf ./libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)/libFlxCore64.so
+ 
+-	
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x86/Makefile	2020-01-24 11:24:20.700856115 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_SP/x86/Makefile	2020-01-24 11:54:04.851653031 +0100
+@@ -1,44 +1,28 @@
+ #################################
+-# VideoMasterHD_Sp
++# VideoMasterHD_SP
+ #################################
+ 
+ #################################
+ # Setup common variables
+ #################################
+ 
+-LBITS := $(shell getconf LONG_BIT)
+-ifeq ($(LBITS),64)
+-TARGET_DIR := lib32
+-else
+-TARGET_DIR := lib
+-PLATFORM := 32
+-endif
++DESTDIR ?= /
++libdir ?= /usr/lib
+ 
+ default:
+ 	
+ install:
++	mkdir -p $(DESTDIR)$(libdir)
++	cp libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1.0.1
++	cp libFlxComm.so.2016.03 $(DESTDIR)$(libdir)/
++	cp libFlxCore.so.2016.03 $(DESTDIR)$(libdir)/
++	chmod 755 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1.0.1
++	chmod 755 $(DESTDIR)$(libdir)/libFlxComm.so.2016.03
++	chmod 755 $(DESTDIR)$(libdir)/libFlxCore.so.2016.03
++	#/sbin/ldconfig
+ 
+-	cp libvideomasterhd_sp.so.1.0.1 /usr/$(TARGET_DIR)/
+-	cp libFlxComm.so.2016.03 /usr/$(TARGET_DIR)/
+-	cp libFlxCore.so.2016.03 /usr/$(TARGET_DIR)/
+-	chmod 755 /usr/$(TARGET_DIR)/libvideomasterhd_sp.so.1.0.1
+-	chmod 755 /usr/$(TARGET_DIR)/libFlxComm.so.2016.03
+-	chmod 755 /usr/$(TARGET_DIR)/libFlxCore.so.2016.03
+-	/sbin/ldconfig
++	ln -sf libvideomasterhd_sp.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so
++	ln -sf libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1
++	ln -sf libFlxComm.so.2016.03 $(DESTDIR)$(libdir)/libFlxComm.so
++	ln -sf libFlxCore.so.2016.03 $(DESTDIR)$(libdir)/libFlxCore.so
+ 
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_sp.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_sp.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_sp.so.1 /usr/local/$(TARGET_DIR)/libvideomasterhd_sp.so; fi
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxComm.so.2016.03 /usr/$(TARGET_DIR)/libFlxComm.so; fi
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxCore.so.2016.03 /usr/$(TARGET_DIR)/libFlxCore.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxComm.so.2016.03 /usr/local/$(TARGET_DIR)/libFlxComm.so; fi 
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxCore.so.2016.03 /usr/local/$(TARGET_DIR)/libFlxCore.so; fi 
+-	
+-ifneq ($(LBITS),64)
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_sp.so.1 /usr/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_sp.so; fi	
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxComm.so.2016.03 /usr/$(TARGET_DIR)$(PLATFORM)/libFlxComm.so; fi 
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxCore.so.2016.03 /usr/$(TARGET_DIR)$(PLATFORM)/libFlxCore.so; fi 
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_sp.so.1 /usr/local/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_sp.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxComm.so.2016.03 /usr/local/$(TARGET_DIR)$(PLATFORM)/libFlxComm.so; fi 
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libFlxCore.so.2016.03 /usr/local/$(TARGET_DIR)$(PLATFORM)/libFlxCore.so; fi 
+-endif
+-	
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x64/Makefile	2020-01-24 11:24:20.700856115 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x64/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -1,16 +1,13 @@
  #################################
  # VideoMasterHD_Vbi
  #################################
@@ -112,18 +252,22 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x64/Makefil
  
  install:
 -	cp libvideomasterhd_vbi.so.1.0.1 /usr/lib
+-	chmod 755 /usr/lib/libvideomasterhd_vbi.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/lib/libvideomasterhd_vbi.so 
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/lib/libvideomasterhd_vbi.so; fi 
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/local/lib/libvideomasterhd_vbi.so; fi 	
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/lib64/libvideomasterhd_vbi.so; fi 
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_vbi.so.1 /usr/local/lib64/libvideomasterhd_vbi.so; fi 
+-
+-	
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)
 +	ln -sf libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1
 +	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
- 
- 	
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile	2017-11-07 16:16:03.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -5,19 +5,14 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x86/Makefile	2020-01-24 11:24:20.700856115 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_Vbi/x86/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -5,26 +5,13 @@
  #################################
  # Setup common variables
  #################################
@@ -133,26 +277,33 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_Vbi/x86/Makefil
 -TARGET_DIR := lib32
 -else
 -TARGET_DIR := lib
+-PLATFORM := 32
 -endif
 +DESTDIR ?= /
 +libdir ?= /usr/lib
  
  default:
- 
+ 	
  install:
 -
 -	cp libvideomasterhd_vbi.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1.0.1
+-	chmod 755 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so 
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/local/$(TARGET_DIR)/libvideomasterhd_vbi.so; fi
+-	
+-ifneq ($(LBITS),64)
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_vbi.so; fi	
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbi.so.1 /usr/local/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_vbi.so; fi
+-endif
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1.0.1
 +	ln -sf libvideomasterhd_vbi.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so.1
 +	ln -sf libvideomasterhd_vbi.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbi.so
- 	
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile	2017-11-07 16:16:03.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -1,12 +1,14 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x64/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x64/Makefile	2020-01-24 11:24:20.700856115 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x64/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -1,16 +1,12 @@
  #################################
  # VideoMasterHD_Vbi
  #################################
@@ -163,18 +314,22 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x64/Mak
  
  install:
 -	cp libvideomasterhd_vbidata.so.1.0.1 /usr/lib
+-	chmod 755 /usr/lib/libvideomasterhd_vbidata.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/lib/libvideomasterhd_vbidata.so 
+-	if [ -d /usr/lib ]; then ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/lib/libvideomasterhd_vbidata.so; fi 
+-	if [ -d /usr/local/lib ]; then ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/local/lib/libvideomasterhd_vbidata.so; fi 	
+-	if [ -d /usr/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/lib64/libvideomasterhd_vbidata.so; fi 
+-	if [ -d /usr/local/lib64 ]; then ln -sf /usr/lib/libvideomasterhd_vbidata.so.1 /usr/local/lib64/libvideomasterhd_vbidata.so; fi 
+-
+-	
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)
 +	ln -sf libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1
 +	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
- 
- 	
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile	2017-11-07 16:16:03.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Makefile	2017-11-07 21:44:03.177267037 +0100
-@@ -5,19 +5,14 @@
+diff -rupN a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x86/Makefile b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x86/Makefile
+--- a/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x86/Makefile	2020-01-24 11:24:20.700856115 +0100
++++ b/VideoMasterHD_SDK_Linux_v6.13.0.1/Library/VideoMasterHD_VbiData/x86/Makefile	2020-01-24 11:25:21.489904958 +0100
+@@ -5,26 +5,13 @@
  #################################
  # Setup common variables
  #################################
@@ -184,49 +339,26 @@ diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_VbiData/x86/Mak
 -TARGET_DIR := lib32
 -else
 -TARGET_DIR := lib
+-PLATFORM := 32
 -endif
 +DESTDIR ?= /
 +libdir ?= /usr/lib
  
  default:
- 
+ 	
  install:
 -
 -	cp libvideomasterhd_vbidata.so.1.0.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1.0.1
+-	chmod 755 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1.0.1
 -	/sbin/ldconfig
--	ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so 
+-	if [ -d /usr/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so; fi
+-	if [ -d /usr/local/$(TARGET_DIR) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/local/$(TARGET_DIR)/libvideomasterhd_vbidata.so; fi
+-	
+-ifneq ($(LBITS),64)
+-	if [ -d /usr/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_vbidata.so; fi	
+-	if [ -d /usr/local/$(TARGET_DIR)$(PLATFORM) ]; then ln -sf /usr/$(TARGET_DIR)/libvideomasterhd_vbidata.so.1 /usr/local/$(TARGET_DIR)$(PLATFORM)/libvideomasterhd_vbidata.so; fi
+-endif
 +	mkdir -p $(DESTDIR)$(libdir)
 +	cp libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1.0.1
 +	ln -sf libvideomasterhd_vbidata.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so.1
 +	ln -sf libvideomasterhd_vbidata.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_vbidata.so
- 	
-diff -rupN a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile
---- a/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile	2017-11-07 16:16:02.000000000 +0100
-+++ b/VideoMasterHD_SDK_Linux_v6.04/Library/VideoMasterHD_SP/x64/Makefile	2017-11-07 23:00:37.685207012 +0100
-@@ -2,15 +2,19 @@
- # VideoMasterHD_SP
- #################################
- 
-+DESTDIR ?= /
-+libdir ?= /usr/lib
- default:
- 
- install:
--	cp libvideomasterhd_sp.so.1.0.1 /usr/lib
--	cp libFlxComm64.so.2016.03 /usr/lib
--	cp libFlxCore64.so.2016.03 /usr/lib
--	/sbin/ldconfig
--	ln -sf /usr/lib/libvideomasterhd_sp.so.1 /usr/lib/libvideomasterhd_sp.so 
--	ln -sf /usr/lib/libFlxComm64.so.2016.03 /usr/lib/libFlxComm64.so 
--	ln -sf /usr/lib/libFlxCore64.so.2016.03 /usr/lib/libFlxCore64.so 
-+	mkdir -p $(DESTDIR)$(libdir)
-+	cp libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)
-+	cp libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)
-+	cp libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)
-+	#/sbin/ldconfig
-+	ln -sf ./libvideomasterhd_sp.so.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so 
-+	ln -sf ./libvideomasterhd_sp.so.1.0.1 $(DESTDIR)$(libdir)/libvideomasterhd_sp.so.1 
-+	ln -sf ./libFlxComm64.so.2016.03 $(DESTDIR)$(libdir)/libFlxComm64.so 
-+	ln -sf ./libFlxCore64.so.2016.03 $(DESTDIR)$(libdir)/libFlxCore64.so 
- 
- 	
