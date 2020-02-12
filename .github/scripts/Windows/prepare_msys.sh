@@ -21,6 +21,12 @@ if test -d /c/Program\ Files/NewTek; then
         echo "export LIBRARY_PATH=\$LIBRARY_PATH:'$NDI_D/Lib/x64'" >> ~/.bash_profile
 fi
 
+JACK_D=/c/Program\ Files\ \(x86\)/Jack
+if test -d "$JACK_D"; then
+        echo "export CPATH=\$CPATH:'$JACK_D/includes'" >> ~/.bash_profile
+        echo "export LIBRARY_PATH=\$LIBRARY_PATH:'$JACK_D/lib'" >> ~/.bash_profile
+fi
+
 echo cd `cygpath $GITHUB_WORKSPACE` >> ~/.bash_profile
 
 . ~/.bash_profile
@@ -31,6 +37,7 @@ pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-glew mingw-w6
 pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 pacman -Scc --noconfirm # make some free space
 pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-qt5
+pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-imagemagick mingw-w64-x86_64-opencv
 pacman -Scc --noconfirm
 
 # Build AJA wrapper if we have SDK

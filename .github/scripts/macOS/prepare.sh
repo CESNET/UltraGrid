@@ -1,23 +1,25 @@
 #!/bin/bash -eu
 
-TEMP_INST=/tmp/install
 AJA_INST=/var/tmp/ntv2sdk # AJA installation directory
-
-set -ex
+TEMP_INST=/tmp/install
+export SDKROOT=macosx10.14
 
 echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
 echo "::set-env name=UG_SKIP_NET_TESTS::1"
-echo "::set-env name=CPATH::/usr/local/include:/usr/local/opt/qt/include"
-echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
-echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig"
-echo "::set-env name=SDKROOT::macosx10.14" # SDK 10.15 crashes Qt in High Sierra
-echo "::add-path::/usr/local/opt/qt/bin"
+echo "::set-env name=CPATH::/usr/local/include:/usr/local/qt/include"
+echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/qt/lib"
+# libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
+echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
+echo "::set-env name=SDKROOT::$SDKROOT" # SDK 10.15 crashes Qt in High Sierra
+echo "::add-path::/usr/local/qt/bin"
 
-curl -LO https://github.com/phracker/MacOSX-SDKs/releases/download/10.14-beta4/MacOSX10.14.sdk.tar.xz
-tar xJf MacOSX10.14.sdk.tar.xz
-mv MacOSX10.14.sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs
+curl -LO https://github.com/phracker/MacOSX-SDKs/releases/download/10.14-beta4/${SDKROOT}.sdk.tar.xz
+tar xJf ${SDKROOT}.sdk.tar.xz
+mv ${SDKROOT}.sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs
+rm ${SDKROOT}.sdk.tar.xz
 brew install autoconf automake cppunit dylibbundler libtool pkg-config
 brew install ffmpeg portaudio sdl2
+brew install imagemagick jack opencv openssl
 brew install ossp-uuid # for cineform
 ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
 
@@ -52,7 +54,7 @@ make install
 cd ..
 
 # Install Syphon
-wget https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
+wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
 unzip Syphon.SDK.5.zip
 sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
 

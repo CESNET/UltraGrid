@@ -8,6 +8,8 @@ Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
 choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
 echo "::set-env name=MSYS2_PATH_TYPE::inherit" # MSYS2 inherits PATH from Windows
 
+choco install -y --no-progress jack
+
 # Install CUDA
 if (!${env:no_cuda}) {
   Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_441.22_win10.exe -OutFile cuda_inst.exe
@@ -57,3 +59,4 @@ if (${env:sdk_pass}) {
   echo "::add-path::C:\Program Files\NewTek\$sdk\Bin\x64"
   #Remove-Item C:\ndi.exe
 }
+

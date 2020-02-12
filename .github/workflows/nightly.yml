@@ -64,14 +64,14 @@ jobs:
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
     - name: Cache static Qt
-      id: cache-qt-linux
+      id: cache-qt
       uses: actions/cache@v1
       with:
         path: /usr/local/qt
-        key: cache-qt-linux
+        key: cache-qt-5_13_2-${{ runner.os }}
     - name: Build static Qt
-      if: steps.cache-qt-linux.outputs.cache-hit != 'true'
-      run: .github/scripts/Linux/build-qt.sh
+      if: steps.cache-qt.outputs.cache-hit != 'true'
+      run: .github/scripts/build-qt.sh 5.13.2
     - name: configure
       run: ./autogen.sh --enable-qt --enable-static-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
     - name: make
@@ -105,14 +105,14 @@ jobs:
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
     - name: Cache static Qt
-      id: cache-qt-mac
+      id: cache-qt
       uses: actions/cache@v1
       with:
-        path: /usr/local/opt/qt
-        key: cache-qt-mac
+        path: /usr/local/qt
+        key: cache-qt-5_13_2-${{ runner.os }}
     - name: Build static Qt
-      if: steps.cache-qt-mac.outputs.cache-hit != 'true'
-      run: .github/scripts/macOS/build-qt.sh
+      if: steps.cache-qt.outputs.cache-hit != 'true'
+      run: .github/scripts/build-qt.sh 5.13.2 /usr/local/qt
     - name: configure
       run: ./autogen.sh --enable-qt --enable-static-qt --with-live555=/usr/local
     - name: make
@@ -157,7 +157,7 @@ jobs:
       run: C:\msys64\usr\bin\bash -lc "make distcheck"
     - name: add DLL depends
       run: |
-        C:\msys64\usr\bin\bash -lc 'cp gui/QT/release/uv-qt.exe bin'
+        C:\msys64\usr\bin\bash -lc 'cp gui/QT/uv-qt.exe bin'
         C:\msys64\usr\bin\bash -lc 'rm bin/run_tests.exe; IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done'
         C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
         C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-win64'
