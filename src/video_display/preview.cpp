@@ -55,7 +55,7 @@
 #include <mutex>
 #include <queue>
 #include <unordered_map>
-#include <QSharedMemory>
+#include <QtCore/QSharedMemory>
 #include <cmath>
 
 using namespace std;

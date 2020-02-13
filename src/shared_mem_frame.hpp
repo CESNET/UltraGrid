@@ -38,7 +38,7 @@
 #ifndef SHARED_MEM_FRAME_HPP
 #define SHARED_MEM_FRAME_HPP
 
-#include <QSharedMemory>
+#include <QtCore/QSharedMemory>
 
 #ifndef GUI_BUILD
 #include "types.h"
