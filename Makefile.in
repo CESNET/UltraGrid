@@ -453,15 +453,10 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-MAKE_GUI_TARGET=
-ifeq ($(SYSTEM),Windows)
-	MAKE_GUI_TARGET=release
-endif
-
 gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4 $(MAKE_GUI_TARGET)
+	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/get_framerate_test.o \
