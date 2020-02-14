@@ -2806,9 +2806,20 @@ AC_ARG_ENABLE(openssl,
     [crypto_req=$build_default]
     )
 
-PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
+PKG_CHECK_MODULES([CRYPTO], [libcrypto], [FOUND_CRYPTO_PC=yes], [FOUND_CRYPTO_PC=no])
 
-if test $crypto_req != no -a $crypto = yes; then
+if test "$FOUND_CRYPTO_PC" = yes; then
+        SAVED_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
+        AC_CHECK_HEADER(openssl/aes.h, FOUND_CRYPTO_H=yes, FOUND_CRYPTO_H=no)
+        if test $FOUND_CRYPTO_H = no; then
+                AC_MSG_WARN([libcrypto.pc found but openssl/aes.h is not present. This is usually caused by presence of /usr/lib/pkgconfig/libcrypto.pc on macOS. If encryption is requested, install openssl from Homebrew and set PKG_CONFIG_PATH accordingly (see 'brew ln openssl').])
+        fi
+        CFLAGS=$SAVED_CFLAGS
+fi
+
+if test $crypto_req != no -a "$FOUND_CRYPTO_PC" = yes -a "$FOUND_CRYPTO_H" = yes; then
+        crypto=yes
         OPENSSL_OBJ="src/crypto/openssl_encrypt.o src/crypto/openssl_decrypt.o"
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
@@ -2818,8 +2829,6 @@ if test $crypto_req != no -a $crypto = yes; then
         LIBS="$LIBS $CRYPTO_LIBS"
         AC_CHECK_FUNCS(AES_ctr128_encrypt)
         LIBS=$SAVED_LIBS
-else
-        crypto=no
 fi
 
 if test $crypto_req = yes -a $crypto = no; then
