@@ -73,17 +73,8 @@ jobs:
         submodules: true
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
-    - name: Cache static Qt
-      id: cache-qt
-      uses: actions/cache@v1
-      with:
-        path: /usr/local/qt
-        key: cache-qt-5_13_2-${{ runner.os }}
-    - name: Build static Qt
-      if: steps.cache-qt.outputs.cache-hit != 'true'
-      run: .github/scripts/build-qt.sh 5.13.2
     - name: configure
-      run: ./autogen.sh --enable-qt --enable-static-qt --with-live555=/usr/local
+      run: ./autogen.sh --enable-qt --with-live555=/usr/local
     - name: make
       run: make osx-gui-dmg
     - name: make check

@@ -6,12 +6,12 @@ export SDKROOT=macosx10.14
 
 echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
 echo "::set-env name=UG_SKIP_NET_TESTS::1"
-echo "::set-env name=CPATH::/usr/local/include:/usr/local/qt/include"
-echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/qt/lib"
+echo "::set-env name=CPATH::/usr/local/include:/usr/local/opt/qt/include"
+echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
-echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
+echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
 echo "::set-env name=SDKROOT::$SDKROOT" # SDK 10.15 crashes Qt in High Sierra
-echo "::add-path::/usr/local/qt/bin"
+echo "::add-path::/usr/local/opt/qt/bin"
 
 curl -LO https://github.com/phracker/MacOSX-SDKs/releases/download/10.14-beta4/${SDKROOT}.sdk.tar.xz
 tar xJf ${SDKROOT}.sdk.tar.xz
@@ -22,6 +22,7 @@ brew install ffmpeg portaudio sdl2
 brew install imagemagick jack opencv openssl
 brew install ossp-uuid # for cineform
 ( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+brew install qt
 
 mkdir $TEMP_INST
 cd $TEMP_INST
