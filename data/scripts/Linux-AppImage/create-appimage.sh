@@ -1,11 +1,12 @@
-#/bin/sh -eu
+#!/bin/sh -eux
 
 APPDIR=UltraGrid.AppDir
 ARCH=`uname -m`
 DATE=`date +%Y%m%d`
 GLIBC_VERSION=`ldd --version | head -n 1 | sed 's/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/'`
-APPNAME=UltraGrid${SUFF}-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
+APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
 
+# redirect the whole output to stderr, output of this script is a created AppName only
 (
 exec 1>&2
 
@@ -13,13 +14,25 @@ mkdir tmpinstall
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPDIR
 
-for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/*; do
+# add platform files for Qt if using dynamic libs
+PLATFORM_LIBS=
+QT_PLATFORM_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
+if [ -f $APPDIR/bin/uv-qt -a -n $QT_PLATFORM_DIR ]; then
+        SRC_PLATFORM_DIR=$QT_PLATFORM_DIR/qt5/plugins/platforms
+        DST_PLATFORM_DIR=$APPDIR/lib/qt5/plugins/platforms
+        mkdir -p $DST_PLATFORM_DIR
+        cp -r $SRC_PLATFORM_DIR/* $DST_PLATFORM_DIR
+        PLATFORM_LIBS=$(ls $DST_PLATFORM_DIR/*)
+fi
+
+for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/* $PLATFORM_LIBS; do
         for lib in `ldd $n | awk '{ print $3 }'`; do
                 [ ! -f $lib ] || cp $lib $APPDIR/lib
         done
 done
 
-mkdir $APPDIR/lib/fonts && cp -r /usr/share/fonts/dejavu/* $APPDIR/lib/fonts
+mkdir $APPDIR/lib/fonts
+cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPDIR/lib/fonts
 
 # glibc libraries should not be bundled
 # Taken from https://gitlab.com/probono/platformissues
@@ -34,7 +47,6 @@ done
 ( cd $APPDIR/lib; rm -f libcmpto* ) # remove non-free components
 
 cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
-ln -s ultragrid.png $APPDIR
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
 wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool
 chmod ugo+x $APPDIR/appimageupdatetool
