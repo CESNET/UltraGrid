@@ -20,6 +20,7 @@ sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
 ( mkdir gpujpeg/build && cd gpujpeg/build && CC=gcc-6 CXX=g++-6 cmake .. && make && sudo make install && sudo ldconfig )
 ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
 # Install XIMEA

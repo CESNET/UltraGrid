@@ -23,9 +23,6 @@ jobs:
         submodules: true
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
-    - name: Install Qt
-      run: |
-        sudo apt install qtbase5-dev
     - name: configure
       run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
     - name: Build with cov-build
