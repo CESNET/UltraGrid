@@ -4,10 +4,6 @@
 Remove-Item -Recurse "C:\Program Files (x86)\Android"
 Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
 
-# Install MSYS2
-choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
-echo "::set-env name=MSYS2_PATH_TYPE::inherit" # MSYS2 inherits PATH from Windows
-
 choco install -y --no-progress jack
 
 # Install CUDA

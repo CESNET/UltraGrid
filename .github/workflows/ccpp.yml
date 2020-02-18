@@ -83,6 +83,7 @@ jobs:
     name: run Windows
     runs-on: windows-latest
     env:
+      MSYS2_PATH_TYPE: inherit
       sdk_pass: ${{ secrets.sdk_pass }}
     
     steps:
@@ -93,8 +94,17 @@ jobs:
       run: .github/scripts/Windows/find_msvc.ps1
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
+    - name: Cache MSYS2
+      id: cache-msys2
+      uses: actions/cache@v1
+      with:
+        path: C:\msys64
+        key: cache-msys2
     - name: bootsrap MSYS2
-      run: C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+      if: steps.cache-msys2.outputs.cache-hit != 'true'
+      run: |
+        choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
       run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
     - name: make
