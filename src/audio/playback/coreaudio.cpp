@@ -259,7 +259,7 @@ error:
 static void audio_play_ca_probe(struct device_info **available_devices, int *count)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "ca");
+        strcpy((*available_devices)[0].id, "coreaudio");
         strcpy((*available_devices)[0].name, "Default OS X audio output");
         *count = 1;
 }

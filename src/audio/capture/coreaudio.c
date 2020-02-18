@@ -193,7 +193,7 @@ static OSStatus InputProc(void *inRefCon,
 static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
 {
         *available_devices = malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "ca");
+        strcpy((*available_devices)[0].id, "coreaudio");
         strcpy((*available_devices)[0].name, "Default OS X audio input");
         *count = 1;
 }
