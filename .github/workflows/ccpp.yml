@@ -38,7 +38,7 @@ jobs:
     - name: configure
       run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
     - name: make
-      run: make
+      run: make -j4
     - name: make check
       run: make check
     - name: make distcheck
@@ -67,7 +67,7 @@ jobs:
     - name: configure
       run: ./autogen.sh --enable-qt --with-live555=/usr/local
     - name: make
-      run: make osx-gui-dmg
+      run: make -j4 osx-gui-dmg
     - name: make check
       run: make check
     - name: make distcheck
@@ -108,7 +108,7 @@ jobs:
     - name: configure
       run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
     - name: make
-      run: C:\msys64\usr\bin\bash -lc "make"
+      run: C:\msys64\usr\bin\bash -lc "make -j4"
     - name: make check
       run: C:\msys64\usr\bin\bash -lc "make check"
     - name: make dist-check
