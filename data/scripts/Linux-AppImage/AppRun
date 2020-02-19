@@ -1,6 +1,4 @@
-#!/bin/sh
-
-set -u
+#!/bin/sh -eu
 
 DIR=`dirname $0`
 export LD_LIBRARY_PATH=$DIR/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
@@ -8,7 +6,8 @@ export LD_LIBRARY_PATH=$DIR/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 # as being system-installed
 #export PATH=$DIR/bin:$PATH
 export QT_QPA_FONTDIR=$DIR/lib/fonts
-export QT_QPA_PLATFORM_PLUGIN_PATH=$DIR/lib/qt5/plugins/platforms
+export QT_PLUGIN_PATH=$DIR/lib/qt5/plugins
+export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 
 usage() {
         printf "usage:\n"

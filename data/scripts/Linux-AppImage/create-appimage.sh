@@ -14,18 +14,20 @@ mkdir tmpinstall
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPDIR
 
-# add platform files for Qt if using dynamic libs
-PLATFORM_LIBS=
-QT_PLATFORM_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
-if [ -f $APPDIR/bin/uv-qt -a -n $QT_PLATFORM_DIR ]; then
-        SRC_PLATFORM_DIR=$QT_PLATFORM_DIR/qt5/plugins/platforms
-        DST_PLATFORM_DIR=$APPDIR/lib/qt5/plugins/platforms
-        mkdir -p $DST_PLATFORM_DIR
-        cp -r $SRC_PLATFORM_DIR/* $DST_PLATFORM_DIR
-        PLATFORM_LIBS=$(ls $DST_PLATFORM_DIR/*)
+# add platform and other Qt plugins if using dynamic libs
+# @todo copy only needed ones
+# @todo use https://github.com/probonopd/linuxdeployqt
+PLUGIN_LIBS=
+QT_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
+if [ -f $APPDIR/bin/uv-qt -a -n $QT_DIR ]; then
+        SRC_PLUGIN_DIR=$QT_DIR/qt5/plugins
+        DST_PLUGIN_DIR=$APPDIR/lib/qt5/plugins
+        mkdir -p $DST_PLUGIN_DIR
+        cp -r $SRC_PLUGIN_DIR/* $DST_PLUGIN_DIR
+        PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
 fi
 
-for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/* $PLATFORM_LIBS; do
+for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/* $PLUGIN_LIBS; do
         for lib in `ldd $n | awk '{ print $3 }'`; do
                 [ ! -f $lib ] || cp $lib $APPDIR/lib
         done
@@ -43,6 +45,7 @@ for n in ld-linux.so.2 ld-linux-x86-64.so.2 libanl.so.1 libBrokenLocale.so.1 lib
         fi
 done
 
+# consult https://github.com/probonopd/linuxdeployqt/blob/master/tools/linuxdeployqt/excludelist.h
 ( cd $APPDIR/lib; rm -f libasound.so.2 libdrm.so.2 libEGL.so.1 libGL.so.1 libGLdispatch.so.0 libstdc++.so.6  libX11-xcb.so.1 libX11.so.6 libXau.so.6 libXcursor.so.1 libXdmcp.so.6 libXext.so.6 li bXfixes.so.3 libXi.so.6 libXinerama.so.1 libXrandr.so.2 libXrender.so.1 libXtst.so.6 libXxf86vm.so.1 libxcb* libxshm* )
 ( cd $APPDIR/lib; rm -f libcmpto* ) # remove non-free components
 
