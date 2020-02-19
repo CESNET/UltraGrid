@@ -4,7 +4,7 @@
  *         Martin Pulec      <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         int port_count = 0; 
         struct device_info *available_devices = NULL;
 
+        *count = 0;
         client = jack_client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
                 fprintf(stderr, "[JACK playback] Opening JACK client failed.\n");
@@ -74,7 +75,6 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         available_devices = calloc(port_count, sizeof(struct device_info));
 
         channel_count = 0;
-        *count = 0;
         for(i = 0; ports[i] != NULL; i++) {
                 char *item = strdup(ports[i]);
                 assert(item != NULL);
