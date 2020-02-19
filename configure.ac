@@ -1197,8 +1197,8 @@ fi
 
 case $host_os in
 	*darwin*)
-		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
-		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
+		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [FOUND_QUICKTIME_H=no])
+		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [FOUND_CARBON_H=no])
 
 		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes -a $WORD_LEN = 32
 		then
@@ -2143,6 +2143,8 @@ case "$CUDA_COMPILER" in
 		;;
 	*clang*)
 		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
+		;;
+	"")
 		;;
 	*)
 		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
