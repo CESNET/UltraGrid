@@ -497,6 +497,7 @@ check: tests
 
 distcheck: all
 	$(TARGET)
+	$(TARGET) --capabilities
 
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
