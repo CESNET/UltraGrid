@@ -309,7 +309,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 get_libraries_for_class(LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
         for (auto const & it : display_capabilities) {
                 auto vdi = static_cast<const struct video_display_info *>(it.second);
-                int count;
+                int count = 0;
                 struct device_info *devices;
                 void (*deleter)(void *) = nullptr;
                 vdi->probe(&devices, &count, &deleter);
@@ -329,7 +329,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 get_libraries_for_class(LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
         for (auto const & it : audio_cap_capabilities) {
                 auto aci = static_cast<const struct audio_capture_info *>(it.second);
-                int count;
+                int count = 0;
                 struct device_info *devices;
                 aci->probe(&devices, &count);
                 cout << "[cap][audio_cap] " << it.first << std::endl;
@@ -347,7 +347,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 get_libraries_for_class(LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
         for (auto const & it : audio_play_capabilities) {
                 auto api = static_cast<const struct audio_playback_info *>(it.second);
-                int count;
+                int count = 0;
                 struct device_info *devices;
                 api->probe(&devices, &count);
                 cout << "[cap][audio_play] " << it.first << std::endl;
