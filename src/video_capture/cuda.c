@@ -52,7 +52,7 @@
 #include "video.h"
 #include "video_capture.h"
 
-#define MS100_IN_NS (100ULL * 1000 * 1000)
+#define DEFAULT_TIMEOUT_MS 500
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define SEM_KEY "/UltraGridSem"
 #define SHM_KEY "/UltraGridSHM"
@@ -177,7 +177,7 @@ static struct video_frame *vidcap_cuda_grab(void *state, struct audio_frame **au
         op.sem_flg = 0;
         struct timespec timeout;
         timeout.tv_sec = 0;
-        timeout.tv_nsec = MS100_IN_NS;
+        timeout.tv_nsec = DEFAULT_TIMEOUT_MS * 1000ULL * 1000ULL;
         if (semtimedop(s->sem_id, &op, 1, &timeout) < 0) {
                 perror("semtimedop");
                 *audio = NULL;
