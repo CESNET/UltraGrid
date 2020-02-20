@@ -11,7 +11,7 @@
  *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2018 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -79,6 +79,7 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
 #define DEFAULT_FORMAT "1920:1080:50i:UYVY"
+#define MOD_NAME "[testcard] "
 
 using namespace std;
 
@@ -287,7 +288,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
-static const codec_t codecs_8b[] = {RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
+static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
 
@@ -538,7 +539,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         }
                 }
                 s->data = (char *) s->pixmap.data;
-                if (codec == UYVY || codec == v210 || codec == YUYV) {
+                if (codec == I420 || codec == v210 || codec == UYVY || codec == YUYV) {
                         char *tmp = (char *) malloc(s->size * bpp * 2);
                         vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) s->data,
                                         s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
@@ -546,10 +547,14 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->data = tmp;
                 }
 
-                if (codec == v210) {
-                        char *tmp =
-                            (char *)tov210((unsigned char *) s->data, aligned_x,
-                                           aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
+                if (codec == I420 || codec == v210) {
+                        char *tmp;
+                        if (codec == v210) {
+                                tmp = (char *)tov210((unsigned char *) s->data, aligned_x,
+                                                aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
+                        } else {
+                                tmp = toI420(s->data, s->frame->tiles[0].width, s->frame->tiles[0].height);
+                        }
                         free(s->data); // free old data
                         s->data = tmp;
                 }
@@ -595,6 +600,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
                 free(s->data);
                 s->data = vf_get_tile(s->frame, 0)->data;
+        }
+
+        if (!s->still_image && codec_is_planar(codec)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(codec));
+                s->still_image = true;
         }
 
         s->last_frame_time = std::chrono::steady_clock::now();

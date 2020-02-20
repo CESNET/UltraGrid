@@ -119,6 +119,40 @@ unsigned char *tov210(unsigned char *in, unsigned int width,
         return ret;
 }
 
+/**
+ * @param[in] in buffer in UYVY
+ * @retval       buffer in I420 (must be deallocated by the caller)
+ */
+char *toI420(const char *input, unsigned int width, unsigned int height)
+{
+        const unsigned char *in = (const unsigned char *) input;
+        unsigned char *out = malloc(width * height * 3 / 2);
+        unsigned char *y = out;
+        unsigned char *u0 = out + width * height;
+        unsigned char *v0 = out + width * height + width * height / 4;
+        unsigned char *u1 = u0, *v1 = v0;
+
+        for (unsigned int i = 0; i < height; i += 1) {
+                for (unsigned int j = 0; j < width; j += 2) {
+                        if (i % 2 == 0) {
+                                *u0++ = *in++;
+                        } else { // average with every 2nd row
+                                *u1 = (*u1 + *in++) / 2;
+                                u1++;
+                        }
+                        *y++ = *in++;
+                        if (i % 2 == 0) {
+                                *v0++ = *in++;
+                        } else { // average with every 2nd row
+                                *v1 = (*v1 + *in++) / 2;
+                                v1++;
+                        }
+                        *y++ = *in++;
+                }
+        }
+        return (char *) out;
+}
+
 void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 {
         struct {

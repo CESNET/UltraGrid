@@ -2330,4 +2330,12 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
         return true;
 }
 
+/**
+ * @todo
+ * Put this to @ref codec_info.
+ */
+bool codec_is_planar(codec_t codec) {
+        return codec == I420;
+}
+
 /* vim: set expandtab sw=8: */
