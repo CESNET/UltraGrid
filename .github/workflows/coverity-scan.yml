@@ -3,10 +3,13 @@ name: coverity-scan
 on:
   schedule:
     - cron:  '0 6 * * *' # Daily at 6:00 UTC
+  push:
+    branches:
+      - coverity_scan
 
 jobs:
   Coverity:
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid' || github.event == 'push'
     runs-on: ubuntu-latest
     env:
       sdk_pass: ${{ secrets.sdk_pass }}
