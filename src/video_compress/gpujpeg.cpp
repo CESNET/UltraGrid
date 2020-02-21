@@ -260,8 +260,15 @@ bool encoder_state::configure_with(struct video_desc desc)
         compressed_desc = desc;
         compressed_desc.color_spec = JPEG;
 
-        if (desc.color_spec == CUDA_I420) {
+        if (IS_I420(desc.color_spec)) {
+                if (m_parent_state->m_use_internal_codec == RGB ||
+                                (m_parent_state->m_subsampling != 0 && m_parent_state->m_subsampling != 420)) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Converting from planar pixel formats is "
+                                        "possible only without subsampling/color space change.\n");
+                        return false;
+                }
                 m_decoder = nullptr;
+                m_enc_input_codec = desc.color_spec;
         } else {
                 m_decoder = get_decoder(desc.color_spec, &m_enc_input_codec);
                 if (!m_decoder) {
@@ -325,7 +332,11 @@ bool encoder_state::configure_with(struct video_desc desc)
 #if GJ_RGBA_SUPP == 1
         case RGBA: m_param_image.pixel_format = GPUJPEG_444_U8_P012Z; break;
 #endif
-        default: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
+        case UYVY: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
+        default:
+                log_msg(LOG_LEVEL_FATAL, MOD_NAME "Unexpected codec: %s\n",
+                                get_codec_name(m_enc_input_codec));
+                abort();
         }
         m_encoder = gpujpeg_encoder_create(NULL);
 #else
@@ -388,8 +399,9 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                         } else if (strstr(tok, "subsampling=") == tok) {
                                 m_subsampling = atoi(tok + strlen("subsampling="));
                                 assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                         }
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                 }
                 fmt = nullptr;
                 pos += 1;
@@ -465,7 +477,7 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 cout << "where\n";
                 cout << BOLD("\tquality\n") <<
                         "\t\tJPEG quality coefficient [0..100] - more is better\n";
-                cout << BOLD("\trestart interval\n") <<
+                cout << BOLD("\trestart_interval\n") <<
                         "\t\tInterval between independently entropy encoded block of MCUs,\n"
                         "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
                         "\t\treduces bandwidth at the expense of worse parallelization (if\n"

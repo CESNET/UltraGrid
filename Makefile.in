@@ -497,6 +497,7 @@ check: tests
 
 distcheck: all
 	$(TARGET)
+	$(TARGET) --capabilities
 
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
@@ -592,9 +593,26 @@ bundle: bundle-nolib
 gui-bundle: bundle gui/QT/uv-qt
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
-	cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
+	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	test -d $(GUI_BUNDLE)/Contents/Frameworks || mkdir $(GUI_BUNDLE)/Contents/Frameworks
 	cp -r $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
+	# add Qt frameworks
+	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)
+	# then fix links also for other binaries than uv-qt, namely uv itself
+	for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
+		for m in $$(otool -L $$n | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
+			FRAMEWORK_D=$$(echo $$m | sed 's/\(.*\.framework\).*/\1/'); \
+			FRAMEWORK_N=$$(basename $$FRAMEWORK_D); \
+			SUFFIX=$$(echo $$m | sed 's/.*\/\([^/]*\.framework.*\)/\1/'); \
+			install_name_tool -change $$m @executable_path/../Frameworks/$$SUFFIX $$n; \
+			[ -d $(GUI_BUNDLE)/Contents/Frameworks/$$FRAMEWORK_N ] && continue; \
+			cp -R $$FRAMEWORK_D $(GUI_BUNDLE)/Contents/Frameworks; \
+			install_name_tool -id @executable_path/../Frameworks/$$(echo $$m | sed 's/.*\(Qt[a-zA-Z]*\.framework\)/\1/') $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX; \
+			for i in $$(otool -L $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
+				install_name_tool -change $$i @executable_path/../Frameworks/$$(echo $$i | sed 's/.*\(Qt[a-zA-Z]*\.framework\)/\1/') $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX; \
+			done ; \
+		done; \
+	done
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
 	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
 	cp data/update.mac $(GUI_BUNDLE)/Contents/MacOS/update

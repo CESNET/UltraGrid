@@ -113,13 +113,14 @@ typedef struct {
         void (*set_param)(AVCodecContext *, struct setparam_param *);
 } codec_params_t;
 
-static void setparam_default(AVCodecContext *, struct setparam_param *);
-static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
-static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
-static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
+static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
-static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
+static void setparam_default(AVCodecContext *, struct setparam_param *);
+static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
+static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
+static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
+static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
@@ -672,6 +673,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->pix_fmt = pix_fmt;
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
+        set_thread_mode(s->codec_ctx, &s->params);
 
         if (!have_preset) {
                 string preset{};
@@ -1460,30 +1462,39 @@ static void libavcodec_compress_done(struct module *mod)
         delete s;
 }
 
-static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        if (!param->thread_mode.empty()) {
+                return;
+        }
+
+        if (param->thread_mode == "no") { // disable threading (which may have been enabled previously
+                codec_ctx->thread_type = 0;
+                codec_ctx->thread_count = 1;
+        } else if (param->thread_mode == "slice") {
+                // zero should mean count equal to the number of virtual cores
+                if (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+                        codec_ctx->thread_count = 0;
+                        codec_ctx->thread_type = FF_THREAD_SLICE;
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
+                }
+        } else if (param->thread_mode == "frame") {
+                if (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+                        codec_ctx->thread_count = 0;
+                        codec_ctx->thread_type = FF_THREAD_FRAME;
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support frame-based multithreading.\n");
+                }
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->thread_mode.c_str());
+        }
+}
+
+static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
         if (codec_ctx->codec->id == AV_CODEC_ID_JPEG2000) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] J2K support is experimental and may be broken!\n");
-        }
-        if (!param->thread_mode.empty() && param->thread_mode != "no")  {
-                if (param->thread_mode == "slice") {
-                        // zero should mean count equal to the number of virtual cores
-                        if (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-                                codec_ctx->thread_count = 0;
-                                codec_ctx->thread_type = FF_THREAD_SLICE;
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
-                        }
-                } else if (param->thread_mode == "frame") {
-                        if (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
-                                codec_ctx->thread_count = 0;
-                                codec_ctx->thread_type = FF_THREAD_FRAME;
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support frame-based multithreading.\n");
-                        }
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->thread_mode.c_str());
-                }
         }
 }
 

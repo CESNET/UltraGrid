@@ -77,7 +77,8 @@ int playback_set_device(char *device_string, size_t buf_len, const char *optarg)
         struct stat sb;
         if (stat(path, &sb) == -1) {
                 perror(MOD_NAME "stat");
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "use --playback help to see usage");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot access file or directory '%s'\n", path);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Use '--playback help' to see usage.\n");
                 free(path);
                 return -1;
         }
