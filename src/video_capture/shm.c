@@ -53,11 +53,11 @@
 #include "video.h"
 #include "video_capture.h"
 
-#define DEFAULT_TIMEOUT_MS 500
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define SEM_KEY "/UltraGridSem"
 #define SHM_KEY "/UltraGridSHM"
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
+#define MOD_NAME "[shm] "
 
 struct shm {
         int width, height;
@@ -74,11 +74,27 @@ struct state_vidcap_shm {
 	int shm_id;
 	int sem_id;
         bool use_gpu;
+        struct module *parent;
+        bool should_exit;
 };
 
 static void show_help() {
         printf("Usage:\n");
         printf("-t cuda|shm\n");
+}
+
+static void vidcap_shm_should_exit(void *arg) {
+        struct state_vidcap_shm *s = (struct state_vidcap_shm *) arg;
+        s->should_exit = true;
+
+        struct sembuf op;
+        op.sem_num = 1;
+        op.sem_op = 1;
+        op.sem_flg = 0;
+        if (semop(s->sem_id, &op, 1) < 0) {
+                perror("semop");
+                abort();
+        }
 }
 
 #define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { fprintf(stderr, "%s\n", cudaGetErrorString(err)); goto error; } } while(0)
@@ -98,6 +114,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
                 s->use_gpu = true;
         }
+        s->parent = vidcap_params_get_parent(params);
 
         struct video_desc desc = { .width = 0,
                 .height = 0,
@@ -115,9 +132,14 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         } else {
                 size = offsetof(struct shm, data[MAX_BUF_LEN]);
         }
-        if ((s->shm_id = shmget(ftok(SHM_KEY, 1), size, IPC_CREAT | 0666)) == -1) {
+        key_t key = ftok(SHM_KEY, 1);
+        if ((s->shm_id = shmget(key, size, IPC_CREAT | 0666)) == -1) {
                 if (errno != EEXIST) {
                         perror("shmget");
+                        if (errno == EINVAL) {
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
+                                                "key %lld.\n", (long long) key);
+                        }
                         goto error;
                 }
         }
@@ -151,6 +173,8 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 perror("semop");
                 goto error;
         }
+
+        register_should_exit_callback(s->parent, vidcap_shm_should_exit, s);
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -206,12 +230,13 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         op.sem_num = 1;
         op.sem_op = -1;
         op.sem_flg = 0;
-        struct timespec timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_nsec = DEFAULT_TIMEOUT_MS * 1000ULL * 1000ULL;
-        if (semtimedop(s->sem_id, &op, 1, &timeout) < 0) {
-                perror("semtimedop");
+        if (semop(s->sem_id, &op, 1) < 0) {
+                perror("semop");
                 *audio = NULL;
+                return NULL;
+        }
+
+        if (s->should_exit) {
                 return NULL;
         }
 
