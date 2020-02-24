@@ -72,14 +72,14 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-x86_64.AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-nightly-x86_64.AppImage
     - name: Upload Release Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq
-        .github/scripts/delete-asset.sh nightly UltraGrid-x86_64.AppImage
-        .github/scripts/upload-asset.sh nightly UltraGrid-x86_64.AppImage application/x-appimage Linux%20build
+        .github/scripts/delete-asset.sh nightly UltraGrid-nightly-x86_64.AppImage
+        .github/scripts/upload-asset.sh nightly UltraGrid-nightly-x86_64.AppImage application/x-appimage Linux%20build
 
   macOS:
     needs: retag-nightly
@@ -108,8 +108,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         brew install jq
-        .github/scripts/delete-asset.sh nightly UltraGrid.dmg
-        .github/scripts/upload-asset.sh nightly UltraGrid.dmg application/x-apple-diskimage macOS%20build
+        mv UltraGrid.dmg UltraGrid-nightly.dmg
+        .github/scripts/delete-asset.sh nightly UltraGrid-nightly.dmg
+        .github/scripts/upload-asset.sh nightly UltraGrid-nightly.dmg application/x-apple-diskimage macOS%20build
 
   Windows:
     needs: retag-nightly
@@ -153,13 +154,13 @@ jobs:
         C:\msys64\usr\bin\bash -lc 'rm bin/run_tests.exe; IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done'
         C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
         C:\msys64\usr\bin\bash -lc 'cp data/update.ps1 bin'
-        C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-win64'
-        C:\msys64\usr\bin\bash -lc 'zip -9 -r UltraGrid-win64.zip UltraGrid-win64'
+        C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-nightly'
+        C:\msys64\usr\bin\bash -lc 'zip -9 -r UltraGrid-nightly-win64.zip UltraGrid-nightly'
     - name: Upload Release Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/delete-asset.sh nightly UltraGrid-win64.zip'
-        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/upload-asset.sh nightly UltraGrid-win64.zip application/zip Windows%20build'
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/delete-asset.sh nightly UltraGrid-nightly-win64.zip'
+        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/upload-asset.sh nightly UltraGrid-nightly-win64.zip application/zip Windows%20build'
 
 # vi: set expandtab sw=2:
