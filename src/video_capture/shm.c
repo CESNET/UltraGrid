@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@
 #include "config_win32.h"
 
 #include <cuda_runtime.h>
+#include <stdbool.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
 
@@ -62,6 +63,8 @@ struct shm {
         int width, height;
         cudaIpcMemHandle_t d_ptr;
         int ug_exited;
+        int use_gpu;
+        char data[];
 };
 
 struct state_vidcap_shm {
@@ -70,7 +73,13 @@ struct state_vidcap_shm {
         struct shm *shm;
 	int shm_id;
 	int sem_id;
+        bool use_gpu;
 };
+
+static void show_help() {
+        printf("Usage:\n");
+        printf("-t cuda|shm\n");
+}
 
 #define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { fprintf(stderr, "%s\n", cudaGetErrorString(err)); goto error; } } while(0)
 static int vidcap_shm_init(struct vidcap_params *params, void **state)
@@ -78,20 +87,35 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
+
+        if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                show_help();
+                return VIDCAP_INIT_NOERR;
+        }
+
         struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
         s->magic = MAGIC;
+        if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
+                s->use_gpu = true;
+        }
 
         struct video_desc desc = { .width = 0,
                 .height = 0,
                .fps = 30,
                .tile_count = 1,
-               .color_spec = CUDA_I420,
+               .color_spec = s->use_gpu ? CUDA_I420 : I420,
                .interlacing = PROGRESSIVE,
         };
 
         s->f = vf_alloc_desc(desc);
 
-        if ((s->shm_id = shmget(ftok(SHM_KEY, 1), sizeof(struct shm), IPC_CREAT | 0666)) == -1) {
+        size_t size;
+        if (s->use_gpu) {
+                size = sizeof(struct shm);
+        } else {
+                size = offsetof(struct shm, data[MAX_BUF_LEN]);
+        }
+        if ((s->shm_id = shmget(ftok(SHM_KEY, 1), size, IPC_CREAT | 0666)) == -1) {
                 if (errno != EEXIST) {
                         perror("shmget");
                         goto error;
@@ -103,6 +127,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 goto error;
         }
         s->shm->ug_exited = 0;
+        s->shm->use_gpu = s->use_gpu;
         s->sem_id = semget(ftok(SEM_KEY, 1), 2, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
                 if (errno != EEXIST) {
@@ -111,8 +136,12 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
-        CUDA_CHECK(cudaIpcGetMemHandle (&s->shm->d_ptr, s->f->tiles[0].data));
+        if (s->use_gpu) {
+                CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
+                CUDA_CHECK(cudaIpcGetMemHandle (&s->shm->d_ptr, s->f->tiles[0].data));
+        } else {
+                s->f->tiles[0].data = s->shm->data;
+        }
 
         struct sembuf op;
         op.sem_num = 0;
@@ -150,7 +179,9 @@ static void vidcap_shm_done(void *state)
                 perror("semop");
         }
 
-        cudaFree(s->f->tiles[0].data);
+        if (s->use_gpu) {
+                cudaFree(s->f->tiles[0].data);
+        }
         vf_free(s->f);
 
         // We are deleting the IPC primitives here. Calls on such primitives will
@@ -215,6 +246,6 @@ static const struct video_capture_info vidcap_shm_info = {
         true
 };
 
+REGISTER_MODULE(cuda, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 REGISTER_MODULE(shm, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-REGISTER_HIDDEN_MODULE(cuda, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
