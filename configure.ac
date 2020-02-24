@@ -2191,7 +2191,7 @@ AC_ARG_ENABLE(cuda-cap,
         [cuda_cap_req=$build_default])
 
 if test $cuda_cap_req != no -a $FOUND_CUDA = yes -a $system = Linux; then
-        ADD_MODULE("vidcap_cuda", "src/video_capture/cuda.o", "$CUDA_LIB")
+        ADD_MODULE("vidcap_cuda", "src/video_capture/shm.o", "$CUDA_LIB")
         cuda_cap=yes
 fi
 

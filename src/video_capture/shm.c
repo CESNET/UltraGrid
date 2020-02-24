@@ -1,5 +1,5 @@
 /**
- * @file   video_capture/cuda.c
+ * @file   video_capture/shm.c
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
@@ -64,7 +64,7 @@ struct shm {
         int ug_exited;
 };
 
-struct state_vidcap_cuda {
+struct state_vidcap_shm {
         uint32_t magic;
         struct video_frame *f;
         struct shm *shm;
@@ -73,12 +73,12 @@ struct state_vidcap_cuda {
 };
 
 #define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { fprintf(stderr, "%s\n", cudaGetErrorString(err)); goto error; } } while(0)
-static int vidcap_cuda_init(struct vidcap_params *params, void **state)
+static int vidcap_shm_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
-        struct state_vidcap_cuda *s = calloc(1, sizeof(struct state_vidcap_cuda));
+        struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
         s->magic = MAGIC;
 
         struct video_desc desc = { .width = 0,
@@ -131,9 +131,9 @@ error:
         return VIDCAP_INIT_FAIL;
 }
 
-static void vidcap_cuda_done(void *state)
+static void vidcap_shm_done(void *state)
 {
-        struct state_vidcap_cuda *s = (struct state_vidcap_cuda *) state;
+        struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
 
         s->shm->ug_exited = true;
@@ -165,9 +165,9 @@ static void vidcap_cuda_done(void *state)
         free(s);
 }
 
-static struct video_frame *vidcap_cuda_grab(void *state, struct audio_frame **audio)
+static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **audio)
 {
-        struct state_vidcap_cuda *s = (struct state_vidcap_cuda *) state;
+        struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
 
         // wait for frame
@@ -190,7 +190,7 @@ static struct video_frame *vidcap_cuda_grab(void *state, struct audio_frame **au
         return s->f;
 }
 
-static struct vidcap_type *vidcap_cuda_probe(bool verbose, void (**deleter)(void *))
+static struct vidcap_type *vidcap_shm_probe(bool verbose, void (**deleter)(void *))
 {
         UNUSED(verbose);
         struct vidcap_type *vt;
@@ -200,20 +200,21 @@ static struct vidcap_type *vidcap_cuda_probe(bool verbose, void (**deleter)(void
                 return NULL;
         }
 
-        vt->name = "cuda";
-        vt->description = "CUDA virtual capture card";
+        vt->name = "shm";
+        vt->description = "SHM virtual capture card";
         *deleter = free;
 
         return vt;
 }
 
-static const struct video_capture_info vidcap_cuda_info = {
-        vidcap_cuda_probe,
-        vidcap_cuda_init,
-        vidcap_cuda_done,
-        vidcap_cuda_grab,
+static const struct video_capture_info vidcap_shm_info = {
+        vidcap_shm_probe,
+        vidcap_shm_init,
+        vidcap_shm_done,
+        vidcap_shm_grab,
         true
 };
 
-REGISTER_MODULE(cuda, &vidcap_cuda_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(shm, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(cuda, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
