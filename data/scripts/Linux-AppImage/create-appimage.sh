@@ -55,7 +55,7 @@ wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/c
 chmod ugo+x $APPDIR/appimageupdatetool
 
 wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
-./appimagetool --sign --comp gzip -u "zsync|https://github.com/CESNET/UltraGrid/releases/download/nightly/UltraGrid-nightly-latest-Linux-x86_64.AppImage.zsync" $APPDIR $APPNAME
+./appimagetool --sign --comp gzip -u "zsync|https://github.com/${GITHUB_REPOSITORY-CESNET/UltraGrid}/releases/download/nightly/UltraGrid-nightly-x86_64.AppImage.zsync" $APPDIR $APPNAME
 )
 
 echo $APPNAME

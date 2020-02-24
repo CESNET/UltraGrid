@@ -118,6 +118,7 @@ jobs:
         C:\msys64\usr\bin\bash -lc 'cp gui/QT/uv-qt.exe bin'
         C:\msys64\usr\bin\bash -lc 'rm bin/run_tests.exe; IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done'
         C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
+        C:\msys64\usr\bin\bash -lc 'cp data/update.ps1 bin'
         C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-CI-Win'
     - name: Upload build
       uses: actions/upload-artifact@v1
