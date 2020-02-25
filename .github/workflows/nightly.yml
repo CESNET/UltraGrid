@@ -77,7 +77,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        sudo apt install jq
+        sudo apt install jq zsync
+        zsyncmake -C UltraGrid-nightly-x86_64.AppImage
+        .github/scripts/delete-asset.sh nightly UltraGrid-nightly-x86_64.AppImage.zsync
+        .github/scripts/upload-asset.sh nightly UltraGrid-nightly-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
         .github/scripts/delete-asset.sh nightly UltraGrid-nightly-x86_64.AppImage
         .github/scripts/upload-asset.sh nightly UltraGrid-nightly-x86_64.AppImage application/x-appimage Linux%20build
 
