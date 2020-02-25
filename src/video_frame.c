@@ -436,3 +436,17 @@ unsigned int vf_get_data_len(struct video_frame *f)
         return ret;
 }
 
+void buf_get_planes(int width, int height, codec_t color_spec, char *data, char **planes)
+{
+        char *tmp = data;
+        int sub[8];
+        codec_get_planes_subsampling(color_spec, sub);
+        for (int i = 0; i < 4; ++i) {
+                if (sub[i * 2] == 0) { // less than 4 planes
+                        break;
+                }
+                planes[i] = tmp;
+                tmp += width * height / sub[i * 2] / sub[i * 2 + 1];
+        }
+}
+

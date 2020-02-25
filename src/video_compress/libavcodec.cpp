@@ -1304,7 +1304,11 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         wait_task(handle[i]);
                 }
         } else { // no pixel format conversion needed
-                s->in_frame->data[0] = (uint8_t *) decoded;
+                if (codec_is_planar(s->decoded_codec)) {
+                        buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) s->in_frame->data);
+                } else {
+                        s->in_frame->data[0] = (uint8_t *) decoded;
+                }
                 // prevent leaving dangling pointer to the input buffer that may
                 // be freed by cleanup()
                 std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
