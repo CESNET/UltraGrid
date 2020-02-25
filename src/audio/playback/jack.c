@@ -211,9 +211,9 @@ static void * audio_play_jack_init(const char *cfg)
 	fprintf(stderr, "JACK sample rate: %d\n", (int) s->jack_sample_rate);
 
 
-        ports = jack_get_ports(s->client, cfg, NULL, JackPortIsInput);
+        ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
-                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", cfg);
+                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 goto release_client;
         }
 
