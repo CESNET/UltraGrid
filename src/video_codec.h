@@ -8,7 +8,7 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
-/* Copyright (c) 2005-2019 CESNET z.s.p.o.
+/* Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -95,6 +95,7 @@ decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBU
 int get_aligned_length(int width, codec_t codec) ATTRIBUTE(const);
 int get_pf_block_size(codec_t codec) ATTRIBUTE(const);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
+void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
 int codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
 bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(const);
 int codec_is_const_size(codec_t codec) ATTRIBUTE(const);
