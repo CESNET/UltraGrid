@@ -2255,15 +2255,16 @@ static const struct decoder_item decoders[] = {
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 {
+        if (in == out) {
+                return vc_memcpy;
+        }
+
         for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct decoder_item); ++i) {
                 if (decoders[i].in == in && decoders[i].out == out &&
                                 (decoders[i].slow == false || slow == true)) {
                         return decoders[i].decoder;
                 }
         }
-
-        if (in == out)
-                return vc_memcpy;
 
         return NULL;
 }
