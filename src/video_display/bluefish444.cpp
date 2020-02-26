@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,46 +70,47 @@
 
 using namespace std;
 
-static void InitOutputChannel(CBLUEVELVET_H pSDK, ULONG DefaultOutputChannel,
+static void InitOutputChannel(BLUEVELVETC_HANDLE pSDK, ULONG DefaultOutputChannel,
                 ULONG UpdateFormat, ULONG MemoryFormat, ULONG VideoEngine);
-static void RouteChannel(CBLUEVELVET_H pSDK, ULONG Source, ULONG Destination,
+static void RouteChannel(BLUEVELVETC_HANDLE pSDK, ULONG Source, ULONG Destination,
                 ULONG LinkType);
 
 struct av_buffer
 {
         av_buffer(int TilesCount, int GoldenSize) :
-                pVideoBuffer(TilesCount), BufferId(0)
+                pVideoBuffer(TilesCount), BufferId(0), mGoldenSize(GoldenSize)
         {
                 for(int i = 0; i < TilesCount; ++i) {
-                        pVideoBuffer[i] = (unsigned int *) page_aligned_alloc(GoldenSize);
+                        pVideoBuffer[i] = (unsigned int *) bfAlloc(GoldenSize);
                 }
         }
         virtual ~av_buffer() {
                 for(unsigned int i = 0; i < pVideoBuffer.size(); ++i) {
-                        page_aligned_free(pVideoBuffer[i]);
+                        bfFree(mGoldenSize, pVideoBuffer[i]);
                 }
         }
         vector<unsigned int *> pVideoBuffer;
         unsigned int  BufferId;
+        int mGoldenSize;
 };
 
 struct display_bluefish444_state {
         public:
                                     display_bluefish444_state(unsigned int flags, int deviceId = 1)
-                                                                   throw(runtime_error);
-                virtual            ~display_bluefish444_state()    throw();
-                struct video_frame *getf()                         throw();
-                void                putf(struct video_frame *)     throw(runtime_error, logic_error);
-                void                reconfigure(struct video_desc) throw(runtime_error, logic_error);
-                void                cleanup()                      throw();
-                static void        *playback_thread(void *arg)     throw();
-                void               *playback_loop()                throw();
+                                                                   noexcept(false);
+                virtual            ~display_bluefish444_state()    noexcept;
+                struct video_frame *getf()                         noexcept;
+                void                putf(struct video_frame *)     noexcept(false);
+                void                reconfigure(struct video_desc) noexcept(false);
+                void                cleanup()                      noexcept;
+                static void        *playback_thread(void *arg)     noexcept;
+                void               *playback_loop()                noexcept;
 
 #ifdef HAVE_BLUE_AUDIO
                 /// AUDIO
                 void                reconfigure_audio(int quant_samples, int channels,
-                                int sample_rate)                   throw(runtime_error, logic_error);
-                void                put_audio_frame(struct audio_frame *) throw();
+                                int sample_rate)                   noexcept(false);
+                void                put_audio_frame(struct audio_frame *) noexcept;
 #endif
         private:
                 uint32_t            m_magic;
@@ -117,17 +118,17 @@ struct display_bluefish444_state {
                 struct video_frame *m_frame;
 
                 int                 m_deviceId;
-                CBLUEVELVET_H       m_pSDK[MAX_BLUE_OUT_CHANNELS];
+                BLUEVELVETC_HANDLE  m_pSDK[MAX_BLUE_OUT_CHANNELS];
                 int                 m_AttachedDevicesCount;
-                int                 m_CardType;
+                BLUE_S32            m_CardType;
                 int                 m_CardFirmware;
                 int                 m_TileCount;
                 int                 m_Offset[MAX_BLUE_OUT_CHANNELS];
 
                 ULONG               m_InvalidVideoModeFlag;
                 ULONG               m_CurrentVideoMode;
-                ULONG               m_GoldenSize;
-                ULONG               m_LastFieldCount;
+                BLUE_U32            m_GoldenSize;
+                unsigned long int   m_LastFieldCount;
 
                 pthread_mutex_t     m_lock;
                 pthread_cond_t      m_WorkerCv;
@@ -150,7 +151,7 @@ struct display_bluefish444_state {
  };
 
 display_bluefish444_state::display_bluefish444_state(unsigned int flags,
-                int deviceId) throw(runtime_error) :
+                int deviceId) noexcept(false) :
         m_magic(BLUEFISH444_MAGIC),
         m_frame(NULL),
         m_deviceId(deviceId),
@@ -163,8 +164,8 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
 #endif
         m_PlayAudio(false)
 {
-        int iDevices = 0;
-        uint32_t val32;
+        BLUE_S32 iDevices = 0;
+        BLUE_U32 val32;
 
         if(flags) {
 #ifdef HAVE_BLUE_AUDIO
@@ -177,15 +178,15 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
         pthread_cond_init(&m_WorkerCv, NULL);
         pthread_cond_init(&m_BossCv, NULL);
 
-        CBLUEVELVET_H pSDK = bfcFactory();
-        bfcEnumerate(pSDK, iDevices);
+        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+        bfcEnumerate(pSDK, &iDevices);
         if(iDevices < 1) {
                 bfcDestroy(pSDK);
                 throw runtime_error("No Bluefish card detected");
         }
 
-        m_CardType = bfcQueryCardType(pSDK);
-        bfcQueryCardProperty32(pSDK, INVALID_VIDEO_MODE_FLAG, val32);
+        bfcQueryCardType(pSDK, &m_CardType, m_deviceId);
+        bfcQueryCardProperty32(pSDK, INVALID_VIDEO_MODE_FLAG, &val32);
         m_InvalidVideoModeFlag = val32;
                 
         if(BLUE_FAIL(bfcAttach(pSDK, m_deviceId))) {
@@ -193,7 +194,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
                 throw runtime_error("Unable to attach card");
         }
 
-        bfcQueryCardProperty32(pSDK, EPOCH_GET_PRODUCT_ID, val32);
+        bfcQueryCardProperty32(pSDK, EPOCH_GET_PRODUCT_ID, &val32);
 
         m_CardFirmware = val32;
         m_deviceId = deviceId;
@@ -207,14 +208,14 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
         for(int i = 0; i < 4; ++i) {
                 m_HancInfo.AudioDBNArray[i] = -1;
         }
-        m_HancInfo.hanc_data_ptr = (unsigned int *) page_aligned_alloc(MAX_HANC_SIZE);
+        m_HancInfo.hanc_data_ptr = (unsigned int *) bfAlloc(MAX_HANC_SIZE);
         pthread_spin_init(&m_AudioSpinLock, 0);
 #endif
 
         pthread_create(&m_thread, NULL, playback_thread, this);
 }
 
-display_bluefish444_state::~display_bluefish444_state() throw()
+display_bluefish444_state::~display_bluefish444_state() noexcept
 {
         assert(m_magic == BLUEFISH444_MAGIC);
         // Kill thread
@@ -222,9 +223,9 @@ display_bluefish444_state::~display_bluefish444_state() throw()
         m_ReadyFrameQueue.push(NULL);
         pthread_cond_signal(&m_WorkerCv);
         pthread_mutex_unlock(&m_lock);
-        ULONG FieldCount;
+        unsigned long int FieldCount;
         //cards must be genlocked; only then all for output channels are completely in synch
-        bfcWaitVideoOutputSync(m_pSDK[0], UPD_FMT_FRAME, FieldCount);
+        bfcWaitVideoOutputSync(m_pSDK[0], UPD_FMT_FRAME, &FieldCount);
 
         pthread_join(m_thread, NULL);
 
@@ -236,19 +237,19 @@ display_bluefish444_state::~display_bluefish444_state() throw()
 
 #ifdef HAVE_BLUE_AUDIO
         ring_buffer_destroy(m_AudioRingBuffer);
-        page_aligned_free(m_HancInfo.hanc_data_ptr);
+        bfFree(MAX_HANC_SIZE, m_HancInfo.hanc_data_ptr);
         pthread_spin_destroy(&m_AudioSpinLock);
 #endif
 }
 
-void *display_bluefish444_state::playback_thread(void *arg) throw()
+void *display_bluefish444_state::playback_thread(void *arg) noexcept
 {
         display_bluefish444_state *s = 
                 (display_bluefish444_state *) arg;
         return s->playback_loop();
 }
 
-void *display_bluefish444_state::playback_loop() throw()
+void *display_bluefish444_state::playback_loop() noexcept
 {
         uint32_t FrameCount = 0;
         struct timeval t0;
@@ -282,10 +283,10 @@ void *display_bluefish444_state::playback_loop() throw()
                         return NULL;
                 }
 
-                ULONG FieldCount = 0;
+                unsigned long int FieldCount = 0;
 
                 // for more than one input, cards must be genlocked
-                bfcWaitVideoOutputSync(m_pSDK[0], UPD_FMT_FRAME, FieldCount);
+                bfcWaitVideoOutputSync(m_pSDK[0], UPD_FMT_FRAME, &FieldCount);
                 if(m_pPlayingBuffer) {
                         pthread_mutex_lock(&m_lock);
                         m_FreeFrameQueue.push(m_pPlayingBuffer);
@@ -299,19 +300,24 @@ void *display_bluefish444_state::playback_loop() throw()
                         unsigned char *videoBuffer;
 #ifdef WIN32
                         OVERLAPPED *OverlapCh = &Overlapped[i];
-#else
-                        OVERLAPPED *OverlapCh = NULL;
 #endif
                         if(m_TileCount == m_AttachedDevicesCount) {
                                 videoBuffer = (unsigned char *) frame->pVideoBuffer[i];
                         } else { // untiled 4K
                                 videoBuffer = (unsigned char *) frame->pVideoBuffer[0];
                         }
-                        int err = bfcSystemBufferWriteAsync(m_pSDK[i], videoBuffer + m_Offset[i],
-                                        m_GoldenSize, OverlapCh,
+#ifdef WIN32
+                        int err = bfcSystemBufferWriteAsync(
+#else
+                        int err = bfcSystemBufferWrite(
+#endif
+                                        m_pSDK[i], videoBuffer + m_Offset[i], m_GoldenSize,
+#ifdef WIN32
+                                        OverlapCh,
+#endif
                                         (m_PlayAudio && i == 0 ?
                                          BlueImage_HANC_DMABuffer(frame->BufferId, BLUE_DATA_IMAGE) :
-                                         BlueImage_DMABuffer(frame->BufferId, BLUE_DATA_IMAGE))
+                                         BlueImage_DMABuffer(frame->BufferId, BLUE_DATA_IMAGE)), 0
                                         );
                         if(!BLUE_OK(err)) {
                                 cerr << "Write failed (Channel " << (char) ('A' + i) << ")" << endl;
@@ -385,9 +391,15 @@ void *display_bluefish444_state::playback_loop() throw()
                                 //ResetEvent(OverlapChA.hEvent);
 
                                 //now we can DMA the HANC frame
+#ifdef WIN32
                                 bfcSystemBufferWriteAsync(m_pSDK[0], (unsigned char *) m_HancInfo.hanc_data_ptr,
                                                 MAX_HANC_SIZE,
                                                 NULL, BlueImage_HANC_DMABuffer(frame->BufferId, BLUE_DATA_HANC));
+#else
+                                bfcSystemBufferWrite(m_pSDK[0], (unsigned char *) m_HancInfo.hanc_data_ptr,
+                                                MAX_HANC_SIZE,
+                                                BlueImage_HANC_DMABuffer(frame->BufferId, BLUE_DATA_HANC), 0);
+#endif
                         }
                 }
 #endif
@@ -433,7 +445,7 @@ void *display_bluefish444_state::playback_loop() throw()
         return NULL;
 }
 
-void display_bluefish444_state::cleanup() throw()
+void display_bluefish444_state::cleanup() noexcept
 {
         //turn on black generator (unless we want to keep displaying the last rendered frame)
         for(int i = 0; i < m_AttachedDevicesCount; ++i) {
@@ -468,10 +480,10 @@ void display_bluefish444_state::cleanup() throw()
 }
 
 void display_bluefish444_state::reconfigure(struct video_desc desc) 
-        throw(runtime_error, logic_error)
+        noexcept(false)
 {
         ULONG VideoMode;
-        uint32_t val32;
+        BLUE_U32 val32;
         bool is4K;
         bool isTiled4K;
         int tile_width, tile_height;
@@ -618,7 +630,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                 val32 = VideoMode;
                 bfcSetCardProperty32(m_pSDK[i], VIDEO_MODE, val32);
-                bfcQueryCardProperty32(m_pSDK[i], VIDEO_MODE, val32);
+                bfcQueryCardProperty32(m_pSDK[i], VIDEO_MODE, &val32);
                 if(val32 != VideoMode)
                 {
                         throw logic_error("Can't set video mode; FIFO running already?");
@@ -634,11 +646,8 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 bfcSetCardProperty32(m_pSDK[i], VIDEO_IMAGE_PITCH, val32);
         }
 
-        ULONG GoldenSize = BlueVelvetGolden(VideoMode, MemoryFormat, UpdateFormat);
-        ULONG PixelsPerLine = BlueVelvetLinePixels(VideoMode);
-        ULONG VideoLines =  BlueVelvetFrameLines(VideoMode, UpdateFormat);
-        ULONG BytesPerFrame = BlueVelvetFrameBytes(VideoMode, MemoryFormat, UpdateFormat);
-        ULONG BytesPerLine = BlueVelvetLineBytes(VideoMode, MemoryFormat);
+        BLUE_U32 Width, Height, BytesPerLine, BytesPerFrame, GoldenSize;
+        bfcGetVideoInfo(VideoMode, UpdateFormat, MemoryFormat, &Width, &Height, &BytesPerLine, &BytesPerFrame, &GoldenSize);
 
         ULONG FrameSize = GoldenSize;
         if(is4K && !isTiled4K) {
@@ -650,8 +659,8 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         }
 
         cout << "Video Golden:          " << GoldenSize << endl;
-        cout << "Video Pixels per line: " << PixelsPerLine << endl;
-        cout << "Video lines:           " << VideoLines << endl;
+        cout << "Video Pixels per line: " << Width << endl;
+        cout << "Video lines:           " << Height << endl;
         cout << "Video Bytes per frame: " << BytesPerFrame << endl;
         cout << "Video Bytes per line:  " << BytesPerLine << endl;
 
@@ -685,7 +694,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         }
 }
 
-struct video_frame *display_bluefish444_state::getf() throw()
+struct video_frame *display_bluefish444_state::getf() noexcept
 {
         pthread_mutex_lock(&m_lock);
         while(m_FreeFrameQueue.empty()) {
@@ -701,7 +710,7 @@ struct video_frame *display_bluefish444_state::getf() throw()
         return m_frame;
 }
 
-void display_bluefish444_state::putf(struct video_frame *frame) throw (runtime_error, logic_error)
+void display_bluefish444_state::putf(struct video_frame *frame) noexcept(false)
 {
         if (!frame)
                 return;
@@ -723,7 +732,7 @@ void display_bluefish444_state::putf(struct video_frame *frame) throw (runtime_e
 /*
  * Utility functions - from SDK
  */
-static void InitOutputChannel(CBLUEVELVET_H pSDK, ULONG DefaultOutputChannel, ULONG UpdateFormat,
+static void InitOutputChannel(BLUEVELVETC_HANDLE pSDK, ULONG DefaultOutputChannel, ULONG UpdateFormat,
                 ULONG MemoryFormat, ULONG VideoEngine)
 {
         uint32_t val32;
@@ -749,7 +758,7 @@ static void InitOutputChannel(CBLUEVELVET_H pSDK, ULONG DefaultOutputChannel, UL
         bfcSetCardProperty32(pSDK, VIDEO_BLACKGENERATOR, val32);
 }
 
-static void RouteChannel(CBLUEVELVET_H pSDK, ULONG Source, ULONG Destination, ULONG LinkType)
+static void RouteChannel(BLUEVELVETC_HANDLE pSDK, ULONG Source, ULONG Destination, ULONG LinkType)
 {
         uint32_t val32;
 
@@ -762,7 +771,7 @@ static void RouteChannel(CBLUEVELVET_H pSDK, ULONG Source, ULONG Destination, UL
  */
 #ifdef HAVE_BLUE_AUDIO
 void display_bluefish444_state::reconfigure_audio(int quant_samples, int channels,
-                int sample_rate) throw(runtime_error, logic_error)
+                int sample_rate) noexcept(false)
 {
         if(quant_samples <= 0 || channels <= 0 || sample_rate <= 0) {
                 throw logic_error("Wrong audio attributes");
@@ -790,7 +799,7 @@ void display_bluefish444_state::reconfigure_audio(int quant_samples, int channel
         pthread_spin_unlock(&m_AudioSpinLock);
 }
 
-void display_bluefish444_state::put_audio_frame(struct audio_frame *frame) throw()
+void display_bluefish444_state::put_audio_frame(struct audio_frame *frame) noexcept
 {
         if(!m_PlayAudio)
                 return;
@@ -805,9 +814,9 @@ static void show_help(void);
 
 static void show_help(void)
 {
-        int iDevices;
-        CBLUEVELVET_H pSDK = bfcFactory();
-        bfcEnumerate(pSDK, iDevices);
+        BLUE_S32 iDevices;
+        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+        bfcEnumerate(pSDK, &iDevices);
         bfcDestroy(pSDK);
 
         cout << "bluefish444 (output) options:" << endl
@@ -825,9 +834,9 @@ static void show_help(void)
 static void display_bluefish444_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         UNUSED(deleter);
-        int iDevices;
-        CBLUEVELVET_H pSDK = bfcFactory();
-        bfcEnumerate(pSDK, iDevices);
+        BLUE_S32 iDevices;
+        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+        bfcEnumerate(pSDK, &iDevices);
         bfcDestroy(pSDK);
 
         *available_cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
