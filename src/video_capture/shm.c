@@ -80,7 +80,8 @@ struct state_vidcap_shm {
 
 static void show_help() {
         printf("Usage:\n");
-        printf("-t cuda|shm\n");
+        color_out(COLOR_OUT_BOLD, "\t-t cuda|shm\n");
+        printf("\t\tCaptures the frame either to shared memory on GPU (CUDA buffer) or in RAM (shared memory)\n");
 }
 
 static void vidcap_shm_should_exit(void *arg) {
@@ -97,7 +98,7 @@ static void vidcap_shm_should_exit(void *arg) {
         }
 }
 
-#define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { fprintf(stderr, "%s\n", cudaGetErrorString(err)); goto error; } } while(0)
+#define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { log_msg(LOG_LEVEL_ERROR, "%s: %s\n", #cmd, cudaGetErrorString(err)); goto error; } } while(0)
 static int vidcap_shm_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
@@ -118,10 +119,10 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
 
         struct video_desc desc = { .width = 0,
                 .height = 0,
-               .fps = 30,
-               .tile_count = 1,
-               .color_spec = s->use_gpu ? CUDA_I420 : I420,
-               .interlacing = PROGRESSIVE,
+                .fps = 30,
+                .tile_count = 1,
+                .color_spec = s->use_gpu ? CUDA_I420 : I420,
+                .interlacing = PROGRESSIVE,
         };
 
         s->f = vf_alloc_desc(desc);
