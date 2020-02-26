@@ -67,8 +67,8 @@ BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2,cla
 		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
 	%endif
 	%if 0%{?sle_version} >= 150000
-BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2
-		%define cudaconf --with-cuda=/usr/local/cuda-9.2
+BuildRequires:	cuda-core-10-2,cuda-command-line-tools-10-2,cuda-cudart-dev-10-2
+		%define cudaconf --with-cuda=/usr/local/cuda-10.2
 	%endif
 	%if 0%{?leap_version} >= 420000 && 0%{?leap_version} < 430000
 BuildRequires:	cuda-core-9-2, cuda-command-line-tools-9-2, cuda-cudart-dev-9-2, clang
@@ -137,14 +137,14 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 #####################################################
 # > bluefish
 #####################################################
-%define build_bluefish 1
+%define build_bluefish 0
 #####################################################
 # < bluefish
 #####################################################
 #####################################################
 # > dvs
 #####################################################
-%define build_dvs 1
+%define build_dvs 0
 #####################################################
 # < dvs
 #####################################################
