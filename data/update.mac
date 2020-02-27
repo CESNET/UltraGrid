@@ -21,7 +21,7 @@ fi
 UPDATER_DIR=$(mktemp -d /tmp/ug-updater.XXXXXXXX)
 cd $UPDATER_DIR
 
-$DIR/Contents/MacOS/zsync_curl https://github.com/CESNET/UltraGrid/releases/download/nightly/UltraGrid-latest-macos.AppImage.zsync
+curl -LO https://github.com/CESNET/UltraGrid/releases/download/nightly/UltraGrid-nightly.dmg
 
 mkdir mnt
 hdiutil mount -mountpoint mnt *dmg

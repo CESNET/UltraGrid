@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,9 +80,9 @@ static bool should_exit_worker = false;
 
 static void show_help()
 {
-        int iDevices;
-        CBLUEVELVET_H pSDK = bfcFactory();
-        bfcEnumerate(pSDK, iDevices);
+        BLUE_S32 iDevices;
+        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+        bfcEnumerate(pSDK, &iDevices);
         bfcDestroy(pSDK);
 
         printf("Bluefish444 capture\n");
@@ -112,25 +112,26 @@ struct av_frame_nosignal : public av_frame_base {
 struct av_frame : public av_frame_base {
         av_frame(struct video_desc desc, int GoldenSize, int BytesPerFrame, int AudioLen) :
                 valid(true),
-                audio_len(0)
+                audio_len(0),
+                mGoldenSize(GoldenSize)
         {
                 video = vf_alloc_desc(desc);
                 for(unsigned int i = 0; i < desc.tile_count; ++i) {
                         video->tiles[i].data_len = BytesPerFrame;
                         video->tiles[i].data = (char*)
-                                page_aligned_alloc(GoldenSize);
+                                bfAlloc(GoldenSize);
                 }
                 if(AudioLen) {
-                        audio_data = (char *) page_aligned_alloc(AudioLen);
+                        audio_data = (char *) bfAlloc(AudioLen);
                 } else {
                         audio_data = NULL;
                 }
         }
 
         ~av_frame() {
-                page_aligned_free(audio_data);
+                bfFree(audio_len, audio_data);
                 for(unsigned int i = 0; i < video->tile_count; ++i) {
-                        page_aligned_free(video->tiles[i].data);
+                        bfFree(mGoldenSize, video->tiles[i].data);
                 }
                 vf_free(video);
         }
@@ -139,10 +140,11 @@ struct av_frame : public av_frame_base {
         struct video_frame *video;
         bool                valid;
         int                 audio_len;
+        int                 mGoldenSize;
 };
 
 struct vidcap_bluefish444_state {
-        CBLUEVELVET_H             pSDK[MAX_BLUE_IN_CHANNELS];
+        BLUEVELVETC_HANDLE        pSDK[MAX_BLUE_IN_CHANNELS];
         struct video_desc         video_desc;
 
         int                       frames;
@@ -152,7 +154,7 @@ struct vidcap_bluefish444_state {
         int                       iDeviceId;
         int                       attachedDevices;
 
-        uint32_t                  LastFieldCount;
+        unsigned long int         LastFieldCount;
         uint32_t                  InvalidVideoModeFlag;
         uint32_t                  SavedVideoMode;
 
@@ -190,27 +192,23 @@ struct vidcap_bluefish444_state {
         pthread_t                 worker_id;
 };
 
-static void BailOut(CBLUEVELVET_H pSDK);
-static void InitInputChannel(CBLUEVELVET_H pSDK, uint32_t DefaultInputChannel,
+static void BailOut(BLUEVELVETC_HANDLE pSDK);
+static void InitInputChannel(BLUEVELVETC_HANDLE pSDK, uint32_t DefaultInputChannel,
                 uint32_t UpdateFormat, uint32_t MemoryFormat, uint32_t VideoEngine);
-void RouteChannel(CBLUEVELVET_H pSDK, uint32_t Source, uint32_t Destination,
+void RouteChannel(BLUEVELVETC_HANDLE pSDK, uint32_t Source, uint32_t Destination,
                 uint32_t LinkType);
 bool UpdateVideoMode(struct vidcap_bluefish444_state *s, uint32_t VideoMode);
 #ifdef HAVE_BLUE_AUDIO
 static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags);
 #endif
 
-static void BailOut(CBLUEVELVET_H pSDK)
+static void BailOut(BLUEVELVETC_HANDLE pSDK)
 {
         bfcDetach(pSDK);
-#ifdef WIN32
         bfcDestroy(pSDK);
-#else
-        delete pSDK;
-#endif
 }
 
-void InitInputChannel(CBLUEVELVET_H pSDK, uint32_t DefaultInputChannel, uint32_t UpdateFormat, uint32_t MemoryFormat, uint32_t VideoEngine)
+void InitInputChannel(BLUEVELVETC_HANDLE pSDK, uint32_t DefaultInputChannel, uint32_t UpdateFormat, uint32_t MemoryFormat, uint32_t VideoEngine)
 {
         //MOST IMPORTANT: as the first step set the channel that we want to work with
         bfcSetCardProperty32(pSDK, DEFAULT_VIDEO_INPUT_CHANNEL, DefaultInputChannel);
@@ -226,7 +224,7 @@ void InitInputChannel(CBLUEVELVET_H pSDK, uint32_t DefaultInputChannel, uint32_t
         bfcSetCardProperty32(pSDK, VIDEO_INPUT_ENGINE, VideoEngine);
 }
 
-void RouteChannel(CBLUEVELVET_H pSDK, uint32_t Source, uint32_t Destination, uint32_t LinkType)
+void RouteChannel(BLUEVELVETC_HANDLE pSDK, uint32_t Source, uint32_t Destination, uint32_t LinkType)
 {
         uint32_t val = EPOCH_SET_ROUTING(Source, Destination, LinkType);
         bfcSetCardProperty32(pSDK, MR2_ROUTING, val);
@@ -307,7 +305,7 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
 
 static void SyncForSignal(struct vidcap_bluefish444_state *s)
 {
-        ULONG FieldCount = 0;
+        unsigned long int FieldCount = 0;
 
         if(s->VideoEngine == VIDEO_ENGINE_FRAMESTORE) {
                 s->ScheduleID = s->CapturingID = s->DoneID = 0;
@@ -318,7 +316,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
 
                 //start the capture sequence
                 // all input channels must be genlocked
-                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount);  //this call just synchronises us to the card
+                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, &FieldCount);  //this call just synchronises us to the card
                 for(int i = 0; i < s->attachedDevices; ++i) {
                         bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
                 }
@@ -330,7 +328,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                         WaitForMajorInterrupt(s);
                 }
 
-                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount);  //the first buffer starts to be captured now; this is it's field count
+                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, &FieldCount);  //the first buffer starts to be captured now; this is it's field count
                 for(int i = 0; i < s->attachedDevices; ++i) {
                         bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
                 }
@@ -340,7 +338,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                 s->LastFieldCount = FieldCount;
         } else {
                 for(int i = 0; i < s->attachedDevices; ++i) {
-                        bfcWaitVideoInputSync(s->pSDK[i], s->UpdateFormat, FieldCount);
+                        bfcWaitVideoInputSync(s->pSDK[i], s->UpdateFormat, &FieldCount);
                 }
                 s->LastFieldCount = FieldCount;
         }
@@ -358,9 +356,9 @@ vidcap_bluefish444_probe(bool verbose, void (**deleter)(void *))
 		vt->description = "Bluefish444 video capture";
 
                 if (verbose) {
-                        int iDevices;
-                        CBLUEVELVET_H pSDK = bfcFactory();
-                        bfcEnumerate(pSDK, iDevices);
+                        BLUE_S32 iDevices;
+                        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+                        bfcEnumerate(pSDK, &iDevices);
                         bfcDestroy(pSDK);
 
                         vt->card_count = iDevices;
@@ -384,34 +382,49 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
         switch(audio_capture_channels) {
                 case 16:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_18;
+                        // fall through
                 case 15:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_17;
+                        // fall through
                 case 14:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_16;
+                        // fall through
                 case 13:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_15;
+                        // fall through
                 case 12:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_14;
+                        // fall through
                 case 11:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_13;
+                        // fall through
                 case 10:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_12;
+                        // fall through
                 case 9:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_11;
+                        // fall through
                 case 8:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_8;
+                        // fall through
                 case 7:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_7;
+                        // fall through
                 case 6:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_6;
+                        // fall through
                 case 5:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_5;
+                        // fall through
                 case 4:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_4;
+                        // fall through
                 case 3:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_3;
+                        // fall through
                 case 2:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_2;
+                        // fall through
                 case 1:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_1;
                         break;
@@ -437,7 +450,7 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
 
         LOG(LOG_LEVEL_NOTICE) << "[Blue cap] audio initialized sucessfully: " << audio_desc_from_frame(&s->audio) << "\n";
         
-        s->hanc_buffer = (unsigned int *) page_aligned_alloc(MAX_HANC_SIZE);
+        s->hanc_buffer = (unsigned int *) bfAlloc(MAX_HANC_SIZE);
 
         return true;
 }
@@ -459,32 +472,28 @@ static void *worker(void *arg)
         uint32_t GoldenSize = 0;
         uint32_t ChunkSize = 0;
         uint32_t nChunks = 1;
-        ULONG FieldCount = 0;
+        unsigned long int FieldCount = 0;
 
         while(!should_exit_worker) {
-                unsigned int val32;
+                BLUE_U32 val32;
                 UINT SubFieldIrqs = 0;
                 uint32_t VideoMode = VID_FMT_INVALID;
-                unsigned int  DroppedFrameCount, NoFilledFrame,
-                              frame_timestamp, frame_signal;
                 int BufferId = -1;
                 int     hanc_buffer_id=-1;         // flags required for starting audio capture
 
-#if defined WIN32
                 blue_videoframe_info_ex FrameInfo;
-#endif
 
-                unsigned int CurrentFieldCount = FieldCount;
+                unsigned long int CurrentFieldCount = FieldCount;
                 struct av_frame *current_frame = NULL;
                 int nOffset = 0;
 
                 // Synchronize
                 if(!s->SubField || s->SavedVideoMode == VID_FMT_INVALID) {
                         //Check if we have a valid input signal, all cards should be in sync
-                        bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount); //synchronise with the card before querying VIDEO_INPUT_SIGNAL_VIDEO_MODE
+                        bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, &FieldCount); //synchronise with the card before querying VIDEO_INPUT_SIGNAL_VIDEO_MODE
 
                         for(int i = 0; i < s->attachedDevices; ++i) {
-                                bfcQueryCardProperty32(s->pSDK[i], VIDEO_INPUT_SIGNAL_VIDEO_MODE, val32);
+                                bfcQueryCardProperty32(s->pSDK[i], VIDEO_INPUT_SIGNAL_VIDEO_MODE, &val32);
                                 if(val32 >= VID_FMT_INVALID)
                                 {
                                         cerr << "No valid input signal on channel " <<
@@ -565,8 +574,8 @@ static void *worker(void *arg)
                                         }
                                 }
 
-                                GoldenSize = BlueVelvetGolden(VideoMode, s->MemoryFormat, s->UpdateFormat);
-                                uint32_t BytesPerFrame = BlueVelvetFrameBytes(VideoMode, s->MemoryFormat, s->UpdateFormat);
+                                BLUE_U32 Width, Height, BytesPerLine, BytesPerFrame;
+                                bfcGetVideoInfo(VideoMode, s->UpdateFormat, s->MemoryFormat, &Width, &Height, &BytesPerLine, &BytesPerFrame, &GoldenSize);
                                 ChunkSize = BytesPerFrame;
                                 nChunks = 1;
 
@@ -617,6 +626,13 @@ static void *worker(void *arg)
                                 signal_error(s);
                                 goto next_iteration;
                         }
+#else
+                        if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &FrameInfo))) {
+                                cerr << "Capture frame failed!" << endl;
+                                signal_error(s);
+                                goto next_iteration;
+                        }
+#endif
 
                         if(FrameInfo.nVideoSignalType >= s->InvalidVideoModeFlag) {
                                 cerr << "Invalid video mode!" << endl;
@@ -630,19 +646,6 @@ static void *worker(void *arg)
                                 goto next_iteration;
                         }
                         BufferId = FrameInfo.BufferId;
-#else
-                        //Check if we have a valid input signal
-                        if(BLUE_FAIL(s->pSDK[0]->video_capture_get_frame(BufferId, DroppedFrameCount,
-                                                        NoFilledFrame,
-                                                        frame_timestamp,
-                                                        frame_signal)) ||
-                                        BufferId == -1) {
-                                cerr << "Capture frame failed!" << endl;
-                                signal_error(s);
-                                goto next_iteration;
-                        }
-
-#endif
                 } else {
                         BufferId = s->DoneID;
                 }
@@ -663,10 +666,17 @@ static void *worker(void *arg)
 
                 //DMA the frame from the card to our buffer
                 for(int i = 0; i < s->attachedDevices; ++i) {
+#ifdef WIN32
                         bfcSystemBufferReadAsync(s->pSDK[i], (unsigned char *)
                                         current_frame->video->tiles[i].data,
                                         ChunkSize, NULL,
                                         BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_IMAGE), nOffset);
+#else
+                        bfcSystemBufferRead(s->pSDK[i], (unsigned char *)
+                                        current_frame->video->tiles[i].data,
+                                        ChunkSize,
+                                        BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_IMAGE), nOffset);
+#endif
                 }
 
 #ifdef HAVE_BLUE_AUDIO
@@ -675,9 +685,15 @@ static void *worker(void *arg)
                 }
 
                 if(s->grab_audio && hanc_buffer_id != -1) {
+#ifdef WIN32
                         bfcSystemBufferReadAsync(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
+#else
+                        bfcSystemBufferRead(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC), 0);
+#endif
                         s->objHancDecode.audio_pcm_data_ptr = current_frame->audio_data;
-                        bfcDecodeHancFrameEx(s->pSDK[0], bfcQueryCardType(s->pSDK[0]), (unsigned int *) s->hanc_buffer,
+                        int iCardType = CRD_INVALID;
+                        bfcQueryCardType(s->pSDK[0], &iCardType, s->iDeviceId);
+                        bfcDecodeHancFrameEx(s->pSDK[0], iCardType, (unsigned int *) s->hanc_buffer,
                                         &s->objHancDecode);
                         current_frame->audio_len = s->objHancDecode.no_audio_samples *
                                 s->audio.bps;
@@ -847,7 +863,7 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
                 s->pSDK[i] = bfcFactory();
         }
 
-        bfcEnumerate(s->pSDK[0], iDevices);
+        bfcEnumerate(s->pSDK[0], &iDevices);
         if(iDevices < 1) {
                 cout << "No Bluefish device detected." << endl;
                 goto error;
@@ -862,11 +878,12 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
         }
 
         if(s->is4K) {
-                uint32_t firmware;
-                int cardType = bfcQueryCardType(s->pSDK[0]);
-                bfcQueryCardProperty32(s->pSDK[0], EPOCH_GET_PRODUCT_ID, firmware);
+                BLUE_U32 firmware;
+                int iCardType = CRD_INVALID;
+                bfcQueryCardType(s->pSDK[0], &iCardType, s->iDeviceId);
+                bfcQueryCardProperty32(s->pSDK[0], EPOCH_GET_PRODUCT_ID, &firmware);
 
-                if(cardType != CRD_BLUE_SUPER_NOVA) {
+                if (iCardType != CRD_BLUE_SUPER_NOVA) {
                         cerr << "4K supported only for a SuperNova card!" << endl;
                         goto error;
                 }
@@ -882,8 +899,8 @@ vidcap_bluefish444_init(struct vidcap_params *params, void **state)
         }
 
         //Get VID_FMT_INVALID flag; this enum has changed over time and might be different depending on which driver this application runs on
-        unsigned int val32;
-        bfcQueryCardProperty32(s->pSDK[0], INVALID_VIDEO_MODE_FLAG, val32);
+        BLUE_U32 val32;
+        bfcQueryCardProperty32(s->pSDK[0], INVALID_VIDEO_MODE_FLAG, &val32);
         s->InvalidVideoModeFlag = val32;
 
         s->LastFieldCount = 0;
@@ -995,7 +1012,7 @@ static void vidcap_bluefish444_done(void *state)
                 s->FreeFrameQueue.pop();
         }
 
-        page_aligned_free(s->hanc_buffer);
+        bfFree(MAX_HANC_SIZE, s->hanc_buffer);
 
         for(int i = 0; i < s->attachedDevices; ++i) {
                 bfcVideoCaptureStop(s->pSDK[i]);

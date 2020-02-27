@@ -758,16 +758,12 @@ bluefish444=no
 blue_audio=no
 
 AC_ARG_ENABLE(bluefish444,
-[  --disable-bluefish444   disable Bluefish444 suppport (default is auto)]
+[  --disable-bluefish444   disable Bluefish444 suppport (default is $build_default)]
 [                          Requires: bluefish444_SDK],
               [bluefish444_req=$enableval],
               [bluefish444_req=$build_default]
               )
-AC_ARG_ENABLE(blue-audio,
-              AS_HELP_STRING([--disable-blue-audio], [disable Bluefish444 audio suppport (default is auto)]),
-              [blue_audio_req=$enableval],
-              [blue_audio_req=$build_default]
-              )
+
 BLUEFISH444_PATH=$BLUE_LATEST_SDK
 
 AC_ARG_WITH(bluefish444,
@@ -781,17 +777,15 @@ SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS_SAVE=$CPPFLAGS
 if test -n "$BLUEFISH444_PATH"; then
         if test $system = Linux; then
-                BLUEFISH444_INC="-I$BLUEFISH444_PATH/release/driver/inc"
-        else
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/build/inc"
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/build/lib"
+        else # Windows
                 BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
-        fi
-        
-        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
-        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
-        if test $system = Windows; then
                 BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
         fi
-	LIBS="$LIBS $BLUEFISH444_LIB"
+        
+        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
+        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
 fi
 
 AC_LANG_PUSH(C++)
@@ -808,11 +802,9 @@ then
                         ]]
                         )
         if test $WORD_LEN -eq 64; then
-                BLUE_AUDIO_LIB="BlueHancUtils64"
                 BLUEFISH444_LIB_NAME=BlueVelvetC64
                 BLUE_AUX=BlueVelvet64
         else
-                BLUE_AUDIO_LIB="BlueHancUtils"
                 BLUEFISH444_LIB_NAME=BlueVelvetC_UltraGrid
                 BLUE_AUX=BlueVelvet3
         fi
@@ -820,28 +812,17 @@ then
         AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes],
                         [BLUE_L=no])
         BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUX -l$BLUEFISH444_LIB_NAME"
-else
-if test $system = Linux
+elif test $system = Linux
 then
-        AC_CHECK_HEADERS([BlueVelvet.h], [BLUE_H=yes], [BLUE_H=no])
+        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
+        LIBS="$LIBS $BLUEFISH444_LIB"
+        AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
         if test $WORD_LEN -eq 64; then
-                AC_CHECK_LIB(BlueVelvet64, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUE_AUDIO_LIB="BlueANCUtils64"
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet64"
+                AC_CHECK_LIB(BlueVelvetC64, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC64"
         else
-                AC_CHECK_LIB(BlueVelvet, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUE_AUDIO_LIB="BlueANCUtils"
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet"
-        fi
-fi
-fi
-
-if test $system = Windows -o $system = Linux;then
-        AC_CHECK_LIB($BLUE_AUDIO_LIB, hanc_decoder_ex, [HAVE_BLUE_AUDIO_L=yes],
-                     [HAVE_BLUE_AUDIO_L=no])
-        if test $HAVE_BLUE_AUDIO_L = yes -a $blue_audio_req != no; then
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUDIO_LIB"
-                blue_audio=yes
+                AC_CHECK_LIB(BlueVelvetC, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC"
         fi
 fi
 
@@ -852,9 +833,6 @@ then
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
         ADD_MODULE("vidcap_bluefish444", "$BLUEFISH444_CAP_OBJ", "$BLUEFISH444_LIB")
         ADD_MODULE("display_bluefish444", "$BLUEFISH444_DISP_OBJ", "$BLUEFISH444_LIB")
-        if test x$blue_audio = xyes; then
-                AC_DEFINE([HAVE_BLUE_AUDIO], [1], [Build with Bluefish444 audio support])
-        fi
 	INC="$INC $BLUEFISH444_INC"
         bluefish444=yes
 fi
@@ -3259,7 +3237,7 @@ RESULT=`start_section "$RESULT" "Video"`
 RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
-RESULT=`add_column "$RESULT" "Bluefish444 (audio: $blue_audio)" $bluefish444 $?`
+RESULT=`add_column "$RESULT" "Bluefish444" $bluefish444 $?`
 RESULT=`add_column "$RESULT" "CUDA capture" $cuda_cap $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`

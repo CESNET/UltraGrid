@@ -75,6 +75,8 @@ struct state_jack_playback {
         void *data; // audio buffer
         struct audio_buffer_api *buffer_fns;
         char *tmp; ///< temporary buffer used to demux data
+
+        long int first_channel;
 };
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
@@ -135,10 +137,10 @@ static void audio_play_jack_help(const char *client_name)
         if(!available_devices)
                 return;
 
-
         printf("Usage:\n");
-        printf("\t-r jack[:name=<n>][:<device>]\n");
+        printf("\t-r jack[:first_channel=<f>][:name=<n>][:<device>]\n");
         printf("\twhere\n");
+        printf("\t\t<f> - index of first channel to capture (default: 0)\n");
         printf("\t\t<n> - name of the JACK client (default: %s)\n", PACKAGE_NAME);
         printf("\n");
 
@@ -164,6 +166,12 @@ static void * audio_play_jack_init(const char *cfg)
         client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
         strcpy(client_name, PACKAGE_NAME);
 
+        s = calloc(1, sizeof(struct state_jack_playback));
+        if(!s) {
+                fprintf(stderr, "[JACK playback] Unable to allocate memory.\n");
+                return NULL;
+        }
+
         char *dup = strdup(cfg);
         assert(dup != NULL);
         char *tmp = dup, *item, *save_ptr;
@@ -172,7 +180,16 @@ static void * audio_play_jack_init(const char *cfg)
                         audio_play_jack_help(client_name);
                         free(dup);
                         return &audio_init_state_ok;
-                } if (strstr(item, "name=") == item) {
+                } else if (strstr(item, "first_channel=") == item) {
+                        char *endptr;
+                        char *val = item + strlen("first_channel=");
+                        errno = 0;
+                        s->first_channel = strtol(val, &endptr, 0);
+                        if (errno == ERANGE || *endptr != '\0' || s->first_channel < 0) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value '%s'.\n", val);
+                                goto error;
+                        }
+                } else if (strstr(item, "name=") == item) {
                         strcpy(client_name, item + strlen("name="));
                 } else { // the rest is the device name
                         source_name = cfg + (item - dup);
@@ -181,12 +198,7 @@ static void * audio_play_jack_init(const char *cfg)
                 tmp = NULL;
         }
         free(dup);
-
-        s = calloc(1, sizeof(struct state_jack_playback));
-        if(!s) {
-                fprintf(stderr, "[JACK playback] Unable to allocate memory.\n");
-                goto error;
-        }
+        dup = NULL;
 
         s->jack_ports_pattern = strdup(source_name);
 
@@ -211,9 +223,9 @@ static void * audio_play_jack_init(const char *cfg)
 	fprintf(stderr, "JACK sample rate: %d\n", (int) s->jack_sample_rate);
 
 
-        ports = jack_get_ports(s->client, cfg, NULL, JackPortIsInput);
+        ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
-                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", cfg);
+                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 goto release_client;
         }
 
@@ -237,6 +249,7 @@ static void * audio_play_jack_init(const char *cfg)
 release_client:
         jack_client_close(s->client);
 error:
+        free(dup);
         free(s);
         return NULL;
 }
