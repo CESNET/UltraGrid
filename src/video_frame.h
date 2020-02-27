@@ -198,6 +198,14 @@ void vf_restore_metadata(struct video_frame *f, void *);
  */
 unsigned int vf_get_data_len(struct video_frame *f);
 
+/**
+ * Fills @param planes with pointers to data accordint to provided
+ * spec.
+ *
+ * Works with planar pixel formats only.
+ */
+void buf_get_planes(int width, int height, codec_t color_spec, char *data, char **planes);
+
 /** @name Video Flags
  * @deprecated use rather video_frame or video_desc members
  * @{ */

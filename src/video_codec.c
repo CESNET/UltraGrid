@@ -191,6 +191,16 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
 };
 
+/// for planar pixel formats
+struct pixfmt_plane_info_t {
+        int plane_info[8];              ///< [1st comp H subsamp, 1st comp V subs., 2nd comp H....]
+};
+
+static const struct pixfmt_plane_info_t pixfmt_plane_info[] = {
+        [I420] = {{1, 1, 2, 2, 2, 2, 0, 0}},
+        [VIDEO_CODEC_END] = {{0}}, // end must be present to all codecs to have the metadata defined
+};
+
 /**
  * This struct specifies alias FourCC used for another FourCC
  */
@@ -2332,11 +2342,24 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
 }
 
 /**
- * @todo
- * Put this to @ref codec_info.
+ * @returns true if codec is a pixel format and is planar
  */
 bool codec_is_planar(codec_t codec) {
-        return codec == I420;
+        return pixfmt_plane_info[codec].plane_info[0] != 0;
+}
+
+/**
+ * Returns subsampling of individual planes of planar pixel format
+ *
+ * Undefined if pix_fmt is not a planar pixel format
+ *
+ * @param[out] sub   subsampling, allocated array must be able to hold
+ *                   8 members
+ */
+void codec_get_planes_subsampling(codec_t pix_fmt, int *sub) {
+        for (size_t i = 0; i < 8; ++i) {
+                *sub++ = pixfmt_plane_info[pix_fmt].plane_info[i];
+        }
 }
 
 /* vim: set expandtab sw=8: */
