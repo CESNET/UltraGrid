@@ -42,10 +42,10 @@ override_dh_auto_install:
 #####################################################
 # > bluefish
 #####################################################
+	cd Bluefish_linux_driver_6*/apis/BlueVelvetC/lin ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
+
 	ln -s Bluefish_linux_driver_6* bluefish_sdk
 	tar -c bluefish_sdk Bluefish_linux_driver_6* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
-
-	cd Bluefish_linux_driver_6*/apis/BlueVelvetC/lin ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
 #####################################################
 # < bluefish
 #####################################################

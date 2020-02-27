@@ -164,12 +164,15 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
 #####################################################
 # > bluefish
 #####################################################
-ln -s Bluefish_linux_driver_6* bluefish_sdk
-tar -c bluefish_sdk Bluefish_linux_driver_6* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 
+# classical make install must be done first
 pushd Bluefish_linux_driver_6*/apis/BlueVelvetC/lin
 env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
 popd
+
+ln -s Bluefish_linux_driver_6* bluefish_sdk
+tar -c bluefish_sdk Bluefish_linux_driver_6* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
+
 #####################################################
 # < bluefish
 #####################################################
