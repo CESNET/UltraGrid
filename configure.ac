@@ -2058,7 +2058,7 @@ AC_ARG_WITH(cuda,
             ])
 
 if test -n "$CUDA_PATH"; then
-        CUDA_PATH_SEP="$CUDA_PATH$PATH_SEPARATOR"
+        CUDA_PATH_SEP="$CUDA_PATH/bin$PATH_SEPARATOR"
 fi
 
 # nvcc is intentional here
