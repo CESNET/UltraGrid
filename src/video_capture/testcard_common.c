@@ -122,32 +122,44 @@ unsigned char *tov210(unsigned char *in, unsigned int width,
 /**
  * @param[in] in buffer in UYVY
  * @retval       buffer in I420 (must be deallocated by the caller)
+ * @note
+ * Caller must deallocate returned buffer
  */
 char *toI420(const char *input, unsigned int width, unsigned int height)
 {
         const unsigned char *in = (const unsigned char *) input;
-        unsigned char *out = malloc(width * height * 3 / 2);
+        int w_ch = (width + 1) / 2;
+        int h_ch = (height + 1) / 2;
+        unsigned char *out = malloc(width * height + 2 * w_ch * h_ch);
         unsigned char *y = out;
         unsigned char *u0 = out + width * height;
-        unsigned char *v0 = out + width * height + width * height / 4;
+        unsigned char *v0 = out + width * height + w_ch * h_ch;
         unsigned char *u1 = u0, *v1 = v0;
 
         for (unsigned int i = 0; i < height; i += 1) {
-                for (unsigned int j = 0; j < width; j += 2) {
+                for (unsigned int j = 0; j < ((width + 1) & ~1); j += 2) {
+                        // U
                         if (i % 2 == 0) {
                                 *u0++ = *in++;
                         } else { // average with every 2nd row
                                 *u1 = (*u1 + *in++) / 2;
                                 u1++;
                         }
+                        // Y
                         *y++ = *in++;
+                        // V
                         if (i % 2 == 0) {
                                 *v0++ = *in++;
                         } else { // average with every 2nd row
                                 *v1 = (*v1 + *in++) / 2;
                                 v1++;
                         }
-                        *y++ = *in++;
+                        // Y
+                        if (j + 1 == width) {
+                                in++;
+                        } else {
+                                *y++ = *in++;
+                        }
                 }
         }
         return (char *) out;

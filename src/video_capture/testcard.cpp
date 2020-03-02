@@ -303,6 +303,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         codec_t codec = RGBA;
         int aligned_x;
         char *save_ptr = NULL;
+        struct video_desc desc{};
+        desc.tile_count = 1;
+        desc.interlacing = PROGRESSIVE;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
@@ -321,9 +324,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         if (!s)
                 return VIDCAP_INIT_FAIL;
 
-        s->frame = vf_alloc(1);
-        s->frame->interlacing = PROGRESSIVE;
-
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
         int h_align = 0;
@@ -339,13 +339,13 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 goto error;
         }
-        vf_get_tile(s->frame, 0)->width = atoi(tmp);
+        desc.width = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 goto error;
         }
-        vf_get_tile(s->frame, 0)->height = atoi(tmp);
+        desc.height = atoi(tmp);
         tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
@@ -353,17 +353,17 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         char *endptr;
-        s->frame->fps = strtod(tmp, &endptr);
+        desc.fps = strtod(tmp, &endptr);
         if (endptr[0] != '\0') { // optional interlacing suffix
-                s->frame->interlacing = get_interlacing_from_suffix(endptr);
-                if (s->frame->interlacing != PROGRESSIVE &&
-                                s->frame->interlacing != SEGMENTED_FRAME &&
-                                s->frame->interlacing != INTERLACED_MERGED) { // tff or bff
+                desc.interlacing = get_interlacing_from_suffix(endptr);
+                if (desc.interlacing != PROGRESSIVE &&
+                                desc.interlacing != SEGMENTED_FRAME &&
+                                desc.interlacing != INTERLACED_MERGED) { // tff or bff
                         log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
                         goto error;
                 }
-                if (s->frame->interlacing == INTERLACED_MERGED) {
-                        s->frame->fps /= 2;
+                if (desc.interlacing == INTERLACED_MERGED) {
+                        desc.fps /= 2;
                 }
         }
 
@@ -397,13 +397,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         h_align = get_halign(codec);
         bpp = get_bpp(codec);
 
-        s->frame->color_spec = codec;
+        desc.color_spec = codec;
         s->still_image = FALSE;
 
         if(bpp == 0) {
                 fprintf(stderr, "Unsupported codec '%s'\n", tmp);
                 goto error;
         }
+
+        s->frame = vf_alloc_desc(desc);
 
         aligned_x = vf_get_tile(s->frame, 0)->width;
         if (h_align) {
@@ -413,7 +415,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         rect_size = (vf_get_tile(s->frame, 0)->width + rect_size - 1) / rect_size;
 
         s->frame_linesize = aligned_x * bpp;
-        s->size = aligned_x * vf_get_tile(s->frame, 0)->height * bpp;
+        s->size = s->frame->tiles[0].data_len;
 
         filename = NULL;
 
@@ -611,8 +613,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         printf("Testcard capture set to %dx%d, bpp %f\n", vf_get_tile(s->frame, 0)->width,
                         vf_get_tile(s->frame, 0)->height, bpp);
-
-        vf_get_tile(s->frame, 0)->data_len = s->size;
 
         if(strip_fmt != NULL) {
                 if(configure_tiling(s, strip_fmt) != 0) {
