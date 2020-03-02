@@ -964,6 +964,26 @@ static bool find_decoder(struct video_desc desc,
         return *decoder != nullptr;
 }
 
+static bool same_linesizes(codec_t codec, AVFrame *in_frame)
+{
+        if (codec_is_planar(codec)) {
+                assert(get_bits_per_component(codec) == 8);
+                int sub[8];
+                codec_get_planes_subsampling(codec, sub);
+                for (int i = 0; i < 4; ++i) {
+                        if (sub[2 * i] == 0) {
+                                return true;
+                        }
+                        if (in_frame->linesize[i] != (in_frame->width + sub[2 * i] - 1) / sub[2 * i]) {
+                                return false;
+                        }
+                }
+                return true;
+        } else {
+                return vc_get_linesize(in_frame->width, codec) == in_frame->linesize[0];
+        }
+}
+
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
@@ -1164,7 +1184,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
                         s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
                 }
-        } else {
+        } else if (same_linesizes(s->decoded_codec, s->in_frame)) {
                 av_freep(s->in_frame->data); // allocated buffers won't be needed and pointers
                                              // will be filled by input buffers. av_image_alloc()
                                              // was called to fill linesizes, however.
@@ -1304,19 +1324,37 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         wait_task(handle[i]);
                 }
         } else { // no pixel format conversion needed
-                if (codec_is_planar(s->decoded_codec)) {
-                        buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) s->in_frame->data);
+                if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->in_frame)) {
+                        assert(get_bits_per_component(s->decoded_codec) == 8);
+                        int sub[8];
+                        codec_get_planes_subsampling(s->decoded_codec, sub);
+                        unsigned char *in = decoded;
+                        for (int i = 0; i < 4; ++i) {
+                                if (sub[2 * i] == 0) {
+                                        break;
+                                }
+                                int linesize = (s->in_frame->width + sub[2 * i] - 1) / sub[2 * i];
+                                int lines = (s->in_frame->height + sub[2 * i + 1] - 1) / sub[2 * i + 1];
+                                for (int y = 0; y < lines; ++y) {
+                                        memcpy(s->in_frame->data[i] + y * s->in_frame->linesize[i], in, linesize);
+                                        in += linesize;
+                                }
+                        }
                 } else {
-                        s->in_frame->data[0] = (uint8_t *) decoded;
+                        if (codec_is_planar(s->decoded_codec)) {
+                                buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) s->in_frame->data);
+                        } else {
+                                s->in_frame->data[0] = (uint8_t *) decoded;
+                        }
+                        // prevent leaving dangling pointer to the input buffer that may
+                        // be freed by cleanup()
+                        std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
+                                static_cast<void(*)(void *)>([](void *state) {
+                                                auto s = (state_video_compress_libav *) state;
+                                                s->in_frame->data[0] = s->in_frame->data[1] = s->in_frame->data[2] = s->in_frame->data[3] = nullptr;
+                                                })};
+                        cleanup_callbacks.push_back(move(clean_data_ptr));
                 }
-                // prevent leaving dangling pointer to the input buffer that may
-                // be freed by cleanup()
-                std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
-                        static_cast<void(*)(void *)>([](void *state) {
-                                        auto s = (state_video_compress_libav *) state;
-                                        s->in_frame->data[0] = nullptr;
-                                })};
-                cleanup_callbacks.push_back(move(clean_data_ptr));
         }
 
         AVFrame *frame = s->in_frame;
