@@ -53,7 +53,7 @@ GENERATED_HEADERS              = @GENERATED_HEADERS@
 
 ALL_INCLUDES	= $(wildcard $(srcdir)/src/*.h $(srcdir)/src/*/*.h $(srcdir)/src/*/*/*.h) $(wildcard $(srcdir)/unittest/*.h)
 
-OBJS	      = @OBJS@ \
+COMMON_OBJS     = \
 	        src/bitstream.o \
 		src/control_socket.o \
 		src/debug.o \
@@ -188,6 +188,9 @@ OBJS	      = @OBJS@ \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
 		rs/fec.o \
+
+OBJS	      = @OBJS@ \
+		$(COMMON_OBJS)
 
 ULTRAGRID_OBJS = src/main.o \
 
@@ -459,7 +462,9 @@ gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir
 	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4
 
 # -------------------------------------------------------------------------------------------------
-TEST_OBJS = test/get_framerate_test.o \
+TEST_OBJS = $(COMMON_OBJS) \
+	    @TEST_OBJS@ \
+	    test/get_framerate_test.o \
 	    test/video_desc_test.o \
 	    test/test_bitstream.o \
 	    test/test_aes.o \
@@ -473,9 +478,9 @@ TEST_OBJS = test/get_framerate_test.o \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-$(TEST_TARGET): $(TEST_OBJS) $(OBJS)
+$(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) @CPPUNIT_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ @CPPUNIT_LIBS@ -o $@
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif

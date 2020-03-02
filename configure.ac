@@ -3115,6 +3115,8 @@ AC_SUBST(CPPUNIT_LIBS)
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
+TEST_LIBS="$LIB_MODULES $LIBS"
+TEST_OBJS="$OBJS $LIB_OBJS $X_OBJ"
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
@@ -3130,13 +3132,17 @@ fi
 
 # remove duplicite objs
 OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
 AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
+AC_SUBST(LIB_MODULES)
 AC_SUBST(LIB_OBJS)
 AC_SUBST(MODULES)
 AC_SUBST(TARGETS)
+AC_SUBST(TEST_LIBS)
+AC_SUBST(TEST_OBJS)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
