@@ -8,6 +8,13 @@ echo "::set-env name=LIBRARY_PATH::/usr/local/qt/lib"
 echo "::set-env name=PKG_CONFIG_PATH::/usr/local/qt/lib/pkgconfig"
 echo "::add-path::/usr/local/qt/bin"
 
+if command -v gcc-5; then
+        CUDA_HOST_COMPILER=gcc-5
+else
+        CUDA_HOST_COMPILER=gcc-6
+fi
+echo "::set-env name=CUDA_HOST_COMPILER::$CUDA_HOST_COMPILER"
+
 sudo apt update
 sudo apt install libcppunit-dev nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
@@ -18,7 +25,7 @@ sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
 sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
-( mkdir gpujpeg/build && cd gpujpeg/build && CC=gcc-6 CXX=g++-6 cmake .. && make && sudo make install && sudo ldconfig )
+( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
 ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
@@ -35,6 +42,7 @@ if [ -n "$sdk_pass" ]; then
         unzip ntv2sdklinux.zip -d /var/tmp
         mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
         cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
+        export CXX='g++ -std=gnu++11'
         make
 fi
 
