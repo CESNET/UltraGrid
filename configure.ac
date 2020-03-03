@@ -779,13 +779,16 @@ if test -n "$BLUEFISH444_PATH"; then
         if test $system = Linux; then
                 BLUEFISH444_INC="-I$BLUEFISH444_PATH/build/inc"
                 BLUEFISH444_LIB="-L$BLUEFISH444_PATH/build/lib"
-        else # Windows
-                BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
-                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
+        elif test $system = Windows; then
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/inc"
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/lib/win"
         fi
-        
-        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
-        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+fi
+
+if test $WORD_LEN -eq 64; then
+        BLUEFISH444_LIB_NAME=BlueVelvetC64
+else
+        BLUEFISH444_LIB_NAME=BlueVelvetC
 fi
 
 AC_LANG_PUSH(C++)
@@ -793,41 +796,15 @@ AC_LANG_PUSH(C++)
 BLUE_L=no
 BLUE_H=no
 
-if test $system = Windows
-then
-        AC_CHECK_HEADERS([BlueVelvetC_UltraGrid.h],
-                        [BLUE_H=yes], [BLUE_H=no],
-                        [[
-#include <objbase.h>
-                        ]]
-                        )
-        if test $WORD_LEN -eq 64; then
-                BLUEFISH444_LIB_NAME=BlueVelvetC64
-                BLUE_AUX=BlueVelvet64
-        else
-                BLUEFISH444_LIB_NAME=BlueVelvetC_UltraGrid
-                BLUE_AUX=BlueVelvet3
-        fi
-        
-        AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes],
-                        [BLUE_L=no])
-        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUX -l$BLUEFISH444_LIB_NAME"
-elif test $system = Linux
-then
-        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
-        LIBS="$LIBS $BLUEFISH444_LIB"
-        AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
-        if test $WORD_LEN -eq 64; then
-                AC_CHECK_LIB(BlueVelvetC64, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC64"
-        else
-                AC_CHECK_LIB(BlueVelvetC, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC"
-        fi
-fi
+CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
+LIBS="$LIBS $BLUEFISH444_LIB"
+AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
+AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
 
 if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
