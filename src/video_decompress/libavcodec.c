@@ -680,9 +680,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 return DECODER_CANT_DECODE;
         }
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         if (res == DECODER_GOT_FRAME && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
+#endif
 
         return res;
 }
