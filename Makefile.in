@@ -13,7 +13,7 @@ CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
-LIBS         += @LIBS@ @MATHLIBS@ @COREAUDIO_LIB@ -lm -pthread
+LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
@@ -94,7 +94,6 @@ COMMON_OBJS     = \
 		src/audio/types.o \
 		src/audio/utils.o \
 		src/audio/wav_reader.o \
-		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \
 		src/capture_filter.o \

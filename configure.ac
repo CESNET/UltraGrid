@@ -2543,6 +2543,7 @@ case $host_os in
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
                         AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
+                        ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
 		fi
     ;;
 esac
@@ -2557,10 +2558,6 @@ fi
 if test $coreaudio_req = yes -a $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
 fi
-
-AC_SUBST(COREAUDIO_LIB)
-AC_SUBST(COREAUDIO_OBJ)
-
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
