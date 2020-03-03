@@ -1718,12 +1718,17 @@ fi
 file=no
 AC_ARG_ENABLE(file,
 [  --disable-file          disable file input support (default is $build_default)]
-[                          Requires: libavcodec libavformat libavutil],
+[                          Requires: libavcodec >= 57.107.100 libavformat libavutil],
 [file_req=$enableval],
 [file_req=$build_default]
 )
 
 PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
+PKG_CHECK_MODULES([LIBAVCODEC_MIN_VERSION], [libavcodec >= 57.107.100], [libavcodec_min_version=yes], [libavcodec_min_version=no])
+# Windows doesn't use pkg-config so we assume that libavcodec is new enough
+if test $system = Windows; then
+        libavcodec_min_version=yes
+fi
 if test "$found_libavformat" != yes; then
         SAVED_LIBS=$LIBS
         AC_CHECK_HEADERS([libavformat/avformat.h])
@@ -1740,7 +1745,7 @@ if test "$found_libavformat" != yes; then
         fi
 fi
 
-if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes
+if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes -a "$libavcodec_min_version" = yes
 then
         AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
 
