@@ -1,0 +1,35 @@
+name: Archive Nightly
+
+on:
+  schedule:
+    - cron:  '0 4 * * 6' # Every Sunday at 4:00 UTC
+
+jobs:
+  archive:
+    if: github.repository == 'CESNET/UltraGrid'
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ssh_key: ${{ secrets.ssh_key }}
+    steps:
+    - name: Archive Nightly Build
+      run: |
+        set -eu
+        REMOTE=xpulec@frakira.fi.muni.cz
+        RDIR='$HOME/public_html/ug-nightly-archive/'$(date +%Y%m%d)
+        TMPDIR=$(mktemp -d)
+        mkdir -p ~/.ssh
+        curl -S https://frakira.fi.muni.cz/~xpulec/ssh_known_hosts_github -o ~/.ssh/known_hosts
+        echo "$ssh_key" > ~/.ssh/id_rsa
+        chmod -R go-rwx ~/.ssh
+        ssh $REMOTE mkdir $RDIR
+        cd $TMPDIR
+        sudo apt install jq
+        JSON=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly)
+        RELEASE_ID=$(echo "$JSON" | jq -r '.id')
+        for n in `curl -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets | grep browser_download_url | awk '{print $2}' | tr -d \"`; do
+          wget $n
+          scp $(basename $n) $REMOTE:$RDIR
+        done
+
+# vi: set expandtab sw=2:
