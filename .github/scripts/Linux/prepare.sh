@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -ex
+#!/bin/bash -eux
 
 echo "::set-env name=AJA_DIRECTORY::/var/tmp/ntv2sdk"
 echo "::set-env name=CPATH::/usr/local/qt/include"
@@ -15,6 +13,9 @@ else
 fi
 echo "::set-env name=CUDA_HOST_COMPILER::$CUDA_HOST_COMPILER"
 
+if expr "$(lsb_release -ds)" : "Ubuntu 16.04"; then
+        sudo add-apt-repository -y ppa:jonathonf/ffmpeg-4
+fi
 sudo apt update
 sudo apt install libcppunit-dev nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
