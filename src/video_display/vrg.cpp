@@ -51,7 +51,6 @@
 #undef RGBA
 
 #include "debug.h"
-#include "host.h"
 #include "lib_common.h"
 #include "utils/misc.h"
 #include "video.h"
@@ -201,27 +200,22 @@ static int display_vrg_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-
-ADD_TO_PARAM(vrg_i420, "vrg-i420", "* vrg-i420\n"
-                "  Allows I420 pixel format for VRG plugin (currently causes a crash).\n");
 static int display_vrg_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[2] = { 0 };
-        int codec_cnt = 0;
-        if (get_commandline_param("vrg-i420")) {
-                codecs[codec_cnt++] = I420;
-        }
-        codecs[codec_cnt++] = RGBA;
+        codec_t codecs[] = {
+                I420,
+                RGBA,
+        };
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if (sizeof(codec_t) * codec_cnt > *len) {
+                        if(sizeof(codecs) > *len) {
                                 return FALSE;
                         }
-                        *len = sizeof(codec_t) * codec_cnt;
-                        memcpy(val, codecs, *len);
+                        memcpy(val, codecs, sizeof(codecs));
+                        *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
