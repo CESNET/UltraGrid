@@ -758,13 +758,13 @@ static const struct decode_from_to dec_template[] = {
 };
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
+/// @todo to remove
 ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
                 "* lavd-use-10bit\n"
-                "  Do not use, use \"--param lavd-use-codec=v210\" instead.\n");
+                "  Do not use, use \"--param decoder-use-codec=v210\" instead.\n");
 ADD_TO_PARAM(lavd_use_codec, "lavd-use-codec",
                 "* lavd-use-codec=<codec>\n"
-                "  Use specified color spec for decoding (eg. v210). This overrides automatic\n"
-                "  choice.\n");
+                "  Do not use, use \"--param decoder-use-codec=<codec>\" instead.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -777,10 +777,11 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         }
 
         codec_t force_codec = VIDEO_CODEC_NONE;
-        if (get_commandline_param("lavd-use-10bit")) {
-                log_msg(LOG_LEVEL_WARNING, "DEPRECATED: Do not use \"--param lavd-use-10bit\", "
-                                "use \"--param lavd-use-codec=v210\" if needed.\n");
-                force_codec = v210;
+        if (get_commandline_param("lavd-use-10bit") || get_commandline_param("lavd-use-codec")) {
+                log_msg(LOG_LEVEL_WARNING, "DEPRECATED: Do not use \"--param lavd-use-10bit|lavd-use-codec\", "
+                                "use \"--param decoder-use-codec=v210|<codec>\" instead.\n");
+                force_codec = get_commandline_param("lavd-use-10bit") ? v210
+                        : get_codec_from_name(get_commandline_param("lavd-use-codec"));
         }
 
         unsigned int ret_idx = 0;
