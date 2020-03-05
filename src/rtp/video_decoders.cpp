@@ -821,6 +821,10 @@ static void video_decoder_stop_threads(struct state_video_decoder *decoder)
         decoder->decompress_thread_id.join();
 }
 
+ADD_TO_PARAM(decoder_use_codec, "decoder-use-codec",
+                "* decoder-use-codec=<codec>\n"
+                "  Use specified color spec for decoding (eg. v210). This overrides automatic\n"
+                "  choice.\n");
 /**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
@@ -847,6 +851,27 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Failed to query codecs from video display.\n");
                 decoder->native_count = 0;
+        }
+        if (get_commandline_param("decoder-use-codec")) {
+                const char *codec_str = get_commandline_param("decoder-use-codec");
+                codec_t req_codec = get_codec_from_name(codec_str);
+                if (req_codec == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong decoder codec spec: %s.\n", codec_str);
+                        return false;
+                }
+                bool found = false;
+                for (size_t i = 0; i < decoder->native_count; ++i) {
+                        if (decoder->native_codecs[i] == req_codec) {
+                                decoder->native_codecs[0] = req_codec;
+                                decoder->native_count = 1;
+                                found = true;
+                                break;
+                        }
+                }
+                if (!found) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Display doesn't support requested codec: %s.\n", codec_str);
+                        return false;
+                }
         }
 
         free(decoder->disp_supported_il);
