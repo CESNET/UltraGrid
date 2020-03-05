@@ -216,6 +216,32 @@ static struct module * cineform_compress_init(struct module *parent, const char 
         return &s->module_data;
 }
 
+static void I420toUYVY(video_frame *dst, video_frame *src)
+{
+        size_t y_len = src->tiles[0].width * src->tiles[0].height;
+        size_t chroma_len = ((src->tiles[0].width + 1) / 2) * ((src->tiles[0].height + 1) / 2);
+        char *y = src->tiles[0].data;
+        char *out = dst->tiles[0].data;
+        size_t chroma_pitch = ((dst->tiles[0].width + 1) & ~1) / 2; // handle also odd line widths
+        for (size_t i = 0; i < dst->tiles[0].height; i += 1) {
+                char *u = src->tiles[0].data + y_len + i / 2 * chroma_pitch;
+                char *v = src->tiles[0].data + y_len + chroma_len + i / 2 * chroma_pitch;
+                size_t j;
+                for (j = 0; j <= dst->tiles[0].width - 2; j += 2) {
+                        *out++ = *u++;
+                        *out++ = *y++;
+                        *out++ = *v++;
+                        *out++ = *y++;
+                }
+                if (j < dst->tiles[0].width) { // last pixel on line with odd width
+                        *out++ = *u++;
+                        *out++ = *y++;
+                        *out++ = *v++;
+                        *out++ = 0;
+                }
+        }
+}
+
 static void RGBtoBGR_invert(video_frame *dst, video_frame *src){
         int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
 
@@ -276,6 +302,7 @@ static struct {
         codec_t convert_codec;
         void (*convertFunc)(video_frame *dst, video_frame *src);
 } codecs[] = {
+        {I420, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, UYVY, I420toUYVY},
         {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
         {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, RGBtoBGR_invert},
         {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444, VIDEO_CODEC_NONE, RGBAtoBGRA},

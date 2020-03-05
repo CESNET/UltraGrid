@@ -31,7 +31,7 @@ function launch() {
 	echo $OLDHEAD $NEWHEAD
 
 	#check if $PROJECT is up-to-date
-	if [ "$OLDHEAD" = "$NEWHEAD" ]; then
+	if [ "x$FORCE_REBUILD" != "xyes" -a "$OLDHEAD" = "$NEWHEAD" ]; then
 		return 1
 	fi
 

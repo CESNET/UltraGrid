@@ -175,23 +175,49 @@ bool libav_codec_has_extradata(codec_t codec) {
 //
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
-        for(int y = 0; (y + 1) < height; y += 2) {
+        int y;
+        for (y = 0; y < height - 1; y += 2) {
                 /*  every even row */
-                unsigned char *src = in_data + y * (width * 2);
+                unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
                 /*  every odd row */
-                unsigned char *src2 = in_data + (y + 1) * (width * 2);
+                unsigned char *src2 = in_data + (y + 1) * (((width + 1) & ~1) * 2);
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
-                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y / 2;
-                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y / 2;
+                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
+                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * (y / 2);
 
-                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                int x;
+                OPTIMIZED_FOR (x = 0; x < width - 1; x += 2) {
                         *dst_cb++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
                         *dst_cr++ = (*src++ + *src2++) / 2;
                         *dst_y++ = *src++;
                         *dst_y2++ = *src2++;
+                }
+                if (x < width) {
+                        *dst_cb++ = (*src++ + *src2++) / 2;
+                        *dst_y++ = *src++;
+                        *dst_y2++ = *src2++;
+                        *dst_cr++ = (*src++ + *src2++) / 2;
+                }
+        }
+        if (y < height) {
+                unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
+                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
+                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * (y / 2);
+                int x;
+                OPTIMIZED_FOR (x = 0; x < width - 1; x += 2) {
+                        *dst_cb++ = *src++;
+                        *dst_y++ = *src++;
+                        *dst_cr++ = *src++;
+                        *dst_y++ = *src++;
+                }
+                if (x < width) {
+                        *dst_cb++ = *src++;
+                        *dst_y++ = *src++;
+                        *dst_cr++ = *src++;
                 }
         }
 }
@@ -963,13 +989,17 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
-        for(int y = 0; y < height / 2; ++y) {
+        for(int y = 0; y < (height + 1) / 2; ++y) {
+                int scnd_row = y * 2 + 1;
+                if (scnd_row == height) {
+                        scnd_row = height - 1;
+                }
                 char *src_y1 = (char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
-                char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
+                char *src_y2 = (char *) in_frame->data[0] + in_frame->linesize[0] * scnd_row;
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 char *dst1 = dst_buffer + (y * 2) * pitch;
-                char *dst2 = dst_buffer + (y * 2 + 1) * pitch;
+                char *dst2 = dst_buffer + scnd_row * pitch;
 
                 int x = 0;
 
@@ -1042,6 +1072,17 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                         *dst2++ = *src_y2++;
                         *dst2++ = *src_cr++;
                         *dst2++ = *src_y2++;
+                }
+                if (x < width) {
+                        *dst1++ = *src_cb;
+                        *dst1++ = *src_y1++;
+                        *dst1++ = *src_cr;
+                        *dst1++ = 0;
+
+                        *dst2++ = *src_cb++;
+                        *dst2++ = *src_y2++;
+                        *dst2++ = *src_cr++;
+                        *dst2++ = 0;
                 }
         }
 }

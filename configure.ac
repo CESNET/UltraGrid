@@ -779,13 +779,16 @@ if test -n "$BLUEFISH444_PATH"; then
         if test $system = Linux; then
                 BLUEFISH444_INC="-I$BLUEFISH444_PATH/build/inc"
                 BLUEFISH444_LIB="-L$BLUEFISH444_PATH/build/lib"
-        else # Windows
-                BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
-                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
+        elif test $system = Windows; then
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/inc"
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/lib/win"
         fi
-        
-        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
-        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+fi
+
+if test $WORD_LEN -eq 64; then
+        BLUEFISH444_LIB_NAME=BlueVelvetC64
+else
+        BLUEFISH444_LIB_NAME=BlueVelvetC
 fi
 
 AC_LANG_PUSH(C++)
@@ -793,41 +796,15 @@ AC_LANG_PUSH(C++)
 BLUE_L=no
 BLUE_H=no
 
-if test $system = Windows
-then
-        AC_CHECK_HEADERS([BlueVelvetC_UltraGrid.h],
-                        [BLUE_H=yes], [BLUE_H=no],
-                        [[
-#include <objbase.h>
-                        ]]
-                        )
-        if test $WORD_LEN -eq 64; then
-                BLUEFISH444_LIB_NAME=BlueVelvetC64
-                BLUE_AUX=BlueVelvet64
-        else
-                BLUEFISH444_LIB_NAME=BlueVelvetC_UltraGrid
-                BLUE_AUX=BlueVelvet3
-        fi
-        
-        AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes],
-                        [BLUE_L=no])
-        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUX -l$BLUEFISH444_LIB_NAME"
-elif test $system = Linux
-then
-        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
-        LIBS="$LIBS $BLUEFISH444_LIB"
-        AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
-        if test $WORD_LEN -eq 64; then
-                AC_CHECK_LIB(BlueVelvetC64, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC64"
-        else
-                AC_CHECK_LIB(BlueVelvetC, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
-                BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvetC"
-        fi
-fi
+CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
+LIBS="$LIBS $BLUEFISH444_LIB"
+AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
+AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
 
 if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
         AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
@@ -1741,12 +1718,17 @@ fi
 file=no
 AC_ARG_ENABLE(file,
 [  --disable-file          disable file input support (default is $build_default)]
-[                          Requires: libavcodec libavformat libavutil],
+[                          Requires: libavcodec >= 57.107.100 libavformat libavutil],
 [file_req=$enableval],
 [file_req=$build_default]
 )
 
 PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
+PKG_CHECK_MODULES([LIBAVCODEC_MIN_VERSION], [libavcodec >= 57.107.100], [libavcodec_min_version=yes], [libavcodec_min_version=no])
+# Windows doesn't use pkg-config so we assume that libavcodec is new enough
+if test $system = Windows; then
+        libavcodec_min_version=yes
+fi
 if test "$found_libavformat" != yes; then
         SAVED_LIBS=$LIBS
         AC_CHECK_HEADERS([libavformat/avformat.h])
@@ -1763,7 +1745,7 @@ if test "$found_libavformat" != yes; then
         fi
 fi
 
-if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes
+if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes -a "$libavcodec_min_version" = yes
 then
         AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
 
@@ -2058,7 +2040,7 @@ AC_ARG_WITH(cuda,
             ])
 
 if test -n "$CUDA_PATH"; then
-        CUDA_PATH_SEP="$CUDA_PATH$PATH_SEPARATOR"
+        CUDA_PATH_SEP="$CUDA_PATH/bin$PATH_SEPARATOR"
 fi
 
 # nvcc is intentional here
@@ -2564,6 +2546,7 @@ case $host_os in
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
                         AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
+                        ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
 		fi
     ;;
 esac
@@ -2578,10 +2561,6 @@ fi
 if test $coreaudio_req = yes -a $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
 fi
-
-AC_SUBST(COREAUDIO_LIB)
-AC_SUBST(COREAUDIO_OBJ)
-
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
@@ -3154,6 +3133,8 @@ AC_SUBST(CPPUNIT_LIBS)
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
+TEST_LIBS="$LIB_MODULES $LIBS"
+TEST_OBJS="$OBJS $LIB_OBJS $X_OBJ"
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
@@ -3169,13 +3150,17 @@ fi
 
 # remove duplicite objs
 OBJS=`echo $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
 
 AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
 AC_SUBST(LIB_GENERATED_HEADERS)
+AC_SUBST(LIB_MODULES)
 AC_SUBST(LIB_OBJS)
 AC_SUBST(MODULES)
 AC_SUBST(TARGETS)
+AC_SUBST(TEST_LIBS)
+AC_SUBST(TEST_OBJS)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

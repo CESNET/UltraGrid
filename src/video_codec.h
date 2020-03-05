@@ -95,6 +95,7 @@ decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBU
 int get_aligned_length(int width, codec_t codec) ATTRIBUTE(const);
 int get_pf_block_size(codec_t codec) ATTRIBUTE(const);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
+size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) ATTRIBUTE(const);
 void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
 int codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
 bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(const);
