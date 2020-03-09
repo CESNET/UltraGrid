@@ -65,6 +65,10 @@
 #define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
 #endif
 
+#if LIBGPUJPEG_API_VERSION < 9
+#define GPUJPEG_444_U8_P012A GPUJPEG_444_U8_P012Z
+#endif
+
 #define MOD_NAME "[GPUJPEG dec.] "
 
 struct state_decompress_gpujpeg {
@@ -100,7 +104,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 #if GJ_RGBA_SUPP == 1
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
-                                GPUJPEG_444_U8_P012Z : GPUJPEG_444_U8_P012);
+                                GPUJPEG_444_U8_P012A : GPUJPEG_444_U8_P012);
                 break;
 #endif
         case RGB:
