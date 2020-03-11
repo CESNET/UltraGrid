@@ -36,6 +36,7 @@ BuildRequires:	libjpeg62-devel, Mesa-libGL-devel
 BuildRequires:	libqt5-qtbase-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
+BuildRequires:  cppunit-devel
 
 #####################################################
 # > cuda
@@ -284,6 +285,10 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # --enable-testcard-extras \
 
 make %{?_smp_mflags}
+
+%check
+env UG_SKIP_NET_TESTS=1 make check
+env UG_SKIP_NET_TESTS=1 make distcheck
 
 %install
 rm -rf ${RPM_BUILD_ROOT}

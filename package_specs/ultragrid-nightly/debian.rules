@@ -123,8 +123,8 @@ override_dh_auto_configure:
 		$(CUDA) \
 		$(CARDCONF)
 
-#override_dh_auto_build:
-#	dh_auto_build -- LDFLAGS="$$LDFLAGS -Wl,-rpath=$(UGLIBDIR)"
+override_dh_auto_build:
+	dh_auto_build
 
 override_dh_auto_install:
 	mkdir -p debian/$(PACKAGE)/usr/share/doc/ultragrid
@@ -147,5 +147,6 @@ override_dh_shlibdeps:
 		sed --in-place 's#ultragrid-proprietary-drivers##g' $$file ; \
 	done
 
-#override_dh_strip:
-#	echo "nothing to do here"
+override_dh_auto_test:
+	env UG_SKIP_NET_TESTS=1 dh_auto_test
+
