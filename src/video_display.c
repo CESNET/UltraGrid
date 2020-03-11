@@ -337,7 +337,7 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
 		int rc = d->funcs->reconfigure_video(d->state, display_desc);
                 len = sizeof d->display_pitch;
                 d->display_pitch = PITCH_DEFAULT;
-                d->funcs->get_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
+                d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
 					&d->display_pitch, &len);
                 if (d->display_pitch == PITCH_DEFAULT) {
 			d->display_pitch = vc_get_linesize(display_desc.width, display_desc.color_spec);
@@ -385,7 +385,7 @@ static void restrict_returned_codecs(codec_t *display_codecs,
  * @retval      TRUE      if succeeded and result is contained in val and len
  * @retval      FALSE     if the query didn't succeeded (either not supported or error)
  */
-int display_get_property(struct display *d, int property, void *val, size_t *len)
+int display_ctl_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
         if (d->postprocess) {
@@ -401,7 +401,7 @@ int display_get_property(struct display *d, int property, void *val, size_t *len
                                 size_t nlen;
                                 bool ret;
                                 nlen = sizeof display_codecs;
-                                ret = d->funcs->get_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
+                                ret = d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
                                 if (!ret) return FALSE;
                                 display_codecs_count = nlen / sizeof(codec_t);
                                 nlen = sizeof pp_codecs;
@@ -427,10 +427,10 @@ int display_get_property(struct display *d, int property, void *val, size_t *len
                         }
 			break;
                 default:
-                        return d->funcs->get_property(d->state, property, val, len);
+                        return d->funcs->ctl_property(d->state, property, val, len);
                 }
         } else {
-                return d->funcs->get_property(d->state, property, val, len);
+                return d->funcs->ctl_property(d->state, property, val, len);
         }
 }
 

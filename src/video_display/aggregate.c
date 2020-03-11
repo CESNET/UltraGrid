@@ -281,7 +281,7 @@ static int display_aggregate_get_property(void *state, int property, void *val, 
                                 }
                                 for (i = 0; i < s->devices_cnt; ++i) {
                                         int ret;
-                                        ret = display_get_property(s->devices[i], DISPLAY_PROPERTY_CODECS, codecs[i], &lens[i]);
+                                        ret = display_ctl_property(s->devices[i], DISPLAY_PROPERTY_CODECS, codecs[i], &lens[i]);
                                         if(!ret) {
                                                 goto err_codecs;
                                         }
@@ -328,13 +328,13 @@ err_codecs:
                                 int ret;
                                 char first_val[128];
                                 size_t first_size = sizeof(first_val);
-                                ret = display_get_property(s->devices[0], property, &first_val, &first_size);
+                                ret = display_ctl_property(s->devices[0], property, &first_val, &first_size);
                                 if(!ret) goto err;
 
                                 for (i = 1; i < s->devices_cnt; ++i) {
                                         char new_val[128];
                                         size_t new_size = sizeof(new_val);
-                                        ret = display_get_property(s->devices[i], property, &new_val, &new_size);
+                                        ret = display_ctl_property(s->devices[i], property, &new_val, &new_size);
                                         if(!ret) goto err;
                                         if(new_size != first_size || memcmp(first_val, new_val, first_size) != 0)
                                                 goto err;
