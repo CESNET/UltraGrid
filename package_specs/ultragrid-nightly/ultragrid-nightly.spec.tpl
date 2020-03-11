@@ -51,7 +51,55 @@ BuildRequires:	glib2-devel, libcurl-devel
 #####################################################
 # < cineform
 #####################################################
-
+#####################################################
+# > ximea
+#####################################################
+%define build_ximea 1
+#####################################################
+# < ximea
+#####################################################
+#####################################################
+# > ndi
+#####################################################
+#%define build_ndi 1
+#####################################################
+# < ndi
+#####################################################
+#####################################################
+# > bluefish
+#####################################################
+%define build_bluefish 1
+#####################################################
+# < bluefish
+#####################################################
+#####################################################
+# > dvs
+#####################################################
+%define build_dvs 0
+#####################################################
+# < dvs
+#####################################################
+#####################################################
+# > blackmagick
+#####################################################
+%define build_blackmagick 1
+#####################################################
+# < blackmagick
+#####################################################
+#####################################################
+# > deltacast
+#####################################################
+%define build_deltacast 1
+#####################################################
+# < deltacast
+#####################################################
+#####################################################
+# > aja
+#####################################################
+%define build_aja 1
+#####################################################
+# < aja
+#####################################################
 
 %if 0%{?cuda} > 0
 	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
@@ -78,8 +126,17 @@ BuildRequires:	libgpujpeg-devel
 %else
 	%define cudaconf --disable-cuda
 %endif
+
 %if 0%{?build_cineform} > 0
 BuildRequires:	libuuid-devel
+%endif
+
+%if 0%{?build_ximea} > 0
+BuildRequires:	ultragrid-proprietary-drivers-ximea-nightly
+%endif
+
+%if 0%{?build_ndi} > 0
+BuildRequires:	ultragrid-proprietary-drivers-ndi-nightly
 %endif
 
 %define build_conference 1
@@ -93,7 +150,6 @@ Requires(postun): update-desktop-files
 	%else
 BuildRequires:	desktop-file-utils
 	%endif
-	
 %endif
 
 
@@ -134,42 +190,6 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 %define __find_requires bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-requires | (grep -v -F -f install-provides || true) | (grep -v -f norequires || true)'
 %define __find_provides bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-provides | (grep -v -f noprovides || true)'
 
-#####################################################
-# > bluefish
-#####################################################
-%define build_bluefish 0
-#####################################################
-# < bluefish
-#####################################################
-#####################################################
-# > dvs
-#####################################################
-%define build_dvs 0
-#####################################################
-# < dvs
-#####################################################
-#####################################################
-# > blackmagick
-#####################################################
-%define build_blackmagick 1
-#####################################################
-# < blackmagick
-#####################################################
-#####################################################
-# > deltacast
-#####################################################
-%define build_deltacast 1
-#####################################################
-# < deltacast
-#####################################################
-#####################################################
-# > aja
-#####################################################
-%define build_aja 1
-#####################################################
-# < aja
-#####################################################
-
 %define UGLIBDIR %{_libdir}/ultragrid
 
 %prep
@@ -200,15 +220,27 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 		--disable-video-mixer \
 	%endif
 	%{?cudaconf} \
+	%if 0%{?build_ndi} > 0
+		--enable-ndi \
+	%else
+		--disable-ndi \
+	%endif
+	%if 0%{?build_ximea} > 0
+		--enable-ximea \
+	%else
+		--disable-ximea \
+	%endif
 	%if 0%{?build_cineform} > 0
 		--enable-cineform \
 	%else
 		--disable-cineform \
 	%endif
 	%if 0%{?cuda} > 0
-		--enable-jpeg \
+		--enable-gpujpeg \
+		--enable-ldgm-gpu \
 	%else
-		--disable-jpeg \
+		--disable-gpujpeg \
+		--disable-ldgm-gpu \
 	%endif
 	%if 0%{?build_bluefish} > 0
 		--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk  \
@@ -245,6 +277,9 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%else
 		--disable-lavc-hw-accel-vaapi \
 	%endif
+	%if 0%{?build_ximea} > 0
+		GENICAM_GENTL64_PATH=/usr/src/ultragrid-externals/ximea_sdk/lib \
+	%endif
 	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
 
@@ -254,6 +289,7 @@ make %{?_smp_mflags}
 rm -rf ${RPM_BUILD_ROOT}
 make install DESTDIR=${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid
+mkdir -p ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid
 echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-nightly.version
 %if 0%{?cuda} > 0
 # copy the real cudart to our rpath
@@ -299,6 +335,8 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %defattr(-,root,root,-)
 %dir %{_datadir}/ultragrid
 %{_datadir}/ultragrid/*
+%{_mandir}/man1/hd-rum-transcode.1.gz
+%{_mandir}/man1/uv.1.gz
 %if 0%{?build_gui} > 0
 %dir %{_datadir}/applications
 %{_datadir}/applications/uv-qt.desktop
@@ -335,9 +373,15 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %{_libdir}/ultragrid/ultragrid_display_deltacast.so
 %endif
 %if 0%{?build_cineform} > 0
-# cineformni
 %{_libdir}/ultragrid/ultragrid_vcompress_cineform.so
 %{_libdir}/ultragrid/ultragrid_vdecompress_cineform.so
+%endif
+%if 0%{?build_ximea} > 0
+%{_libdir}/ultragrid/ultragrid_vidcap_ximea.so
+%endif
+%if 0%{?build_ndi} > 0
+%{_libdir}/ultragrid/ultragrid_vidcap_ndi.so
+%{_libdir}/ultragrid/ultragrid_display_ndi.so
 %endif
 %{_libdir}/ultragrid/ultragrid_display_sdl*.so
 # rtsp is broken with current live555
@@ -372,10 +416,10 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %{_libdir}/ultragrid/ultragrid_acompress_libavcodec.so
 %{_libdir}/ultragrid/ultragrid_openssl.so
 %if 0%{?cuda} > 0
-%{_libdir}/ultragrid/ultragrid_vcompress_jpeg.so
-%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg.so
+%{_libdir}/ultragrid/ultragrid_vcompress_gpujpeg.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_gpujpeg.so
 %{_libdir}/ultragrid/ultragrid_vcompress_cuda_dxt.so
-%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg_to_dxt.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_gpujpeg_to_dxt.so
 %{_libdir}/ultragrid/ultragrid_ldgm_gpu.so
 # cudart
 %{_libdir}/ultragrid/*cudart*
