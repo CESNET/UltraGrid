@@ -3104,17 +3104,24 @@ fi
 # ---------------------------------------------------------------------
 vrg=no
 AC_ARG_ENABLE(vrg,
-[  --enable-vrg            enables VRG support (default is disabled)]
+[  --enable-vrg            enables VRG support (default is $build_default)]
 [                          Requires: VRG],
     [vrg_req=$enableval],
-    [vrg_req=no]
+    [vrg_req=$build_default]
     )
 
-if test $vrg_req = yes
+AC_CHECK_HEADER(vrgstream.h, FOUND_VRG_H=yes, FOUND_VRG_H=no)
+AC_CHECK_LIB(vrgstream, vrgStreamInit,  FOUND_VRG_L=yes, FOUND_VRG_L=no)
+
+if test $vrg_req != no -a $FOUND_VRG_H = yes -a $FOUND_VRG_L = yes
 then
         LIBS="$LIBS -lvrgstream"
         OBJS="$OBJS src/video_display/vrg.o"
         vrg=yes
+fi
+
+if test $vrg_req = yes -a $vrg = no; then
+        AC_MSG_ERROR([VRG headers or library not found]);
 fi
 
 # ---------------------------------------------------------------------
