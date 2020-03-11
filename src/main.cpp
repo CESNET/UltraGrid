@@ -1423,7 +1423,7 @@ int main(int argc, char *argv[])
                                        uv.display_device,
                                        (void (*)(void *, struct audio_frame *)) display_put_audio_frame,
                                        (int (*)(void *, int, int, int)) display_reconfigure_audio,
-                                       (int (*)(void *, int, void *, size_t *)) display_get_property);
+                                       (int (*)(void *, int, void *, size_t *)) display_ctl_property);
                 }
 
                 audio_start(uv.audio);

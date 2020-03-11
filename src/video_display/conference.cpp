@@ -669,7 +669,7 @@ static int display_conference_get_property(void *state, int property, void *val,
                 return TRUE;
 
         } else {
-                return display_get_property(s->real_display, property, val, len);
+                return display_ctl_property(s->real_display, property, val, len);
         }
 }
 

@@ -62,7 +62,7 @@
  * display_done(d);
  *
  * Thread #2
- * display_get_property(d, codecs);
+ * display_ctl_property(d, codecs);
  * while(!done) {
  *     // wait for video
  *     // pick one codec that is supported by display
@@ -121,6 +121,7 @@ struct multi_sources_supp_info {
 /** @name Display Properties
  * @{ */
 enum display_property {
+        // getters
         DISPLAY_PROPERTY_CODECS = 0, ///< list of natively supported codecs - codec_t[]
         DISPLAY_PROPERTY_RGB_SHIFT = 1, ///< red,green,blue shift - int[3] (bits)
         DISPLAY_PROPERTY_BUF_PITCH = 2, ///< requested framebuffer pitch - int (bytes), may be @ref PITCH_DEFAULT
@@ -153,7 +154,7 @@ struct video_display_info {
         struct video_frame     *(*getf) (void *state);
         int                     (*putf) (void *state, struct video_frame *frame, int nonblock);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
-        int                     (*get_property)(void *state, int property, void *val, size_t *len);
+        int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, struct audio_frame *frame);
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
                         int sample_rate);
@@ -188,7 +189,11 @@ enum display_put_frame_flags {
 
 int 		         display_put_frame(struct display *d, struct video_frame *frame, int flags);
 int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
-int                      display_get_property(struct display *d, int property, void *val, size_t *len);
+/** @brief Get/set property (similar to ioctl)
+ *  @retval TRUE  if succeeds
+ *  @retval FALSE if fails
+ */
+int                      display_ctl_property(struct display *d, int property, void *val, size_t *len);
 /**
  * @defgroup display_audio Audio
  * Audio related functions (embedded audio).

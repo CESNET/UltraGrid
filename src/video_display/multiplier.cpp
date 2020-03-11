@@ -294,7 +294,7 @@ static int display_multiplier_get_property(void *state, int property, void *val,
 
         }
         //TODO Find common properties, for now just return properties of the first display
-        return display_get_property(s->displays[0].real_display, property, val, len);
+        return display_ctl_property(s->displays[0].real_display, property, val, len);
 }
 
 static int display_multiplier_reconfigure(void *state, struct video_desc desc)

@@ -858,7 +858,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 
         codec_t native_codecs[VIDEO_CODEC_COUNT];
         size_t len = sizeof native_codecs;
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, native_codecs, &len);
+        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_CODECS, native_codecs, &len);
         decoder->native_codecs.clear();
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Failed to query codecs from video display.\n");
@@ -893,7 +893,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         decoder->disp_supported_il_cnt = 20 * sizeof(enum interlacing_t);
         decoder->disp_supported_il = (enum interlacing_t*) calloc(decoder->disp_supported_il_cnt,
                         sizeof(enum interlacing_t));
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_SUPPORTED_IL_MODES, decoder->disp_supported_il, &decoder->disp_supported_il_cnt);
+        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_SUPPORTED_IL_MODES, decoder->disp_supported_il, &decoder->disp_supported_il_cnt);
         if(ret) {
                 decoder->disp_supported_il_cnt /= sizeof(enum interlacing_t);
         } else {
@@ -1228,7 +1228,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         size_t len = sizeof(int);
         int ret;
 
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
+        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
                         &display_mode, &len);
         if(!ret) {
                 debug_msg("Failed to get video display mode.\n");
@@ -1260,7 +1260,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 decoder->display_desc = display_desc;
 
                 len = sizeof(display_requested_rgb_shift);
-                ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RGB_SHIFT,
+                ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_RGB_SHIFT,
                                 &display_requested_rgb_shift, &len);
                 if(!ret) {
                         debug_msg("Failed to get r,g,b shift property from video driver.\n");
@@ -1268,7 +1268,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         memcpy(&display_requested_rgb_shift, rgb_shift, sizeof(rgb_shift));
                 }
 
-                ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
+                ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
                                 &display_requested_pitch, &len);
                 if(!ret) {
                         debug_msg("Failed to get pitch from video driver.\n");

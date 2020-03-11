@@ -414,7 +414,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                                 struct multi_sources_supp_info supp_for_mult_sources;
                                 size_t len = sizeof(multi_sources_supp_info);
-                                int ret = display_get_property(m_display_device,
+                                int ret = display_ctl_property(m_display_device,
                                                 DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES, &supp_for_mult_sources, &len);
                                 if (!ret) {
                                         supp_for_mult_sources.val = false;
