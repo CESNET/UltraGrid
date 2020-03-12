@@ -3290,6 +3290,28 @@ static uint8_t *format_rtcp_app(uint8_t * buffer, int buflen, uint32_t ssrc,
         return buffer + pkt_octets;
 }
 
+/**
+ * Sends the RTCP packet over UDP to either a configured host (if specified on
+ * the command-line) or to the destination from which we are receiving RTCP.
+ */
+static void rtcp_udp_send(struct rtp *session, int len, char *buffer)
+{
+        if (!session->send_rtcp_to_origin) {
+                int rc = udp_send(session->rtcp_socket, buffer, len);
+                if (rc == -1) {
+                        perror("sending RTCP packet");
+                }
+        } else {
+                if (session->rtcp_dest_len > 0) {
+                        int rc = udp_sendto(session->rtcp_socket, buffer, len,
+                                        (struct sockaddr *) &session->rtcp_dest, session->rtcp_dest_len);
+                        if (rc == -1) {
+                                perror("sending RTCP packet");
+                        }
+                }
+        }
+}
+
 static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                       rtcp_app_callback appcallback)
 {
@@ -3302,7 +3324,6 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         uint8_t *lpt;           /* the last packet in the compound */
         rtcp_app *app;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-        int rc;
 
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
@@ -3395,21 +3416,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                                          initVec);
         }
 
-        if (!session->send_rtcp_to_origin) {
-                rc = udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
-                if (rc == -1) {
-                        perror("sending RTCP packet");
-                }
-        } else {
-                if (session->rtcp_dest_len > 0) {
-                        rc = udp_sendto(session->rtcp_socket, (char *)buffer, ptr - buffer,
-                                        (struct sockaddr *) &session->rtcp_dest, session->rtcp_dest_len);
-                        if (rc == -1) {
-                                perror("sending RTCP packet");
-                        }
-                }
-        }
-
+        rtcp_udp_send(session, ptr - buffer, (char *)buffer);
         /* Loop the data back to ourselves so local participant can */
         /* query own stats when using unicast or multicast with no  */
         /* loopback.                                                */
@@ -3607,7 +3614,7 @@ static void rtp_send_bye_now(struct rtp *session)
                 (session->encrypt_func) (session, buffer, ptr - buffer,
                                          initVec);
         }
-        udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
+        rtcp_udp_send(session, ptr - buffer, (char *)buffer);
         /* Loop the data back to ourselves so local participant can */
         /* query own stats when using unicast or multicast with no  */
         /* loopback.                                                */
