@@ -108,7 +108,7 @@ override_dh_auto_configure:
 	./autogen.sh || true
 	echo "$(CINEFORM)"  ; test "$(CINEFORM)" = "--enable-cineform" && pushd cineform-sdk && cmake -DCMAKE_INSTALL_PREFIX=/usr . && make && popd
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
-		--enable-sdl2 --enable-gl --enable-rtdxt \
+		--enable-sdl2 --enable-gl --enable-gl-display --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\

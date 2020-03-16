@@ -208,7 +208,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # jack-transport is broken since 1.2 release
 # rstp is broken with current live555
 %configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
-	--enable-sdl2 --enable-gl --enable-rtdxt \
+	--enable-sdl2 --enable-gl --enable-gl-display --enable-rtdxt \
 	--enable-portaudio --disable-jack-transport --enable-jack \
 	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
