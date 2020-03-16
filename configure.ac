@@ -570,13 +570,13 @@ then
         OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
 fi
 
-if $gl_req = no; then
+if test $gl_req = no; then
         OPENGL=no
         GL_COMMON_OBJ=
         OPENGL_LIB=
 fi
 
-if $gl_req = yes -a $OPENGL = no; then
+if test $gl_req = yes -a $OPENGL = no; then
         AC_MSG_ERROR([OpenGL stuff requested but dependencies were not found.])
 fi
 
