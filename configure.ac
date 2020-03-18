@@ -2165,23 +2165,24 @@ AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # ---------------------------------------------------------------------
-# CUDA capture
+# SHM capture
 # ---------------------------------------------------------------------
-cuda_cap=no
+shm_cap=no
 
-AC_ARG_ENABLE(cuda-cap,
-[  --disable-cuda-cap         disable CUDA capture (auto)]
-[                             Requires: CUDA],
-	[cuda_cap_req=$enableval],
-        [cuda_cap_req=$build_default])
+AC_ARG_ENABLE(shm-cap,
+[  --disable-shm-cap         disable SHM capture (auto)]
+[                             Requires: Linux],
+	[shm_cap_req=$enableval],
+        [shm_cap_req=$build_default])
 
-if test $cuda_cap_req != no -a $FOUND_CUDA = yes -a $system = Linux; then
-        ADD_MODULE("vidcap_cuda", "src/video_capture/shm.o", "$CUDA_LIB")
-        cuda_cap=yes
+if test $shm_cap_req != no -a $system = Linux; then
+        AC_DEFINE([HAVE_SHM], [1], [Build with SHM video capture])
+        ADD_MODULE("vidcap_shm", "src/video_capture/shm.o", "$CUDA_LIB")
+        shm_cap=yes
 fi
 
-if test $cuda_cap_req = yes -a $cuda_cap = no; then
-        AC_MSG_ERROR([CUDA capture not found]);
+if test $shm_cap_req = yes -a $shm_cap = no; then
+        AC_MSG_ERROR([SHM capture not found]);
 fi
 
 
@@ -3258,7 +3259,6 @@ RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
 RESULT=`add_column "$RESULT" "Bluefish444" $bluefish444 $?`
-RESULT=`add_column "$RESULT" "CUDA capture" $cuda_cap $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
@@ -3271,6 +3271,7 @@ RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
+RESULT=`add_column "$RESULT" "SHM capture" $shm_cap $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VRG" $vrg $?`
