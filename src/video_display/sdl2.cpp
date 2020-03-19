@@ -142,8 +142,8 @@ struct state_sdl2 {
                 module_done(&mod);
         }
 };
-static const list<pair<char, string>> keybindings{{'d', "toggle deinterlace"},
-                {'f', "toggle fullscreen"}, {'q', "quit"}};
+static const list<pair<char, string>> display_sdl2_keybindings{{'d', "toggle deinterlace"},
+        {'f', "toggle fullscreen"}, {'q', "quit"}};
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -159,12 +159,12 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
         if (!s->deinterlace) {
                 SDL_UpdateTexture(s->texture, NULL, frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec));
         } else {
-		unsigned char *pixels;
-		int pitch;
-		SDL_LockTexture(s->texture, NULL, (void **) &pixels, &pitch);
-		vc_deinterlace_ex((unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height);
-		SDL_UnlockTexture(s->texture);
-	}
+                unsigned char *pixels;
+                int pitch;
+                SDL_LockTexture(s->texture, NULL, (void **) &pixels, &pitch);
+                vc_deinterlace_ex((unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height);
+                SDL_UnlockTexture(s->texture);
+        }
 
         SDL_RenderCopy(s->renderer, s->texture, NULL, NULL);
         SDL_RenderPresent(s->renderer);
@@ -194,6 +194,8 @@ free_frame:
 }
 
 static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
+        sym.mod &= ~(KMOD_NUM | KMOD_CAPS); // remove num+caps lock modifiers
+
         // ctrl alone -> do not interpret
         if (sym.sym == SDLK_LCTRL || sym.sym == SDLK_RCTRL) {
                 return 0;
@@ -355,7 +357,7 @@ static void show_help(void)
         }
         printf("\n");
         cout << "\n\tKeyboard shortcuts:\n";
-        for (auto i : keybindings) {
+        for (auto i : display_sdl2_keybindings) {
                 cout << style::bold << "\t\t'" << i.first << style::reset << "'\t - " << i.second << "\n";
         }
         SDL_Quit();
@@ -587,7 +589,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         SDL_DisableScreenSaver();
 
         loadSplashscreen(s);
-        for (auto i : keybindings) {
+        for (auto i : display_sdl2_keybindings) {
                 keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second.c_str());
         }
 
