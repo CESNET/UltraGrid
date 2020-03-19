@@ -3079,13 +3079,12 @@ static uint8_t *format_rtcp_sr(uint8_t * buffer, int buflen,
         return buffer + 28 + (24 * packet->common.count);
 }
 
-static uint8_t *format_rtcp_rr(uint8_t * buffer, int buflen,
+static uint8_t *format_empty_rtcp_rr(uint8_t * buffer, int buflen,
                                struct rtp *session)
 {
         /* Write an RTCP RR into buffer, returning a pointer to */
         /* the next byte after the header we have just written. */
         rtcp_t *packet = (rtcp_t *) buffer;
-        int remaining_length;
 
         assert(buflen >= 8);    /* ...else there isn't space for the header */
 
@@ -3095,6 +3094,19 @@ static uint8_t *format_rtcp_rr(uint8_t * buffer, int buflen,
         packet->common.pt = RTCP_RR;
         packet->common.length = htons(1);
         packet->r.rr.ssrc = htonl(session->my_ssrc);
+        return buffer + 8;
+}
+
+static uint8_t *format_rtcp_rr(uint8_t * buffer, int buflen,
+                               struct rtp *session)
+{
+        /* Write an RTCP RR into buffer, returning a pointer to */
+        /* the next byte after the header we have just written. */
+        rtcp_t *packet = (rtcp_t *) buffer;
+        int remaining_length;
+
+        /* format the header */
+        format_empty_rtcp_rr(buffer, buflen, session);
 
         /* Add report blocks, until we either run out of senders */
         /* to report upon or we run out of space in the buffer.  */
@@ -4082,5 +4094,70 @@ void rtp_async_wait(struct rtp *session)
 struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session)
 {
         return udp_get_local(session->rtp_socket);
+}
+
+/**
+ * Sends immediately the RTCP packet with specified data inside an APP packet.
+ * The APP packet is inside a compound RTCP packet starting with an (empty)
+ * RR packet (implied by RFC 3550, see validate_rtcp()).
+ *
+ * @param name name of the APP packet.
+ */
+void rtp_send_rtcp_app(struct rtp *session, const char *name, int length, char *data)
+{
+        uint8_t buffer[RTP_MAX_PACKET_LEN + MAX_ENCRYPTION_PAD];        /* + 8 to allow for padding when encrypting */
+        unsigned char *ptr = buffer;
+        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+        check_database(session);
+        /* If encryption is enabled, add a 32 bit random prefix to the packet */
+        if (session->encryption_enabled) {
+                *((uint32_t *) ptr) = lbl_random();
+                ptr += 4;
+        }
+
+        ptr = format_empty_rtcp_rr(ptr, RTP_MAX_PACKET_LEN - (ptr - buffer), session);
+        rtcp_common *common = (rtcp_common *) ptr;
+
+        uint8_t tmp[RTP_MAX_PACKET_LEN + MAX_ENCRYPTION_PAD];    /* The +8 is to allow for padding when encrypting */
+        rtcp_app *app = (rtcp_app *) tmp;
+        app->subtype = 0;
+        app->length = (length + 3) / 4;
+        memset(app->name, '\0', 4);
+        strncpy(app->name, name, 4);
+        app->p = 0;
+        memcpy(app->data, data, length);
+        ptr = format_rtcp_app(ptr, RTP_MAX_PACKET_LEN, session->my_ssrc, app);
+
+        if (session->encryption_enabled) {
+                if (((ptr - buffer) % session->encryption_pad_length) != 0) {
+                        /* Add padding to the last packet in the compound, if necessary. */
+                        /* We don't have to worry about overflowing the buffer, since we */
+                        /* intentionally allocated it 8 bytes longer to allow for this.  */
+                        int padlen =
+                            session->encryption_pad_length -
+                            ((ptr - buffer) % session->encryption_pad_length);
+                        int i;
+
+                        for (i = 0; i < padlen - 1; i++) {
+                                *(ptr++) = '\0';
+                        }
+                        *(ptr++) = (uint8_t) padlen;
+
+                        common->p = TRUE;
+                        common->length =
+                            htons((int16_t)
+                                  (((ptr - (uint8_t *) common) / 4) - 1));
+                }
+                assert(((ptr - buffer) % session->encryption_pad_length) == 0);
+                (session->encrypt_func) (session, buffer, ptr - buffer,
+                                         initVec);
+        }
+        rtcp_udp_send(session, ptr - buffer, (char *)buffer);
+        /* Loop the data back to ourselves so local participant can */
+        /* query own stats when using unicast or multicast with no  */
+        /* loopback.                                                */
+        rtp_process_ctrl(session, buffer, ptr - buffer);
+        check_database(session);
 }
 

@@ -264,6 +264,7 @@ int 		 rtp_send_data_hdr(struct rtp *session,
 			       char *extn, uint16_t extn_len, uint16_t extn_type);
 void 		 rtp_send_ctrl(struct rtp *session, uint32_t rtp_ts, 
 			       rtcp_app_callback appcallback, struct timeval curr_time);
+void 		 rtp_send_rtcp_app(struct rtp *session, const char *name, int length, char *data);
 void 		 rtp_update(struct rtp *session, struct timeval curr_time);
 
 uint32_t	 rtp_my_ssrc(struct rtp *session);
