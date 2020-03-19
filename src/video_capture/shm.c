@@ -52,18 +52,25 @@
 #include "utils/misc.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_capture/shm.h"
+#define RGBA VR_RGBA
+#include "vrgstream.h"
+#undef RGBA
 
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define SEM_KEY "/UltraGridSem"
 #define SHM_KEY "/UltraGridSHM"
+#define SHM_VERSION 3
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 
 struct shm {
+        int version; ///< this struct version, must be SHM_VERSION
         int width, height;
         cudaIpcMemHandle_t d_ptr;
         int ug_exited;
         int use_gpu;
+        struct RenderPacket pkt;
         char data[];
 };
 
@@ -76,6 +83,9 @@ struct state_vidcap_shm {
         bool use_gpu;
         struct module *parent;
         bool should_exit;
+
+        struct RenderPacket render_pkt;
+        pthread_mutex_t render_pkt_lock;
 };
 
 static void show_help() {
@@ -86,6 +96,7 @@ static void show_help() {
 
 static void vidcap_shm_should_exit(void *arg) {
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) arg;
+        assert(s->magic == MAGIC);
         s->should_exit = true;
 
         struct sembuf op;
@@ -149,8 +160,10 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 perror("shmat");
                 goto error;
         }
+        s->shm->version = SHM_VERSION;
         s->shm->ug_exited = 0;
         s->shm->use_gpu = s->use_gpu;
+        s->shm->pkt.frame = -1;
         s->sem_id = semget(ftok(SEM_KEY, 1), 2, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
                 if (errno != EEXIST) {
@@ -160,8 +173,10 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         }
 
         if (s->use_gpu) {
+#ifdef HAVE_CUDA
                 CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
                 CUDA_CHECK(cudaIpcGetMemHandle (&s->shm->d_ptr, s->f->tiles[0].data));
+#endif
         } else {
                 s->f->tiles[0].data = s->shm->data;
         }
@@ -176,6 +191,8 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         }
 
         register_should_exit_callback(s->parent, vidcap_shm_should_exit, s);
+        pthread_mutex_init(&s->render_pkt_lock, NULL);
+        s->render_pkt.frame = -1;
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -218,6 +235,7 @@ static void vidcap_shm_done(void *state)
 	if (semctl(s->sem_id, IPC_RMID , 0) == -1) {
 		perror("semctl");
 	}
+        pthread_mutex_destroy(&s->render_pkt_lock);
         free(s);
 }
 
@@ -244,6 +262,12 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         s->f->tiles[0].width = s->shm->width;
         s->f->tiles[0].height = s->shm->height;
 
+        pthread_mutex_lock(&s->render_pkt_lock);
+        if (s->render_pkt.frame != (unsigned int) -1) {
+                memcpy(&s->shm->pkt, &s->render_pkt, sizeof(s->render_pkt));
+        }
+        pthread_mutex_unlock(&s->render_pkt_lock);
+
         return s->f;
 }
 
@@ -264,6 +288,15 @@ static struct vidcap_type *vidcap_shm_probe(bool verbose, void (**deleter)(void 
         return vt;
 }
 
+void vidcap_shm_set_view(void *state, struct RenderPacket *pkt) {
+        struct state_vidcap_shm *s = state;
+        assert(s->magic == MAGIC);
+
+        pthread_mutex_lock(&s->render_pkt_lock);
+        memcpy(&s->render_pkt, pkt, sizeof *pkt);
+        pthread_mutex_unlock(&s->render_pkt_lock);
+}
+
 static const struct video_capture_info vidcap_shm_info = {
         vidcap_shm_probe,
         vidcap_shm_init,
@@ -272,6 +305,8 @@ static const struct video_capture_info vidcap_shm_info = {
         true
 };
 
+#ifdef HAVE_CUDA
 REGISTER_MODULE(cuda, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+#endif
 REGISTER_MODULE(shm, &vidcap_shm_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
