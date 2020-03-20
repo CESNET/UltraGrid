@@ -1,11 +1,11 @@
 name: nightly
 
 on:
-  #schedule:
-  #- cron:  '0 6 * * *' # Daily at 6:00 UTC
+  schedule:
+  - cron:  '0 6 * * *' # Daily at 6:00 UTC
   push:
     branches:
-      - ci-nightly
+      - nightly
     paths:
       - '.github/scripts/**'
       - '.github/workflows/nightly.yml'
@@ -23,7 +23,7 @@ on:
 
 jobs:
   retag-nightly:
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
+    if: github.repository == 'CESNET/UltraGrid' || github.event == 'push'
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
@@ -51,7 +51,6 @@ jobs:
 
   Ubuntu:
     needs: retag-nightly
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run Ubuntu
     runs-on: ubuntu-16.04
     env:
@@ -87,7 +86,6 @@ jobs:
 
   macOS:
     needs: retag-nightly
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run macOS
     runs-on: macos-latest
     env:
@@ -124,7 +122,6 @@ jobs:
 
   Windows:
     needs: retag-nightly
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid'
     name: run Windows
     runs-on: windows-latest
     env:

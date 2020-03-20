@@ -9,7 +9,7 @@ on:
 
 jobs:
   Coverity:
-    if: github.repository == 'CESNET/UltraGrid' || github.repository == 'MartinPulec/UltraGrid' || github.event == 'push'
+    if: github.repository == 'CESNET/UltraGrid' || github.event == 'push'
     runs-on: ubuntu-latest
     env:
       sdk_pass: ${{ secrets.sdk_pass }}
