@@ -43,6 +43,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <rtp/rtp.h>
 #include <queue>
 
 // VrgInputFormat::RGBA conflicts with codec_t::RGBA
@@ -75,6 +76,8 @@ struct state_vrg {
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
         long long int frames_last;
+
+        struct rtp *rtp;
 
         queue<struct video_frame *> queue;
         mutex lock;
@@ -141,12 +144,13 @@ static void display_vrg_run(void *state)
                         duration_cast<microseconds>(t_start - t_end).count() / 1000000.0
                         << " seconds\n";
 
-                // calling vrgStreamRenderFrame sometime freezes
-                //struct RenderPacket render_packet;
-                //ret = vrgStreamRenderFrame(s->frames, &render_packet);
-                //if (ret != Ok) {
-                //        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
-                //}
+                struct RenderPacket render_packet;
+                ret = vrgStreamRenderFrame(s->frames, &render_packet);
+                if (ret != Ok) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
+                } else {
+                        rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
+                }
 
                 high_resolution_clock::time_point now = high_resolution_clock::now();
                 double seconds = duration_cast<microseconds>(now - s->t0).count() / 1000000.0;
@@ -200,9 +204,9 @@ static int display_vrg_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-static int display_vrg_get_property(void *state, int property, void *val, size_t *len)
+static int display_vrg_ctl_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        struct state_vrg *s = (struct state_vrg *) state;
         codec_t codecs[] = {
                 I420,
                 RGBA,
@@ -227,6 +231,9 @@ static int display_vrg_get_property(void *state, int property, void *val, size_t
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_S_RTP:
+                        s->rtp = *(struct rtp **) val;
                         break;
                 default:
                         return FALSE;
@@ -270,7 +277,7 @@ static const struct video_display_info display_vrg_info = {
         display_vrg_getf,
         display_vrg_putf,
         display_vrg_reconfigure,
-        display_vrg_get_property,
+        display_vrg_ctl_property,
         display_vrg_put_audio_frame,
         display_vrg_reconfigure_audio,
 };

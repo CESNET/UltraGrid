@@ -85,6 +85,9 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
 {
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
         m_display_device = (struct display *) params.at("display_device").ptr;
+        if (m_display_device) {
+                display_ctl_property(m_display_device, DISPLAY_PROPERTY_S_RTP, m_network_devices, &len);
+        }
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
 

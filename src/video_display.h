@@ -126,6 +126,8 @@ enum display_property {
         DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES = 5, ///< whether display supports receiving data from - returns (struct multi_sources_supp_info *)
                                                      ///< multiple network sources concurrently
         DISPLAY_PROPERTY_AUDIO_FORMAT = 6, ///< @see audio_display_info::query_format - in/out parameter is struct audio_desc
+        // setters
+        DISPLAY_PROPERTY_S_RTP = 7, ///< sets RTP network device
 };
 
 #define PITCH_DEFAULT -1 ///< default pitch, i. e. respective linesize
