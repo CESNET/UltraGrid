@@ -85,6 +85,8 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
 {
         m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
         m_display_device = (struct display *) params.at("display_device").ptr;
+        m_rtp_udata[1] = params.at("shm_state").ptr;
+        size_t len = sizeof m_network_devices[0];
         if (m_display_device) {
                 display_ctl_property(m_display_device, DISPLAY_PROPERTY_S_RTP, m_network_devices, &len);
         }

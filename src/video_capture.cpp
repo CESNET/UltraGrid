@@ -279,3 +279,9 @@ bool vidcap_generic_fps(struct vidcap *state)
         return state->funcs->use_generic_fps_indicator;
 }
 
+void *vidcap_get_state(struct vidcap *state)
+{
+        assert(state->magic == VIDCAP_MAGIC);
+        return state->state;
+}
+

@@ -1335,6 +1335,10 @@ int main(int argc, char *argv[])
                 params["bitrate"].ll = bitrate;
                 params["start_time"].cptr = (const void *) &start_time;
                 params["video_delay"].vptr = (volatile void *) &video_offset;
+                params["shm_state"].ptr = uv.capture_device &&
+                        (strcmp(vidcap_params_get_driver(vidcap_params_head), "cuda") == 0 ||
+                        strcmp(vidcap_params_get_driver(vidcap_params_head), "shm") == 0)
+                        ? vidcap_get_state(uv.capture_device) : NULL;
 
                 // UltraGrid RTP
                 params["decoder_mode"].l = (long) decoder_mode;

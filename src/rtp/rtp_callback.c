@@ -65,14 +65,18 @@
 #include "debug.h"
 #include "host.h"
 #include "pdb.h"
-#include "video_display.h"
+#include "video_capture/shm.h"
 #include "video_codec.h"
+#include "video_display.h"
 #include "ntp.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"
 #include "rtp/rtp_callback.h"
 #include "tfrc.h"
+#define RGBA VR_RGBA
+#include "vrgstream.h"
+#undef RGBA
 
 extern char *frame;
 
@@ -202,7 +206,7 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
 {
         rtcp_app *pckt_app = (rtcp_app *) e->data;
         rtp_packet *pckt_rtp = (rtp_packet *) e->data;
-        struct pdb *participants = (struct pdb *)rtp_get_userdata(session);
+        struct pdb *participants = (struct pdb *) ((void **) rtp_get_userdata(session))[0];
         struct pdb_e *state = pdb_get(participants, e->ssrc);
         struct timeval curr_time;
 
@@ -259,5 +263,27 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
         default:
                 debug_msg("Unknown RTP event (type=%d)\n", e->type);
         }
+}
+
+void rtp_vr_recv_callback(struct rtp *session, rtp_event * e)
+{
+        rtcp_app *pckt_app = (rtcp_app *) e->data;
+
+        if (e->type != RX_APP || strncmp(pckt_app->name, "VIEW", 4) != 0) {
+                rtp_recv_callback(session, e);
+                return;
+        }
+#ifdef HAVE_SHM
+        struct state_vidcap_shm *shm = (struct state_vidcap_shm *) ((void **) rtp_get_userdata(session))[1];
+        assert(pckt_app->length == (sizeof(struct RenderPacket) + 3) / 4); // expected len of the APP data is the size
+                                                                           // of struct RenderPacket / 4
+        if (shm != NULL) {
+                struct RenderPacket pkt;
+                memcpy(&pkt, pckt_app->data, sizeof pkt);
+                vidcap_shm_set_view(shm, &pkt);
+        } else {
+                debug_msg("Received position data, dismissed (capture is not shm/cuda).\n");
+        }
+#endif
 }
 

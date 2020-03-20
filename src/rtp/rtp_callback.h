@@ -48,6 +48,7 @@ extern "C" {
 #endif
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
+void rtp_vr_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
 void process_packet_for_display(char *);

@@ -105,7 +105,7 @@ struct audio_network_parameters {
         char *addr = nullptr;
         int recv_port = 0;
         int send_port = 0;
-        struct pdb *participants = 0;
+        void *rtp_udata[2]; ///< [0] is (struct pdb *)
         int force_ip_version = 0;
         char *mcast_if = nullptr;
 };
@@ -309,7 +309,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.addr = strdup(addr);
         s->audio_network_parameters.recv_port = recv_port;
         s->audio_network_parameters.send_port = send_port;
-        s->audio_network_parameters.participants = s->audio_participants;
+        s->audio_network_parameters.rtp_udata[0] = s->audio_participants;
         s->audio_network_parameters.force_ip_version = force_ip_version;
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
@@ -507,10 +507,10 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
                         params->send_port, 255, rtcp_bw,
                         FALSE, rtp_recv_callback,
-                        (uint8_t *) params->participants,
+                        (uint8_t *) params->rtp_udata,
                         params->force_ip_version, false);
         if (r != NULL) {
-                pdb_add(params->participants, rtp_my_ssrc(r));
+                pdb_add((pdb *) params->rtp_udata[0], rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
                 rtp_set_option(r, RTP_OPT_PROMISC, TRUE);
                 rtp_set_option(r, RTP_OPT_RECORD_SOURCE, TRUE);

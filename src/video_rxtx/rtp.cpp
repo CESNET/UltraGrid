@@ -87,7 +87,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 m_requested_receiver = msg->receiver;
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
+                                                m_send_port_number, m_rtp_udata, m_force_ip_version,
                                                 m_requested_mcast_if);
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
@@ -114,7 +114,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                         m_recv_port_number = msg->rx_port;
                                 }
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
+                                                m_send_port_number, m_rtp_udata, m_force_ip_version,
                                                 m_requested_mcast_if);
 
                                 if (!m_network_devices) {
@@ -192,7 +192,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 auto old_devices = m_network_devices;
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
-                                                m_send_port_number, m_participants, m_force_ip_version,
+                                                m_send_port_number, m_rtp_udata, m_force_ip_version,
                                                 m_requested_mcast_if);
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
@@ -218,6 +218,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").cptr), m_video_desc{}
 {
         m_participants = pdb_init((volatile int *) params.at("video_delay").vptr);
+        m_rtp_udata[0] = m_participants;
         m_requested_receiver = params.at("receiver").str;
         m_recv_port_number = params.at("rx_port").i;
         m_send_port_number = params.at("tx_port").i;
@@ -225,7 +226,7 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         m_requested_mcast_if = params.at("mcast_if").str;
 
         if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
-                                        m_participants, m_force_ip_version, m_requested_mcast_if))
+                                        m_rtp_udata, m_force_ip_version, m_requested_mcast_if))
                         == NULL) {
                 throw ug_runtime_error("Unable to open network", EXIT_FAIL_NETWORK);
         } else {
@@ -293,7 +294,7 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 }
 
 struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, int force_ip_version,
+                int send_port_base, void *udata, int force_ip_version,
                 const char *mcast_if)
 {
         struct rtp **devices = NULL;
@@ -305,6 +306,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
         int required_connections, index;
         int recv_port = recv_port_base;
         int send_port = send_port_base;
+        auto participants = (struct pdb *) ((void **) udata)[0];
 
         tmp = strdup(addrs);
         if(strtok_r(tmp, ",", &saveptr) == NULL) {
@@ -340,7 +342,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
 
                 devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
-                                rtp_recv_callback, (uint8_t *)participants,
+                                rtp_vr_recv_callback, (uint8_t *) udata,
                                 force_ip_version, multithreaded);
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,

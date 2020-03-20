@@ -155,6 +155,7 @@ int initialize_video_capture(struct module *parent,
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 bool                     vidcap_generic_fps(struct vidcap *state);
+void                    *vidcap_get_state(struct vidcap *state);
 
 #ifdef __cplusplus
 }
