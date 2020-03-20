@@ -205,6 +205,7 @@ void open_all(const char *pattern, list<void *> &libs) {
 
         globfree(&glob_buf);
 #else
+        UNUSED(libs);
         UNUSED(pattern);
 #endif
 }

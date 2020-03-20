@@ -74,9 +74,9 @@ struct display_ndi {
 static void display_ndi_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         *count = 1;
-        *available_cards = malloc(sizeof(struct device_info));
-        strncat((*available_cards)[0].id, "ndi", sizeof (*available_cards)[0].id - 1);
-        strncat((*available_cards)[0].name, "NDI", sizeof (*available_cards)[0].name - 1);
+        *available_cards = calloc(1, sizeof(struct device_info));
+        strncpy((*available_cards)[0].id, "ndi", sizeof (*available_cards)[0].id - 1);
+        strncpy((*available_cards)[0].name, "NDI", sizeof (*available_cards)[0].name - 1);
         (*available_cards)[0].repeatable = true;
         *deleter = free;
 }

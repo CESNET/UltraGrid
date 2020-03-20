@@ -508,6 +508,12 @@ AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 # -------------------------------------------------------------------------------------------------
 # GL common
 # -------------------------------------------------------------------------------------------------
+AC_ARG_ENABLE(gl,
+[  --disable-gl            disable all OpenGL stuff (default is $build_default)]
+[                          Requires:  glew gl (Linux + Win), none (macOS)],
+    [gl_req=$enableval],
+    [gl_req=$build_default]
+    )
 OPENGL=no
 
 SAVED_LIBS=$LIBS
@@ -523,14 +529,24 @@ LIBS=$SAVED_LIBS
 
 GL_COMMON_OBJ="src/gl_context.o"
 
+if test "$ac_cv_header_GL_gl_h" = yes -a \
+        "$ac_cv_lib_GL_glBindTexture" = yes
+then
+        HAVE_GL=yes
+fi
+
+if test "$ac_cv_header_GL_glew_h" = yes -a \
+        \( "$ac_cv_lib_GLEW_glewInit" = yes -o "$ac_cv_lib_glew32_glewInit" = yes \)
+then
+        HAVE_GLEW=yes
+fi
+
 # Linux
 if test "$system" = Linux -a \
-        "$ac_cv_header_GL_gl_h" = yes -a \
-        "$ac_cv_header_GL_glew_h" = yes -a \
+        "$HAVE_GL" = yes -a \
+        "$HAVE_GLEW" = yes -a \
         "$ac_cv_header_GL_glx_h" = yes -a \
-        "$ac_cv_lib_GL_glBindTexture" = yes -a \
         "$ac_cv_lib_GL_glXCreateNewContext" = yes -a \
-        "$ac_cv_lib_GLEW_glewInit" = yes -a \
         "$ac_cv_lib_X11_XCreateWindow" = yes
 then
         OPENGL=yes
@@ -547,12 +563,21 @@ then
 fi
 
 # Win32
-if test "$system" = Windows -a "$ac_cv_lib_glew32_glewInit" = yes -a \
-        "$ac_cv_header_GL_glew_h" = yes
+if test "$system" = Windows -a "$HAVE_GLEW" = yes
 then
         OPENGL=yes
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/win32_gl_common.o"
         OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
+fi
+
+if test $gl_req = no; then
+        OPENGL=no
+        GL_COMMON_OBJ=
+        OPENGL_LIB=
+fi
+
+if test $gl_req = yes -a $OPENGL = no; then
+        AC_MSG_ERROR([OpenGL stuff requested but dependencies were not found.])
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -1765,42 +1790,42 @@ fi
 GL_INC=
 GL_OBJ=$GL_COMMON_OBJ
 GL_LIB=$OPENGL_LIB
-gl=no
+gl_display=no
 
-AC_ARG_ENABLE(gl,
-[  --disable-gl            disable OpenGL (default is auto]
-[                          Requires:  glew GLUT gl],
-    [gl_req=$enableval],
-    [gl_req=$build_default]
+AC_ARG_ENABLE(gl-display,
+[  --disable-gl-display    disable OpenGL display (default is $build_default)]
+[                          Requires: OpenGL GLUT],
+    [gl_display_req=$enableval],
+    [gl_display_req=$build_default]
     )
 
 GL_OBJ="$GL_OBJ src/video_display/gl.o"
 
 case "$system" in
 	MacOSX)
-                GL_LIB="-framework GLUT $OPENGL_LIB"
-                FOUND_GL=yes
+                GLUT_LIB="-framework GLUT"
+                FOUND_GLUT=yes
 	;;
 	*)
                 AC_CHECK_HEADERS([GL/glut.h])
                 AC_CHECK_LIB([freeglut], [glutMainLoop], [GLUT_LIB=-lfreeglut],
 			     AC_CHECK_LIB([glut], [glutMainLoop], [GLUT_LIB=-lglut], [GLUT_LIB=""]))
 		if test "$ac_cv_header_GL_glut_h" = yes -a -n "$GLUT_LIB"; then
-			GL_LIB="$GL_LIB $GLUT_LIB $OPENGL_LIB"
-			FOUND_GL=yes
+			FOUND_GLUT=yes
 		fi
 	;;
 esac
 
-if test "$FOUND_GL" = yes -a $gl_req != no
+if test "$OPENGL" = yes -a "$FOUND_GLUT" = yes -a $gl_display_req != no
 then
-        gl=yes
+        GL_LIB="$GLUT_LIB $OPENGL_LIB"
+        gl_display=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 	INC="$INC $GL_INC"
 	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 
-if test $gl_req = yes -a $gl = no; then
+if test $gl_display_req = yes -a $gl_display = no; then
         AC_MSG_ERROR([OpenGL not found]);
 fi
 
@@ -2885,10 +2910,10 @@ fi
 # ------------------------------------------------------------------------------
 spout=no
 AC_ARG_ENABLE(spout,
-[  --enable-spout          enables Spout support (default is auto)]
-[                          Requires: Spout],
+[  --enable-spout          enables Spout support (default is $build_default)]
+[                          Requires: OpenGL Spout],
     [spout_req=$enableval],
-    [spout_req=auto]
+    [spout_req=$build_default]
     )
 
 FOUND_SPOUT_WRAPPER=no
@@ -2897,7 +2922,7 @@ then
         AC_CHECK_LIB(spout_wrapper, spout_create_receiver, [FOUND_SPOUT_WRAPPER=yes])
 fi
 
-if test $spout_req != no -a $FOUND_SPOUT_WRAPPER = yes
+if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT_WRAPPER = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
         LIBS="$LIBS -lspout_wrapper"
@@ -2905,6 +2930,9 @@ then
         spout=yes
 fi
 
+if test $spout_req = yes -a $spout = no; then
+        AC_MSG_ERROR([Could not found Spout dependencies!]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # MCU-like video mixer
@@ -3237,7 +3265,7 @@ RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File input" $file $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
-RESULT=`add_column "$RESULT" "OpenGL" $gl $?`
+RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
 RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`

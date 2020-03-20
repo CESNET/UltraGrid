@@ -1,9 +1,12 @@
-/*
- * FILE:    capture_filter/resize_utils.cpp
- * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
+/**
+ * @file    capture_filter/resize_utils.cpp
+ * @author  Gerard Castillo     <gerard.castillo@i2cat.net>
  *          Marc Palau          <marc.palau@i2cat.net>
- *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ *          Martin Pulec        <martin.pulec@cesnet.cz>
+ */
+/*
+ * Copyright (c) 2014      Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -55,46 +58,61 @@
 
 using namespace cv;
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
-    assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
+static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
+    Mat yuv;
+    Mat rgb;
+    int pix_fmt = CV_8UC2;
+    int cv_color;
+    int num = 1, den = 1;
 
-    int res = 0;
-    Mat out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
-    Mat yuv, rgb;
+    switch (codec) {
+    case RGB:
+        rgb.create(height, width, CV_8UC3);
+        rgb.data = (uchar*)indata;
+        return rgb;
+    case I420:
+        pix_fmt = CV_8U;
+        num = 3;
+        den = 2;
+        cv_color = CV_YUV2RGB_I420;
+        break;
+    case UYVY:
+        cv_color = CV_YUV2RGB_UYVY;
+        break;
+    case YUYV:
+        cv_color = CV_YUV2RGB_YUYV;
+        break;
+    default:
+        assert(0 && "Unsupported codec!");
+    }
+    yuv.create(height * num / den, width, pix_fmt);
+    yuv.data = (uchar*)indata;
+    cvtColor(yuv, rgb, cv_color);
+
+    return rgb;
+}
+
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
+    Mat rgb, out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
 
     if (indata == NULL || outdata == NULL) {
         return 1;
     }
 
-    if (in_color == RGB) {
-        rgb.create(height, width, CV_8UC3);
-        rgb.data = (uchar*)indata;
-    } else {
-        yuv.create(height, width, CV_8UC2);
-        yuv.data = (uchar*)indata;
-        cvtColor(yuv, rgb, in_color == UYVY ? CV_YUV2RGB_UYVY : CV_YUV2RGB_YUYV);
-    }
+    rgb = ug_to_rgb_mat(in_color, width, height, indata);
     resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 
-    return res;
+    return 0;
 }
 
 int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height) {
-    Mat yuv, rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
+    Mat rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
 
     if (indata == NULL || outdata == NULL) {
         return 1;
     }
 
-    assert(in_color == UYVY || in_color == YUYV || in_color == RGB);
-    if (in_color == RGB) {
-        rgb.create(height, width, CV_8UC3);
-        rgb.data = (uchar*)indata;
-    } else {
-        yuv.create(height, width, CV_8UC2);
-        yuv.data = (uchar*)indata;
-        cvtColor(yuv, rgb, in_color == UYVY ? CV_YUV2RGB_UYVY : CV_YUV2RGB_YUYV);
-    }
+    rgb = ug_to_rgb_mat(in_color, width, height, indata);
 
     double in_aspect = (double) width / height;
     double out_aspect = (double) target_width / target_height;
