@@ -37,7 +37,7 @@ jobs:
         curl --form token=$coverity_token \
           --form email=pulec@cesnet.cz \
           --form file=@ultragrid.tar.xz \
-          --form version="date +%F" \
+          --form version="$(date +%F)" \
           --form description="master build" \
           https://scan.coverity.com/builds?project=UltraGrid
 
