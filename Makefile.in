@@ -210,7 +210,7 @@ bin/screen-capture-recorder-x64.dll:
 
 Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
-	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
 $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
@@ -220,7 +220,7 @@ ifeq ($(SYSTEM),Windows)
 endif
 ifeq ($(SYSTEM),MacOSX)
 	$(MKDIR_P) Frameworks
-	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 endif
 
 $(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
@@ -584,9 +584,9 @@ bundle: bundle-nolib
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
 		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
@@ -608,7 +608,7 @@ gui-bundle: bundle gui/QT/uv-qt
 	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	test -d $(GUI_BUNDLE)/Contents/Frameworks || mkdir $(GUI_BUNDLE)/Contents/Frameworks
-	cp -r $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
+	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)
 	# then fix links also for other binaries than uv-qt, namely uv itself
