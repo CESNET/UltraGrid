@@ -36,7 +36,7 @@ jobs:
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
     - name: configure
-      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local
+      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local --disable-ndi
     - name: make
       run: make -j4
     - name: make check
