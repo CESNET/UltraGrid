@@ -2440,7 +2440,7 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is $build_default)]
+[  --enable-jack-transport enable JACK transport (default is $build_default; disabled in modular build)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
