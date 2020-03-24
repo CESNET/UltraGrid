@@ -629,7 +629,7 @@ gui-bundle: bundle gui/QT/uv-qt
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
-osx-gui-dmg: gui-bundle
+osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
 	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
