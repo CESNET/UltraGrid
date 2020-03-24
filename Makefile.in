@@ -579,6 +579,7 @@ bundle: bundle-nolib
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
+	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
@@ -592,6 +593,8 @@ bundle: bundle-nolib
 # ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
 # as gui/QT/uv-qt.app (referred as $(GUI_BUNDLE))
 gui-bundle: bundle gui/QT/uv-qt
+	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
+	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	@if `which dylibbundler`; then \
 		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
 		dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
@@ -601,9 +604,7 @@ gui-bundle: bundle gui/QT/uv-qt
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
-	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
-	test -d $(GUI_BUNDLE)/Contents/Frameworks || mkdir $(GUI_BUNDLE)/Contents/Frameworks
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)
