@@ -534,6 +534,8 @@ gui-bundle: bundle gui/QT/uv-qt
 	cp -r $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
 	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription 'Allow camera for video capture'
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription 'Allow microphone for audio capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
