@@ -11,7 +11,11 @@ DEVELOPER_USERNAME=martin.pulec@cesnet.cz
 
 if [ -z "$apple_key_p12_b64" -o -z "$altool_pass" ]; then
         echo "Could not find key to sign the application" 2>&1
-        exit 1
+        if [ "$GITHUB_WORKFLOW" = nightly ]; then
+                exit 1
+        else
+                exit 0
+        fi
 fi
 
 # Import keys
