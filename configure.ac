@@ -161,7 +161,7 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=10.7 -stdlib=libc++"
+        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=10.14 -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
@@ -2548,7 +2548,7 @@ case $host_os in
 
 		if test $coreaudio_req != no -a $FOUND_AUDIOUNIT_H = yes
 		then
-			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
+			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
                         AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])

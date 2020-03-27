@@ -290,7 +290,7 @@ src/audio/mdf.o:
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
-src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
+src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.m $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 

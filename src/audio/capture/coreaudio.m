@@ -1,5 +1,5 @@
 /**
- * @file   audio/capture/coreaudio.c
+ * @file   audio/capture/coreaudio.m
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -42,6 +42,7 @@
 
 #ifdef HAVE_COREAUDIO
 
+#include <AVFoundation/AVFoundation.h>
 #include <Availability.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
@@ -257,8 +258,6 @@ static void * audio_cap_ca_init(const char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
-        s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
-
         size=sizeof(device);
         if(cfg != NULL) {
                 device = atoi(cfg);
@@ -266,10 +265,18 @@ static void * audio_cap_ca_init(const char *cfg)
                 ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultInputDevice, &size, &device);
                 if(ret) {
                         fprintf(stderr, "Error finding default input device.\n");
-                        goto error;
+                        return NULL;
                 }
         }
 
+        AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+        if (authorization_status == AVAuthorizationStatusRestricted ||
+                        authorization_status == AVAuthorizationStatusDenied) {
+                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Application is not authorized to capture audio input!\n");
+                return NULL;
+        }
+
+        s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->cv, NULL);
         s->boss_waiting = FALSE;
