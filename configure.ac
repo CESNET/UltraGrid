@@ -131,6 +131,8 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
+        APPEXT=.app
+        AC_SUBST(APPEXT)
 elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
@@ -2684,7 +2686,7 @@ then
 	fi
 
 	#AC_MSG_NOTICE("Qmake: $QMAKE")
-	GUI_TARGET=gui/QT/uv-qt
+	GUI_TARGET=gui/QT/uv-qt$APPEXT
 
 	if test ":" = "$QMAKE"; then
 		qt_gui=no

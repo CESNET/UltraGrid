@@ -26,6 +26,7 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
+APPEXT        = @APPEXT@
 
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
@@ -198,7 +199,7 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 # -------------------------------------------------------------------------------------------------
-all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) modules configure-messages
+all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MODULES@ configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
@@ -212,14 +213,14 @@ Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
-$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
+$(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
-$(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
+$(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
@@ -451,7 +452,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
+gui/QT/uv-qt$(APPEXT): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
 	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4
@@ -559,16 +560,21 @@ man:
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
 
+hd-rum-multi/hd-rum:
+	make -C hd-rum-multi
+
 # Makes dummy bundle (almost empty). May not be portable due to missing libs.
-bundle-nolib: all
+$(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 	$(MKDIR_P) $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
-	make -C hd-rum-multi; cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	touch $@ # mark target as up to date
 
 # adds libraries to the bundle
-bundle: bundle-nolib
+$(BUNDLE)/Contents/libs: $(BUNDLE)
+	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
 	@if `which dylibbundler`; then \
 		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
 		for n in $(BUNDLE)/Contents/MacOS/*; \
@@ -578,6 +584,7 @@ bundle: bundle-nolib
 			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
+		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
 	fi
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
@@ -592,7 +599,7 @@ bundle: bundle-nolib
 
 # ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
 # as gui/QT/uv-qt.app (referred as $(GUI_BUNDLE))
-gui-bundle: bundle gui/QT/uv-qt
+$(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	@if `which dylibbundler`; then \
@@ -602,6 +609,7 @@ gui-bundle: bundle gui/QT/uv-qt
 			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
+		$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs; \
 	fi
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
@@ -629,14 +637,17 @@ gui-bundle: bundle gui/QT/uv-qt
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
-osx-gui-dmg:
+# aliases
+bundle-nolib: $(BUNDLE)
+bundle: $(BUNDLE)/Contents/libs
+gui-bundle: $(GUI_BUNDLE)/Contents/libs
+
+osx-gui-dmg: $(GUI_BUNDLE)/Contents/libs
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
 	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
-
-modules: @MODULES@
 
 @TARGETS@
 
