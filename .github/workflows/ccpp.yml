@@ -27,6 +27,7 @@ jobs:
     name: run Ubuntu
     runs-on: ubuntu-latest
     env:
+      appimage_key: ${{ secrets.appimage_key }}
       sdk_pass: ${{ secrets.sdk_pass }}
 
     steps:

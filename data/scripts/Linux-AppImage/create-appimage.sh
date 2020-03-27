@@ -54,6 +54,11 @@ cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
 wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool
 chmod ugo+x $APPDIR/appimageupdatetool
 
+if [ -n "$appimage_key" ]; then
+        echo "$appimage_key" >> key
+        gpg --import key
+fi
+
 wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
 ./appimagetool --sign --comp gzip -u "zsync|https://github.com/${GITHUB_REPOSITORY-CESNET/UltraGrid}/releases/download/nightly/UltraGrid-nightly-x86_64.AppImage.zsync" $APPDIR $APPNAME
 )
