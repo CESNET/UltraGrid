@@ -22,5 +22,9 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>10.5</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow camera for video capture</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow microphone for audio capture</string>
 </dict>
 </plist>
