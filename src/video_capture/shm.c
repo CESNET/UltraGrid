@@ -60,7 +60,7 @@
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define SEM_KEY "/UltraGridSem"
 #define SHM_KEY "/UltraGridSHM"
-#define SHM_VERSION 3
+#define SHM_VERSION 4
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 
@@ -79,7 +79,7 @@ struct state_vidcap_shm {
         struct video_frame *f;
         struct shm *shm;
 	int shm_id;
-	int sem_id;
+        int sem_id; ///< 2 semaphores: [ready_to_consume_frame, frame_ready]
         bool use_gpu;
         struct module *parent;
         bool should_exit;
@@ -243,9 +243,9 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 {
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
+        struct sembuf op;
 
         // wait for frame
-        struct sembuf op;
         op.sem_num = 1;
         op.sem_op = -1;
         op.sem_flg = 0;
@@ -267,6 +267,16 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
                 memcpy(&s->shm->pkt, &s->render_pkt, sizeof(s->render_pkt));
         }
         pthread_mutex_unlock(&s->render_pkt_lock);
+
+        // we are ready to take another frame
+        op.sem_num = 0;
+        op.sem_op = 1;
+        op.sem_flg = 0;
+        if (semop(s->sem_id, &op, 1) < 0) {
+                perror("semop");
+                *audio = NULL;
+                return NULL;
+        }
 
         return s->f;
 }
