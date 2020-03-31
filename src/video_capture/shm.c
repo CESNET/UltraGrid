@@ -58,9 +58,9 @@
 #undef RGBA
 
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
-#define SEM_KEY "/UltraGridSem"
-#define SHM_KEY "/UltraGridSHM"
-#define SHM_VERSION 4
+#define SEM_KEY 5004
+#define SHM_KEY 5004
+#define SHM_VERSION 5
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 
@@ -144,13 +144,12 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         } else {
                 size = offsetof(struct shm, data[MAX_BUF_LEN]);
         }
-        key_t key = ftok(SHM_KEY, 1);
-        if ((s->shm_id = shmget(key, size, IPC_CREAT | 0666)) == -1) {
+        if ((s->shm_id = shmget(SHM_KEY, size, IPC_CREAT | 0666)) == -1) {
                 if (errno != EEXIST) {
                         perror("shmget");
                         if (errno == EINVAL) {
                                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld.\n", (long long) key);
+                                                "key %lld:\n ipcrm -M %lld", (long long) SHM_KEY, (long long) SHM_KEY);
                         }
                         goto error;
                 }
@@ -164,10 +163,14 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         s->shm->ug_exited = 0;
         s->shm->use_gpu = s->use_gpu;
         s->shm->pkt.frame = -1;
-        s->sem_id = semget(ftok(SEM_KEY, 1), 2, IPC_CREAT | 0666);
+        s->sem_id = semget(SEM_KEY, 2, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
                 if (errno != EEXIST) {
                         perror("semget");
+                        if (errno == EINVAL) {
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
+                                                "key %lld:\n ipcrm -S %lld", (long long) SEM_KEY, (long long) SEM_KEY);
+                        }
                         goto error;
                 }
         }
