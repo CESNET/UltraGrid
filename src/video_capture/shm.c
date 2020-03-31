@@ -60,7 +60,7 @@
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define SEM_KEY 5004
 #define SHM_KEY 5004
-#define SHM_VERSION 5
+#define SHM_VERSION 6
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 
@@ -79,7 +79,7 @@ struct state_vidcap_shm {
         struct video_frame *f;
         struct shm *shm;
 	int shm_id;
-        int sem_id; ///< 2 semaphores: [ready_to_consume_frame, frame_ready]
+        int sem_id; ///< 3 semaphores: [ready_to_consume_frame, frame_ready, should_exit_lock]
         bool use_gpu;
         struct module *parent;
         bool should_exit;
@@ -163,7 +163,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         s->shm->ug_exited = 0;
         s->shm->use_gpu = s->use_gpu;
         s->shm->pkt.frame = -1;
-        s->sem_id = semget(SEM_KEY, 2, IPC_CREAT | 0666);
+        s->sem_id = semget(SEM_KEY, 3, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
                 if (errno != EEXIST) {
                         perror("semget");
@@ -184,11 +184,11 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 s->f->tiles[0].data = s->shm->data;
         }
 
-        struct sembuf op;
-        op.sem_num = 0;
-        op.sem_op = 1;
-        op.sem_flg = 0;
-        if (semop(s->sem_id, &op, 1) < 0) {
+        struct sembuf op[] = {
+                { .sem_num = 0, .sem_op = 1, .sem_flg = 0 },
+                { .sem_num = 2, .sem_op = 1, .sem_flg = 0 }
+        };
+        if (semop(s->sem_id, op, 2) < 0) {
                 perror("semop");
                 goto error;
         }
@@ -210,15 +210,14 @@ static void vidcap_shm_done(void *state)
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
 
-        s->shm->ug_exited = true;
-
-        struct sembuf op;
-        op.sem_num = 0;
-        op.sem_op = -1;
-        op.sem_flg = 0;
+        struct sembuf op =
+                { .sem_num = 2, .sem_op = -1, .sem_flg = 0 };
         if (semop(s->sem_id, &op, 1) < 0) {
                 perror("semop");
         }
+
+        s->shm->ug_exited = true;
+
         op.sem_op = 1;
         if (semop(s->sem_id, &op, 1) < 0) {
                 perror("semop");
@@ -247,6 +246,10 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
         struct sembuf op;
+
+        if (s->should_exit) {
+                return NULL;
+        }
 
         // wait for frame
         op.sem_num = 1;
