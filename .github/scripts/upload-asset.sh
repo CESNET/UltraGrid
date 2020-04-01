@@ -17,7 +17,7 @@ FILE=${2?}
 CONTENT_TYPE=${3?}
 LABEL=${4?}
 
-JSON=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/nightly)
+JSON=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME)
 check_errors "$JSON"
 UPLOAD_URL=$(echo "$JSON" | jq -r .upload_url | sed "s/{.*}//")
 
