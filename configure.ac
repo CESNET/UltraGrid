@@ -1203,8 +1203,13 @@ fi
 # AV Foundation capture
 # -------------------------------------------------------------------------------------------------
 avfoundation=no
+AC_ARG_ENABLE(avfoundation,
+      AS_HELP_STRING([--disable-avfoundation], [enable AVFoundation support (default is enable on macOS)]),
+    [avfoundation_req=$enableval],
+    [avfoundation_req=auto]
+    )
 
-if test $system = MacOSX
+if test $system = MacOSX -a $avfoundation_req != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
