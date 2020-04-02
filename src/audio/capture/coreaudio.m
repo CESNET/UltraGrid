@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -193,36 +193,32 @@ static OSStatus InputProc(void *inRefCon,
 
 static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "coreaudio");
-        strcpy((*available_devices)[0].name, "Default OS X audio input");
-        *count = 1;
-}
-
-static void audio_cap_ca_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        OSErr ret;
-        AudioDeviceID *dev_ids;
-        int dev_items;
-        int i;
         UInt32 size;
 
-        printf("\tcoreaudio : default CoreAudio input\n");
-        ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
-        if(ret) goto error;
-        dev_ids = malloc(size);
-        dev_items = size / sizeof(AudioDeviceID);
+        // always include default device
+        *available_devices = malloc(sizeof(struct device_info));
+        snprintf((*available_devices)[0].id, sizeof (*available_devices)[0].id, "coreaudio");
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Default CoreAudio input");
+        *count = 1;
+
+        OSErr ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
+        if (ret)  {
+                goto error;
+        }
+        AudioDeviceID *dev_ids = malloc(size);
+        int dev_count = size / sizeof(AudioDeviceID);
         ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
         if(ret) goto error;
 
-        for(i = 0; i < dev_items; ++i)
-        {
-                char name[128];
-                
-                size = sizeof(name);
-                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
+        *available_devices = realloc(*available_devices, (dev_count + 1) * sizeof(struct device_info));
+        *count = dev_count + 1;
+
+        for (int i = 0; i < dev_count; ++i) {
+                snprintf((*available_devices)[i + 1].id, sizeof (*available_devices)[i + 1].id,
+                                "coreaudio:%d", (int) dev_ids[i]);
+                UInt32 name_size = sizeof((*available_devices)[i + 1].name);
+                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &name_size,
+                                (*available_devices)[i + 1].name);
         }
         free(dev_ids);
 
@@ -230,6 +226,20 @@ static void audio_cap_ca_help(const char *driver_name)
 
 error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
+
+}
+
+static void audio_cap_ca_help(const char *driver_name)
+{
+        UNUSED(driver_name);
+        struct device_info *available_devices;
+        int count;
+        audio_cap_ca_probe(&available_devices, &count);
+
+        for (int i = 0; i < count; ++i) {
+                printf("\t%-13s: %s\n", available_devices[i].id, available_devices[i].name);
+        }
+        free(available_devices);
 }
 
 #define CHECK_OK(cmd, msg, action_failed) do { int ret = cmd; if (!ret) {\
