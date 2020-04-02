@@ -269,12 +269,14 @@ static void * audio_cap_ca_init(const char *cfg)
                 }
         }
 
+#ifdef __MAC_10_14
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
         if (authorization_status == AVAuthorizationStatusRestricted ||
                         authorization_status == AVAuthorizationStatusDenied) {
                 log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Application is not authorized to capture audio input!\n");
                 return NULL;
         }
+#endif
 
         s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
         pthread_mutex_init(&s->lock, NULL);

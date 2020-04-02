@@ -174,11 +174,13 @@ fromConnection:(AVCaptureConnection *)connection;
 	m_t0 = chrono::steady_clock::now();
 	m_frames = 0;
 
+#ifdef __MAC_10_14
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
         if (authorization_status == AVAuthorizationStatusRestricted ||
                         authorization_status == AVAuthorizationStatusDenied) {
                 [NSException raise:@"Perimission denied" format:@"Application is not authorized to capture input!"];
         }
+#endif
 
         NSError *error = nil;
 
