@@ -76,22 +76,22 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-continuos-x86_64.AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-continuous-x86_64.AppImage
     - name: Upload Build
       if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Linux build
-        path: UltraGrid-continuos-x86_64.AppImage
+        path: UltraGrid-continuous-x86_64.AppImage
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq zsync
-        zsyncmake -C UltraGrid-continuos-x86_64.AppImage
-        .github/scripts/replace-asset.sh continuos UltraGrid-continuos-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
-        .github/scripts/replace-asset.sh continuos UltraGrid-continuos-x86_64.AppImage application/x-appimage Linux%20build
+        zsyncmake -C UltraGrid-continuous-x86_64.AppImage
+        .github/scripts/replace-asset.sh continuous UltraGrid-continuous-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
+        .github/scripts/replace-asset.sh continuous UltraGrid-continuous-x86_64.AppImage application/x-appimage Linux%20build
 
   macOS:
     name: run macOS
