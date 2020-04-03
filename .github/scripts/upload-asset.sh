@@ -1,26 +1,19 @@
 #!/bin/sh -eu
 
-check_errors() {
-        TYPE=$(echo "$1" | jq -r type)
-        if [ "$TYPE" != object ]; then
-                return
-        fi
-        ERRORS=$(echo "$1" | jq -r '.errors')
-        if [ "$ERRORS" != null ]; then
-                echo $ERRORS >&2
-                exit 1
-        fi
-}
+. $(dirname $0)/json-common.sh
 
 TAG_NAME=${1?}
 FILE=${2?}
 CONTENT_TYPE=${3?}
 LABEL=${4?}
 
-JSON=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME)
-check_errors "$JSON"
+JSON=$(fetch_json https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME $GITHUB_TOKEN)
 UPLOAD_URL=$(echo "$JSON" | jq -r .upload_url | sed "s/{.*}//")
 
-JSON=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: $CONTENT_TYPE" -X POST "$UPLOAD_URL?name=$FILE&label=$LABEL" -T $FILE)
+TMPNAME=$(mktemp)
+STATUS=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: $CONTENT_TYPE" -X POST "$UPLOAD_URL?name=$FILE&label=$LABEL" -T $FILE -w %{http_code} -o $TMPNAME)
+JSON=$(cat $TMPNAME)
+rm $TMPNAME
 check_errors "$JSON"
+check_status $STATUS
 
