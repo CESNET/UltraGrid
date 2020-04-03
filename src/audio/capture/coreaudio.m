@@ -56,6 +56,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
+#include "audio/playback/coreaudio.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
@@ -193,40 +194,7 @@ static OSStatus InputProc(void *inRefCon,
 
 static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
 {
-        UInt32 size;
-
-        // always include default device
-        *available_devices = malloc(sizeof(struct device_info));
-        snprintf((*available_devices)[0].id, sizeof (*available_devices)[0].id, "coreaudio");
-        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Default CoreAudio input");
-        *count = 1;
-
-        OSErr ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
-        if (ret)  {
-                goto error;
-        }
-        AudioDeviceID *dev_ids = malloc(size);
-        int dev_count = size / sizeof(AudioDeviceID);
-        ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
-        if(ret) goto error;
-
-        *available_devices = realloc(*available_devices, (dev_count + 1) * sizeof(struct device_info));
-        *count = dev_count + 1;
-
-        for (int i = 0; i < dev_count; ++i) {
-                snprintf((*available_devices)[i + 1].id, sizeof (*available_devices)[i + 1].id,
-                                "coreaudio:%d", (int) dev_ids[i]);
-                UInt32 name_size = sizeof((*available_devices)[i + 1].name);
-                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &name_size,
-                                (*available_devices)[i + 1].name);
-        }
-        free(dev_ids);
-
-        return;
-
-error:
-        fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
-
+        audio_ca_probe(available_devices, count, -1);
 }
 
 static void audio_cap_ca_help(const char *driver_name)

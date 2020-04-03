@@ -59,6 +59,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/playback/coreaudio.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
@@ -257,11 +258,12 @@ error:
         return FALSE;
 }
 
-static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
         snprintf((*available_devices)[0].id, sizeof (*available_devices)[0].id, "coreaudio");
-        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Default CoreAudio output");
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
+                        "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
         *count = 1;
 
         int dev_count;
@@ -305,6 +307,11 @@ static void audio_play_ca_probe(struct device_info **available_devices, int *cou
 
 error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
+}
+
+static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+{
+        audio_ca_probe(available_devices, count, 1);
 }
 
 static void audio_play_ca_help(const char *driver_name)
