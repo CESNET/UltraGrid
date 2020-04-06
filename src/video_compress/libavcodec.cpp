@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
-static void setparam_h264_h265(AVCodecContext *, struct setparam_param *);
+static void setparam_h264_h265_av1(AVCodecContext *, struct setparam_param *);
 static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
@@ -135,13 +135,13 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265
+                setparam_h264_h265_av1
         }},
         { H265, codec_params_t{
                 [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265
+                setparam_h264_h265_av1
         }},
         { MJPG, codec_params_t{
                 nullptr,
@@ -183,7 +183,7 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 nullptr,
                 0,
                 nullptr,
-                setparam_default
+                setparam_h264_h265_av1
         }},
 };
 
@@ -1671,8 +1671,20 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
 }
 
+static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+{
+        char force_idr_val[2] = "";
+        int ret;
 
-static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param *param)
+        // see FFMPEG modules' sources for semantics
+        force_idr_val[0] = strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? '0' : '1';
+        ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val, 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set IDR for SVT.\n");
+        }
+}
+
+static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
@@ -1682,6 +1694,8 @@ static void setparam_h264_h265(AVCodecContext *codec_ctx, struct setparam_param 
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv(codec_ctx, param);
+        } else if (strstr(codec_ctx->codec->name, "libsvt_") == codec_ctx->codec->name) {
+                configure_svt(codec_ctx, param);
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
         }
