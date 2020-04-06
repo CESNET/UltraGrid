@@ -269,7 +269,13 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         // finally, add a default one if there are no preferred encoders or all fail
         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                codecs_available[codec_index++] = avcodec_find_decoder(dec->avcodec_id);
+                AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
+                if (default_decoder == NULL) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] No decoder found for the input codec (libavcodec perhaps compiled without any)!\n"
+                                                "Use \"--param decompress=<d> to select a different decoder than libavcodec if there is any eligibe.\n");
+                } else {
+                        codecs_available[codec_index++] = default_decoder;
+                }
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
