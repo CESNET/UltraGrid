@@ -162,23 +162,25 @@ jobs:
       if: steps.cache-msys2.outputs.cache-hit != 'true'
       run: |
         choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
-        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+        C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -lc "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
+      run: C:\msys64\usr\bin\bash -cel "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
     - name: make
-      run: C:\msys64\usr\bin\bash -lc "make -j4"
+      run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
-      run: C:\msys64\usr\bin\bash -lc "make check"
+      run: C:\msys64\usr\bin\bash -cel "make check"
     - name: make dist-check
-      run: C:\msys64\usr\bin\bash -lc "make distcheck"
+      run: C:\msys64\usr\bin\bash -cel "make distcheck"
     - name: add DLL depends
       run: |
-        C:\msys64\usr\bin\bash -lc 'cp gui/QT/uv-qt.exe bin'
-        C:\msys64\usr\bin\bash -lc 'rm bin/run_tests.exe; IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done'
-        C:\msys64\usr\bin\bash -lc 'windeployqt bin/uv-qt.exe'
-        C:\msys64\usr\bin\bash -lc 'cp data/update.ps1 bin'
-        C:\msys64\usr\bin\bash -lc 'mv bin UltraGrid-continuous-win64'
-        C:\msys64\usr\bin\bash -lc 'zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64'
+        C:\msys64\usr\bin\bash -cel '
+          cp gui/QT/uv-qt.exe bin
+          rm bin/run_tests.exe
+          IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done
+          windeployqt bin/uv-qt.exe
+          cp data/update.ps1 bin
+          mv bin UltraGrid-continuous-win64
+          zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64'
     - name: Upload Build
       if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
       uses: actions/upload-artifact@v1
@@ -190,6 +192,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -lc '$GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
+        C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
 
 # vi: set expandtab sw=2:
