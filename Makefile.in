@@ -615,7 +615,7 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
-	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)
+	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2
 	# then fix links also for other binaries than uv-qt, namely uv itself
 	for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
 		for m in $$(otool -L $$n | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
