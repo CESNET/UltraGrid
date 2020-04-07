@@ -226,6 +226,18 @@ private:
 static volatile int exit_status = EXIT_SUCCESS;
 static struct state_uv * volatile uv_state;
 
+static void write_all(size_t len, const char *msg) {
+        const char *ptr = msg;
+        do {
+                ssize_t written = write(STDERR_FILENO, ptr, len);
+                if (written < 0) {
+                        break;
+                }
+                len -= written;
+                ptr += written;
+        } while (len > 0);
+}
+
 static void signal_handler(int signal)
 {
         if (log_level >= LOG_LEVEL_DEBUG) {
@@ -240,16 +252,7 @@ static void signal_handler(int signal)
                 }
                 *ptr++ = '0' + signal%10;
                 *ptr++ = '\n';
-                size_t bytes = ptr - buf;
-                ptr = buf;
-                do {
-                        ssize_t written = write(STDERR_FILENO, ptr, bytes);
-                        if (written < 0) {
-                                break;
-                        }
-                        bytes -= written;
-                        ptr += written;
-                } while (bytes > 0);
+                write_all(ptr - buf, buf);
         }
         exit_uv(0);
 }
@@ -293,20 +296,19 @@ static void crash_signal_handler(int sig)
         }
         *ptr++ = '.'; *ptr++ = '\n';
 
-        size_t bytes = ptr - buf;
-        ptr = buf;
-        do {
-                ssize_t written = write(STDERR_FILENO, ptr, bytes);
-                if (written < 0) {
-                        break;
-                }
-                bytes -= written;
-                ptr += written;
-        } while (bytes > 0);
+        write_all(ptr - buf, buf);
 
         signal(SIGABRT, SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
         raise(sig);
+}
+
+static void hang_signal_handler(int sig)
+{
+        assert(sig == SIGALRM);
+        char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
+        write_all(sizeof msg - 1, msg);
+        signal(SIGALRM, SIG_DFL);
 }
 
 void exit_uv(int status) {
@@ -1472,6 +1474,7 @@ cleanup:
 #endif
         signal(SIGABRT, SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
+        signal(SIGALRM, hang_signal_handler);
         alarm(5); // prevent exit hangs
 
         if(uv.audio)
