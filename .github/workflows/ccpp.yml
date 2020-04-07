@@ -121,7 +121,10 @@ jobs:
     - name: make check
       run: make check
     - name: make distcheck
-      run: make distcheck
+      run: |
+        for n in lib opt; do sudo mv /usr/local/$n /usr/local/$n-; done # hide local libs
+        make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
+        for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
     - name: Upload Build
       if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
       uses: actions/upload-artifact@v1
@@ -169,8 +172,6 @@ jobs:
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
       run: C:\msys64\usr\bin\bash -cel "make check"
-    - name: make dist-check
-      run: C:\msys64\usr\bin\bash -cel "make distcheck"
     - name: add DLL depends
       run: |
         C:\msys64\usr\bin\bash -cel '
@@ -181,6 +182,9 @@ jobs:
           cp data/update.ps1 bin
           mv bin UltraGrid-continuous-win64
           zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64'
+    - name: make dist-check
+      run: C:\msys64\usr\bin\bash -cel 'PATH=
+        /usr/bin/make distcheck TARGET=UltraGrid-continuous-win64/uv.exe GUI_EXE=UltraGrid-continuous-win64/uv-qt.exe'
     - name: Upload Build
       if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
       uses: actions/upload-artifact@v1

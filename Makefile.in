@@ -498,7 +498,7 @@ tests: $(TEST_TARGET)
 
 check: tests
 
-distcheck: all
+distcheck:
 	$(TARGET)
 	$(TARGET) --capabilities
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
