@@ -1465,6 +1465,13 @@ cleanup:
 
         export_destroy(exporter);
 
+        signal(SIGINT, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+#ifndef WIN32
+        signal(SIGHUP, SIG_DFL);
+#endif
+        signal(SIGABRT, SIG_DFL);
+        signal(SIGSEGV, SIG_DFL);
         alarm(5); // prevent exit hangs
 
         if(uv.audio)
@@ -1484,14 +1491,6 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-
-        signal(SIGINT, SIG_IGN);
-        signal(SIGTERM, SIG_IGN);
-#ifndef WIN32
-        signal(SIGHUP, SIG_IGN);
-#endif
-        signal(SIGABRT, SIG_IGN);
-        signal(SIGSEGV, SIG_IGN);
 
         uv.stop();
         common_cleanup(init);
