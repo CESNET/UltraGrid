@@ -56,7 +56,7 @@ TIMEOUT=7200
 while true; do
         /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p $altool_pass --output-format xml > $REQUEST_INFO_PLIST
         STATUS=`/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST`
-        if [ $STATUS != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
+        if [ "$STATUS" != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
                 break
         fi
         sleep 60
