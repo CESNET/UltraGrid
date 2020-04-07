@@ -28,6 +28,7 @@ CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
 APPEXT        = @APPEXT@
 
+GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 TEST_TARGET  = bin/run_tests$(EXEEXT)
@@ -500,6 +501,7 @@ check: tests
 distcheck: all
 	$(TARGET)
 	$(TARGET) --capabilities
+	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip

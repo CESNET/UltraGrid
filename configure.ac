@@ -2645,7 +2645,9 @@ fi
 qt_gui=no
 static_qt=no
 
+GUI_EXE=
 GUI_TARGET=
+
 QMAKE=
 #qmake # default for most distributions
 
@@ -2691,7 +2693,11 @@ then
 	fi
 
 	#AC_MSG_NOTICE("Qmake: $QMAKE")
-	GUI_TARGET=gui/QT/uv-qt$APPEXT
+        GUI_TARGET=gui/QT/uv-qt$APPEXT
+        GUI_EXE=$GUI_TARGET
+        if test $system = MacOSX; then
+                GUI_EXE=$GUI_TARGET/Contents/MacOS/uv-qt
+        fi
 
 	if test ":" = "$QMAKE"; then
 		qt_gui=no
@@ -2700,6 +2706,7 @@ then
 	fi
 fi
 
+AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
 
