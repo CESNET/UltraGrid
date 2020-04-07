@@ -409,7 +409,7 @@ ifeq ($(SYSTEM),Windows)
 endif
 
 gui/QT/uv-qt:
-	cd gui/QT && $(QMAKE) && make -j 4 $(MAKE_GUI_TARGET)
+	cd gui/QT && $(QMAKE) "DESTDIR+=./" && make -j 4 $(MAKE_GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
