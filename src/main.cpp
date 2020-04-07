@@ -303,6 +303,7 @@ static void crash_signal_handler(int sig)
         raise(sig);
 }
 
+#ifndef WIN32
 static void hang_signal_handler(int sig)
 {
         assert(sig == SIGALRM);
@@ -310,6 +311,7 @@ static void hang_signal_handler(int sig)
         write_all(sizeof msg - 1, msg);
         signal(SIGALRM, SIG_DFL);
 }
+#endif // ! defined WIN32
 
 void exit_uv(int status) {
         exit_status = status;
@@ -1469,12 +1471,12 @@ cleanup:
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);
-#ifndef WIN32
-        signal(SIGHUP, SIG_DFL);
-#endif
         signal(SIGABRT, SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
+#ifndef WIN32
+        signal(SIGHUP, SIG_DFL);
         signal(SIGALRM, hang_signal_handler);
+#endif
         alarm(5); // prevent exit hangs
 
         if(uv.audio)
