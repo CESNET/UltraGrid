@@ -136,6 +136,15 @@ jobs:
       run: .github/scripts/Windows/find_msvc.ps1
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
+    - name: Cache JACK
+      id: cache-jack
+      uses: actions/cache@v1
+      with:
+        path: 'C:\Program Files (x86)\Jack'
+        key: cache-jack
+    - name: Install JACK
+      if: steps.cache-jack.outputs.cache-hit != 'true'
+      run: choco install -y --no-progress jack
     - name: Cache MSYS2
       id: cache-msys2
       uses: actions/cache@v1

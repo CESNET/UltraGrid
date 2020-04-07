@@ -4,8 +4,6 @@
 Remove-Item -Recurse "C:\Program Files (x86)\Android"
 Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
 
-choco install -y --no-progress jack
-
 # Install CUDA
 if (!${env:no_cuda}) {
   Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_441.22_win10.exe -OutFile cuda_inst.exe
