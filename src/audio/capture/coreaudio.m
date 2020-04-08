@@ -217,6 +217,17 @@ static void audio_cap_ca_help(const char *driver_name)
 } while(0)
 #define NOOP ((void)0)
 
+#ifdef __MAC_10_14
+// http://anasambri.com/ios/accessing-camera-and-photos-in-ios.html
+static void (^cb)(BOOL) = ^void(BOOL granted) {
+        if (!granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                                //show alert
+                                });
+        }
+};
+#endif // defined __MAC_10_14
+
 static void * audio_cap_ca_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
@@ -254,7 +265,10 @@ static void * audio_cap_ca_init(const char *cfg)
                 log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Application is not authorized to capture audio input!\n");
                 return NULL;
         }
-#endif
+        if (authorization_status == AVAuthorizationStatusNotDetermined) {
+                [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:cb];
+        }
+#endif // defined __MAC_10_14
 
         s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
         pthread_mutex_init(&s->lock, NULL);
