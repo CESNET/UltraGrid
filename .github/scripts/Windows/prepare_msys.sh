@@ -8,26 +8,26 @@ export PATH=/mingw64/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
-EOF
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
 if test -d "$CUDA_D"; then
-        echo "export CPATH=\$CPATH:'$CUDA_D/include'" >> ~/.bash_profile
+        export CPATH=$CPATH:$CUDA_D/include
 fi
 
 if test -d /c/Program\ Files/NewTek; then
         NDI_D=$(ls -d /c/Program\ Files/NewTek/*SDK)
-        echo "export CPATH=\$CPATH:'$NDI_D/Include'" >> ~/.bash_profile
-        echo "export LIBRARY_PATH=\$LIBRARY_PATH:'$NDI_D/Lib/x64'" >> ~/.bash_profile
+        export CPATH=$CPATH:$NDI_D/Include
+        export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
 fi
 
 JACK_D=/c/Program\ Files\ \(x86\)/Jack
 if test -d "$JACK_D"; then
-        echo "export CPATH=\$CPATH:'$JACK_D/includes'" >> ~/.bash_profile
-        echo "export LIBRARY_PATH=\$LIBRARY_PATH:'$JACK_D/lib'" >> ~/.bash_profile
+        export CPATH=$CPATH:$JACK_D/includes
+        export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 
-echo cd `cygpath $GITHUB_WORKSPACE` >> ~/.bash_profile
+cd `cygpath $GITHUB_WORKSPACE`
+EOF
 
 . ~/.bash_profile
 
