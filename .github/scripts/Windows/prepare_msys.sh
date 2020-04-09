@@ -32,13 +32,14 @@ EOF
 
 . ~/.bash_profile
 
+PACMAN_INSTALL='pacman -Sy --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
-pacman -Sy --noconfirm --disable-download-timeout automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
-pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
-pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
+$PACMAN_INSTALL automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
+$PACMAN_INSTALL mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
+$PACMAN_INSTALL mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 pacman -Scc --noconfirm # make some free space
-pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-qt5
-pacman -Sy --noconfirm --disable-download-timeout mingw-w64-x86_64-imagemagick mingw-w64-x86_64-opencv
+$PACMAN_INSTALL mingw-w64-x86_64-qt5
+$PACMAN_INSTALL mingw-w64-x86_64-imagemagick mingw-w64-x86_64-opencv
 pacman -Scc --noconfirm
 
 # Build AJA wrapper if we have SDK
