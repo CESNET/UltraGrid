@@ -16,11 +16,19 @@ jobs:
       coverity_token: ${{ secrets.coverity_token }}
 
     steps:
+    - name: Cache Coverity build tool
+      id: cache-coverity-tool
+      uses: actions/cache@v1
+      with:
+        path: '/tmp/cov-analysis'
+        key: cache-coverity-tool
     - name: Download Coverity build tool
+      if: steps.cache-coverity-tool.outputs.cache-hit != 'true'
       run: |
         cd /tmp
         wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O coverity_tool.tgz
         tar xaf coverity_tool.tgz
+        mv /tmp/cov-analysis* /tmp/cov-analysis
     - uses: actions/checkout@v1
       with:
         submodules: true
@@ -30,7 +38,7 @@ jobs:
       run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
     - name: Build with cov-build
       run: |
-        /tmp/cov-analysis*/bin/cov-build --dir cov-int make -j4
+        /tmp/cov-analysis/bin/cov-build --dir cov-int make -j4
     - name: Submit the result to Coverity Scan
       run: |
         tar caf ultragrid.tar.xz cov-int
