@@ -22,6 +22,7 @@ fi
 
 JACK_D=/c/Program\ Files\ \(x86\)/Jack
 if test -d "$JACK_D"; then
+        export PATH=$PATH:$JACK_D/bin
         export CPATH=$CPATH:$JACK_D/includes
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
