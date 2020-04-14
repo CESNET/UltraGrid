@@ -17,7 +17,9 @@ on:
       - '**.m'
       - '**.mm'
       - 'autogen.sh'
+      - 'cineform-sdk'
       - 'configure.ac'
+      - 'gpujpeg'
       - 'data/scripts/**.sh'
       - 'Makefile.in'
 
