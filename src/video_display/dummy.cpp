@@ -150,6 +150,7 @@ static const struct video_display_info display_dummy_info = {
         display_dummy_get_property,
         display_dummy_put_audio_frame,
         display_dummy_reconfigure_audio,
+        false,
 };
 
 REGISTER_MODULE(dummy, &display_dummy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

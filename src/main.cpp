@@ -1425,20 +1425,17 @@ int main(int argc, char *argv[])
                         goto cleanup;
                 }
 
-                if (strcmp("none", requested_display) != 0) {
-                        if (!mainloop) {
-                                set_thread_name("display");
-                                display_run(uv.display_device);
-                        } else {
-                                throw string("Cannot run display when "
-                                                "another mainloop registered!\n");
-                        }
+                if (display_needs_mainloop(uv.display_device) && mainloop) {
+                        throw string("Cannot run display when "
+                                        "another mainloop registered!\n");
                 }
-
+                set_thread_name("display");
+                display_run(uv.display_device);
                 if (mainloop) {
                         set_thread_name("mainloop");
                         mainloop(mainloop_udata);
                 }
+                display_join(uv.display_device);
                 set_thread_name("main");
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;

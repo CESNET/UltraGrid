@@ -13,7 +13,7 @@
  * @ingroup display
  */
 /* Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -135,7 +135,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 9
+#define VIDEO_DISPLAY_ABI_VERSION 10
 
 struct video_display_info {
         void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
@@ -149,6 +149,7 @@ struct video_display_info {
         void                    (*put_audio_frame) (void *state, struct audio_frame *frame);
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
                         int sample_rate);
+        bool                    needs_mainloop;
 };
 
 /* 
@@ -164,7 +165,9 @@ void                     list_video_display_devices(bool full);
 int                      initialize_video_display(struct module *parent,
                 const char *requested_display, const char *fmt, unsigned int flags,
                 const char *postprocess, struct display **out);
+bool                     display_needs_mainloop(struct display *d);
 void                     display_run(struct display *d);
+void                     display_join(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);
 

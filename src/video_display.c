@@ -14,7 +14,7 @@
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -78,6 +78,7 @@ struct display {
         uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
+        pthread_t thread_id; ///< thread ID of the display thread (@see display_run)
 
         struct vo_postprocess_state *postprocess;
         int pp_output_frames_count, display_pitch;
@@ -174,11 +175,40 @@ void display_done(struct display *d)
 }
 
 /**
+ * Returns true if display has a run routine that needs to be run in a main thread
+ * (@see display_run).
+ */
+bool display_needs_mainloop(struct display *d)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        return d->funcs->needs_mainloop;
+}
+
+#define CHECK(cmd) do { \
+        int ret = cmd; \
+        if (ret != 0) { \
+                errno = ret; \
+                perror(#cmd); \
+                abort(); \
+        } \
+} while(0)
+
+static void *display_run_helper(void *args)
+{
+        struct display *d = args;
+        assert(d->magic == DISPLAY_MAGIC);
+        d->funcs->run(d->state);
+        return NULL;
+}
+
+/**
  * @brief Display mainloop function.
  *
- * This call is entered in main thread and the display may stay in this call until end of the program.
- * This is mainly for GUI displays (GL/SDL), which usually need to be run from main thread of the
- * program (OS X).
+ * This call is entered in main thread and the display is either run in
+ * a separate thread or directly here.
+ *
+ * The later variant is mainly for GUI displays (GL/SDL), which usually need
+ * to be run from main thread of the * program (OS X).
  *
  * The function must quit after receiving a poisoned pill (frame == NULL) to
  * a display_put_frame() call.
@@ -188,7 +218,22 @@ void display_done(struct display *d)
 void display_run(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        d->funcs->run(d->state);
+        if (display_needs_mainloop(d)) {
+                d->funcs->run(d->state);
+        } else {
+                CHECK(pthread_create(&d->thread_id, NULL, display_run_helper, d));
+        }
+}
+
+/**
+ * Joins the display task if run in a separate thread (@see display_run and @see display_needs_mainloop).
+ */
+void display_join(struct display *d)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        if (!display_needs_mainloop(d)) {
+                CHECK(pthread_join(d->thread_id, NULL));
+        }
 }
 
 static struct response *process_message(struct display *d, struct msg_universal *msg)

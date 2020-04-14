@@ -1063,7 +1063,8 @@ static const struct video_display_info display_aja_info = {
         display_aja_reconfigure,
         display_aja_get_property,
         display_aja_put_audio_frame,
-        display_aja_reconfigure_audio
+        display_aja_reconfigure_audio,
+        false,
 };
 
 REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
