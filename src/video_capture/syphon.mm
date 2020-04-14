@@ -231,11 +231,11 @@ static void oneshot_init(int value [[gnu::unused]])
                 LOG(LOG_LEVEL_WARNING) << "[Syphon capture] FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
         }
 
-        s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] options:nil newFrameHandler:^(SyphonClient *client) {
+        s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] context:CGLGetCurrentContext() options:nil newFrameHandler:^(SyphonClient *client) {
                 if ([client hasNewFrame] == NO)
                         return;
 
-                SyphonImage *img = [client newFrameImageForContext: CGLGetCurrentContext()];
+                SyphonImage *img = [client newFrameImage];
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
 
