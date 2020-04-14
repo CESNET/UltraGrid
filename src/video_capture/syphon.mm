@@ -452,14 +452,28 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
 
 static struct vidcap_type *vidcap_syphon_probe(bool verbose, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "syphon";
-                vt->description = "Syphon capture client";
+        if (vt == NULL) {
+                return NULL;
+        }
+        vt->name = "syphon";
+        vt->description = "Syphon capture client";
+        if (!verbose) {
+                return vt;
+        }
+
+        NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
+        for (id item in descriptions) {
+                vt->card_count += 1;
+                vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
+                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
+                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
+                                "app=%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                                "Syphon %s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
         }
         return vt;
 }
