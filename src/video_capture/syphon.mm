@@ -153,6 +153,7 @@ struct state_vidcap_syphon {
         GLuint program_to_yuv422;
 
         bool show_help; // only show help and exit
+        bool should_exit_main_loop = false;
 
         ~state_vidcap_syphon() {
                 [appName release];
@@ -166,6 +167,8 @@ struct state_vidcap_syphon {
                 }
         }
 };
+
+static void vidcap_syphon_done(void *state);
 
 static struct state_vidcap_syphon *state_global;
 
@@ -207,13 +210,13 @@ static void oneshot_init(int value [[gnu::unused]])
         // left (without that, glutCheckLoop would block infinitely).
         glutTimerFunc(100, oneshot_init, 0);
 
-        if (should_exit) {
+        if (should_exit || s->should_exit_main_loop) {
                 return;
         }
 
         if (s->show_help) {
                 usage();
-                exit_uv(0);
+                s->should_exit_main_loop = true;
                 return;
         }
 
@@ -322,7 +325,7 @@ static void syphon_mainloop(void *state)
         glutDisplayFunc(noop);
         glutTimerFunc(100, oneshot_init, 0);
 
-        while (!should_exit) {
+        while (!should_exit && !s->should_exit_main_loop) {
                 glutCheckLoop();
         }
 }
@@ -368,7 +371,9 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
         while (item) {
                 if (strcmp(item, "help") == 0) {
                         s->show_help = true;
-                        break;
+                        syphon_mainloop(s);
+                        vidcap_syphon_done(s);
+                        return VIDCAP_INIT_NOERR;
                 } else if (strstr(item, "app=") == item) {
                         s->appName = [NSString stringWithCString: item + strlen("app=") encoding:NSASCIIStringEncoding];
                 } else if (strstr(item, "name=") == item) {
