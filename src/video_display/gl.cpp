@@ -1160,7 +1160,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glutInitErrorFunc(glut_init_error_callback);
         if (setjmp(error_env) == 0) {
 #endif
-                glutInit(&uv_argc, uv_argv);
+                uvGlutInit(&uv_argc, uv_argv);
 #ifdef FREEGLUT
         } else {
                 exit_uv(EXIT_FAIL_DISPLAY);

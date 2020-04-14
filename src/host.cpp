@@ -77,6 +77,10 @@
 #define X11_LIB_NAME "libX11.so.6"
 #endif
 
+#if defined HAVE_GL && defined HAVE_MACOSX
+#include <GLUT/glut.h>
+#endif
+
 #ifdef USE_MTRACE
 #include <mcheck.h>
 #endif
@@ -214,6 +218,10 @@ struct init_data *common_preinit(int argc, char *argv[])
         } else {
                 log_msg(LOG_LEVEL_WARNING, "Unable open " X11_LIB_NAME " library: %s\n", dlerror());
         }
+#endif
+
+#if defined HAVE_GL && defined HAVE_MACOSX
+        glutInit(&uv_argc, uv_argv);
 #endif
 
 #ifdef WIN32

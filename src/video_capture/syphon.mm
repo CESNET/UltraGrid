@@ -328,7 +328,7 @@ static void syphon_mainloop(void *state)
         state_global = (struct state_vidcap_syphon *) state;
         struct state_vidcap_syphon *s = state_global;
 
-        glutInit(&uv_argc, uv_argv);
+        uvGlutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGB);
         s->window = glutCreateWindow("dummy Syphon client window");
         glutHideWindow();

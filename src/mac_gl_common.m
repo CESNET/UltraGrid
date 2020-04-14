@@ -58,7 +58,7 @@
 #include <sys/sysctl.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <GLUT/glut.h>
 
 #ifndef __MAC_10_11
 #warning "You are compling on pre-10.7 Mac OS X version. Core OpenGL 3.2 profile won't work"
@@ -206,4 +206,11 @@ void mac_gl_make_current(void * state)
         [window setContentSize:NSMakeSize(100, 100)];
 }
 @end
+
+void macGlutInit(int *argcp, char **argv)
+{
+        if (NSApp == nil) {
+                glutInit(argcp, argv);
+        }
+}
 
