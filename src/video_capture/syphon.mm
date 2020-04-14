@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017 CESNET z.s.p.o.
+ * Copyright (c) 2017-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,7 @@ using std::queue;
 using std::unique_lock;
 
 #define FPS 60.0
+#define MOD_NAME "[Syphon capture] "
 
 static void usage();
 
@@ -348,6 +349,9 @@ static void usage()
         for (id item in descriptions) {
                 cout << rang::style::bold << "\tapp: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << rang::style::bold << " name: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
                 //...do something useful with myArrayElement
+        }
+        if ([descriptions count] == 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "\tNo Syphon servers found.\n");
         }
         cout << "\n";
 }
