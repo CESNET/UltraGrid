@@ -152,8 +152,12 @@ struct state_vidcap_syphon {
 
         GLuint program_to_yuv422;
 
-        bool show_help; // only show help and exit
-        bool should_exit_main_loop = false;
+        bool show_help;     ///< only show help and exit
+        bool probe_devices; ///< devices probed
+        bool should_exit_main_loop = false; ///< events (probe/help) processed
+
+        int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
+        struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
 
         ~state_vidcap_syphon() {
                 [appName release];
@@ -168,6 +172,7 @@ struct state_vidcap_syphon {
         }
 };
 
+static void probe_devices_callback(state_vidcap_syphon *s);
 static void vidcap_syphon_done(void *state);
 
 static struct state_vidcap_syphon *state_global;
@@ -216,6 +221,12 @@ static void oneshot_init(int value [[gnu::unused]])
 
         if (s->show_help) {
                 usage();
+                s->should_exit_main_loop = true;
+                return;
+        }
+
+        if (s->probe_devices) {
+                probe_devices_callback(s);
                 s->should_exit_main_loop = true;
                 return;
         }
@@ -455,6 +466,20 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
         return ret;
 }
 
+static void probe_devices_callback(state_vidcap_syphon *s)
+{
+        NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
+        for (id item in descriptions) {
+                s->probed_devices_count += 1;
+                s->probed_devices = (struct device_info *) realloc(s->probed_devices, s->probed_devices_count * sizeof(struct device_info));
+                memset(&s->probed_devices[s->probed_devices_count - 1], 0, sizeof(struct device_info));
+                snprintf(s->probed_devices[s->probed_devices_count - 1].id, sizeof s->probed_devices[s->probed_devices_count - 1].id,
+                                "app=%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+                snprintf(s->probed_devices[s->probed_devices_count - 1].name, sizeof s->probed_devices[s->probed_devices_count - 1].name,
+                                "Syphon %s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+        }
+}
+
 static struct vidcap_type *vidcap_syphon_probe(bool verbose, void (**deleter)(void *))
 {
         *deleter = free;
@@ -470,16 +495,15 @@ static struct vidcap_type *vidcap_syphon_probe(bool verbose, void (**deleter)(vo
                 return vt;
         }
 
-        NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
-        for (id item in descriptions) {
-                vt->card_count += 1;
-                vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "app=%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
-                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
-                                "Syphon %s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
-        }
+
+        state_vidcap_syphon *s = new state_vidcap_syphon();
+        s->probe_devices = true;
+        syphon_mainloop(s);
+        vt->card_count = s->probed_devices_count;
+        vt->cards = s->probed_devices;
+        s->probed_devices = NULL;
+        vidcap_syphon_done(s);
+
         return vt;
 }
 
