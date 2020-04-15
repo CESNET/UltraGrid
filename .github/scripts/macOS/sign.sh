@@ -34,12 +34,11 @@ security import "/tmp/$CERT_FILE"
 security import "/tmp/$KEY_FILE" -A -P "$KEY_FILE_PASS"
 security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY_CHAIN
 
-# Sign appllication
-# these need to be signed explicitly
-for f in `find $APP/Contents/libs -type f`; do
+# Sign the application
+# Libs need to be signed explicitly for some reason
+for f in `find $APP/Contents/libs -type f` $APP; do
         codesign --force --deep -s CESNET --options runtime -v $f
 done
-codesign --force --deep -s CESNET --options runtime -v $APP
 #codesign --force --deep -s CESNET --options runtime -v $APP/Contents/MacOS/uv-qt
 
 # Zip and send for notarization
