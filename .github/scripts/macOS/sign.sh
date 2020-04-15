@@ -37,7 +37,7 @@ security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY
 # Sign the application
 # Libs need to be signed explicitly for some reason
 for f in `find $APP/Contents/libs -type f` $APP; do
-        codesign --force --deep -s CESNET --options runtime -v $f
+        codesign --force --deep -s CESNET --options runtime --entitlements data/entitlements.mac.plist -v $f
 done
 #codesign --force --deep -s CESNET --options runtime -v $APP/Contents/MacOS/uv-qt
 
