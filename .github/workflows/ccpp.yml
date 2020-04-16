@@ -171,7 +171,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: C:\msys64
-        key: cache-msys2-5
+        key: cache-msys2-6
     - name: bootsrap MSYS2
       if: steps.cache-msys2.outputs.cache-hit != 'true'
       run: |
