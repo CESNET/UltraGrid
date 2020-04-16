@@ -882,10 +882,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         int i = 0;
         bool first_option_is_device = true;
         while (ptr[i] != '\0') {
-                if (isdigit(ptr[i++]) != 0) {
-                        continue;
+                if (!isdigit(ptr[i]) && ptr[i] != ',') {
+                        first_option_is_device = false;
+                        break;
                 }
-                first_option_is_device = false;
+                i++;
         }
         if (first_option_is_device) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
