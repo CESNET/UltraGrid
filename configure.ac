@@ -3019,7 +3019,7 @@ then
 fi
 
 if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
-        AC_MSG_ERROR([Comprimato J2K not found!)]);
+        AC_MSG_ERROR([Comprimato J2K not found!]);
 fi
 
 # ------------------------------------------------------------------------------
