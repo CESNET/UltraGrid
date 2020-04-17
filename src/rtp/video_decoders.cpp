@@ -1835,8 +1835,8 @@ next_packet:
                                 }
                                 last_end = start + len;
                         }
-                        if (last_end < frame->tiles[0].data_len) {
-                                memset(frame->tiles[i].data + last_end, 0, frame->tiles[0].data_len - last_end);
+                        if (last_end < frame->tiles[i].data_len) {
+                                memset(frame->tiles[i].data + last_end, 0, frame->tiles[i].data_len - last_end);
                         }
                 }
         }
