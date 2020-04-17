@@ -675,24 +675,25 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 s->initialized_video = false;
         }
 
-        if (s->stereo && (int) desc.tile_count != 2) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
-                                "2 streams expected, %d received.\n", desc.tile_count);
-                goto error;
+        if (s->stereo) {
+                if ((int) desc.tile_count != 2) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
+                                        "2 streams expected, %d received.\n", desc.tile_count);
+                        goto error;
+                }
+        } else {
+                if ((int) desc.tile_count == 2) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received 2 streams but stereo mode is not enabled! Did you forget a \"3D\" parameter?\n");
+                }
+                if ((int) desc.tile_count > s->devices_cnt) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
+                                        desc.tile_count);
+                        goto error;
+                } else if ((int) desc.tile_count < s->devices_cnt) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
+                }
         }
 
-        if (!s->stereo && (int) desc.tile_count == 2) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Received 2 streams but stereo mode is not enabled! Didn't you forgot a \"3D\" parameter?\n");
-                goto error;
-        }
-
-        if ((int) desc.tile_count > s->devices_cnt) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
-                                desc.tile_count);
-                goto error;
-        } else if ((int) desc.tile_count < s->devices_cnt) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
-        }
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
