@@ -9,7 +9,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -988,7 +988,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-        BMDVideoOutputConversionMode conversion_mode = BMD_OPT_KEEP;
+        BMDVideoOutputConversionMode conversion_mode = (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT;
         bool use1080psf = false;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1135,7 +1135,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                if (conversion_mode != BMD_OPT_KEEP) {
+                if (conversion_mode != (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT) {
                         result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
                         if (result != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
