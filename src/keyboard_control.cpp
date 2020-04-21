@@ -315,7 +315,7 @@ static bool is_utf8(int64_t ch) {
         return false;
 #endif
 
-        if (ch < 0) {
+        if (ch <= 0) {
                 return false;
         }
 
@@ -399,7 +399,8 @@ int64_t keyboard_control::get_next_key()
 
                 if (FD_ISSET(m_event_pipe[0], &set)) {
                         char c;
-                        read(m_event_pipe[0], &c, 1);
+                        int bytes = read(m_event_pipe[0], &c, 1);
+                        assert(bytes == 1);
                         continue; // skip to event processing
                 }
 
@@ -720,7 +721,7 @@ bool keyboard_control::exec_local_command(const char *command)
         } else if (strstr(command, "map ") == command) {
                 char *ccpy = strdup(command + strlen("map "));
                 if (strlen(ccpy) > 3) {
-                        int key = ccpy[0];
+                        int64_t key = ccpy[0];
                         char *command = ccpy + 2;
                         if (key == '#' && isdigit(ccpy[1])) {
                                 key = strtoll(ccpy + 1, &command, 10);
