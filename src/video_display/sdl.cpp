@@ -43,6 +43,7 @@
 #include "host.h"
 
 #include "debug.h"
+#include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
@@ -572,6 +573,8 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
         } else {
                 s->play_audio = FALSE;
         }
+
+        keycontrol_register_key(get_module(get_root_module(parent), "control"), 'q', "execute exit", "quit");
 
         return (void *)s;
 }
