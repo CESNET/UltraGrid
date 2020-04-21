@@ -191,8 +191,7 @@ jobs:
           IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done
           windeployqt bin/uv-qt.exe
           cp data/update.ps1 bin
-          mv bin UltraGrid-continuous-win64
-          zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64'
+          mv bin UltraGrid-continuous-win64'
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=
         /usr/bin/make distcheck TARGET=UltraGrid-continuous-win64/uv.exe GUI_EXE=UltraGrid-continuous-win64/uv-qt.exe'
@@ -201,12 +200,13 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Windows build
-        path: UltraGrid-continuous-win64.zip
+        path: UltraGrid-continuous-win64
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
+        C:\msys64\usr\bin\bash -cel 'zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64
+          $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
 
 # vi: set expandtab sw=2:
