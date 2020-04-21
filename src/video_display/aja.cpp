@@ -382,9 +382,11 @@ AJAStatus display::SetUpVideo ()
                         CHECK_EX(mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel), "CSC RGB Range", NOOP);
                 }
 
+                CHECK_EX(mDevice.SetHDMIOutProtocol(NTV2_HDMIProtocolHDMI), "HDMI Output Protocol", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB), "HDMI Sample Struct", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE), "HDMI Range", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB), "HDMI Color Space", NOOP);
+                //CHECK_EX(mDevice.SetHDMIOutForceConfig(true), "HDMI Force Config", NOOP);
                 //CHECK(mDevice.SetHDMIOutPrefer420(false));
         }
 
