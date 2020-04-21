@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,7 @@
 #include <string>
 #include <utility>
 
+#include "utils/misc.h"
 #include "video.h"
 
 std::string bmd_hresult_to_string(HRESULT res);
@@ -75,8 +76,8 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
-#define BMD_OPT_DEFAULT 0u
-#define BMD_OPT_KEEP   ((uint32_t) -1)
+#define BMD_OPT_DEFAULT 0
+#define BMD_OPT_KEEP    to_fourcc('K', 'E', 'E', 'P')
 
 #ifdef HAVE_MACOSX
 #define BMD_STR CFStringRef
