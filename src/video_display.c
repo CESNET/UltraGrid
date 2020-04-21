@@ -66,6 +66,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "perf.h"
+#include "utils/thread.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -195,6 +196,7 @@ bool display_needs_mainloop(struct display *d)
 
 static void *display_run_helper(void *args)
 {
+        set_thread_name("display");
         struct display *d = args;
         assert(d->magic == DISPLAY_MAGIC);
         d->funcs->run(d->state);
