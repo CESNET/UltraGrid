@@ -219,6 +219,8 @@ static int count_utf8_bytes(unsigned int i) {
         return count;
 }
 
+#define CHECK_EOF(x) do { if (x == EOF) { LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unexpected EOF detected!\n"; return EOF; } } while(0)
+
 /**
  * Tries to parse at least some small subset of ANSI control sequences not to
  * be ArrowUp interpreted as '\E', '[' and 'A' individually.
@@ -236,16 +238,13 @@ static int64_t get_ansi_code() {
                 while (true) {
                         if ((c >> 56u) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Long control sequence detected!\n";
-                                return -1;
+                                return INT64_MIN;
                         }
                         c <<= 8;
                         int tmp = GETCH();
                         assert(tmp < 0x80); // ANSI esc seq should use only 7-bit encoding
                         debug_msg(MOD_NAME "Pressed %d\n", tmp);
-                        if (tmp == EOF) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                                return -1;
-                        }
+                        CHECK_EOF(tmp);
                         c |= tmp;
                         if (tmp >= 0x40 && tmp <= 0xee) { // final byte
                                 break;
@@ -255,16 +254,13 @@ static int64_t get_ansi_code() {
                         || c == 'O') { // eg. \EOP - F1-F4 (the rest of Fn is CSI)
                 int tmp = GETCH();
                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
-                if (tmp == EOF) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                        return -1;
-                }
+                CHECK_EOF(tmp);
                 c = '\E' << 16 | c << 8 | tmp;
         } else if (c >= 'a' && c <= 'z') {
                 return K_ALT(c);
         } else {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown control sequence!\n";
-                return -1;
+                return INT64_MIN;
         }
 
         return c;
@@ -274,22 +270,19 @@ static int64_t get_ansi_code() {
 static int64_t get_utf8_code(int c) {
         if (c < 0xc0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF sequence!\n";
-                return -1;
+                return INT64_MIN;
         }
         int ones = count_utf8_bytes(c);
         for (int i = 1; i < ones; ++i) {
                 c = (c & 0x7fffff) << 8;
                 int tmp = GETCH();
                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
-                if (tmp == EOF) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                        return -1;
-                }
+                CHECK_EOF(tmp);
                 c |= tmp;
         }
         if (ones > 7) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unsupported UTF sequence length!\n";
-                return -1;
+                return INT64_MIN;
         }
         return c;
 }
@@ -411,23 +404,20 @@ int64_t keyboard_control::get_next_key()
                         int64_t c = GETCH();
                         debug_msg(MOD_NAME "Pressed %" PRId64 "\n", c);
                         if (c == '\E') {
-                                if ((c = get_ansi_code()) == -1) {
+                                if ((c = get_ansi_code()) < 0) {
                                         continue;
                                 }
 #ifdef WIN32
                         } else if (c == 0x0 || c == 0xe0) { // Win keycodes
                                 int tmp = GETCH();
                                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
-                                if (tmp == EOF) {
-                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected!\n";
-                                        continue;
-                                }
+				CHECK_EOF(tmp);
                                 if ((c = convert_win_to_ansi_keycode(c << 8 | tmp)) == -1) {
                                         continue;
                                 }
 #else
                         } else if (c > 0x80) {
-                                if ((c = get_utf8_code(c)) == -1) {
+                                if ((c = get_utf8_code(c)) < 0) {
                                         continue;
                                 }
 #endif
@@ -450,6 +440,17 @@ void keyboard_control::run()
         int64_t c;
 
         while ((c = get_next_key())) {
+                if (c == EOF) {
+                        if (feof(stdin)) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "EOF detected! Exiting keyboard control.\n";
+                                break;
+                        }
+                        if (ferror(stdin)) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Error detected!\n";
+                                clearerr(stdin);
+                                continue;
+                        }
+                }
                 if (c == K_CTRL('X')) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
                         cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
