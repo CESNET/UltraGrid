@@ -988,7 +988,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-        BMDVideoOutputConversionMode conversion_mode = bmdNoVideoOutputConversion;
+        BMDVideoOutputConversionMode conversion_mode = BMD_OPT_KEEP;
         bool use1080psf = false;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1135,11 +1135,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-		result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
-		if (result != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
-			goto error;
-		}
+                if (conversion_mode != BMD_OPT_KEEP) {
+                        result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
+                        if (result != S_OK) {
+                                log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
+                                goto error;
+                        }
+                }
 
 		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf);
 		if (result != S_OK) {
