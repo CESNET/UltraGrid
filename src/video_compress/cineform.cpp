@@ -401,11 +401,14 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
 
 static video_frame *get_copy(struct state_video_compress_cineform *s, video_frame *frame){
         if(!s->convertFunc){
-                return vf_get_copy(frame);
+                video_frame *ret = vf_get_copy(frame);
+                vf_copy_metadata(ret, frame); // seq and compress_start
+                return ret;
         }
 
         video_frame *ret = vf_alloc_desc_data(s->precompress_desc);
         s->convertFunc(ret, frame);
+        vf_copy_metadata(ret, frame); // seq and compress_start
 
         return ret;
 }
@@ -558,8 +561,13 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
         lock.lock();
         if(s->frame_queue.empty()){
                 log_msg(LOG_LEVEL_ERROR, "[cineform] Failed to pop\n");
+        } else {
+                auto &src = s->frame_queue.front();
+                vf_copy_metadata(out.get(), src.get());
         }
         s->frame_queue.pop();
+
+        out->compress_end = time_since_epoch_in_ms();
 
         return out;
 }
