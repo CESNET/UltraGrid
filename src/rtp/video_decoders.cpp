@@ -127,6 +127,7 @@
 #include <future>
 #endif
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -685,6 +686,7 @@ static void *decompress_thread(void *args) {
 
                 msg->nanoPerFrameDecompress =
                         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Decompress duration: " << msg->nanoPerFrameDecompress / 1000000.0 << " ms\n";
 
                 if(decoder->change_il) {
                         for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
