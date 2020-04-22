@@ -290,37 +290,27 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                 return true;
         }
 
-        enum cmpto_sample_format_type cmpto_sf;
-        bool found = false;
+        if (out_codec == R12L) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n");
+        }
+
+        enum cmpto_sample_format_type cmpto_sf = (cmpto_sample_format_type) 0;
 
         for(const auto &codec : codecs){
                 if(codec.ug_codec == out_codec){
-                        switch (out_codec) {
-                                case RGBA:
-                                        if (rshift == 0 && gshift == 8 && bshift == 16 &&
-                                                        pitch == vc_get_linesize(desc.width, out_codec)) {
-                                                cmpto_sf = codec.cmpto_sf;
-                                        } else {
-                                                cmpto_sf = (cmpto_sample_format_type) 0;
-                                        }
-                                        break;
-                                case R12L:
-                                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n"); /* fall through */
-                                default:
-                                        cmpto_sf = codec.cmpto_sf;
-                        }
+                        cmpto_sf = codec.cmpto_sf;
                         s->convert = codec.convert;
-                        found = true;
                         break;
                 }
         }
 
-        if(!found){
+        if (!cmpto_sf) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported output codec: %s\n",
                                 get_codec_name(out_codec));
                 abort();
         }
-        if (cmpto_sf && pitch == vc_get_linesize(desc.width, out_codec)) {
+        if (pitch == vc_get_linesize(desc.width, out_codec)
+                        && (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16))) {
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
                                 "Error setting sample format type", return false);
         } else { // non-standard pitch or RGBA with non-standard shift
@@ -339,7 +329,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                         fmt[i].sampling_factor_x = 1;
                         fmt[i].sampling_factor_y = 1;
                 }
-                // overrides
+                // codec-specific overrides
                 if (out_codec == RGBA) {
                         if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
