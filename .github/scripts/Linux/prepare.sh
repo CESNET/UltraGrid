@@ -54,6 +54,7 @@ if [ -n "$sdk_pass" ]; then
         yes | PAGER=cat /var/tmp/InstallNDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
 	sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
+	sudo ldconfig
 fi
 
 # Install live555
