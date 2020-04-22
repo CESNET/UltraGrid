@@ -95,6 +95,7 @@ struct state_decompress_j2k {
 
         mutex lock;
         queue<pair<char *, size_t>> decompressed_frames; ///< buffer, length
+        int pitch;
         pthread_t thread_id{};
         unsigned int max_queue_size; ///< maximal length of @ref decompressed_frames
         unsigned int max_in_frames; ///< maximal frames that can be "in progress"
@@ -309,49 +310,30 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 get_codec_name(out_codec));
                 abort();
         }
-        if (pitch == vc_get_linesize(desc.width, out_codec)
-                        && (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16))) {
+
+        if (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16)) {
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
                                 "Error setting sample format type", return false);
-        } else { // non-standard pitch or RGBA with non-standard shift
+        } else { // RGBA with non-standard shift
+                if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
+                                "byte boundary is not supported.\n";
+                        return false;
+                }
                 cmpto_j2k_dec_comp_format fmt[3] = {};
-                // set default values
+                const int shifts[3] = { rshift, gshift, bshift };
                 for (int i = 0; i < 3; ++i) {
                         fmt[i].comp_index = i;
                         fmt[i].data_type = CMPTO_INT8;
-                        fmt[i].offset = i;
+                        fmt[i].offset = shifts[i] / 8;
                         fmt[i].stride_x = get_bpp(out_codec);
-                        fmt[i].stride_y = pitch;
+                        fmt[i].stride_y = vc_get_linesize(desc.width, out_codec);
                         fmt[i].bit_depth = get_bits_per_component(out_codec);
                         fmt[i].bit_shift = 0;
                         fmt[i].is_or_combined = 0;
                         fmt[i].is_signed = 0;
                         fmt[i].sampling_factor_x = 1;
                         fmt[i].sampling_factor_y = 1;
-                }
-                // codec-specific overrides
-                if (out_codec == RGBA) {
-                        if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
-                                        "byte boundary is not supported.\n";
-                                return false;
-                        }
-                        fmt[0].offset = rshift / 8;
-                        fmt[1].offset = gshift / 8;
-                        fmt[2].offset = bshift / 8;
-                } else if (out_codec == UYVY) {
-                        fmt[0].offset = 1;
-                        fmt[0].stride_x = 2;
-                        fmt[1].offset = 0;
-                        fmt[1].stride_x = 4;
-                        fmt[1].sampling_factor_x = 2;
-                        fmt[2].offset = 2;
-                        fmt[2].stride_x = 4;
-                        fmt[2].sampling_factor_x = 2;
-                } else if (out_codec != RGB) { // RGB doesn't need any override
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Decoding to " << get_codec_name(out_codec)
-                                << " with custom pitch is not yet supported.\n";
-                        return false;
                 }
 
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format(s->settings, fmt, 3),
@@ -360,6 +342,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 
         s->desc = desc;
         s->out_codec = out_codec;
+        s->pitch = pitch;
 
         return true;
 }
@@ -448,8 +431,16 @@ return_previous:
         s->decompressed_frames.pop();
         lk.unlock();
 
-        memcpy(dst, decoded.first, max<size_t>(s->desc.height *
-                        vc_get_linesize(s->desc.width, s->out_codec), decoded.second));
+        int linesize = vc_get_linesize(s->desc.width, s->out_codec);
+        size_t frame_size = linesize * s->desc.height;
+        if (decoded.second != frame_size) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
+        }
+        if (decoded.second >= frame_size) {
+                for (size_t i = 0; i < s->desc.height; ++i) {
+                        memcpy(dst + i * s->pitch, decoded.first + i * linesize, linesize);
+                }
+        }
 
         free(decoded.first);
 
