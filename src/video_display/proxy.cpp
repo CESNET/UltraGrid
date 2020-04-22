@@ -128,6 +128,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         char *fmt_copy = NULL;
         const char *requested_display = "gl";
         const char *cfg = NULL;
+        int ret;
 
         s = new state_proxy();
 
@@ -148,10 +149,11 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
                 }
         }
         s->common = shared_ptr<state_proxy_common>(new state_proxy_common());
-        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
+        ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
+        assert(ret == 0 && "Unable to initialize real display for proxy");
         free(fmt_copy);
 
-        int ret = pthread_create(&s->common->thread_id, NULL, display_run_worker,
+        ret = pthread_create(&s->common->thread_id, NULL, display_run_worker,
                         s->common->real_display);
         assert (ret == 0);
 

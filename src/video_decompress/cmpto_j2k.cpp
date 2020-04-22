@@ -212,6 +212,7 @@ static void * j2k_decompress_init(void)
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int queue_len = DEFAULT_MAX_QUEUE_SIZE;
         unsigned int encoder_in_frames = DEFAULT_MAX_IN_FRAMES;
+        int ret;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
                 mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
@@ -247,8 +248,8 @@ static void * j2k_decompress_init(void)
         CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings), "Error creating configuration",
                         goto error);
 
-        assert(pthread_create(&s->thread_id, NULL, decompress_j2k_worker,
-                                (void *) s) == 0);
+        ret = pthread_create(&s->thread_id, NULL, decompress_j2k_worker, (void *) s);
+        assert(ret == 0 && "Unable to create thread");
 
         return s;
 
