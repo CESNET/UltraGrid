@@ -175,12 +175,12 @@ struct display {
         steady_clock::time_point mT0 = steady_clock::now();
         int mFrames = 0;
 
-        enum cs { CS_KEEP, CS_RGB, CS_YCBCR } mForceOutputColorSpace; ///< force output color space for SDI
+        codec_t mForceOutputColorSpace; ///< force output color space for SDI - RGB or UYVY, VIDEO_CODEC_NONE for default
 
 public:
         display(string const &device_id, NTV2OutputDestination outputDestination,
                         NTV2Channel outputChannel, bool withAudio, bool novsync, int buf_len,
-                        bool clearRouting, int doMultiChannel /* -1/0/1 */, cs force_output_color_space);
+                        bool clearRouting, int doMultiChannel /* -1/0/1 */, codec_t force_output_color_space);
         ~display();
         void Init();
         AJAStatus SetUpVideo();
@@ -195,7 +195,7 @@ public:
 
 display::display(string const &device_id, NTV2OutputDestination outputDestination,
                 NTV2Channel outputChannel, bool withAudio, bool novsync,
-                int buf_len, bool clearRouting, int doMultiChannel, cs force_output_color_space)
+                int buf_len, bool clearRouting, int doMultiChannel, codec_t force_output_color_space)
         : max_frame_queue_len(buf_len), mNovsync(novsync),
         mOutputDestination(outputDestination), mOutputChannel(outputChannel),
         mWithAudio(withAudio), mForceOutputColorSpace(force_output_color_space)
@@ -314,11 +314,11 @@ AJAStatus display::SetUpVideo ()
                 }
         }
 
-        mOutIsRGB = mForceOutputColorSpace == CS_KEEP ? (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination) ? true : ::IsRGBFormat(mPixelFormat)) : mForceOutputColorSpace == CS_RGB;
+        mOutIsRGB = !mForceOutputColorSpace ? (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination) ? true : ::IsRGBFormat(mPixelFormat)) : mForceOutputColorSpace == RGB;
         //      If device has no RGB conversion capability for the desired channel, use FBF instead
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID)) {
-                        if (mForceOutputColorSpace != CS_KEEP && mOutIsRGB != ::IsRGBFormat(mPixelFormat)) {
+                        if (mForceOutputColorSpace && mOutIsRGB != ::IsRGBFormat(mPixelFormat)) {
                                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Not enough CSCs found, found " << ::NTV2DeviceGetNumCSCs (mDeviceID) << " CSCs, "
                                         "overriding output color spec preference.\n";
                         }
@@ -896,7 +896,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         int buf_len = DEFAULT_MAX_FRAME_QUEUE_LEN;
         NTV2OutputDestination outputDestination = NTV2_OUTPUTDESTINATION_SDI1;
         NTV2Channel outputChannel = NTV2_CHANNEL_INVALID; // if unchanged, select according to output destination
-        decltype(aja::display::mForceOutputColorSpace) force_output_color_space = aja::display::cs::CS_KEEP;
+        codec_t force_output_color_space = VIDEO_CODEC_NONE;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
 
@@ -938,7 +938,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 } else if (strstr(item, "novsync") == item) {
                         novsync = true;
                 } else if (strcasecmp(item, "RGB") == 0 || strcasecmp(item, "YUV") == 0) {
-                        force_output_color_space = strcasecmp(item, "RGB") == 0 ? aja::display::cs::CS_RGB : aja::display::cs::CS_YCBCR;
+                        force_output_color_space = strcasecmp(item, "RGB") == 0 ? RGB : UYVY;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
                         return nullptr;
