@@ -144,6 +144,8 @@ struct display {
                 bool clearRouting = false;
                 int doMultiChannel = -1; /* -1/0/1 */
                 codec_t forceOutputColorSpace = VIDEO_CODEC_NONE; ///< force output color space for SDI - RGB or UYVY, VIDEO_CODEC_NONE for default
+                bool setupAll = true;
+                bool setupRoute = true;
         } mConf;
 
         queue<struct video_frame *> frames;
@@ -299,6 +301,10 @@ void display::Init()
 
 AJAStatus display::SetUpVideo ()
 {
+        if (!mConf.setupAll) {
+                return AJA_STATUS_SUCCESS;
+        }
+
         if (!::NTV2DeviceCanDoVideoFormat (mDeviceID, mVideoFormat)) {
                 cerr << "## ERROR:  This device cannot handle '" << ::NTV2VideoFormatToString (mVideoFormat) << "'" << endl;
                 return AJA_STATUS_UNSUPPORTED;
@@ -424,6 +430,10 @@ AJAStatus display::SetUpVideo ()
 
 AJAStatus display::SetUpAudio ()
 {
+        if (!mConf.setupAll) {
+                return AJA_STATUS_SUCCESS;
+        }
+
         mAudioSystem = NTV2ChannelToAudioSystem(mOutputChannel);
         CHECK(mDevice.StartAudioOutput(mAudioSystem));
 
@@ -481,6 +491,10 @@ const unordered_map<NTV2Channel, NTV2OutputCrosspointID, hash<int>> chanToLutSrc
 
 void display::RouteOutputSignal ()
 {
+        if (!mConf.setupRoute) {
+                return;
+        }
+
         const NTV2Standard              outputStandard  (::GetNTV2StandardFromVideoFormat (mVideoFormat));
         const UWord                     numSDIOutputs (::NTV2DeviceGetNumVideoOutputs (mDeviceID));
         bool                            fbIsRGB                   (::IsRGBFormat (mPixelFormat));
@@ -701,7 +715,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:RGB|:YUV]|:help] [-r embedded]\n" << rang::style::reset <<
+                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:no-setup[-route]][:RGB|:YUV]|:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
 
         cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
@@ -733,6 +747,9 @@ void aja::display::show_help() {
 
         cout << rang::style::bold << "\t[no-]multi-channel\n" << rang::style::reset <<
                 "\t\tdo (not) treat the device as a multi-channel\n";
+
+        cout << rang::style::bold << "\tno-setup[-route]\n" << rang::style::reset <<
+                "\t\tdo not setup anything/routing (user must set it eg. in Cables app)\n";
 
         cout << rang::style::bold << "\tnovsync\n" << rang::style::reset <<
                 "\t\tdisable sync on VBlank (may improve latency at the expense of tearing)\n";
@@ -931,6 +948,11 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                         conf.deviceId = item + strlen("device=");
                 } else if (strstr(item, "multi-channel") != nullptr) {
                         conf.doMultiChannel = strstr(item, "no-") == nullptr;
+                } else if (strstr(item, "no-setup") == item) {
+                        conf.setupRoute = false;
+                        if (strcmp(item, "no-setup") == 0) {
+                                conf.setupAll = false;
+                        }
                 } else if (strstr(item, "novsync") == item) {
                         conf.novsync = true;
                 } else if (strcasecmp(item, "RGB") == 0 || strcasecmp(item, "YUV") == 0) {
