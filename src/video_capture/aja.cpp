@@ -626,26 +626,27 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
                         NTV2Channel SDIChannel = (NTV2Channel) ((int) NTV2InputSourceToChannel (mInputSource) + offset);
+                        NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
 
 			if (mInputIsRGB) {
-				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, false), ::GetSDIInputOutputXptFromChannel (SDIChannel, false))); // SDIIn ==> DLIn
-				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(channel, false), ::GetSDIInputOutputXptFromChannel (SDIChannel, false))); // SDIIn ==> DLIn
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(channel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
 			}
 
                         if (IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // convert YUV->RGB
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (channel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
 			} else if (IsRGBFormat(mPixelFormat) && mInputIsRGB) { // RGB->RGB
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
                         } else if (!IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // YUV->YUV
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
                         } else { // RGB->YUV
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel)));
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (channel), ::GetDLInOutputXptFromChannel(SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
 			}
 
-                        CHECK(mDevice.SetFrameBufferFormat (SDIChannel, mPixelFormat));
-                        CHECK(mDevice.EnableChannel (SDIChannel));
+                        CHECK(mDevice.SetFrameBufferFormat (channel, mPixelFormat));
+                        CHECK(mDevice.EnableChannel (channel));
                         CHECK(mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) && !mInputIsRGB ? true : false));
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
