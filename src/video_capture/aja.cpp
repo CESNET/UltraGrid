@@ -542,6 +542,13 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
         }
 
+        if (UWord (mInputChannel) >= ::NTV2DeviceGetNumFrameStores (mDeviceID)) {
+                ostringstream oss;
+                oss    << "## ERROR:  Cannot use channel '" << mInputChannel+1 << "' -- device only supports channel 1"
+                        << (::NTV2DeviceGetNumFrameStores (mDeviceID) > 1  ?  string (" thru ") + string (1, uint8_t (::NTV2DeviceGetNumFrameStores (mDeviceID)+'0'))  :  "");
+                throw runtime_error(oss.str());
+        }
+
         //      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
         CHECK_OK(mDevice.EnableChannel (mInputChannel), "Cannot enable channel", NOOP);
 
