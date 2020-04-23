@@ -379,7 +379,7 @@ AJAStatus display::SetUpVideo ()
 
         if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
                 // convert all to RGB SMPTE range
-                if (IsRGBFormat (mPixelFormat)) { // set LUT
+                if (IsRGBFormat (mPixelFormat) && mOutIsRGB) { // set LUT
                         NTV2LutType lutType = NTV2_LUTRGBRangeFull_SMPTE;
                         const int bank = 1; // Bank 0 (RGB->YUV, SMPTE->Full), Bank 1 (YUV->RGB, Full->SMPTE)
                         CHECK_EX(mDevice.SetColorCorrectionOutputBank(mOutputChannel, bank), "LUT Bank", NOOP);
@@ -387,7 +387,8 @@ AJAStatus display::SetUpVideo ()
                         NTV2DoubleArray table(1024);
                         CHECK_EX(mDevice.GenerateGammaTable(lutType, bank, table), "Generate Gamma", NOOP);
                         CHECK_EX(mDevice.DownloadLUTToHW(table, table, table, mOutputChannel, bank), "Download LUT", NOOP);
-                } else { // set CSC
+                }
+                if (IsRGBFormat (mPixelFormat) != mOutIsRGB) { // set CSC
 			CHECK(mDevice.SetColorSpaceMatrixSelect(NTV2_Rec709Matrix, mOutputChannel));
 			CHECK(mDevice.SetColorSpaceRGBBlackRange(NTV2_CSC_RGB_RANGE_SMPTE, mOutputChannel));
 			CHECK(mDevice.SetColorSpaceMethod(NTV2_CSC_Method_Original, mOutputChannel));
@@ -396,9 +397,11 @@ AJAStatus display::SetUpVideo ()
                 }
 
                 CHECK_EX(mDevice.SetHDMIOutProtocol(NTV2_HDMIProtocolHDMI), "HDMI Output Protocol", NOOP);
-                CHECK_EX(mDevice.SetHDMIOutSampleStructure(NTV2_HDMI_RGB), "HDMI Sample Struct", NOOP);
+                CHECK_EX(mDevice.SetHDMIOutSampleStructure(mOutIsRGB ? NTV2_HDMI_RGB : NTV2_HDMI_YC422),
+                                "HDMI Sample Struct", NOOP);
                 CHECK_EX(mDevice.SetHDMIOutRange(NTV2_HDMIRangeSMPTE), "HDMI Range", NOOP);
-                CHECK_EX(mDevice.SetHDMIOutColorSpace(NTV2_HDMIColorSpaceRGB), "HDMI Color Space", NOOP);
+                CHECK_EX(mDevice.SetHDMIOutColorSpace(mOutIsRGB ? NTV2_HDMIColorSpaceRGB : NTV2_HDMIColorSpaceYCbCr),
+                                "HDMI Color Space", NOOP);
                 //CHECK_EX(mDevice.SetHDMIOutForceConfig(true), "HDMI Force Config", NOOP);
                 //CHECK(mDevice.SetHDMIOutPrefer420(false));
         }
@@ -510,13 +513,13 @@ void display::RouteOutputSignal ()
                                 }
                         } else if (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination)) {
 				// convert all to RGB SMPTE range
-                                if (fbIsRGB) { // connect to LUT to convert full->SMPTE range
+                                if (fbIsRGB && mOutIsRGB) { // connect to LUT to convert full->SMPTE range
                                         auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
                                         CHECK_EX(mDevice.Connect(lutInXpt, fsVidOutXpt), "Connect to LUT", NOOP);
                                         CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), chanToLutSrc.at(chan)),
                                                         "Connect from LUT", NOOP);
-                                } else { // convert to RGB
-                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), cscVidOutXpt),
+                                } else { // connect output to FB or CSC
+                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mOutputDestination), fbIsRGB != mOutIsRGB ? cscVidOutXpt : fsVidOutXpt),
                                                         "Connect from CSC", NOOP);
                                 }
                         } else {
