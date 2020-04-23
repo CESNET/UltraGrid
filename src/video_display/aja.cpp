@@ -143,6 +143,7 @@ struct display {
         void process_frames();
 
         bool mNovsync;
+        bool mOutIsRGB;
         static const ULWord app = AJA_FOURCC ('U','L','G','R');
 
         CNTV2Card mDevice;
@@ -313,6 +314,18 @@ AJAStatus display::SetUpVideo ()
                 }
         }
 
+        mOutIsRGB = mForceOutputColorSpace == CS_KEEP ? (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination) ? true : ::IsRGBFormat(mPixelFormat)) : mForceOutputColorSpace == CS_RGB;
+        //      If device has no RGB conversion capability for the desired channel, use FBF instead
+        for (unsigned int i = 0; i < desc.tile_count; ++i) {
+                if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID)) {
+                        if (mForceOutputColorSpace != CS_KEEP && mOutIsRGB != ::IsRGBFormat(mPixelFormat)) {
+                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Not enough CSCs found, found " << ::NTV2DeviceGetNumCSCs (mDeviceID) << " CSCs, "
+                                        "overriding output color spec preference.\n";
+                        }
+                        mOutIsRGB = ::IsRGBFormat(mPixelFormat);
+                }
+        }
+
         if (!::NTV2DeviceCanDo3GLevelConversion (mDeviceID) && mDoLevelConversion && ::IsVideoFormatA (mVideoFormat)) {
                 mDoLevelConversion = false;
         }
@@ -467,13 +480,6 @@ void display::RouteOutputSignal ()
         const NTV2Standard              outputStandard  (::GetNTV2StandardFromVideoFormat (mVideoFormat));
         const UWord                     numSDIOutputs (::NTV2DeviceGetNumVideoOutputs (mDeviceID));
         bool                            fbIsRGB                   (::IsRGBFormat (mPixelFormat));
-        bool                            outIsRGB = mForceOutputColorSpace == CS_KEEP ? (NTV2_OUTPUT_DEST_IS_HDMI(mOutputDestination) ? true : fbIsRGB) : mForceOutputColorSpace == CS_RGB;
-
-        //      If device has no RGB conversion capability for the desired channel, use YUV instead
-        for (unsigned int i = 0; i < desc.tile_count; ++i) {
-                if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID))
-                        fbIsRGB = false;
-        }
 
         if (mDoMultiChannel) {
                 //	Multiformat --- We may be sharing the device with other processes, so route only one SDI output...
@@ -482,7 +488,7 @@ void display::RouteOutputSignal ()
                         NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                         NTV2OutputCrosspointID  cscVidOutXpt    (::GetCSCOutputXptFromChannel (chan,  false/*isKey*/,  !fbIsRGB/*isRGB*/));
                         NTV2OutputCrosspointID  fsVidOutXpt             (::GetFrameBufferOutputXptFromChannel (chan,  fbIsRGB/*isRGB*/,  false/*is425*/));
-                        if (fbIsRGB != outIsRGB) {
+                        if (fbIsRGB != mOutIsRGB) {
                                 CHECK_EX(mDevice.Connect(::GetCSCInputXptFromChannel (chan, false/*isKeyInput*/), fsVidOutXpt),
                                                 "Connnect to CSC", NOOP);
                         }
@@ -494,7 +500,7 @@ void display::RouteOutputSignal ()
 
                                 CHECK(mDevice.SetSDIOutputStandard(chan, outputStandard));
                                 //mDevice.Connect (::GetSDIOutputInputXpt (chan, false/*isDS2*/),  fbIsRGB ? cscVidOutXpt : fsVidOutXpt);
-                                if (outIsRGB) {
+                                if (mOutIsRGB) {
                                         CHECK(mDevice.Connect (::GetDLOutInputXptFromChannel(chan), fbIsRGB ? ::GetFrameBufferOutputXptFromChannel(chan, NTV2_IS_FBF_RGB(mPixelFormat)) : cscVidOutXpt)); // DLOut <== FBRGB/CSC
                                         CHECK(mDevice.Connect (::GetOutputDestInputXpt(mOutputDestination, false), ::GetDLOutOutputXptFromChannel(chan, false))); // SDIOut <== DLOut
                                         CHECK(mDevice.Connect (::GetOutputDestInputXpt(mOutputDestination, true),  ::GetDLOutOutputXptFromChannel(chan, true)));  // SDIOutDS <== DLOutDS
