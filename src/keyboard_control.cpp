@@ -127,6 +127,12 @@ keyboard_control::keyboard_control(struct module *parent) :
 
         m_root = get_root_module(parent);
 
+#ifdef HAVE_TERMIOS_H
+        /* get the terminal settings for stdin */
+        /* we want to keep the old setting to restore them a the end */
+        tcgetattr(STDIN_FILENO,&old_tio);
+#endif
+
         module_init_default(&m_mod);
         m_mod.cls = MODULE_CLASS_KEYCONTROL;
         m_mod.priv_data = this;
@@ -829,11 +835,7 @@ void keyboard_control::read_command(bool multiple)
 static bool set_tio()
 {
 #ifdef HAVE_TERMIOS_H
-        struct termios new_tio;
-        /* get the terminal settings for stdin */
-        tcgetattr(STDIN_FILENO,&old_tio);
-        /* we want to keep the old setting to restore them a the end */
-        new_tio=old_tio;
+        struct termios new_tio = old_tio;
         /* disable canonical mode (buffered i/o) and local echo */
         new_tio.c_lflag &=(~ICANON & ~ECHO);
         // Wrap calling of tcsetattr() by handling SIGTTOU. SIGTTOU can be raised if task is
