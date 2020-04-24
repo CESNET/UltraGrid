@@ -3,7 +3,7 @@
 . $(dirname $0)/json-common.sh
 
 TAG_NAME=${1?}
-PATTERN=${2?}
+PATTERN=$(basename "${2?}")
 JSON=$(fetch_json https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG_NAME $GITHUB_TOKEN)
 RELEASE_ID=$(jq -r '.id' $JSON)
 rm $JSON

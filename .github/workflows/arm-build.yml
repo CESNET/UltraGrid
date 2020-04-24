@@ -1,0 +1,57 @@
+name: ARM builds
+
+on:
+  push:
+    branches:
+      - arm-build
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [armhf, arm64]
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Prepare
+      run: |
+        sudo apt update
+        sudo apt install binfmt-support qemu qemu-user-static
+    - name: Cache Environment
+      id: cache-bootstrap
+      uses: actions/cache@v2
+      with:
+        path: 'chroot.tar'
+        key: cache-bootstrap-${{ matrix.arch }}
+    - name: Debootstrap
+      if: steps.cache-bootstrap.outputs.cache-hit != 'true'
+      run: |
+        sudo apt install debootstrap
+        sudo mkdir chroot
+        sudo qemu-debootstrap --arch ${{ matrix.arch }} buster chroot
+        # Raspbian: wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
+        #           sudo qemu-debootstrap --keyring=/etc/apt/trusted.gpg --arch armhf buster $BUILD_DIR http://mirrordirector.raspbian.org/raspbian/
+        sudo .github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }} chroot
+        sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
+    - name: Extract Cached Environment
+      if: steps.cache-bootstrap.outputs.cache-hit == 'true'
+      run: sudo tar xf chroot.tar
+    - name: Build
+      run: |
+        sudo cp .github/scripts/Linux/arm/build.sh chroot
+        sudo chroot chroot /build.sh
+    - name: Upload Build
+      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/arm-build'
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI ${{ matrix.arch }} build
+        path: chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage
+    - name: Upload Release Asset
+      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/arm-build'
+      run: |
+        sudo apt install jq
+        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.arm_build_token }} continuous chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
+
+
+# vi: set expandtab sw=2:
