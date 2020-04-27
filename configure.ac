@@ -2068,6 +2068,10 @@ then
         fi
 
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
+
+        if test $system = MacOSX; then
+                LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
+        fi
 fi
 
 # Pick compiler for cuda device code
