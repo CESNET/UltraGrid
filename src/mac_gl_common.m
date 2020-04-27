@@ -48,6 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "host.h"
 
 #include "mac_gl_common.h"
 
@@ -141,6 +142,7 @@ void *mac_gl_init(mac_opengl_version_t ogl_version)
         s = (struct state_mac_gl *) malloc(sizeof(struct state_mac_gl));
         s->magic = MAC_GL_MAGIC;
 
+        macGlutInit(&uv_argc, uv_argv);
         NSApplicationLoad();
 
         NSApp = [NSApplication sharedApplication];
