@@ -577,10 +577,10 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 # adds libraries to the bundle
 $(BUNDLE)/Contents/libs: $(BUNDLE)
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
-	@if `which dylibbundler`; then \
+	@if `which dylibbundler`; then set -eu; \
 		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
 		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do dylibbundler -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+			do echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
 		done; \
 		for n in $(BUNDLE)/Contents/MacOS/* $(BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
 			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
@@ -604,9 +604,9 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
-	@if `which dylibbundler`; then \
+	@if `which dylibbundler`; then set -eu; \
 		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
-		dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
+		echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
 		for n in $(GUI_BUNDLE)/Contents/MacOS/uv-qt `find $(GUI_BUNDLE)/Contents/libs -type f`; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
 			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
