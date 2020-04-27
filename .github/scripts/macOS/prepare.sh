@@ -7,6 +7,8 @@ export SDKROOT=macosx10.14
 echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
 echo "::set-env name=UG_SKIP_NET_TESTS::1"
 echo "::set-env name=CPATH::/usr/local/include:/usr/local/opt/qt/include"
+echo "::set-env name=EXTRA_LIB_PATH::/usr/local/lib" # workaround for dylibbunder inside Makefile (DYLD_LIBRARY_PATH is stripped
+                                                     # by make) to resolve paths like @loader_path/ (see https://github.com/auriamg/macdylibbundler/issues/22)
 echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
 echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
