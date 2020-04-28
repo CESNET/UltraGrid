@@ -365,6 +365,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-4/-6", {"force IPv4/IPv6 resolving"});
 #endif //  HAVE_IPv6
                 print_help_item("--mcast-if <iface>", {"bind to specified interface for multicast"});
+                print_help_item("-m <mtu>", {"set path MTU assumption towards receiver"});
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
