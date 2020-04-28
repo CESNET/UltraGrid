@@ -161,7 +161,12 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=10.14 -stdlib=libc++"
+        if test $os_version_major -lt 14; then
+                MIN_MACOS_VER=10.7
+        else
+                MIN_MACOS_VER=10.14
+        fi
+        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=$MIN_MACOS_VER -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
