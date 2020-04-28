@@ -122,8 +122,8 @@ volatile bool *aja_should_exit = &should_exit;
 } while(0)
 #define NOOP ((void)0)
 
-#define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd, return AJA_STATUS_FAIL)
-#define CHECK(cmd) CHECK_OK(cmd, #cmd, NOOP)
+#define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd " failed", return AJA_STATUS_FAIL)
+#define CHECK(cmd) CHECK_OK(cmd, #cmd " failed", NOOP)
 
 using namespace std;
 

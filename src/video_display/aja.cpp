@@ -128,7 +128,7 @@ using std::vector;
 }\
 } while(0)
 #define NOOP ((void)0)
-#define CHECK(cmd) CHECK_EX(cmd, #cmd, NOOP)
+#define CHECK(cmd) CHECK_EX(cmd, #cmd " failed", NOOP)
 
 namespace ultragrid {
 namespace aja {
