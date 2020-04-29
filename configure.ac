@@ -227,7 +227,7 @@ AC_SUBST(CUDA_FLAGS)
 AC_ARG_VAR([ARCH], [Architecture to build for])
 if test $target_cpu = x86_64 -o $target_cpu = i686
 then
-        test -z "$ARCH" && ARCH="-msse4"
+        test -z "$ARCH" && ARCH="-msse4.1"
 fi
 CFLAGS="$CFLAGS $ARCH"
 CXXFLAGS="$CXXFLAGS $ARCH"
