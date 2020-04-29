@@ -6,10 +6,27 @@
 #include <QMessageBox>
 #include <QSurfaceFormat>
 #include <clocale>
+#include <cstring>
 
 #include "ultragrid_window.hpp"
 
+static bool show_help(char *argv[]) {
+	const char *progname = argv[0];
+	while (*argv != NULL) {
+		if (strcmp(*argv, "-h") == 0 || strcmp(*argv, "--help") == 0) {
+			printf("Usage:\n");
+			printf("\t%s [-h|--help|--with-uv <uv>]\n", progname);
+			return true;
+		}
+		argv++;
+	}
+	return false;
+}
+
 int main(int argc, char *argv[]){
+	if (show_help(argv)) {
+		return 0;
+	}
 	QApplication app(argc, argv);
 	QStringList args = QCoreApplication::arguments();
 	QString ultragridExecutable = UltragridWindow::findUltragridExecutable();
@@ -51,3 +68,5 @@ int main(int argc, char *argv[]){
 	uw.show();
 	return app.exec();
 }
+
+/* vi: set noexpandtab: */

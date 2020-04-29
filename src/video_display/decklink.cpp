@@ -9,7 +9,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -675,24 +675,25 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 s->initialized_video = false;
         }
 
-        if (s->stereo && (int) desc.tile_count != 2) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
-                                "2 streams expected, %d received.\n", desc.tile_count);
-                goto error;
+        if (s->stereo) {
+                if ((int) desc.tile_count != 2) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
+                                        "2 streams expected, %d received.\n", desc.tile_count);
+                        goto error;
+                }
+        } else {
+                if ((int) desc.tile_count == 2) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received 2 streams but stereo mode is not enabled! Did you forget a \"3D\" parameter?\n");
+                }
+                if ((int) desc.tile_count > s->devices_cnt) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
+                                        desc.tile_count);
+                        goto error;
+                } else if ((int) desc.tile_count < s->devices_cnt) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
+                }
         }
 
-        if (!s->stereo && (int) desc.tile_count == 2) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Received 2 streams but stereo mode is not enabled! Didn't you forgot a \"3D\" parameter?\n");
-                goto error;
-        }
-
-        if ((int) desc.tile_count > s->devices_cnt) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected at most %d streams. Got %d.\n", s->devices_cnt,
-                                desc.tile_count);
-                goto error;
-        } else if ((int) desc.tile_count < s->devices_cnt) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Received %d streams but %d devices are used!.\n", desc.tile_count, s->devices_cnt);
-        }
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
@@ -881,10 +882,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         int i = 0;
         bool first_option_is_device = true;
         while (ptr[i] != '\0') {
-                if (isdigit(ptr[i++]) != 0) {
-                        continue;
+                if (!isdigit(ptr[i]) && ptr[i] != ',') {
+                        first_option_is_device = false;
+                        break;
                 }
-                first_option_is_device = false;
+                i++;
         }
         if (first_option_is_device) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
@@ -986,7 +988,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-        BMDVideoOutputConversionMode conversion_mode = bmdNoVideoOutputConversion;
+        BMDVideoOutputConversionMode conversion_mode = (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT;
         bool use1080psf = false;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1133,11 +1135,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-		result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
-		if (result != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
-			goto error;
-		}
+                if (conversion_mode != (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT) {
+                        result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
+                        if (result != S_OK) {
+                                log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
+                                goto error;
+                        }
+                }
 
 		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf);
 		if (result != S_OK) {
@@ -1758,6 +1762,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
+        false,
 };
 
 REGISTER_MODULE(decklink, &display_decklink_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

@@ -48,14 +48,16 @@
 
 void module_init_default(struct module *module_data)
 {
+        int ret = 0;
         memset(module_data, 0, sizeof(struct module));
 
         pthread_mutexattr_t attr;
-        assert(pthread_mutexattr_init(&attr) == 0);
-        assert(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) == 0);
-        assert(pthread_mutex_init(&module_data->lock, &attr) == 0);
-        assert(pthread_mutex_init(&module_data->msg_queue_lock, &attr) == 0);
-        pthread_mutexattr_destroy(&attr);
+        ret |= pthread_mutexattr_init(&attr);
+        ret |= pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        ret |= pthread_mutex_init(&module_data->lock, &attr);
+        ret |= pthread_mutex_init(&module_data->msg_queue_lock, &attr);
+        ret |= pthread_mutexattr_destroy(&attr);
+        assert(ret == 0 && "Unable to create mutex or set attributes");
 
         module_data->childs = simple_linked_list_init();
         module_data->msg_queue = simple_linked_list_init();

@@ -131,6 +131,8 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
+        APPEXT=.app
+        AC_SUBST(APPEXT)
 elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
@@ -159,7 +161,12 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=10.7 -stdlib=libc++"
+        if test $os_version_major -lt 14; then
+                MIN_MACOS_VER=10.7
+        else
+                MIN_MACOS_VER=10.14
+        fi
+        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=$MIN_MACOS_VER -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
@@ -1201,8 +1208,13 @@ fi
 # AV Foundation capture
 # -------------------------------------------------------------------------------------------------
 avfoundation=no
+AC_ARG_ENABLE(avfoundation,
+      AS_HELP_STRING([--disable-avfoundation], [enable AVFoundation support (default is enable on macOS)]),
+    [avfoundation_req=$enableval],
+    [avfoundation_req=auto]
+    )
 
-if test $system = MacOSX
+if test $system = MacOSX -a $avfoundation_req != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
 	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
@@ -2113,6 +2125,10 @@ then
         fi
 
         CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
+
+        if test $system = MacOSX; then
+                LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
+        fi
 fi
 
 # Pick compiler for cuda device code
@@ -2462,7 +2478,7 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is $build_default)]
+[  --enable-jack-transport enable JACK transport (default is $build_default; disabled in modular build)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
@@ -2568,7 +2584,7 @@ case $host_os in
 
 		if test $coreaudio_req != no -a $FOUND_AUDIOUNIT_H = yes
 		then
-			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
+			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
                         AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
@@ -2660,7 +2676,9 @@ fi
 qt_gui=no
 static_qt=no
 
+GUI_EXE=
 GUI_TARGET=
+
 QMAKE=
 #qmake # default for most distributions
 
@@ -2706,7 +2724,11 @@ then
 	fi
 
 	#AC_MSG_NOTICE("Qmake: $QMAKE")
-	GUI_TARGET=gui/QT/uv-qt
+        GUI_TARGET=gui/QT/uv-qt$APPEXT
+        GUI_EXE=$GUI_TARGET
+        if test $system = MacOSX; then
+                GUI_EXE=$GUI_TARGET/Contents/MacOS/uv-qt
+        fi
 
 	if test ":" = "$QMAKE"; then
 		qt_gui=no
@@ -2715,6 +2737,7 @@ then
 	fi
 fi
 
+AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
 
@@ -3027,7 +3050,7 @@ then
 fi
 
 if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
-        AC_MSG_ERROR([Comprimato J2K not found!)]);
+        AC_MSG_ERROR([Comprimato J2K not found!]);
 fi
 
 # ------------------------------------------------------------------------------

@@ -699,6 +699,7 @@ static void process_messages(struct control_state *s)
                         process_msg(s, 1, m->text + strlen("execute "), nullptr);
                         free_message(msg, new_response(RESPONSE_OK, nullptr));
                 } else {
+                        log_msg(LOG_LEVEL_WARNING, "[control] Unrecognized command: %s\n", m->text);
                         free_message(msg, new_response(RESPONSE_NOT_IMPL, NULL));
                         continue;
 		}

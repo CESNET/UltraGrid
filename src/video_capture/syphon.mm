@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017 CESNET z.s.p.o.
+ * Copyright (c) 2017-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,6 +73,7 @@ using std::queue;
 using std::unique_lock;
 
 #define FPS 60.0
+#define MOD_NAME "[Syphon capture] "
 
 static void usage();
 
@@ -151,7 +152,12 @@ struct state_vidcap_syphon {
 
         GLuint program_to_yuv422;
 
-        bool show_help; // only show help and exit
+        bool show_help;     ///< only show help and exit
+        bool probe_devices; ///< devices probed
+        bool should_exit_main_loop = false; ///< events (probe/help) processed
+
+        int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
+        struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
 
         ~state_vidcap_syphon() {
                 [appName release];
@@ -165,6 +171,9 @@ struct state_vidcap_syphon {
                 }
         }
 };
+
+static void probe_devices_callback(state_vidcap_syphon *s);
+static void vidcap_syphon_done(void *state);
 
 static struct state_vidcap_syphon *state_global;
 
@@ -206,13 +215,19 @@ static void oneshot_init(int value [[gnu::unused]])
         // left (without that, glutCheckLoop would block infinitely).
         glutTimerFunc(100, oneshot_init, 0);
 
-        if (should_exit) {
+        if (should_exit || s->should_exit_main_loop) {
                 return;
         }
 
         if (s->show_help) {
                 usage();
-                exit_uv(0);
+                s->should_exit_main_loop = true;
+                return;
+        }
+
+        if (s->probe_devices) {
+                probe_devices_callback(s);
+                s->should_exit_main_loop = true;
                 return;
         }
 
@@ -248,11 +263,11 @@ static void oneshot_init(int value [[gnu::unused]])
                 LOG(LOG_LEVEL_WARNING) << "[Syphon capture] FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
         }
 
-        s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] options:nil newFrameHandler:^(SyphonClient *client) {
+        s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] context:CGLGetCurrentContext() options:nil newFrameHandler:^(SyphonClient *client) {
                 if ([client hasNewFrame] == NO)
                         return;
 
-                SyphonImage *img = [client newFrameImageForContext: CGLGetCurrentContext()];
+                SyphonImage *img = [client newFrameImage];
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
 
@@ -313,7 +328,7 @@ static void syphon_mainloop(void *state)
         state_global = (struct state_vidcap_syphon *) state;
         struct state_vidcap_syphon *s = state_global;
 
-        glutInit(&uv_argc, uv_argv);
+        uvGlutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGB);
         s->window = glutCreateWindow("dummy Syphon client window");
         glutHideWindow();
@@ -321,7 +336,7 @@ static void syphon_mainloop(void *state)
         glutDisplayFunc(noop);
         glutTimerFunc(100, oneshot_init, 0);
 
-        while (!should_exit) {
+        while (!should_exit && !s->should_exit_main_loop) {
                 glutCheckLoop();
         }
 }
@@ -349,6 +364,9 @@ static void usage()
                 cout << rang::style::bold << "\tapp: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << rang::style::bold << " name: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
                 //...do something useful with myArrayElement
         }
+        if ([descriptions count] == 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "\tNo Syphon servers found.\n");
+        }
         cout << "\n";
 }
 
@@ -364,7 +382,9 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
         while (item) {
                 if (strcmp(item, "help") == 0) {
                         s->show_help = true;
-                        break;
+                        syphon_mainloop(s);
+                        vidcap_syphon_done(s);
+                        return VIDCAP_INIT_NOERR;
                 } else if (strstr(item, "app=") == item) {
                         s->appName = [NSString stringWithCString: item + strlen("app=") encoding:NSASCIIStringEncoding];
                 } else if (strstr(item, "name=") == item) {
@@ -446,17 +466,44 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
         return ret;
 }
 
+static void probe_devices_callback(state_vidcap_syphon *s)
+{
+        NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
+        for (id item in descriptions) {
+                s->probed_devices_count += 1;
+                s->probed_devices = (struct device_info *) realloc(s->probed_devices, s->probed_devices_count * sizeof(struct device_info));
+                memset(&s->probed_devices[s->probed_devices_count - 1], 0, sizeof(struct device_info));
+                snprintf(s->probed_devices[s->probed_devices_count - 1].id, sizeof s->probed_devices[s->probed_devices_count - 1].id,
+                                "app=%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+                snprintf(s->probed_devices[s->probed_devices_count - 1].name, sizeof s->probed_devices[s->probed_devices_count - 1].name,
+                                "Syphon %s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+        }
+}
+
 static struct vidcap_type *vidcap_syphon_probe(bool verbose, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
         struct vidcap_type *vt;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "syphon";
-                vt->description = "Syphon capture client";
+        if (vt == NULL) {
+                return NULL;
         }
+        vt->name = "syphon";
+        vt->description = "Syphon capture client";
+        if (!verbose) {
+                return vt;
+        }
+
+
+        state_vidcap_syphon *s = new state_vidcap_syphon();
+        s->probe_devices = true;
+        syphon_mainloop(s);
+        vt->card_count = s->probed_devices_count;
+        vt->cards = s->probed_devices;
+        s->probed_devices = NULL;
+        vidcap_syphon_done(s);
+
         return vt;
 }
 

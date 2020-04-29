@@ -5,7 +5,7 @@
  * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
- * Copyright (c) 2015-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -122,8 +122,8 @@ volatile bool *aja_should_exit = &should_exit;
 } while(0)
 #define NOOP ((void)0)
 
-#define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd, return AJA_STATUS_FAIL)
-#define CHECK(cmd) CHECK_OK(cmd, #cmd, NOOP)
+#define CHECK_RET_FAIL(cmd) CHECK_OK(cmd, #cmd " failed", return AJA_STATUS_FAIL)
+#define CHECK(cmd) CHECK_OK(cmd, #cmd " failed", NOOP)
 
 using namespace std;
 
@@ -343,8 +343,8 @@ void vidcap_state_aja::Init()
                 throw string("Cannot aquire stream.");
 #endif
 
-        mDevice.GetEveryFrameServices (mSavedTaskMode);        //      Save the current state before we change it
-        mDevice.SetEveryFrameServices (NTV2_OEM_TASKS);
+        CHECK(mDevice.GetEveryFrameServices (mSavedTaskMode));        //      Save the current state before we change it
+        CHECK(mDevice.SetEveryFrameServices (NTV2_OEM_TASKS));
 
         //      Keep the device ID handy as it will be used frequently...
         mDeviceID = mDevice.GetDeviceID ();
@@ -367,11 +367,11 @@ void vidcap_state_aja::Init()
 
 vidcap_state_aja::~vidcap_state_aja() {
         //      Unsubscribe from input vertical event...
-        mDevice.UnsubscribeInputVerticalEvent (mInputChannel);
+        CHECK(mDevice.UnsubscribeInputVerticalEvent (mInputChannel));
 
-        mDevice.SetEveryFrameServices (mSavedTaskMode);                                                                                                 //      Restore previous service level
+        CHECK(mDevice.SetEveryFrameServices (mSavedTaskMode));                               //      Restore previous service level
 #ifndef _MSC_VER
-        mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (getpid()));     //      Release the device
+        CHECK(mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (getpid()))); //      Release the device
 #endif
 
         mOutputFrame = NULL;
@@ -390,7 +390,7 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                         NTV2InputSource source;
                         const ULWord    ndx     (::GetIndexForNTV2InputSource (mInputSource));
                         if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
-                                mDevice.SetMultiFormatMode (true);
+                                CHECK(mDevice.SetMultiFormatMode (true));
                         source = ::GetNTV2InputSourceForIndex (ndx + 0);
                         EnableInput(source);
                         videoFormat = mDevice.GetInputVideoFormat(source, mProgressive);
@@ -398,7 +398,7 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                         if (mCheckFor4K && (videoStandard == NTV2_STANDARD_1080p))
                         {
                                 if (::NTV2DeviceCanDoMultiFormat (mDeviceID))
-                                        mDevice.SetMultiFormatMode (false);
+                                        CHECK(mDevice.SetMultiFormatMode (false));
                                 int i;
                                 bool allSDISameInput = true;
                                 NTV2VideoFormat videoFormatNext;
@@ -439,9 +439,9 @@ void vidcap_state_aja::EnableInput(NTV2InputSource source)
         if (NTV2DeviceHasBiDirectionalSDI (mDeviceID) && NTV2_INPUT_SOURCE_IS_SDI (source))
         {
                 NTV2Channel channel = ::NTV2InputSourceToChannel(source);
-                mDevice.SetSDITransmitEnable (channel, false);       //      Disable transmit mode...
+                CHECK(mDevice.SetSDITransmitEnable (channel, false));       //      Disable transmit mode...
                 for (unsigned ndx (0);  ndx < 10;  ndx++)
-                        mDevice.WaitForInputVerticalInterrupt (channel);     //      ...and give the device some time to lock to a signal
+                        CHECK(mDevice.WaitForInputVerticalInterrupt (channel)); //      ...and give the device some time to lock to a signal
         }
 
 }
@@ -542,6 +542,13 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mInputChannel = ::NTV2InputSourceToChannel (mInputSource);
         }
 
+        if (UWord (mInputChannel) >= ::NTV2DeviceGetNumFrameStores (mDeviceID)) {
+                ostringstream oss;
+                oss    << "## ERROR:  Cannot use channel '" << mInputChannel+1 << "' -- device only supports channel 1"
+                        << (::NTV2DeviceGetNumFrameStores (mDeviceID) > 1  ?  string (" thru ") + string (1, uint8_t (::NTV2DeviceGetNumFrameStores (mDeviceID)+'0'))  :  "");
+                throw runtime_error(oss.str());
+        }
+
         //      Sometimes other applications disable some or all of the frame buffers, so turn on ours now..
         CHECK_OK(mDevice.EnableChannel (mInputChannel), "Cannot enable channel", NOOP);
 
@@ -619,26 +626,27 @@ AJAStatus vidcap_state_aja::SetupVideo()
         if (NTV2_INPUT_SOURCE_IS_SDI (mInputSource)) {
                 for (unsigned offset (0);  offset < 4;  offset++) {
                         NTV2Channel SDIChannel = (NTV2Channel) ((int) NTV2InputSourceToChannel (mInputSource) + offset);
+                        NTV2Channel channel = (NTV2Channel) ((int) mInputChannel + offset);
 
 			if (mInputIsRGB) {
-				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, false), ::GetSDIInputOutputXptFromChannel (SDIChannel, false))); // SDIIn ==> DLIn
-				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(SDIChannel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(channel, false), ::GetSDIInputOutputXptFromChannel (SDIChannel, false))); // SDIIn ==> DLIn
+				CHECK(mDevice.Connect (::GetDLInInputXptFromChannel(channel, true), ::GetSDIInputOutputXptFromChannel (SDIChannel, true)));  // SDIIn ==> DLIn
 			}
 
                         if (IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // convert YUV->RGB
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (channel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
 			} else if (IsRGBFormat(mPixelFormat) && mInputIsRGB) { // RGB->RGB
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetDLInOutputXptFromChannel(SDIChannel))); // DLOut ==> FBRGB
                         } else if (!IsRGBFormat(mPixelFormat) && !mInputIsRGB) { // YUV->YUV
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetSDIInputOutputXptFromChannel (SDIChannel)));
                         } else { // RGB->YUV
-                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (SDIChannel), ::GetDLInOutputXptFromChannel(SDIChannel)));
-                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (SDIChannel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
+                                CHECK(mDevice.Connect (::GetCSCInputXptFromChannel (channel), ::GetDLInOutputXptFromChannel(SDIChannel)));
+                                CHECK(mDevice.Connect (::GetFrameBufferInputXptFromChannel (channel), ::GetCSCOutputXptFromChannel (SDIChannel, false/*isKey*/, true/*isRGB*/)));
 			}
 
-                        CHECK(mDevice.SetFrameBufferFormat (SDIChannel, mPixelFormat));
-                        CHECK(mDevice.EnableChannel (SDIChannel));
+                        CHECK(mDevice.SetFrameBufferFormat (channel, mPixelFormat));
+                        CHECK(mDevice.EnableChannel (channel));
                         CHECK(mDevice.SetSDIInLevelBtoLevelAConversion (SDIChannel, IsInput3Gb (mInputSource) && !mInputIsRGB ? true : false));
                         if (!NTV2_IS_4K_VIDEO_FORMAT (mVideoFormat))
                                 break;
@@ -757,7 +765,7 @@ void vidcap_state_aja::SetupHostBuffers (void)
 {
         mVancMode = NTV2_VANCMODE_OFF;
         mWideVanc = false;
-        mDevice.GetVANCMode (mVancMode);
+        CHECK(mDevice.GetVANCMode (mVancMode));
         mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancMode);
         mAudioBufferSize = NTV2_AUDIOSIZE_MAX;
 }       //      SetupHostBuffers
@@ -782,7 +790,7 @@ void vidcap_state_aja::Quit()
         mProducerThread.join();
 
         //      Don't leave the audio system active after we exit
-        mDevice.SetAudioInputReset      (mAudioSystem, true);
+        CHECK(mDevice.SetAudioInputReset      (mAudioSystem, true));
 }       //      Quit
 
 //////////////////////////////////////////////
@@ -813,35 +821,35 @@ void vidcap_state_aja::CaptureFrames (void)
         uint32_t        audioBytesCaptured              = 0;
         NTV2FieldID     fieldID = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? NTV2_FIELD0 : NTV2_FIELD1;
 
-        mDevice.GetAudioReadOffset      (audioReadOffset, mAudioSystem);
-        mDevice.GetAudioWrapAddress     (audioOutWrapAddress, mAudioSystem);
+        CHECK(mDevice.GetAudioReadOffset      (audioReadOffset, mAudioSystem));
+        CHECK(mDevice.GetAudioWrapAddress     (audioOutWrapAddress, mAudioSystem));
 
         //      Wait to make sure the next two SDK calls will be made during the same frame...
-        mDevice.WaitForInputFieldID (fieldID, mInputChannel);
+        CHECK(mDevice.WaitForInputFieldID (fieldID, mInputChannel));
 
         currentInFrame  ^= 1;
-        mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
+        CHECK(mDevice.SetInputFrame   (mInputChannel,  currentInFrame));
 
         //      Wait until the hardware starts filling the new buffers, and then start audio
         //      capture as soon as possible to match the video...
-        mDevice.WaitForInputFieldID (fieldID, mInputChannel);
-        mDevice.SetAudioInputReset (mAudioSystem, false);
+        CHECK(mDevice.WaitForInputFieldID (fieldID, mInputChannel));
+        CHECK(mDevice.SetAudioInputReset (mAudioSystem, false));
 
         mAudioInLastAddress             = audioReadOffset;
         audioInWrapAddress              = audioOutWrapAddress + audioReadOffset;
 
         currentInFrame  ^= 1;
-        mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
+        CHECK(mDevice.SetInputFrame   (mInputChannel,  currentInFrame));
 
         while (!*aja_should_exit) {
                 uint32_t *pHostAudioBuffer = NULL;
                 //      Wait until the input has completed capturing a frame...
-                mDevice.WaitForInputFieldID (fieldID, mInputChannel);
+                CHECK(mDevice.WaitForInputFieldID (fieldID, mInputChannel));
 
                 if (mAudioSource != NTV2_AUDIO_SOURCE_INVALID) {
                         pHostAudioBuffer = reinterpret_cast <uint32_t *> (aligned_malloc(NTV2_AUDIOSIZE_MAX, AJA_PAGE_SIZE));
                         //      Read the audio position registers as close to the interrupt as possible...
-                        mDevice.ReadAudioLastIn (currentAudioInAddress, mInputChannel);
+                        CHECK(mDevice.ReadAudioLastIn (currentAudioInAddress, mInputChannel));
                         currentAudioInAddress &= ~0x7f;  //      Force 128 B alignment (originally there was 4 bytes)
                         currentAudioInAddress += audioReadOffset;
 
@@ -856,18 +864,18 @@ void vidcap_state_aja::CaptureFrames (void)
                                 //      Do the calculations and transfer from the last address to the end of the buffer...
                                 audioBytesCaptured      = audioInWrapAddress - mAudioInLastAddress;
 
-                                mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured);
+                                CHECK(mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured));
 
                                 //      Transfer the new samples from the start of the buffer to the current address...
-                                mDevice.DMAReadAudio (mAudioSystem, &pHostAudioBuffer [audioBytesCaptured / sizeof (uint32_t)],
-                                                audioReadOffset, currentAudioInAddress - audioReadOffset);
+                                CHECK(mDevice.DMAReadAudio (mAudioSystem, &pHostAudioBuffer [audioBytesCaptured / sizeof (uint32_t)],
+                                                audioReadOffset, currentAudioInAddress - audioReadOffset));
 
                                 audioBytesCaptured += currentAudioInAddress - audioReadOffset;
                         } else {
                                 audioBytesCaptured = currentAudioInAddress - mAudioInLastAddress;
 
                                 //      No wrap, so just perform a linear DMA from the buffer...
-                                mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured);
+                                CHECK(mDevice.DMAReadAudio (mAudioSystem, pHostAudioBuffer, mAudioInLastAddress, audioBytesCaptured));
                         }
 
                         mAudioInLastAddress = currentAudioInAddress;
@@ -878,29 +886,29 @@ void vidcap_state_aja::CaptureFrames (void)
 
                 shared_ptr<video_frame> out = mPool.get_frame();
                 //      DMA the new frame to system memory...
-                mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize);
+                CHECK(mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize));
 
                 if (log_level >= LOG_LEVEL_DEBUG) {
                         RP188_STRUCT    timecodeValue;
                         string 		timeCodeString;
                         //      Use the embedded input time code...
-                        mDevice.GetRP188Data (mInputChannel, 0, timecodeValue);
+                        CHECK(mDevice.GetRP188Data (mInputChannel, 0, timecodeValue));
                         CRP188  inputRP188Info  (timecodeValue);
-                        inputRP188Info.GetRP188Str (timeCodeString);
+                        CHECK(inputRP188Info.GetRP188Str (timeCodeString));
                         LOG(LOG_LEVEL_DEBUG) << "AJA: Captured frame with timecode: " << timeCodeString << '\n';
                 }
 
                 //      Check for dropped frames by ensuring the hardware has not started to process
                 //      the buffers that were just filled....
                 uint32_t readBackIn;
-                mDevice.GetInputFrame   (mInputChannel,         readBackIn);
+                CHECK(mDevice.GetInputFrame   (mInputChannel,         readBackIn));
 
                 if (readBackIn == currentInFrame) {
                         cerr    << "## WARNING:  Drop detected:  current in " << currentInFrame << ", readback in " << readBackIn << endl;
                 }
 
                 //      Tell the hardware which buffers to start using at the beginning of the next frame...
-                mDevice.SetInputFrame   (mInputChannel,  currentInFrame);
+                CHECK(mDevice.SetInputFrame   (mInputChannel,  currentInFrame));
 
                 unique_lock<mutex> lk(mOutputFrameLock);
                 mOutputFrame = out;
@@ -962,7 +970,7 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 {
         bool    is3Gb   (false);
 
-        mDevice.GetSDIInput3GbPresent (is3Gb, ::NTV2InputSourceToChannel (inputSource));
+        CHECK(mDevice.GetSDIInput3GbPresent (is3Gb, ::NTV2InputSourceToChannel (inputSource)));
 
         return is3Gb;
 }

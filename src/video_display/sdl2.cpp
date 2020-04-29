@@ -733,7 +733,8 @@ static const struct video_display_info display_sdl2_info = {
         display_sdl2_reconfigure,
         display_sdl2_get_property,
         NULL,
-        NULL
+        NULL,
+        true,
 };
 
 REGISTER_MODULE(sdl, &display_sdl2_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

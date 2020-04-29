@@ -1,7 +1,9 @@
-#include "../src/config.h"
-#include "../src/config_unix.h"
-#include "../src/config_win32.h"
-#include "../src/compat/platform_pipe.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+#include "config_unix.h"
+#include "config_win32.h"
+#include "compat/platform_pipe.h"
 
 #include <stdlib.h>
 #include <stdio.h>

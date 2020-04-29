@@ -407,7 +407,6 @@ decklink_help(bool full)
         cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
         printf("\t\tor\n");
         cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*|[full]help\n" << style::reset;
-        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | :[full]help\n" << style::reset;
 	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
         printf("\n");
 

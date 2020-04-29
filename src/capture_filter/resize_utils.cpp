@@ -55,6 +55,10 @@
 #include <opencv2/imgproc/types_c.h>
 
 #include "capture_filter/resize_utils.h"
+#include "debug.h"
+#include "video.h"
+
+#define MOD_NAME "[resize] "
 
 using namespace cv;
 
@@ -70,6 +74,10 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
         rgb.create(height, width, CV_8UC3);
         rgb.data = (uchar*)indata;
         return rgb;
+    case RGBA:
+        cv_color = CV_RGBA2RGB;
+        pix_fmt = CV_8UC4;
+        break;
     case I420:
         pix_fmt = CV_8U;
         num = 3;
@@ -83,7 +91,8 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
         cv_color = CV_YUV2RGB_YUYV;
         break;
     default:
-        assert(0 && "Unsupported codec!");
+        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported codec: " << codec << "\n";
+        return {};
     }
     yuv.create(height * num / den, width, pix_fmt);
     yuv.data = (uchar*)indata;

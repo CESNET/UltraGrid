@@ -412,6 +412,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         char *fmt_copy = NULL;
         const char *requested_display = "gl";
         const char *cfg = NULL;
+        int ret;
 
         printf("FMT: %s\n", fmt);
 
@@ -493,10 +494,11 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                 return &display_init_noerr;
         }
         s->common = shared_ptr<state_conference_common>(new state_conference_common(width, height, fps, gpu));
-        assert (initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display) == 0);
+        ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
+        assert(ret == 0 && "Unable to intialize conference display");
         free(fmt_copy);
 
-        int ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run_worker,
+        ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run_worker,
                         s->common->real_display);
         assert (ret == 0);
 
@@ -712,6 +714,7 @@ static const struct video_display_info display_conference_info = {
         display_conference_get_property,
         display_conference_put_audio_frame,
         display_conference_reconfigure_audio,
+        false,
 };
 
 REGISTER_MODULE(conference, &display_conference_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

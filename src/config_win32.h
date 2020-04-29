@@ -44,7 +44,7 @@
  * $Date: 2007/11/08 09:48:59 $
  */
 #define _WIN32_WINNT 0x0600
-#ifdef WIN32
+#ifdef __MINGW32__
 #ifndef _CONFIG_WIN32_H
 #define _CONFIG_WIN32_H
 
@@ -164,7 +164,7 @@ extern "C" {
 // error
 #undef strtok_r
 
-#ifndef HAVE_STRTOK_R
+#if 0
 static inline char * strtok_r(char *str, const char *delim, char **save);
 
 /*
@@ -281,4 +281,4 @@ void ShowMessage(int level, char *msg);
 #define ATTRIBUTE(a) __attribute__((a))
 #endif
 
-#endif
+#endif // defined __MINGW32__

@@ -178,6 +178,7 @@ static void * audio_play_jack_init(const char *cfg)
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (strcmp(item, "help") == 0) {
                         audio_play_jack_help(client_name);
+                        free(s);
                         free(dup);
                         return &audio_init_state_ok;
                 } else if (strstr(item, "first_channel=") == item) {

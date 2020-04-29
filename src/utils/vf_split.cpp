@@ -165,13 +165,15 @@ shared_ptr<video_frame> vf_merge_tiles(std::vector<shared_ptr<video_frame>> cons
                                 vf_free(frame);
                         });
 
-        uint64_t t0 = 0;
+        uint64_t t0 = UINT64_MAX, t1 = 0;
         for (unsigned int i = 0; i < tiles.size(); ++i) {
                 ret->tiles[i].data = tiles[i]->tiles[0].data;
                 ret->tiles[i].data_len = tiles[i]->tiles[0].data_len;
-                t0 = tiles[i]->compress_end > t0 ? tiles[i]->compress_end : t0;
+                t0 = tiles[i]->compress_start < t0 ? tiles[i]->compress_start : t0;
+                t1 = tiles[i]->compress_end > t1 ? tiles[i]->compress_end : t1;
         }
-        ret->compress_end = t0;
+        ret->compress_start = t0;
+        ret->compress_end = t1;
 
         return ret;
 }

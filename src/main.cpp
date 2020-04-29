@@ -226,6 +226,18 @@ private:
 static volatile int exit_status = EXIT_SUCCESS;
 static struct state_uv * volatile uv_state;
 
+static void write_all(size_t len, const char *msg) {
+        const char *ptr = msg;
+        do {
+                ssize_t written = write(STDERR_FILENO, ptr, len);
+                if (written < 0) {
+                        break;
+                }
+                len -= written;
+                ptr += written;
+        } while (len > 0);
+}
+
 static void signal_handler(int signal)
 {
         if (log_level >= LOG_LEVEL_DEBUG) {
@@ -240,16 +252,7 @@ static void signal_handler(int signal)
                 }
                 *ptr++ = '0' + signal%10;
                 *ptr++ = '\n';
-                size_t bytes = ptr - buf;
-                ptr = buf;
-                do {
-                        ssize_t written = write(STDERR_FILENO, ptr, bytes);
-                        if (written < 0) {
-                                break;
-                        }
-                        bytes -= written;
-                        ptr += written;
-                } while (bytes > 0);
+                write_all(ptr - buf, buf);
         }
         exit_uv(0);
 }
@@ -293,21 +296,22 @@ static void crash_signal_handler(int sig)
         }
         *ptr++ = '.'; *ptr++ = '\n';
 
-        size_t bytes = ptr - buf;
-        ptr = buf;
-        do {
-                ssize_t written = write(STDERR_FILENO, ptr, bytes);
-                if (written < 0) {
-                        break;
-                }
-                bytes -= written;
-                ptr += written;
-        } while (bytes > 0);
+        write_all(ptr - buf, buf);
 
         signal(SIGABRT, SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
         raise(sig);
 }
+
+#ifndef WIN32
+static void hang_signal_handler(int sig)
+{
+        assert(sig == SIGALRM);
+        char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
+        write_all(sizeof msg - 1, msg);
+        signal(SIGALRM, SIG_DFL);
+}
+#endif // ! defined WIN32
 
 void exit_uv(int status) {
         exit_status = status;
@@ -361,6 +365,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-4/-6", {"force IPv4/IPv6 resolving"});
 #endif //  HAVE_IPv6
                 print_help_item("--mcast-if <iface>", {"bind to specified interface for multicast"});
+                print_help_item("-m <mtu>", {"set path MTU assumption towards receiver"});
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
@@ -1425,21 +1430,15 @@ int main(int argc, char *argv[])
                         goto cleanup;
                 }
 
-                if (strcmp("none", requested_display) != 0) {
-                        if (!mainloop) {
-                                set_thread_name("display");
-                                display_run(uv.display_device);
-                        } else {
-                                throw string("Cannot run display when "
-                                                "another mainloop registered!\n");
-                        }
+                if (display_needs_mainloop(uv.display_device) && mainloop) {
+                        throw string("Cannot run display when "
+                                        "another mainloop registered!\n");
                 }
-
+                display_run(uv.display_device);
                 if (mainloop) {
-                        set_thread_name("mainloop");
                         mainloop(mainloop_udata);
                 }
-                set_thread_name("main");
+                display_join(uv.display_device);
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());
@@ -1469,6 +1468,14 @@ cleanup:
 
         export_destroy(exporter);
 
+        signal(SIGINT, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGABRT, SIG_DFL);
+        signal(SIGSEGV, SIG_DFL);
+#ifndef WIN32
+        signal(SIGHUP, SIG_DFL);
+        signal(SIGALRM, hang_signal_handler);
+#endif
         alarm(5); // prevent exit hangs
 
         if(uv.audio)
@@ -1488,14 +1495,6 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-
-        signal(SIGINT, SIG_IGN);
-        signal(SIGTERM, SIG_IGN);
-#ifndef WIN32
-        signal(SIGHUP, SIG_IGN);
-#endif
-        signal(SIGABRT, SIG_IGN);
-        signal(SIGSEGV, SIG_IGN);
 
         uv.stop();
         common_cleanup(init);

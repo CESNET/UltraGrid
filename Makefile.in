@@ -26,7 +26,9 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
+APPEXT        = @APPEXT@
 
+GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 TEST_TARGET  = bin/run_tests$(EXEEXT)
@@ -198,7 +200,7 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 # -------------------------------------------------------------------------------------------------
-all: src/dir-stamp $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) modules configure-messages
+all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MODULES@ configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
@@ -210,20 +212,16 @@ bin/screen-capture-recorder-x64.dll:
 
 Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
-	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
+	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
-$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
+$(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
-ifeq ($(SYSTEM),MacOSX)
-	$(MKDIR_P) Frameworks
-	cp -r $(srcdir)/data/redists/Syphon.framework Frameworks
-endif
 
-$(REFLECTOR_TARGET): $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
+$(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
@@ -293,7 +291,7 @@ src/audio/mdf.o:
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
-src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.c $(ALL_INCLUDES)
+src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.m $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
@@ -455,10 +453,10 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-gui/QT/uv-qt: $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
+gui/QT/uv-qt$(APPEXT): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	cd gui/QT && $(QMAKE) $(srcdir)/../../gui/QT && make -j 4
+	cd gui/QT && $(QMAKE) "DESTDIR+=./" $(srcdir)/../../gui/QT && make -j 4
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = $(COMMON_OBJS) \
@@ -500,9 +498,10 @@ tests: $(TEST_TARGET)
 
 check: tests
 
-distcheck: all
+distcheck:
 	$(TARGET)
 	$(TARGET) --capabilities
+	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
 ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
@@ -563,30 +562,37 @@ man:
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
 
+hd-rum-multi/hd-rum:
+	make -C hd-rum-multi
+
 # Makes dummy bundle (almost empty). May not be portable due to missing libs.
-bundle-nolib: all
+$(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 	$(MKDIR_P) $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
-	make -C hd-rum-multi; cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	touch $@ # mark target as up to date
 
 # adds libraries to the bundle
-bundle: bundle-nolib
-	@if `which dylibbundler`; then \
+$(BUNDLE)/Contents/libs: $(BUNDLE)
+	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
+	@if `which dylibbundler`; then set -eu; \
 		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
 		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do dylibbundler -of -p @executable_path/../libs/ -od -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+			do echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
 		done; \
 		for n in $(BUNDLE)/Contents/MacOS/* $(BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
 			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
+		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
 	fi
+	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -r data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
 		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
@@ -595,14 +601,23 @@ bundle: bundle-nolib
 
 # ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
 # as gui/QT/uv-qt.app (referred as $(GUI_BUNDLE))
-gui-bundle: bundle gui/QT/uv-qt
+$(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
+	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
+	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
+	@if `which dylibbundler`; then set -eu; \
+		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
+		echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
+		for n in $(GUI_BUNDLE)/Contents/MacOS/uv-qt `find $(GUI_BUNDLE)/Contents/libs -type f`; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
+			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
+	else \
+		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
+		$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs; \
+	fi
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
-	test -d $(GUI_BUNDLE)/Contents/libs || mkdir $(GUI_BUNDLE)/Contents/libs
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
-	test -d $(GUI_BUNDLE)/Contents/Frameworks || mkdir $(GUI_BUNDLE)/Contents/Frameworks
-	cp -r $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
+	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
-	command -v macdeployqt && macdeployqt $(GUI_BUNDLE)
+	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2
 	# then fix links also for other binaries than uv-qt, namely uv itself
 	for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
 		for m in $$(otool -L $$n | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
@@ -621,17 +636,24 @@ gui-bundle: bundle gui/QT/uv-qt
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
 	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
 	cp data/update.mac $(GUI_BUNDLE)/Contents/MacOS/update
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription 'Allow camera for video capture'
+	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription 'Allow microphone for audio capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
 	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
 
-osx-gui-dmg: gui-bundle
+# aliases
+bundle-nolib: $(BUNDLE)
+bundle: $(BUNDLE)/Contents/libs
+gui-bundle: $(GUI_BUNDLE)/Contents/libs
+
+## @todo Add correct dependencies (using $(GUI_BUNDLE)/Contents/libs causes
+## uv-qt rebuild which breaks fixed links by macdeployqt)
+osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
 	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
-
-modules: @MODULES@
 
 @TARGETS@
 

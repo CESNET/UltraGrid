@@ -8,7 +8,7 @@
  * the compiler or depend upon them).
  */
 /*
- * Copyright (c) 2017-2018 CESNET z.s.p.o.
+ * Copyright (c) 2017-2020 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
  */
 
 #define WIN32
+#include "config_msvc.h"
 #include "config_win32.h"
 
 #include <assert.h>

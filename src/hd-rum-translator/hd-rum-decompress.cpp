@@ -233,21 +233,24 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
         char cfg[128] = "";
+        int ret;
 
         switch(conf.mode){
         case NORMAL:
                 snprintf(cfg, sizeof cfg, "%p", s);
-                assert (initialize_video_display(parent, "pipe", cfg, 0, NULL, &s->display) == 0);
+                ret = initialize_video_display(parent, "pipe", cfg, 0, NULL, &s->display);
                 break;
         case BLEND:
                 snprintf(cfg, sizeof cfg, "pipe:%p", s);
-                assert (initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display) == 0);
+                ret = initialize_video_display(parent, "proxy", cfg, 0, NULL, &s->display);
                 break;
         case CONFERENCE:
                 snprintf(cfg, sizeof cfg, "pipe:%p#%s", s, conf.arg);
-                assert (initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display) == 0);
+                ret = initialize_video_display(parent, "conference", cfg, 0, NULL, &s->display);
                 break;
         }
+
+        assert(ret == 0 && "Unable to initialize auxiliary display");
 
         map<string, param_u> params;
 

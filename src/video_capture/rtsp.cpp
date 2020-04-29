@@ -766,11 +766,12 @@ bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
     char* tmpBuff;
     int countT = 0;
     int countC = 0;
+    const size_t len = 10;
     char* codecs[2];
     char* tracks[2];
     for(int q=0; q<2 ; q++){
-        codecs[q] = (char*) malloc(10);
-        tracks[q] = (char*) malloc(10);
+        codecs[q] = (char*) malloc(len);
+        tracks[q] = (char*) malloc(len);
     }
 
     FILE* fp;
@@ -810,8 +811,8 @@ bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         if(tmpBuff!=NULL){
             if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
                 //debug_msg("track = %s\n",tmpBuff);
-                strncpy(tracks[countT],tmpBuff,strlen(tmpBuff)-2);
-                tracks[countT][strlen(tmpBuff)-2] = '\0';
+                strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, len-1));
+                tracks[countT][MIN(strlen(tmpBuff)-2, len-1)] = '\0';
                 countT++;
             } else {
                 log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);

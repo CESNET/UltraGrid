@@ -150,6 +150,12 @@ std::ostream& operator<<(std::ostream& os, const video_desc& desc)
         return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const codec_t& color_spec)
+{
+        os << get_codec_name(color_spec);
+        return os;
+}
+
 std::istream& operator>>(std::istream& is, video_desc& desc)
 {
         video_desc out;

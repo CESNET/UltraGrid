@@ -43,6 +43,7 @@
 #include "host.h"
 
 #include "debug.h"
+#include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
@@ -573,6 +574,8 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 s->play_audio = FALSE;
         }
 
+        keycontrol_register_key(get_module(get_root_module(parent), "control"), 'q', "execute exit", "quit");
+
         return (void *)s;
 }
 
@@ -803,6 +806,7 @@ static const struct video_display_info display_sdl_info = {
         display_sdl_get_property,
         display_sdl_put_audio_frame,
         display_sdl_reconfigure_audio,
+        true,
 };
 
 REGISTER_MODULE(sdl, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

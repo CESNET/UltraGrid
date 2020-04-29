@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET z.s.p.o.
+ * Copyright (c) 2014-2020 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,6 +166,17 @@ fromConnection:(AVCaptureConnection *)connection;
         }
 }
 
+#ifdef __MAC_10_14
+// http://anasambri.com/ios/accessing-camera-and-photos-in-ios.html
+static void (^cb)(BOOL) = ^void(BOOL granted) {
+        if (!granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                                //show alert
+                                });
+        }
+};
+#endif // defined __MAC_10_14
+
 - (id)initWithParams: (NSDictionary *) params
 {
         self = [super init];
@@ -173,6 +184,17 @@ fromConnection:(AVCaptureConnection *)connection;
 
 	m_t0 = chrono::steady_clock::now();
 	m_frames = 0;
+
+#ifdef __MAC_10_14
+        AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+        if (authorization_status == AVAuthorizationStatusRestricted ||
+                        authorization_status == AVAuthorizationStatusDenied) {
+                [NSException raise:@"Perimission denied" format:@"Application is not authorized to capture input!"];
+        }
+        if (authorization_status == AVAuthorizationStatusNotDetermined) {
+                [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:cb];
+        }
+#endif // defined __MAC_10_14
 
         NSError *error = nil;
 

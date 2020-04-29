@@ -95,6 +95,7 @@ struct state_decompress_j2k {
 
         mutex lock;
         queue<pair<char *, size_t>> decompressed_frames; ///< buffer, length
+        int pitch;
         pthread_t thread_id{};
         unsigned int max_queue_size; ///< maximal length of @ref decompressed_frames
         unsigned int max_in_frames; ///< maximal frames that can be "in progress"
@@ -211,6 +212,7 @@ static void * j2k_decompress_init(void)
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int queue_len = DEFAULT_MAX_QUEUE_SIZE;
         unsigned int encoder_in_frames = DEFAULT_MAX_IN_FRAMES;
+        int ret;
 
         if (get_commandline_param("j2k-dec-mem-limit")) {
                 mem_limit = unit_evaluate(get_commandline_param("j2k-dec-mem-limit"));
@@ -246,8 +248,8 @@ static void * j2k_decompress_init(void)
         CHECK_OK(cmpto_j2k_dec_cfg_create(s->decoder, &s->settings), "Error creating configuration",
                         goto error);
 
-        assert(pthread_create(&s->thread_id, NULL, decompress_j2k_worker,
-                                (void *) s) == 0);
+        ret = pthread_create(&s->thread_id, NULL, decompress_j2k_worker, (void *) s);
+        assert(ret == 0 && "Unable to create thread");
 
         return s;
 
@@ -284,52 +286,36 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_decompress_j2k *s = (struct state_decompress_j2k *) state;
 
-        /**
-         * @todo
-         * Different pitch can be fixed with custom output format (as for RGBA).
-         */
-        assert(out_codec == RGBA || pitch == vc_get_linesize(desc.width, out_codec));
-
         if (out_codec == VIDEO_CODEC_NONE) { // probe format
                 s->out_codec = VIDEO_CODEC_NONE;
                 s->desc = desc;
                 return true;
         }
 
-        enum cmpto_sample_format_type cmpto_sf;
-        bool found = false;
+        if (out_codec == R12L) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n");
+        }
+
+        enum cmpto_sample_format_type cmpto_sf = (cmpto_sample_format_type) 0;
 
         for(const auto &codec : codecs){
                 if(codec.ug_codec == out_codec){
-                        switch (out_codec) {
-                                case RGBA:
-                                        if (rshift == 0 && gshift == 8 && bshift == 16 &&
-                                                        pitch == vc_get_linesize(desc.width, out_codec)) {
-                                                cmpto_sf = codec.cmpto_sf;
-                                        } else {
-                                                cmpto_sf = (cmpto_sample_format_type) 0;
-                                        }
-                                        break;
-                                case R12L:
-                                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n"); /* fall through */
-                                default:
-                                        cmpto_sf = codec.cmpto_sf;
-                        }
+                        cmpto_sf = codec.cmpto_sf;
                         s->convert = codec.convert;
-                        found = true;
                         break;
                 }
         }
 
-        if(!found){
+        if (!cmpto_sf) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported output codec: %s\n",
                                 get_codec_name(out_codec));
                 abort();
         }
-        if (cmpto_sf) {
+
+        if (out_codec != RGBA || (rshift == 0 && gshift == 8 && bshift == 16)) {
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format_type(s->settings, cmpto_sf),
                                 "Error setting sample format type", return false);
-        } else { // RGBA with non-standard shift or pitch
+        } else { // RGBA with non-standard shift
                 if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
                                 "byte boundary is not supported.\n";
@@ -341,21 +327,23 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                         fmt[i].comp_index = i;
                         fmt[i].data_type = CMPTO_INT8;
                         fmt[i].offset = shifts[i] / 8;
-                        fmt[i].stride_x = 4;
-                        fmt[i].stride_y = pitch;
-                        fmt[i].bit_depth = 8;
+                        fmt[i].stride_x = get_bpp(out_codec);
+                        fmt[i].stride_y = vc_get_linesize(desc.width, out_codec);
+                        fmt[i].bit_depth = get_bits_per_component(out_codec);
                         fmt[i].bit_shift = 0;
                         fmt[i].is_or_combined = 0;
                         fmt[i].is_signed = 0;
                         fmt[i].sampling_factor_x = 1;
                         fmt[i].sampling_factor_y = 1;
                 }
+
                 CHECK_OK(cmpto_j2k_dec_cfg_set_samples_format(s->settings, fmt, 3),
                                 "Error setting sample format", return false);
         }
 
         s->desc = desc;
         s->out_codec = out_codec;
+        s->pitch = pitch;
 
         return true;
 }
@@ -444,8 +432,16 @@ return_previous:
         s->decompressed_frames.pop();
         lk.unlock();
 
-        memcpy(dst, decoded.first, max<size_t>(s->desc.height *
-                        vc_get_linesize(s->desc.width, s->out_codec), decoded.second));
+        int linesize = vc_get_linesize(s->desc.width, s->out_codec);
+        size_t frame_size = linesize * s->desc.height;
+        if (decoded.second != frame_size) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
+        }
+        if (decoded.second >= frame_size) {
+                for (size_t i = 0; i < s->desc.height; ++i) {
+                        memcpy(dst + i * s->pitch, decoded.first + i * linesize, linesize);
+                }
+        }
 
         free(decoded.first);
 

@@ -1160,7 +1160,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glutInitErrorFunc(glut_init_error_callback);
         if (setjmp(error_env) == 0) {
 #endif
-                glutInit(&uv_argc, uv_argv);
+                uvGlutInit(&uv_argc, uv_argv);
 #ifdef FREEGLUT
         } else {
                 exit_uv(EXIT_FAIL_DISPLAY);
@@ -1933,6 +1933,7 @@ static const struct video_display_info display_gl_info = {
         display_gl_get_property,
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
+        true,
 };
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

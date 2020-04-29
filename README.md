@@ -6,6 +6,7 @@ UltraGrid - A High Definition Collaboratory
 [![@ultragrid:matrix.org](https://img.shields.io/badge/Matrix-chat-black)](https://matrix.to/#/!IrTYOLJOmZIoTBiITI:matrix.org?via=matrix.org)
 [![Web Visit](https://img.shields.io/badge/web-visit-orange)](http://www.ultragrid.cz)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/2851/badge.svg)](https://scan.coverity.com/projects/2851)
+[![C/C++ CI](../../workflows/C%2FC%2B%2B%20CI/badge.svg)](../../actions)
 
 ![UltraGrid Logo](data/ultragrid-logo-text.png)
 

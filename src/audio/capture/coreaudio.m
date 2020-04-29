@@ -1,9 +1,9 @@
 /**
- * @file   audio/capture/coreaudio.c
+ * @file   audio/capture/coreaudio.m
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@
 
 #ifdef HAVE_COREAUDIO
 
+#include <AVFoundation/AVFoundation.h>
 #include <Availability.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
@@ -55,6 +56,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
+#include "audio/playback/coreaudio.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
@@ -192,43 +194,20 @@ static OSStatus InputProc(void *inRefCon,
 
 static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "coreaudio");
-        strcpy((*available_devices)[0].name, "Default OS X audio input");
-        *count = 1;
+        audio_ca_probe(available_devices, count, -1);
 }
 
 static void audio_cap_ca_help(const char *driver_name)
 {
         UNUSED(driver_name);
-        OSErr ret;
-        AudioDeviceID *dev_ids;
-        int dev_items;
-        int i;
-        UInt32 size;
+        struct device_info *available_devices;
+        int count;
+        audio_cap_ca_probe(&available_devices, &count);
 
-        printf("\tcoreaudio : default CoreAudio input\n");
-        ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
-        if(ret) goto error;
-        dev_ids = malloc(size);
-        dev_items = size / sizeof(AudioDeviceID);
-        ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
-        if(ret) goto error;
-
-        for(i = 0; i < dev_items; ++i)
-        {
-                char name[128];
-                
-                size = sizeof(name);
-                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
+        for (int i = 0; i < count; ++i) {
+                printf("\t%-13s: %s\n", available_devices[i].id, available_devices[i].name);
         }
-        free(dev_ids);
-
-        return;
-
-error:
-        fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
+        free(available_devices);
 }
 
 #define CHECK_OK(cmd, msg, action_failed) do { int ret = cmd; if (!ret) {\
@@ -237,6 +216,17 @@ error:
 }\
 } while(0)
 #define NOOP ((void)0)
+
+#ifdef __MAC_10_14
+// http://anasambri.com/ios/accessing-camera-and-photos-in-ios.html
+static void (^cb)(BOOL) = ^void(BOOL granted) {
+        if (!granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                                //show alert
+                                });
+        }
+};
+#endif // defined __MAC_10_14
 
 static void * audio_cap_ca_init(const char *cfg)
 {
@@ -257,8 +247,6 @@ static void * audio_cap_ca_init(const char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
-        s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
-
         size=sizeof(device);
         if(cfg != NULL) {
                 device = atoi(cfg);
@@ -266,10 +254,23 @@ static void * audio_cap_ca_init(const char *cfg)
                 ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultInputDevice, &size, &device);
                 if(ret) {
                         fprintf(stderr, "Error finding default input device.\n");
-                        goto error;
+                        return NULL;
                 }
         }
 
+#ifdef __MAC_10_14
+        AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+        if (authorization_status == AVAuthorizationStatusRestricted ||
+                        authorization_status == AVAuthorizationStatusDenied) {
+                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Application is not authorized to capture audio input!\n");
+                return NULL;
+        }
+        if (authorization_status == AVAuthorizationStatusNotDetermined) {
+                [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:cb];
+        }
+#endif // defined __MAC_10_14
+
+        s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->cv, NULL);
         s->boss_waiting = FALSE;

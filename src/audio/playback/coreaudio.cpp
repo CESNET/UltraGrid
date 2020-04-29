@@ -51,6 +51,7 @@
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
 #include <chrono>
+#include <cinttypes>
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
 #include <stdlib.h>
@@ -58,6 +59,7 @@
 
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/playback/coreaudio.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
@@ -256,45 +258,47 @@ error:
         return FALSE;
 }
 
-static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "coreaudio");
-        strcpy((*available_devices)[0].name, "Default OS X audio output");
+        snprintf((*available_devices)[0].id, sizeof (*available_devices)[0].id, "coreaudio");
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
+                        "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
         *count = 1;
-}
 
-static void audio_play_ca_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        OSErr ret;
+        int dev_count;
         AudioDeviceID *dev_ids;
-        int dev_items;
-        int i;
+        OSErr ret;
         UInt32 size;
         AudioObjectPropertyAddress propertyAddress;
 
-        cout << style::bold << "\tcoreaudio" << style::reset << ": default CoreAudio output\n";
         propertyAddress.mSelector = kAudioHardwarePropertyDevices;
         propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
         propertyAddress.mElement = kAudioObjectPropertyElementMaster;
         ret = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size);
-        if(ret) goto error;
+        if (ret) {
+                goto error;
+        }
         dev_ids = (AudioDeviceID *) malloc(size);
-        dev_items = size / sizeof(AudioDeviceID);
+        dev_count = size / sizeof(AudioDeviceID);
         ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, dev_ids);
-        if(ret) goto error;
+        if (ret) {
+                goto error;
+        }
 
-        for(i = 0; i < dev_items; ++i)
-        {
+        *count = dev_count + 1;
+        *available_devices = (struct device_info *) realloc(*available_devices, *count * sizeof(struct device_info));
+
+        for (int i = 0; i < dev_count; ++i) {
                 CFStringRef deviceName = NULL;
-                char cname[128] = "";
 
                 size = sizeof(deviceName);
                 propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
                 ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
-                CFStringGetCString(deviceName, (char *) cname, sizeof cname, kCFStringEncodingMacRoman);
-                cout << style::bold << "\tcoreaudio:" << dev_ids[i] << style::reset << ": " << cname << "\n";
+                CFStringGetCString(deviceName, (char *) (*available_devices)[i + 1].name,
+                                sizeof (*available_devices)[i + 1].name, kCFStringEncodingMacRoman);
+                snprintf((*available_devices)[i + 1].id, sizeof (*available_devices)[i + 1].id,
+                                "coreaudio:%" PRIu32, dev_ids[i]);
                 CFRelease(deviceName);
         }
         free(dev_ids);
@@ -304,6 +308,25 @@ static void audio_play_ca_help(const char *driver_name)
 error:
         fprintf(stderr, "[CoreAudio] error obtaining device list.\n");
 }
+
+static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+{
+        audio_ca_probe(available_devices, count, 1);
+}
+
+static void audio_play_ca_help(const char *driver_name)
+{
+        UNUSED(driver_name);
+        struct device_info *available_devices;
+        int count;
+        audio_play_ca_probe(&available_devices, &count);
+
+        for (int i = 0; i < count; ++i) {
+                printf("\t%-13s: %s\n", available_devices[i].id, available_devices[i].name);
+        }
+        free(available_devices);
+}
+
 
 static void * audio_play_ca_init(const char *cfg)
 {
