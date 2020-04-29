@@ -60,8 +60,7 @@
 #undef RGBA
 
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
-#define SEM_KEY 5004
-#define SHM_KEY 5004
+#define KEY "UltraGrid-SHM"
 #define SHM_VERSION 6
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
@@ -83,6 +82,7 @@ struct shm {
 
 struct state_vidcap_shm {
         uint32_t magic;
+        key_t key;
         struct video_frame *f;
         struct shm *shm;
 	int shm_id;
@@ -128,6 +128,17 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
+        char key_path[1024];
+        snprintf(key_path, sizeof key_path, "/tmp/%s-%" PRIdMAX, KEY, (intmax_t) getuid());
+
+        int fd = open(key_path, O_WRONLY | O_CREAT, 0600);
+        if (fd == -1) {
+                perror("create key file");
+                log_msg(LOG_LEVEL_ERROR, "Cannot create %s\n", key_path);
+                return VIDCAP_INIT_FAIL;
+        }
+        close(fd);
+
         struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
         s->magic = MAGIC;
         if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
@@ -151,12 +162,17 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         } else {
                 size = offsetof(struct shm, data[MAX_BUF_LEN]);
         }
-        if ((s->shm_id = shmget(SHM_KEY, size, IPC_CREAT | 0666)) == -1) {
+        s->key = ftok(key_path, 1);
+        if (s->key == -1) {
+                perror("ftok");
+                goto error;
+        }
+        if ((s->shm_id = shmget(s->key, size, IPC_CREAT | 0666)) == -1) {
                 if (errno != EEXIST) {
                         perror("shmget");
                         if (errno == EINVAL) {
                                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -M %lld", (long long) SHM_KEY, (long long) SHM_KEY);
+                                                "key %lld:\n ipcrm -M %lld", (long long) s->key, (long long) s->key);
                         }
                         goto error;
                 }
@@ -170,13 +186,13 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         s->shm->ug_exited = 0;
         s->shm->use_gpu = s->use_gpu;
         s->shm->pkt.frame = -1;
-        s->sem_id = semget(SEM_KEY, 3, IPC_CREAT | 0666);
+        s->sem_id = semget(s->key, 3, IPC_CREAT | 0666);
         if (s->sem_id == -1) {
                 if (errno != EEXIST) {
                         perror("semget");
                         if (errno == EINVAL) {
                                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -S %lld", (long long) SEM_KEY, (long long) SEM_KEY);
+                                                "key %lld:\n ipcrm -S %lld", (long long) s->key, (long long) s->key);
                         }
                         goto error;
                 }
