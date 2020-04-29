@@ -109,6 +109,7 @@ COMMON_OBJS     = \
 		src/compat/alarm.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
+		src/compat/platform_ipc.o \
 		src/compat/platform_pipe.o \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_spin.o \

@@ -45,9 +45,8 @@
 #include <cuda_runtime.h>
 #endif
 #include <stdbool.h>
-#include <sys/sem.h>
-#include <sys/shm.h>
 
+#include "compat/platform_ipc.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
@@ -80,13 +79,16 @@ struct shm {
         char data[];
 };
 
+#define READY_TO_CONSUME_FRAME 0
+#define FRAME_READY 1
+#define SHOULD_EXIT_LOCK 2
+
 struct state_vidcap_shm {
         uint32_t magic;
-        key_t key;
         struct video_frame *f;
         struct shm *shm;
-	int shm_id;
-        int sem_id; ///< 3 semaphores: [ready_to_consume_frame, frame_ready, should_exit_lock]
+        platform_ipc_shm_t shm_id;
+        platform_ipc_sem_t sem_id[3]; ///< 3 semaphores: [ready_to_consume_frame, frame_ready, should_exit_lock]
         bool use_gpu;
         struct module *parent;
         bool should_exit;
@@ -106,14 +108,7 @@ static void vidcap_shm_should_exit(void *arg) {
         assert(s->magic == MAGIC);
         s->should_exit = true;
 
-        struct sembuf op;
-        op.sem_num = 1;
-        op.sem_op = 1;
-        op.sem_flg = 0;
-        if (semop(s->sem_id, &op, 1) < 0) {
-                perror("semop");
-                abort();
-        }
+        platform_ipc_sem_post(s->sem_id[FRAME_READY]);
 }
 
 #define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { log_msg(LOG_LEVEL_ERROR, "%s: %s\n", #cmd, cudaGetErrorString(err)); goto error; } } while(0)
@@ -127,17 +122,6 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 show_help();
                 return VIDCAP_INIT_NOERR;
         }
-
-        char key_path[1024];
-        snprintf(key_path, sizeof key_path, "/tmp/%s-%" PRIdMAX, KEY, (intmax_t) getuid());
-
-        int fd = open(key_path, O_WRONLY | O_CREAT, 0600);
-        if (fd == -1) {
-                perror("create key file");
-                log_msg(LOG_LEVEL_ERROR, "Cannot create %s\n", key_path);
-                return VIDCAP_INIT_FAIL;
-        }
-        close(fd);
 
         struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
         s->magic = MAGIC;
@@ -162,23 +146,11 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         } else {
                 size = offsetof(struct shm, data[MAX_BUF_LEN]);
         }
-        s->key = ftok(key_path, 1);
-        if (s->key == -1) {
-                perror("ftok");
+        if ((s->shm_id = platform_ipc_shm_create(KEY, size)) == PLATFORM_IPC_ERR) {
                 goto error;
         }
-        if ((s->shm_id = shmget(s->key, size, IPC_CREAT | 0666)) == -1) {
-                if (errno != EEXIST) {
-                        perror("shmget");
-                        if (errno == EINVAL) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -M %lld", (long long) s->key, (long long) s->key);
-                        }
-                        goto error;
-                }
-        }
-        s->shm = shmat(s->shm_id, NULL, 0);
-        if (s->shm == (void *) -1) {
+        s->shm = platform_ipc_shm_attach(s->shm_id);
+        if (s->shm == (void *) PLATFORM_IPC_ERR) {
                 perror("shmat");
                 goto error;
         }
@@ -186,14 +158,9 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         s->shm->ug_exited = 0;
         s->shm->use_gpu = s->use_gpu;
         s->shm->pkt.frame = -1;
-        s->sem_id = semget(s->key, 3, IPC_CREAT | 0666);
-        if (s->sem_id == -1) {
-                if (errno != EEXIST) {
-                        perror("semget");
-                        if (errno == EINVAL) {
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -S %lld", (long long) s->key, (long long) s->key);
-                        }
+        for (int i = 0; i < 3; ++i) {
+                s->sem_id[i] = platform_ipc_sem_create(KEY, i + 1);
+                if (s->sem_id[i] == PLATFORM_IPC_ERR) {
                         goto error;
                 }
         }
@@ -207,14 +174,9 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 s->f->tiles[0].data = s->shm->data;
         }
 
-        struct sembuf op[] = {
-                { .sem_num = 0, .sem_op = 1, .sem_flg = 0 },
-                { .sem_num = 2, .sem_op = 1, .sem_flg = 0 }
-        };
-        if (semop(s->sem_id, op, 2) < 0) {
-                perror("semop");
-                goto error;
-        }
+        // initialize semaphores
+        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
         register_should_exit_callback(s->parent, vidcap_shm_should_exit, s);
         pthread_mutex_init(&s->render_pkt_lock, NULL);
@@ -233,18 +195,11 @@ static void vidcap_shm_done(void *state)
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
 
-        struct sembuf op =
-                { .sem_num = 2, .sem_op = -1, .sem_flg = 0 };
-        if (semop(s->sem_id, &op, 1) < 0) {
-                perror("semop");
-        }
+        platform_ipc_sem_wait(s->sem_id[SHOULD_EXIT_LOCK]);
 
         s->shm->ug_exited = true;
 
-        op.sem_op = 1;
-        if (semop(s->sem_id, &op, 1) < 0) {
-                perror("semop");
-        }
+        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
         if (s->use_gpu) {
 #ifdef HAVE_CUDA
@@ -256,12 +211,10 @@ static void vidcap_shm_done(void *state)
         // We are deleting the IPC primitives here. Calls on such primitives will
         // then fail inside the plugin. If it is waiting on the semaphore 0, the
         // call gets interrupted.
-	if (shmctl(s->shm_id, IPC_RMID , 0) == -1) {
-		perror("shmctl");
-	}
-	if (semctl(s->sem_id, IPC_RMID , 0) == -1) {
-		perror("semctl");
-	}
+        platform_ipc_shm_done(s->shm_id);
+        for (int i = 0; i < 3; ++i) {
+                platform_ipc_sem_done(s->sem_id[i]);
+        }
         pthread_mutex_destroy(&s->render_pkt_lock);
         free(s);
 }
@@ -270,21 +223,13 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 {
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
-        struct sembuf op;
 
         if (s->should_exit) {
                 return NULL;
         }
 
         // wait for frame
-        op.sem_num = 1;
-        op.sem_op = -1;
-        op.sem_flg = 0;
-        if (semop(s->sem_id, &op, 1) < 0) {
-                perror("semop");
-                *audio = NULL;
-                return NULL;
-        }
+        platform_ipc_sem_wait(s->sem_id[FRAME_READY]);
 
         if (s->should_exit) {
                 return NULL;
@@ -300,14 +245,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         pthread_mutex_unlock(&s->render_pkt_lock);
 
         // we are ready to take another frame
-        op.sem_num = 0;
-        op.sem_op = 1;
-        op.sem_flg = 0;
-        if (semop(s->sem_id, &op, 1) < 0) {
-                perror("semop");
-                *audio = NULL;
-                return NULL;
-        }
+        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
 
         return s->f;
 }
