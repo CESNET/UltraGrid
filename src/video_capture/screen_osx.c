@@ -79,15 +79,10 @@ struct vidcap_screen_osx_state {
 
         struct timeval prev_time;
 
-        double fps;
-
         bool initialized;
 };
 
 static void initialize(struct vidcap_screen_osx_state *s) {
-        s->frame = vf_alloc(1);
-        s->tile = vf_get_tile(s->frame, 0);
-
         s->display = CGMainDisplayID();
         CGImageRef image = CGDisplayCreateImage(s->display);
 
@@ -95,23 +90,8 @@ static void initialize(struct vidcap_screen_osx_state *s) {
         s->tile->height = CGImageGetHeight(image);
         CFRelease(image);
 
-        s->frame->color_spec = RGB;
-        if(s->fps > 0.0) {
-                s->frame->fps = s->fps;
-        } else {
-                s->frame->fps = 30;
-        }
-        s->frame->interlacing = PROGRESSIVE;
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-
         s->tile->data = (char *) malloc(s->tile->data_len);
-
-        return;
-
-        goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
-error:
-        fprintf(stderr, "[Screen cap.] Initialization failed!\n");
-        exit_uv(EXIT_FAILURE);
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
@@ -172,7 +152,11 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
 
         gettimeofday(&s->t0, NULL);
 
-        s->fps = 0.0;
+        s->frame = vf_alloc(1);
+        s->frame->color_spec = RGB;
+        s->frame->fps = 30;
+        s->frame->interlacing = PROGRESSIVE;
+        s->tile = vf_get_tile(s->frame, 0);
 
         s->frame = NULL;
         s->tile = NULL;
@@ -187,7 +171,7 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
                         show_help();
                         return VIDCAP_INIT_NOERR;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
-                        s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));
+                        s->frame->fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
                 }
         }
 
@@ -237,15 +221,12 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
         CFRelease(data);
         CFRelease(image);
 
-        if(s->fps > 0.0) {
-                struct timeval cur_time;
-
+        struct timeval cur_time;
+        gettimeofday(&cur_time, NULL);
+        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
                 gettimeofday(&cur_time, NULL);
-                while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
-                        gettimeofday(&cur_time, NULL);
-                }
-                s->prev_time = cur_time;
         }
+        s->prev_time = cur_time;
 
         gettimeofday(&s->t, NULL);
         double seconds = tv_diff(s->t, s->t0);        
