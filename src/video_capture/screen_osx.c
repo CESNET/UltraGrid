@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET, z.s.p.o.
+ * Copyright (c) 2012-2020 CESNET, z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -95,7 +95,7 @@ static void initialize(struct vidcap_screen_osx_state *s) {
         s->tile->height = CGImageGetHeight(image);
         CFRelease(image);
 
-        s->frame->color_spec = RGBA;
+        s->frame->color_spec = RGB;
         if(s->fps > 0.0) {
                 s->frame->fps = s->fps;
         } else {
@@ -225,14 +225,15 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
         CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
         const unsigned char *pixels = CFDataGetBytePtr(data);
 
-        int linesize = s->tile->width * 4;
+        int src_linesize = s->tile->width * 4;
+        int dst_linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
         int y;
         unsigned char *dst = (unsigned char *) s->tile->data;
         const unsigned char *src = (const unsigned char *) pixels;
         for(y = 0; y < (int) s->tile->height; ++y) {
-                vc_copylineRGBA (dst, src, linesize, 16, 8, 0);
-                src += linesize;
-                dst += linesize;
+                vc_copylineRGBAtoRGBwithShift(dst, src, dst_linesize, 16, 8, 0);
+                src += src_linesize;
+                dst += dst_linesize;
         }
 
         CFRelease(data);
