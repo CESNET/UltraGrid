@@ -41,7 +41,9 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#ifdef HAVE_CUDA
 #include <cuda_runtime.h>
+#endif
 #include <stdbool.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
@@ -63,11 +65,16 @@
 #define SHM_VERSION 6
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
+#define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
+
+#ifdef HAVE_CUDA
+static_assert(UG_CUDA_IPC_HANDLE_SIZE == CUDA_IPC_HANDLE_SIZE);
+#endif
 
 struct shm {
         int version; ///< this struct version, must be SHM_VERSION
         int width, height;
-        cudaIpcMemHandle_t d_ptr;
+        char cuda_ipc_mem_handle[UG_CUDA_IPC_HANDLE_SIZE];
         int ug_exited;
         int use_gpu;
         struct RenderPacket pkt;
@@ -178,7 +185,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         if (s->use_gpu) {
 #ifdef HAVE_CUDA
                 CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
-                CUDA_CHECK(cudaIpcGetMemHandle (&s->shm->d_ptr, s->f->tiles[0].data));
+                CUDA_CHECK(cudaIpcGetMemHandle ((cudaIpcMemHandle_t *) &s->shm->cuda_ipc_mem_handle, s->f->tiles[0].data));
 #endif
         } else {
                 s->f->tiles[0].data = s->shm->data;
@@ -224,7 +231,9 @@ static void vidcap_shm_done(void *state)
         }
 
         if (s->use_gpu) {
+#ifdef HAVE_CUDA
                 cudaFree(s->f->tiles[0].data);
+#endif
         }
         vf_free(s->f);
 

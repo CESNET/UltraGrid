@@ -2191,7 +2191,7 @@ AC_ARG_ENABLE(shm-cap,
 	[shm_cap_req=$enableval],
         [shm_cap_req=$build_default])
 
-if test $shm_cap_req != no -a $system = Linux; then
+if test $shm_cap_req != no -a \( $system = Linux -o $system = Windows \); then
         AC_DEFINE([HAVE_SHM], [1], [Build with SHM video capture])
         ADD_MODULE("vidcap_shm", "src/video_capture/shm.o", "$CUDA_LIB")
         shm_cap=yes
