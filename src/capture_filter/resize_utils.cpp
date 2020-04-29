@@ -70,6 +70,10 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
         rgb.create(height, width, CV_8UC3);
         rgb.data = (uchar*)indata;
         return rgb;
+    case RGBA:
+        cv_color = CV_RGBA2RGB;
+        pix_fmt = CV_8UC4;
+        break;
     case I420:
         pix_fmt = CV_8U;
         num = 3;
