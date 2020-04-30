@@ -111,7 +111,7 @@ jobs:
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
     - name: configure
-      run: ./autogen.sh --enable-qt --with-live555=/usr/local
+      run: ARCH=-msse4.2 ./autogen.sh --enable-qt --with-live555=/usr/local
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
