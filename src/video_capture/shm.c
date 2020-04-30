@@ -44,6 +44,7 @@
 #ifdef HAVE_CUDA
 #include <cuda_runtime.h>
 #endif
+#include <assert.h>
 #include <stdbool.h>
 
 #include "compat/platform_ipc.h"
@@ -65,8 +66,8 @@
 #define MOD_NAME "[shm] "
 #define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
 
-#ifdef HAVE_CUDA
-static_assert(UG_CUDA_IPC_HANDLE_SIZE == CUDA_IPC_HANDLE_SIZE);
+#if defined HAVE_CUDA && (defined __cplusplus || defined static_assert)
+static_assert(UG_CUDA_IPC_HANDLE_SIZE == CUDA_IPC_HANDLE_SIZE, "CUDA IPC handle doesn't match expected size!");
 #endif
 
 struct shm {
@@ -247,6 +248,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         // we are ready to take another frame
         platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
 
+        *audio = NULL;
         return s->f;
 }
 
