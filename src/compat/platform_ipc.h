@@ -45,8 +45,10 @@
 #endif // defined __cplusplus
 
 #ifdef _WIN32
+#include <windows.h>
 typedef HANDLE platform_ipc_shm_t;
 typedef HANDLE platform_ipc_sem_t;
+#define PLATFORM_IPC_ERR NULL
 #else // Linux
 typedef int platform_ipc_shm_t;
 typedef int platform_ipc_sem_t;
@@ -63,9 +65,9 @@ extern "C" {
  */
 platform_ipc_shm_t platform_ipc_shm_create(const char *id, size_t size);
 platform_ipc_shm_t platform_ipc_shm_open(const char *id, size_t size);
-void *platform_ipc_shm_attach(platform_ipc_shm_t handle);
+void *platform_ipc_shm_attach(platform_ipc_shm_t handle, size_t size);
 void platform_ipc_shm_detach(void *ptr);
-void platform_ipc_shm_destroy(platform_ipc_shm_t handle);
+void platform_ipc_shm_done(platform_ipc_shm_t handle, bool destroy);
 
 /**
  * @param index   index of semaphore for unique ID (see ftok(), param proj_id),
@@ -75,7 +77,7 @@ platform_ipc_sem_t platform_ipc_sem_create(const char *id, int index);
 platform_ipc_sem_t platform_ipc_sem_open(const char *id, int index);
 bool platform_ipc_sem_post(platform_ipc_sem_t handle);
 bool platform_ipc_sem_wait(platform_ipc_sem_t handle);
-void platform_ipc_sem_destroy(platform_ipc_sem_t handle);
+void platform_ipc_sem_done(platform_ipc_sem_t handle, bool destroy);
 
 #ifdef __cplusplus
 }

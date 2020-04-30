@@ -61,7 +61,7 @@
 
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
 #define KEY "UltraGrid-SHM"
-#define SHM_VERSION 6
+#define SHM_VERSION 7
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 #define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
@@ -147,16 +147,11 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
 
         s->f = vf_alloc_desc(desc);
 
-        size_t size;
-        if (s->use_gpu) {
-                size = sizeof(struct shm);
-        } else {
-                size = offsetof(struct shm, data[MAX_BUF_LEN]);
-        }
+        size_t size = offsetof(struct shm, data[MAX_BUF_LEN]);
         if ((s->shm_id = platform_ipc_shm_create(KEY, size)) == PLATFORM_IPC_ERR) {
                 goto error;
         }
-        s->shm = platform_ipc_shm_attach(s->shm_id);
+        s->shm = platform_ipc_shm_attach(s->shm_id, size);
         if (s->shm == (void *) PLATFORM_IPC_ERR) {
                 perror("shmat");
                 goto error;
@@ -210,11 +205,11 @@ static void vidcap_shm_cleanup(struct state_vidcap_shm *s)
         // then fail inside the plugin. If it is waiting on the semaphore 0, the
         // call gets interrupted.
         if (s->shm_id != PLATFORM_IPC_ERR) {
-                platform_ipc_shm_destroy(s->shm_id);
+                platform_ipc_shm_done(s->shm_id, true);
         }
         for (int i = 0; i < 3; ++i) {
                 if (s->sem_id[i] != PLATFORM_IPC_ERR) {
-                        platform_ipc_sem_destroy(s->sem_id[i]);
+                        platform_ipc_sem_done(s->sem_id[i], true);
                 }
         }
         pthread_mutex_destroy(&s->render_pkt_lock);
@@ -226,11 +221,12 @@ static void vidcap_shm_done(void *state)
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
         assert(s->magic == MAGIC);
 
-        platform_ipc_sem_wait(s->sem_id[SHOULD_EXIT_LOCK]);
-
         s->shm->ug_exited = true;
 
-        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
+        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+
+        platform_ipc_sem_wait(s->sem_id[SHOULD_EXIT_LOCK]); // wait for consumer to finish
+        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]); // in case of wrong race condition
 
         vidcap_shm_cleanup(s);
 }
@@ -255,6 +251,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 
         s->f->tiles[0].width = s->shm->width;
         s->f->tiles[0].height = s->shm->height;
+        s->f->tiles[0].data_len = vc_get_datalen(s->shm->width, s->shm->height, s->f->color_spec);
 
         pthread_mutex_lock(&s->render_pkt_lock);
         if (s->render_pkt.frame != (unsigned int) -1) {
@@ -264,6 +261,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 
         // we are ready to take another frame
         platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
         *audio = NULL;
         return s->f;
