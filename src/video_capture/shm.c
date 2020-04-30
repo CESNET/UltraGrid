@@ -98,6 +98,8 @@ struct state_vidcap_shm {
         pthread_mutex_t render_pkt_lock;
 };
 
+static void vidcap_shm_cleanup(struct state_vidcap_shm *s);
+
 static void show_help() {
         printf("Usage:\n");
         color_out(COLOR_OUT_BOLD, "\t-t cuda|shm\n");
@@ -126,6 +128,10 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
 
         struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
         s->magic = MAGIC;
+        s->shm_id = PLATFORM_IPC_ERR;
+        for (int i = 0; i < 3; ++i) {
+                s->sem_id[i] = PLATFORM_IPC_ERR;
+        }
         if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
                 s->use_gpu = true;
         }
@@ -187,8 +193,32 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         return VIDCAP_INIT_OK;
 
 error:
-        free(s);
+        vidcap_shm_cleanup(s);
         return VIDCAP_INIT_FAIL;
+}
+
+static void vidcap_shm_cleanup(struct state_vidcap_shm *s)
+{
+        if (s->use_gpu) {
+#ifdef HAVE_CUDA
+                cudaFree(s->f->tiles[0].data);
+#endif
+        }
+        vf_free(s->f);
+
+        // We are deleting the IPC primitives here. Calls on such primitives will
+        // then fail inside the plugin. If it is waiting on the semaphore 0, the
+        // call gets interrupted.
+        if (s->shm_id != PLATFORM_IPC_ERR) {
+                platform_ipc_shm_destroy(s->shm_id);
+        }
+        for (int i = 0; i < 3; ++i) {
+                if (s->sem_id[i] != PLATFORM_IPC_ERR) {
+                        platform_ipc_sem_destroy(s->sem_id[i]);
+                }
+        }
+        pthread_mutex_destroy(&s->render_pkt_lock);
+        free(s);
 }
 
 static void vidcap_shm_done(void *state)
@@ -202,22 +232,7 @@ static void vidcap_shm_done(void *state)
 
         platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
-        if (s->use_gpu) {
-#ifdef HAVE_CUDA
-                cudaFree(s->f->tiles[0].data);
-#endif
-        }
-        vf_free(s->f);
-
-        // We are deleting the IPC primitives here. Calls on such primitives will
-        // then fail inside the plugin. If it is waiting on the semaphore 0, the
-        // call gets interrupted.
-        platform_ipc_shm_done(s->shm_id);
-        for (int i = 0; i < 3; ++i) {
-                platform_ipc_sem_done(s->sem_id[i]);
-        }
-        pthread_mutex_destroy(&s->render_pkt_lock);
-        free(s);
+        vidcap_shm_cleanup(s);
 }
 
 static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **audio)
@@ -230,7 +245,9 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         }
 
         // wait for frame
-        platform_ipc_sem_wait(s->sem_id[FRAME_READY]);
+        if (!platform_ipc_sem_wait(s->sem_id[FRAME_READY])) {
+                return NULL;
+        }
 
         if (s->should_exit) {
                 return NULL;

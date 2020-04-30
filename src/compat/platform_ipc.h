@@ -65,7 +65,7 @@ platform_ipc_shm_t platform_ipc_shm_create(const char *id, size_t size);
 platform_ipc_shm_t platform_ipc_shm_open(const char *id, size_t size);
 void *platform_ipc_shm_attach(platform_ipc_shm_t handle);
 void platform_ipc_shm_detach(void *ptr);
-void platform_ipc_shm_done(platform_ipc_shm_t handle);
+void platform_ipc_shm_destroy(platform_ipc_shm_t handle);
 
 /**
  * @param index   index of semaphore for unique ID (see ftok(), param proj_id),
@@ -75,7 +75,7 @@ platform_ipc_sem_t platform_ipc_sem_create(const char *id, int index);
 platform_ipc_sem_t platform_ipc_sem_open(const char *id, int index);
 bool platform_ipc_sem_post(platform_ipc_sem_t handle);
 bool platform_ipc_sem_wait(platform_ipc_sem_t handle);
-void platform_ipc_sem_done(platform_ipc_sem_t handle);
+void platform_ipc_sem_destroy(platform_ipc_sem_t handle);
 
 #ifdef __cplusplus
 }

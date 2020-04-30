@@ -86,12 +86,11 @@ static platform_ipc_shm_t platform_ipc_shm_open_common(const char *id, size_t si
         int handle;
 
         if ((handle = shmget(key, size, shmflg)) == -1) {
-                if (errno != EEXIST) {
-                        perror("shmget");
-                        if (errno == EINVAL) {
-                                fprintf(stderr, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -M %lld", (long long) key, (long long) key);
-                        }
+                perror("shmget");
+                if (errno == EEXIST) {
+                        fprintf(stderr, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
+                                        "key %" PRIdMAX ":\n\n\tipcrm -M %" PRIdMAX "\n",
+                                        (intmax_t) key, (intmax_t) key);
                 }
                 return -1;
         }
@@ -101,7 +100,7 @@ static platform_ipc_shm_t platform_ipc_shm_open_common(const char *id, size_t si
 
 platform_ipc_shm_t platform_ipc_shm_create(const char *id, size_t size)
 {
-        return platform_ipc_shm_open_common(id, size, IPC_CREAT | 0666);
+        return platform_ipc_shm_open_common(id, size, IPC_CREAT | IPC_EXCL | 0666);
 }
 
 platform_ipc_shm_t platform_ipc_shm_open(const char *id, size_t size)
@@ -125,11 +124,11 @@ void platform_ipc_shm_detach(void *ptr)
         }
 }
 
-void platform_ipc_shm_done(platform_ipc_shm_t handle)
+void platform_ipc_shm_destroy(platform_ipc_shm_t handle)
 {
         if (shmctl(handle, IPC_RMID , 0) == -1) {
-		perror("shmctl");
-	}
+                perror("shmctl");
+        }
 }
 
 //
@@ -146,12 +145,11 @@ static platform_ipc_sem_t platform_ipc_sem_open_common(const char *id, int index
 
         int handle = semget(key, 1, semflg);
         if (handle == -1) {
-                if (errno != EEXIST) {
-                        perror("semget");
-                        if (errno == EINVAL) {
-                                fprintf(stderr, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
-                                                "key %lld:\n ipcrm -S %lld", (long long) key, (long long) key);
-                        }
+                perror("semget");
+                if (errno == EEXIST) {
+                        fprintf(stderr, MOD_NAME "Try to remove it with \"ipcrm\" (see \"ipcs\"), "
+                                        "key %" PRIdMAX ":\n\n\tipcrm -S %" PRIdMAX "\n",
+                                        (intmax_t) key, (intmax_t) key);
                 }
                 return -1;
         }
@@ -160,7 +158,7 @@ static platform_ipc_sem_t platform_ipc_sem_open_common(const char *id, int index
 
 platform_ipc_sem_t platform_ipc_sem_create(const char *id, int index)
 {
-        return platform_ipc_sem_open_common(id, index, IPC_CREAT | 0666);
+        return platform_ipc_sem_open_common(id, index, IPC_CREAT | IPC_EXCL | 0666);
 }
 
 platform_ipc_sem_t platform_ipc_sem_open(const char *id, int index)
@@ -194,7 +192,7 @@ bool platform_ipc_sem_wait(platform_ipc_sem_t handle)
         return true;
 }
 
-void platform_ipc_sem_done(platform_ipc_sem_t handle)
+void platform_ipc_sem_destroy(platform_ipc_sem_t handle)
 {
 	if (semctl(handle, IPC_RMID , 0) == -1) {
 		perror("semctl");
