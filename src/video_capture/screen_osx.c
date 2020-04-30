@@ -59,15 +59,19 @@
 
 #include <Carbon/Carbon.h>
 
+#define MOD_NAME "[screen cap mac] "
+
 /* prototypes of functions defined in this module */
 static void show_help(void);
+static void vidcap_screen_osx_done(void *state);
 
 static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>]\n");
+        printf("\t-t screen[:fps=<fps>][:codec=<c>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
+        printf("\t\t <c>  - requested codec to capture (RGB /default/ or RGBA)\n");
 }
 
 struct vidcap_screen_osx_state {
@@ -76,6 +80,7 @@ struct vidcap_screen_osx_state {
         int frames;
         struct       timeval t, t0;
         CGDirectDisplayID display;
+        decoder_t       decode; ///< decoder, must accept BGRA (different shift)
 
         struct timeval prev_time;
 
@@ -142,7 +147,7 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 
-        s = (struct vidcap_screen_osx_state *) malloc(sizeof(struct vidcap_screen_osx_state));
+        s = (struct vidcap_screen_osx_state *) calloc(1, sizeof(struct vidcap_screen_osx_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
                 return VIDCAP_INIT_FAIL;
@@ -158,21 +163,28 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
         s->frame->interlacing = PROGRESSIVE;
         s->tile = vf_get_tile(s->frame, 0);
 
-        s->frame = NULL;
-        s->tile = NULL;
-
-        s->prev_time.tv_sec = 
-                s->prev_time.tv_usec = 0;
-
-        s->frames = 0;
-
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
                         return VIDCAP_INIT_NOERR;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
                         s->frame->fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
+                } else if (strncasecmp(vidcap_params_get_fmt(params), "codec=", strlen("codec=")) == 0) {
+                        s->frame->color_spec = get_codec_from_name(vidcap_params_get_fmt(params) + strlen("codec="));
                 }
+        }
+
+        switch (s->frame->color_spec) {
+        case RGB:
+                s->decode = vc_copylineRGBAtoRGBwithShift;
+                break;
+        case RGBA:
+                s->decode = vc_copylineRGBA;
+                break;
+        default:
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only RGB and RGBA are currently supported!\n");
+                vidcap_screen_osx_done(s);
+                return VIDCAP_INIT_FAIL;
         }
 
         *state = s;
@@ -213,7 +225,7 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
         unsigned char *dst = (unsigned char *) s->tile->data;
         const unsigned char *src = (const unsigned char *) pixels;
         for(y = 0; y < (int) s->tile->height; ++y) {
-                vc_copylineRGBAtoRGBwithShift(dst, src, dst_linesize, 16, 8, 0);
+                s->decode(dst, src, dst_linesize, 16, 8, 0);
                 src += src_linesize;
                 dst += dst_linesize;
         }
