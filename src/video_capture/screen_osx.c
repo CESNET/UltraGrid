@@ -75,8 +75,7 @@ static void show_help()
 }
 
 struct vidcap_screen_osx_state {
-        struct video_frame       *frame; 
-        struct tile       *tile; 
+        struct video_desc desc;
         int frames;
         struct       timeval t, t0;
         CGDirectDisplayID display;
@@ -91,12 +90,9 @@ static void initialize(struct vidcap_screen_osx_state *s) {
         s->display = CGMainDisplayID();
         CGImageRef image = CGDisplayCreateImage(s->display);
 
-        s->tile->width = CGImageGetWidth(image);
-        s->tile->height = CGImageGetHeight(image);
+        s->desc.width = CGImageGetWidth(image);
+        s->desc.height = CGImageGetHeight(image);
         CFRelease(image);
-
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-        s->tile->data = (char *) malloc(s->tile->data_len);
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
@@ -157,24 +153,23 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
 
         gettimeofday(&s->t0, NULL);
 
-        s->frame = vf_alloc(1);
-        s->frame->color_spec = RGB;
-        s->frame->fps = 30;
-        s->frame->interlacing = PROGRESSIVE;
-        s->tile = vf_get_tile(s->frame, 0);
+        s->desc.tile_count = 1;
+        s->desc.color_spec = RGB;
+        s->desc.fps = 30;
+        s->desc.interlacing = PROGRESSIVE;
 
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
                         return VIDCAP_INIT_NOERR;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
-                        s->frame->fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
+                        s->desc.fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "codec=", strlen("codec=")) == 0) {
-                        s->frame->color_spec = get_codec_from_name(vidcap_params_get_fmt(params) + strlen("codec="));
+                        s->desc.color_spec = get_codec_from_name(vidcap_params_get_fmt(params) + strlen("codec="));
                 }
         }
 
-        switch (s->frame->color_spec) {
+        switch (s->desc.color_spec) {
         case RGB:
                 s->decode = vc_copylineRGBAtoRGBwithShift;
                 break;
@@ -197,10 +192,6 @@ static void vidcap_screen_osx_done(void *state)
 
         assert(s != NULL);
 
-        if(s->tile) {
-                free(s->tile->data);
-        }
-        vf_free(s->frame);
         free(s);
 }
 
@@ -213,18 +204,21 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
                 s->initialized = true;
         }
 
+        struct video_frame *frame = vf_alloc_desc_data(s->desc);
+        struct tile *tile = vf_get_tile(frame, 0);
+        frame->callbacks.dispose = vf_free;
+
         *audio = NULL;
 
         CGImageRef image = CGDisplayCreateImage(s->display);
         CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
         const unsigned char *pixels = CFDataGetBytePtr(data);
 
-        int src_linesize = s->tile->width * 4;
-        int dst_linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
-        int y;
-        unsigned char *dst = (unsigned char *) s->tile->data;
+        int src_linesize = tile->width * 4;
+        int dst_linesize = vc_get_linesize(tile->width, frame->color_spec);
+        unsigned char *dst = (unsigned char *) tile->data;
         const unsigned char *src = (const unsigned char *) pixels;
-        for(y = 0; y < (int) s->tile->height; ++y) {
+        for (unsigned int y = 0; y < tile->height; ++y) {
                 s->decode(dst, src, dst_linesize, 16, 8, 0);
                 src += src_linesize;
                 dst += dst_linesize;
@@ -235,7 +229,7 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
 
         struct timeval cur_time;
         gettimeofday(&cur_time, NULL);
-        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
+        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / frame->fps) {
                 gettimeofday(&cur_time, NULL);
         }
         s->prev_time = cur_time;
@@ -251,7 +245,7 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
 
         s->frames++;
 
-        return s->frame;
+        return frame;
 }
 
 static const struct video_capture_info vidcap_screen_osx_info = {
