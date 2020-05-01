@@ -116,6 +116,7 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
 
 int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height) {
     Mat rgb, out = cv::Mat::zeros(target_height, target_width, CV_8UC3);
+    codec_t out_color = RGB;
 
     if (indata == NULL || outdata == NULL) {
         return 1;
@@ -126,16 +127,35 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
     double in_aspect = (double) width / height;
     double out_aspect = (double) target_width / target_height;
     Rect r;
-    if (in_aspect > out_aspect) {
+    if (in_aspect == out_aspect) {
+        r.x = 0;
+        r.y = 0;
+        r.width = target_width;
+        r.height = target_width;
+    } else if (in_aspect > out_aspect) {
         r.x = 0;
         r.width = target_width;
         r.height = target_width / in_aspect;
         r.y = (target_height - r.height) / 2;
+        // clear top and bottom margin
+        size_t linesize = vc_get_linesize(target_width, out_color);
+        size_t top_margin_size = r.y * linesize;
+        size_t bottom_margin_size = (target_height - r.y - r.height) * linesize;
+        memset(outdata, 0, top_margin_size);
+        memset(outdata + linesize * target_height - bottom_margin_size, 0, bottom_margin_size);
     } else {
         r.y = 0;
         r.height = target_height;
         r.width = target_height * in_aspect;
         r.x = (target_width - r.width) / 2;
+        // clear left and right margins
+        size_t linesize = vc_get_linesize(target_width, out_color);
+        size_t left_margin_size = vc_get_linesize(r.x, out_color);
+        size_t right_margin_size = vc_get_linesize(target_width - r.x - r.width, out_color);
+        for (unsigned int i = 0; i < target_height; ++i) {
+            memset(outdata + i * linesize, 0, left_margin_size);
+            memset(outdata + (i + 1) * linesize - right_margin_size, 0, right_margin_size);
+        }
     }
 
     out.data = (uchar *) outdata;
