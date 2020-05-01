@@ -1,9 +1,12 @@
+/**
+ * @file    capture_filter/resize.cpp
+ * @author  Gerard Castillo     <gerard.castillo@i2cat.net>
+ * @author  Marc Palau          <marc.palau@i2cat.net>
+ * @author  Martin Pulec        <martin.pulec@cesnet.cz>
+ */
 /*
- * FILE:    capture_filter/resize.cpp
- * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
- *          Marc Palau          <marc.palau@i2cat.net>
- *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014      Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -91,8 +94,8 @@ struct resize_param {
 
 struct state_resize {
     struct resize_param param;
-    struct video_frame *frame;
     struct video_desc saved_desc;
+    struct video_desc out_desc;
 };
 
 static void usage() {
@@ -187,20 +190,16 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
 
 static void done(void *state)
 {
-    struct state_resize *s = (state_resize*) state;
-
-    vf_free(s->frame);
     free(state);
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = (state_resize*) state;
-    unsigned int i;
-    int res = 0;
 
     if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
     	struct video_desc desc = video_desc_from_frame(in);
+        s->saved_desc = desc;
         if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
             desc.width = s->param.target_width;
             desc.height = s->param.target_height;
@@ -209,21 +208,23 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             desc.height = in->tiles[0].height * s->param.num / s->param.denom;
         }
         desc.color_spec = RGB;
-    	s->frame = vf_alloc_desc_data(desc);
         if (s->param.force_interlaced) {
-                s->frame->interlacing = INTERLACED_MERGED;
+                desc.interlacing = INTERLACED_MERGED;
         } else if (s->param.force_progressive) {
-                s->frame->interlacing = PROGRESSIVE;
+                desc.interlacing = PROGRESSIVE;
         }
-        s->saved_desc = video_desc_from_frame(in);
-        printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[0].width, in->tiles[0].height, s->frame->tiles[0].width, s->frame->tiles[0].height);
+        s->out_desc = desc;
+        printf("[resize filter] resizing from %dx%d to %dx%d\n", s->saved_desc.width, s->saved_desc.height, s->out_desc.width, s->out_desc.height);
     }
 
-    for(i=0; i<s->frame->tile_count;i++){
+    struct video_frame *frame = vf_alloc_desc_data(s->out_desc);
+
+    for (unsigned int i = 0; i < frame->tile_count; i++) {
+        int res;
         if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
-            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->param.target_width, s->param.target_height);
+            res = resize_frame(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->param.target_width, s->param.target_height);
         } else {
-            res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
+            res = resize_frame(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
         }
 
         if(res!=0){
@@ -235,7 +236,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     VIDEO_FRAME_DISPOSE(in);
 
-    return s->frame;
+    frame->callbacks.dispose = vf_free;
+
+    return frame;
 }
 
 static struct capture_filter_info capture_filter_resize = {
