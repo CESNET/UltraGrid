@@ -27,7 +27,7 @@ sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
 ( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
-( sudo apt install uuid-dev && cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 

@@ -17,7 +17,7 @@ brew install autoconf automake cppunit dylibbundler libtool pkg-config
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack opencv openssl
 brew install ossp-uuid # for cineform
-( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+( cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
 brew install qt
 
 mkdir $TEMP_INST
