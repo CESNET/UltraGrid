@@ -18,6 +18,7 @@ INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compres
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
+DYLIBBUNDLER_FLAGS = @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 PERF          = bin/uv_perf
@@ -578,12 +579,10 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 $(BUNDLE)/Contents/libs: $(BUNDLE)
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
 	@if `which dylibbundler`; then set -eu; \
-		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
+		dylibbundler -V >/dev/null 2>&1 || echo "WARNING: Use of dylib bundler v2 (https://github.com/SCG82/macdylibbundler) is strongly recommended over the legacy" ; \
 		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+			do echo quit | dylibbundler $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
 		done; \
-		for n in $(BUNDLE)/Contents/MacOS/* $(BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
-			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
@@ -605,10 +604,8 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	@if `which dylibbundler`; then set -eu; \
-		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
-		echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
-		for n in $(GUI_BUNDLE)/Contents/MacOS/uv-qt `find $(GUI_BUNDLE)/Contents/libs -type f`; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
-			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
+		dylibbundler -V >/dev/null 2>&1 || echo "WARNING: Use of dylib bundler v2 (https://github.com/SCG82/macdylibbundler) is strongly recommended over the legacy" ; \
+		echo quit | dylibbundler $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 		$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs; \
