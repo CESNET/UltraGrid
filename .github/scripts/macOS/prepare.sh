@@ -13,12 +13,14 @@ echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
 echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
 echo "::add-path::/usr/local/opt/qt/bin"
 
-brew install autoconf automake cppunit dylibbundler libtool pkg-config
+brew install autoconf automake cppunit libtool pkg-config
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack opencv openssl
 brew install ossp-uuid # for cineform
 ( cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
 brew install qt
+
+.github/scripts/macOS/install_dylibbundler_v2.sh
 
 mkdir $TEMP_INST
 cd $TEMP_INST
