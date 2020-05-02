@@ -2071,8 +2071,11 @@ then
 
         if test $system = MacOSX; then
                 LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
+                DYLIBBUNDLER_FLAGS="-s $CUDA_LIB_PATH"
         fi
 fi
+
+AC_SUBST(DYLIBBUNDLER_FLAGS)
 
 # Pick compiler for cuda device code
 AC_ARG_WITH(cuda-compiler,
