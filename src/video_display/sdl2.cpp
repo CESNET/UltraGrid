@@ -157,7 +157,13 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
         }
 
         if (!s->deinterlace) {
-                SDL_UpdateTexture(s->texture, NULL, frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec));
+                int pitch;
+                if (codec_is_planar(frame->color_spec)) {
+                        pitch = frame->tiles[0].width;
+                } else {
+                        pitch = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+                }
+                SDL_UpdateTexture(s->texture, NULL, frame->tiles[0].data, pitch);
         } else {
                 unsigned char *pixels;
                 int pitch;
@@ -372,6 +378,7 @@ static int display_sdl2_reconfigure(void *state, struct video_desc desc)
 }
 
 static const unordered_map<codec_t, uint32_t, hash<int>> pf_mapping = {
+        { I420, SDL_PIXELFORMAT_IYUV },
         { UYVY, SDL_PIXELFORMAT_UYVY },
         { YUYV, SDL_PIXELFORMAT_YUY2 },
         { RGB, SDL_PIXELFORMAT_RGB24 },
