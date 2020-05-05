@@ -145,6 +145,7 @@ COMMON_OBJS     = \
 		src/utils/thread.o \
 		src/utils/time.o \
 		src/utils/vf_split.o \
+		src/utils/video_frame_pool.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
 		src/video.o \

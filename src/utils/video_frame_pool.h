@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET z.s.p.o.
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@
 #define VIDEO_FRAME_POOL_H_
 
 #include "debug.h"
-
+#include "host.h"
 #include "video.h"
 
 #ifdef __cplusplus
@@ -186,6 +186,10 @@ struct video_frame_pool {
                 unsigned int      m_max_used_frames;
 };
 #endif //  __cplusplus
+
+EXTERN_C void *video_frame_pool_init(struct video_desc desc, int len);
+EXTERN_C struct video_frame *video_frame_pool_get_disposable_frame(void *);
+EXTERN_C void video_frame_pool_destroy(void *);
 
 #endif // VIDEO_FRAME_POOL_H_
 
