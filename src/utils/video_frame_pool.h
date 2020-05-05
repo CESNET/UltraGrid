@@ -46,6 +46,7 @@
 
 #include <cassert>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -81,10 +82,13 @@ struct video_frame_pool {
                         m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
                 }
 
-                void reconfigure(struct video_desc new_desc, size_t new_size) {
+                /**
+                 * @param new_size  if omitted, deduce from video desc (only for pixel formats)
+                 */
+                void reconfigure(struct video_desc new_desc, size_t new_size = SIZE_MAX) {
                         std::unique_lock<std::mutex> lk(m_lock);
                         m_desc = new_desc;
-                        m_max_data_len = new_size;
+                        m_max_data_len = new_size != SIZE_MAX ? new_size : new_desc.height * vc_get_linesize(new_desc.width, new_desc.color_spec);
                         remove_free_frames();
                         m_generation++;
                 }
@@ -138,6 +142,15 @@ struct video_frame_pool {
                                                 m_free_frames.push(frame);
                                         }
                                 }, std::placeholders::_1, m_generation));
+                }
+
+                /** @returns legacy struct pointer with dispose callback properly set */
+                struct video_frame *get_disposable_frame() {
+                        auto && frame = get_frame();
+                        struct video_frame *out = frame.get();
+                        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
+                        out->callbacks.dispose = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
+                        return out;
                 }
 
                 allocator & get_allocator() {
