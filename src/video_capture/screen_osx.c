@@ -44,6 +44,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -76,6 +77,7 @@ static void show_help()
 
 struct vidcap_screen_osx_state {
         struct video_desc desc;
+        void *video_frame_pool;
         int frames;
         struct       timeval t, t0;
         CGDirectDisplayID display;
@@ -93,6 +95,7 @@ static void initialize(struct vidcap_screen_osx_state *s) {
         s->desc.width = CGImageGetWidth(image);
         s->desc.height = CGImageGetHeight(image);
         CFRelease(image);
+        s->video_frame_pool = video_frame_pool_init(s->desc, 2);
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
@@ -192,6 +195,8 @@ static void vidcap_screen_osx_done(void *state)
 
         assert(s != NULL);
 
+        video_frame_pool_destroy(s->video_frame_pool);
+
         free(s);
 }
 
@@ -204,9 +209,8 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
                 s->initialized = true;
         }
 
-        struct video_frame *frame = vf_alloc_desc_data(s->desc);
+        struct video_frame *frame = video_frame_pool_get_disposable_frame(s->video_frame_pool);
         struct tile *tile = vf_get_tile(frame, 0);
-        frame->callbacks.dispose = vf_free;
 
         *audio = NULL;
 
