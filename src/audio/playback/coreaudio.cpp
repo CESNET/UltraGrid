@@ -258,6 +258,35 @@ error:
         return FALSE;
 }
 
+
+// https://stackoverflow.com/questions/4575408/audioobjectgetpropertydata-to-get-a-list-of-input-devices#answer-4577271
+static bool is_requested_direction(AudioObjectPropertyAddress propertyAddress, AudioDeviceID *audioDevice) {
+        // Determine if the device is an input/output device (it is an input/output device if it has input/output channels)
+        UInt32 size = 0;
+        OSStatus status;
+        propertyAddress.mSelector = kAudioDevicePropertyStreamConfiguration;
+        status = AudioObjectGetPropertyDataSize(*audioDevice, &propertyAddress, 0, NULL, &size);
+        if(kAudioHardwareNoError != status) {
+                fprintf(stderr, "AudioObjectGetPropertyDataSize (kAudioDevicePropertyStreamConfiguration) failed: %i\n", status);
+                return false;
+        }
+
+        AudioBufferList *bufferList = static_cast<AudioBufferList *>(malloc(size));
+        if(NULL == bufferList) {
+                fputs("Unable to allocate memory", stderr);
+                return false;
+        }
+        status = AudioObjectGetPropertyData(*audioDevice, &propertyAddress, 0, NULL, &size, bufferList);
+        if(kAudioHardwareNoError != status || 0 == bufferList->mNumberBuffers) {
+                if(kAudioHardwareNoError != status)
+                        fprintf(stderr, "AudioObjectGetPropertyData (kAudioDevicePropertyStreamConfiguration) failed: %i\n", status);
+                free(bufferList);
+                return false;
+        }
+        free(bufferList);
+        return true;
+}
+
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
@@ -286,18 +315,23 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
                 goto error;
         }
 
-        *count = dev_count + 1;
-        *available_devices = (struct device_info *) realloc(*available_devices, *count * sizeof(struct device_info));
-
+        propertyAddress.mScope = dir == -1 ? kAudioObjectPropertyScopeInput : kAudioObjectPropertyScopeOutput;
         for (int i = 0; i < dev_count; ++i) {
+                if (!is_requested_direction(propertyAddress, &dev_ids[i])) {
+                        continue;
+                }
+
+                (*count)++;
+                *available_devices = (struct device_info *) realloc(*available_devices, *count * sizeof(struct device_info));
+
                 CFStringRef deviceName = NULL;
 
                 size = sizeof(deviceName);
                 propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
                 ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
-                CFStringGetCString(deviceName, (char *) (*available_devices)[i + 1].name,
-                                sizeof (*available_devices)[i + 1].name, kCFStringEncodingMacRoman);
-                snprintf((*available_devices)[i + 1].id, sizeof (*available_devices)[i + 1].id,
+                CFStringGetCString(deviceName, (char *) (*available_devices)[*count - 1].name,
+                                sizeof (*available_devices)[*count - 1].name, kCFStringEncodingMacRoman);
+                snprintf((*available_devices)[*count - 1].id, sizeof (*available_devices)[*count - 1].id,
                                 "coreaudio:%" PRIu32, dev_ids[i]);
                 CFRelease(deviceName);
         }
