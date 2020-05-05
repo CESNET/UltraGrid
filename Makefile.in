@@ -18,7 +18,8 @@ INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compres
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CURSES_CFLAGS@ @CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
-DYLIBBUNDLER_FLAGS = @DYLIBBUNDLER_FLAGS@
+DYLIBBUNDLER  = @DYLIBBUNDLER@
+DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 IMPORT_C_TARGET = bin/import_control_keyboard$(EXEEXT)
@@ -505,15 +506,10 @@ bundle-nolib: all
 
 # adds libraries to the bundle
 bundle: bundle-nolib
-	@if `which dylibbundler`; then set -eu; \
-		dylibbundler -V >/dev/null 2>&1 || echo "WARNING: Use of dylib bundler v2 (https://github.com/SCG82/macdylibbundler) is strongly recommended over the legacy" ; \
-		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do echo quit | dylibbundler $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
-		done; \
-	else \
-		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
-		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
-	fi
+	$(MKDIR_P) $(BUNDLE)/Contents/libs
+	for n in $(BUNDLE)/Contents/MacOS/*; \
+		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+		done
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	$(CP) -r redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
 	$(CP) -r redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
