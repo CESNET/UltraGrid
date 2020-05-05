@@ -18,7 +18,8 @@ INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compres
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
-DYLIBBUNDLER_FLAGS = @DYLIBBUNDLER_FLAGS@
+DYLIBBUNDLER  = @DYLIBBUNDLER@
+DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 PERF          = bin/uv_perf
@@ -578,15 +579,10 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 # adds libraries to the bundle
 $(BUNDLE)/Contents/libs: $(BUNDLE)
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
-	@if `which dylibbundler`; then set -eu; \
-		dylibbundler -V >/dev/null 2>&1 || echo "WARNING: Use of dylib bundler v2 (https://github.com/SCG82/macdylibbundler) is strongly recommended over the legacy" ; \
-		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do echo quit | dylibbundler $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
-		done; \
-	else \
-		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
-		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
-	fi
+	$(MKDIR_P) $(BUNDLE)/Contents/libs; \
+	for n in $(BUNDLE)/Contents/MacOS/*; \
+		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+	done; \
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
@@ -603,13 +599,7 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
-	@if `which dylibbundler`; then set -eu; \
-		dylibbundler -V >/dev/null 2>&1 || echo "WARNING: Use of dylib bundler v2 (https://github.com/SCG82/macdylibbundler) is strongly recommended over the legacy" ; \
-		echo quit | dylibbundler $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
-	else \
-		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
-		$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs; \
-	fi
+	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
