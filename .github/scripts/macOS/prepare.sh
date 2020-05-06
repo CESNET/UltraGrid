@@ -6,19 +6,19 @@ TEMP_INST=/tmp/install
 echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
 echo "::set-env name=UG_SKIP_NET_TESTS::1"
 echo "::set-env name=CPATH::/usr/local/include:/usr/local/opt/qt/include"
-echo "::set-env name=EXTRA_LIB_PATH::/usr/local/lib" # workaround for dylibbunder inside Makefile (DYLD_LIBRARY_PATH is stripped
-                                                     # by make) to resolve paths like @loader_path/ (see https://github.com/auriamg/macdylibbundler/issues/22)
 echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
 echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
 echo "::add-path::/usr/local/opt/qt/bin"
 
-brew install autoconf automake cppunit dylibbundler libtool pkg-config
+brew install autoconf automake cppunit libtool pkg-config
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack opencv openssl
 brew install ossp-uuid # for cineform
-( cd cineform-sdk/ && cmake . && make CFHDCodecStatic )
+( cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
 brew install qt
+
+.github/scripts/macOS/install_dylibbundler_v2.sh
 
 mkdir $TEMP_INST
 cd $TEMP_INST

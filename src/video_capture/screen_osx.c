@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET, z.s.p.o.
+ * Copyright (c) 2012-2020 CESNET, z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -59,59 +60,42 @@
 
 #include <Carbon/Carbon.h>
 
+#define MOD_NAME "[screen cap mac] "
+
 /* prototypes of functions defined in this module */
 static void show_help(void);
+static void vidcap_screen_osx_done(void *state);
 
 static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>]\n");
+        printf("\t-t screen[:fps=<fps>][:codec=<c>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
+        printf("\t\t <c>  - requested codec to capture (RGB /default/ or RGBA)\n");
 }
 
 struct vidcap_screen_osx_state {
-        struct video_frame       *frame; 
-        struct tile       *tile; 
+        struct video_desc desc;
+        void *video_frame_pool;
         int frames;
         struct       timeval t, t0;
         CGDirectDisplayID display;
+        decoder_t       decode; ///< decoder, must accept BGRA (different shift)
 
         struct timeval prev_time;
-
-        double fps;
 
         bool initialized;
 };
 
 static void initialize(struct vidcap_screen_osx_state *s) {
-        s->frame = vf_alloc(1);
-        s->tile = vf_get_tile(s->frame, 0);
-
         s->display = CGMainDisplayID();
         CGImageRef image = CGDisplayCreateImage(s->display);
 
-        s->tile->width = CGImageGetWidth(image);
-        s->tile->height = CGImageGetHeight(image);
+        s->desc.width = CGImageGetWidth(image);
+        s->desc.height = CGImageGetHeight(image);
         CFRelease(image);
-
-        s->frame->color_spec = RGBA;
-        if(s->fps > 0.0) {
-                s->frame->fps = s->fps;
-        } else {
-                s->frame->fps = 30;
-        }
-        s->frame->interlacing = PROGRESSIVE;
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-
-        s->tile->data = (char *) malloc(s->tile->data_len);
-
-        return;
-
-        goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
-error:
-        fprintf(stderr, "[Screen cap.] Initialization failed!\n");
-        exit_uv(EXIT_FAILURE);
+        s->video_frame_pool = video_frame_pool_init(s->desc, 2);
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
@@ -120,37 +104,35 @@ static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**delete
         *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name        = "screen";
-                vt->description = "Grabbing screen";
-
-                if (verbose) {
-                        vt->card_count = 1;
-                        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
-                        // vt->cards[0].id can be "" since screen cap. doesn't require parameters
-                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
-
-                        int framerates[] = {24, 30, 60};
-
-						snprintf(vt->cards[0].modes[0].name,
-								sizeof vt->cards[0].name,
-								"Unlimited fps");
-						snprintf(vt->cards[0].modes[0].id,
-								sizeof vt->cards[0].id,
-								"{\"fps\":\"\"}");
-
-						for(unsigned i = 0; i < sizeof(framerates) / sizeof(framerates[0]); i++){
-							snprintf(vt->cards[0].modes[i + 1].name,
-									sizeof vt->cards[0].name,
-									"%d fps",
-									framerates[i]);
-							snprintf(vt->cards[0].modes[i + 1].id,
-									sizeof vt->cards[0].id,
-									"{\"fps\":\"%d\"}",
-									framerates[i]);
-						}
-                }
+        if (vt == NULL) {
+                return NULL;
         }
+        vt->name        = "screen";
+        vt->description = "Grabbing screen";
+
+        if (!verbose) {
+                return vt;
+        }
+
+        vt->card_count = 1;
+        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
+        // vt->cards[0].id can be "" since screen cap. doesn't require parameters
+        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+
+        int framerates[] = {24, 30, 60};
+
+        snprintf(vt->cards[0].modes[0].name, sizeof vt->cards[0].name,
+                        "Unlimited fps");
+        snprintf(vt->cards[0].modes[0].id, sizeof vt->cards[0].id,
+                        "{\"fps\":\"\"}");
+
+        for(unsigned i = 0; i < sizeof(framerates) / sizeof(framerates[0]); i++){
+                snprintf(vt->cards[0].modes[i + 1].name, sizeof vt->cards[0].name,
+                                "%d fps", framerates[i]);
+                snprintf(vt->cards[0].modes[i + 1].id, sizeof vt->cards[0].id,
+                                "{\"fps\":\"%d\"}", framerates[i]);
+        }
+
         return vt;
 }
 
@@ -164,7 +146,7 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 
-        s = (struct vidcap_screen_osx_state *) malloc(sizeof(struct vidcap_screen_osx_state));
+        s = (struct vidcap_screen_osx_state *) calloc(1, sizeof(struct vidcap_screen_osx_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
                 return VIDCAP_INIT_FAIL;
@@ -174,23 +156,33 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
 
         gettimeofday(&s->t0, NULL);
 
-        s->fps = 0.0;
-
-        s->frame = NULL;
-        s->tile = NULL;
-
-        s->prev_time.tv_sec = 
-                s->prev_time.tv_usec = 0;
-
-        s->frames = 0;
+        s->desc.tile_count = 1;
+        s->desc.color_spec = RGB;
+        s->desc.fps = 30;
+        s->desc.interlacing = PROGRESSIVE;
 
         if(vidcap_params_get_fmt(params)) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
                         return VIDCAP_INIT_NOERR;
                 } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
-                        s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));
+                        s->desc.fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
+                } else if (strncasecmp(vidcap_params_get_fmt(params), "codec=", strlen("codec=")) == 0) {
+                        s->desc.color_spec = get_codec_from_name(vidcap_params_get_fmt(params) + strlen("codec="));
                 }
+        }
+
+        switch (s->desc.color_spec) {
+        case RGB:
+                s->decode = vc_copylineRGBAtoRGBwithShift;
+                break;
+        case RGBA:
+                s->decode = vc_copylineRGBA;
+                break;
+        default:
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only RGB and RGBA are currently supported!\n");
+                vidcap_screen_osx_done(s);
+                return VIDCAP_INIT_FAIL;
         }
 
         *state = s;
@@ -203,10 +195,8 @@ static void vidcap_screen_osx_done(void *state)
 
         assert(s != NULL);
 
-        if(s->tile) {
-                free(s->tile->data);
-        }
-        vf_free(s->frame);
+        video_frame_pool_destroy(s->video_frame_pool);
+
         free(s);
 }
 
@@ -219,34 +209,34 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
                 s->initialized = true;
         }
 
+        struct video_frame *frame = video_frame_pool_get_disposable_frame(s->video_frame_pool);
+        struct tile *tile = vf_get_tile(frame, 0);
+
         *audio = NULL;
 
         CGImageRef image = CGDisplayCreateImage(s->display);
         CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
         const unsigned char *pixels = CFDataGetBytePtr(data);
 
-        int linesize = s->tile->width * 4;
-        int y;
-        unsigned char *dst = (unsigned char *) s->tile->data;
+        int src_linesize = tile->width * 4;
+        int dst_linesize = vc_get_linesize(tile->width, frame->color_spec);
+        unsigned char *dst = (unsigned char *) tile->data;
         const unsigned char *src = (const unsigned char *) pixels;
-        for(y = 0; y < (int) s->tile->height; ++y) {
-                vc_copylineRGBA (dst, src, linesize, 16, 8, 0);
-                src += linesize;
-                dst += linesize;
+        for (unsigned int y = 0; y < tile->height; ++y) {
+                s->decode(dst, src, dst_linesize, 16, 8, 0);
+                src += src_linesize;
+                dst += dst_linesize;
         }
 
         CFRelease(data);
         CFRelease(image);
 
-        if(s->fps > 0.0) {
-                struct timeval cur_time;
-
+        struct timeval cur_time;
+        gettimeofday(&cur_time, NULL);
+        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / frame->fps) {
                 gettimeofday(&cur_time, NULL);
-                while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
-                        gettimeofday(&cur_time, NULL);
-                }
-                s->prev_time = cur_time;
         }
+        s->prev_time = cur_time;
 
         gettimeofday(&s->t, NULL);
         double seconds = tv_diff(s->t, s->t0);        
@@ -259,7 +249,7 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
 
         s->frames++;
 
-        return s->frame;
+        return frame;
 }
 
 static const struct video_capture_info vidcap_screen_osx_info = {

@@ -227,7 +227,7 @@ AC_SUBST(CUDA_FLAGS)
 AC_ARG_VAR([ARCH], [Architecture to build for])
 if test $target_cpu = x86_64 -o $target_cpu = i686
 then
-        test -z "$ARCH" && ARCH="-msse4"
+        test -z "$ARCH" && ARCH="-msse4.1"
 fi
 CFLAGS="$CFLAGS $ARCH"
 CXXFLAGS="$CXXFLAGS $ARCH"
@@ -292,6 +292,26 @@ $TARGET: "$2" $4
 "
 				 ])
           ])
+
+# ---------------------------------------------------------------------
+# Dylib bundler
+# ---------------------------------------------------------------------
+if test $system = MacOSX; then
+        AC_PATH_PROGS(DYLIBBUNDLER, dylibbundler, [true])
+        if test "$DYLIBBUNDLER" = true; then
+                AC_MSG_WARN([*** echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."])
+        else
+                AC_MSG_CHECKING([dylibbundler version])
+                dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
+                AC_MSG_RESULT($dyl_ver);
+
+                if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
+                        AC_MSG_WARN([*** Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
+                fi
+        fi
+fi
+
+AC_SUBST(DYLIBBUNDLER)
 
 # -------------------------------------------------------------------------------------------------
 # Additional macros
@@ -2128,8 +2148,11 @@ then
 
         if test $system = MacOSX; then
                 LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
+                DYLIBBUNDLER_FLAGS="-s $CUDA_LIB_PATH"
         fi
 fi
+
+AC_SUBST(DYLIBBUNDLER_FLAGS)
 
 # Pick compiler for cuda device code
 AC_ARG_WITH(cuda-compiler,

@@ -1042,7 +1042,13 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
 
 /**
  * @brief Changes color channels' order in RGBA
- * @copydetails vc_copyliner10k
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in RGBA
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  destination red shift
+ * @param[in]  gshift  destination green shift
+ * @param[in]  bshift  destination blue shift
  */
 void
 vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,
@@ -1255,7 +1261,7 @@ void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char * __rest
 
 /**
  * @brief Converts from RGBA to RGB
- * @copydetails vc_copylinev210
+ * @copydetails vc_copylineRGBAtoRGBwithShift
  */
 void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
@@ -1267,7 +1273,17 @@ void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * 
 
 /**
  * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
- * @copydetails vc_copyliner10k
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in RGBA
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  source red shift
+ * @param[in]  gshift  source green shift
+ * @param[in]  bshift  source blue shift
+ *
+ * @note
+ * In opposite to the defined semantic of {r,g,b}shift, here instead of destination
+ * shifts the shifts define the source codec properties.
  */
 void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {

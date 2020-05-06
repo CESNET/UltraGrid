@@ -18,6 +18,8 @@ INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compres
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
+DYLIBBUNDLER  = @DYLIBBUNDLER@
+DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 PERF          = bin/uv_perf
@@ -144,6 +146,7 @@ COMMON_OBJS     = \
 		src/utils/thread.o \
 		src/utils/time.o \
 		src/utils/vf_split.o \
+		src/utils/video_frame_pool.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
 		src/video.o \
@@ -578,17 +581,10 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 # adds libraries to the bundle
 $(BUNDLE)/Contents/libs: $(BUNDLE)
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
-	@if `which dylibbundler`; then set -eu; \
-		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
-		for n in $(BUNDLE)/Contents/MacOS/*; \
-			do echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
-		done; \
-		for n in $(BUNDLE)/Contents/MacOS/* $(BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
-			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
-	else \
-		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
-		$(MKDIR_P) $(BUNDLE)/Contents/libs; \
-	fi
+	$(MKDIR_P) $(BUNDLE)/Contents/libs; \
+	for n in $(BUNDLE)/Contents/MacOS/*; \
+		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
+	done; \
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
@@ -605,15 +601,7 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	rm -rf $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
 	$(MKDIR_P) $(GUI_BUNDLE)/Contents/Frameworks $(GUI_BUNDLE)/Contents/libs
-	@if `which dylibbundler`; then set -eu; \
-		export DYLD_LIBRARY_PATH=$(EXTRA_LIB_PATH); \
-		echo quit | dylibbundler -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
-		for n in $(GUI_BUNDLE)/Contents/MacOS/uv-qt `find $(GUI_BUNDLE)/Contents/libs -type f`; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
-			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
-	else \
-		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
-		$(MKDIR_P) $(GUI_BUNDLE)/Contents/libs; \
-	fi
+	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks

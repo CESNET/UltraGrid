@@ -13,10 +13,19 @@ ORIGDIR=`pwd`
 
 cd $srcdir
 # install config.guess config.sub install-sh missing
-automake --add-missing -c >/dev/null 2>&1 || true # actual call will fail - we do not have Makefile.am
+RES=$(automake --add-missing -c 2>&1 || true) # actual call will fail - we do not have Makefile.am
+if test -n "$RES" -a -z "$(echo $RES | grep Makefile.am)"; then
+        echo "$RES"
+        exit 1
+fi
 # Running autoreconf is preferred over aclocal/autoheader/autoconf.
 # It, however, needs to be a little bit bent because we do not use automake.
-autoreconf -i >/dev/null 2>&1 || true
+RES=$(autoreconf -i 2>&1 || true)
+# check if the error was the expected absence of Makefile.am or something else - then fail
+if test -n "$RES" -a -z "$(echo $RES | grep Makefile.am)"; then
+        echo "$RES"
+        exit 1
+fi
 
 CONFIGURE_OPTS=
 
