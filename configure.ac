@@ -296,16 +296,18 @@ $TARGET: "$2" $4
 # ---------------------------------------------------------------------
 # Dylib bundler
 # ---------------------------------------------------------------------
-AC_PATH_PROGS(DYLIBBUNDLER, dylibbundler, [true])
-if test "$DYLIBBUNDLER" = true -a $system = MacOSX; then
-        AC_MSG_WARN([*** echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."])
-else
-        AC_MSG_CHECKING([dylibbundler version])
-        dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
-        AC_MSG_RESULT($dyl_ver);
+if test $system = MacOSX; then
+        AC_PATH_PROGS(DYLIBBUNDLER, dylibbundler, [true])
+        if test "$DYLIBBUNDLER" = true; then
+                AC_MSG_WARN([*** echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."])
+        else
+                AC_MSG_CHECKING([dylibbundler version])
+                dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
+                AC_MSG_RESULT($dyl_ver);
 
-        if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
-                AC_MSG_WARN([*** Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
+                if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
+                        AC_MSG_WARN([*** Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
+                fi
         fi
 fi
 
