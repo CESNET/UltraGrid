@@ -74,8 +74,14 @@
 #include "rtp/pbuf.h"
 #include "rtp/rtp_callback.h"
 #include "tfrc.h"
+
+// substitute RGBA not to collide with UG RGBA
 #define RGBA VR_RGBA
-#include "vrgstream.h"
+#ifdef HAVE_VRG_H
+#include <vrgstream.h>
+#else
+#include "vrgstream-fallback.h"
+#endif
 #undef RGBA
 
 extern char *frame;

@@ -55,8 +55,14 @@
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/shm.h"
+
+// substitute RGBA not to collide with UG RGBA
 #define RGBA VR_RGBA
-#include "vrgstream.h"
+#ifdef HAVE_VRG_H
+#include <vrgstream.h>
+#else
+#include "vrgstream-fallback.h"
+#endif
 #undef RGBA
 
 #define MAX_BUF_LEN (7680 * 2160 / 3 * 2)

@@ -3188,6 +3188,10 @@ AC_ARG_ENABLE(vrg,
 AC_CHECK_HEADER(vrgstream.h, FOUND_VRG_H=yes, FOUND_VRG_H=no)
 AC_CHECK_LIB(vrgstream, vrgStreamInit,  FOUND_VRG_L=yes, FOUND_VRG_L=no)
 
+if test $FOUND_VRG_H = yes; then
+        AC_DEFINE([HAVE_VRG_H], [1], [We can use vrgstream.h])
+fi
+
 if test $vrg_req != no -a $FOUND_VRG_H = yes -a $FOUND_VRG_L = yes
 then
         LIBS="$LIBS -lvrgstream"
