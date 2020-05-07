@@ -316,12 +316,18 @@ bool platform_ipc_sem_post(platform_ipc_sem_t handle)
                 return false;
         }
 #else
+
+#ifdef DEBUG
+        int semValue = semctl(handle, 0, GETVAL);
+        printf("Sem pre-post %d val: %d\n", handle, semValue);
+#endif
+
         struct sembuf op;
         op.sem_num = 0;
         op.sem_op = 1;
         op.sem_flg = 0;
         if (semop(handle, &op, 1) < 0) {
-                perror("semop");
+                perror("semop post");
                 return false;
         }
 #endif
@@ -351,12 +357,18 @@ bool platform_ipc_sem_wait(platform_ipc_sem_t handle)
         }
 
 #else
+
+#ifdef DEBUG
+        int semValue = semctl(handle, 0, GETVAL);
+        printf("Sem pre-wait %d val: %d\n", handle, semValue);
+#endif
+
         struct sembuf op;
         op.sem_num = 0;
         op.sem_op = -1;
         op.sem_flg = 0;
         if (semop(handle, &op, 1) < 0) {
-                perror("semop");
+                perror("semop wait");
                 return false;
         }
         return true;
