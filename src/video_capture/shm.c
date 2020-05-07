@@ -267,7 +267,6 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 
         // we are ready to take another frame
         platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
-        platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
         *audio = NULL;
         return s->f;
