@@ -99,6 +99,7 @@ struct state_vidcap_shm {
         bool use_gpu;
         struct module *parent;
         bool should_exit;
+        bool force; ///< forces re-creation of shm/sem even if already exist
 
         struct RenderPacket render_pkt;
         pthread_mutex_t render_pkt_lock;
@@ -108,8 +109,11 @@ static void vidcap_shm_cleanup(struct state_vidcap_shm *s);
 
 static void show_help() {
         printf("Usage:\n");
-        color_out(COLOR_OUT_BOLD, "\t-t cuda|shm\n");
+        color_out(COLOR_OUT_BOLD, "\t-t cuda|shm[:force]\n");
         printf("\t\tCaptures the frame either to shared memory on GPU (CUDA buffer) or in RAM (shared memory)\n");
+        printf("options:\n");
+        color_out(COLOR_OUT_BOLD, "\tforce\n");
+        printf("\t\tRemoves already existing IPC primitives (Linux) if already exist.\n");
 }
 
 static void vidcap_shm_should_exit(void *arg) {
@@ -127,7 +131,8 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 
-        if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+        const char *fmt = vidcap_params_get_fmt(params);
+        if (strcmp(fmt, "help") == 0) {
                 show_help();
                 return VIDCAP_INIT_NOERR;
         }
@@ -140,6 +145,9 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         }
         if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
                 s->use_gpu = true;
+        }
+        if (strcmp(fmt, "force") == 0) {
+                s->force = true;
         }
         s->parent = vidcap_params_get_parent(params);
 
@@ -155,7 +163,18 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
 
         size_t size = offsetof(struct shm, data[MAX_BUF_LEN]);
         if ((s->shm_id = platform_ipc_shm_create(KEY, size)) == PLATFORM_IPC_ERR) {
-                goto error;
+                if (errno == EEXIST) {
+                        if (s->force) {
+                                s->shm_id = platform_ipc_shm_open(KEY, size);
+                                platform_ipc_shm_done(s->shm_id, true);
+                                s->shm_id = platform_ipc_shm_create(KEY, size);
+                        } else {
+                                printf("You may also use ':force' parameter to force removing already existing IPC handles.\n");
+                        }
+                }
+                if (s->shm_id == PLATFORM_IPC_ERR) {
+                        goto error;
+                }
         }
         s->shm = platform_ipc_shm_attach(s->shm_id, size);
         if (s->shm == (void *) PLATFORM_IPC_ERR) {
@@ -169,7 +188,14 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         for (int i = 0; i < 3; ++i) {
                 s->sem_id[i] = platform_ipc_sem_create(KEY, i + 1);
                 if (s->sem_id[i] == PLATFORM_IPC_ERR) {
-                        goto error;
+                        if (s->force && errno == EEXIST) {
+                                s->sem_id[i] = platform_ipc_sem_open(KEY, i + 1);
+                                platform_ipc_sem_done(s->sem_id[i], true);
+                                s->sem_id[i] = platform_ipc_sem_create(KEY, i + 1);
+                        }
+                        if (s->sem_id[i] == PLATFORM_IPC_ERR) {
+                                goto error;
+                        }
                 }
         }
 
