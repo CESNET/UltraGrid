@@ -63,7 +63,7 @@
 
 #define MOD_NAME "[platform IPC] "
 
-#ifdef __gnu_linux__
+#ifndef _WIN32
 static key_t get_key(const char *id, int proj_id) {
         char key_path[1024];
         snprintf(key_path, sizeof key_path, "/tmp/%s-%" PRIdMAX, id, (intmax_t) getuid());
@@ -109,7 +109,7 @@ void PrintError(void)
 //
 // SHM
 //
-#ifdef __gnu_linux__
+#ifndef _WIN32
 static platform_ipc_shm_t platform_ipc_shm_open_common(const char *id, size_t size, int shmflg)
 {
         key_t key = get_key(id, 1);
@@ -132,7 +132,7 @@ static platform_ipc_shm_t platform_ipc_shm_open_common(const char *id, size_t si
 
         return handle;
 }
-#endif // defined __gnu_linux__
+#endif // ! defined _WIN32
 
 platform_ipc_shm_t platform_ipc_shm_create(const char *id, size_t size)
 {
@@ -233,7 +233,7 @@ void platform_ipc_shm_done(platform_ipc_shm_t handle, bool destroy)
 //
 // Semaphores
 //
-#ifdef __gnu_linux__
+#ifndef _WIN32
 static platform_ipc_sem_t platform_ipc_sem_open_common(const char *id, int index, int semflg)
 {
         key_t key = get_key(id, index);
@@ -254,7 +254,7 @@ static platform_ipc_sem_t platform_ipc_sem_open_common(const char *id, int index
         }
         return handle;
 }
-#endif // defined __gnu_linux__
+#endif // ! defined _WIN32
 
 platform_ipc_sem_t platform_ipc_sem_create(const char *id, int index)
 {
