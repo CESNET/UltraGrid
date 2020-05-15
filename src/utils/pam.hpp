@@ -37,7 +37,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef PAM_H_7E23A609_963A_45A8_88E2_ED4D3FDFF69F
+#define PAM_H_7E23A609_963A_45A8_88E2_ED4D3FDFF69F
+
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -55,20 +59,20 @@
                 getline(file, line);
                 *width = 0, *height = 0, *depth = 0;
                 while (!file.eof()) {
-                        if (line.compare(0, strlen("WIDTH"), "WIDTH") == 0) {
-                                *width = atoi(line.c_str() + strlen("WIDTH "));
-                        } else if (line.compare(0, strlen("HEIGHT"), "HEIGHT") == 0) {
-                                *height = atoi(line.c_str() + strlen("HEIGHT "));
-                        } else if (line.compare(0, strlen("DEPTH"), "DEPTH") == 0) {
-                                *depth = atoi(line.c_str() + strlen("DEPTH "));
-                        } else if (line.compare(0, strlen("MAXVAL"), "MAXVAL") == 0) {
-                                if (atoi(line.c_str() + strlen("MAXVAL ")) != 255) {
+                        if (line.compare(0, std::string("WIDTH ").length(), "WIDTH") == 0) {
+                                *width = atoi(line.c_str() + std::string("WIDTH ").length());
+                        } else if (line.compare(0, std::string("HEIGHT ").length(), "HEIGHT") == 0) {
+                                *height = atoi(line.c_str() + std::string("HEIGHT ").length());
+                        } else if (line.compare(0, std::string("DEPTH ").length(), "DEPTH") == 0) {
+                                *depth = atoi(line.c_str() + std::string("DEPTH ").length());
+                        } else if (line.compare(0, std::string("MAXVAL ").length(), "MAXVAL") == 0) {
+                                if (atoi(line.c_str() + std::string("MAXVAL ").length()) != 255) {
                                         throw std::string("Only supported maxval is 255.");
                                 }
-                        } else if (line.compare(0, strlen("TUPLETYPE"), "TUPLETYPE") == 0) {
+                        } else if (line.compare(0, std::string("TUPLETYPE").length(), "TUPLETYPE") == 0) {
                                 // ignored - assuming MAXVAL == 255, value of DEPTH is sufficient
                                 // to determine pixel format
-                        } else if (line.compare(0, strlen("ENDHDR"), "ENDHDR") == 0) {
+                        } else if (line.compare(0, std::string("ENDHDR").length(), "ENDHDR") == 0) {
                                 break;
                         }
                         getline(file, line);
@@ -79,11 +83,16 @@
                 if (*depth == 0) {
                         throw std::string("Unspecified depth header field!");
                 }
-                int datalen = *depth * *width * *height;
-                *data = (unsigned char *) allocator(datalen);
-                file.read((char *) *data, datalen);
-                if (file.eof()) {
-                        throw std::string("Unable to load logo data from file.");
+                if (data != nullptr && allocator != nullptr) {
+                        int datalen = *depth * *width * *height;
+                        *data = (unsigned char *) allocator(datalen);
+                        if (!*data) {
+                                throw std::string("Unable to allocate data.");
+                        }
+                        file.read((char *) *data, datalen);
+                        if (file.eof()) {
+                                throw std::string("Unable to load PAM data from file.");
+                        }
                 }
                 file.close();
         } catch (std::string const & s) {
@@ -100,7 +109,7 @@
 
 [[maybe_unused]] static bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, const unsigned char *data) {
         try {
-                std::ofstream file(filename, std::ifstream::in | std::ifstream::binary);
+                std::ofstream file(filename, std::ifstream::out | std::ifstream::binary);
 
                 file.exceptions(std::ifstream::failbit | std::ifstream::badbit );
                 file << "P7\n";
@@ -132,3 +141,4 @@
         return true;
 }
 
+#endif // defined PAM_H_7E23A609_963A_45A8_88E2_ED4D3FDFF69F
