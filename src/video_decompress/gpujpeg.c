@@ -179,6 +179,7 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 
 #if LIBGPUJPEG_API_VERSION >= 4
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
+        *internal_codec = VIDEO_CODEC_NONE;
 	struct gpujpeg_image_parameters params = { 0 };
 #if LIBGPUJPEG_API_VERSION >= 6
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL) != 0) {
@@ -187,11 +188,13 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 #else
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
 #endif
-		return DECODER_NO_FRAME;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - cannot get image info!\n");
+		return DECODER_GOT_FRAME;
 	}
 
 	if (!params.color_space) {
-		return DECODER_NO_FRAME;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - image color space is unknown!\n");
+		return DECODER_GOT_FRAME;
 	}
 
 	switch ( params.color_space ) {
@@ -209,7 +212,9 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 #endif
 		break;
 	default:
-		return DECODER_NO_FRAME;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - unhandled color space: %s\n",
+                                gpujpeg_color_space_get_name(params.color_space));
+		return DECODER_GOT_FRAME;
 	}
 
 	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(params.color_space));
