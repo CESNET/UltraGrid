@@ -193,8 +193,7 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	}
 
 	if (!params.color_space) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - image color space is unknown!\n");
-		return DECODER_GOT_FRAME;
+                params.color_space = GPUJPEG_YCBCR_BT601_256LVLS;
 	}
 
 	switch ( params.color_space ) {
