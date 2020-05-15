@@ -45,9 +45,8 @@
 #include "video.h"
 #include "video_decompress.h"
 
-#include "libgpujpeg/gpujpeg_decoder.h"
-#include "libgpujpeg/gpujpeg_reader.h"
-#include "libgpujpeg/gpujpeg_version.h"
+#include <libgpujpeg/gpujpeg_decoder.h>
+#include <libgpujpeg/gpujpeg_version.h>
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
 #include <stdlib.h>

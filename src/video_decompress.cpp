@@ -63,7 +63,9 @@ struct state_decompress {
 };
 
 ADD_TO_PARAM(decompress, "decompress", "* decompress=<name>[:<codec>]\n"
-                "  Forces specified decompress module (will fail if not able to decompress the received compression). Optionaly also force codec to decode to.\n");
+                "  Forces specified decompress module (will fail if not able to decompress\n"
+                "   the received compression). Optionaly also force codec to decode to."
+                "   See 'uv --list-modules' to see available decompress modules.\n");
 /**
  * @param[in] in_codec input codec
  * @param[in] out_codec output codec
