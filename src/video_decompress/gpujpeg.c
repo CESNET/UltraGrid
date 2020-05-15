@@ -330,6 +330,24 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 +  GJ_RGBA_SUPP * 50},
+#if LIBGPUJPEG_API_VERSION > 6
+                // decoding from FFmpeg MJPG has lower priority than libavcodec
+                // decoder because those files doesn't has much independent
+                // segments (1 per MCU row -> 68 for HD) -> lavd may be better
+		{ MJPG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 90 },
+		{ MJPG, RGB, RGB, 600 },
+		{ MJPG, RGB, RGBA, 600 + GJ_RGBA_SUPP * 50 }, // 300 when GJ support RGBA natively,
+                                                              // 350 when using CPU conversion
+		{ MJPG, UYVY, UYVY, 600 },
+		{ MJPG, I420, I420, 600 },
+		{ MJPG, I420, UYVY, 700 },
+		{ MJPG, RGB, UYVY, 800 },
+		{ MJPG, UYVY, RGB, 800 },
+		{ MJPG, UYVY, RGBA, 800  + GJ_RGBA_SUPP * 50},
+		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
+		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
+		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 +  GJ_RGBA_SUPP * 50},
+#endif
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
