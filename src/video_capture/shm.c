@@ -65,7 +65,7 @@
 #endif
 #undef RGBA
 
-#define MAX_BUF_LEN (7680 * 2160 / 3 * 2)
+#define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
 #define KEY "UltraGrid-SHM"
 #define SHM_VERSION 7
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
