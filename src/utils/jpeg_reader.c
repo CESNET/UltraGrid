@@ -730,7 +730,7 @@ bool jpeg_get_rtp_hdr_data(uint8_t *jpeg_data, int len, struct jpeg_rtp_data *hd
         }
         if (!i.interleaved) {
                 if (strstr(i.com, "GPUJPEG")) {
-                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected, use \"-c JPEG:<q>:interleaved\"!\n");
+                        log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected, use \"-c GPUJPEG:interleaved\"!\n");
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Non-interleaved JPEG detected!\n");
                 }

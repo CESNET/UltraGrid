@@ -581,10 +581,10 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 # adds libraries to the bundle
 $(BUNDLE)/Contents/libs: $(BUNDLE)
 	cp $(REFLECTOR_TARGET) $(TARGET) $(BUNDLE)/Contents/MacOS # copy new execs - repeated dylibbundler on a binary fails
-	$(MKDIR_P) $(BUNDLE)/Contents/libs; \
+	$(MKDIR_P) $(BUNDLE)/Contents/libs
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		do echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $$n -d $(BUNDLE)/Contents/libs/; \
-	done; \
+	done
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks

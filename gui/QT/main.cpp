@@ -15,7 +15,7 @@ static bool show_help(char *argv[]) {
 	while (*argv != NULL) {
 		if (strcmp(*argv, "-h") == 0 || strcmp(*argv, "--help") == 0) {
 			printf("Usage:\n");
-			printf("\t%s [-h|--help|--with-uv <uv>]\n", progname);
+			printf("\t%s [-h|--help|--with-uv <uv>|--config <config_path>]\n", progname);
 			return true;
 		}
 		argv++;

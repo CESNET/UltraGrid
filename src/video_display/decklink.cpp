@@ -975,6 +975,16 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         return true;
 }
 
+#define BMD_CONFIG_SET_INT(val, type, key, name) do {\
+        if (val != (type) BMD_OPT_DEFAULT) {\
+                HRESULT result = deckLinkConfiguration->SetInt(key, val);\
+                if (result != S_OK) {\
+                        log_msg(LOG_LEVEL_ERROR, "Unable to set " name "\n");\
+                        goto error;\
+                }\
+        }\
+} while (0)
+
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
@@ -1135,13 +1145,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                if (conversion_mode != (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT) {
-                        result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoOutputConversionMode, conversion_mode);
-                        if (result != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, "Unable to set conversion mode.\n");
-                                goto error;
-                        }
-                }
+                BMD_CONFIG_SET_INT(conversion_mode, BMDVideoOutputConversionMode, bmdDeckLinkConfigVideoOutputConversionMode, "conversion mode");
 
 		result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf);
 		if (result != S_OK) {
@@ -1162,13 +1166,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                if(HDMI3DPacking != 0) {
-                        HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigHDMI3DPackingFormat,
-                                        HDMI3DPacking);
-                        if(res != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set 3D packing.\n");
-                        }
-                }
+                BMD_CONFIG_SET_INT(HDMI3DPacking, BMDVideo3DPackingFormat, bmdDeckLinkConfigHDMI3DPackingFormat, "3D packing");
 
                 if (s->level != 0) {
 #if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))

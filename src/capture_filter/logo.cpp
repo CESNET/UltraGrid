@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2020 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/pam.hpp"
 #include "video.h"
 #include "video_codec.h"
 
@@ -55,9 +56,12 @@
 using namespace std;
 
 struct state_capture_filter_logo {
-        unique_ptr<unsigned char []> logo;
+        unsigned char *logo = NULL;
         unsigned int width{}, height{};
         int x{}, y{};
+        ~state_capture_filter_logo() {
+                free(logo);
+        }
 };
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -67,69 +71,31 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 using namespace std;
 
 static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const char *filename) {
-        try {
-                string line;
-                ifstream file(filename, ifstream::in | ifstream::binary);
-
-                file.exceptions(ifstream::failbit | ifstream::badbit );
-
-                getline(file, line);
-                if (!file.good() || line != "P7") {
-                        throw string("Only logo in PAM format is currently supported.");
-                }
-                getline(file, line);
-                bool rgb = false;
+        if (strcasecmp(filename + (MAX(strlen(filename), 4) - 4), ".pam") == 0) {
                 int depth = 0;
-                while (!file.eof()) {
-                        if (line.compare(0, strlen("WIDTH"), "WIDTH") == 0) {
-                                s->width = atoi(line.c_str() + strlen("WIDTH "));
-                        } else if (line.compare(0, strlen("HEIGHT"), "HEIGHT") == 0) {
-                                s->height = atoi(line.c_str() + strlen("HEIGHT "));
-                        } else if (line.compare(0, strlen("DEPTH"), "DEPTH") == 0) {
-                                depth = atoi(line.c_str() + strlen("DEPTH "));
-                        } else if (line.compare(0, strlen("MAXVAL"), "MAXVAL") == 0) {
-                                if (atoi(line.c_str() + strlen("MAXVAL ")) != 255) {
-                                        throw string("Only supported maxval is 255.");
-                                }
-                        } else if (line.compare(0, strlen("TUPLETYPE"), "MAXVAL") == 0) {
-                                if (line.compare("TUPLTYPE RGB") == 0) {
-                                        rgb = true;
-                                } else if (line.compare("TUPLTYPE RGB_ALPHA") != 0) {
-                                        throw string("Only supported tuple type is either RGB or RGBA_APLHA.");
-                                }
-                        } else if (line.compare(0, strlen("ENDHDR"), "ENDHDR") == 0) {
-                                break;
-                        }
-                        getline(file, line);
+                bool rgb;
+                unsigned char *data;
+                if (!pam_read(filename, &s->width, &s->height, &depth, &data)) {
+                        return false;
                 }
-                if (s->width * s->height == 0) {
-                        throw string("Unspecified header field!");
+                if (depth != 3 && depth != 4) {
+                        cerr << "Unsupported depth passed.";
+                        free(data);
+                        return false;
                 }
-                if ((rgb && depth != 3) || depth != 4) {
-                        throw string("Unsupported depth passed.");
-                }
+                rgb = depth == 3;
                 int datalen = depth * s->width * s->height;
-                auto data_read = unique_ptr<unsigned char []>(new unsigned char[datalen]);
-                file.read((char *) data_read.get(), datalen);
-                if (file.eof()) {
-                        throw string("Unable to load logo data from file.");
-                }
                 if (rgb) {
                         datalen = 4 * s->width * s->height;
-                        auto tmp = unique_ptr<unsigned char []>(new unsigned char[datalen]);
-                        vc_copylineRGBtoRGBA(tmp.get(), data_read.get(), datalen, 0, 8, 16);
-                        s->logo = move(tmp);
+                        auto tmp = (unsigned char *) malloc(datalen);
+                        vc_copylineRGBtoRGBA(tmp, data, datalen, 0, 8, 16);
+                        s->logo = tmp;
+                        free(data);
                 } else {
-                        s->logo = move(data_read);
+                        s->logo = data;
                 }
-                file.close();
-        } catch (string const & s) {
-                cerr << s << endl;
-                return false;
-        } catch (exception const & e) {
-                cerr << e.what() << endl;
-                return false;
-        } catch (...) {
+        } else {
+                cerr << "Only logo in PAM format is currently supported.";
                 return false;
         }
 
@@ -227,7 +193,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 0, 8, 16);
         }
 
-        const unsigned char *overlay_data = s->logo.get();
+        const unsigned char *overlay_data = s->logo;
         for (unsigned int y = 0; y < s->height; ++y) {
                 unsigned char *image_data = segment + y * linesize;
                 for (unsigned int x = 0; x < s->width; ++x) {

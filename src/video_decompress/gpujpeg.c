@@ -45,9 +45,8 @@
 #include "video.h"
 #include "video_decompress.h"
 
-#include "libgpujpeg/gpujpeg_decoder.h"
-#include "libgpujpeg/gpujpeg_reader.h"
-#include "libgpujpeg/gpujpeg_version.h"
+#include <libgpujpeg/gpujpeg_decoder.h>
+#include <libgpujpeg/gpujpeg_version.h>
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -179,6 +178,7 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 
 #if LIBGPUJPEG_API_VERSION >= 4
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
+        *internal_codec = VIDEO_CODEC_NONE;
 	struct gpujpeg_image_parameters params = { 0 };
 #if LIBGPUJPEG_API_VERSION >= 6
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL) != 0) {
@@ -187,11 +187,12 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 #else
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
 #endif
-		return DECODER_NO_FRAME;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - cannot get image info!\n");
+		return DECODER_GOT_FRAME;
 	}
 
 	if (!params.color_space) {
-		return DECODER_NO_FRAME;
+                params.color_space = GPUJPEG_YCBCR_BT601_256LVLS;
 	}
 
 	switch ( params.color_space ) {
@@ -209,7 +210,9 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 #endif
 		break;
 	default:
-		return DECODER_NO_FRAME;
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - unhandled color space: %s\n",
+                                gpujpeg_color_space_get_name(params.color_space));
+		return DECODER_GOT_FRAME;
 	}
 
 	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(params.color_space));
@@ -316,17 +319,34 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
 #endif
 		{ JPEG, RGB, RGB, 300 },
-		{ JPEG, RGB, RGBA, 300 + GJ_RGBA_SUPP * 50 }, // 300 when GJ support RGBA natively,
-                                                              // 350 when using CPU conversion
+		{ JPEG, RGB, RGBA, 300 + (1 - GJ_RGBA_SUPP) * 50 }, // 300 when GJ support RGBA natively,
+                                                                    // 350 when using CPU conversion
 		{ JPEG, UYVY, UYVY, 300 },
 		{ JPEG, I420, I420, 300 },
 		{ JPEG, I420, UYVY, 500 },
 		{ JPEG, RGB, UYVY, 700 },
 		{ JPEG, UYVY, RGB, 700 },
-		{ JPEG, UYVY, RGBA, 700  + GJ_RGBA_SUPP * 50},
+		{ JPEG, UYVY, RGBA, 700  + (1 - GJ_RGBA_SUPP) * 50},
 		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 +  GJ_RGBA_SUPP * 50},
+		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 +  (1 - GJ_RGBA_SUPP) * 50},
+#if LIBGPUJPEG_API_VERSION > 6
+                // decoding from FFmpeg MJPG has lower priority than libavcodec
+                // decoder because those files doesn't has much independent
+                // segments (1 per MCU row -> 68 for HD) -> lavd may be better
+		{ MJPG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 90 },
+		{ MJPG, RGB, RGB, 600 },
+		{ MJPG, RGB, RGBA, 600 + (1 - GJ_RGBA_SUPP) * 50 },
+		{ MJPG, UYVY, UYVY, 600 },
+		{ MJPG, I420, I420, 600 },
+		{ MJPG, I420, UYVY, 700 },
+		{ MJPG, RGB, UYVY, 800 },
+		{ MJPG, UYVY, RGB, 800 },
+		{ MJPG, UYVY, RGBA, 800  + (1 - GJ_RGBA_SUPP) * 50},
+		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
+		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
+		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 +  (1 - GJ_RGBA_SUPP) * 50},
+#endif
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;
