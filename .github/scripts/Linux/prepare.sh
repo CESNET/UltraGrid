@@ -23,7 +23,7 @@ sudo apt install libx11-dev
 sudo apt install libsdl2-dev
 sudo apt install libssl-dev
 sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
-sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libva-dev libvdpau-dev
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
 ( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
