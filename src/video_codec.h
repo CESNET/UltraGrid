@@ -126,6 +126,7 @@ decoder_func_t vc_copylineR12LtoRGB;
 decoder_func_t vc_copylineRG48toR12L;
 decoder_func_t vc_copylineRG48toRGBA;
 decoder_func_t vc_copylineUYVYtoRGB;
+decoder_func_t vc_copylineUYVYtoRGBA;
 decoder_func_t vc_copylineUYVYtoRGB_SSE;
 decoder_func_t vc_copylineUYVYtoGrayscale;
 decoder_func_t vc_copylineYUYVtoRGB;

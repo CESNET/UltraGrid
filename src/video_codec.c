@@ -57,6 +57,7 @@
 #endif // HAVE_CONFIG_H
 
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -1521,6 +1522,32 @@ void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(gshift);
         UNUSED(bshift);
         copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3);
+}
+
+/**
+ * @brief Converts UYVY to RGBA.
+ * @param[out] dst     output buffer for RGBA
+ * @param[in]  src     input buffer with UYVY
+ */
+void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        assert((uintptr_t) dst % sizeof(uint32_t) == 0);
+        uint32_t *dst32 = (uint32_t *)(void *) dst;
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {
+                register int y1, y2, u ,v;
+                u = *src++;
+                y1 = *src++;
+                v = *src++;
+                y2 = *src++;
+                uint8_t r = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
+                uint8_t g = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                uint8_t b = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
+                *dst32++ = r << rshift | g << gshift | b << bshift;
+                r = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
+                g = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                b = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
+                *dst32++ = r << rshift | g << gshift | b << bshift;
+        }
 }
 
 /**
