@@ -754,6 +754,7 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, R12L, R12L, 500 },
         { VIDEO_CODEC_NONE, R12L, RGB, 500 },
         { VIDEO_CODEC_NONE, R12L, RGBA, 500 },
+        { VIDEO_CODEC_NONE, RG48, RGB, 500 },
         { VIDEO_CODEC_NONE, RG48, RGBA, 500 },
         { VIDEO_CODEC_NONE, RG48, R12L, 500 },
         { VIDEO_CODEC_NONE, UYVY, RGB, 800 },
