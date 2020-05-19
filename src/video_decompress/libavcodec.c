@@ -440,7 +440,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 #endif
         };
 
-        if (hwaccel){
+        if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
@@ -450,9 +450,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                                 hwaccel_state_reset(&state->hwaccel);
                                                 break;
                                         }
-                                        if (state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
-                                                return accels[i].pix_fmt;
-                                        }
+                                        return accels[i].pix_fmt;
                                 }
                         }
                 }
