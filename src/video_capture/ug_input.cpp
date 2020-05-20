@@ -101,8 +101,8 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         ug_input_state *s = new ug_input_state();
 
         char cfg[128] = "";
-        snprintf(cfg, sizeof cfg, "pipe:%p", s);
-        int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "proxy", cfg, 0, NULL, &s->display);
+        snprintf(cfg, sizeof cfg, "%p", s);
+        int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "pipe", cfg, 0, NULL, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
         map<string, param_u> params;
