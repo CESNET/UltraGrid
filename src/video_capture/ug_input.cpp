@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,8 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -65,7 +67,7 @@ struct ug_input_state  : public frame_recv_delegate {
         queue<struct video_frame *> frame_queue;
         struct display *display;
 
-        void frame_arrived(struct video_frame *f);
+        void frame_arrived(struct video_frame *f, struct audio_frame *a);
         thread         receiver_thread;
         thread             display_thread;
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
@@ -76,8 +78,9 @@ struct ug_input_state  : public frame_recv_delegate {
         int frames;
 };
 
-void ug_input_state::frame_arrived(struct video_frame *f)
+void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
 {
+        AUDIO_FRAME_DISPOSE(a);
         lock_guard<mutex> lk(lock);
         if (frame_queue.size() < MAX_QUEUE_SIZE) {
                 frame_queue.push(f);

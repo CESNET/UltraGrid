@@ -38,9 +38,16 @@
 #ifndef PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 #define PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 
+struct audio_frame;
+struct video_frame;
+
 class frame_recv_delegate {
         public:
-                virtual void frame_arrived(struct video_frame *) = 0;
+                /**
+                 * Implementing method must release both audio and video frame received
+                 * as parameters with AUDIO_FRAME_DISPOSE() and VIDEO_FRAME_DISPOSE().
+                 */
+                virtual void frame_arrived(struct video_frame *, struct audio_frame *) = 0;
 };
 
 #endif // defined PIPE_H_82485FAD_5131_4754_AA2F_66887721897D

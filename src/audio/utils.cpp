@@ -137,6 +137,19 @@ struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
         };
 }
 
+/**
+ * Copies desc from desc to f.
+ *
+ * @note
+ * Doesn't clear/set other members of f, thus caller needs to do that first if needed.
+ */
+void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc)
+{
+        f->bps = desc.bps;
+        f->sample_rate = desc.sample_rate;
+        f->ch_count = desc.ch_count;
+}
+
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
         int i;
