@@ -43,7 +43,7 @@
 #include "video.h"
 #include "video_display.h"
 
-#include "hd-rum-translator/hd-rum-decompress.h"
+#include "video_display/pipe.hpp"
 
 struct state_pipe {
         struct module *parent;

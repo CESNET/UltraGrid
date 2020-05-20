@@ -1,10 +1,9 @@
 /**
- * @file   hd-rum-translator/hd-rum-decompress.h
- * @author Martin Piatka     <piatka@cesnet.cz>
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   video_display/pipe.hpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,29 +35,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
+#define PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 
-struct module;
-
-enum hd_rum_mode_t {NORMAL, BLEND, CONFERENCE};
-struct hd_rum_output_conf{
-        enum hd_rum_mode_t mode;
-        const char *arg;
+class frame_recv_delegate {
+        public:
+                virtual void frame_arrived(struct video_frame *) = 0;
 };
 
-ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
-void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter);
-void hd_rum_decompress_done(void *state);
-void hd_rum_decompress_set_active(void *decompress_state, void *recompress_state, bool active);
-void hd_rum_decompress_remove_port(void *decompress_state, int index);
-void hd_rum_decompress_append_port(void *decompress_state, void *recompress_state);
-int hd_rum_decompress_get_num_active_ports(void *decompress_state);
-
-#ifdef __cplusplus
-}
-#endif
-
-struct video_frame;
+#endif // defined PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 

@@ -62,6 +62,7 @@
 
 #include "video.h"
 #include "video_display.h"
+#include "video_display/pipe.hpp"
 #include "video_rxtx/ultragrid_rtp.h"
 
 static constexpr int MAX_QUEUE_SIZE = 2;

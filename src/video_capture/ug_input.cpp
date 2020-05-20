@@ -40,11 +40,11 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "host.h"
-#include "hd-rum-translator/hd-rum-decompress.h" // frame_recv_delegate
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
+#include "video_display/pipe.hpp" // frame_recv_delegate
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
 
