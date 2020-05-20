@@ -39,6 +39,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include "audio/audio.h"
 #include "audio/types.h"
 #include "debug.h"
 #include "host.h"
@@ -64,13 +65,14 @@ using namespace std::chrono;
 
 struct ug_input_state  : public frame_recv_delegate {
         mutex lock;
-        queue<struct video_frame *> frame_queue;
+        queue<pair<struct video_frame *, struct audio_frame *>> frame_queue;
         struct display *display;
 
         void frame_arrived(struct video_frame *f, struct audio_frame *a);
         thread         receiver_thread;
         thread             display_thread;
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
+        struct state_audio *audio;
 
         virtual ~ug_input_state() {}
 
@@ -80,34 +82,37 @@ struct ug_input_state  : public frame_recv_delegate {
 
 void ug_input_state::frame_arrived(struct video_frame *f, struct audio_frame *a)
 {
-        AUDIO_FRAME_DISPOSE(a);
         lock_guard<mutex> lk(lock);
         if (frame_queue.size() < MAX_QUEUE_SIZE) {
-                frame_queue.push(f);
+                frame_queue.push({f, a});
         } else {
                 cerr << "[ug_input] Dropping frame!" << endl;
-                vf_free(f);
+                AUDIO_FRAME_DISPOSE(a);
+                VIDEO_FRAME_DISPOSE(f);
         }
 }
 
 static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 {
-        if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
-                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
-        }
+        uint16_t port = 5004;
 
         if (strcmp("help", vidcap_params_get_fmt(cap_params)) == 0) {
                 printf("Usage:\n");
-                printf("\t-t ug_input:<port>\n");
+                printf("\t-t ug_input[:<port>] [-s embedded]\n");
                 return VIDCAP_INIT_NOERR;
         }
         ug_input_state *s = new ug_input_state();
+
+        if (isdigit(vidcap_params_get_fmt(cap_params)[0])) {
+                port = atoi(vidcap_params_get_fmt(cap_params));
+        }
 
         char cfg[128] = "";
         snprintf(cfg, sizeof cfg, "%p", s);
         int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "pipe", cfg, 0, NULL, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
+        auto start_time = std::chrono::steady_clock::now();
         map<string, param_u> params;
 
         // common
@@ -121,17 +126,13 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         params["mtu"].i = 9000; // doesn't matter anyway...
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
         params["receiver"].str = "localhost";
-        if (isdigit(vidcap_params_get_fmt(cap_params)[0]))
-                params["rx_port"].i = atoi(vidcap_params_get_fmt(cap_params));
-        else
-                params["rx_port"].i = 5004; // default
+        params["rx_port"].i = port;
         params["tx_port"].i = 0;
         params["force_ip_version"].i = 0;
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";
         params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
-        auto start_time = std::chrono::steady_clock::now();
         params["start_time"].cptr = (const void *) &start_time;
         params["video_delay"].vptr = 0;
 
@@ -142,6 +143,26 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         s->video_rxtx = unique_ptr<ultragrid_rtp_video_rxtx>(dynamic_cast<ultragrid_rtp_video_rxtx *>(video_rxtx::create("ultragrid_rtp", params)));
         assert (s->video_rxtx);
 
+        if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
+                const char *audio_scale = "none";
+                s->audio = audio_cfg_init(vidcap_params_get_parent(cap_params), "localhost", port + 2, 0 /* send_port */,
+                                "none", "embedded",
+                                "ultragrid_rtp", "",
+                                "none", NULL, NULL, audio_scale, false, 0, NULL, "PCM", RATE_UNLIMITED, NULL,
+                                &start_time, 1500, NULL);
+                if (s->audio == nullptr) {
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
+                }
+
+                audio_register_display_callbacks(s->audio,
+                                s->display,
+                                (void (*)(void *, struct audio_frame *)) display_put_audio_frame,
+                                (int (*)(void *, int, int, int)) display_reconfigure_audio,
+                                (int (*)(void *, int, void *, size_t *)) display_get_property);
+
+                audio_start(s->audio);
+        }
         s->t0 = steady_clock::now();
 
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
@@ -155,6 +176,7 @@ static void vidcap_ug_input_done(void *state)
 {
         auto s = (ug_input_state *) state;
 
+        audio_join(s->audio);
         s->receiver_thread.join();
 
         display_put_frame(s->display, NULL, 0);
@@ -164,10 +186,12 @@ static void vidcap_ug_input_done(void *state)
         s->video_rxtx->join();
 
         while (!s->frame_queue.empty()) {
-                auto frame = s->frame_queue.front();
+                auto item = s->frame_queue.front();
                 s->frame_queue.pop();
-                vf_free(frame);
+                VIDEO_FRAME_DISPOSE(item.first);
+                AUDIO_FRAME_DISPOSE(item.second);
         }
+        audio_done(s->audio);
 
         delete s;
 }
@@ -180,7 +204,9 @@ static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame 
         if (s->frame_queue.empty()) {
                 return NULL;
         } else {
-                auto frame = s->frame_queue.front();
+                auto item = s->frame_queue.front();
+                struct video_frame *frame = item.first;
+                *audio = item.second;
                 s->frame_queue.pop();
                 frame->callbacks.dispose = vf_free;
 
