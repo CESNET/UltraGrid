@@ -45,7 +45,13 @@
 #include <iostream>
 #include <string>
 
-[[maybe_unused]] static bool pam_read(const char *filename, unsigned int *width, unsigned int *height, int *depth, unsigned char **data, void *(*allocator)(size_t) = malloc) {
+#if __cplusplus >= 201703L
+#define MAYBE_UNUSED [[maybe_unused]]
+#else
+#define MAYBE_UNUSED
+#endif
+
+MAYBE_UNUSED static bool pam_read(const char *filename, unsigned int *width, unsigned int *height, int *depth, unsigned char **data, void *(*allocator)(size_t) = malloc) {
         try {
                 std::string line;
                 std::ifstream file(filename, std::ifstream::in | std::ifstream::binary);
@@ -107,7 +113,7 @@
         return true;
 }
 
-[[maybe_unused]] static bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, const unsigned char *data) {
+MAYBE_UNUSED static bool pam_write(const char *filename, unsigned int width, unsigned int height, int depth, const unsigned char *data) {
         try {
                 std::ofstream file(filename, std::ifstream::out | std::ifstream::binary);
 
