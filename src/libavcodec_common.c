@@ -1714,14 +1714,14 @@ static inline void yuv420p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(rgba ? RGBA : RGB, width);
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
                 decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
                                 rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(UYVY, width);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
@@ -1743,14 +1743,14 @@ static void yuv422p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(rgba ? RGBA : RGB, width);
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
                 decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
                                 rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(UYVY, width);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
@@ -1772,14 +1772,14 @@ static void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(rgba ? RGBA : RGB, width);
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
                 decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
                                 rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(UYVY, width);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
