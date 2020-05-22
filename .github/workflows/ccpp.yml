@@ -157,6 +157,15 @@ jobs:
       run: .github/scripts/Windows/find_msvc.ps1
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
+    - name: Cache AJA
+      id: cache-aja
+      uses: actions/cache@v1
+      with:
+        path: 'C:\AJA'
+        key: cache-aja
+    - name: Build AJA
+      if: steps.cache-aja.outputs.cache-hit != 'true'
+      run: .github/scripts/Windows/build_aja.ps1
     - name: Cache JACK
       id: cache-jack
       uses: actions/cache@v1
