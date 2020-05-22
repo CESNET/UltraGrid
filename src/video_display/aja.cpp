@@ -146,6 +146,7 @@ struct display {
                 codec_t forceOutputColorSpace = VIDEO_CODEC_NONE; ///< force output color space for SDI - RGB or UYVY, VIDEO_CODEC_NONE for default
                 bool setupAll = true;
                 bool setupRoute = true;
+                bool smpteRange = true;
         } mConf;
 
         queue<struct video_frame *> frames;
@@ -386,7 +387,7 @@ AJAStatus display::SetUpVideo ()
 
         if (NTV2_OUTPUT_DEST_IS_HDMI(mConf.outputDestination)) {
                 // convert all to RGB SMPTE range
-                if (IsRGBFormat (mPixelFormat) && mOutIsRGB) { // set LUT
+                if (IsRGBFormat (mPixelFormat) && mOutIsRGB && mConf.smpteRange) { // set LUT
                         NTV2LutType lutType = NTV2_LUTRGBRangeFull_SMPTE;
                         const int bank = 1; // Bank 0 (RGB->YUV, SMPTE->Full), Bank 1 (YUV->RGB, Full->SMPTE)
                         CHECK_EX(mDevice.SetColorCorrectionOutputBank(mOutputChannel, bank), "LUT Bank", NOOP);
@@ -529,10 +530,14 @@ void display::RouteOutputSignal ()
                         } else if (NTV2_OUTPUT_DEST_IS_HDMI(mConf.outputDestination)) {
 				// convert all to RGB SMPTE range
                                 if (fbIsRGB && mOutIsRGB) { // connect to LUT to convert full->SMPTE range
-                                        auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
-                                        CHECK_EX(mDevice.Connect(lutInXpt, fsVidOutXpt), "Connect to LUT", NOOP);
-                                        CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), chanToLutSrc.at(chan)),
-                                                        "Connect from LUT", NOOP);
+                                        if (mConf.smpteRange) {
+                                                auto lutInXpt = (NTV2InputCrosspointID) ((unsigned int) NTV2_XptLUT1Input + (unsigned int) chan);
+                                                CHECK_EX(mDevice.Connect(lutInXpt, fsVidOutXpt), "Connect to LUT", NOOP);
+                                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), chanToLutSrc.at(chan)),
+                                                                "Connect from LUT", NOOP);
+                                        } else {
+                                                CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), fsVidOutXpt), "Connect to FS to HDMI", NOOP);
+                                        }
                                 } else { // connect output to FB or CSC
                                         CHECK_EX(mDevice.Connect(::GetOutputDestInputXpt(mConf.outputDestination), fbIsRGB != mOutIsRGB ? cscVidOutXpt : fsVidOutXpt),
                                                         "Connect from CSC", NOOP);
@@ -715,7 +720,7 @@ void aja::display::print_stats() {
 void aja::display::show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-d aja" << rang::fg::reset <<
-                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:no-setup[-route]][:RGB|:YUV]|:help] [-r embedded]\n" << rang::style::reset <<
+                "[[:buffers=<b>][:channel=<ch>][:clear-routing][:connection=<c>][:device=<d>][:[no-]multi-channel][:novsync][:no-setup[-route]][:RGB|:YUV][:{smpte|full}-range]|:help] [-r embedded]\n" << rang::style::reset <<
                 "where\n";
 
         cout << rang::style::bold << "\tbuffers\n" << rang::style::reset <<
@@ -756,6 +761,9 @@ void aja::display::show_help() {
 
         cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset <<
                 "\t\tforce SDI output to be RGB or YCbCr, otherwise UG keeps the colorspace\n";
+
+        cout << rang::style::bold << "\tsmpte-|full-range\n" << rang::style::reset <<
+                "\t\tuse either SMPTE (default) or full RGB range\n";
 
         cout << rang::style::bold << "\t-r embedded\n" << rang::style::reset <<
                 "\t\treceive also audio and embed it to SDI\n";
@@ -957,6 +965,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                         conf.novsync = true;
                 } else if (strcasecmp(item, "RGB") == 0 || strcasecmp(item, "YUV") == 0) {
                         conf.forceOutputColorSpace = strcasecmp(item, "RGB") == 0 ? RGB : UYVY;
+                } else if (strcasecmp(item, "smpte-range") == 0 || strcasecmp(item, "full-range") == 0) {
+                        conf.smpteRange = strcasecmp(item, "smpte-range") == 0;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Unknown option: " << item << "\n";
                         return nullptr;
