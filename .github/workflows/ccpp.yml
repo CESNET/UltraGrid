@@ -198,7 +198,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64
-          $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
+        cd build; zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64
+        $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build
+      shell: bash
 
 # vi: set expandtab sw=2:
