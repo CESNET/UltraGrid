@@ -166,6 +166,18 @@ jobs:
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
+    - name: Cache live555
+      id: cache-live555
+      uses: actions/cache@v1
+      with:
+        path: 'C:\live555'
+        key: cache-live555
+    - name: Build live555
+      env:
+        CC: gcc
+        CXX: g++
+      if: steps.cache-live555.outputs.cache-hit != 'true'
+      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure

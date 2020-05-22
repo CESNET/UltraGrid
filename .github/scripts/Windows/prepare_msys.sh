@@ -49,12 +49,9 @@ if test -d /c/AJA; then
 fi
 
 # Install live555
-git clone https://github.com/xanview/live555/
-cd live555
-git checkout 35c375
-./genMakefiles mingw
+cd /c/live555
 make install
-cd ..
+cd -
 
 # Install SPOUT
 wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer
