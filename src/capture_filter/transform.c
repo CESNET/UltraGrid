@@ -110,24 +110,24 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                         a[0] = *in_data++;
                         a[2] = b[2] = *in_data++;
                         b[0] = *in_data++;
-                        *out_data++ = s->transform_matrix[0] * a[0] +
-                                s->transform_matrix[1] * a[1] +
-                                s->transform_matrix[2] * a[2];
-                        *out_data++ = s->transform_matrix[3] * a[0] +
-                                s->transform_matrix[4] * a[1] +
-                                s->transform_matrix[5] * a[2];
-                        *out_data++ = s->transform_matrix[6] * a[0] +
-                                s->transform_matrix[7] * a[1] +
-                                s->transform_matrix[8] * a[2];
-                        *out_data++ = s->transform_matrix[0] * b[0] +
-                                s->transform_matrix[1] * b[1] +
-                                s->transform_matrix[2] * b[2];
-                        *out_data++ = s->transform_matrix[3] * b[0] +
-                                s->transform_matrix[4] * b[1] +
-                                s->transform_matrix[5] * b[2];
-                        *out_data++ = s->transform_matrix[6] * b[0] +
-                                s->transform_matrix[7] * b[1] +
-                                s->transform_matrix[8] * b[2];
+                        *out_data++ = s->transform_matrix[0] * (a[0] - 16) +
+                                s->transform_matrix[1] * (a[1] - 128) +
+                                s->transform_matrix[2] * (a[2] - 128);
+                        *out_data++ = s->transform_matrix[3] * (a[0] - 16) +
+                                s->transform_matrix[4] * (a[1] - 128) +
+                                s->transform_matrix[5] * (a[2] - 128);
+                        *out_data++ = s->transform_matrix[6] * (a[0] - 16) +
+                                s->transform_matrix[7] * (a[1] - 128) +
+                                s->transform_matrix[8] * (a[2] - 128);
+                        *out_data++ = s->transform_matrix[0] * (b[0] - 16) +
+                                s->transform_matrix[1] * (b[1] - 128) +
+                                s->transform_matrix[2] * (b[2] - 128);
+                        *out_data++ = s->transform_matrix[3] * (b[0] - 16) +
+                                s->transform_matrix[4] * (b[1] - 128) +
+                                s->transform_matrix[5] * (b[2] - 128);
+                        *out_data++ = s->transform_matrix[6] * (b[0] - 16) +
+                                s->transform_matrix[7] * (b[1] - 128) +
+                                s->transform_matrix[8] * (b[2] - 128);
                 }
         } else if (in->color_spec == RGB) {
                 for (unsigned int i = 0; i < in->tiles[0].data_len; i += 3) {
