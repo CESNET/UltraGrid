@@ -152,7 +152,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
       with:
-        submodules: true
+        submodules: false
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
     - name: bootsrap
