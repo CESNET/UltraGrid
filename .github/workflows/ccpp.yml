@@ -166,17 +166,8 @@ jobs:
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
-    - name: Cache MSYS2
-      id: cache-msys2
-      uses: actions/cache@v1
-      with:
-        path: C:\msys64
-        key: cache-msys2-7
     - name: bootsrap MSYS2
-      if: steps.cache-msys2.outputs.cache-hit != 'true'
-      run: |
-        choco install --no-progress msys2 --params "/NoUpdate /InstallDir:C:\msys64"
-        C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
       run: C:\msys64\usr\bin\bash -cel "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
     - name: make
