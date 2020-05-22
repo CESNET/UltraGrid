@@ -108,6 +108,7 @@ COMMON_OBJS     = \
 		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
 		src/capture_filter/split.o \
+		src/capture_filter/transform.o \
 		src/compat/alarm.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
