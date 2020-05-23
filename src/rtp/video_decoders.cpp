@@ -1009,13 +1009,19 @@ static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t 
         }
         if (comp_int_fmt != VIDEO_CODEC_NONE) {
                 // sort - first codec of the same color space as internal (YUV
-                // is implicitly !RGB), inside those 2 groups, sort higher bit
-                // depths first
+                // is implicitly !RGB), then the other
+                // inside those 2 groups, sort nearest higher first, then downwardly the lower bit depts
                 sort(remaining.begin(), remaining.end(), [comp_int_fmt](const codec_t &a, const codec_t &b) {
                                 if (codec_is_a_rgb(a) != codec_is_a_rgb(b)) { // RGB and YUV (or vice versa)
                                         return codec_is_a_rgb(a) == codec_is_a_rgb(comp_int_fmt);
                                 }
-                                return get_bits_per_component(a) > get_bits_per_component(b);
+                                // either a or b is lower than comp_int_fmt bit depth - sort higher bit depth first
+                                if (get_bits_per_component(a) < get_bits_per_component(comp_int_fmt) ||
+                                                get_bits_per_component(b) < get_bits_per_component(comp_int_fmt)) {
+                                        return get_bits_per_component(a) > get_bits_per_component(b);
+                                }
+                                // both are equal or higher - sort lower bit depth first
+                                return get_bits_per_component(a) < get_bits_per_component(b);
 
                         });
         }
