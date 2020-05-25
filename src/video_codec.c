@@ -50,12 +50,17 @@
  *
  */
 
+#define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifndef __STDC_LIB_EXT1__
+#define qsort_s qsort_r
+#endif
 
 #include <stdint.h>
 #include <stdio.h>
@@ -2361,6 +2366,55 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
         }
 
         return NULL;
+}
+
+// less is better
+static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
+        codec_t codec_a = *(const codec_t *) a;
+        codec_t codec_b = *(const codec_t *) b;
+        codec_t orig_codec = *(codec_t *) orig_c;
+
+        bool slow_a = get_decoder_from_to(orig_codec, codec_a, false) == NULL;
+        bool slow_b = get_decoder_from_to(orig_codec, codec_b, false) == NULL;
+        if (slow_a != slow_b) {
+                return slow_a ? 1 : -1;
+        }
+
+        int bits_a = get_bits_per_component(codec_a);
+        int bits_b = get_bits_per_component(codec_b);
+        int bits_orig = get_bits_per_component(orig_codec);
+        // either a or b is lower than orig - sort higher bit depth first
+        if (bits_a < bits_orig || bits_b < bits_orig) {
+                return bits_b - bits_a;
+        }
+        // both are equal or higher - sort lower bit depth first
+        return bits_a - bits_b;
+}
+
+decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow)
+{
+        codec_t candidates[VIDEO_CODEC_END];
+        const codec_t *it = out_candidates;
+        size_t count = 0;
+        while (*it != VIDEO_CODEC_NONE) {
+                if (get_decoder_from_to(in, *it, include_slow)) {
+                        if (count == VIDEO_CODEC_END) {
+                                assert(0 && "Too much codecs, some used multiple times!");
+                        }
+                        candidates[count++] = *it;
+                }
+                it++;
+        }
+        if (count == 0) {
+                return NULL;
+        }
+        qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
+        *out = candidates[0];
+        decoder_t ret = get_decoder_from_to(in, *out, false);
+        if (ret) {
+                return ret;
+        }
+        return get_decoder_from_to(in, *out, true);
 }
 
 /**

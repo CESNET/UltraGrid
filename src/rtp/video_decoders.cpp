@@ -347,7 +347,7 @@ struct state_video_decoder
 
         struct display   *display = NULL; ///< assigned display device
         /// @{
-        codec_t           native_codecs[VIDEO_CODEC_COUNT] = {}; ///< list of native codecs
+        codec_t           native_codecs[VIDEO_CODEC_COUNT] = {}; ///< list of native codecs, must be NULL-terminated
         size_t            native_count = 0;  ///< count of @ref native_codecs
         enum interlacing_t *disp_supported_il = NULL; ///< display supported interlacing mode
         size_t            disp_supported_il_cnt = 0; ///< count of @ref disp_supported_il
@@ -575,6 +575,7 @@ static bool blacklist_current_out_codec(struct state_video_decoder *decoder){
                         memmove(decoder->native_codecs + i, decoder->native_codecs + i + 1,
                                         (decoder->native_count - i - 1) * sizeof(codec_t));
                         decoder->native_count -= 1;
+                        decoder->native_codecs[decoder->native_count] = VIDEO_CODEC_NONE;
                         decoder->out_codec = VIDEO_CODEC_NONE;
                         break;
                 }
@@ -1056,7 +1057,6 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                 decoder_t *decode_line, codec_t comp_int_fmt)
 {
         codec_t out_codec = VIDEO_CODEC_NONE;
-        *decode_line = NULL;
 
         /* first check if the codec is natively supported */
         for (size_t native = 0u; native < decoder->native_count; ++native) {
@@ -1079,29 +1079,11 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                         goto after_linedecoder_lookup;
                 }
         }
-        /* otherwise if we have line decoder */
-        for (size_t native = 0; native < decoder->native_count; ++native) {
-                decoder_t decode;
-                if ((decode = get_decoder_from_to(desc.color_spec, decoder->native_codecs[native], false)) != NULL) {
-                        *decode_line = decode;
-
-                        decoder->decoder_type = LINE_DECODER;
-                        out_codec = decoder->native_codecs[native];
-                        goto after_linedecoder_lookup;
-
-                }
-        }
-        /* the same, but include also slow decoders */
-        for (size_t native = 0; native < decoder->native_count; ++native) {
-                decoder_t decode;
-                if ((decode = get_decoder_from_to(desc.color_spec, decoder->native_codecs[native], true)) != NULL) {
-                        *decode_line = decode;
-
-                        decoder->decoder_type = LINE_DECODER;
-                        out_codec = decoder->native_codecs[native];
-                        goto after_linedecoder_lookup;
-
-                }
+        /* otherwise if we have line decoder (incl. slow codecs) */
+        *decode_line = get_best_decoder_from(desc.color_spec, decoder->native_codecs, &out_codec, true);
+        if (*decode_line) {
+                decoder->decoder_type = LINE_DECODER;
+                goto after_linedecoder_lookup;
         }
 
 after_linedecoder_lookup:
