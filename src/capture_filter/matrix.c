@@ -1,5 +1,5 @@
 /**
- * @file   capture_filter/transform.c
+ * @file   capture_filter/matrix.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -48,9 +48,9 @@
 #include "video.h"
 #include "video_codec.h"
 
-#define MOD_NAME "[transform] "
+#define MOD_NAME "[matrix cap. f.] "
 
-struct state_capture_filter_transform {
+struct state_capture_filter_matrix {
         double transform_matrix[9];
 };
 
@@ -61,13 +61,13 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (!cfg || strcmp(cfg, "help") == 0) {
                 printf("Performs matrix transformation on input pixels.\n\n"
                        "usage:\n");
-                color_out(COLOR_OUT_BOLD, "\t--capture-filter transform:a:b:c:d:e:f:g:h:i\n");
+                color_out(COLOR_OUT_BOLD, "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i\n");
                 printf("where numbers a-i are members of 3x3 transformation matrix [a b c; d e f; g h i], decimals.\n"
                        "Coefficients are applied at unpacked pixels (eg. on Y Cb and Cr channels of UYVY). Result is marked as RGB.\n"
                        "Currently only RGB and UYVY is supported on input. No additional color transformation is performed.\n");
                 return 1;
         }
-        struct state_capture_filter_transform *s = calloc(1, sizeof(struct state_capture_filter_transform));
+        struct state_capture_filter_matrix *s = calloc(1, sizeof(struct state_capture_filter_matrix));
         char *cfg_c = strdup(cfg);
         char *item, *save_ptr, *tmp = cfg_c;
         int i = 0;
@@ -94,7 +94,7 @@ static void done(void *state)
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-        struct state_capture_filter_transform *s = state;
+        struct state_capture_filter_matrix *s = state;
         struct video_desc desc = video_desc_from_frame(in);
         desc.color_spec = RGB;
         struct video_frame *out = vf_alloc_desc_data(desc);
@@ -157,12 +157,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return out;
 }
 
-static const struct capture_filter_info capture_filter_transform = {
+static const struct capture_filter_info capture_filter_matrix = {
         .init = init,
         .done = done,
         .filter = filter,
 };
 
-REGISTER_MODULE(transform, &capture_filter_transform, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+REGISTER_MODULE(matrix, &capture_filter_matrix, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
 /* vim: set expandtab sw=8: */
