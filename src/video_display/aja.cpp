@@ -1008,6 +1008,13 @@ LINK_SPEC int display_aja_putf(void *state, struct video_frame *frame, int nonbl
 {
         auto s = static_cast<struct aja::display *>(state);
 
+        if (frame && frame->color_spec == R12L) {
+                char *tmp = (char *) malloc(frame->tiles[0].data_len);
+                vc_copylineR12LtoR12A((unsigned char *) tmp, (unsigned char *) frame->tiles[0].data, frame->tiles[0].data_len, 0, 0, 0);
+                free(frame->tiles[0].data);
+                frame->tiles[0].data = tmp;
+        }
+
         return s->Putf(frame, nonblock);
 }
 

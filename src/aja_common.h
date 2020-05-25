@@ -58,6 +58,7 @@ static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {
         { NTV2_FBF_24BIT_RGB, RGB },
         { NTV2_FBF_24BIT_BGR, BGR },
         { NTV2_FBF_48BIT_RGB, RG48 },
+        { NTV2_FBF_12BIT_RGB_PACKED, R12L },
 };
 } // end of namespace aja
 } // end of namespace ultragrid
