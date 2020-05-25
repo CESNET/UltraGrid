@@ -63,3 +63,17 @@ static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {
 } // end of namespace aja
 } // end of namespace ultragrid
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void
+vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
+                int gshift, int bshift);
+void
+vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
+                int gshift, int bshift);
+
+#ifdef __cplusplus
+}
+#endif

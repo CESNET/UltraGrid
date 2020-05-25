@@ -124,8 +124,6 @@ decoder_func_t vc_copylineRGBtoGrayscale_SSE;
 decoder_func_t vc_copylineRGBtoR12L;
 decoder_func_t vc_copylineR12LtoRG48;
 decoder_func_t vc_copylineR12LtoRGB;
-decoder_func_t vc_copylineR12LtoR12A; // to AJA 12-bit
-decoder_func_t vc_copylineR12AtoR12L; // from AJA 12-bit
 decoder_func_t vc_copylineRG48toR12L;
 decoder_func_t vc_copylineRG48toRGB;
 decoder_func_t vc_copylineRG48toRGBA;
