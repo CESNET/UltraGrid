@@ -13,7 +13,7 @@
  * This file contains video codecs' metadata and helper
  * functions as well as pixelformat converting functions.
  */
-/* Copyright (c) 2005-2019 CESNET z.s.p.o.
+/* Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -58,13 +58,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifndef __STDC_LIB_EXT1__
-#define qsort_s qsort_r
-#endif
-
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if !defined _WIN32 && !defined __STDC_LIB_EXT1__
+#define qsort_s qsort_r
+#endif
 
 #include "debug.h"
 #include "host.h"
