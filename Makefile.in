@@ -103,6 +103,7 @@ COMMON_OBJS     = \
 		src/capture_filter.o \
 		src/capture_filter/every.o \
 		src/capture_filter/flip.o \
+		src/capture_filter/gamma.o \
 		src/capture_filter/grayscale.o \
 		src/capture_filter/logo.o \
 		src/capture_filter/matrix.o \
