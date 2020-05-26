@@ -47,10 +47,11 @@ jobs:
           REQ=POST
           URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
         fi
-        curl -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<'EOF'
+        DATE=$(date -Iminutes)
+        curl -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
         {
           "tag_name": "continuous", "name": "continuous builds",
-          "body": "Current builds from GIT master branch. Here are [archived builds](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
+          "body": "Last update at $DATE\n\nCurrent builds from Git master branch. Linux ARM and macOS alternative builds are rebuilt daily. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
           "draft": false, "prerelease": true
         }
         EOF
