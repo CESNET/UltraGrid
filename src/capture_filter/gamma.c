@@ -108,12 +108,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return out;
 }
 
-static const struct capture_filter_info capture_filter_matrix = {
+static const struct capture_filter_info capture_filter_gamma = {
         .init = init,
         .done = done,
         .filter = filter,
 };
 
-REGISTER_MODULE(gamma, &capture_filter_matrix, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+REGISTER_MODULE(gamma, &capture_filter_gamma, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
 /* vim: set expandtab sw=8: */
