@@ -35,6 +35,7 @@ jobs:
     - name: Retag continuous
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       run: |
+        git fetch --prune --unshallow --tags
         git tag -f continuous
         git push -f origin refs/tags/continuous:refs/tags/continuous
     - name: Update Release
