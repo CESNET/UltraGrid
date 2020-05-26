@@ -51,7 +51,7 @@ jobs:
         curl -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
         {
           "tag_name": "continuous", "name": "continuous builds",
-          "body": "Last update at $DATE\n\nCurrent builds from Git master branch. Linux ARM and macOS alternative builds are rebuilt daily. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
+          "body": "Last update $DATE\n\nCurrent builds from Git master branch. Linux ARM and macOS alternative builds are rebuilt daily. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
           "draft": false, "prerelease": true
         }
         EOF
