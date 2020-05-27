@@ -13,29 +13,36 @@ UltraGrid - A High Definition Collaboratory
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
    * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
-   * Copyright (c) 2005-2019 CESNET z.s.p.o.
+   * Copyright (c) 2005-2020 CESNET z.s.p.o.
    * All rights reserved.
 
-   This software is distributed under license, see the file COPYRIGHT for
-   full terms and conditions.
+   This software is distributed under license, see the file
+   [COPYRIGHT](COPYRIGHT) for full terms and conditions.
 
 
 About UltraGrid
 ---------------
 
-   UltraGrid brought by CESNET's Laboratory of Advanced Networking Technologies
-   (Sitola) is a software implementation of high-quality low-latency video and
-   audio transmissions using commodity PC and Mac hardware. Supported
-   resolutions range through HD (1920x1080) up to 4K (4096x2160) with up to 60
-   frames per second. The high-quality is achieved either by using uncompressed
+   **UltraGrid** brought by [CESNET's](https://www.cesnet.cz) Laboratory of
+   Advanced Networking Technologies ([Sitola](https://www.sitola.cz)) is
+   a software implementation of high-quality low-latency video and
+   audio transmissions using commodity hardware. Supported resolutions range
+   through *HD* (1920x1080) up to *8K* (7680x2160) with up to 60 frames per second.
+   Other features are listed [here](https://github.com/CESNET/UltraGrid/wiki).
+
+   The high-quality is achieved either by using uncompressed
    streams or streams with very low compression ratio. End-to-end transmission
    latency (i.e., all the way from the camera to the display) is about 100ms,
    but it varies based on camera and capture cards being used. UltraGrid was
    originally a research project used to demonstrate the possibilities of 10Gbps
    networks and to study multi-point data distribution in such environments.
    Recent advances in the field of GPU-accelerated low-latency codecs extend its
-   usability also to Gigabit networks. UltraGrid is supported on PCs with Linux
-   operating system and Macs with MacOS X. The software is open-source
+   usability also to Gigabit networks. High compression ratio compressions allow
+   further use of any commodity network connection including a shared Internet
+   connection.
+
+   UltraGrid is supported on stations with
+   Linux, Windows or macOS operating system. The software is open-source
    distributed under BSD license, i.e., we're interested in both
    research/academic and commercial applications. Nowadays, main application
    areas are collaborative environments, medical, cinematography and
@@ -74,69 +81,68 @@ Hardware and Software Requirements
 
    Recommended Hardware Setup:
    - 64-bit CPU with at least 2 cores
-     - Tested version: 2x 2-core Opteron CPUs,64-bit Ubuntu (both latest and LTS), Fedora, Debian and openSUSE 
-   - OpenGL3 - compatible card
-     - Proprietary drivers strongly recommended
-     - DXT compression on GPU is tested with OpenGL 3.3
-     - JPEG compression requires NVidia GeForce 4xx or newer
-   - For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
+   - **OpenGL** compatible graphics card
+     - *DXT* compression on GPU is tested with **OpenGL 3.3**
+     - *GPUJPEG* compression requires a **NVidia** card
+     - various other HW accelerations supported with recent cards (**NVENC**,
+       **QuickSync**, **VideoToolbox**)
+   - For uncompressed 1.5Gbps streams (either sending or receiving), **10GbE**
+     network interface card is needed
      - We test with PCIe Myrinet 10GbE 
-   - For SDI send/receive capabilities, DVS, DeckLink, Magewell or Linsys Quad card is required
-     - Magewell and Linsys modules in UG support only capturing 
+   - For *SDI* send/receive capabilities, **AJA**, **Bluefish444**,
+     **Blackmagic**, **DELTACAST** or **Magewell** card is required
+     - Magewell module in UG support only capturing
 
    Video capture card should be located on a separate PCI bus from network card if possible.
 
 ### Required Software Preliminaries
    You will need this software (in brackets are optional features for which you'll need it):
 
-   - X.Org and ATI/NVidia proprietary drivers (receiver - OpenGL/SDL display, sender - RTDXT compression)
-   - SDL (SDL display)
-   - OpenGL (RTDXT sender or OpenGL display on receiver)
-   - GLEW library (DXT sender)
-   - DVS SDK/Blackmagic drivers/Quad drivers 
-     - devel packages need to be installed as well 
-           
-   DVS SDK or VideomasterHD from Deltacast need to be obtained separately
-   because it cannot be distributed with UltraGrid (license). Please refer
-   our [wiki](https://github.com/CESNET/UltraGrid/wiki) for further information.
+   - AMD/NVidia proprietary drivers for optimal performance
+   - AJA/Blackmagic/DELTACAST drivers
+   - For macOS Homebrew or MacPorts are recommended
+
+   To compile UltraGrid you will need to prepare build environment and
+   install dependencies for various modules. For up-to-date information
+   please refer to our
+   [wiki](https://github.com/CESNET/UltraGrid/wiki/Compile-UltraGrid-%28Source%29).
 
 Using the UltraGrid System
 --------------------------
 
-   The file INSTALL gives instructions for building the UltraGrid system. 
-   Once the system has been built, the "uv" binary will be present. This
+   The [INSTALL](INSTALL) gives instructions for building the UltraGrid system.
+   Once the system has been built, the `uv` binary will be present. This
    can be invoked as follows:
 
-       uv -d <display_device> -m <mtu> hostname        (on the receiver)
-       uv -t <capture_device> -m <mtu> hostname        (on the sender)
+       uv -t <capture_device> -c <compression> hostname     (on the sender)
+       uv -d <display_device> hostname                      (on the receiver)
 
-   The <display_device> is one of the list viewed with '-d help'.
+   The **\<display_device\>** is one of the list viewed with `-d help`.
 
-   The <capture_device> is one of the list viewed with '-t help'. Name
+   The **\<capture_device\>** is one of the list viewed with `-t help`. Name
    of capture device usually follows with configuration of video mode,
-   video input etc. All options can be interactivelly shown.
+   video input etc. All options can be interactively dispayed using built-in
+   help, eg. `-t decklink:help`.
 
-   The <mtu> specifies the maximum transfer unit of the network path from
-   sender to receiver (the default MTU is 1500 octets, suitable for use on
-   standard Ethernets). This parameter allows the application to make use
-   of networks with larger MTU, for example gigabit Ethernet using jumbo
-   frames. 
+   The **\<compression\>** specifies the selected video compression to be
+   used. Similarly as for other options, available options can be viewed
+   by `-c help`. If compression is not specified, video is transmitted
+   *uncompressed* (in that case consider setting **MTU** with `-m <mtu>`).
 
    Further options follow UltraGrid command-line help (-h) or visit this
    [wiki page](https://github.com/CESNET/UltraGrid/wiki/Running-UltraGrid)
    for further information.
 
-   As an example, if a user on host "ormal" wishes to send video captured
-   using a DVS HDstation card at 60 frames per second to another user on
-   host "curtis" with a display using the OpenGL driver, then the user on host
-   "ormal" would run where 38 indicates video format (here 1080i@30fps) and
-   2vuy tells it is an 8-bit YUV codec (also 10-bit is possible):
+   As an example, if a user on host "ormal" wishes to send audio and video
+   captured using a BMD DeckLink card another user on host "curtis" with
+   a display using the OpenGL driver and Portaudio audio playback, then
+   the user on host "ormal" would run:
 
-       uv -t dvs:38:2vuy curtis
+       uv -t decklink -c libavcodec:codec=H.264 -s embedded --audio-codec OPUS curtis
 
    while the user on "curtis" would run:
 
-       uv -d gl ormal
+       uv -d gl -r portaudio ormal
 
    The system requires access to UDP ports 5004 and 5005: you should open
    these ports on any firewall on the network path. Uncompressed high definition
@@ -148,9 +154,9 @@ Using the UltraGrid System
 Performance Tuning: Network
 ---------------------------
 
-   To achieve optimum performance with high definition video, it may be
-   necessary to tune your system's network parameters to more aggressive
-   values than used by default.  
+   If transmitting *uncompressed video* stream to achieve optimal performance
+   with high definition video, it may be necessary to tune your system's
+   network parameters to more aggressive values than used by default.
 
    A key factor affecting performance is the path MTU. It is unlikely that
    the system will sustain gigabit rates with the 1500 octet Ethernet MTU. 
