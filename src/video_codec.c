@@ -194,7 +194,7 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
-        [I420] =  {"I420", "I420",
+        [I420] =  {"I420", "planar YUV 4:2:0",
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
 };
 
