@@ -1962,7 +1962,7 @@ void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 3; x += 3) {
                 *dst++ = src[1];
                 *dst++ = src[3];
                 *dst++ = src[5];
