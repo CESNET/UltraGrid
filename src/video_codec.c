@@ -107,6 +107,9 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 #endif
 static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
+static decoder_func_t vc_copylineUYVYtoRG48;
+static decoder_func_t vc_copylineRGBtoRG48;
+
 
 /**
  * Defines codec metadata
@@ -1485,20 +1488,25 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  *
  * @todo make it faster if needed
  */
-#define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off) {\
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {\
-                register int y1, y2, u ,v;\
-                y1 = src[y1_off];\
-                y2 = src[y2_off];\
-                u = src[u_off];\
-                v = src[v_off];\
+#define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off, rgb16) {\
+        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
+                register int y1 = (src)[y1_off];\
+                register int y2 = (src)[y2_off];\
+                register int u = (src)[u_off];\
+                register int v = (src)[v_off];\
                 src += 4;\
-                *dst++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
         }\
 }
 
@@ -1513,7 +1521,7 @@ void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2);
+        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2, 0);
 }
 
 /**
@@ -1527,7 +1535,15 @@ void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3);
+        copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3, 0);
+}
+
+static void vc_copylineUYVYtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2, 1);
 }
 
 /**
@@ -1722,6 +1738,18 @@ void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * 
                 dst[32 + BYTE_SWAP(2)] = g >> 4;
                 dst[32 + BYTE_SWAP(3)] = b;
                 dst += 36;
+        }
+}
+
+static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 2; x += 2) {
+                dst++;
+                *dst++ = *src++;
         }
 }
 
@@ -2332,7 +2360,10 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { (decoder_t) vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { (decoder_t) vc_copylineRGBtoR12L,   RGB,   R12L, false },
+        { (decoder_t) vc_copylineRGBtoRG48,   RGB,   RG48, false },
+        { (decoder_t) vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
         { (decoder_t) vc_copylineRG48toR12L,  RG48,  R12L, false },
+        { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
