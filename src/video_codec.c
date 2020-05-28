@@ -109,7 +109,7 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 static decoder_func_t vc_copylineUYVYtoRG48;
 static decoder_func_t vc_copylineRGBtoRG48;
-
+static decoder_func_t vc_copylineRG48toUYVY;
 
 /**
  * Defines codec metadata
@@ -1450,7 +1450,7 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  */
 #define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
         register uint32_t *d = (uint32_t *)(void *) dst;\
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {\
+        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 4; x += 4) {\
                 register int r, g, b;\
                 register int y1, y2, u ,v;\
                 r = src[roff];\
@@ -2248,6 +2248,15 @@ void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char *
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
 }
 
+static void vc_copylineRG48toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        vc_copylineToUYVY709(dst, src, dst_len, 1, 3, 5, 6);
+}
+
 /**
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
@@ -2364,6 +2373,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
         { (decoder_t) vc_copylineRG48toR12L,  RG48,  R12L, false },
         { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
+        { (decoder_t) vc_copylineRG48toUYVY,  RG48,  UYVY, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
