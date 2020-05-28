@@ -69,10 +69,17 @@ static int init(struct module *parent, const char *cfg, void **state)
         }
         struct state_capture_filter_matrix *s = calloc(1, sizeof(struct state_capture_filter_matrix));
         char *cfg_c = strdup(cfg);
-        char *item, *save_ptr, *tmp = cfg_c;
+        char *item = NULL;
+        char *save_ptr = NULL;
+        char *tmp = cfg_c;
         int i = 0;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                s->transform_matrix[i++] = atof(item);
+                char *endptr = NULL;
+                errno = 0;
+                s->transform_matrix[i++] = strtod(item, &endptr);
+                if (errno != 0 || *endptr != '\0') {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Problem converting number %s\n", item);
+                }
                 tmp = NULL;
         }
         free(cfg_c);
@@ -96,16 +103,19 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_capture_filter_matrix *s = state;
         struct video_desc desc = video_desc_from_frame(in);
-        desc.color_spec = RGB;
+        if (in->color_spec == UYVY) {
+                desc.color_spec = RGB;
+        }
         struct video_frame *out = vf_alloc_desc_data(desc);
         out->callbacks.dispose = vf_free;
 
-        unsigned char *in_data = (unsigned char *) in->tiles[0].data;
-        unsigned char *out_data = (unsigned char *) out->tiles[0].data;
-
         if (in->color_spec == UYVY) {
+                unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+
                 for (unsigned int i = 0; i < in->tiles[0].data_len; i += 4) {
-                        unsigned char a[3], b[3];
+                        double a[3];
+                        double b[3];
                         a[1] = b[1] = *in_data++;
                         a[0] = *in_data++;
                         a[2] = b[2] = *in_data++;
@@ -130,8 +140,30 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 s->transform_matrix[8] * (b[2] - 128);
                 }
         } else if (in->color_spec == RGB) {
+                unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+
                 for (unsigned int i = 0; i < in->tiles[0].data_len; i += 3) {
-                        unsigned char a[3];
+                        double a[3];
+                        a[0] = *in_data++;
+                        a[1] = *in_data++;
+                        a[2] = *in_data++;
+                        *out_data++ = s->transform_matrix[0] * a[0] +
+                                s->transform_matrix[1] * a[1] +
+                                s->transform_matrix[2] * a[2];
+                        *out_data++ = s->transform_matrix[3] * a[0] +
+                                s->transform_matrix[4] * a[1] +
+                                s->transform_matrix[5] * a[2];
+                        *out_data++ = s->transform_matrix[6] * a[0] +
+                                s->transform_matrix[7] * a[1] +
+                                s->transform_matrix[8] * a[2];
+                }
+        } else if (in->color_spec == RG48) {
+                uint16_t *in_data = (uint16_t *) in->tiles[0].data;
+                uint16_t *out_data = (uint16_t *) out->tiles[0].data;
+
+                for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
+                        double a[3];
                         a[0] = *in_data++;
                         a[1] = *in_data++;
                         a[2] = *in_data++;
@@ -146,7 +178,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 s->transform_matrix[8] * a[2];
                 }
         } else {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY or RGB is currently supported!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY, RGB or RG48 is currently supported!\n");
                 VIDEO_FRAME_DISPOSE(in);
                 vf_free(out);
                 return NULL;
