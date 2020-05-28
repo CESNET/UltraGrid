@@ -98,6 +98,11 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
 static void display_pipe_done(void *state)
 {
         struct state_pipe *s = (struct state_pipe *)state;
+
+        for (auto & a : s->audio_frames) {
+                free(a->data);
+                free(a);
+        }
         delete s;
 }
 
@@ -136,6 +141,9 @@ static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
                 len += (*it)->data_len;
                 ++it;
         }
+        if (len == 0) {
+                return nullptr;
+        }
         auto out = (struct audio_frame *) calloc(1, sizeof(struct audio_frame));
         audio_frame_write_desc(out, desc);
         out->max_size = len;
@@ -154,11 +162,13 @@ static int display_pipe_putf(void *state, struct video_frame *frame, int flags)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
-        struct audio_frame *af = display_pipe_get_audio(s);
-
-        if (flags != PUTF_DISCARD) {
-                s->delegate->frame_arrived(frame, af);
+        if (flags == PUTF_DISCARD) {
+                VIDEO_FRAME_DISPOSE(frame);
+                return TRUE;
         }
+
+        struct audio_frame *af = display_pipe_get_audio(s);
+        s->delegate->frame_arrived(frame, af);
 
         return TRUE;
 }
