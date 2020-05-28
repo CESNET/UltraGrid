@@ -3,7 +3,6 @@ name: C/C++ CI
 on:
   push:
     branches:
-      - devel
       - master
     paths:
       - '.github/scripts/**'
