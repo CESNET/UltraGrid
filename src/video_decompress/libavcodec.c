@@ -907,6 +907,8 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         if (get_commandline_param("use-hw-accel")) {
                 ret[ret_idx++] =
                         (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
+                ret[ret_idx++] =
+                        (struct decode_from_to) {H265, VIDEO_CODEC_NONE, HW_VDPAU, 200};
         }
         assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
 
