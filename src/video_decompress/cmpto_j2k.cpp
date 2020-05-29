@@ -74,7 +74,7 @@
 #include <queue>
 #include <utility>
 
-constexpr const int DEFAULT_TILE_LIMIT = 1;
+constexpr const int DEFAULT_TILE_LIMIT = 2;
 /// maximal size of queue for decompressed frames
 constexpr const int DEFAULT_MAX_QUEUE_SIZE = 2;
 /// maximal number of concurrently decompressed frames
