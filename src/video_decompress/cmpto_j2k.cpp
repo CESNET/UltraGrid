@@ -74,13 +74,13 @@
 #include <queue>
 #include <utility>
 
-#define DEFAULT_TILE_LIMIT 1
+constexpr const int DEFAULT_TILE_LIMIT = 1;
 /// maximal size of queue for decompressed frames
-#define DEFAULT_MAX_QUEUE_SIZE 2
+constexpr const int DEFAULT_MAX_QUEUE_SIZE = 2;
 /// maximal number of concurrently decompressed frames
-#define DEFAULT_MAX_IN_FRAMES 4
-#define DEFAULT_MEM_LIMIT 1000000000ll
-#define MOD_NAME "[J2K dec.] "
+constexpr const int DEFAULT_MAX_IN_FRAMES = 4;
+constexpr const int64_t DEFAULT_MEM_LIMIT = 1000000000LL;
+constexpr const char *MOD_NAME = "[J2K dec.] ";
 
 using namespace std;
 
@@ -111,8 +111,7 @@ struct state_decompress_j2k {
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", \
-                                err_msg, cmpto_j2k_dec_get_last_error()); \
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << (err_msg) << ": " << cmpto_j2k_dec_get_last_error() << "\n"; \
                 action_fail;\
         } \
 } while(0)
@@ -293,7 +292,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         }
 
         if (out_codec == R12L) {
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Decoding to 12-bit RGB.\n");
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Decoding to 12-bit RGB.\n";
         }
 
         enum cmpto_sample_format_type cmpto_sf = (cmpto_sample_format_type) 0;
@@ -307,8 +306,8 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
         }
 
         if (!cmpto_sf) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported output codec: %s\n",
-                                get_codec_name(out_codec));
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported output codec: " <<
+                                get_codec_name(out_codec) << "\n";
                 abort();
         }
 
@@ -317,7 +316,7 @@ static int j2k_decompress_reconfigure(void *state, struct video_desc desc,
                                 "Error setting sample format type", return false);
         } else { // RGBA with non-standard shift
                 if (rshift % 8 != 0 || gshift % 8 != 0 || bshift % 8 != 0) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Component shifts not aligned to a "
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Component shifts not aligned to a "
                                 "byte boundary is not supported.\n";
                         return false;
                 }
@@ -435,7 +434,7 @@ return_previous:
         int linesize = vc_get_linesize(s->desc.width, s->out_codec);
         size_t frame_size = linesize * s->desc.height;
         if (decoded.second != frame_size) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
         }
         if (decoded.second >= frame_size) {
                 for (size_t i = 0; i < s->desc.height; ++i) {
