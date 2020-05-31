@@ -50,6 +50,7 @@
 #include <list>
 #include <map>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -339,7 +340,7 @@ static void usage() {
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
         cout << style::bold << "\t\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\" or \"slice\"\n";
+        cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
         cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
         printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
@@ -1506,17 +1507,23 @@ static void libavcodec_compress_done(struct module *mod)
 
 static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        int threads = 0;
         if (!param->thread_mode.empty()) {
                 return;
+        }
+
+        try {
+                threads = stoi(param->thread_mode);
+        } catch(invalid_argument &) { // not a number
         }
 
         if (param->thread_mode == "no") { // disable threading (which may have been enabled previously
                 codec_ctx->thread_type = 0;
                 codec_ctx->thread_count = 1;
-        } else if (param->thread_mode == "slice") {
+        } else if (param->thread_mode == "slice" || threads > 0) {
                 // zero should mean count equal to the number of virtual cores
                 if (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-                        codec_ctx->thread_count = 0;
+                        codec_ctx->thread_count = threads; // if "slice", 0 means auto
                         codec_ctx->thread_type = FF_THREAD_SLICE;
                 } else {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
