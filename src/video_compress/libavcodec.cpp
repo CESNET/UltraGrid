@@ -1508,9 +1508,6 @@ static void libavcodec_compress_done(struct module *mod)
 static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int threads = 0;
-        if (!param->thread_mode.empty()) {
-                return;
-        }
 
         try {
                 threads = stoi(param->thread_mode);
