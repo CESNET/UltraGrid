@@ -45,6 +45,7 @@
 #include <cuda_runtime.h>
 #endif
 #include <assert.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 
 #include "compat/platform_ipc.h"
@@ -65,9 +66,10 @@
 #endif
 #undef RGBA
 
+#define BUFFERS 2
 #define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
 #define KEY "UltraGrid-SHM"
-#define SHM_VERSION 7
+#define SHM_VERSION 8
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 #define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
@@ -76,14 +78,28 @@
 static_assert(UG_CUDA_IPC_HANDLE_SIZE == CUDA_IPC_HANDLE_SIZE, "CUDA IPC handle doesn't match expected size!");
 #endif
 
-struct shm {
-        int version; ///< this struct version, must be SHM_VERSION
+static void shm_dispose_frame(struct video_frame *f);
+
+struct shm_frame {
+        atomic_bool buffer_free;
         int width, height;
         char cuda_ipc_mem_handle[UG_CUDA_IPC_HANDLE_SIZE];
-        int ug_exited;
-        int use_gpu;
-        struct RenderPacket pkt;
-        char data[];
+        char data[MAX_BUF_LEN];
+
+        // follow auxilliary data used by UltraGrid for dispose
+        int frame_idx; ///< index inside shm::frames
+        void *parent; ///< pointer to struct shm
+};
+
+struct shm {
+        int version; ///< this struct version, must be SHM_VERSION
+        atomic_bool initialized;
+        atomic_bool ug_exited;
+        bool use_gpu;
+        struct RenderPacket pkt; ///@todo make this more IPC safe
+        atomic_int write_head; ///< next position of written frame
+        atomic_int read_head; ///< next position of frame read
+        struct shm_frame frames[BUFFERS];
 };
 
 #define READY_TO_CONSUME_FRAME 0
@@ -92,7 +108,7 @@ struct shm {
 
 struct state_vidcap_shm {
         uint32_t magic;
-        struct video_frame *f;
+        struct video_frame *f[BUFFERS];
         struct shm *shm;
         platform_ipc_shm_t shm_id;
         platform_ipc_sem_t sem_id[3]; ///< 3 semaphores: [ready_to_consume_frame, frame_ready, should_exit_lock]
@@ -138,6 +154,10 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         }
 
         struct state_vidcap_shm *s = calloc(1, sizeof(struct state_vidcap_shm));
+        if (!s) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot allocate.\n");
+                return VIDCAP_INIT_FAIL;
+        }
         s->magic = MAGIC;
         s->shm_id = PLATFORM_IPC_ERR;
         for (int i = 0; i < 3; ++i) {
@@ -159,9 +179,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 .interlacing = PROGRESSIVE,
         };
 
-        s->f = vf_alloc_desc(desc);
-
-        size_t size = offsetof(struct shm, data[MAX_BUF_LEN]);
+        size_t size = sizeof(struct shm);
         if ((s->shm_id = platform_ipc_shm_create(KEY, size)) == PLATFORM_IPC_ERR) {
                 if (errno == EEXIST) {
                         if (s->force) {
@@ -199,22 +217,34 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        if (s->use_gpu) {
+        for (int i = 0; i < BUFFERS; ++i) {
+                s->f[i] = vf_alloc_desc(desc);
+                s->shm->frames[i].buffer_free = true;
+                s->shm->frames[i].parent = s;
+                s->shm->frames[i].frame_idx = i;
+                if (s->use_gpu) {
 #ifdef HAVE_CUDA
-                CUDA_CHECK(cudaMalloc((void **) &s->f->tiles[0].data, MAX_BUF_LEN));
-                CUDA_CHECK(cudaIpcGetMemHandle ((cudaIpcMemHandle_t *) &s->shm->cuda_ipc_mem_handle, s->f->tiles[0].data));
+                        CUDA_CHECK(cudaMalloc((void **) &s->f[i]->tiles[0].data, MAX_BUF_LEN));
+                        CUDA_CHECK(cudaIpcGetMemHandle ((cudaIpcMemHandle_t *) &s->shm->frames[i].cuda_ipc_mem_handle, s->f[i]->tiles[0].data));
 #endif
-        } else {
-                s->f->tiles[0].data = s->shm->data;
+                } else {
+                        s->f[i]->tiles[0].data = s->shm->frames[i].data;
+                }
+                s->f[i]->callbacks.dispose = shm_dispose_frame;
+                s->f[i]->callbacks.dispose_udata = &s->shm->frames[i];
         }
 
         // initialize semaphores
-        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+        for (int i = 0; i < BUFFERS; ++i) {
+                platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+        }
         platform_ipc_sem_post(s->sem_id[SHOULD_EXIT_LOCK]);
 
         register_should_exit_callback(s->parent, vidcap_shm_should_exit, s);
         pthread_mutex_init(&s->render_pkt_lock, NULL);
         s->render_pkt.frame = -1;
+
+        s->shm->initialized = true;
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -226,12 +256,14 @@ error:
 
 static void vidcap_shm_cleanup(struct state_vidcap_shm *s)
 {
-        if (s->use_gpu) {
+        for (int i = 0; i < BUFFERS; ++i) {
+                if (s->use_gpu) {
 #ifdef HAVE_CUDA
-                cudaFree(s->f->tiles[0].data);
+                        cudaFree(s->f[i]->tiles[0].data);
 #endif
+                }
+                vf_free(s->f[i]);
         }
-        vf_free(s->f);
 
         // We are deleting the IPC primitives here. Calls on such primitives will
         // then fail inside the plugin. If it is waiting on the semaphore 0, the
@@ -263,6 +295,17 @@ static void vidcap_shm_done(void *state)
         vidcap_shm_cleanup(s);
 }
 
+static void shm_dispose_frame(struct video_frame *f) {
+        struct shm_frame *frame = (struct shm_frame *) f->callbacks.dispose_udata;
+        struct state_vidcap_shm *s = (struct state_vidcap_shm *) frame->parent;
+        assert(!frame->buffer_free);
+        frame->buffer_free = true;
+
+        // we are ready to take another frame
+        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
+}
+
+
 static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **audio)
 {
         struct state_vidcap_shm *s = (struct state_vidcap_shm *) state;
@@ -281,9 +324,10 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
                 return NULL;
         }
 
-        s->f->tiles[0].width = s->shm->width;
-        s->f->tiles[0].height = s->shm->height;
-        s->f->tiles[0].data_len = vc_get_datalen(s->shm->width, s->shm->height, s->f->color_spec);
+        s->f[s->shm->read_head]->tiles[0].width = s->shm->frames[s->shm->read_head].width;
+        s->f[s->shm->read_head]->tiles[0].height = s->shm->frames[s->shm->read_head].height;
+        s->f[s->shm->read_head]->tiles[0].data_len = vc_get_datalen(s->f[s->shm->read_head]->tiles[0].width, s->f[s->shm->read_head]->tiles[0].height, s->f[s->shm->read_head]->color_spec);
+        assert(!s->shm->frames[s->shm->read_head].buffer_free);
 
         pthread_mutex_lock(&s->render_pkt_lock);
         if (s->render_pkt.frame != (unsigned int) -1) {
@@ -291,11 +335,10 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         }
         pthread_mutex_unlock(&s->render_pkt_lock);
 
-        // we are ready to take another frame
-        platform_ipc_sem_post(s->sem_id[READY_TO_CONSUME_FRAME]);
-
         *audio = NULL;
-        return s->f;
+        struct video_frame *out = s->f[s->shm->read_head];
+        s->shm->read_head = (s->shm->read_head + 1) % BUFFERS;
+        return out;
 }
 
 static struct vidcap_type *vidcap_shm_probe(bool verbose, void (**deleter)(void *))
