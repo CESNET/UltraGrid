@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_BUILD_ROOT=$(shell realpath . )/debian/tmp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo "no configure here"
+
+
+override_dh_shlibdeps:
+	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:/usr/lib dh_shlibdeps -Xusr/src/ultragrid-externals
+	# -- --ignore-missing-info
+
+override_dh_auto_build:
+	yes | env PAGER=cat ./InstallNDISDK_v4_Linux.sh
+	cd 'NDI SDK for Linux' && rm -rf $$(find lib bin -mindepth 1 -maxdepth 1 -type d | grep -v x86.64)
+
+override_dh_auto_install:
+	mkdir -p $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+	mv 'NDI SDK for Linux'  $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ndi_sdk_v4
+	ln -s ndi_sdk_v4 $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ndi_sdk
+
+	# now, link to common paths
+	mkdir -p $(DEB_BUILD_ROOT)/usr/lib/$(DEB_HOST_MULTIARCH) $(DEB_BUILD_ROOT)/usr/include/$(DEB_HOST_MULTIARCH)
+	pushd $(DEB_BUILD_ROOT)/ && \
+	find usr/src/ultragrid-externals/ndi_sdk/lib -iname "*.so" -exec ln -s /{} usr/lib/$(DEB_HOST_MULTIARCH)/ \; && \
+	find usr/src/ultragrid-externals/ndi_sdk/lib -iname "*.so.*" -exec ln -s /{} usr/lib/$(DEB_HOST_MULTIARCH)/ \; && \
+	find usr/src/ultragrid-externals/ndi_sdk/include -iname "*.h" -exec ln -s /{} usr/include/$(DEB_HOST_MULTIARCH) \; && \
+	popd
+
