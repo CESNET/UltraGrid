@@ -1,2 +1,4 @@
 debian-disable-hwaccel.patch
 debian-disable-gui.patch
+cineform-min-cmake.patch
+libav-compat-debian8.patch

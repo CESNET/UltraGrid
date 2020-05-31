@@ -1,3 +1,8 @@
+ultragrid (1.6-20200601) unstable; urgency=low
+  * Ultragrid 1.6 released
+
+ -- SITOLA repository (maintainer) <ultragrid-dev@cesnet.cz>  Mon, 06 Jun 2020 01:00:00 +0200
+
 ultragrid (1.5-20181004) unstable; urgency=low
   * Ultragrid 1.5 released
 

@@ -1,0 +1,11 @@
+diff --git a/src/libavcodec_common.h b/src/libavcodec_common.h
+--- a/src/libavcodec_common.h
++++ b/src/libavcodec_common.h
+@@ -211,7 +211,6 @@ static const struct {
+         { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
+         { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
+         { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
+-        { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
+         { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
+         { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
+         { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },

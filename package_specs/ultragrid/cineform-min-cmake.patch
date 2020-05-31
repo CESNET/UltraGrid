@@ -1,0 +1,9 @@
+--- a/cineform-sdk/CMakeLists.txt	2019-07-18 12:14:21.754747298 +0200
++++ b/cineform-sdk/CMakeLists.txt	2019-07-18 12:14:42.555263813 +0200
+@@ -1,5 +1,5 @@
+ # CMakeLists.txt
+-cmake_minimum_required (VERSION 3.5.1)
++cmake_minimum_required (VERSION 2.8.2)
+ project (CineFormSDK)
+ 
+ # Build settings
