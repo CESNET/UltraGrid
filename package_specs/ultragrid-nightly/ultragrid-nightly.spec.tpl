@@ -173,6 +173,7 @@ BuildRequires: libva-vdpau-driver, vaapi-intel-driver
 
 Conflicts:	ultragrid-core, ultragrid
 Provides:	ultragrid
+Requires:	jack-audio-connection-kit
 
 %description
 Ultragrid is a low-latency (As low as 83ms end-to-end)
@@ -313,6 +314,7 @@ find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-provides > install-provides
 find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-requires > install-requires
 
 echo '^libsail\.so.*$' >> norequires
+echo '^libxfixes3-ndi(\.so.*)?$' >> norequires
 echo '^libquanta\.so.*$' >> norequires
 echo '^libcudart\.so.*$' >> norequires
 echo '^libcudart\.so.*$' >> noprovides
