@@ -309,7 +309,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=bars|blank|noise|0x<AAGGBBRR>]\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=bars|blank|noise|0x<AABBGGRR>]\n");
                 printf("\t<filename> - use file named filename instead of default bars\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");

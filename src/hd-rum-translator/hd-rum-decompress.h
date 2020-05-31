@@ -62,10 +62,3 @@ int hd_rum_decompress_get_num_active_ports(void *decompress_state);
 
 struct video_frame;
 
-#ifdef __cplusplus
-class frame_recv_delegate {
-        public:
-                virtual void frame_arrived(struct video_frame *) = 0;
-};
-#endif
-

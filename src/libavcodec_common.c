@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,12 +35,19 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @todo
+ * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
+#include <stdbool.h>
 
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -787,6 +794,15 @@ static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame
         }
 }
 
+static void rgb24_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        for (int y = 0; y < height; ++y) {
+                vc_copylineRGBtoRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
+                                vc_get_linesize(width, RGBA), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+        }
+}
+
 static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -1272,11 +1288,11 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
 
 
 /**
- * Changes pixel format from planar YUV 422 to packed RGB.
+ * Changes pixel format from planar YUV 422 to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1294,20 +1310,38 @@ static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_
                         *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst++ = 255;
+                        }
                         y = *src_y++ << 16;
                         *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst++ = 255;
+                        }
                 }
         }
 }
 
+static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
 /**
- * Changes pixel format from planar YUV 422 to packed RGB.
+ * Changes pixel format from planar YUV 422 to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void yuv422p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1326,20 +1360,38 @@ static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict 
                         *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst++ = 255;
+                        }
                         y = *src_y++ << 16;
                         *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst++ = 255;
+                        }
                 }
         }
 }
 
+static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
 /**
- * Changes pixel format from planar YUV 422 to packed RGB.
+ * Changes pixel format from planar YUV 420 to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void yuv420p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -1360,28 +1412,52 @@ static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict 
                         *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst1++ = 255;
+                        }
                         y = *src_y1++ << 16;
                         *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst1++ = 255;
+                        }
                         y = *src_y2++ << 16;
                         *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst2++ = 255;
+                        }
                         y = *src_y2++ << 16;
                         *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst2++ = 255;
+                        }
                 }
         }
 }
 
+static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void yuv420p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
 /**
- * Changes pixel format from planar YUV 444 to packed RGB.
+ * Changes pixel format from planar YUV 444 to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1400,8 +1476,23 @@ static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict 
                         *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
                         *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        if (rgba) {
+                                *dst++ = 255;
+                        }
                 }
         }
+}
+
+static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void yuv444p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -1619,48 +1710,91 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void yuv420p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
-                uyvy += vc_get_linesize(UYVY, width);
+                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
+                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
 }
 
-static void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static inline void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        UNUSED(rgb_shift);
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        yuv420p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static inline void yuv420p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv420p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
+static void yuv422p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+{
+        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
-                uyvy += vc_get_linesize(UYVY, width);
+                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
+                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
 }
 
-static void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static inline void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        UNUSED(rgb_shift);
-        char *tmp = malloc(vc_get_linesize(UYVY, width) * height);
+        yuv422p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static inline void yuv422p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv422p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
+static void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+{
+        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
+        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
+        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
         char *uyvy = tmp;
-        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(UYVY, width), rgb_shift);
+        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
         for (int i = 0; i < height; i++) {
-                vc_copylineUYVYtoRGB((unsigned char *) dst_buffer, (unsigned char *) uyvy, vc_get_linesize(RGB, width), 0, 0, 0);
-                uyvy += vc_get_linesize(UYVY, width);
+                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
+                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
+                uyvy += vc_get_linesize(width, UYVY);
                 dst_buffer += pitch;
         }
         free(tmp);
+}
+
+static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -1830,12 +1964,15 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
                 {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
+                {AV_PIX_FMT_YUV420P10LE, RGBA, yuv420p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
                 {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
+                {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
+                {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
@@ -1844,30 +1981,38 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
                 {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
                 {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
+                {AV_PIX_FMT_YUV420P, RGBA, yuv420p_to_rgb32, false},
                 {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
                 {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
                 {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
+                {AV_PIX_FMT_YUV422P, RGBA, yuv422p_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
                 {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
                 {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
+                {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
                 // 8-bit YUV (JPEG color range)
                 {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
                 {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
                 {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ420P, RGBA, yuv420p_to_rgb32, false},
                 {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
                 {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
                 {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32, false},
                 {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
                 {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
                 {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32, false},
                 // 8-bit YUV (NV12)
                 {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
+                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb32, false},
                 // RGB
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
                 {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
                 {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
+                {AV_PIX_FMT_RGB24, RGBA, rgb24_to_rgb32, false},
                 {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
                 {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
                 {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},

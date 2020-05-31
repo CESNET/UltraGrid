@@ -55,6 +55,7 @@
 #include <thread>
 #include <vector>
 
+#include "audio/types.h"
 #include "capture_filter.h"
 #include "debug.h"
 #include "host.h"
@@ -62,6 +63,7 @@
 
 #include "video.h"
 #include "video_display.h"
+#include "video_display/pipe.hpp"
 #include "video_rxtx/ultragrid_rtp.h"
 
 static constexpr int MAX_QUEUE_SIZE = 2;
@@ -106,7 +108,7 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         struct control_state *control;
         thread         receiver_thread;
 
-        void frame_arrived(struct video_frame *f);
+        void frame_arrived(struct video_frame *f, struct audio_frame *a);
 
         virtual ~state_transcoder_decompress() {}
         void worker();
@@ -116,8 +118,12 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         struct capture_filter *capture_filter_state;
 };
 
-void state_transcoder_decompress::frame_arrived(struct video_frame *f)
+void state_transcoder_decompress::frame_arrived(struct video_frame *f, struct audio_frame *a)
 {
+        if (a) {
+                LOG(LOG_LEVEL_WARNING) << "Unexpectedly receiving audio!\n";
+                AUDIO_FRAME_DISPOSE(a);
+        }
         auto deleter = vf_free;
         // apply capture filter
         if (f) {

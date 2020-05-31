@@ -44,6 +44,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "vo_postprocess.h"
 
 struct vo_postprocess_state {
@@ -53,6 +54,9 @@ struct vo_postprocess_state {
 
 void show_vo_postprocess_help(bool full)
 {
+        printf("Usage:\n");
+        color_out(COLOR_OUT_BOLD, "\t-p <postprocess_module>[:<args>] | help\n");
+        printf("\n");
         printf("Possible postprocess modules:\n");
         list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION, full);
 }

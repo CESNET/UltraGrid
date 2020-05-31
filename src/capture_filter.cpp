@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"
+#include "utils/color_out.h"
 #include "utils/list.h"
 #include "video.h"
 
@@ -102,6 +103,15 @@ static int create_filter(struct capture_filter *s, char *cfg)
 
 int capture_filter_init(struct module *parent, const char *cfg, struct capture_filter **state)
 {
+        if (cfg && (strcasecmp(cfg, "help") == 0 || strcasecmp(cfg, "fullhelp") == 0)) {
+                printf("Usage:\n");
+                color_out(COLOR_OUT_BOLD, "\t--capture-filter <filter1>[:opts][,<filter2>[:opts][,<filter3>[:<opts>]]]");
+                printf(" -t <capture>\n\n");
+                printf("Available capture filters:\n");
+                list_modules(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION, strcasecmp(cfg, "fullhelp") == 0);
+                return 1;
+        }
+
         struct capture_filter *s = (struct capture_filter *) calloc(1, sizeof(struct capture_filter));
         char *item, *save_ptr;
         assert(s);
@@ -115,16 +125,6 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
         module_register(&s->mod, parent);
 
         if(cfg) {
-                if(strcasecmp(cfg, "help") == 0) {
-                        const auto & capture_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-                        printf("Available capture filters:\n");
-                        for (auto && item : capture_filters) {
-                                printf("\t%s\n", item.first.c_str());
-                        }
-                        module_done(&s->mod);
-                        free(s);
-                        return 1;
-                }
                 filter_list_str = tmp = strdup(cfg);
 
                 while((item = strtok_r(filter_list_str, ",", &save_ptr))) {

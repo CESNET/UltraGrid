@@ -91,6 +91,7 @@ codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
 codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(const);
+decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow) ATTRIBUTE(const);
 
 int get_aligned_length(int width, codec_t codec) ATTRIBUTE(const);
 int get_pf_block_size(codec_t codec) ATTRIBUTE(const);
@@ -124,8 +125,10 @@ decoder_func_t vc_copylineRGBtoR12L;
 decoder_func_t vc_copylineR12LtoRG48;
 decoder_func_t vc_copylineR12LtoRGB;
 decoder_func_t vc_copylineRG48toR12L;
+decoder_func_t vc_copylineRG48toRGB;
 decoder_func_t vc_copylineRG48toRGBA;
 decoder_func_t vc_copylineUYVYtoRGB;
+decoder_func_t vc_copylineUYVYtoRGBA;
 decoder_func_t vc_copylineUYVYtoRGB_SSE;
 decoder_func_t vc_copylineUYVYtoGrayscale;
 decoder_func_t vc_copylineYUYVtoRGB;

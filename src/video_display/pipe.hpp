@@ -1,9 +1,9 @@
 /**
- * @file   aja_common.h
+ * @file   video_display/pipe.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,45 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include <map>
-#include <ntv2enums.h>
+#ifndef PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
+#define PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 
-#include "types.h"
+struct audio_frame;
+struct video_frame;
 
-#ifdef _MSC_VER
-#define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
-#undef LOG
-#define LOG(level) if (level > log_level) ; else std::cerr
-#endif
-
-namespace ultragrid {
-namespace aja {
-static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {
-        { NTV2_FBF_10BIT_YCBCR, v210 },
-        { NTV2_FBF_8BIT_YCBCR, UYVY },
-        { NTV2_FBF_ABGR, RGBA },
-        { NTV2_FBF_10BIT_DPX, R10k },
-        { NTV2_FBF_8BIT_YCBCR_YUY2, YUYV },
-        { NTV2_FBF_24BIT_RGB, RGB },
-        { NTV2_FBF_24BIT_BGR, BGR },
-        { NTV2_FBF_48BIT_RGB, RG48 },
-        { NTV2_FBF_12BIT_RGB_PACKED, R12L },
+class frame_recv_delegate {
+        public:
+                /**
+                 * Implementing method must release both audio and video frame received
+                 * as parameters with AUDIO_FRAME_DISPOSE() and VIDEO_FRAME_DISPOSE().
+                 */
+                virtual void frame_arrived(struct video_frame *, struct audio_frame *) = 0;
 };
-} // end of namespace aja
-} // end of namespace ultragrid
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#endif // defined PIPE_H_82485FAD_5131_4754_AA2F_66887721897D
 
-void
-vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
-                int gshift, int bshift);
-void
-vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
-                int gshift, int bshift);
-
-#ifdef __cplusplus
-}
-#endif

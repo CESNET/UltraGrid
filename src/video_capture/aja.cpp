@@ -887,6 +887,11 @@ void vidcap_state_aja::CaptureFrames (void)
                 shared_ptr<video_frame> out = mPool.get_frame();
                 //      DMA the new frame to system memory...
                 CHECK(mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize));
+                if (out->color_spec == R12L) {
+                        shared_ptr<video_frame> converted = mPool.get_frame();
+                        vc_copylineR12AtoR12L((unsigned char *) converted->tiles[0].data, (unsigned char *) out->tiles[0].data, out->tiles[0].data_len, 0, 0, 0);
+                        out = converted;
+                }
 
                 if (log_level >= LOG_LEVEL_DEBUG) {
                         RP188_STRUCT    timecodeValue;

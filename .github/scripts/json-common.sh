@@ -1,9 +1,9 @@
 check_errors() {
-        TYPE=$(echo "$1" | jq -r type)
+        TYPE=$(jq -r type "$1")
         if [ "$TYPE" != object ]; then
                 return
         fi
-        ERRORS=$(echo "$1" | jq -r '.errors')
+        ERRORS=$(jq -r '.errors' "$1")
         if [ "$ERRORS" != null ]; then
                 echo $ERRORS >&2
                 exit 1
@@ -11,10 +11,10 @@ check_errors() {
 }
 
 check_type() {
-        TYPE=$(echo "$1" | jq -r type)
+        TYPE=$(jq -r type "$1")
         if [ "$TYPE" != "$2" ]; then
                 echo "Wrong JSON type - expected $2, got $TYPE" >&2
-                echo "JSON: $JSON" >&2
+                echo "JSON: $(cat $1)" >&2
                 exit 1
         fi
 }
@@ -24,10 +24,8 @@ check_type() {
 ## @param $2 GITHUB_TOKEN
 ## @param $3 requested type (optional)
 fetch_json() {
-        TMPNAM=$(mktemp)
-        STATUS=$(curl -S -H "Authorization: token ${2?GitHub token is required}" -X GET ${1?URL is required} -w "%{http_code}" -o $TMPNAM)
-        JSON=$(cat $TMPNAM)
-        rm $TMPNAM
+        JSON=$(mktemp)
+        STATUS=$(curl -S -H "Authorization: token ${2?GitHub token is required}" -X GET ${1?URL is required} -w "%{http_code}" -o $JSON)
         if [ $STATUS -ne 200 ]; then
                 echo "HTTP error code $STATUS" >&2
                 echo "JSON: $JSON" >&2
@@ -46,7 +44,7 @@ check_status() {
         if [ $1 -lt 200 -o $1 -ge 300 ]; then
                 echo "Wrong response status $STATUS!" >&2
                 if [ -n ${2-""} ]; then
-                        echo "JSON: $JSON" >&2
+                        echo "JSON: $(cat $2)" >&2
                 fi
                 exit 1
         fi

@@ -50,6 +50,10 @@
 #include "video.h"
 #include "video_decompress.h"
 
+#ifdef HAVE_SWSCALE
+#include <libswscale/swscale.h>
+#endif // defined HAVE_SWSCALE
+
 #ifndef AV_PIX_FMT_FLAG_HWACCEL
 #define AV_PIX_FMT_FLAG_HWACCEL PIX_FMT_HWACCEL
 #endif
@@ -81,13 +85,20 @@ struct state_libavcodec_decompress {
         unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
         bool             broken_h264_mt_decoding_workaroud_active;
 
+        struct state_libavcodec_decompress_sws {
+#ifdef HAVE_SWSCALE
+                int width, height;
+                enum AVPixelFormat in_codec, out_codec;
+                struct SwsContext *ctx;
+                AVFrame *frame;
+#endif
+        } sws;
+
 #ifdef HWACC_COMMON
         struct hw_accel_state hwaccel;
 #endif
 };
 
-static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
-                codec_t out_codec, int width, int height, int pitch, int rgb_shift[static restrict 3]);
 static void error_callback(void *, int, const char *, va_list);
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
 
@@ -127,6 +138,12 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #ifdef HWACC_COMMON
         hwaccel_state_reset(&s->hwaccel);
 #endif
+
+#ifdef HAVE_SWSCALE
+        s->sws.ctx = NULL;
+        sws_freeContext(s->sws.ctx);
+        av_frame_free(&s->sws.frame);
+#endif // defined HAVE_SWSCALE
 }
 
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
@@ -440,7 +457,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 #endif
         };
 
-        if (hwaccel){
+        if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
@@ -450,9 +467,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                                 hwaccel_state_reset(&state->hwaccel);
                                                 break;
                                         }
-                                        if (state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
-                                                return accels[i].pix_fmt;
-                                        }
+                                        return accels[i].pix_fmt;
                                 }
                         }
                 }
@@ -497,6 +512,63 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
         return AV_PIX_FMT_NONE;
 }
 
+static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum AVPixelFormat sws_in_codec,
+                enum AVPixelFormat sws_out_codec, int width, int height, AVFrame *in_frame)
+{
+#ifdef HAVE_SWSCALE
+        if (sws->width != width || sws->height != height|| sws->in_codec != sws_in_codec || sws->ctx == NULL) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert.\n");
+                sws_freeContext(sws->ctx);
+                av_frame_free(&sws->frame);
+                sws->ctx = sws_getContext(width, height, sws_in_codec,
+                                width, height, sws_out_codec,
+                                SWS_POINT,
+                                NULL,
+                                NULL,
+                                NULL);
+                if(!sws->ctx){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init sws context.\n");
+                        return false;
+                }
+                sws->frame = av_frame_alloc();
+                if (!sws->frame) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not allocate sws frame\n");
+                        return false;
+                }
+                sws->frame->width = width;
+                sws->frame->height = height;
+                sws->frame->format = sws_out_codec;
+                int ret = av_image_alloc(sws->frame->data, sws->frame->linesize,
+                                sws->frame->width, sws->frame->height,
+                                sws_out_codec, 32);
+                if (ret < 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not allocate raw picture buffer for sws\n");
+                        return false;
+                }
+                sws->width = width;
+                sws->height = height;
+                sws->in_codec = sws_in_codec;
+                sws->out_codec = sws_out_codec;
+        }
+        sws_scale(sws->ctx,
+                        (const uint8_t * const *) in_frame->data,
+                        in_frame->linesize,
+                        0,
+                        in_frame->height,
+                        sws->frame->data,
+                        sws->frame->linesize);
+        return true;
+
+#else
+        UNUSED(sws);
+        UNUSED(sws_in_codec);
+        UNUSED(sws_out_codec);
+        UNUSED(width);
+        UNUSED(height);
+        UNUSED(in_frame);
+        return false;
+#endif
+}
 
 /**
  * Changes pixel format from frame to native
@@ -514,8 +586,8 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
  * @see    yuvj422p_to_yuv422
  * @see    yuv420p_to_yuv422
  */
-static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
-                codec_t out_codec, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec_t out_codec, int width, int height,
+                int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         av_to_uv_convert_p convert = NULL;
         for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
                 if (c->av_codec == av_codec && c->uv_codec == out_codec) {
@@ -525,14 +597,34 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
 
         if (convert) {
                 convert((char *) dst, frame, width, height, pitch, rgb_shift);
-        } else {
+                return TRUE;
+        }
+
+        // else try to find swscale
+        enum AVPixelFormat sws_out_codec = 0;
+        bool native[2] = { true, false };
+        for (int n = 0; n < 2; n++) {
+                for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                        if (c->native == native[n] && c->uv_codec == out_codec) { // pick first native, in 2nd round any
+                                sws_out_codec = c->av_codec;
+                                convert = c->convert;
+                                break;
+                        }
+                }
+                if (sws_out_codec) {
+                        break;
+                }
+        }
+
+        if (!sws_out_codec) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel "
                                 "format: %s (id %d)\n",
                                 av_get_pix_fmt_name(
                                         av_codec), av_codec);
                 return FALSE;
         }
-
+        lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame);
+        convert((char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
 }
 
@@ -630,8 +722,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                 }
 #endif
                                 if (s->out_codec != VIDEO_CODEC_NONE) {
-                                        bool ret = change_pixfmt(s->frame, dst, s->frame->format,
-                                                        s->out_codec, s->desc.width, s->desc.height, s->pitch, s->rgb_shift);
+                                        bool ret = change_pixfmt(s->frame, dst, s->frame->format, s->out_codec, s->desc.width,
+                                                        s->desc.height, s->pitch, s->rgb_shift, &s->sws);
                                         if(ret == TRUE) {
                                                 s->last_frame_seq_initialized = true;
                                                 s->last_frame_seq = frame_seq;
@@ -754,12 +846,16 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, R12L, R12L, 500 },
         { VIDEO_CODEC_NONE, R12L, RGB, 500 },
         { VIDEO_CODEC_NONE, R12L, RGBA, 500 },
+        { VIDEO_CODEC_NONE, RG48, RGB, 500 },
         { VIDEO_CODEC_NONE, RG48, RGBA, 500 },
         { VIDEO_CODEC_NONE, RG48, R12L, 500 },
-        //{ VIDEO_CODEC_NONE, UYVY, RGB, 500 }, // there are conversions but don't enable now
+        { VIDEO_CODEC_NONE, UYVY, RGB, 800 },
+        { VIDEO_CODEC_NONE, UYVY, RGBA, 800 },
         { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
-        { VIDEO_CODEC_NONE, v210, v210, 500 },
+        { VIDEO_CODEC_NONE, v210, RGB, 800 },
+        { VIDEO_CODEC_NONE, v210, RGBA, 800 },
         { VIDEO_CODEC_NONE, v210, UYVY, 500 },
+        { VIDEO_CODEC_NONE, v210, v210, 500 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoder
 };
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
@@ -774,7 +870,7 @@ ADD_TO_PARAM(lavd_use_codec, "lavd-use-codec",
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {
 
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-        static struct decode_from_to ret[SUPP_CODECS_CNT * DEC_TEMPLATE_CNT + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
+        static struct decode_from_to ret[SUPP_CODECS_CNT * DEC_TEMPLATE_CNT * 2 + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
 
         pthread_mutex_lock(&lock); // prevent concurent initialization
         if (ret[0].from != VIDEO_CODEC_NONE) { // already initialized
@@ -799,12 +895,20 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                         ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
                                 dec_template[t].internal, dec_template[t].to,
                                 dec_template[t].priority};
+#ifdef HAVE_SWSCALE
+                        // we can convert with swscale in the end
+                        ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
+                                VIDEO_CODEC_NONE, dec_template[t].to,
+                                950};
+#endif
                 }
         }
 
         if (get_commandline_param("use-hw-accel")) {
                 ret[ret_idx++] =
                         (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
+                ret[ret_idx++] =
+                        (struct decode_from_to) {H265, VIDEO_CODEC_NONE, HW_VDPAU, 200};
         }
         assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
 

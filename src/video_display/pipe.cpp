@@ -38,17 +38,28 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#include "lib_common.h"
+
+#include <list>
+#include <mutex>
+
+#include "audio/types.h"
+#include "audio/utils.h"
 #include "debug.h"
+#include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
+#include "video_display/pipe.hpp"
 
-#include "hd-rum-translator/hd-rum-decompress.h"
+using std::list;
+using std::mutex;
+using std::lock_guard;
 
 struct state_pipe {
         struct module *parent;
         frame_recv_delegate *delegate;
         struct video_desc desc;
+        list<struct audio_frame *> audio_frames;
+        mutex audio_lock;
 };
 
 static struct display *display_pipe_fork(void *state)
@@ -63,6 +74,10 @@ static struct display *display_pipe_fork(void *state)
         if (rc == 0) return out; else return NULL;
 }
 
+/**
+ * @note
+ * Audio is always received regardless if enabled in flags.
+ */
 static void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
@@ -75,7 +90,7 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
 
         sscanf(fmt, "%p", &delegate);
 
-        struct state_pipe *s = new state_pipe{parent, delegate, video_desc()};
+        struct state_pipe *s = new state_pipe{parent, delegate, video_desc(), {}, {}};
 
         return s;
 }
@@ -83,6 +98,11 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
 static void display_pipe_done(void *state)
 {
         struct state_pipe *s = (struct state_pipe *)state;
+
+        for (auto & a : s->audio_frames) {
+                free(a->data);
+                free(a);
+        }
         delete s;
 }
 
@@ -97,13 +117,58 @@ static struct video_frame *display_pipe_getf(void *state)
         return out;
 }
 
+static void display_pipe_dispose_audio(struct audio_frame *f) {
+        free(f->data);
+        free(f);
+}
+
+static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
+{
+        lock_guard<mutex> lk(s->audio_lock);
+        size_t len = 0;
+        if (s->audio_frames.empty()) {
+                return nullptr;
+        }
+        struct audio_desc desc = audio_desc_from_audio_frame(s->audio_frames.front());
+        for (auto it = s->audio_frames.begin(); it != s->audio_frames.end(); ) {
+                if (!audio_desc_eq(desc, audio_desc_from_audio_frame(*it))) {
+                        LOG(LOG_LEVEL_WARNING) << "[pipe] Discarding audio - incompatible format!\n";
+                        free((*it)->data);
+                        free(*it);
+                        it = s->audio_frames.erase(it);
+                        continue;
+                }
+                len += (*it)->data_len;
+                ++it;
+        }
+        if (len == 0) {
+                return nullptr;
+        }
+        auto out = (struct audio_frame *) calloc(1, sizeof(struct audio_frame));
+        audio_frame_write_desc(out, desc);
+        out->max_size = len;
+        out->data = (char *) malloc(len);
+        for (auto it = s->audio_frames.begin(); it != s->audio_frames.end(); ) {
+                append_audio_frame(out, (*it)->data, (*it)->data_len);
+                free((*it)->data);
+                free(*it);
+                it = s->audio_frames.erase(it);
+        }
+        out->dispose = display_pipe_dispose_audio;
+        return out;
+}
+
 static int display_pipe_putf(void *state, struct video_frame *frame, int flags)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 
-        if (flags != PUTF_DISCARD) {
-                s->delegate->frame_arrived(frame);
+        if (flags == PUTF_DISCARD) {
+                VIDEO_FRAME_DISPOSE(frame);
+                return TRUE;
         }
+
+        struct audio_frame *af = display_pipe_get_audio(s);
+        s->delegate->frame_arrived(frame, af);
 
         return TRUE;
 }
@@ -159,6 +224,13 @@ static int display_pipe_get_property(void *state, int property, void *val, size_
                         ((struct multi_sources_supp_info *) val)->state = state;
                         *len = sizeof(struct multi_sources_supp_info);
                         break;
+                case DISPLAY_PROPERTY_AUDIO_FORMAT:
+                        {
+                                assert (*len >= sizeof(struct audio_desc));
+                                struct audio_desc *desc = (struct audio_desc *) val;
+                                desc->codec = AC_PCM; // decompress
+                        }
+                        break;
                 default:
                         return FALSE;
         }
@@ -176,8 +248,9 @@ static int display_pipe_reconfigure(void *state, struct video_desc desc)
 
 static void display_pipe_put_audio_frame(void *state, struct audio_frame *frame)
 {
-        UNUSED(state);
-        UNUSED(frame);
+        auto s = (struct state_pipe *) state;
+        lock_guard<mutex> lk(s->audio_lock);
+        s->audio_frames.push_back(audio_frame_copy(frame, false));
 }
 
 static int display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -188,7 +261,7 @@ static int display_pipe_reconfigure_audio(void *state, int quant_samples, int ch
         UNUSED(channels);
         UNUSED(sample_rate);
 
-        return FALSE;
+        return TRUE;
 }
 
 static const struct video_display_info display_pipe_info = {

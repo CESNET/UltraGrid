@@ -52,6 +52,7 @@ extern "C" {
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *);
 struct audio_desc audio_desc_from_audio_channel(audio_channel *);
+void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc);
 
 /**
  * Changes bps for everey sample.

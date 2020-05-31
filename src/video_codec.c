@@ -13,7 +13,7 @@
  * This file contains video codecs' metadata and helper
  * functions as well as pixelformat converting functions.
  */
-/* Copyright (c) 2005-2019 CESNET z.s.p.o.
+/* Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -50,15 +50,22 @@
  *
  */
 
+#define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if !defined _WIN32 && !defined __STDC_LIB_EXT1__
+#define qsort_s qsort_r
+#endif
 
 #include "debug.h"
 #include "host.h"
@@ -100,6 +107,9 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 #endif
 static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
+static decoder_func_t vc_copylineUYVYtoRG48;
+static decoder_func_t vc_copylineRGBtoRG48;
+static decoder_func_t vc_copylineRG48toUYVY;
 
 /**
  * Defines codec metadata
@@ -187,7 +197,7 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('R','G','4','8'), 1, 6.0, 16, 3, TRUE, FALSE, FALSE, FALSE, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
-        [I420] =  {"I420", "I420",
+        [I420] =  {"I420", "planar YUV 4:2:0",
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
 };
 
@@ -1440,7 +1450,7 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  */
 #define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
         register uint32_t *d = (uint32_t *)(void *) dst;\
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {\
+        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 4; x += 4) {\
                 register int r, g, b;\
                 register int y1, y2, u ,v;\
                 r = src[roff];\
@@ -1478,20 +1488,25 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
  *
  * @todo make it faster if needed
  */
-#define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off) {\
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {\
-                register int y1, y2, u ,v;\
-                y1 = src[y1_off];\
-                y2 = src[y2_off];\
-                u = src[u_off];\
-                v = src[v_off];\
+#define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off, rgb16) {\
+        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
+                register int y1 = (src)[y1_off];\
+                register int y2 = (src)[y2_off];\
+                register int u = (src)[u_off];\
+                register int v = (src)[v_off];\
                 src += 4;\
-                *dst++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
-                *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                if (rgb16) *(dst)++ = 0;\
+                *(dst)++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
         }\
 }
 
@@ -1506,7 +1521,7 @@ void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2);
+        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2, 0);
 }
 
 /**
@@ -1520,7 +1535,41 @@ void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * 
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3);
+        copylineYUVtoRGB(dst, src, dst_len, 0, 2, 1, 3, 0);
+}
+
+static void vc_copylineUYVYtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        copylineYUVtoRGB(dst, src, dst_len, 1, 3, 0, 2, 1);
+}
+
+/**
+ * @brief Converts UYVY to RGBA.
+ * @param[out] dst     output buffer for RGBA
+ * @param[in]  src     input buffer with UYVY
+ */
+void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        assert((uintptr_t) dst % sizeof(uint32_t) == 0);
+        uint32_t *dst32 = (uint32_t *)(void *) dst;
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {
+                register int y1, y2, u ,v;
+                u = *src++;
+                y1 = *src++;
+                v = *src++;
+                y2 = *src++;
+                uint8_t r = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
+                uint8_t g = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                uint8_t b = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
+                *dst32++ = r << rshift | g << gshift | b << bshift;
+                r = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
+                g = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                b = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
+                *dst32++ = r << rshift | g << gshift | b << bshift;
+        }
 }
 
 /**
@@ -1689,6 +1738,18 @@ void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * 
                 dst[32 + BYTE_SWAP(2)] = g >> 4;
                 dst[32 + BYTE_SWAP(3)] = b;
                 dst += 36;
+        }
+}
+
+static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 2; x += 2) {
+                dst++;
+                *dst++ = *src++;
         }
 }
 
@@ -1920,6 +1981,20 @@ void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char *
                 src += 2;
 
                 dst += 36;
+        }
+}
+
+void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 3; x += 3) {
+                *dst++ = src[1];
+                *dst++ = src[3];
+                *dst++ = src[5];
+                src += 6;
         }
 }
 
@@ -2173,6 +2248,15 @@ void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char *
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
 }
 
+static void vc_copylineRG48toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        vc_copylineToUYVY709(dst, src, dst_len, 1, 3, 5, 6);
+}
+
 /**
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
@@ -2283,6 +2367,13 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
         { (decoder_t) vc_copylineR12L,        R12L,  RGBA, false },
         { (decoder_t) vc_copylineR12LtoRGB,   R12L,  RGB, false },
+        { (decoder_t) vc_copylineR12LtoRG48,  R12L,  RG48, false },
+        { (decoder_t) vc_copylineRGBtoR12L,   RGB,   R12L, false },
+        { (decoder_t) vc_copylineRGBtoRG48,   RGB,   RG48, false },
+        { (decoder_t) vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
+        { (decoder_t) vc_copylineRG48toR12L,  RG48,  R12L, false },
+        { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
+        { (decoder_t) vc_copylineRG48toUYVY,  RG48,  UYVY, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
@@ -2317,6 +2408,55 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
         }
 
         return NULL;
+}
+
+// less is better
+static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
+        codec_t codec_a = *(const codec_t *) a;
+        codec_t codec_b = *(const codec_t *) b;
+        codec_t orig_codec = *(codec_t *) orig_c;
+
+        bool slow_a = get_decoder_from_to(orig_codec, codec_a, false) == NULL;
+        bool slow_b = get_decoder_from_to(orig_codec, codec_b, false) == NULL;
+        if (slow_a != slow_b) {
+                return slow_a ? 1 : -1;
+        }
+
+        int bits_a = get_bits_per_component(codec_a);
+        int bits_b = get_bits_per_component(codec_b);
+        int bits_orig = get_bits_per_component(orig_codec);
+        // either a or b is lower than orig - sort higher bit depth first
+        if (bits_a < bits_orig || bits_b < bits_orig) {
+                return bits_b - bits_a;
+        }
+        // both are equal or higher - sort lower bit depth first
+        return bits_a - bits_b;
+}
+
+decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow)
+{
+        codec_t candidates[VIDEO_CODEC_END];
+        const codec_t *it = out_candidates;
+        size_t count = 0;
+        while (*it != VIDEO_CODEC_NONE) {
+                if (get_decoder_from_to(in, *it, include_slow)) {
+                        if (count == VIDEO_CODEC_END) {
+                                assert(0 && "Too much codecs, some used multiple times!");
+                        }
+                        candidates[count++] = *it;
+                }
+                it++;
+        }
+        if (count == 0) {
+                return NULL;
+        }
+        qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
+        *out = candidates[0];
+        decoder_t ret = get_decoder_from_to(in, *out, false);
+        if (ret) {
+                return ret;
+        }
+        return get_decoder_from_to(in, *out, true);
 }
 
 /**

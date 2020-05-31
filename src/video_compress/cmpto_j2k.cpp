@@ -86,13 +86,14 @@
 using namespace std;
 
 struct state_video_compress_j2k {
-        state_video_compress_j2k(long long int bitrate, unsigned int pool_size)
-                : rate{bitrate}, pool{pool_size}, max_in_frames{pool_size} {}
+        state_video_compress_j2k(long long int bitrate, unsigned int pool_size, int mct)
+                : rate{bitrate}, mct(mct), pool{pool_size}, max_in_frames{pool_size} {}
         struct module module_data{};
 
         struct cmpto_j2k_enc_ctx *context{};
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate; ///< bitrate in bits per second
+        int mct; // force use of mct - -1 means default
         video_frame_pool<default_data_allocator> pool; ///< pool for frames allocated by us but not yet consumed by encoder
         unsigned int max_in_frames; ///< max number of frames between push and pop
         unsigned int in_frames{};   ///< number of currently encoding frames
@@ -168,6 +169,14 @@ static bool configure_with(struct state_video_compress_j2k *s, struct video_desc
                                 "Setting rate limit",
                                 NOOP);
         }
+
+        int mct = s->mct;
+        if (mct == -1) {
+                mct = codec_is_a_rgb(desc.color_spec) ? 1 : 0;
+        }
+        CHECK_OK(cmpto_j2k_enc_cfg_set_mct(s->enc_settings, mct),
+                        "Setting MCT",
+                        NOOP);
 
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = codec_is_a_rgb(desc.color_spec) ? J2KR : J2K;
@@ -248,14 +257,14 @@ start:
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mcu][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
+        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate\n");
         printf("\t\t<q> - quality\n");
         printf("\t\t<m> - CUDA device memory limit (in bytes), default %llu\n", DEFAULT_MEM_LIMIT);
         printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default %d\n", DEFAULT_TILE_LIMIT);
         printf("\t\t<p> - total number of tiles encoder can hold at moment (same meaning as above), default %d, should be greater than <t>\n", DEFAULT_POOL_SIZE);
-        printf("\t\tmcu - use MCU\n");
+        printf("\t\tmct - use MCT\n");
         printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
 }
 
@@ -263,7 +272,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 {
         struct state_video_compress_j2k *s;
         double quality = 0.7;
-        bool mct = false;
+        int mct = -1;
         long long int bitrate = 0;
         long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
@@ -282,8 +291,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         }
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
                         quality = atof(item + strlen("quality="));
-                } else if (strcasecmp("mct", item) == 0) {
-                        mct = true;
+                } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
+                        mct = strcasecmp("mct", item) ? 1 : 0;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
                         mem_limit = unit_evaluate(item + strlen("mem_limit="));
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
@@ -300,7 +309,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 
         }
 
-        s = new state_video_compress_j2k(bitrate, pool_size);
+        s = new state_video_compress_j2k(bitrate, pool_size, mct);
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
@@ -326,12 +335,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                                 ),
                         "Setting quantization",
                         NOOP);
-
-        if (mct) {
-                CHECK_OK(cmpto_j2k_enc_cfg_set_mct(s->enc_settings, 1), // only for RGB
-                                "Setting MCT",
-                                NOOP);
-        }
 
         CHECK_OK(cmpto_j2k_enc_cfg_set_resolutions( s->enc_settings, 6),
                         "Setting DWT levels",

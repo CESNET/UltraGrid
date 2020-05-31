@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 #include "utils/hresult.h"
 
 #include <audioclient.h>
+#include <objbase.h>
 
 const char *hresult_to_str(HRESULT res) {
         thread_local char unknown[128];
@@ -61,7 +62,7 @@ const char *hresult_to_str(HRESULT res) {
                 case E_HANDLE: return "Handle that is not valid";
                 case E_OUTOFMEMORY: return "Failed to allocate necessary memory";
                 case E_INVALIDARG: return "One or more arguments are not valid";
-                case 2147746288: return "CoInitialize has not been called.";
+                case CO_E_NOTINITIALIZED: return "CoInitialize has not been called.";
 		case AUDCLNT_E_ALREADY_INITIALIZED: return "The IAudioClient object is already initialized.";
 		case AUDCLNT_E_WRONG_ENDPOINT_TYPE: return "The AUDCLNT_STREAMFLAGS_LOOPBACK flag is set but the endpoint device is a capture device, not a rendering device.";
 		case AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED: return "The requested buffer size is not aligned. This code can be returned for a render or a capture device if the caller specified AUDCLNT_SHAREMODE_EXCLUSIVE and the AUDCLNT_STREAMFLAGS_EVENTCALLBACK flags. The caller must call Initialize again with the aligned buffer size.";
