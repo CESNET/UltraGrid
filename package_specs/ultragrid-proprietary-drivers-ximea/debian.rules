@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_BUILD_ROOT=$(shell realpath . )/debian/tmp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo "no configure here"
+
+
+override_dh_shlibdeps:
+	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:/usr/lib:/opt/XIMEA/lib dh_shlibdeps -Xusr/src/ultragrid-externals -Xopt/XIMEA
+	# -- --ignore-missing-info
+
+override_dh_auto_build:
+	echo placeholder
+
+override_dh_auto_install:
+	chmod +x debian/buildscript.sh
+	env RPM_BUILD_ROOT=$(DEB_BUILD_ROOT) SYSCONFDIR=/etc LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH) DATADIR=/usr/share INCLUDEDIR=/usr/lib/$(DEB_HOST_MULTIARCH) PREFIX=/usr debian/buildscript.sh
+
