@@ -23,7 +23,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'chroot.tar'
-        key: cache-bootstrap-${{ matrix.arch }}
+        key: cache-bootstrap-${{ matrix.arch }}-2
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
