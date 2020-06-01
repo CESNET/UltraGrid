@@ -572,8 +572,11 @@ fail:
 static void print_codec_supp_pix_fmts(const list<enum AVPixelFormat>
                 &req_pix_fmts, const enum AVPixelFormat *first) {
         char out[1024] = "[lavc] Codec supported pixel formats:";
+        if (first == nullptr) {
+                strncat(out, " (none)", sizeof out - strlen(out) - 1);
+        }
         const enum AVPixelFormat *it = first;
-        while (*it != AV_PIX_FMT_NONE) {
+        while (it != nullptr && *it != AV_PIX_FMT_NONE) {
                 strncat(out, " ", sizeof out - strlen(out) - 1);
                 strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
         }
