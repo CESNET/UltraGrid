@@ -486,7 +486,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.height = st->codecpar->height;
                 s->video_desc.fps = (double) st->r_frame_rate.num / st->r_frame_rate.den;
                 s->video_desc.tile_count = 1;
-
+fprintf(stderr, "%d %d\n", s->video_desc.width, s->video_desc.height);
                 if (s->no_decode) {
                         s->video_desc.color_spec =
                                 get_av_to_ug_codec(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id);

@@ -1775,7 +1775,7 @@ fi
 file=no
 AC_ARG_ENABLE(file,
 [  --disable-file          disable file input support (default is $build_default)]
-[                          Requires: libavcodec >= 57.107.100 libavformat libavutil],
+[                          Requires: libavcodec >= 57.107.100 libavformat libavutil libswscale],
 [file_req=$enableval],
 [file_req=$build_default]
 )
