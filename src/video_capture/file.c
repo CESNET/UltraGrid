@@ -455,7 +455,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
                         return VIDCAP_INIT_FAIL;
-                } else {
+                }
+                if (s->audio_stream_idx >= 0) {
                         s->aud_ctx = vidcap_file_open_dec_ctx(dec,
                                         s->fmt_ctx->streams[s->audio_stream_idx]);
 
