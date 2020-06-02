@@ -251,7 +251,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         if (get_commandline_param("force-lavd-decoder")) {
                 const char *param = get_commandline_param("force-lavd-decoder");
                 char *val = alloca(strlen(param) + 1);
-                strcpy(val, param);
+                strcpy(val, param); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
                 char *item, *save_ptr;
                 while ((item = strtok_r(val, ":", &save_ptr))) {
                         val = NULL;

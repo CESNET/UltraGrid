@@ -153,8 +153,7 @@ static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, un
         gl_context_make_current(&s->context);
         
         if(s->pitch == vc_get_linesize(s->desc.width, s->out_codec)) {
-                dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
-                                (unsigned char *) dst);
+                dxt_decoder_decompress(s->decoder, buffer, dst);
         } else {
                 int i;
                 int linesize;
@@ -168,8 +167,7 @@ static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, un
                         linesize = s->desc.width * 4;
                 tmp = malloc(linesize * s->desc.height);
 
-                dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
-                                (unsigned char *) tmp);
+                dxt_decoder_decompress(s->decoder, buffer, tmp);
                 line_dst = dst;
                 line_src = tmp;
                 for(i = 0; i < (int) s->desc.height; i++) {

@@ -309,12 +309,13 @@ struct module *get_matching_child(struct module *node, const char *const_path)
         return NULL;
 }
 
-void dump_tree(struct module *node, int indent) {
-        for(int i = 0; i < indent; ++i) putchar(' ');
+void dump_tree(struct module *root_node, int indent) {
+        for(int i = 0; i < indent; ++i)
+                putchar(' ');
 
-        printf("%s\n", module_class_name(node->cls));
+        printf("%s\n", module_class_name(root_node->cls));
 
-        for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
+        for(void *it = simple_linked_list_it_init(root_node->childs); it != NULL; ) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
@@ -347,3 +348,4 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
         return true;
 }
 
+/* vim: set expandtab sw=8: */
