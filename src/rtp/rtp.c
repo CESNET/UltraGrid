@@ -1586,6 +1586,7 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                uint8_t *buffer, rtp_packet *packet, int buflen)
 {
+        /* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
         if (buflen <= 0)
 	        return;
 
@@ -1597,7 +1598,6 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
 
         assert(packet != NULL);
 
-        /* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
         int vlen = 12;          /* vlen = 12 | 16 | 20 */
         /* figure out header lenght based on tfrc_on */
         /* might as well extract rtt and send_ts     */
