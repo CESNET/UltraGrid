@@ -233,7 +233,6 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
                 process_sdes(participants, e->ssrc, (rtcp_sdes_item *) e->data);
                 break;
         case RX_APP:
-                pckt_app = (rtcp_app *) e->data;
                 if (strncmp(pckt_app->name, "RTT_", 4) == 0) {
                         assert(pckt_app->length == 3);
                         assert(pckt_app->subtype == 0);

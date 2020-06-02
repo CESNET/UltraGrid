@@ -42,10 +42,8 @@
 #include "crypt_aes_impl.h"
 #include "crypt_aes.h"
 
-int makeKey(keyInstance * key, BYTE direction, int keyLen, char *keyMaterial)
+int makeKey(keyInstance * key, BYTE direction, int keyLen, const char *keyMaterial)
 {
-        int i;
-        char *keyMat;
         u8 cipherKey[MAXKB];
 
         if (key == NULL) {
@@ -69,11 +67,11 @@ int makeKey(keyInstance * key, BYTE direction, int keyLen, char *keyMaterial)
         }
 
         /* initialize key schedule: */
-        keyMat = key->keyMaterial;
-        for (i = 0; i < key->keyLen / 8; i++) {
-                int t, v;
+        const char *keyMat = key->keyMaterial;
+        for (int i = 0; i < key->keyLen / 8; i++) {
+                int t = *keyMat++;
+                int v;
 
-                t = *keyMat++;
                 if ((t >= '0') && (t <= '9'))
                         v = (t - '0') << 4;
                 else if ((t >= 'a') && (t <= 'f'))

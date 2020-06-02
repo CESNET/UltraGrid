@@ -98,14 +98,13 @@
  */
 #define MAX_ENCRYPTION_PAD 16
 
-static int rijndael_initialize(struct rtp *session, u_char * hash,
-                               int hash_len);
+static int rijndael_initialize(struct rtp *session, const u_char *hash, int hash_len);
 static int rijndael_decrypt(struct rtp *session, unsigned char *data,
                             unsigned int size, unsigned char *initVec);
 static int rijndael_encrypt(struct rtp *session, unsigned char *data,
                             unsigned int size, unsigned char *initVec);
 
-static int des_initialize(struct rtp *session, u_char * hash, int hash_len);
+static int des_initialize(struct rtp *session, const u_char *hash, int hash_len);
 static int des_decrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec);
 static int des_encrypt(struct rtp *session, unsigned char *data,
@@ -333,28 +332,25 @@ static inline int filter_event(struct rtp *session, uint32_t ssrc)
 
 static uint32_t next_csrc(struct rtp *session)
 {
-        /* This returns each source marked "should_advertise_sdes" in turn. */
-        int chain, cc;
-        source *s;
-
-        cc = 0;
-        for (chain = 0; chain < RTP_DB_SIZE; chain++) {
+        int cc = 0;
+        for (int chain = 0; chain < RTP_DB_SIZE; chain++) {
                 /* Check that the linked lists making up the chains in */
                 /* the hash table are correctly linked together...     */
-                for (s = session->db[chain]; s != NULL; s = s->next) {
-                        if (s->should_advertise_sdes) {
-                                if (cc == session->last_advertised_csrc) {
-                                        session->last_advertised_csrc++;
-                                        if (session->last_advertised_csrc ==
-                                            session->csrc_count) {
-                                                session->last_advertised_csrc =
-                                                    0;
-                                        }
-                                        return s->ssrc;
-                                } else {
-                                        cc++;
-                                }
+                for (source *s = session->db[chain]; s != NULL; s = s->next) {
+                        if (!s->should_advertise_sdes)
+                                continue;
+
+                        if (cc != session->last_advertised_csrc) {
+                                cc++;
+                                continue;
                         }
+
+                        session->last_advertised_csrc++;
+                        if (session->last_advertised_csrc == session->csrc_count) {
+                                session->last_advertised_csrc = 0;
+                        }
+                        /* This returns each source marked "should_advertise_sdes" in turn. */
+                        return s->ssrc;
                 }
         }
         /* We should never get here... */
@@ -423,7 +419,6 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
 
         debug_msg("Created new rr entry for 0x%08" PRIx32 " from source 0x%08" PRIx32 "\n",
                   rr->ssrc, reporter_ssrc);
-        return;
 }
 
 static void remove_rr(struct rtp *session, uint32_t ssrc)
@@ -800,7 +795,7 @@ static int update_seq(source * s, uint16_t seq)
                         s->probation = MIN_SEQUENTIAL - 1;
                         s->max_seq = seq;
                 }
-                return 0;
+                return 0; // NOLINTNEXTLINE(readability-else-after-return)
         } else if (udelta < MAX_DROPOUT) {
                 /* in order, with permissible gap */
                 if (seq < s->max_seq) {
@@ -948,7 +943,7 @@ static char *get_cname(socket_udp * s)
         }
         if (uname != NULL) {
                 strncpy(cname, uname, MAXCNAMELEN - 1);
-                strcat(cname, "@");
+                strcat(cname, "@"); // NOLINT(clang-analyzer-security.insecureAPI.strcpy)
         }
 #endif
 
@@ -1547,21 +1542,19 @@ void rtp_set_recv_iov(struct rtp *session, struct msghdr *m)
         session->mhdr = m;
 }
 
-int rtp_send_raw_rtp_data(struct rtp *session, char *data, int buflen)
+int rtp_send_raw_rtp_data(struct rtp *session, char *buffer, int buffer_len)
 {
-        return udp_send(session->rtp_socket, data, buflen);
+        return udp_send(session->rtp_socket, buffer, buffer_len);
 }
 
 static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 {
-        int buflen;
+        int buflen = 0;
         rtp_packet *packet = NULL;
         uint8_t *buffer = NULL;
 
         if (session->mt_recv) {
-                buflen =
-                        udp_recv_data(session->rtp_socket, (char **) &packet);
-
+                buflen = udp_recv_data(session->rtp_socket, (char **) &packet);
                 buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
         } else {
                 if (!session->opt->reuse_bufs || (packet == NULL)) {
@@ -1593,106 +1586,106 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                uint8_t *buffer, rtp_packet *packet, int buflen)
 {
+        if (buflen <= 0)
+	        return;
+
+        if (session->encryption_enabled) {
+	        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	        (session->decrypt_func) (session, buffer, buflen,
+				         initVec);
+        }
+
+        assert(packet != NULL);
+
         /* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
-        uint8_t *buffer_vlen = NULL;
         int vlen = 12;          /* vlen = 12 | 16 | 20 */
-        source *s;
+        /* figure out header lenght based on tfrc_on */
+        /* might as well extract rtt and send_ts     */
+        if (session->tfrc_on) {
+	        vlen += 4;
+	        packet->send_ts = ntohl(packet->send_ts);
+	        /* rtt is present in RTP packet - XXX */
+	        if (packet->pt & 64) {
+		        /* rtt is present in RTP packet - XXX */
+		        vlen += 4;
+		        packet->rtt = ntohl(packet->rtt);
+		        //printf ("\n%8d %8d %8d", packet->send_ts, ntohl(packet->ts), packet->rtt );
+	        }
+        }
 
-        if (buflen > 0) {
-                if (session->encryption_enabled) {
-                        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-                        (session->decrypt_func) (session, buffer, buflen,
-                                                 initVec);
-                }
+        uint8_t *buffer_vlen = buffer + vlen;
 
-                /* figure out header lenght based on tfrc_on */
-                /* might as well extract rtt and send_ts     */
-                vlen = 12;
-                if (session->tfrc_on) {
-                        vlen += 4;
-                        packet->send_ts = ntohl(packet->send_ts);
-                        /* rtt is present in RTP packet - XXX */
-                        if (packet->pt & 64) {
-                                /* rtt is present in RTP packet - XXX */
-                                vlen += 4;
-                                packet->rtt = ntohl(packet->rtt);
-                                //printf ("\n%8d %8d %8d", packet->send_ts, ntohl(packet->ts), packet->rtt );
-                        }
-                }
-                buffer_vlen = buffer + vlen;
+        /* Convert header fields to host byte order... */
+        packet->seq = ntohs(packet->seq);
+        packet->ts = ntohl(packet->ts);
+        packet->ssrc = ntohl(packet->ssrc);
+        /* Setup internal pointers, etc... */
+        if (packet->cc) {
+	        int i;
+	        packet->csrc = (uint32_t *) (buffer_vlen);
+	        for (i = 0; i < packet->cc; i++) {
+		        packet->csrc[i] = ntohl(packet->csrc[i]);
+	        }
+        } else {
+	        packet->csrc = NULL;
+        }
+        if (packet->x) {
+	        packet->extn = buffer_vlen + (packet->cc * 4);
+	        packet->extn_len =
+	            (packet->extn[2] << 8) | packet->extn[3];
+	        packet->extn_type =
+	            (packet->extn[0] << 8) | packet->extn[1];
+        } else {
+	        packet->extn = NULL;
+	        packet->extn_len = 0;
+	        packet->extn_type = 0;
+        }
+        packet->data = (char *)(buffer_vlen + (packet->cc * 4));
+        packet->data_len = buflen - (packet->cc * 4) - vlen;
+        if (packet->extn != NULL) {
+	        packet->data += ((packet->extn_len + 1) * 4);
+	        packet->data_len -= ((packet->extn_len + 1) * 4);
+        }
+        if (validate_rtp(session, packet, buflen, vlen)) {
+                source *s = NULL;
+	        if (session->opt->wait_for_rtcp) {
+		        s = create_source(session, packet->ssrc, TRUE);
+	        } else {
+		        s = get_source(session, packet->ssrc);
+	        }
+	        if (session->opt->promiscuous_mode) {
+		        if (s == NULL) {
+			        create_source(session, packet->ssrc,
+				              FALSE);
+			        s = get_source(session, packet->ssrc);
+		        }
+		        update_seq(s, packet->seq);
+		        process_rtp(session, curr_rtp_ts, packet, s);
+		        return; /* We don't free "packet", that's done by the callback function... */
+	        }
+	        if (s != NULL) {
+		        if (s->probation == -1) {
+			        s->probation = MIN_SEQUENTIAL;
+			        s->max_seq = packet->seq - 1;
+		        }
+		        if (update_seq(s, packet->seq)) {
+			        process_rtp(session, curr_rtp_ts,
+				            packet, s);
+			        return; /* we don't free "packet", that's done by the callback function... */
+		        } 
 
-                /* Convert header fields to host byte order... */
-                packet->seq = ntohs(packet->seq);
-                packet->ts = ntohl(packet->ts);
-                packet->ssrc = ntohl(packet->ssrc);
-                /* Setup internal pointers, etc... */
-                if (packet->cc) {
-                        int i;
-                        packet->csrc = (uint32_t *) (buffer_vlen);
-                        for (i = 0; i < packet->cc; i++) {
-                                packet->csrc[i] = ntohl(packet->csrc[i]);
-                        }
-                } else {
-                        packet->csrc = NULL;
-                }
-                if (packet->x) {
-                        packet->extn = buffer_vlen + (packet->cc * 4);
-                        packet->extn_len =
-                            (packet->extn[2] << 8) | packet->extn[3];
-                        packet->extn_type =
-                            (packet->extn[0] << 8) | packet->extn[1];
-                } else {
-                        packet->extn = NULL;
-                        packet->extn_len = 0;
-                        packet->extn_type = 0;
-                }
-                packet->data = (char *)(buffer_vlen + (packet->cc * 4));
-                packet->data_len = buflen - (packet->cc * 4) - vlen;
-                if (packet->extn != NULL) {
-                        packet->data += ((packet->extn_len + 1) * 4);
-                        packet->data_len -= ((packet->extn_len + 1) * 4);
-                }
-                if (validate_rtp(session, packet, buflen, vlen)) {
-                        if (session->opt->wait_for_rtcp) {
-                                s = create_source(session, packet->ssrc, TRUE);
-                        } else {
-                                s = get_source(session, packet->ssrc);
-                        }
-                        if (session->opt->promiscuous_mode) {
-                                if (s == NULL) {
-                                        create_source(session, packet->ssrc,
-                                                      FALSE);
-                                        s = get_source(session, packet->ssrc);
-                                }
-                                update_seq(s, packet->seq);
-                                process_rtp(session, curr_rtp_ts, packet, s);
-                                return; /* We don't free "packet", that's done by the callback function... */
-                        }
-                        if (s != NULL) {
-                                if (s->probation == -1) {
-                                        s->probation = MIN_SEQUENTIAL;
-                                        s->max_seq = packet->seq - 1;
-                                }
-                                if (update_seq(s, packet->seq)) {
-                                        process_rtp(session, curr_rtp_ts,
-                                                    packet, s);
-                                        return; /* we don't free "packet", that's done by the callback function... */
-                                } else {
-                                        /* This source is still on probation... */
-                                        debug_msg
-                                            ("RTP packet from probationary source ignored...\n");
-                                }
-                        } else {
-                                /* debug_msg("RTP packet from unknown source ignored\n"); */
-                        }
-                } else {
-                        session->invalid_rtp_count++;
-                        debug_msg("Invalid RTP packet discarded\n");
-                }
+		        /* This source is still on probation... */
+		        debug_msg("RTP packet from probationary source ignored...\n");
+	        } else {
+		        /* debug_msg("RTP packet from unknown source ignored\n"); */
+	        }
+        } else {
+	        session->invalid_rtp_count++;
+	        debug_msg("Invalid RTP packet discarded\n");
+        }
 
-                if (!session->opt->reuse_bufs) {
-                        free(packet);
-                }
+        if (!session->opt->reuse_bufs) {
+	        free(packet);
         }
 }
 
@@ -2393,7 +2386,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                         rtp_process_ctrl(session, buffer, buflen);
                         ret = TRUE;
                 }
-                return ret;
+                return ret; // NOLINTNEXTLINE(readability-else-after-return)
         } else {
                 udp_fd_zero_r(&fd);
                 udp_fd_set_r(session->rtp_socket, &fd);
@@ -2772,7 +2765,7 @@ const rtcp_rr *rtp_get_rr(struct rtp *session, uint32_t reporter,
  * Return value: Number of bytes transmitted.
  **/
 int rtp_send_data(struct rtp *session, uint32_t rtp_ts, char pt, int m,
-                  int cc, uint32_t * csrc,
+                  int cc, const uint32_t *csrc,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
@@ -2783,7 +2776,7 @@ int rtp_send_data(struct rtp *session, uint32_t rtp_ts, char pt, int m,
 int
 rtp_send_data_hdr(struct rtp *session,
                   uint32_t rtp_ts, char pt, int m,
-                  int cc, uint32_t csrc[],
+                  int cc, const uint32_t *csrc,
                   char *phdr, int phdr_len,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
@@ -2852,6 +2845,8 @@ rtp_send_data_hdr(struct rtp *session,
 #else
                 d = buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
 #endif
+                assert(cc == 0); // see packet->csrc about 50l below
+                assert(extn == NULL); // see header extension handling about 50l below
                 packet = (rtp_packet *) buffer;
         }
 
@@ -3837,7 +3832,7 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         /*   d) convert all letters to lower case and replace sequences of     */
         /*      characters and non-spacing accents with a single character,    */
         /*      where possible.                                                */
-        canonical_passphrase = (char *)strdup(passphrase);      /* FIXME */
+        canonical_passphrase = strdup(passphrase);      /* FIXME */
 
         /* Step 2: derive an MD5 hash */
         MD5Init(&context);
@@ -3849,9 +3844,9 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         /* Initialize the encryption algorithm we've received */
 
         if (strcmp(session->encryption_algorithm, "DES") == 0) {
-                return des_initialize(session, hash, sizeof(hash));
+                return des_initialize(session, hash, sizeof(hash)); // NOLINTNEXTLINE(readability-else-after-return)
         } else if (strcmp(session->encryption_algorithm, "Rijndael") == 0) {
-                return rijndael_initialize(session, hash, sizeof(hash));
+                return rijndael_initialize(session, hash, sizeof(hash)); // NOLINTNEXTLINE(readability-else-after-return)
         } else {
                 debug_msg("Encryption algorithm \"%s\" not found\n",
                           session->encryption_algorithm);
@@ -3859,12 +3854,9 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         }
 }
 
-static int des_initialize(struct rtp *session, u_char * hash, int hashlen)
+static int des_initialize(struct rtp *session, const u_char *hash, int hash_len)
 {
-        char *key;
-        int i, j, k;
-
-        UNUSED(hashlen);
+        UNUSED(hash_len);
 
         session->encryption_pad_length = 8;
         session->encrypt_func = des_encrypt;
@@ -3874,7 +3866,7 @@ static int des_initialize(struct rtp *session, u_char * hash, int hashlen)
                 free(session->crypto_state.des.encryption_key);
         }
 
-        key = session->crypto_state.des.encryption_key = (char *)malloc(8);
+        char *key = session->crypto_state.des.encryption_key = (char *)malloc(8);
 
         /* Step 3: take first 56 bits of the MD5 hash */
         key[0] = hash[0];
@@ -3887,9 +3879,9 @@ static int des_initialize(struct rtp *session, u_char * hash, int hashlen)
         key[7] = hash[6] << 1;
 
         /* Step 4: add parity bits */
-        for (i = 0; i < 8; ++i) {
-                k = key[i] & 0xfe;
-                j = k;
+        for (int i = 0; i < 8; ++i) {
+                int k = key[i] & 0xfe;
+                int j = k;
                 j ^= j >> 4;
                 j ^= j >> 2;
                 j ^= j >> 1;
@@ -3917,23 +3909,21 @@ static int des_decrypt(struct rtp *session, unsigned char *data,
         return TRUE;
 }
 
-static int rijndael_initialize(struct rtp *session, u_char * hash, int hash_len)
+static int rijndael_initialize(struct rtp *session, const u_char *hash, int hash_len)
 {
-        int rc;
-
         session->encryption_pad_length = 16;
         session->encrypt_func = rijndael_encrypt;
         session->decrypt_func = rijndael_decrypt;
 
-        rc = makeKey(&session->crypto_state.rijndael.keyInstEncrypt,
-                     DIR_ENCRYPT, hash_len * 8, (char *)hash);
+        int rc = makeKey(&session->crypto_state.rijndael.keyInstEncrypt,
+                     DIR_ENCRYPT, hash_len * 8, (const char *)hash);
         if (rc < 0) {
                 debug_msg("makeKey failed: %d\n", rc);
                 return FALSE;
         }
 
         rc = makeKey(&session->crypto_state.rijndael.keyInstDecrypt,
-                     DIR_DECRYPT, hash_len * 8, (char *)hash);
+                     DIR_DECRYPT, hash_len * 8, (const char *)hash);
         if (rc < 0) {
                 debug_msg("makeKey failed: %d\n", rc);
                 return FALSE;
@@ -4084,3 +4074,4 @@ struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session)
         return udp_get_local(session->rtp_socket);
 }
 
+/* vim: set expandtab sw=8: */
