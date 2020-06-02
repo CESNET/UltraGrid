@@ -76,6 +76,8 @@
 #include <csetjmp>
 #endif
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <list>
 #include <mutex>
 #include <queue>
@@ -92,6 +94,12 @@
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "tv.h"
+
+#if __cplusplus >= 201703L
+#define MAYBE_UNUSED [[maybe_unused]]
+#else
+#define MAYBE_UNUSED
+#endif
 
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
@@ -361,6 +369,7 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
+MAYBE_UNUSED static bool check_rpi_pbo_quirks();
 
 #ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
@@ -1340,6 +1349,27 @@ static void upload_texture(struct state_gl *s, char *data)
         glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 #else
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+#endif
+}
+
+static bool check_rpi_pbo_quirks()
+{
+#if ! defined __linux__
+        return false;
+#else
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        if (!cpuinfo)
+                return false;
+
+        bool detected_rpi = false;
+        bool detected_bcm2835 = false;
+        std::string line;
+        while (std::getline(cpuinfo, line) && !detected_rpi) {
+                detected_bcm2835 |= line.find("BCM2835") != std::string::npos;
+                detected_rpi |= line.find("Raspberry Pi") != std::string::npos;
+        }
+
+        return detected_rpi || detected_bcm2835;
 #endif
 }
 
