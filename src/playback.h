@@ -42,7 +42,7 @@
 #include "utils/macros.h"
 
 EXTERN_C int playback_set_device(char *device_string, size_t buf_len, const char *optarg);
-EXTERN_C void playback_register_keyboard_ctl(struct module *root);
+EXTERN_C void playback_register_keyboard_ctl(struct module *mod);
 
 #endif // defined PLAYBACK_H_
 
