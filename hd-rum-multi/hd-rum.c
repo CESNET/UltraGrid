@@ -43,10 +43,8 @@ static pthread_cond_t qfull_cond = PTHREAD_COND_INITIALIZER;
 struct replica *replicas;
 int count;
 
-void qinit(int qsize)
+static void qinit(int qsize)
 {
-    int i;
-
     printf("initializing packet queue for %d items\n", qsize);
 
     queue = (struct item *) calloc(qsize, sizeof(struct item));
@@ -55,7 +53,7 @@ void qinit(int qsize)
         exit(2);
     }
 
-    for (i = 0; i < qsize; i++)
+    for (int i = 0; i < qsize; i++)
         queue[i].next = queue + i + 1;
     queue[qsize - 1].next = queue;
 
@@ -63,7 +61,7 @@ void qinit(int qsize)
 }
 
 
-int buffer_size(int sock, int optname, int size)
+static int buffer_size(int sock, int optname, int size)
 {
     socklen_t len = sizeof(int);
 
@@ -80,7 +78,7 @@ int buffer_size(int sock, int optname, int size)
 }
 
 
-int output_socket(unsigned short port, const char *host, int bufsize)
+static int output_socket(unsigned short port, const char *host, int bufsize)
 {
     int s;
     struct addrinfo hints;
@@ -128,13 +126,13 @@ int output_socket(unsigned short port, const char *host, int bufsize)
 }
 
 
-void *writer(void *arg)
+static void *writer(void *arg)
 {
-    int i;
+    (void)arg;
 
     while (1) {
         while (qhead != qtail) {
-            for (i = 0; i < count; i++)
+            for (int i = 0; i < count; i++)
                 write(replicas[i].sock, qhead->buf, qhead->size);
 
             qhead = qhead->next;
