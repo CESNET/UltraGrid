@@ -319,6 +319,7 @@ struct state_gl {
         int fixed_w, fixed_h;
 
         bool nodecorate = false;
+        bool use_pbo = true;
 
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
@@ -398,6 +399,7 @@ static void gl_show_help(void) {
         printf("\t\tsyphon\t\tuse Syphon (optionally with name)\n");
         printf("\t\tspout\t\tuse Spout (optionally with name)\n");
         printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
+        cout << "\t\t[no]pbo\t\tWhether or not use PBO (ignore if not sure)\n";
 
         printf("\n\nKeyboard shortcuts:\n");
         for (auto i : keybindings) {
@@ -504,6 +506,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 #endif
                         } else if (!strcasecmp(tok, "hide-window")) {
                                 s->hide_window = true;
+                        } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
+                                s->use_pbo = strcasecmp(tok, "pbo") == 0;
                         } else if(!strncmp(tok, "size=",
                                                 strlen("size="))) {
                                 s->window_size_factor =
@@ -1328,28 +1332,28 @@ static void gl_resize(int width, int height)
 
 static void upload_texture(struct state_gl *s, char *data)
 {
-#if ! defined GL_NO_PBO
         GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
         GLint width = s->current_display_desc.width;
         if (s->current_display_desc.color_spec == UYVY) {
                 width /= 2;
         }
-        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
-        int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
-        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
-        void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
-        if (ptr)
-        {
-                // update data directly on the mapped buffer
-                memcpy(ptr, data, data_size);
-                glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
-        }
+        if (s->use_pbo) {
+                glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
+                int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
+                glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+                void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                if (ptr)
+                {
+                        // update data directly on the mapped buffer
+                        memcpy(ptr, data, data_size);
+                        glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+                }
 
-        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
-#else
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
-#endif
+                glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+        } else {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+        }
 }
 
 static bool check_rpi_pbo_quirks()
