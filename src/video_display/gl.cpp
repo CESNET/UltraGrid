@@ -75,12 +75,12 @@
 #else
 #include <csetjmp>
 #endif
-#include <iostream>
 #include <fstream>
-#include <string>
+#include <iostream>
 #include <list>
 #include <mutex>
 #include <queue>
+#include <string>
 
 #include "debug.h"
 #include "gl_context.h"
@@ -94,12 +94,6 @@
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "tv.h"
-
-#if __cplusplus >= 201703L
-#define MAYBE_UNUSED [[maybe_unused]]
-#else
-#define MAYBE_UNUSED
-#endif
 
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
@@ -370,7 +364,7 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
-MAYBE_UNUSED static bool check_rpi_pbo_quirks();
+static bool check_rpi_pbo_quirks();
 
 #ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
@@ -444,6 +438,7 @@ static void gl_load_splashscreen(struct state_gl *s)
 }
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
+        int use_pbo = -1; // default
         UNUSED(flags);
         if (gl) {
                 LOG(LOG_LEVEL_ERROR) << "Multiple instances of GL display is disallowed!\n";
@@ -507,7 +502,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                         } else if (!strcasecmp(tok, "hide-window")) {
                                 s->hide_window = true;
                         } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
-                                s->use_pbo = strcasecmp(tok, "pbo") == 0;
+                                use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                         } else if(!strncmp(tok, "size=",
                                                 strlen("size="))) {
                                 s->window_size_factor =
@@ -532,6 +527,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
 		free(tmp);
 	}
+
+        s->use_pbo = use_pbo == -1 ? check_rpi_pbo_quirks() : use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
