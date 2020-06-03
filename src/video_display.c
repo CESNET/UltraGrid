@@ -279,33 +279,33 @@ void display_join(struct display *d)
 
 static struct response *process_message(struct display *d, struct msg_universal *msg)
 {
-        if (strncasecmp(msg->text, "postprocess ", strlen("postprocess ")) == 0) {
-                log_msg(LOG_LEVEL_WARNING, "On fly changing postprocessing is currently "
-                                "only an experimental feature! Use with caution!\n");
-                const char *text = msg->text + strlen("postprocess ");
-
-                struct vo_postprocess_state *postprocess_old = d->postprocess;
-
-                if (strcmp(text, "flush") != 0) {
-                        d->postprocess = vo_postprocess_init(text);
-                        if (!d->postprocess) {
-                                d->postprocess = postprocess_old;
-                                log_msg(LOG_LEVEL_ERROR, "Unable to create postprocess '%s'.\n", text);
-                                return new_response(RESPONSE_BAD_REQUEST, NULL);
-                        }
-                } else {
-                        d->postprocess = NULL;
-                }
-
-                vo_postprocess_done(postprocess_old);
-
-                display_reconfigure(d, d->saved_desc, d->saved_mode);
-
-                return new_response(RESPONSE_OK, NULL);
-        } else {
+        if (strncasecmp(msg->text, "postprocess ", strlen("postprocess ")) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unknown command '%s'.\n", msg->text);
                 return new_response(RESPONSE_BAD_REQUEST, NULL);
         }
+
+        log_msg(LOG_LEVEL_WARNING, "On fly changing postprocessing is currently "
+                        "only an experimental feature! Use with caution!\n");
+        const char *text = msg->text + strlen("postprocess ");
+
+        struct vo_postprocess_state *postprocess_old = d->postprocess;
+
+        if (strcmp(text, "flush") != 0) {
+                d->postprocess = vo_postprocess_init(text);
+                if (!d->postprocess) {
+                        d->postprocess = postprocess_old;
+                        log_msg(LOG_LEVEL_ERROR, "Unable to create postprocess '%s'.\n", text);
+                        return new_response(RESPONSE_BAD_REQUEST, NULL);
+                }
+        } else {
+                d->postprocess = NULL;
+        }
+
+        vo_postprocess_done(postprocess_old);
+
+        display_reconfigure(d, d->saved_desc, d->saved_mode);
+
+        return new_response(RESPONSE_OK, NULL);
 }
 
 /**
@@ -376,25 +376,27 @@ bool display_put_frame(struct display *d, struct video_frame *frame, long long t
                 return d->funcs->putf(d->state, frame, timeout_ns);
         }
 
-        if (d->postprocess) {
-                bool display_ret = true;
-		for (int i = 0; i < d->pp_output_frames_count; ++i) {
-			struct video_frame *display_frame = d->funcs->getf(d->state);
-			int ret = vo_postprocess(d->postprocess,
-					frame,
-					display_frame,
-					d->display_pitch);
-                        frame = NULL;
-			if (!ret) {
-				d->funcs->putf(d->state, display_frame, PUTF_DISCARD);
-				return 1;
-			}
-
-			display_ret = display_frame_helper(d, display_frame, timeout_ns);
-		}
-                return display_ret;
+        if (!d->postprocess) {
+                return display_frame_helper(d, frame, timeout_ns);
         }
-        return display_frame_helper(d, frame, timeout_ns);
+
+        bool display_ret = true;
+        for (int i = 0; i < d->pp_output_frames_count; ++i) {
+                struct video_frame *display_frame = d->funcs->getf(d->state);
+                int ret = vo_postprocess(d->postprocess,
+                                frame,
+                                display_frame,
+                                d->display_pitch);
+                frame = NULL;
+                if (!ret) {
+                        d->funcs->putf(d->state, display_frame, PUTF_DISCARD);
+                        return 1;
+                }
+
+                display_ret = display_frame_helper(d, display_frame, timeout_ns);
+        }
+        return display_ret;
+
 }
 
 /**
@@ -409,6 +411,7 @@ bool display_put_frame(struct display *d, struct video_frame *frame, long long t
  */
 bool display_reconfigure(struct display *d, struct video_desc desc, enum video_mode video_mode)
 {
+
         assert(d->magic == DISPLAY_MAGIC);
 
         d->saved_desc = desc;
@@ -499,51 +502,51 @@ static void restrict_returned_codecs(codec_t *display_codecs,
 bool display_ctl_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (d->postprocess) {
-                switch (property) {
-                case DISPLAY_PROPERTY_BUF_PITCH:
-                        *(int *) val = PITCH_DEFAULT;
-                        *len = sizeof(int);
-                        return true;
-		case DISPLAY_PROPERTY_CODECS:
-			{
-                                codec_t display_codecs[VIDEO_CODEC_COUNT];
-                                codec_t pp_codecs[VIDEO_CODEC_COUNT];
-                                size_t display_codecs_count, pp_codecs_count;
-                                size_t nlen;
-                                bool ret;
-                                nlen = sizeof display_codecs;
-                                ret = d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
-                                if (!ret) {
-                                        log_msg(LOG_LEVEL_ERROR, "[Display] Unable to get display supported codecs.\n");
-                                        return false;
-                                }
-                                display_codecs_count = nlen / sizeof(codec_t);
-                                nlen = sizeof pp_codecs;
-                                ret = vo_postprocess_get_property(d->postprocess, VO_PP_PROPERTY_CODECS, pp_codecs, &nlen);
-                                if (ret) {
-					if (nlen == 0) { // problem detected
-						log_msg(LOG_LEVEL_ERROR, "[Decoder] Unable to get supported codecs.\n");
-						return false;
+        if (!d->postprocess){
+                return d->funcs->ctl_property(d->state, property, val, len);
+        }
 
-					}
-                                        pp_codecs_count = nlen / sizeof(codec_t);
-                                        restrict_returned_codecs(display_codecs, &display_codecs_count,
-                                                        pp_codecs, pp_codecs_count);
-                                }
-                                nlen = display_codecs_count * sizeof(codec_t);
-                                if (nlen <= *len) {
-                                        *len = nlen;
-                                        memcpy(val, display_codecs, nlen);
-                                        return true;
-                                }
+        switch (property) {
+        case DISPLAY_PROPERTY_BUF_PITCH:
+                *(int *) val = PITCH_DEFAULT;
+                *len = sizeof(int);
+                return true;
+        case DISPLAY_PROPERTY_CODECS:
+                {
+                        codec_t display_codecs[VIDEO_CODEC_COUNT];
+                        codec_t pp_codecs[VIDEO_CODEC_COUNT];
+                        size_t display_codecs_count, pp_codecs_count;
+                        size_t nlen;
+                        bool ret;
+                        nlen = sizeof display_codecs;
+                        ret = d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
+                        if (!ret) {
+                                log_msg(LOG_LEVEL_ERROR, "[Display] Unable to get display supported codecs.\n");
                                 return false;
                         }
-			break;
-                default:
-                        return d->funcs->ctl_property(d->state, property, val, len);
+                        display_codecs_count = nlen / sizeof(codec_t);
+                        nlen = sizeof pp_codecs;
+                        ret = vo_postprocess_get_property(d->postprocess, VO_PP_PROPERTY_CODECS, pp_codecs, &nlen);
+                        if (ret) {
+                                if (nlen == 0) { // problem detected
+                                        log_msg(LOG_LEVEL_ERROR, "[Decoder] Unable to get supported codecs.\n");
+                                        return false;
+
+                                }
+                                pp_codecs_count = nlen / sizeof(codec_t);
+                                restrict_returned_codecs(display_codecs, &display_codecs_count,
+                                                pp_codecs, pp_codecs_count);
+                        }
+                        nlen = display_codecs_count * sizeof(codec_t);
+                        if (nlen <= *len) {
+                                *len = nlen;
+                                memcpy(val, display_codecs, nlen);
+                                return true;
+                        }
+                        return false;
                 }
-        } else {
+                break;
+        default:
                 return d->funcs->ctl_property(d->state, property, val, len);
         }
 }
