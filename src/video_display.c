@@ -139,7 +139,7 @@ int initialize_video_display(struct module *parent, const char *requested_displa
                         module_done(&d->mod);
                         free(d);
                         return -1;
-                } else if (d->state == &display_init_noerr) {
+                } else if (d->state == &display_init_noerr) { // NOLINT(readability-else-after-return)
                         module_done(&d->mod);
                         free(d);
                         return 1;
@@ -290,7 +290,7 @@ struct video_frame *display_get_frame(struct display *d)
         assert(d->magic == DISPLAY_MAGIC);
         if (d->postprocess) {
                 return vo_postprocess_getf(d->postprocess);
-        } else {
+        } else { // NOLINT(readability-else-after-return)
                 return d->funcs->getf(d->state);
         }
 }
@@ -397,7 +397,7 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
 }
 
 static void restrict_returned_codecs(codec_t *display_codecs,
-                size_t *display_codecs_count, codec_t *pp_codecs,
+                size_t *display_codecs_count, const codec_t *pp_codecs,
                 int pp_codecs_count)
 {
         int i;

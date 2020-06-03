@@ -277,11 +277,11 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         log_msg(LOG_LEVEL_VERBOSE, "[lavd] Decoder not available: %s\n", *preferred_decoders_it);
                         preferred_decoders_it++;
                         continue;
-                } else {
-                        if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
-                                codecs_available[codec_index++] = codec;
-                        }
                 }
+
+		if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
+			codecs_available[codec_index++] = codec;
+		}
                 preferred_decoders_it++;
         }
         // finally, add a default one if there are no preferred encoders or all fail
@@ -313,17 +313,18 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 s->codec_ctx->height = desc.height;
                 set_codec_context_params(s);
                 pthread_mutex_lock(s->global_lavcd_lock);
+
                 if (avcodec_open2(s->codec_ctx, *codec_it, NULL) < 0) {
                         avcodec_free_context(&s->codec_ctx);
                         pthread_mutex_unlock(s->global_lavcd_lock);
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Unable to open decoder %s.\n", (*codec_it)->name);
                         codec_it++;
                         continue;
-                } else {
-                        pthread_mutex_unlock(s->global_lavcd_lock);
-                        log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
-                        break;
                 }
+
+                pthread_mutex_unlock(s->global_lavcd_lock);
+                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
+                break;
         }
 
         if (s->codec_ctx == NULL) {
@@ -399,7 +400,7 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
                 // for codecs that have metadata we have to defer initialization
                 // because we don't have the data right now
                 return TRUE;
-        } else {
+        } else { // NOLINT(readability-else-after-return)
                 return configure_with(s, desc, NULL, 0);
         }
 }
@@ -928,3 +929,4 @@ static const struct video_decompress_info libavcodec_info = {
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
+/* vim: set expandtab sw=8: */

@@ -164,8 +164,7 @@ const char *module_class_name(enum module_class cls)
 {
         if((unsigned int) cls < sizeof(module_class_name_pairs)/sizeof(const char *))
                 return module_class_name_pairs[cls];
-        else
-                return NULL;
+        return NULL;
 }
 
 void append_message_path(char *buf, int buflen, enum module_class modules[])
