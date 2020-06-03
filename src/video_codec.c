@@ -2507,13 +2507,13 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
 
         for (size_t y = 0; y < height; ++y) {
                 uintptr_t i;
-                for( i = 0; i < (linesize & (~15)); i+=16)
+                for ( i = 0; i < (linesize & (~15)); i += 16)
                 {
                         memcpy(data + i, pattern, 16);
                 }
-                for( ; i < linesize; i++ )
-                {
-                        ((char*)data)[i] = ((char*)pattern)[i&15];
+                if (i < linesize)
+                {       
+                        memcpy(data + i, pattern, linesize - i);
                 }
 
                 data += pitch;
