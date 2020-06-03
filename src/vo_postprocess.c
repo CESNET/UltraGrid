@@ -105,29 +105,30 @@ struct vo_postprocess_state *vo_postprocess_init(const char *config_string)
 int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 struct video_desc desc)
 {
-        if(s) {
-                return s->funcs->reconfigure(s->state, desc);
-        } else {
+        if (!s) {
                 return FALSE;
         }
+
+        return s->funcs->reconfigure(s->state, desc);
 }
 
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)
 {
-        if(s) {
-                return s->funcs->getf(s->state);
-        } else {
+        if (!s) {
                 return NULL;
         }
+
+        return s->funcs->getf(s->state);
 }
 
 bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 struct video_frame *out, int req_pitch)
 {
-        if(s)
-                return s->funcs->vo_postprocess(s->state, in, out, req_pitch);
-        else
+        if (!s) {
                 return false;
+        }
+
+        return s->funcs->vo_postprocess(s->state, in, out, req_pitch);
 }
 
 void vo_postprocess_done(struct vo_postprocess_state *s)
@@ -145,7 +146,10 @@ void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_de
 
 bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, void *val, size_t *len)
 {
-        if(s) return s->funcs->get_property(s, property, val, len);
-        else return false;
+        if (!s) {
+		return false;
+	}
+
+	return s->funcs->get_property(s, property, val, len);
 }
 
