@@ -497,10 +497,8 @@ suggest-tests:
 configure-messages:
 	@printf "@POST_COMPILE_MSG@"
 
-
 tests: $(TEST_TARGET)
-	@$(TEST_TARGET)
-
+	@export DYLD_LIBRARY_PATH=$(MY_DYLD_LIBRARY_PATH); $(TEST_TARGET)
 
 check: tests
 

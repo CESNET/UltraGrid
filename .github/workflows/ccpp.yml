@@ -140,6 +140,11 @@ jobs:
       with:
         name: UltraGrid CI macOS build
         path: UltraGrid-continuous.dmg
+    - name: Upload NDI Build
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: .github/scripts/upload-ndi-build.sh UltraGrid-continuous.dmg
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       env:
