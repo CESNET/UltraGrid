@@ -142,7 +142,6 @@ int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg) {
 void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
 {
         const char **ports;
-        int i;
 
         s->out_channel_count = s->out_channel_count_req = ch_count;
 
@@ -151,22 +150,22 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
                 s->out_channel_count = 0;
                 return;
         }
-        for (i = 0; i < s->record.ch_count; ++i) {
+        for (int i = 0; i < s->record.ch_count; ++i) {
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
                 free(s->play_buffer[i]);
         }
 
-        i = 0;
-        while (ports[i]) ++i;
+        int ii = 0;
+        while (ports[ii]) ++ii;
 
-        if(i < s->out_channel_count) {
+        if(ii < s->out_channel_count) {
                 fprintf(stderr, "Not enought output ports found matching pattern '%s': "
-                                "%d requested, %d found\n", s->out_port_pattern, s->record.ch_count, i);
-                fprintf(stderr, "Reducing port count to %d\n", i);
-                s->out_channel_count = i;
+                                "%d requested, %d found\n", s->out_port_pattern, s->record.ch_count, ii);
+                fprintf(stderr, "Reducing port count to %d\n", ii);
+                s->out_channel_count = ii;
         }
          
-        for(i = 0; i < s->out_channel_count; ++i) {
+        for(int i = 0; i < s->out_channel_count; ++i) {
                 fprintf(stderr, "%s\n\n\n", ports[i]);
                 if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
                         fprintf (stderr, "cannot connect output ports\n");

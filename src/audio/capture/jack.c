@@ -95,14 +95,13 @@ static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg)
 static int jack_process_callback(jack_nframes_t nframes, void *arg)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) arg;
-        int i;
         int channel_size = nframes * sizeof(int32_t);
 
         if (!s->can_process) {
                 return 0;
         }
 
-        for (i = 0; i < s->frame.ch_count; ++i) {
+        for (int i = 0; i < s->frame.ch_count; ++i) {
                 jack_default_audio_sample_t *in = jack_port_get_buffer(s->input_ports[i], nframes);
                 mux_channel(s->tmp, (char *) in, sizeof(int32_t), channel_size, s->frame.ch_count, i, 1.0);
         }
@@ -120,7 +119,6 @@ static void audio_cap_jack_probe(struct device_info **available_devices, int *co
 static void audio_cap_jack_help(const char *client_name)
 {
         int count = 0;
-        int i = 0;
         struct device_info *available_devices = audio_jack_probe(client_name, JackPortIsOutput, &count);
 
         printf("Usage:\n");
@@ -134,7 +132,7 @@ static void audio_cap_jack_help(const char *client_name)
                 return;
 
         printf("Available devices:\n");
-        for(i = 0; i < count; i++){
+        for(int i = 0; i < count; i++){
                 printf("\t%s\n", available_devices[i].name);
         }
         free(available_devices);
@@ -145,7 +143,6 @@ static void * audio_cap_jack_init(const char *cfg)
         struct state_jack_capture *s;
         jack_status_t status;
         const char **ports;
-        int i;
         char *client_name;
         const char *source_name = NULL;
 
@@ -170,7 +167,7 @@ static void * audio_cap_jack_init(const char *cfg)
                         free(dup);
                         free(s);
                         return &audio_init_state_ok;
-                } else if (strstr(item, "first_channel=") == item) {
+                } else if (strstr(item, "first_channel=") == item) { // NOLINT(readability-else-after-return)
                         char *endptr;
                         char *val = item + strlen("first_channel=");
                         errno = 0;
@@ -203,7 +200,7 @@ static void * audio_cap_jack_init(const char *cfg)
                 goto release_client;
         }
 
-        i = 0;
+        int i = 0;
         while(ports[i]) i++;
 
         if(i < (int) audio_capture_channels) {
@@ -241,19 +238,15 @@ static void * audio_cap_jack_init(const char *cfg)
                 goto release_client;
         }
 
-        {
-                int port;
-                char name[32];
-
-                for(port = 0; port < s->frame.ch_count; port++) {
-                        snprintf(name, 32, "capture_%02u", port);
-                        s->input_ports[port] = jack_port_register(s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-                        /* attach ports */
-                        if(jack_connect(s->client, ports[port], jack_port_name(s->input_ports[port]))) {
-                                fprintf(stderr, "[JACK capture] Cannot connect input ports.\n");
-                        }
-                }
-        }
+	for(int port = 0; port < s->frame.ch_count; port++) {
+		char name[32];
+		snprintf(name, 32, "capture_%02u", port);
+		s->input_ports[port] = jack_port_register(s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+		/* attach ports */
+		if(jack_connect(s->client, ports[port], jack_port_name(s->input_ports[port]))) {
+			fprintf(stderr, "[JACK capture] Cannot connect input ports.\n");
+		}
+	}
 
         free(ports);
 
@@ -274,7 +267,7 @@ static struct audio_frame *audio_cap_jack_read(void *state)
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 
         s->frame.data_len = ring_buffer_read(s->data, s->frame.data, s->frame.max_size);
-        float2int((char *) s->frame.data, (char *) s->frame.data, s->frame.max_size);
+        float2int((char *) s->frame.data, (char *) s->frame.data, s->frame.max_size); // NOLINT(google-readability-casting)
 
         if(!s->frame.data_len)
                 return NULL;
