@@ -24,7 +24,7 @@ if (${env:sdk_pass}) {
 }
 
 # Install NDI
-if (${env:sdk_pass}) {
+if (${env:sdk_pass} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
   $pair = "sdk:${env:sdk_pass}"
   $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
   $basicAuthValue = "Basic $encodedCreds"

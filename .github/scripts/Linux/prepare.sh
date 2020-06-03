@@ -48,7 +48,7 @@ if [ -n "$sdk_pass" ]; then
 fi
 
 # Install NDI
-if [ -n "$sdk_pass" ]; then
+if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Linux.tar.gz -O
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh
