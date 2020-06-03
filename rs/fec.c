@@ -232,6 +232,8 @@ _matmul(gf * a, gf * b, gf * c, unsigned n, unsigned k, unsigned m) {
  */
 static void
 _invert_mat(gf* src, unsigned k) {
+    assert(k > 0);
+
     gf c, *p;
     unsigned irow = 0;
     unsigned icol = 0;
@@ -342,9 +344,8 @@ _invert_mat(gf* src, unsigned k) {
  */
 static void
 _invert_vdm (gf* src, unsigned k) {
-    unsigned i, j, row, col;
-    gf *b, *c, *p;
-    gf t, xx;
+    assert(src != NULL);
+    assert(k > 0);
 
     if (k == 1)                   /* degenerate case, matrix must be p^0 = 1 */
         return;
@@ -352,14 +353,14 @@ _invert_vdm (gf* src, unsigned k) {
      * c holds the coefficient of P(x) = Prod (x - p_i), i=0..k-1
      * b holds the coefficient for the matrix inversion
      */
-    c = NEW_GF_MATRIX (1, k);
-    b = NEW_GF_MATRIX (1, k);
+    gf *c = NEW_GF_MATRIX (1, k);
+    gf *b = NEW_GF_MATRIX (1, k);
 
-    p = NEW_GF_MATRIX (1, k);
+    gf *p = NEW_GF_MATRIX (1, k);
 
-    for (j = 1, i = 0; i < k; i++, j += k) {
+    for (unsigned j = 1, i = 0; i < k; i++, j += k) {
         c[i] = 0;
-        p[i] = src[j];            /* p[i] */
+        p[i] = src[j]; /* p[i] NOLINT(clang-analyzer-core.uninitialized.Assign) */
     }
     /*
      * construct coeffs. recursively. We know c[k] = 1 (implicit)
@@ -368,31 +369,30 @@ _invert_vdm (gf* src, unsigned k) {
      * After k steps we are done.
      */
     c[k - 1] = p[0];              /* really -p(0), but x = -x in GF(2^m) */
-    for (i = 1; i < k; i++) {
+    for (unsigned i = 1; i < k; i++) {
         gf p_i = p[i];            /* see above comment */
-        for (j = k - 1 - (i - 1); j < k - 1; j++)
+        for (unsigned j = k - 1 - (i - 1); j < k - 1; j++)
             c[j] ^= gf_mul (p_i, c[j + 1]);
         c[k - 1] ^= p_i;
     }
 
-    for (row = 0; row < k; row++) {
+    for (unsigned row = 0; row < k; row++) {
         /*
          * synthetic division etc.
          */
-        xx = p[row];
-        t = 1;
+        gf xx = p[row];
+        gf t = 1;
         b[k - 1] = 1;             /* this is in fact c[k] */
-        for (i = k - 1; i > 0; i--) {
+        for (unsigned i = k - 1; i > 0; i--) {
             b[i-1] = c[i] ^ gf_mul (xx, b[i]);
             t = gf_mul (xx, t) ^ b[i-1];
         }
-        for (col = 0; col < k; col++)
+        for (unsigned col = 0; col < k; col++)
             src[col * k + row] = gf_mul (inverse[t], b[col]);
     }
     free (c);
     free (b);
     free (p);
-    return;
 }
 
 static int fec_initialized = 0;
@@ -420,8 +420,11 @@ fec_free (fec_t *p) {
 
 fec_t *
 fec_new(unsigned short k, unsigned short n) {
+    assert(k > 0);
+    assert(n > k);
+
     unsigned row, col;
-    gf *p, *tmp_m;
+    gf *p;
 
     fec_t *retval;
 
@@ -433,7 +436,7 @@ fec_new(unsigned short k, unsigned short n) {
     retval->n = n;
     retval->enc_matrix = NEW_GF_MATRIX (n, k);
     retval->magic = ((FEC_MAGIC ^ k) ^ n) ^ (uintptr_t) (retval->enc_matrix);
-    tmp_m = NEW_GF_MATRIX (n, k);
+    gf *tmp_m = NEW_GF_MATRIX (n, k);
     /*
      * fill the matrix with powers of field elements, starting from 0.
      * The first row is special, cannot be computed with exp. table.
@@ -471,19 +474,14 @@ fec_new(unsigned short k, unsigned short n) {
 
 void
 fec_encode(const fec_t* code, const gf*restrict const*restrict const src, gf*restrict const*restrict const fecs, const unsigned*restrict const block_nums, size_t num_block_nums, size_t sz) {
-    unsigned char i, j;
-    size_t k;
-    unsigned fecnum;
-    const gf* p;
-
-    for (k = 0; k < sz; k += STRIDE) {
+    for (size_t k = 0; k < sz; k += STRIDE) {
         size_t stride = ((sz-k) < STRIDE)?(sz-k):STRIDE;
-        for (i=0; i<num_block_nums; i++) {
-            fecnum=block_nums[i];
+        for (unsigned char i=0; i<num_block_nums; i++) {
+            unsigned fecnum=block_nums[i];
             assert (fecnum >= code->k);
             memset(fecs[i]+k, 0, stride);
-            p = &(code->enc_matrix[fecnum * code->k]);
-            for (j = 0; j < code->k; j++)
+            const gf *p = &(code->enc_matrix[fecnum * code->k]);
+            for (unsigned char j = 0; j < code->k; j++)
                 addmul(fecs[i]+k, src[j]+k, p[j], stride);
         }
     }
@@ -513,15 +511,13 @@ void
 fec_decode(const fec_t* code, const gf*restrict const*restrict const inpkts, gf*restrict const*restrict const outpkts, const unsigned*restrict const index, size_t sz) {
     gf* m_dec = (gf*)alloca(code->k * code->k);
     unsigned char outix=0;
-    unsigned char row=0;
-    unsigned char col=0;
     build_decode_matrix_into_space(code, index, code->k, m_dec);
 
-    for (row=0; row<code->k; row++) {
+    for (unsigned char row=0; row<code->k; row++) {
         assert ((index[row] >= code->k) || (index[row] == row)); /* If the block whose number is i is present, then it is required to be in the i'th element. */
         if (index[row] >= code->k) {
             memset(outpkts[outix], 0, sz);
-            for (col=0; col < code->k; col++)
+            for (unsigned char col=0; col < code->k; col++)
                 addmul(outpkts[outix], inpkts[col], m_dec[row * code->k + col], sz);
             outix++;
         }
