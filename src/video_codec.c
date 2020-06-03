@@ -512,21 +512,21 @@ size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)
 {
         if (!codec_is_planar(codec)) {
                 return vc_get_linesize(width, codec) * height;
-        } else {
-                assert(get_bits_per_component(codec) == 8);
-                size_t ret = 0;
-                int sub[8];
-                codec_get_planes_subsampling(codec, sub);
-                for (int i = 0; i < 4; ++i) {
-                        if (sub[i * 2] == 0) { // less than 4 planes
-                                break;
-                        }
-                        ret += ((width + sub[i * 2] - 1) / sub[i * 2])
-                                * ((height + sub[i * 2 + 1] - 1) / sub[i * 2 + 1]);
-                }
-
-                return ret;
         }
+
+        assert(get_bits_per_component(codec) == 8);
+        size_t ret = 0;
+        int sub[8];
+        codec_get_planes_subsampling(codec, sub);
+        for (int i = 0; i < 4; ++i) {
+                if (sub[i * 2] == 0) { // less than 4 planes
+                        break;
+                }
+                ret += ((width + sub[i * 2] - 1) / sub[i * 2])
+                        * ((height + sub[i * 2 + 1] - 1) / sub[i * 2 + 1]);
+        }
+
+        return ret;
 }
 
 /// @brief returns @ref codec_info_t::block_size
