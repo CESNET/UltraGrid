@@ -49,15 +49,15 @@ if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg -O
         sudo installer -pkg NDISDK_Apple.pkg -target /
         rm NDISDK_Apple.pkg
-        sudo ln -s "/Library/NDI SDK for Apple/" /Library/NDI
+        sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
         cd /Library/NDI/lib/x64
         sudo ln -s libndi.?.dylib libndi.dylib
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
         export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}/Library/NDI/lib/x64
-        export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH:+"$DYLD_LIBRARY_PATH:"}/Library/NDI/lib/x64
+        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /Library/NDI/lib/x64"
         echo "::set-env name=CPATH::$CPATH"
         echo "::set-env name=LIBRARY_PATH::$LIBRARY_PATH"
-        echo "::set-env name=DYLD_LIBRARY_PATH::$DYLD_LIBRARY_PATH"
+        echo "::set-env name=DYLIBBUNDLER_FLAGS::$DYLIBBUNDLER_FLAGS"
         cd $TEMP_INST
 fi
 

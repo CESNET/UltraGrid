@@ -2148,7 +2148,7 @@ then
 
         if test $system = MacOSX; then
                 LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
-                DYLIBBUNDLER_FLAGS="-s $CUDA_LIB_PATH"
+                DYLIBBUNDLER_FLAGS="${DYLIBBUNDER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $CUDA_LIB_PATH"
         fi
 fi
 
