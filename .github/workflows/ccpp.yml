@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - ndi-build
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
@@ -71,7 +72,7 @@ jobs:
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
     - name: configure
-      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local --disable-ndi
+      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local $NDI"
     - name: make
       run: make -j4
     - name: make check
@@ -81,11 +82,16 @@ jobs:
     - name: Create AppImage
       run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-continuous-x86_64.AppImage
     - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
+      if: github.repository != 'CESNET/UltraGrid' || (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/ndi-build')
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Linux build
         path: UltraGrid-continuous-x86_64.AppImage
+    - name: Upload NDI Build
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: .github/scripts/upload-ndi-build.sh UltraGrid-continuous-x86_64.AppImage
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       env:
@@ -129,7 +135,7 @@ jobs:
         make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
     - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
+      if: github.repository != 'CESNET/UltraGrid' || (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/ndi-build')
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI macOS build
@@ -191,7 +197,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
+      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt $NDI --with-live555=/usr/local'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
@@ -210,11 +216,18 @@ jobs:
       run: C:\msys64\usr\bin\bash -cel 'PATH=
         /usr/bin/make distcheck TARGET=build/UltraGrid-continuous-win64/uv.exe GUI_EXE=build/UltraGrid-continuous-win64/uv-qt.exe'
     - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
+      if: github.repository != 'CESNET/UltraGrid' || (github.ref != 'refs/heads/master' && github.ref != 'refs/heads/ndi-build')
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Windows build
         path: build
+    - name: Upload NDI Build
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: |
+        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64
+          $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-continuous-win64.zip'
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       env:
