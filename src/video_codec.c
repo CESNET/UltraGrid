@@ -510,7 +510,9 @@ int vc_get_linesize(unsigned int width, codec_t codec)
  */
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)
 {
-        if (codec_is_planar(codec)) {
+        if (!codec_is_planar(codec)) {
+                return vc_get_linesize(width, codec) * height;
+        } else {
                 assert(get_bits_per_component(codec) == 8);
                 size_t ret = 0;
                 int sub[8];
@@ -524,8 +526,6 @@ size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)
                 }
 
                 return ret;
-        } else {
-                return vc_get_linesize(width, codec) * height;
         }
 }
 
