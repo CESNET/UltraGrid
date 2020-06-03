@@ -240,7 +240,10 @@ void display_join(struct display *d)
 
 static struct response *process_message(struct display *d, struct msg_universal *msg)
 {
-        if (strncasecmp(msg->text, "postprocess ", strlen("postprocess ")) == 0) {
+        if (strncasecmp(msg->text, "postprocess ", strlen("postprocess ")) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unknown command '%s'.\n", msg->text);
+                return new_response(RESPONSE_BAD_REQUEST, NULL);
+        } else {
                 log_msg(LOG_LEVEL_WARNING, "On fly changing postprocessing is currently "
                                 "only an experimental feature! Use with caution!\n");
                 const char *text = msg->text + strlen("postprocess ");
@@ -263,9 +266,6 @@ static struct response *process_message(struct display *d, struct msg_universal 
                 display_reconfigure(d, d->saved_desc, d->saved_mode);
 
                 return new_response(RESPONSE_OK, NULL);
-        } else {
-                log_msg(LOG_LEVEL_ERROR, "Unknown command '%s'.\n", msg->text);
-                return new_response(RESPONSE_BAD_REQUEST, NULL);
         }
 }
 
@@ -315,7 +315,9 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
                 return d->funcs->putf(d->state, frame, flags);
         }
 
-        if (d->postprocess) {
+        if (!d->postprocess) {
+                return d->funcs->putf(d->state, frame, flags);
+        } else {
                 int display_ret = 0;
 		for (int i = 0; i < d->pp_output_frames_count; ++i) {
 			struct video_frame *display_frame = d->funcs->getf(d->state);
@@ -332,8 +334,6 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
 			display_ret = d->funcs->putf(d->state, display_frame, flags);
 		}
                 return display_ret;
-        } else {
-                return d->funcs->putf(d->state, frame, flags);
         }
 }
 
@@ -356,7 +356,9 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
         d->saved_desc = desc;
         d->saved_mode = video_mode;
 
-        if (d->postprocess) {
+        if (!d->postprocess) {
+		return d->funcs->reconfigure_video(d->state, desc);
+        } else {
                 bool pp_does_change_tiling_mode = false;
                 size_t len = sizeof(pp_does_change_tiling_mode);
                 if (vo_postprocess_get_property(d->postprocess, VO_PP_DOES_CHANGE_TILING_MODE,
@@ -391,8 +393,6 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
 		}
 
                 return rc;
-        } else {
-		return d->funcs->reconfigure_video(d->state, desc);
 	}
 }
 
@@ -435,7 +435,9 @@ static void restrict_returned_codecs(codec_t *display_codecs,
 int display_get_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (d->postprocess) {
+        if (!d->postprocess) {
+                return d->funcs->get_property(d->state, property, val, len);
+        } else {
                 switch (property) {
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
@@ -464,20 +466,18 @@ int display_get_property(struct display *d, int property, void *val, size_t *len
                                                         pp_codecs, pp_codecs_count);
                                 }
                                 nlen = display_codecs_count * sizeof(codec_t);
-                                if (nlen <= *len) {
+                                if (nlen > *len) {
+                                        return FALSE;
+                                } else {
                                         *len = nlen;
                                         memcpy(val, display_codecs, nlen);
                                         return TRUE;
-                                } else {
-                                        return FALSE;
                                 }
                         }
 			break;
                 default:
                         return d->funcs->get_property(d->state, property, val, len);
                 }
-        } else {
-                return d->funcs->get_property(d->state, property, val, len);
         }
 }
 
@@ -508,3 +508,4 @@ int display_reconfigure_audio(struct display *d, int quant_samples, int channels
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
 
+/* vim: set expandtab sw=8: */
