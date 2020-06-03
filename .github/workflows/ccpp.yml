@@ -118,7 +118,7 @@ jobs:
     - name: bootstrap
       run: .github/scripts/macOS/prepare.sh
     - name: configure
-      run: ARCH=-msse4.2 ./autogen.sh --enable-qt --with-live555=/usr/local
+      run: "export ARCH=-msse4.2; [ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-live555=/usr/local $NDI"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
