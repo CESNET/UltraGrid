@@ -433,15 +433,14 @@ return_previous:
         s->decompressed_frames.pop();
         lk.unlock();
 
-        int linesize = vc_get_linesize(s->desc.width, s->out_codec);
+        size_t linesize = vc_get_linesize(s->desc.width, s->out_codec);
         size_t frame_size = linesize * s->desc.height;
-        if (decoded.second != frame_size) {
+        if ((decoded.second + 3) / 4 * 4 != frame_size) { // for "RGBA with non-standard shift" (search) it would be (frame_size - 1)
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
         }
-        if (decoded.second >= frame_size) {
-                for (size_t i = 0; i < s->desc.height; ++i) {
-                        memcpy(dst + i * s->pitch, decoded.first + i * linesize, linesize);
-                }
+
+        for (size_t i = 0; i < s->desc.height; ++i) {
+                memcpy(dst + i * s->pitch, decoded.first + i * linesize, min(linesize, decoded.second - min(decoded.second, i * linesize)));
         }
 
         free(decoded.first);
