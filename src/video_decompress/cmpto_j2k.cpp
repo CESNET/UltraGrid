@@ -229,6 +229,8 @@ static void * j2k_decompress_init(void)
                 encoder_in_frames = atoi(get_commandline_param("j2k-dec-encoder-queue"));
         }
 
+        const auto *version = cmpto_j2k_dec_get_version();
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
         s = new state_decompress_j2k(queue_len, encoder_in_frames);
 

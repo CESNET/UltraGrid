@@ -66,6 +66,8 @@
 #include <queue>
 #include <utility>
 
+constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
+
 #define CHECK_OK(cmd, err_msg, action_fail) do { \
         int j2k_error = cmd; \
         if (j2k_error != CMPTO_OK) {\
@@ -277,6 +279,9 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
         unsigned int pool_size = DEFAULT_POOL_SIZE;
+
+        const auto *version = cmpto_j2k_enc_get_version();
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
         char *tmp = (char *) alloca(strlen(c_cfg) + 1);
         strcpy(tmp, c_cfg);
