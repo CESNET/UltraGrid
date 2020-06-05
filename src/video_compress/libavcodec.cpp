@@ -1585,7 +1585,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
         //codec_ctx->rc_buffer_aggressivity = 1.0;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
-        codec_ctx->qcompress = 0.0f;
+        codec_ctx->qcompress = codec_ctx->codec->id == AV_CODEC_ID_H265 ? 0.5F : 0.0F;
         //codec_ctx->qblur = 0.0f;
         //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
         //codec_ctx->rc_max_available_vbv_use = 1.0f;
