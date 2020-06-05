@@ -722,14 +722,14 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
         bool slow[] = {false, true};
         for (auto use_slow : slow) {
-                for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no FFMPEG conversion needed
+                for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                         auto decoder = get_decoder_from_to(in, i->uv_codec, use_slow);
                         if (decoder && i->av_pixfmt == av) {
                                 *out = i->uv_codec;
                                 return decoder;
                         }
                 }
-                for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                         auto decoder = get_decoder_from_to(in, c->src, use_slow);
                         if (decoder && c->dst == av) {
                                 *out = c->src;
@@ -781,7 +781,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         }
 
         vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
-        for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no to FFMPEG conversion, just UG conversion
+        for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                 if (get_decoder_from_to(in_desc.color_spec, i->uv_codec, true)) {
                         int codec_subsampling = get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
@@ -791,7 +791,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         }
                 }
         }
-        for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+        for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                 if (c->src == in_desc.color_spec ||
                                 get_decoder_from_to(in_desc.color_spec, c->src, true)) {
                         int codec_subsampling = get_subsampling(c->dst);
@@ -1080,6 +1080,21 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
                 print_codec_supp_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
+
+#ifdef HAVE_SWSCALE
+        if (pix_fmt == AV_PIX_FMT_NONE) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
+                for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
+                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
+                        if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
+                                pix_fmt = *pix;
+                                if (try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
+                                        break;
+                                }
+                        }
+                }
+        }
+#endif
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
