@@ -824,6 +824,18 @@ static void video_decoder_stop_threads(struct state_video_decoder *decoder)
         decoder->decompress_thread_id.join();
 }
 
+static auto codec_list_to_str(const codec_t *codecs) {
+        if (codecs == nullptr || codecs[0] == VIDEO_CODEC_NONE) {
+                return "(none)"s;
+        }
+        ostringstream oss;
+        oss << *codecs;
+        while (*++codecs != VIDEO_CODEC_NONE) {
+                oss << (codecs[1] == VIDEO_CODEC_NONE ? " and " : ", ") << get_codec_name(*codecs);
+        }
+        return oss.str();
+}
+
 ADD_TO_PARAM(decoder_use_codec, "decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified color spec for decoding (eg. v210). This overrides automatic\n"
@@ -873,6 +885,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 }
                 if (!found) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Display doesn't support requested codec: %s.\n", codec_str);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                         return false;
                 }
         }
@@ -1043,7 +1056,6 @@ static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t 
         return ret;
 }
 
-
 /**
  * This function selects, according to given video description, appropriate
  *
@@ -1125,11 +1137,7 @@ after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
-                log_msg(LOG_LEVEL_INFO, "Compression internal codec is \"%s\". Native codecs are:", get_codec_name(comp_int_fmt));
-                for (size_t native = 0; native < decoder->native_count; ++native) {
-                        log_msg(LOG_LEVEL_INFO, " %s", get_codec_name(decoder->native_codecs[native]));
-                }
-                log_msg(LOG_LEVEL_INFO, "\n");
+                LOG(LOG_LEVEL_INFO) << "Compression internal codec is \"" << get_codec_name(comp_int_fmt) << "\". Native codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                 return VIDEO_CODEC_NONE;
         }
 
