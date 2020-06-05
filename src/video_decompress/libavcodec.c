@@ -509,6 +509,17 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 }
         }
 
+#ifdef HAVE_SWSCALE
+        for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
+                if (fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using swscale to convert - picking first usable codec %s.\n",
+                                av_get_pix_fmt_name(*fmt_it));
+                        return *fmt_it;
+                }
+        }
+#endif
+
         return AV_PIX_FMT_NONE;
 }
 
