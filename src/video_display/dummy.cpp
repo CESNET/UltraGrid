@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,24 +40,65 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "video.h"
 #include "video_display.h"
 
 #include <chrono>
+#include <iostream>
+#include <vector>
+
+const constexpr char *MOD_NAME = "[dummy] ";
 
 using namespace std;
 using namespace std::chrono;
+using rang::fg;
+using rang::style;
 
 struct dummy_display_state {
         dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {}
         struct video_frame *f;
         steady_clock::time_point t0;
+        vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
+        vector<int> rgb_shift = {0, 8, 16};
         int frames;
 };
 
-static void *display_dummy_init(struct module *, const char *, unsigned int)
+static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
 {
-        return new dummy_display_state();
+        if ("help"s == cfg) {
+                cout << "Usage:\n";
+                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>]\n" << style::reset;
+                cout << "where\n";
+                cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
+                cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
+                return static_cast<void *>(&display_init_noerr);
+        }
+        auto s = make_unique<dummy_display_state>();
+        auto *ccpy = static_cast<char *>(alloca(strlen(cfg) + 1));
+        strcpy(ccpy, cfg);
+        char *item = nullptr;
+        char *save_ptr = nullptr;
+        while ((item = strtok_r(ccpy, ":", &save_ptr)) != nullptr) {
+                if (strstr(item, "codec=") != nullptr) {
+                        s->codecs.clear();
+                        s->codecs.push_back(get_codec_from_name(item + "codec="s.length()));
+                        if (s->codecs[0] == VIDEO_CODEC_NONE) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
+                                return nullptr;
+                        }
+                } else if (strstr(item, "rgb_shift=") != nullptr) {
+                        size_t len;
+                        s->rgb_shift[0] = stoi(item, &len);
+                        item += len + 1;
+                        s->rgb_shift[1] = stoi(item, &len);
+                        item += len + 1;
+                        s->rgb_shift[2] = stoi(item, &len);
+                }
+                ccpy = nullptr;
+        }
+
+        return static_cast<void *>(s.release());
 }
 
 static void display_dummy_run(void *)
@@ -88,8 +129,7 @@ static int display_dummy_putf(void *state, struct video_frame * /* frame */, int
         double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
         if (seconds >= 5.0) {
                 double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[dummy] %d frames in %g seconds = %g FPS\n",
-                                s->frames, seconds, fps);
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames << " frames in " << seconds << " seconds = " << fps << " FPS\n",
                 s->t0 = curr_time;
                 s->frames = 0;
         }
@@ -97,19 +137,24 @@ static int display_dummy_putf(void *state, struct video_frame * /* frame */, int
         return 0;
 }
 
-static int display_dummy_get_property(void *, int property, void *val, size_t *len)
+static auto display_dummy_get_property(void *state, int property, void *val, size_t *len)
 {
-        codec_t codecs[] = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
+        auto *s = static_cast<dummy_display_state *>(state);
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
-                        } else {
+                        if (s->codecs.size() * sizeof s->codecs[0] > *len) {
                                 return FALSE;
                         }
-                        
-                        *len = sizeof(codecs);
+                        *len = s->codecs.size() * sizeof(codec_t);
+                        memcpy(val, s->codecs.data(), *len);
+                        break;
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if (s->rgb_shift.size() * sizeof s->rgb_shift[0] > *len) {
+                                return FALSE;
+                        }
+                        *len = s->rgb_shift.size() * sizeof(s->rgb_shift[0]);
+                        memcpy(val, s->rgb_shift.data(), *len);
                         break;
                 default:
                         return FALSE;
