@@ -393,12 +393,6 @@ static int cineform_decompress_get_property(void *state, int property, void *val
         return ret;
 }
 
-ADD_TO_PARAM(cfhd_use_12bit, "cfhd-use-12bit",
-                "* cfhd-use-12bit\n"
-                "  Indicates that we are using decoding to R12L.\n"
-                "  With this flag, R12L (12-bit RGB)\n"
-                "  will be announced as a supported codec.\n");
-
 static const struct decode_from_to *cineform_decompress_get_decoders() {
         const struct decode_from_to dec_static[] = {
                 { CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
