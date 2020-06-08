@@ -882,12 +882,9 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
 ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
                 "* lavc-use-codec=<c>\n"
-                "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
-                "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
-                "  for NVENC encoder.\n"
-                "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
-                "  to force 10-bit encoding.\n"
-                "  UltraGrid pixel formats (v210, R10k, UYVY etc.) are also accepted.\n");
+                "  Restrict codec to use user specified pixel fmt. Use either FFmpeg name\n"
+                "  (eg. nv12, yuv422p10le or yuv444p10le) or UltraGrid pixel formats names\n"
+                "  (v210, R10k, UYVY etc.). See wiki for more info.\n");
 /**
  * Returns ordered list of codec preferences for input description and
  * requested_subsampling.
