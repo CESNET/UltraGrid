@@ -216,7 +216,8 @@ static const struct decoder_info decoders[] = {
 };
 
 ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
-                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter\n");
+                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
+                "  Use '-c libavcodec:help' to see available decoders.\n");
 
 #ifdef HWACC_COMMON
 ADD_TO_PARAM(force_hw_accel, "use-hw-accel", "* use-hw-accel\n"
