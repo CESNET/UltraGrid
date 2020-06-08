@@ -344,7 +344,12 @@ static void usage() {
         cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
         cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
+        cout << "\tLibavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
+        const char *swscale = "no";
+#ifdef HAVE_SWSCALE
+        swscale = "yes";
+#endif
+        cout << "\tLibswscale supported: " << style::bold << swscale << style::reset << "\n";
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
