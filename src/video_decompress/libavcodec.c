@@ -524,10 +524,10 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
         return AV_PIX_FMT_NONE;
 }
 
+#ifdef HAVE_SWSCALE
 static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum AVPixelFormat sws_in_codec,
                 enum AVPixelFormat sws_out_codec, int width, int height, AVFrame *in_frame)
 {
-#ifdef HAVE_SWSCALE
         if (sws->width != width || sws->height != height|| sws->in_codec != sws_in_codec || sws->ctx == NULL) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert.\n");
                 sws_freeContext(sws->ctx);
@@ -571,16 +571,8 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
                         sws->frame->linesize);
         return true;
 
-#else
-        UNUSED(sws);
-        UNUSED(sws_in_codec);
-        UNUSED(sws_out_codec);
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(in_frame);
-        return false;
-#endif
 }
+#endif
 
 /**
  * Changes pixel format from frame to native
@@ -612,6 +604,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 return TRUE;
         }
 
+#ifdef HAVE_SWSCALE
         // else try to find swscale
         enum AVPixelFormat sws_out_codec = 0;
         bool native[2] = { true, false };
@@ -638,6 +631,10 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame);
         convert((char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
+#else
+        UNUSED(sws);
+        return FALSE;
+#endif // HAVE_SWSCALE
 }
 
 static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
