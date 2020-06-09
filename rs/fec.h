@@ -20,9 +20,9 @@ typedef struct {
 
 /**
  * param k the number of blocks required to reconstruct
- * param m the total number of blocks created
+ * param n the total number of blocks created
  */
-fec_t* fec_new(unsigned short k, unsigned short m);
+fec_t* fec_new(unsigned short k, unsigned short n);
 void fec_free(fec_t* p);
 
 /**

@@ -133,7 +133,7 @@ struct tile * vf_get_tile(struct video_frame *buf, int pos);
  *
  * Copied data are automatically freeed by vf_free()
  */
-struct video_frame * vf_get_copy(struct video_frame *frame);
+struct video_frame * vf_get_copy(struct video_frame *original_frame);
 /**
  * @brief Compares two video descriptions.
  *

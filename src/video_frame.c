@@ -224,8 +224,7 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
 {
         if (interlacing < sizeof interlacing_suffixes / sizeof interlacing_suffixes[0])
                 return interlacing_suffixes[interlacing];
-        else
-                return NULL;
+        return NULL;
 }
 
 enum interlacing_t get_interlacing_from_suffix(const char *suffix)
@@ -360,12 +359,12 @@ double compute_fps(int fps, int fpsd, int fd, int fi)
         return res;
 }
 
-struct video_frame *vf_get_copy(struct video_frame *original) {
-        struct video_frame *frame_copy = vf_alloc_desc(video_desc_from_frame(original));
+struct video_frame *vf_get_copy(struct video_frame *original_frame) {
+        struct video_frame *frame_copy = vf_alloc_desc(video_desc_from_frame(original_frame));
 
         for(int i = 0; i < (int) frame_copy->tile_count; ++i) {
                 frame_copy->tiles[i].data = (char *) malloc(frame_copy->tiles[i].data_len);
-                memcpy(frame_copy->tiles[i].data, original->tiles[i].data,
+                memcpy(frame_copy->tiles[i].data, original_frame->tiles[i].data,
                                 frame_copy->tiles[i].data_len);
         }
 

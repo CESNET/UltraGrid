@@ -253,12 +253,12 @@ int 		 rtp_send_raw_rtp_data(struct rtp *session, char *buffer, int buffer_len);
 
 int 		 rtp_send_data(struct rtp *session, 
 			       uint32_t rtp_ts, char pt, int m, 
-			       int cc, uint32_t csrc[], 
+			       int cc, const uint32_t *csrc, 
                                char *data, int data_len, 
 			       char *extn, uint16_t extn_len, uint16_t extn_type);
 int 		 rtp_send_data_hdr(struct rtp *session, 
 			       uint32_t rtp_ts, char pt, int m, 
-			       int cc, uint32_t csrc[], 
+			       int cc, const uint32_t *csrc, 
                                char *phdr, int phdr_len, 
                                char *data, int data_len,
 			       char *extn, uint16_t extn_len, uint16_t extn_type);

@@ -87,7 +87,7 @@ struct rtpenc_h264_state * rtpenc_h264_init_state() {
 
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint8_t *buf_in, int size) {
 
-	uint32_t next4Bytes = 0l;
+	uint32_t next4Bytes = 0ul;
 
 	if (!rtpench264state->haveSeenFirstStartCode) {
 		//reset pointers and params of interest for this new frame to parse and send
@@ -132,7 +132,7 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 
 	while (next4Bytes != 0x00000001 && (next4Bytes & 0xFFFFFF00) != 0x00000100 && !haveSeenEOF(rtpench264state)) {
 		// We save at least some of "next4Bytes".
-		if ((unsigned) (next4Bytes & 0xFF) > 1) {
+		if ((next4Bytes & 0xFF) > 1u) {
 			// Common case: 0x00000001 or 0x000001 definitely doesn't begin anywhere in "next4Bytes", so we save all of it:
 			skipBytes(rtpench264state, 4);
 		} else {

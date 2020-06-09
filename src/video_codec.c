@@ -282,55 +282,55 @@ int get_bits_per_component(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].bits_per_channel;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].bits_per_channel;
 }
 
 double get_bpp(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].bpp;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].bpp;
 }
 
 uint32_t get_fourcc(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].fcc;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].fcc;
 }
 
 const char * get_codec_name(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].name;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].name;
 }
 
 const char * get_codec_name_long(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].name_long;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].name_long;
 }
 
 codec_t get_codec_from_fcc(uint32_t fourcc)
@@ -342,11 +342,12 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
 
         // try to look through aliases
         for (size_t i = 0; i < sizeof(fourcc_aliases) / sizeof(struct alternative_fourcc); ++i) {
-                if (fourcc == fourcc_aliases[i].alias) {
-                        for (unsigned int j = 0; j < sizeof codec_info / sizeof(struct codec_info_t); ++j) {
-                                if (fourcc_aliases[i].primary_fcc == codec_info[j].fcc)
-                                        return j;
-                        }
+                if (fourcc != fourcc_aliases[i].alias)
+                        continue;
+
+                for (unsigned int j = 0; j < sizeof codec_info / sizeof(struct codec_info_t); ++j) {
+                        if (fourcc_aliases[i].primary_fcc == codec_info[j].fcc)
+                                return j;
                 }
         }
         return VIDEO_CODEC_NONE;
@@ -393,11 +394,11 @@ const char *get_codec_file_extension(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].file_extension;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].file_extension;
 }
 
 /**
@@ -408,11 +409,11 @@ int is_codec_opaque(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].opaque;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].opaque;
 }
 
 /**
@@ -425,11 +426,11 @@ int is_codec_interframe(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].interframe;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+        
+        return codec_info[i].interframe;
 }
 
 /** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
@@ -441,11 +442,11 @@ int codec_is_a_rgb(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].rgb;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].rgb;
 }
 
 /** @brief Returns TRUE if specified pixelformat has constant size regardles
@@ -458,11 +459,11 @@ int codec_is_const_size(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].const_size;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].const_size;
 }
 
 bool codec_is_hw_accelerated(codec_t codec) {
@@ -473,11 +474,11 @@ int get_halign(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].h_align;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+        
+        return codec_info[i].h_align;
 }
 
 /** @brief Returns aligned linesize according to pixelformat specification (in pixels) */
@@ -509,23 +510,23 @@ int vc_get_linesize(unsigned int width, codec_t codec)
  */
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)
 {
-        if (codec_is_planar(codec)) {
-                assert(get_bits_per_component(codec) == 8);
-                size_t ret = 0;
-                int sub[8];
-                codec_get_planes_subsampling(codec, sub);
-                for (int i = 0; i < 4; ++i) {
-                        if (sub[i * 2] == 0) { // less than 4 planes
-                                break;
-                        }
-                        ret += ((width + sub[i * 2] - 1) / sub[i * 2])
-                                * ((height + sub[i * 2 + 1] - 1) / sub[i * 2 + 1]);
-                }
-
-                return ret;
-        } else {
+        if (!codec_is_planar(codec)) {
                 return vc_get_linesize(width, codec) * height;
         }
+
+        assert(get_bits_per_component(codec) == 8);
+        size_t ret = 0;
+        int sub[8];
+        codec_get_planes_subsampling(codec, sub);
+        for (int i = 0; i < 4; ++i) {
+                if (sub[i * 2] == 0) { // less than 4 planes
+                        break;
+                }
+                ret += ((width + sub[i * 2] - 1) / sub[i * 2])
+                        * ((height + sub[i * 2 + 1] - 1) / sub[i * 2 + 1]);
+        }
+
+        return ret;
 }
 
 /// @brief returns @ref codec_info_t::block_size
@@ -533,11 +534,11 @@ int get_pf_block_size(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].block_size;
-        } else {
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
                 return 0;
         }
+
+        return codec_info[i].block_size;
 }
 
 /** @brief Deinterlaces framebuffer.
@@ -836,8 +837,8 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         register uint32_t *d;
         register uint32_t tmp;
 
-        d = (uint32_t *)(void *) dst;
-        s = (const void *)(const void *) src;
+        d = (uint32_t *)(void *) dst; /* double cast silences alignment warnings */
+        s = (const void *) src;
 
         while (len >= 16) {
                 tmp =
@@ -2506,13 +2507,13 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
 
         for (size_t y = 0; y < height; ++y) {
                 uintptr_t i;
-                for( i = 0; i < (linesize & (~15)); i+=16)
+                for ( i = 0; i < (linesize & (~15)); i += 16)
                 {
                         memcpy(data + i, pattern, 16);
                 }
-                for( ; i < linesize; i++ )
-                {
-                        ((char*)data)[i] = ((char*)pattern)[i&15];
+                if (i < linesize)
+                {       
+                        memcpy(data + i, pattern, linesize - i);
                 }
 
                 data += pitch;
