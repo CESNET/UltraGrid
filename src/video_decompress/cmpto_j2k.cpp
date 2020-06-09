@@ -196,13 +196,13 @@ next_image:
         return NULL;
 }
 
-ADD_TO_PARAM(j2k_dec_mem_limit, "j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
+ADD_TO_PARAM("j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
                                 "  J2K max memory usage in bytes.\n");
-ADD_TO_PARAM(j2k_dec_tile_limit, "j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
+ADD_TO_PARAM("j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
                                 "  number of tiles decoded at moment (less to reduce latency, more to increase performance, 0 unlimited)\n");
-ADD_TO_PARAM(j2k_dec_queue_len, "j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
+ADD_TO_PARAM("j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
                                 "  max queue len\n");
-ADD_TO_PARAM(j2k_dec_encoder_queue, "j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
+ADD_TO_PARAM("j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
                                 "  max number of frames hold by encoder\n");
 static void * j2k_decompress_init(void)
 {

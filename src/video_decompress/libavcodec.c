@@ -215,12 +215,12 @@ static const struct decoder_info decoders[] = {
         { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
 };
 
-ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
+ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
                 "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
                 "  Use '-c libavcodec:help' to see available decoders.\n");
 
 #ifdef HWACC_COMMON
-ADD_TO_PARAM(force_hw_accel, "use-hw-accel", "* use-hw-accel\n"
+ADD_TO_PARAM("use-hw-accel", "* use-hw-accel\n"
                 "  Tries to use hardware acceleration. \n");
 #endif
 static bool configure_with(struct state_libavcodec_decompress *s,
@@ -799,7 +799,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         return res;
 }
 
-ADD_TO_PARAM(lavd_accept_corrputed, "lavd-accept-corrupted",
+ADD_TO_PARAM("lavd-accept-corrupted",
                 "* lavd-accept-corrupted[=no]\n"
                 "  Pass corrupted frames to decoder. If decoder isn't error-resilient,\n"
                 "  may crash! Use \"no\" to disable even if enabled by default.\n");
@@ -873,10 +873,10 @@ static const struct decode_from_to dec_template[] = {
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
 /// @todo to remove
-ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
+ADD_TO_PARAM("lavd-use-10bit",
                 "* lavd-use-10bit\n"
                 "  Do not use, use \"--param decoder-use-codec=v210\" instead.\n");
-ADD_TO_PARAM(lavd_use_codec, "lavd-use-codec",
+ADD_TO_PARAM("lavd-use-codec",
                 "* lavd-use-codec=<codec>\n"
                 "  Do not use, use \"--param decoder-use-codec=<codec>\" instead.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {

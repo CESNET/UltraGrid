@@ -199,7 +199,7 @@ void ldgm::set_params(unsigned int k, unsigned int m, unsigned int c, unsigned i
         m_coding_session->set_pcMatrix(filename);
 }
 
-ADD_TO_PARAM(ldgm_device, "ldgm-device", "* ldgm-device={CPU|GPU}\n"
+ADD_TO_PARAM("ldgm-device", "* ldgm-device={CPU|GPU}\n"
                 "  specify whether use CPU or GPU for LDGM\n");
 
 void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)

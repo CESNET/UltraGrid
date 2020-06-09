@@ -836,7 +836,7 @@ static auto codec_list_to_str(const codec_t *codecs) {
         return oss.str();
 }
 
-ADD_TO_PARAM(decoder_use_codec, "decoder-use-codec",
+ADD_TO_PARAM("decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified pixel format for decoding (eg. v210). This overrides automatic\n"
                 "  choice. The pixel format must be supported by the video display.\n");

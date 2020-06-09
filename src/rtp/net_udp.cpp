@@ -726,11 +726,11 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
         return true;
 }
 
-ADD_TO_PARAM(udp_queue_len, "udp-queue-len",
+ADD_TO_PARAM("udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
 #ifdef WIN32
-ADD_TO_PARAM(udp_disable_multi_socket, "udp-disable-multi-socket",
+ADD_TO_PARAM("udp-disable-multi-socket",
          "* disable separate sockets for RX and TX (Win only)\n");
 #endif
 /**

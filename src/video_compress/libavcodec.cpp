@@ -880,7 +880,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
 }
 
-ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
+ADD_TO_PARAM("lavc-use-codec",
                 "* lavc-use-codec=<c>\n"
                 "  Restrict codec to use user specified pixel fmt. Use either FFmpeg name\n"
                 "  (eg. nv12, yuv422p10le or yuv444p10le) or UltraGrid pixel formats names\n"
@@ -1582,7 +1582,7 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *para
         }
 }
 
-ADD_TO_PARAM(lavc_h264_interlaced_dct, "lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
+ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
