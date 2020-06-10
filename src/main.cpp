@@ -1109,14 +1109,14 @@ int main(int argc, char *argv[])
         }
 
         // default values for different RXTX protocols
-        if (strcmp(video_protocol, "rtsp") == 0 || strcmp(video_protocol, "sdp") == 0) {
+        if (strcasecmp(video_protocol, "rtsp") == 0 || strcasecmp(video_protocol, "sdp") == 0) {
                 if (audio_codec == nullptr) {
                         audio_codec = "OPUS:sample_rate=48000";
                 }
                 if (requested_compression == nullptr) {
                         requested_compression = "none"; // will be set later
                 }
-                if (force_ip_version == 0 && strcmp(video_protocol, "rtsp") == 0) {
+                if (force_ip_version == 0 && strcasecmp(video_protocol, "rtsp") == 0) {
                         force_ip_version = 4;
                 }
         } else {
