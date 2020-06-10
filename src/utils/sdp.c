@@ -79,6 +79,7 @@
 #include "EmbeddableWebServer.h"
 #endif // SDP_HTTP
 
+#define MOD_NAME "[SDP] "
 #define SDP_FILE "ug.sdp"
 
 #define MAX_STREAMS 2
@@ -223,7 +224,7 @@ static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
     strncat(*dst, src, *dst_alloc_len - strlen(*dst) - 1);
 }
 
-bool gen_sdp(struct sdp *sdp){
+bool gen_sdp(struct sdp *sdp, const char *sdp_file_name) {
     size_t len = 1;
     char *buf = calloc(1, 1);
     strappend(&buf, &len, sdp->version);
@@ -236,24 +237,32 @@ bool gen_sdp(struct sdp *sdp){
         strappend(&buf, &len, sdp->stream[i].rtpmap);
     }
     strappend(&buf, &len, "\n");
-    sdp->sdp_dump = buf;
 
-    char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
-    strcpy(sdp_file_name, get_temp_dir());
-    strcat(sdp_file_name, SDP_FILE);
-    FILE *fOut = fopen(sdp_file_name, "w");
+    printf("Printed version:\n%s", buf);
+
+    sdp->sdp_dump = buf;
+    if (strcmp(sdp_file_name, "no") == 0) {
+        return true;
+    }
+
+    if (strlen(sdp_file_name) == 0) {
+        sdp_file_name = SDP_FILE;
+    }
+    char *sdp_file_path = alloca(strlen(sdp_file_name) + strlen(get_temp_dir()) + 1);
+    strcpy(sdp_file_path, get_temp_dir());
+    strcat(sdp_file_path, sdp_file_name);
+    FILE *fOut = fopen(sdp_file_path, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
         } else {
-            printf("[SDP] File %s created.\n", sdp_file_name);
+            printf("[SDP] File %s created.\n", sdp_file_path);
         }
         fclose(fOut);
     }
 
-    printf("Printed version:\n%s", buf);
     return true;
 }
 
@@ -274,14 +283,12 @@ void clean_sdp(struct sdp *sdp){
 static struct sdp *sdp_global;
 
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
-    UNUSED(connection);
-    if (strlen(request->pathDecoded) > 1 && request->pathDecoded[0] == '/' && strcmp(request->pathDecoded + 1, SDP_FILE) == 0) {
-        char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
-        strcpy(sdp_file_name, get_temp_dir());
-        strcat(sdp_file_name, SDP_FILE);
-	return responseAllocWithFile(sdp_file_name, "application/sdp");
-    }
-    return responseAlloc404NotFoundHTML(request->pathDecoded);
+    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s, returning the SDP.\n", request->pathDecoded);
+
+    const char *sdp_content = (const char *) connection->server->tag;
+    struct Response* response = responseAlloc(200, "OK", "application/sdp", 0);
+    heapStringSetToCString(&response->body, sdp_content);
+    return response;
 }
 
 static uint16_t portInHostOrder;
@@ -329,10 +336,13 @@ static void print_http_path() {
 bool sdp_run_http_server(struct sdp *sdp, int port)
 {
     assert(port >= 0 && port < 65536);
+    assert(sdp->sdp_dump != NULL);
+
     portInHostOrder = port;
     struct Server *http_server = calloc(1, sizeof(struct Server));
     sdp_global = sdp;
     serverInit(http_server);
+    http_server->tag = sdp->sdp_dump;
     pthread_t http_server_thr;
     pthread_create(&http_server_thr, NULL, &acceptConnectionsThread, http_server);
     pthread_detach(http_server_thr);

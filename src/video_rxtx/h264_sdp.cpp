@@ -69,7 +69,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
 {
         auto opts = params.at("opts").str;
         if (strcmp(opts, "help") == 0) {
-                cout << "Usage:\n\tuv --protocol sdp[:port=<http_port>]\n";
+                cout << "Usage:\n\tuv --protocol sdp[:port=<http_port>][:file=<name>|no]\n";
                 throw 0;
         }
 
@@ -85,8 +85,19 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
                 }
         }
         m_saved_tx_port = params.at("tx_port").i;
-        if (strstr(opts, "port=") == opts) {
-                m_requested_http_port = atoi(strchr(opts, '=') + 1);
+        auto *opts_c = static_cast<char *>(alloca(strlen(opts) + 1));
+        strcpy(opts_c, opts);
+        char *item, *save_ptr;
+        while ((item = strtok_r(opts_c, ":", &save_ptr)) != nullptr) {
+                string str = item;
+                if (strstr(item, "port=") == item) {
+                        m_requested_http_port = stoi(str.substr((str.find_first_of('=') + 1)));
+                } else if (strstr(item, "file=") == item) {
+                        m_requested_file = str.substr((str.find_first_of('=') + 1));
+                } else {
+                        throw string("[SDP] Wrong option: ") + item + "\n";
+                }
+                opts_c = nullptr;
         }
 }
 
@@ -101,11 +112,11 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 	if (rc != 0) {
 		abort();
 	}
-        if (!gen_sdp(m_sdp)){
+        if (!gen_sdp(m_sdp, m_requested_file.c_str())) {
                 throw string("[SDP] File creation failed\n");
         }
 #ifdef SDP_HTTP
-        if (!sdp_run_http_server(m_sdp, m_requested_http_port)){
+        if (!sdp_run_http_server(m_sdp, m_requested_http_port)) {
                 throw string("[SDP] Server run failed!\n");
         }
 #endif
