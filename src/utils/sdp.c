@@ -279,13 +279,11 @@ void clean_sdp(struct sdp *sdp){
 // HTTP server stuff
 // --------------------------------------------------------------------
 #ifdef SDP_HTTP
-// this is needed for HTTP server
-static struct sdp *sdp_global;
 
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s, returning the SDP.\n", request->pathDecoded);
 
-    const char *sdp_content = (const char *) connection->server->tag;
+    const char *sdp_content = ((struct sdp *) connection->server->tag)->sdp_dump;
     struct Response* response = responseAlloc(200, "OK", "application/sdp", 0);
     heapStringSetToCString(&response->body, sdp_content);
     return response;
@@ -295,9 +293,10 @@ static uint16_t portInHostOrder;
 
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
     struct sockaddr_storage ss = { 0 };
-    ss.ss_family = sdp_global->ip_version == 4 ? AF_INET : AF_INET6;
-    size_t sa_len = sdp_global->ip_version == 6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-    if (sdp_global->ip_version == 4) {
+    struct sdp *sdp = ((struct Server *) param)->tag;
+    ss.ss_family = sdp->ip_version == 4 ? AF_INET : AF_INET6;
+    size_t sa_len = sdp->ip_version == 6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    if (sdp->ip_version == 4) {
         struct sockaddr_in *sin = (struct sockaddr_in *) &ss;
         sin->sin_addr.s_addr = htonl(INADDR_ANY);
         sin->sin_port = htons(portInHostOrder);
@@ -311,10 +310,10 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
     return (THREAD_RETURN_TYPE) 0;
 }
 
-static void print_http_path() {
+static void print_http_path(struct sdp *sdp) {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
-    if (get_local_addresses(addrs, &len, sdp_global->ip_version)) {
+    if (get_local_addresses(addrs, &len, sdp->ip_version)) {
         bool found_public_ip = false;
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
             if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
@@ -340,14 +339,13 @@ bool sdp_run_http_server(struct sdp *sdp, int port)
 
     portInHostOrder = port;
     struct Server *http_server = calloc(1, sizeof(struct Server));
-    sdp_global = sdp;
     serverInit(http_server);
-    http_server->tag = sdp->sdp_dump;
+    http_server->tag = sdp;
     pthread_t http_server_thr;
     pthread_create(&http_server_thr, NULL, &acceptConnectionsThread, http_server);
     pthread_detach(http_server_thr);
     // some resource will definitely leak but it shouldn't be a problem
-    print_http_path();
+    print_http_path(sdp);
     return true;
 }
 #endif // SDP_HTTP
