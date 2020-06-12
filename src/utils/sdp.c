@@ -280,9 +280,21 @@ void clean_sdp(struct sdp *sdp){
 // --------------------------------------------------------------------
 #ifdef SDP_HTTP
 
-struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
-    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s, returning the SDP.\n", request->pathDecoded);
+#define ROBOTS_TXT "User-agent: *\nDisallow: /\n"
+#define SECURITY_TXT "Contact: http://www.ultragrid.cz/contact\n"
 
+struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
+    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s.\n", request->pathDecoded);
+
+    if (strcasecmp(request->pathDecoded, "/robots.txt") == 0 ||
+            strcasecmp(request->pathDecoded, "/.well-known/security.txt") == 0 ||
+            strcasecmp(request->pathDecoded, "/security.txt") == 0) {
+        struct Response* response = responseAlloc(200, "OK", "text/plain", 0);
+        heapStringSetToCString(&response->body, strcasecmp(request->pathDecoded, "/robots.txt") == 0 ? ROBOTS_TXT : SECURITY_TXT);
+        return response;
+    }
+
+    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Returning the SDP.\n");
     const char *sdp_content = ((struct sdp *) connection->server->tag)->sdp_dump;
     struct Response* response = responseAlloc(200, "OK", "application/sdp", 0);
     heapStringSetToCString(&response->body, sdp_content);
