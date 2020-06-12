@@ -104,16 +104,16 @@ struct sdp {
 };
 
 struct sdp *new_sdp(int ip_version, const char *receiver) {
-    assert(ip_version == 4 || ip_version == 6);
+    assert(ip_version == 0 || ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
     assert(sdp != NULL);
     sdp->ip_version = ip_version;
     const char *ip_loopback;
-    if (ip_version == 4) {
-        ip_loopback = "127.0.0.1";
-    } else {
+    if (ip_version == 6) {
         ip_loopback = "::1";
+    } else {
+        ip_loopback = "127.0.0.1";
     }
     char hostname[256];
     const char *connection_address = ip_loopback;
@@ -135,9 +135,9 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
         connection_address = receiver;
     }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, origin_address);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version == 0 ? 4 : 6, origin_address);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version == 0 ? 4 : 6, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
     return sdp;
@@ -307,7 +307,7 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
     struct sockaddr_storage ss = { 0 };
     struct sdp *sdp = ((struct Server *) param)->tag;
     ss.ss_family = sdp->ip_version == 4 ? AF_INET : AF_INET6;
-    size_t sa_len = sdp->ip_version == 6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    size_t sa_len = sdp->ip_version == 4 ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
     if (sdp->ip_version == 4) {
         struct sockaddr_in *sin = (struct sockaddr_in *) &ss;
         sin->sin_addr.s_addr = htonl(INADDR_ANY);
