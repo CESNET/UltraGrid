@@ -54,6 +54,8 @@ extern "C" {
 
 #define DEFAULT_SDP_HTTP_PORT 8554
 
+typedef void (*address_callback_t)(void *udata, const char *address);
+
 struct sdp *new_sdp(int ip_version, const char *receiver);
 int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec);
 int sdp_add_video(struct sdp *sdp, int port, codec_t codec);
@@ -64,7 +66,7 @@ int sdp_add_video(struct sdp *sdp, int port, codec_t codec);
  * @param output        textual representation of sdp
  */
 bool gen_sdp(struct sdp *sdp, const char *sdp_file_name);
-bool sdp_run_http_server(struct sdp *sdp, int port);
+bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata);
 void clean_sdp(struct sdp *sdp);
 
 #ifdef __cplusplus

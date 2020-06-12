@@ -101,6 +101,8 @@ struct sdp {
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
     char *sdp_dump;
+    void (*address_callback)(void *udata, const char *address);
+    void *address_callback_udata;
 };
 
 struct sdp *new_sdp(int ip_version, const char *receiver) {
@@ -284,6 +286,12 @@ void clean_sdp(struct sdp *sdp){
 #define SECURITY_TXT "Contact: http://www.ultragrid.cz/contact\n"
 
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
+    struct sdp *sdp = connection->server->tag;
+
+    if (sdp->address_callback){
+        sdp->address_callback(sdp->address_callback_udata, connection->remoteHost);
+    }
+
     log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s.\n", request->pathDecoded);
 
     if (strcasecmp(request->pathDecoded, "/robots.txt") == 0 ||
@@ -295,7 +303,7 @@ struct Response* createResponseForRequest(const struct Request* request, struct 
     }
 
     log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Returning the SDP.\n");
-    const char *sdp_content = ((struct sdp *) connection->server->tag)->sdp_dump;
+    const char *sdp_content = sdp->sdp_dump;
     struct Response* response = responseAlloc(200, "OK", "application/sdp", 0);
     heapStringSetToCString(&response->body, sdp_content);
     return response;
@@ -344,10 +352,13 @@ static void print_http_path(struct sdp *sdp) {
     }
 }
 
-bool sdp_run_http_server(struct sdp *sdp, int port)
+bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata)
 {
     assert(port >= 0 && port < 65536);
     assert(sdp->sdp_dump != NULL);
+
+    sdp->address_callback = addr_callback;
+    sdp->address_callback_udata = addr_callback_udata;
 
     portInHostOrder = port;
     struct Server *http_server = calloc(1, sizeof(struct Server));
