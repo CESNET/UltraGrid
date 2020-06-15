@@ -136,7 +136,7 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
         if (response_get_status(resp) == RESPONSE_OK) {
                 LOG(LOG_LEVEL_NOTICE) << "[SDP] Changing address to " << address << "\n";
         } else {
-                LOG(LOG_LEVEL_WARNING) << "[SDP] Unagle to change address to " << address << " (" << response_get_status(resp) << ")\n";
+                LOG(LOG_LEVEL_WARNING) << "[SDP] Unable to change address to " << address << " (" << response_get_status(resp) << ")\n";
         }
         free_response(resp);
 }
