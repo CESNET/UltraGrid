@@ -2215,20 +2215,10 @@ gpujpeg=no
 
 AC_ARG_ENABLE(gpujpeg,
 [  --disable-gpujpeg          disable GPUJPEG compression (auto)]
-[                          Requires: CUDA libgpujpeg ],
+[                          Requires: libgpujpeg ],
 	[gpujpeg_req=$enableval],
         [gpujpeg_req=$build_default])
 
-SAVED_CXXFLAGS=$CXXFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CXXFLAGS="$CXXFLAGS $CUDA_INC"
-CPPFLAGS="$CPPFLAGS $CUDA_INC"
-SAVED_CFLAGS=$CFLAGS
-CFLAGS="$CFLAGS $CUDA_INC"
-CFLAGS=$SAVED_CFLAGS
-#AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
-CXXFLAGS=$SAVED_CXXFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
 
 PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 
@@ -2250,7 +2240,6 @@ then
 fi
 
 if test "$gpujpeg_req" != no -a \
-        "$FOUND_CUDA" = yes -a \
         "$found_gpujpeg" = yes
 then
         gpujpeg=yes
@@ -2264,7 +2253,6 @@ then
         ADD_MODULE("vdecompress_gpujpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
 
 	INC="$INC $GPUJPEG_INC"
-        CUDA_MESSAGE
 fi
 
 if test $gpujpeg_req = yes -a $gpujpeg = no; then
