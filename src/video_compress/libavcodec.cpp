@@ -1089,8 +1089,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                         if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
-                                pix_fmt = *pix;
                                 if (try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
+                                        pix_fmt = *pix;
                                         break;
                                 }
                         }
