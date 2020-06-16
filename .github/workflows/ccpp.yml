@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+      - ndi-build
+      - 'release/*'
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
@@ -22,23 +24,25 @@ on:
       - 'Makefile.in'
 
 jobs:
-  retag-continuous:
+  prepare:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
     steps:
     - uses: actions/checkout@v2
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
+      id: checkout
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
       with:
         persist-credentials: true
-    - name: Retag continuous
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
+    - name: Retag
+      if: steps.checkout.conclusion != 'skipped'
       run: |
+        . .github/scripts/environment.sh
         git fetch --prune --unshallow --tags
-        git tag -f continuous
-        git push -f origin refs/tags/continuous:refs/tags/continuous
+        git tag -f $TAG
+        git push -f origin refs/tags/$TAG:refs/tags/$TAG
     - name: Update Release
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
+      if: steps.checkout.conclusion != 'skipped' && env.VERSION == 'continuous'
       run: |
         sudo apt install jq
         URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
@@ -58,7 +62,7 @@ jobs:
 
   Ubuntu:
     name: run Ubuntu
-    needs: retag-continuous
+    needs: prepare
     runs-on: ubuntu-16.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
@@ -69,9 +73,11 @@ jobs:
       with:
         submodules: true
     - name: bootstrap
-      run: .github/scripts/Linux/prepare.sh
+      run: |
+           . .github/scripts/environment.sh
+           .github/scripts/Linux/prepare.sh
     - name: configure
-      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local --disable-ndi
+      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local $NDI"
     - name: make
       run: make -j4
     - name: make check
@@ -79,26 +85,33 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-continuous-x86_64.AppImage
-    - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
-      uses: actions/upload-artifact@v1
-      with:
-        name: UltraGrid CI Linux build
-        path: UltraGrid-continuous-x86_64.AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
+    - name: Upload NDI Build
+      id: upload-ndi
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
+      id: upload-release
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq zsync
-        zsyncmake -C UltraGrid-continuous-x86_64.AppImage
-        .github/scripts/replace-asset.sh continuous UltraGrid-continuous-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
-        .github/scripts/replace-asset.sh continuous UltraGrid-continuous-x86_64.AppImage application/x-appimage Linux%20build
+        zsyncmake -C UltraGrid-$VERSION-x86_64.AppImage
+        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
+        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
+    - name: Upload Build
+      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI Linux build
+        path: UltraGrid-${{ env.VERSION }}-x86_64.AppImage
 
   macOS:
     name: run macOS
-    needs: retag-continuous
+    needs: prepare
     runs-on: macos-latest
     env:
       altool_pass: ${{ secrets.altool_pass }}
@@ -110,9 +123,11 @@ jobs:
       with:
         submodules: true
     - name: bootstrap
-      run: .github/scripts/macOS/prepare.sh
+      run: |
+        . .github/scripts/environment.sh
+        .github/scripts/macOS/prepare.sh
     - name: configure
-      run: ARCH=-msse4.2 ./autogen.sh --enable-qt --with-live555=/usr/local
+      run: "export ARCH=-msse4.2; [ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-live555=/usr/local $NDI"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
@@ -120,7 +135,7 @@ jobs:
     - name: make dmg
       run: |
         make osx-gui-dmg
-        mv UltraGrid.dmg UltraGrid-continuous.dmg
+        mv UltraGrid.dmg UltraGrid-$VERSION.dmg
     - name: make check
       run: make check
     - name: make distcheck
@@ -128,23 +143,30 @@ jobs:
         for n in lib opt; do sudo mv /usr/local/$n /usr/local/$n-; done # hide local libs
         make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
-    - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
-      uses: actions/upload-artifact@v1
-      with:
-        name: UltraGrid CI macOS build
-        path: UltraGrid-continuous.dmg
+    - name: Upload NDI Build
+      id: upload-ndi
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
+      id: upload-release
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         brew install jq
-        .github/scripts/replace-asset.sh continuous UltraGrid-continuous.dmg application/x-apple-diskimage macOS%20build
+        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20build
+    - name: Upload Build
+      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI macOS build
+        path: UltraGrid-${{ env.VERSION }}.dmg
 
   Windows:
     name: run Windows
-    needs: retag-continuous
+    needs: prepare
     runs-on: windows-latest
     env:
       MSYS2_PATH_TYPE: inherit
@@ -154,6 +176,9 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: false
+    - name: Set environment
+      run: .github/scripts/environment.sh
+      shell: bash
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
     - name: bootsrap
@@ -191,7 +216,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel "./autogen.sh --enable-qt --disable-ndi --with-live555=/usr/local"
+      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt $NDI --with-live555=/usr/local'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
@@ -205,22 +230,31 @@ jobs:
           windeployqt bin/uv-qt.exe
           cp data/update.ps1 bin
           mkdir build
-          mv bin build/UltraGrid-continuous-win64'
+          mv bin build/UltraGrid-$VERSION-win64'
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=
-        /usr/bin/make distcheck TARGET=build/UltraGrid-continuous-win64/uv.exe GUI_EXE=build/UltraGrid-continuous-win64/uv-qt.exe'
+        /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
+    - name: Upload NDI Build
+      id: upload-ndi
+      if: github.ref == 'refs/heads/ndi-build'
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+      run: |
+        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
+          $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
+    - name: Upload Release Asset
+      id: upload-release
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
+          $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build'
     - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/master'
+      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Windows build
         path: build
-    - name: Upload Release Asset
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-continuous-win64.zip UltraGrid-continuous-win64
-          $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh continuous UltraGrid-continuous-win64.zip application/zip Windows%20build'
 
 # vi: set expandtab sw=2:

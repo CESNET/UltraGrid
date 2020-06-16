@@ -43,13 +43,14 @@
  * $Revision: 1.1 $
  * $Date: 2007/11/08 09:48:59 $
  */
-#define _WIN32_WINNT 0x0600
 #ifdef __MINGW32__
 #ifndef _CONFIG_WIN32_H
 #define _CONFIG_WIN32_H
 
 // define compatibility version
-#define __MSVCRT_VERSION__ 0x7000
+#ifndef __MSVCRT_VERSION__
+#define __MSVCRT_VERSION__ 0x700
+#endif
 
 #include <assert.h>
 #include <process.h>
@@ -63,10 +64,10 @@
 
 // 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
 #ifndef WINVER
-#define WINVER 0x0600
+#define WINVER 0x0601
 #endif /* WINVER */
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0600
+#define _WIN32_WINNT 0x0601
 #endif /* _WIN32_WINNT */
 
 #define WIN32_LEAN_AND_MEAN
@@ -264,8 +265,6 @@ void ShowMessage(int level, char *msg);
 #define inet_pton InetPtonA
 #define inet_ntop InetNtopA
 
-#endif 
-
 #if _M_IX86_FP == 2
 #undef __SSE2__
 #define __SSE2__
@@ -280,5 +279,7 @@ void ShowMessage(int level, char *msg);
 #else
 #define ATTRIBUTE(a) __attribute__((a))
 #endif
+
+#endif // defined _CONFIG_WIN32_H
 
 #endif // defined __MINGW32__

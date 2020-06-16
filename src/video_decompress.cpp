@@ -62,7 +62,7 @@ struct state_decompress {
         void *state;                ///< decoder driver state
 };
 
-ADD_TO_PARAM(decompress, "decompress", "* decompress=<name>[:<codec>]\n"
+ADD_TO_PARAM("decompress", "* decompress=<name>[:<codec>]\n"
                 "  Forces specified decompress module (will fail if not able to decompress\n"
                 "   the received compression). Optionaly also force codec to decode to."
                 "   See 'uv --list-modules' to see available decompress modules.\n");

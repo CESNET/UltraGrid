@@ -822,7 +822,6 @@ static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame
 static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        abort();
         for (int y = 0; y < height; ++y) {
                 uint32_t *line = (uint32_t *) ((uint8_t *) dst_buffer + y * pitch);
                 int src_idx = y * frame->linesize[0];

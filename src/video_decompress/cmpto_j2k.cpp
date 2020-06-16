@@ -196,13 +196,13 @@ next_image:
         return NULL;
 }
 
-ADD_TO_PARAM(j2k_dec_mem_limit, "j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
+ADD_TO_PARAM("j2k-dec-mem-limit", "* j2k-dec-mem-limit=<limit>\n"
                                 "  J2K max memory usage in bytes.\n");
-ADD_TO_PARAM(j2k_dec_tile_limit, "j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
+ADD_TO_PARAM("j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
                                 "  number of tiles decoded at moment (less to reduce latency, more to increase performance, 0 unlimited)\n");
-ADD_TO_PARAM(j2k_dec_queue_len, "j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
+ADD_TO_PARAM("j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
                                 "  max queue len\n");
-ADD_TO_PARAM(j2k_dec_encoder_queue, "j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
+ADD_TO_PARAM("j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
                                 "  max number of frames hold by encoder\n");
 static void * j2k_decompress_init(void)
 {
@@ -229,6 +229,8 @@ static void * j2k_decompress_init(void)
                 encoder_in_frames = atoi(get_commandline_param("j2k-dec-encoder-queue"));
         }
 
+        const auto *version = cmpto_j2k_dec_get_version();
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using codec version: " << (version == nullptr ? "(unknown)" : version->name) << "\n";
 
         s = new state_decompress_j2k(queue_len, encoder_in_frames);
 
@@ -431,15 +433,14 @@ return_previous:
         s->decompressed_frames.pop();
         lk.unlock();
 
-        int linesize = vc_get_linesize(s->desc.width, s->out_codec);
+        size_t linesize = vc_get_linesize(s->desc.width, s->out_codec);
         size_t frame_size = linesize * s->desc.height;
-        if (decoded.second != frame_size) {
+        if ((decoded.second + 3) / 4 * 4 != frame_size) { // for "RGBA with non-standard shift" (search) it would be (frame_size - 1)
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Incorrect decoded size (" << frame_size << " vs. " << decoded.second << ")\n";
         }
-        if (decoded.second >= frame_size) {
-                for (size_t i = 0; i < s->desc.height; ++i) {
-                        memcpy(dst + i * s->pitch, decoded.first + i * linesize, linesize);
-                }
+
+        for (size_t i = 0; i < s->desc.height; ++i) {
+                memcpy(dst + i * s->pitch, decoded.first + i * linesize, min(linesize, decoded.second - min(decoded.second, i * linesize)));
         }
 
         free(decoded.first);

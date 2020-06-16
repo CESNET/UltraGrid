@@ -26,7 +26,7 @@ sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
 sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libva-dev libvdpau-dev
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
-( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
+( mkdir gpujpeg/build && cd gpujpeg/build && cmake -DCMAKE_CXX_STANDARD=11 -DCMAKE_CXX_STANDARD_REQUIRED=YES -DCMAKE_C_COMPILER=$CUDA_HOST_COMPILER .. && make && sudo make install && sudo ldconfig )
 ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
@@ -48,7 +48,7 @@ if [ -n "$sdk_pass" ]; then
 fi
 
 # Install NDI
-if [ -n "$sdk_pass" ]; then
+if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Linux.tar.gz -O
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh

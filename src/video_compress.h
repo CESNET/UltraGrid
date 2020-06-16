@@ -187,13 +187,22 @@ struct compress_preset {
 struct video_compress_info {
         const char        * name;         ///< compress (unique) name
         compress_init_t     init_func;           ///< compress driver initialization function
+
         compress_frame_t    compress_frame_func; ///< compress function for Frame API
+
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
+
         compress_frame_async_push_t compress_frame_async_push_func; ///< Async API
         compress_frame_async_pop_t compress_frame_async_pop_func; ///< Async API
+
         compress_tile_async_push_t compress_tile_async_push_func; ///< Async tile API
         compress_tile_async_pop_t compress_tile_async_pop_func; ///< Async tile API
-        std::list<compress_preset> (*get_presets)();    ///< list of available presets
+
+        /**
+         * @brief list of available presets
+         * Optional - currently not used
+         */
+        std::list<compress_preset> (*get_presets)();
 };
 
 std::shared_ptr<video_frame> compress_pop(struct compress_state *);

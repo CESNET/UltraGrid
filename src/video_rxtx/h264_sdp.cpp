@@ -45,11 +45,13 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <array>
 #include <iostream>
 
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
@@ -58,8 +60,11 @@
 #include "utils/sdp.h"
 #include "video.h"
 #include "video_rxtx.h"
-#include "video_rxtx/h264_sdp.h"
+#include "video_rxtx/h264_sdp.hpp"
 
+using rang::fg;
+using rang::style;
+using std::array;
 using std::cout;
 using std::shared_ptr;
 using std::string;
@@ -69,12 +74,16 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
 {
         auto opts = params.at("opts").str;
         if (strcmp(opts, "help") == 0) {
-                cout << "Usage:\n\tuv --protocol sdp[:port=<http_port>]\n";
+                cout << "Usage:\n";
+                cout << style::bold << "\tuv " << fg::red << "--protocol sdp" << fg::reset << "[:autorun][:file=<name>|no][:port=<http_port>]\n" << style::reset;
+                cout << "where:\n";
+                cout << style::bold << "\tautorun" << style::reset << " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n";
                 throw 0;
         }
 
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
-        m_sdp = new_sdp(rtp_is_ipv6(m_network_devices[0]) ? 6 : 4, m_requested_receiver.c_str());
+        m_sdp = new_sdp(params.at("force_ip_version").i, m_requested_receiver.c_str());
+        m_saved_addr = m_requested_receiver;
         if (m_sdp == nullptr) {
                 throw string("[SDP] SDP creation failed\n");
         }
@@ -85,9 +94,51 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
                 }
         }
         m_saved_tx_port = params.at("tx_port").i;
-        if (strstr(opts, "port=") == opts) {
-                m_requested_http_port = atoi(strchr(opts, '=') + 1);
+        auto *opts_c = static_cast<char *>(alloca(strlen(opts) + 1));
+        strcpy(opts_c, opts);
+        char *item, *save_ptr;
+        while ((item = strtok_r(opts_c, ":", &save_ptr)) != nullptr) {
+                string str = item;
+                if (strstr(item, "port=") == item) {
+                        m_requested_http_port = stoi(str.substr((str.find_first_of('=') + 1)));
+                } else if (strstr(item, "file=") == item) {
+                        m_requested_file = str.substr((str.find_first_of('=') + 1));
+                } else if (strstr(item, "autorun") == item) {
+                        m_autorun = true;
+                } else {
+                        throw string("[SDP] Wrong option: ") + item + "\n";
+                }
+                opts_c = nullptr;
         }
+}
+
+void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *address)
+{
+        auto *s = static_cast<h264_sdp_video_rxtx *>(udata);
+        if (!s->m_autorun || s->m_saved_addr == address) {
+                return;
+        }
+        s->m_saved_addr = address;
+        array<char, 1024> pathV{};
+
+        array<enum module_class, 2> path_sender{ MODULE_CLASS_SENDER,
+                MODULE_CLASS_NONE };
+        append_message_path(pathV.data(), pathV.size(), path_sender.data());
+
+        //CHANGE DST ADDRESS
+        auto *msgV2 = reinterpret_cast<struct msg_sender *>(new_message(
+                        sizeof(struct msg_sender)));
+        strncpy(static_cast<char *>(msgV2->receiver), address,
+                        sizeof(msgV2->receiver) - 1);
+        msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
+
+        auto *resp = send_message(get_root_module(s->m_parent), pathV.data(), reinterpret_cast<struct message *>(msgV2));
+        if (response_get_status(resp) == RESPONSE_OK) {
+                LOG(LOG_LEVEL_NOTICE) << "[SDP] Changing address to " << address << "\n";
+        } else {
+                LOG(LOG_LEVEL_WARNING) << "[SDP] Unable to change address to " << address << " (" << response_get_status(resp) << ")\n";
+        }
+        free_response(resp);
 }
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
@@ -101,11 +152,11 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 	if (rc != 0) {
 		abort();
 	}
-        if (!gen_sdp(m_sdp)){
+        if (!gen_sdp(m_sdp, m_requested_file.c_str())) {
                 throw string("[SDP] File creation failed\n");
         }
 #ifdef SDP_HTTP
-        if (!sdp_run_http_server(m_sdp, m_requested_http_port)){
+        if (!sdp_run_http_server(m_sdp, m_requested_http_port, h264_sdp_video_rxtx::change_address_callback, this)) {
                 throw string("[SDP] Server run failed!\n");
         }
 #endif

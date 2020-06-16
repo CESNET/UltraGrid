@@ -133,10 +133,10 @@ void common_cleanup(struct init_data *init)
 #endif
 }
 
-ADD_TO_PARAM(stdout_buf, "stdout-buf",
+ADD_TO_PARAM("stdout-buf",
          "* stdout-buf={no|line|full}\n"
          "  Buffering for stdout\n");
-ADD_TO_PARAM(stderr_buf, "stderr-buf",
+ADD_TO_PARAM("stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
 bool set_output_buffering() {
@@ -518,7 +518,7 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
         free_response(r);
 }
 
-ADD_TO_PARAM(errors_fatal, "errors-fatal", "* errors-fatal\n"
+ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
                 "  Treats every error as a fatal (exits " PACKAGE_NAME ")\n");
 /**
  * Soft version of exit_uv() checks errors-fatal command-line parameters and
@@ -534,14 +534,14 @@ void error(int status) {
 }
 
 // some common parameters used within multiple modules
-ADD_TO_PARAM(audio_buffer_len, "audio-buffer-len", "* audio-buffer-len=<ms>\n"
+ADD_TO_PARAM("audio-buffer-len", "* audio-buffer-len=<ms>\n"
                 "  Sets length of software audio playback buffer (in ms, ALSA/Coreaudio/Portaudio/WASAPI)\n");
-ADD_TO_PARAM(audio_cap_frames, "audio-cap-frames", "* audio-cap-frames=<f>\n"
+ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
-ADD_TO_PARAM(audio_disable_adaptive_buffer, "audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
+ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
-ADD_TO_PARAM(low_latency_audio, "low-latency-audio", "* low-latency-audio\n"
+ADD_TO_PARAM("low-latency-audio", "* low-latency-audio\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n");
-ADD_TO_PARAM(window_title, "window-title", "* window-title=<title>\n"
+ADD_TO_PARAM("window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 

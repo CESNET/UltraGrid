@@ -75,10 +75,12 @@
 #else
 #include <csetjmp>
 #endif
+#include <fstream>
 #include <iostream>
 #include <list>
 #include <mutex>
 #include <queue>
+#include <string>
 
 #include "debug.h"
 #include "gl_context.h"
@@ -311,6 +313,7 @@ struct state_gl {
         int fixed_w, fixed_h;
 
         bool nodecorate = false;
+        bool use_pbo = true;
 
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
@@ -361,6 +364,7 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
+static bool check_rpi_pbo_quirks();
 
 #ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
@@ -389,6 +393,7 @@ static void gl_show_help(void) {
         printf("\t\tsyphon\t\tuse Syphon (optionally with name)\n");
         printf("\t\tspout\t\tuse Spout (optionally with name)\n");
         printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
+        cout << "\t\t[no]pbo\t\tWhether or not use PBO (ignore if not sure)\n";
 
         printf("\n\nKeyboard shortcuts:\n");
         for (auto i : keybindings) {
@@ -433,6 +438,7 @@ static void gl_load_splashscreen(struct state_gl *s)
 }
 
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
+        int use_pbo = -1; // default
         UNUSED(flags);
         if (gl) {
                 LOG(LOG_LEVEL_ERROR) << "Multiple instances of GL display is disallowed!\n";
@@ -495,6 +501,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 #endif
                         } else if (!strcasecmp(tok, "hide-window")) {
                                 s->hide_window = true;
+                        } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
+                                use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
                         } else if(!strncmp(tok, "size=",
                                                 strlen("size="))) {
                                 s->window_size_factor =
@@ -519,6 +527,8 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
 		free(tmp);
 	}
+
+        s->use_pbo = use_pbo == -1 ? check_rpi_pbo_quirks() : use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
@@ -1319,27 +1329,48 @@ static void gl_resize(int width, int height)
 
 static void upload_texture(struct state_gl *s, char *data)
 {
-#if ! defined GL_NO_PBO
         GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
         GLint width = s->current_display_desc.width;
         if (s->current_display_desc.color_spec == UYVY) {
                 width /= 2;
         }
-        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
-        int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
-        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
-        void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
-        if (ptr)
-        {
-                // update data directly on the mapped buffer
-                memcpy(ptr, data, data_size);
-                glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+        if (s->use_pbo) {
+                glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
+                int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
+                glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+                void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                if (ptr)
+                {
+                        // update data directly on the mapped buffer
+                        memcpy(ptr, data, data_size);
+                        glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+                }
+
+                glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+        } else {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+        }
+}
+
+static bool check_rpi_pbo_quirks()
+{
+#if ! defined __linux__
+        return false;
+#else
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        if (!cpuinfo)
+                return false;
+
+        bool detected_rpi = false;
+        bool detected_bcm2835 = false;
+        std::string line;
+        while (std::getline(cpuinfo, line) && !detected_rpi) {
+                detected_bcm2835 |= line.find("BCM2835") != std::string::npos;
+                detected_rpi |= line.find("Raspberry Pi") != std::string::npos;
         }
 
-        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
-#else
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+        return detected_rpi || detected_bcm2835;
 #endif
 }
 

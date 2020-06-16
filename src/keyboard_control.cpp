@@ -144,7 +144,7 @@ keyboard_control::~keyboard_control() {
         stop(); // in case that it was not called explicitly
 }
 
-ADD_TO_PARAM(disable_keyboard_control, "disable-keyboard-control", "* disable-keyboard-control\n"
+ADD_TO_PARAM("disable-keyboard-control", "* disable-keyboard-control\n"
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
 void keyboard_control::start()
 {

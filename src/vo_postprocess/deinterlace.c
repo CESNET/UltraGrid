@@ -40,17 +40,19 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
-#include "debug.h"
 
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "capture_filter.h"
+#include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 
 struct state_deinterlace {
-        struct video_frame *out;
+        struct video_frame *out; ///< for postprocess only
 };
 
 static void usage()
@@ -65,13 +67,30 @@ static void * deinterlace_init(const char *config) {
                 return NULL;
         }
 
-        struct state_deinterlace *s = new state_deinterlace();
+        struct state_deinterlace *s = calloc(1, sizeof(struct state_deinterlace));
+        assert(s != NULL);
 
         return s;
 }
 
-static bool deinterlace_get_property(void *, int, void *, size_t *)
+static int cf_deinterlace_init(struct module *parent, const char *cfg, void **state)
 {
+        UNUSED(parent);
+        void *s = deinterlace_init(cfg);
+        if (!s) {
+                return 1;
+        }
+        *state = s;
+        return 0;
+}
+
+static bool deinterlace_get_property(void *state, int property, void *val, size_t *len)
+{
+        UNUSED(state);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
+
         return false;
 }
 
@@ -101,11 +120,27 @@ static bool deinterlace_postprocess(void *state, struct video_frame *in, struct 
         assert (in->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
         assert (out->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
 
-        vc_deinterlace((unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width,
-                                in->color_spec), in->tiles[0].height);
+        vc_deinterlace_ex((unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
+                                (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, in->color_spec),
+                                in->tiles[0].height);
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
         return true;
+}
+
+static struct video_frame *cf_deinterlace_filter(void *state, struct video_frame *f)
+{
+        UNUSED(state);
+
+        struct video_frame *out = vf_alloc_desc_data(video_desc_from_frame(f));
+        out->callbacks.dispose = vf_free;
+        if (!deinterlace_postprocess(state, f, out, vc_get_linesize(f->tiles[0].width, f->color_spec))) {
+                VIDEO_FRAME_DISPOSE(f);
+                vf_free(out);
+                return NULL;
+        }
+        VIDEO_FRAME_DISPOSE(f);
+        return out;
 }
 
 static void deinterlace_done(void *state)
@@ -113,7 +148,7 @@ static void deinterlace_done(void *state)
         struct state_deinterlace *s = (struct state_deinterlace *) state;
         
         vf_free(s->out);
-        delete s;
+        free(s);
 }
 
 static void deinterlace_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
@@ -137,5 +172,12 @@ static const struct vo_postprocess_info vo_pp_deinterlace_info = {
         deinterlace_done,
 };
 
+static const struct capture_filter_info capture_filter_deinterlace_info = {
+        cf_deinterlace_init,
+        deinterlace_done,
+        cf_deinterlace_filter
+};
+
 REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace, &capture_filter_deinterlace_info, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

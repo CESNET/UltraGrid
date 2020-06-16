@@ -79,6 +79,7 @@
 #include "EmbeddableWebServer.h"
 #endif // SDP_HTTP
 
+#define MOD_NAME "[SDP] "
 #define SDP_FILE "ug.sdp"
 
 #define MAX_STREAMS 2
@@ -100,19 +101,21 @@ struct sdp {
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
     char *sdp_dump;
+    void (*address_callback)(void *udata, const char *address);
+    void *address_callback_udata;
 };
 
 struct sdp *new_sdp(int ip_version, const char *receiver) {
-    assert(ip_version == 4 || ip_version == 6);
+    assert(ip_version == 0 || ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
     assert(sdp != NULL);
     sdp->ip_version = ip_version;
     const char *ip_loopback;
-    if (ip_version == 4) {
-        ip_loopback = "127.0.0.1";
-    } else {
+    if (ip_version == 6) {
         ip_loopback = "::1";
+    } else {
+        ip_loopback = "127.0.0.1";
     }
     char hostname[256];
     const char *connection_address = ip_loopback;
@@ -134,9 +137,9 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
         connection_address = receiver;
     }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, origin_address);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version == 0 ? 4 : 6, origin_address);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version == 0 ? 4 : 6, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
     return sdp;
@@ -223,7 +226,7 @@ static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
     strncat(*dst, src, *dst_alloc_len - strlen(*dst) - 1);
 }
 
-bool gen_sdp(struct sdp *sdp){
+bool gen_sdp(struct sdp *sdp, const char *sdp_file_name) {
     size_t len = 1;
     char *buf = calloc(1, 1);
     strappend(&buf, &len, sdp->version);
@@ -236,24 +239,32 @@ bool gen_sdp(struct sdp *sdp){
         strappend(&buf, &len, sdp->stream[i].rtpmap);
     }
     strappend(&buf, &len, "\n");
-    sdp->sdp_dump = buf;
 
-    char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
-    strcpy(sdp_file_name, get_temp_dir());
-    strcat(sdp_file_name, SDP_FILE);
-    FILE *fOut = fopen(sdp_file_name, "w");
+    printf("Printed version:\n%s", buf);
+
+    sdp->sdp_dump = buf;
+    if (strcmp(sdp_file_name, "no") == 0) {
+        return true;
+    }
+
+    if (strlen(sdp_file_name) == 0) {
+        sdp_file_name = SDP_FILE;
+    }
+    char *sdp_file_path = alloca(strlen(sdp_file_name) + strlen(get_temp_dir()) + 1);
+    strcpy(sdp_file_path, get_temp_dir());
+    strcat(sdp_file_path, sdp_file_name);
+    FILE *fOut = fopen(sdp_file_path, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
         } else {
-            printf("[SDP] File %s created.\n", sdp_file_name);
+            printf("[SDP] File %s created.\n", sdp_file_path);
         }
         fclose(fOut);
     }
 
-    printf("Printed version:\n%s", buf);
     return true;
 }
 
@@ -270,27 +281,42 @@ void clean_sdp(struct sdp *sdp){
 // HTTP server stuff
 // --------------------------------------------------------------------
 #ifdef SDP_HTTP
-// this is needed for HTTP server
-static struct sdp *sdp_global;
+
+#define ROBOTS_TXT "User-agent: *\nDisallow: /\n"
+#define SECURITY_TXT "Contact: http://www.ultragrid.cz/contact\n"
 
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
-    UNUSED(connection);
-    if (strlen(request->pathDecoded) > 1 && request->pathDecoded[0] == '/' && strcmp(request->pathDecoded + 1, SDP_FILE) == 0) {
-        char *sdp_file_name = alloca(strlen(SDP_FILE) + strlen(get_temp_dir()) + 1);
-        strcpy(sdp_file_name, get_temp_dir());
-        strcat(sdp_file_name, SDP_FILE);
-	return responseAllocWithFile(sdp_file_name, "application/sdp");
+    struct sdp *sdp = connection->server->tag;
+
+    if (sdp->address_callback){
+        sdp->address_callback(sdp->address_callback_udata, connection->remoteHost);
     }
-    return responseAlloc404NotFoundHTML(request->pathDecoded);
+
+    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s.\n", request->pathDecoded);
+
+    if (strcasecmp(request->pathDecoded, "/robots.txt") == 0 ||
+            strcasecmp(request->pathDecoded, "/.well-known/security.txt") == 0 ||
+            strcasecmp(request->pathDecoded, "/security.txt") == 0) {
+        struct Response* response = responseAlloc(200, "OK", "text/plain", 0);
+        heapStringSetToCString(&response->body, strcasecmp(request->pathDecoded, "/robots.txt") == 0 ? ROBOTS_TXT : SECURITY_TXT);
+        return response;
+    }
+
+    log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Returning the SDP.\n");
+    const char *sdp_content = sdp->sdp_dump;
+    struct Response* response = responseAlloc(200, "OK", "application/sdp", 0);
+    heapStringSetToCString(&response->body, sdp_content);
+    return response;
 }
 
 static uint16_t portInHostOrder;
 
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
     struct sockaddr_storage ss = { 0 };
-    ss.ss_family = sdp_global->ip_version == 4 ? AF_INET : AF_INET6;
-    size_t sa_len = sdp_global->ip_version == 6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-    if (sdp_global->ip_version == 4) {
+    struct sdp *sdp = ((struct Server *) param)->tag;
+    ss.ss_family = sdp->ip_version == 4 ? AF_INET : AF_INET6;
+    size_t sa_len = sdp->ip_version == 4 ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+    if (sdp->ip_version == 4) {
         struct sockaddr_in *sin = (struct sockaddr_in *) &ss;
         sin->sin_addr.s_addr = htonl(INADDR_ANY);
         sin->sin_port = htons(portInHostOrder);
@@ -304,10 +330,10 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
     return (THREAD_RETURN_TYPE) 0;
 }
 
-static void print_http_path() {
+static void print_http_path(struct sdp *sdp) {
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
-    if (get_local_addresses(addrs, &len, sdp_global->ip_version)) {
+    if (get_local_addresses(addrs, &len, sdp->ip_version)) {
         bool found_public_ip = false;
         for (size_t i = 0; i < len / sizeof addrs[0]; ++i) {
             if (!is_addr_loopback((struct sockaddr *) &addrs[i]) && !is_addr_linklocal((struct sockaddr *) &addrs[i])) {
@@ -326,18 +352,23 @@ static void print_http_path() {
     }
 }
 
-bool sdp_run_http_server(struct sdp *sdp, int port)
+bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata)
 {
     assert(port >= 0 && port < 65536);
+    assert(sdp->sdp_dump != NULL);
+
+    sdp->address_callback = addr_callback;
+    sdp->address_callback_udata = addr_callback_udata;
+
     portInHostOrder = port;
     struct Server *http_server = calloc(1, sizeof(struct Server));
-    sdp_global = sdp;
     serverInit(http_server);
+    http_server->tag = sdp;
     pthread_t http_server_thr;
     pthread_create(&http_server_thr, NULL, &acceptConnectionsThread, http_server);
     pthread_detach(http_server_thr);
     // some resource will definitely leak but it shouldn't be a problem
-    print_http_path();
+    print_http_path(sdp);
     return true;
 }
 #endif // SDP_HTTP

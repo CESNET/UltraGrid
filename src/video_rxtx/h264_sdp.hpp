@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/h264_sdp.h
+ * @file   video_rxtx/h264_sdp.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
@@ -42,6 +42,8 @@
 #ifndef VIDEO_RXTX_H264_SDP_H_
 #define VIDEO_RXTX_H264_SDP_H_
 
+#include <string>
+
 #include "utils/sdp.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
@@ -51,6 +53,7 @@ public:
         h264_sdp_video_rxtx(std::map<std::string, param_u> const &);
         virtual ~h264_sdp_video_rxtx();
 private:
+        static void change_address_callback(void *udata, const char *address);
         virtual void send_frame(std::shared_ptr<video_frame>);
         virtual void *(*get_receiver_thread())(void *arg) {
                 return NULL;
@@ -59,8 +62,12 @@ private:
         struct sdp *m_sdp;
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;
+        std::string m_requested_file;
         int m_requested_http_port = DEFAULT_SDP_HTTP_PORT;
         bool m_sent_compress_change = false;
+
+        bool m_autorun = false;
+        std::string m_saved_addr; ///< for dynamic address reconfiguration, @see m_autorun
 };
 
 #endif // VIDEO_RXTX_H264_SDP_H_

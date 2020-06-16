@@ -430,9 +430,9 @@ static void write_fill(struct state_alsa_playback *s) {
         free(f.data);
 }
 
-ADD_TO_PARAM(alsa_playback_buffer, "alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
+ADD_TO_PARAM("alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
-ADD_TO_PARAM(alsa_play_period_size, "alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
+ADD_TO_PARAM("alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
                                     "  ALSA playback period size in frames (default is minimal) .\n");
 /**
  * @todo
@@ -790,7 +790,7 @@ init_local_config_with_workaround(char const * pcm_node_name)
         return lconf;
 }
 
-ADD_TO_PARAM(alsa_playback_api, "alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
+ADD_TO_PARAM("alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
                                 "  ALSA API.\n");
 static void * audio_play_alsa_init(const char *cfg)
 {

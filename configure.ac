@@ -536,7 +536,7 @@ AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 # GL common
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(gl,
-[  --disable-gl            disable all OpenGL stuff (default is $build_default)]
+[  --disable-gl            disable all OpenGL stuff (default is auto)]
 [                          Requires:  glew gl (Linux + Win), none (macOS)],
     [gl_req=$enableval],
     [gl_req=$build_default]
@@ -810,7 +810,7 @@ bluefish444=no
 blue_audio=no
 
 AC_ARG_ENABLE(bluefish444,
-[  --disable-bluefish444   disable Bluefish444 suppport (default is $build_default)]
+[  --disable-bluefish444   disable Bluefish444 suppport (default is auto)]
 [                          Requires: bluefish444_SDK],
               [bluefish444_req=$enableval],
               [bluefish444_req=$build_default]
@@ -886,7 +886,7 @@ AJA_PATH=
 aja=no
 
 AC_ARG_ENABLE(aja,
-[  --disable-aja           disable AJA suppport (default is $build_default)]
+[  --disable-aja           disable AJA suppport (default is auto)]
 [                          Requires: NTV2_SDK],
 [aja_req=$enableval],
 [aja_req=$build_default])
@@ -1099,7 +1099,7 @@ fi
 # XIMEA
 # ---------------------------------------------------------------------
 AC_ARG_ENABLE(ximea,
-[  --disable-ximea         disable XIMEA suppport (default is $build_default)]
+[  --disable-ximea         disable XIMEA suppport (default is auto)]
 [                          Requires: XIMEA SDK],
               [ximea_req=$enableval],
               [ximea_req=$build_default]
@@ -1405,7 +1405,7 @@ livemedia=no
 livemedia_prefix=/usr
 
 AC_ARG_ENABLE(rtsp_server,
-[  --enable-rtsp-server    enables RTSP server support (default is $build_default)]
+[  --enable-rtsp-server    enables RTSP server support (default is auto)]
 [                          Requires: live555 (<= 2015)],
     [rtsp_server_req=$enableval],
     [rtsp_server_req=$build_default]
@@ -1774,8 +1774,8 @@ fi
 # -------------------------------------------------------------------------------------------------
 file=no
 AC_ARG_ENABLE(file,
-[  --disable-file          disable file input support (default is $build_default)]
-[                          Requires: libavcodec >= 57.107.100 libavformat libavutil],
+[  --disable-file          disable file input support (default is auto)]
+[                          Requires: libavcodec >= 57.107.100 libavformat libavutil libswscale],
 [file_req=$enableval],
 [file_req=$build_default]
 )
@@ -1825,7 +1825,7 @@ GL_LIB=$OPENGL_LIB
 gl_display=no
 
 AC_ARG_ENABLE(gl-display,
-[  --disable-gl-display    disable OpenGL display (default is $build_default)]
+[  --disable-gl-display    disable OpenGL display (default is auto)]
 [                          Requires: OpenGL GLUT],
     [gl_display_req=$enableval],
     [gl_display_req=$build_default]
@@ -2148,7 +2148,7 @@ then
 
         if test $system = MacOSX; then
                 LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
-                DYLIBBUNDLER_FLAGS="-s $CUDA_LIB_PATH"
+                DYLIBBUNDLER_FLAGS="${DYLIBBUNDER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $CUDA_LIB_PATH"
         fi
 fi
 
@@ -2237,20 +2237,10 @@ gpujpeg=no
 
 AC_ARG_ENABLE(gpujpeg,
 [  --disable-gpujpeg          disable GPUJPEG compression (auto)]
-[                          Requires: CUDA libgpujpeg ],
+[                          Requires: libgpujpeg ],
 	[gpujpeg_req=$enableval],
         [gpujpeg_req=$build_default])
 
-SAVED_CXXFLAGS=$CXXFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CXXFLAGS="$CXXFLAGS $CUDA_INC"
-CPPFLAGS="$CPPFLAGS $CUDA_INC"
-SAVED_CFLAGS=$CFLAGS
-CFLAGS="$CFLAGS $CUDA_INC"
-CFLAGS=$SAVED_CFLAGS
-#AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
-CXXFLAGS=$SAVED_CXXFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
 
 PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 
@@ -2272,7 +2262,6 @@ then
 fi
 
 if test "$gpujpeg_req" != no -a \
-        "$FOUND_CUDA" = yes -a \
         "$found_gpujpeg" = yes
 then
         gpujpeg=yes
@@ -2286,7 +2275,6 @@ then
         ADD_MODULE("vdecompress_gpujpeg", "$GPUJPEG_DECOMPRESS_OBJ", "$GPUJPEG_LIB")
 
 	INC="$INC $GPUJPEG_INC"
-        CUDA_MESSAGE
 fi
 
 if test $gpujpeg_req = yes -a $gpujpeg = no; then
@@ -2501,7 +2489,7 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is $build_default; disabled in modular build)]
+[  --enable-jack-transport enable JACK transport (default is auto; disabled in modular build)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
@@ -2957,7 +2945,7 @@ fi
 # ------------------------------------------------------------------------------
 spout=no
 AC_ARG_ENABLE(spout,
-[  --enable-spout          enables Spout support (default is $build_default)]
+[  --enable-spout          enables Spout support (default is auto)]
 [                          Requires: OpenGL Spout],
     [spout_req=$enableval],
     [spout_req=$build_default]

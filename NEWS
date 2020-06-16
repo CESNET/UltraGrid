@@ -1,3 +1,16 @@
+1.6
+====
+* added 10 and 12 bit and RGB video compression support
+* added GoPro CineForm (SMPTE VC-5) video codec support
+* added basic Ximea cammeras support
+* added NDI capture and playback support
+* added AJA video display and audio playback
+* added Windows 10 audio capture and playback using Windows WASAPI
+* added generic multimedia files demuxer 
+* New version of GPUJPEG
+* GUI improvements
+* improved macOS compatibility
+
 1.5
 ====
 * added BitFlow grabber

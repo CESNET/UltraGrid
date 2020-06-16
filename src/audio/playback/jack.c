@@ -168,7 +168,7 @@ static void * audio_play_jack_init(const char *cfg)
 
         s = calloc(1, sizeof(struct state_jack_playback));
         if(!s) {
-                fprintf(stderr, "[JACK playback] Unable to allocate memory.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
         }
 
@@ -205,28 +205,28 @@ static void * audio_play_jack_init(const char *cfg)
 
         s->client = jack_client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
-                fprintf(stderr, "[JACK playback] Opening JACK client failed.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Opening JACK client failed.\n");
                 goto error;
         }
 
         if(jack_set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
-                fprintf(stderr, "[JACK capture] Registering callback problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registering callback problem.\n");
                 goto release_client;
         }
 
 
         if(jack_set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
-                fprintf(stderr, "[JACK capture] Process callback registration problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Process callback registration problem.\n");
                 goto release_client;
         }
 
         s->jack_sample_rate = jack_get_sample_rate (s->client);
-	fprintf(stderr, "JACK sample rate: %d\n", (int) s->jack_sample_rate);
+        log_msg(LOG_LEVEL_INFO, "JACK sample rate: %d\n", s->jack_sample_rate);
 
 
         ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
-                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", s->jack_ports_pattern);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 goto release_client;
         }
 
@@ -300,12 +300,12 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 
         ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
-                fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", s->jack_ports_pattern);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 return FALSE;
         }
 
         if(desc.ch_count > s->jack_ports_count) {
-                fprintf(stderr, "[JACK playback] Warning: received %d audio channels, JACK can process only %d.", desc.ch_count, s->jack_ports_count);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: received %d audio channels, JACK can process only %d.", desc.ch_count, s->jack_ports_count);
         }
 
         if (s->buffer_fns) {
@@ -336,7 +336,7 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         /* for all channels previously connected */
         for(i = 0; i < desc.ch_count; ++i) {
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
-		fprintf(stderr, "[JACK playback] Port %d: %s\n", i, ports[i]);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Port %d: %s\n", i, ports[i]);
         }
         free(s->tmp);
         free(s->converted);
@@ -349,13 +349,13 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         s->converted = malloc(desc.ch_count * s->max_channel_len);
 
         if(jack_activate(s->client)) {
-                fprintf(stderr, "[JACK capture] Cannot activate client.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot activate client.\n");
                 return FALSE;
         }
 
         for(i = 0; i < desc.ch_count; ++i) {
                 if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
-                        fprintf (stderr, "Cannot connect output port: %d.\n", i);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect output port: %d.\n", i);
                         return FALSE;
                 }
         }

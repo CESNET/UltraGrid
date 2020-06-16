@@ -1,5 +1,5 @@
 /**
- * @file   capture_filter/gamma.c
+ * @file   capture_filter/change_pixfmt.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

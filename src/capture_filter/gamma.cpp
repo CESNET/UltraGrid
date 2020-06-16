@@ -1,5 +1,5 @@
 /**
- * @file   capture_filter/gamma.c
+ * @file   capture_filter/gamma.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -43,6 +43,7 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "capture_filter.h"
@@ -50,6 +51,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/worker.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -60,6 +62,7 @@ using std::exception;
 using std::numeric_limits;
 using rang::style;
 using std::vector;
+using std::thread;
 
 struct state_capture_filter_gamma {
 public:
@@ -76,7 +79,7 @@ public:
                 }
         }
 
-        void apply_gamma(int depth, size_t len, void const *in, void *out) {
+        void apply_gamma(int depth, size_t len, void const * __restrict in, void * __restrict out) {
                 if (depth == CHAR_BIT) {
                         apply_lut<uint8_t>(len,  lut8, in, out);
                 } else if (depth == 2 * CHAR_BIT) {
@@ -87,12 +90,39 @@ public:
         }
 
 private:
+        template<typename T>
+        struct data {
+                size_t len;
+                const vector<T> &lut;
+                const T *in;
+                T *out;
+        };
+
+        template<typename T>
+        static void *compute(void *arg) {
+                auto *d = static_cast<struct data<T> *>(arg);
+                for (size_t i = 0; i < d->len; ++i) {
+                        d->out[i] = d->lut[d->in[i]];
+                }
+                return nullptr;
+        }
+
         template<typename T> void apply_lut(size_t len, const vector<T> &lut, void const *in, void *out)
         {
                 auto *in_data = static_cast<const T*>(in);
                 auto *out_data = static_cast<T*>(out);
-                for (size_t i = 0; i < len; i += sizeof(T)) {
-                        *out_data++ = lut[*in_data++];
+                unsigned int cpus = thread::hardware_concurrency();
+                len /= sizeof(T);
+                vector<data<T>> d;
+                vector<task_result_handle_t> handles(cpus);
+                for (unsigned int i = 0; i < cpus; i++) {
+                        d.push_back({len / cpus, lut, in_data + i * (len / cpus), out_data + i * (len / cpus)});
+                }
+                for (unsigned int i = 0; i < cpus; i++) {
+                        handles[i] = task_run_async(state_capture_filter_gamma::compute<T>, static_cast<void *>(&(d[i])));
+                }
+                for (unsigned int i = 0; i < cpus; i++) {
+                         wait_task(handles[i]);
                 }
         }
 

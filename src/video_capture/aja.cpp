@@ -300,7 +300,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
 }
 
 #ifndef _MSC_VER
-ADD_TO_PARAM(aja_fourcc, "aja-fourcc", "* aja-fourcc\n"
+ADD_TO_PARAM("aja-fourcc", "* aja-fourcc\n"
                 "  Specifies application FourCC for AJA.\n");
 #endif
 void vidcap_state_aja::Init()

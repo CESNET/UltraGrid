@@ -159,17 +159,13 @@ extern std::unordered_map<std::string, std::string> commandline_params;
  * Introduces new parameter. Without calling that, parameter from command-line
  * would be rejected.
  *
- * @todo
- * Remove salt - use UNIQUE_NAME instead
- *
- * @param salt  unique salt to be added to identifier. Must be a sequence
- *              of digits, underscores, lowercase and uppercase Latin letters.
- * @param param parameter name ("-enclosed string)
+ * @param param parameter name
  * @param doc   documentation - string
  */
-#define ADD_TO_PARAM(salt, param, doc) static void add_to_param_doc##salt(void)  __attribute__((constructor));\
+#define ADD_TO_PARAM(param, doc) ADD_TO_PARAM_SALT(UNIQUE_NAME, param, doc)
+#define ADD_TO_PARAM_SALT(salt, param, doc) static void MERGE_(add_to_param_doc_, salt)(void)  __attribute__((constructor));\
 \
-static void add_to_param_doc##salt(void) \
+static void MERGE_(add_to_param_doc_, salt)(void) \
 {\
         register_param(param, doc);\
 }\

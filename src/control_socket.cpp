@@ -717,7 +717,7 @@ static void set_socket_nonblock(fd_t fd) {
 #endif
 }
 
-ADD_TO_PARAM(control_accept_global, "control-accept-global", "* control-accept-global\n"
+ADD_TO_PARAM("control-accept-global", "* control-accept-global\n"
                 "  Open control socket to public network.\n");
 static void * control_thread(void *args)
 {

@@ -20,15 +20,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // defined HAVE_CONFIG_H
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "debug.h"
 #include "h264_stream.h"

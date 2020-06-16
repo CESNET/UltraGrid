@@ -157,7 +157,7 @@ static void * audio_cap_jack_init(const char *cfg)
 
         s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
         if(!s) {
-                fprintf(stderr, "[JACK capture] Unable to allocate memory.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;
         }
 
@@ -193,13 +193,13 @@ static void * audio_cap_jack_init(const char *cfg)
 
         s->client = jack_client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
-                fprintf(stderr, "[JACK capture] Opening JACK client failed.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Opening JACK client failed.\n");
                 goto error;
         }
 
         ports = jack_get_ports(s->client, source_name, NULL, JackPortIsOutput);
         if(ports == NULL) {
-                log_msg(LOG_LEVEL_ERROR, "[JACK capture] Unable to output ports matching \"%s\".\n", source_name);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to output ports matching \"%s\".\n", source_name);
                 goto release_client;
         }
 
@@ -207,7 +207,7 @@ static void * audio_cap_jack_init(const char *cfg)
         while(ports[i]) i++;
 
         if(i < (int) audio_capture_channels) {
-                fprintf(stderr, "[JACK capture] Requested channel count %d not found (matching pattern %s).\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested channel count %d not found (matching pattern %s).\n",
                                 audio_capture_channels, cfg);
                 goto release_client;
 
@@ -227,17 +227,17 @@ static void * audio_cap_jack_init(const char *cfg)
         s->data = ring_buffer_init(s->frame.max_size);
         
         if(jack_set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
-                fprintf(stderr, "[JACK capture] Registring callback problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registring callback problem.\n");
                 goto release_client;
         }
 
         if(jack_set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
-                fprintf(stderr, "[JACK capture] Process callback registration problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Process callback registration problem.\n");
                 goto release_client;
         }
 
         if(jack_activate(s->client)) {
-                fprintf(stderr, "[JACK capture] Cannot activate client.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot activate client.\n");
                 goto release_client;
         }
 
@@ -250,7 +250,7 @@ static void * audio_cap_jack_init(const char *cfg)
                         s->input_ports[port] = jack_port_register(s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
                         /* attach ports */
                         if(jack_connect(s->client, ports[port], jack_port_name(s->input_ports[port]))) {
-                                fprintf(stderr, "[JACK capture] Cannot connect input ports.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect input ports.\n");
                         }
                 }
         }

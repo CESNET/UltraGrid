@@ -254,7 +254,7 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %" PRId64" , size %d\n",
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %" PRId64 ", size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
                                 pkt.stream_index, pkt.pos, pkt.size);
@@ -455,7 +455,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
                         return VIDCAP_INIT_FAIL;
-                } else {
+                }
+                if (s->audio_stream_idx >= 0) {
                         s->aud_ctx = vidcap_file_open_dec_ctx(dec,
                                         s->fmt_ctx->streams[s->audio_stream_idx]);
 
@@ -485,7 +486,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.height = st->codecpar->height;
                 s->video_desc.fps = (double) st->r_frame_rate.num / st->r_frame_rate.den;
                 s->video_desc.tile_count = 1;
-
+fprintf(stderr, "%d %d\n", s->video_desc.width, s->video_desc.height);
                 if (s->no_decode) {
                         s->video_desc.color_spec =
                                 get_av_to_ug_codec(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id);

@@ -3,10 +3,12 @@
 AJA_INST=/var/tmp/ntv2sdk # AJA installation directory
 TEMP_INST=/tmp/install
 
+CPATH=/usr/local/include:/usr/local/opt/qt/include
+LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
 echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
 echo "::set-env name=UG_SKIP_NET_TESTS::1"
-echo "::set-env name=CPATH::/usr/local/include:/usr/local/opt/qt/include"
-echo "::set-env name=LIBRARY_PATH::/usr/local/lib:/usr/local/opt/qt/lib"
+echo "::set-env name=CPATH::$CPATH"
+echo "::set-env name=LIBRARY_PATH::$LIBRARY_PATH"
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
 echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
 echo "::add-path::/usr/local/opt/qt/bin"
@@ -39,6 +41,25 @@ if [ -n "$sdk_pass" ]; then
         sudo rm -f /usr/local/lib/libajantv2.dylib
         sudo cp ../../../bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
         sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
+        cd $TEMP_INST
+fi
+
+# Install NDI
+if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
+        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg -O
+        sudo installer -pkg NDISDK_Apple.pkg -target /
+        rm NDISDK_Apple.pkg
+        sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
+        cd /Library/NDI/lib/x64
+        sudo ln -s libndi.?.dylib libndi.dylib
+        export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
+        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /Library/NDI/lib/x64"
+        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}/Library/NDI/lib/x64
+        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}/Library/NDI/lib/x64"
+        echo "::set-env name=CPATH::$CPATH"
+        echo "::set-env name=DYLIBBUNDLER_FLAGS::$DYLIBBUNDLER_FLAGS"
+        echo "::set-env name=LIBRARY_PATH::$LIBRARY_PATH"
+        echo "::set-env name=MY_DYLD_LIBRARY_PATH::$MY_DYLD_LIBRARY_PATH"
         cd $TEMP_INST
 fi
 

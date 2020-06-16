@@ -77,6 +77,7 @@
 #include "video_capture.h"
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
+constexpr const size_t MAX_AUDIO_PACKETS = 10;
 #define MOD_NAME "[DeckLink capture] "
 
 #ifndef WIN32
@@ -322,8 +323,12 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	}
 
         if (audioPacket) {
-                audioPacket->AddRef();
-                s->audioPackets.push(audioPacket);
+                if (s->audioPackets.size() < MAX_AUDIO_PACKETS) {
+                        audioPacket->AddRef();
+                        s->audioPackets.push(audioPacket);
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropping audio packet, queue full.\n";
+                }
         }
 
         if (videoFrame && newFrameReady && (!nosig || !lastFrame)) {
@@ -1374,6 +1379,12 @@ error:
 }
 
 static void cleanup_common(struct vidcap_decklink_state *s) {
+        while (!s->audioPackets.empty()) {
+                auto *audioPacket = s->audioPackets.front();
+                s->audioPackets.pop();
+                audioPacket->Release();
+        }
+
         for (int i = 0; i < s->devices_cnt; ++i) {
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
 		if(s->state[i].deckLinkConfiguration != NULL) {
@@ -1484,36 +1495,35 @@ static int nr_frames(struct vidcap_decklink_state *s) {
 }
 
 static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
-        if (!s->audioPackets.empty()) {
-                s->audio.data_len = 0;
-                while (!s->audioPackets.empty()) {
-                        auto audioPacket = s->audioPackets.front();
-                        s->audioPackets.pop();
-
-                        void *audioFrame;
-                        audioPacket->GetBytes(&audioFrame);
-
-                        if(audio_capture_channels == 1) { // there are actually 2 channels grabbed
-                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1u * s->audio.bps <= (unsigned) s->audio.max_size) {
-                                        demux_channel(s->audio.data + s->audio.data_len, (char *) audioFrame, s->audio.bps, audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, 2 /* channels (originally) */, 0 /* we want first channel */);
-                                        s->audio.data_len += audioPacket->GetSampleFrameCount() * 1 * s->audio.bps;
-                                } else {
-                                        LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
-                                }
-                        } else {
-                                if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= (unsigned) s->audio.max_size) {
-                                        memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps);
-                                        s->audio.data_len += audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps;
-                                } else {
-                                        LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
-                                }
-                        }
-                        audioPacket->Release();
-                }
-                return &s->audio;
-        } else {
-                return NULL;
+        if (s->audioPackets.empty()) {
+                return nullptr;
         }
+        s->audio.data_len = 0;
+        while (!s->audioPackets.empty()) {
+                auto *audioPacket = s->audioPackets.front();
+                s->audioPackets.pop();
+
+                void *audioFrame = nullptr;
+                audioPacket->GetBytes(&audioFrame);
+
+                if(audio_capture_channels == 1) { // there are actually 2 channels grabbed
+                        if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1U * s->audio.bps <= static_cast<unsigned>(s->audio.max_size)) {
+                                demux_channel(s->audio.data + s->audio.data_len, static_cast<char *>(audioFrame), s->audio.bps, min<int64_t>(audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, INT_MAX), 2 /* channels (originally) */, 0 /* we want first channel */);
+                                s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * 1 * s->audio.bps, INT_MAX);
+                        } else {
+                                LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                        }
+                } else {
+                        if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= static_cast<unsigned>(s->audio.max_size)) {
+                                memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps);
+                                s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps, INT_MAX);
+                        } else {
+                                LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
+                        }
+                }
+                audioPacket->Release();
+        }
+        return &s->audio;
 }
 
 static struct video_frame *

@@ -215,11 +215,12 @@ static const struct decoder_info decoders[] = {
         { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
 };
 
-ADD_TO_PARAM(force_lavd_decoder, "force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
-                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter\n");
+ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
+                "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
+                "  Use '-c libavcodec:help' to see available decoders.\n");
 
 #ifdef HWACC_COMMON
-ADD_TO_PARAM(force_hw_accel, "use-hw-accel", "* use-hw-accel\n"
+ADD_TO_PARAM("use-hw-accel", "* use-hw-accel\n"
                 "  Tries to use hardware acceleration. \n");
 #endif
 static bool configure_with(struct state_libavcodec_decompress *s,
@@ -509,13 +510,24 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 }
         }
 
+#ifdef HAVE_SWSCALE
+        for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
+                if (fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using swscale to convert - picking first usable codec %s.\n",
+                                av_get_pix_fmt_name(*fmt_it));
+                        return *fmt_it;
+                }
+        }
+#endif
+
         return AV_PIX_FMT_NONE;
 }
 
+#ifdef HAVE_SWSCALE
 static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum AVPixelFormat sws_in_codec,
                 enum AVPixelFormat sws_out_codec, int width, int height, AVFrame *in_frame)
 {
-#ifdef HAVE_SWSCALE
         if (sws->width != width || sws->height != height|| sws->in_codec != sws_in_codec || sws->ctx == NULL) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert.\n");
                 sws_freeContext(sws->ctx);
@@ -559,16 +571,8 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
                         sws->frame->linesize);
         return true;
 
-#else
-        UNUSED(sws);
-        UNUSED(sws_in_codec);
-        UNUSED(sws_out_codec);
-        UNUSED(width);
-        UNUSED(height);
-        UNUSED(in_frame);
-        return false;
-#endif
 }
+#endif
 
 /**
  * Changes pixel format from frame to native
@@ -600,6 +604,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 return TRUE;
         }
 
+#ifdef HAVE_SWSCALE
         // else try to find swscale
         enum AVPixelFormat sws_out_codec = 0;
         bool native[2] = { true, false };
@@ -626,6 +631,10 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame);
         convert((char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
+#else
+        UNUSED(sws);
+        return FALSE;
+#endif // HAVE_SWSCALE
 }
 
 static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
@@ -787,7 +796,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         return res;
 }
 
-ADD_TO_PARAM(lavd_accept_corrputed, "lavd-accept-corrupted",
+ADD_TO_PARAM("lavd-accept-corrupted",
                 "* lavd-accept-corrupted[=no]\n"
                 "  Pass corrupted frames to decoder. If decoder isn't error-resilient,\n"
                 "  may crash! Use \"no\" to disable even if enabled by default.\n");
@@ -861,10 +870,10 @@ static const struct decode_from_to dec_template[] = {
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
 /// @todo to remove
-ADD_TO_PARAM(lavd_use_10bit, "lavd-use-10bit",
+ADD_TO_PARAM("lavd-use-10bit",
                 "* lavd-use-10bit\n"
                 "  Do not use, use \"--param decoder-use-codec=v210\" instead.\n");
-ADD_TO_PARAM(lavd_use_codec, "lavd-use-codec",
+ADD_TO_PARAM("lavd-use-codec",
                 "* lavd-use-codec=<codec>\n"
                 "  Do not use, use \"--param decoder-use-codec=<codec>\" instead.\n");
 static const struct decode_from_to *libavcodec_decompress_get_decoders() {

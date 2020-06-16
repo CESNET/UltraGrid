@@ -666,15 +666,16 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, int nonbloc
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
+        std::unique_lock<std::mutex> lk(s->lock);
         if (nonblock == PUTF_DISCARD) {
-                vf_free(frame);
+                assert(frame != nullptr);
+                s->free_frame_queue.push(frame);
                 return 0;
         }
 
-        std::unique_lock<std::mutex> lk(s->lock);
         if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK
                         && frame != NULL) {
-                vf_free(frame);
+                s->free_frame_queue.push(frame);
                 printf("1 frame(s) dropped!\n");
                 return 1;
         }

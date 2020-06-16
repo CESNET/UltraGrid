@@ -54,6 +54,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "debug.h"
 #include "host.h"
@@ -99,7 +100,7 @@ struct setparam_param {
         double fps;
         bool interlaced;
         bool no_periodic_intra;
-        int cpu_count;
+        int conv_thread_count; ///< number of threads used for UG conversions
         string thread_mode;
 };
 
@@ -343,7 +344,12 @@ static void usage() {
         cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
         cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        printf("\tLibavcodec version (linked): %s\n", LIBAVCODEC_IDENT);
+        cout << "\tLibavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
+        const char *swscale = "no";
+#ifdef HAVE_SWSCALE
+        swscale = "yes";
+#endif
+        cout << "\tLibswscale supported: " << style::bold << swscale << style::reset << "\n";
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
@@ -498,13 +504,17 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
                         return NULL;
         }
 
-        s->params.cpu_count = thread::hardware_concurrency();
-        if(s->params.cpu_count < 1) {
-                log_msg(LOG_LEVEL_WARNING, "Warning: Cannot get number of CPU cores!\n");
-                s->params.cpu_count = 1;
+        try {
+                s->params.conv_thread_count = stoi(s->params.thread_mode);
+        } catch(invalid_argument &) { // thread mode is not a number of threads (eg. slice)
+                s->params.conv_thread_count = min<unsigned int>(thread::hardware_concurrency(), INT_MAX);
         }
-        s->in_frame_part = (AVFrame **) calloc(s->params.cpu_count, sizeof(AVFrame *));
-        for(int i = 0; i < s->params.cpu_count; i++) {
+        if (s->params.conv_thread_count < 1) {
+                log_msg(LOG_LEVEL_WARNING, "Warning: Cannot get number of CPU cores!\n");
+                s->params.conv_thread_count = 1;
+        }
+        s->in_frame_part = static_cast<AVFrame **>(calloc(s->params.conv_thread_count, sizeof(AVFrame *)));
+        for(int i = 0; i < s->params.conv_thread_count; i++) {
                 s->in_frame_part[i] = av_frame_alloc();
         }
 
@@ -566,15 +576,18 @@ fail:
 
 static void print_codec_supp_pix_fmts(const list<enum AVPixelFormat>
                 &req_pix_fmts, const enum AVPixelFormat *first) {
-        char out[1024] = "[lavc] Codec supported pixel formats:";
+        char out[1024] = MOD_NAME "Codec supported pixel formats:";
+        if (first == nullptr) {
+                strncat(out, " (none)", sizeof out - strlen(out) - 1);
+        }
         const enum AVPixelFormat *it = first;
-        while (*it != AV_PIX_FMT_NONE) {
+        while (it != nullptr && *it != AV_PIX_FMT_NONE) {
                 strncat(out, " ", sizeof out - strlen(out) - 1);
                 strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
         }
         fprintf(stderr, "%s\n", out);
         out[0] = '\0';
-        strncat(out, "[lavd] Usable pixel formats:", sizeof out - strlen(out) - 1);
+        strncat(out, MOD_NAME "Usable pixel formats:", sizeof out - strlen(out) - 1);
         for (auto &c : req_pix_fmts) {
                 strncat(out, " ", sizeof out - strlen(out) - 1);
                 strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
@@ -714,14 +727,14 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
         bool slow[] = {false, true};
         for (auto use_slow : slow) {
-                for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no FFMPEG conversion needed
+                for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                         auto decoder = get_decoder_from_to(in, i->uv_codec, use_slow);
                         if (decoder && i->av_pixfmt == av) {
                                 *out = i->uv_codec;
                                 return decoder;
                         }
                 }
-                for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                         auto decoder = get_decoder_from_to(in, c->src, use_slow);
                         if (decoder && c->dst == av) {
                                 *out = c->src;
@@ -773,7 +786,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         }
 
         vector<enum AVPixelFormat> available_formats; // those for that there exitst a conversion and respect requested subsampling (if given)
-        for (auto i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no to FFMPEG conversion, just UG conversion
+        for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                 if (get_decoder_from_to(in_desc.color_spec, i->uv_codec, true)) {
                         int codec_subsampling = get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
@@ -783,7 +796,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         }
                 }
         }
-        for (auto c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+        for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                 if (c->src == in_desc.color_spec ||
                                 get_decoder_from_to(in_desc.color_spec, c->src, true)) {
                         int codec_subsampling = get_subsampling(c->dst);
@@ -867,14 +880,11 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
 }
 
-ADD_TO_PARAM(lavc_use_codec, "lavc-use-codec",
+ADD_TO_PARAM("lavc-use-codec",
                 "* lavc-use-codec=<c>\n"
-                "  Restrict codec to use user specified pix fmt. Can be used eg. to enforce\n"
-                "  AV_PIX_FMT_NV12 (nv12) since some time ago, other codecs were broken\n"
-                "  for NVENC encoder.\n"
-                "  Another possibility is to use yuv420p10le, yuv422p10le or yuv444p10le\n"
-                "  to force 10-bit encoding.\n"
-                "  UltraGrid pixel formats (v210, R10k, UYVY etc.) are also accepted.\n");
+                "  Restrict codec to use user specified pixel fmt. Use either FFmpeg name\n"
+                "  (eg. nv12, yuv422p10le or yuv444p10le) or UltraGrid pixel formats names\n"
+                "  (v210, R10k, UYVY etc.). See wiki for more info.\n");
 /**
  * Returns ordered list of codec preferences for input description and
  * requested_subsampling.
@@ -1073,6 +1083,21 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 print_codec_supp_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
 
+#ifdef HAVE_SWSCALE
+        if (pix_fmt == AV_PIX_FMT_NONE) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
+                for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
+                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
+                        if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
+                                if (try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
+                                        pix_fmt = *pix;
+                                        break;
+                                }
+                        }
+                }
+        }
+#endif
+
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
                 if (s->requested_subsampling != 0) {
@@ -1168,8 +1193,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // conversion needed
         if (get_ug_to_av_pixfmt(desc.color_spec) == AV_PIX_FMT_NONE
                         || get_ug_to_av_pixfmt(desc.color_spec) != s->selected_pixfmt) {
-                for(int i = 0; i < s->params.cpu_count; ++i) {
-                        int chunk_size = s->codec_ctx->height / s->params.cpu_count;
+                for(int i = 0; i < s->params.conv_thread_count; ++i) {
+                        int chunk_size = s->codec_ctx->height / s->params.conv_thread_count;
                         chunk_size = chunk_size / 2 * 2;
                         s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
                                 chunk_size;
@@ -1298,20 +1323,20 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
         if (pixfmt_conv_callback != nullptr) {
-                task_result_handle_t handle[s->params.cpu_count];
-                struct my_task_data data[s->params.cpu_count];
-                for(int i = 0; i < s->params.cpu_count; ++i) {
+                vector<task_result_handle_t> handle(s->params.conv_thread_count);
+                vector<struct my_task_data> data(s->params.conv_thread_count);
+                for(int i = 0; i < s->params.conv_thread_count; ++i) {
                         data[i].callback = pixfmt_conv_callback;
                         data[i].out_frame = s->in_frame_part[i];
 
-                        size_t height = tx->tiles[0].height / s->params.cpu_count;
+                        size_t height = tx->tiles[0].height / s->params.conv_thread_count;
                         // height needs to be even
                         height = height / 2 * 2;
-                        if (i < s->params.cpu_count - 1) {
+                        if (i < s->params.conv_thread_count - 1) {
                                 data[i].height = height;
                         } else { // we are last so we need to do the rest
                                 data[i].height = tx->tiles[0].height -
-                                        height * (s->params.cpu_count - 1);
+                                        height * (s->params.conv_thread_count - 1);
                         }
                         data[i].width = tx->tiles[0].width;
                         data[i].in_data = decoded + i * height *
@@ -1321,7 +1346,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         handle[i] = task_run_async(my_task, (void *) &data[i]);
                 }
 
-                for(int i = 0; i < s->params.cpu_count; ++i) {
+                for(int i = 0; i < s->params.conv_thread_count; ++i) {
                         wait_task(handle[i]);
                 }
         } else { // no pixel format conversion needed
@@ -1498,7 +1523,7 @@ static void libavcodec_compress_done(struct module *mod)
         cleanup(s);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
-        for(int i = 0; i < s->params.cpu_count; i++) {
+        for(int i = 0; i < s->params.conv_thread_count; i++) {
                 av_free(s->in_frame_part[i]);
         }
         free(s->in_frame_part);
@@ -1508,9 +1533,6 @@ static void libavcodec_compress_done(struct module *mod)
 static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         int threads = 0;
-        if (!param->thread_mode.empty()) {
-                return;
-        }
 
         try {
                 threads = stoi(param->thread_mode);
@@ -1560,7 +1582,7 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *para
         }
 }
 
-ADD_TO_PARAM(lavc_h264_interlaced_dct, "lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
+ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
@@ -1580,7 +1602,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
         //codec_ctx->rc_buffer_aggressivity = 1.0;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
-        codec_ctx->qcompress = 0.0f;
+        codec_ctx->qcompress = codec_ctx->codec->id == AV_CODEC_ID_H265 ? 0.5F : 0.0F;
         //codec_ctx->qblur = 0.0f;
         //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
         //codec_ctx->rc_max_available_vbv_use = 1.0f;
@@ -1729,7 +1751,7 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        codec_ctx->thread_count = param->cpu_count;
+        codec_ctx->thread_count = param->conv_thread_count;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
         if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
