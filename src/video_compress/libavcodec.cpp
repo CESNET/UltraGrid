@@ -126,6 +126,7 @@ static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *pa
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
+static void show_encoder_help(string const &name);
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
@@ -344,12 +345,14 @@ static void usage() {
         cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
         cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        cout << "\tLibavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
+        cout << "\tUse '" << style::bold << "-c libavcodec:encoder=<enc>:help" << style::reset << "' to display encoder specific options.\n";
+        cout << "\n";
+        cout << "Libavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
         const char *swscale = "no";
 #ifdef HAVE_SWSCALE
         swscale = "yes";
 #endif
-        cout << "\tLibswscale supported: " << style::bold << swscale << style::reset << "\n";
+        cout << "Libswscale supported: " << style::bold << swscale << style::reset << "\n";
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
@@ -357,14 +360,15 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 return 0;
         }
 
+        bool show_help = false;
+
         // replace all '\:' with 2xDEL
         replace_all(fmt, ESCAPED_COLON, DELDEL);
         char *item, *save_ptr = NULL;
 
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                 if(strncasecmp("help", item, strlen("help")) == 0) {
-                        usage();
-                        return 1;
+                        show_help = true;
                 } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
                         char *codec = item + strlen("codec=");
                         s->requested_codec_id = get_codec_from_name(codec);
@@ -419,6 +423,15 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         return -1;
                 }
                 fmt = NULL;
+        }
+
+        if (show_help) {
+                if (s->backend.empty()) {
+                        usage();
+                } else {
+                        show_encoder_help(s->backend);
+                }
+                return 1;
         }
 
         return 0;
@@ -1727,6 +1740,20 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_svt(codec_ctx, param);
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
+        }
+}
+
+void show_encoder_help(string const &name) {
+        cout << "Options for " << style::bold << name << style::reset << ":\n";
+        auto *codec = avcodec_find_encoder_by_name(name.c_str());
+        const auto *opt = codec->priv_class->option;
+        if (opt == nullptr) {
+                return;
+        }
+        while (opt->name != nullptr) {
+                cout << (opt->offset == 0 ? "\t\t* " : "\t- ");
+                cout << style::bold << opt->name << style::reset << (strlen(opt->help) > 0 ? " - " : "") << opt->help << "\n";
+                opt++;
         }
 }
 
