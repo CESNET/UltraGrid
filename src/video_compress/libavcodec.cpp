@@ -1746,13 +1746,17 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 void show_encoder_help(string const &name) {
         cout << "Options for " << style::bold << name << style::reset << ":\n";
         auto *codec = avcodec_find_encoder_by_name(name.c_str());
+        if (codec == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
+                return;
+        }
         const auto *opt = codec->priv_class->option;
         if (opt == nullptr) {
                 return;
         }
         while (opt->name != nullptr) {
                 cout << (opt->offset == 0 ? "\t\t* " : "\t- ");
-                cout << style::bold << opt->name << style::reset << (strlen(opt->help) > 0 ? " - " : "") << opt->help << "\n";
+                cout << style::bold << opt->name << style::reset << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
                 opt++;
         }
 }
