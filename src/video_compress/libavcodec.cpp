@@ -1635,7 +1635,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         /// turn on periodic intra refresh, unless explicitely disabled
         if (!param->no_periodic_intra){
                 codec_ctx->refs = 1;
-                if(strncmp(codec_ctx->codec->name, "libx264", strlen("libx264"))){
+                if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
                         int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                         if (ret != 0) {
                                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
