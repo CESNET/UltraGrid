@@ -1632,23 +1632,22 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
                 }
         }
 
+        string x265_params = "keyint=" + to_string(codec_ctx->gop_size);
         /// turn on periodic intra refresh, unless explicitely disabled
         if (!param->no_periodic_intra){
+                int ret = AVERROR_ENCODER_NOT_FOUND;
                 codec_ctx->refs = 1;
-                if (strcmp(codec_ctx->codec->name, "libx264") == 0) {
-                        int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
-                        if (ret != 0) {
-                                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
-                        }
+                if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
+                        ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+                } else if ("libx265"s == codec_ctx->codec->name) {
+                        x265_params += ":intra-refresh=1";
+                        ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0);
                 }
-        }
-        if(strcmp(codec_ctx->codec->name, "libx265") == 0){
-                char buf[512] = "";
-                snprintf(buf, sizeof(buf), "keyint=%d", codec_ctx->gop_size);
-                if(!param->no_periodic_intra){
-                        strncat(buf, ":intra-refresh=1", sizeof(buf) - strlen(buf) - 1);
+                if (ret != 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
                 }
-                int ret = av_opt_set(codec_ctx->priv_data, "x265-params", buf, 0);
+        } else if ("libx265"s == codec_ctx->codec->name) {
+                int ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0);
                 if (ret != 0) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set x265-params", ret);
                 }
