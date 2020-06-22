@@ -39,7 +39,7 @@ jobs:
     - name: Submit the result to Coverity Scan
       run: |
         tar caf ultragrid.tar.xz cov-int
-        curl --form token=$coverity_token \
+        curl -S --form token=$coverity_token \
           --form email=pulec@cesnet.cz \
           --form file=@ultragrid.tar.xz \
           --form version="$(date +%F)" \

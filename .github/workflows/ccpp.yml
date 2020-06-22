@@ -45,14 +45,14 @@ jobs:
       if: steps.checkout.conclusion != 'skipped' && env.VERSION == 'continuous'
       run: |
         sudo apt install jq
-        URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
+        URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
         REQ=PATCH
         if [ $URL = null ]; then # release doesn't yet exist
           REQ=POST
           URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
         fi
         DATE=$(date -Iminutes)
-        curl -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
+        curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
         {
           "tag_name": "continuous", "name": "continuous builds",
           "body": "Last update $DATE\n\nCurrent builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds occasionally. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
