@@ -51,7 +51,7 @@
 
 #include "audio/audio.h"
 #include "audio/utils.h"
-#include "deltacast_common.h"
+#include "deltacast_common.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>

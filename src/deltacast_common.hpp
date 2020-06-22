@@ -62,7 +62,12 @@
 #include <VideoMasterHD_Sdi_Audio.h>
 #endif
 
+#include "debug.h"
 #include "types.h"
+
+// compat
+#define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
+#define VHD_BOARDTYPE_HDKEY VHD_BOARDTYPE_HDKEY_DEPRECATED
 
 struct deltacast_frame_mode_t {
 	int              mode;
