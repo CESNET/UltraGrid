@@ -44,6 +44,13 @@ if [ -n "$sdk_pass" ]; then
         cd $TEMP_INST
 fi
 
+# DELTACAST
+if [ -n "$sdk_pass" ]; then
+        curl -S --user sdk:$sdk_pass https://frakira.fi.muni.cz/~xpulec/sdks/VideoMasterHD_mac.tar.xz -O
+        sudo tar xJf VideoMasterHD_mac.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
+        rm VideoMasterHD_mac.tar.xz
+fi
+
 # Install NDI
 if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg -O
