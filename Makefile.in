@@ -587,8 +587,7 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 	done
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -R data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD/* $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
