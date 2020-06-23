@@ -9,7 +9,7 @@ jobs:
   Coverity:
     runs-on: ubuntu-latest
     env:
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
       coverity_token: ${{ secrets.coverity_token }}
 
     steps:

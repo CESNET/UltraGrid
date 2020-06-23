@@ -13,23 +13,15 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-if (${env:sdk_pass}) {
-  $pair = "sdk:${env:sdk_pass}"
-  $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
-  $basicAuthValue = "Basic $encodedCreds"
-  $Headers = @{Authorization = $basicAuthValue}
-  Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ximea.zip -OutFile ximea.zip
+if (${env:SDK_URL}) {
+  Invoke-WebRequest ${env:SDK_URL}/ximea.zip -OutFile ximea.zip
   Expand-Archive -LiteralPath 'ximea.zip' -DestinationPath 'C:\'
   Remove-Item ximea.zip
 }
 
 # Install NDI
-if (${env:sdk_pass} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
-  $pair = "sdk:${env:sdk_pass}"
-  $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
-  $basicAuthValue = "Basic $encodedCreds"
-  $Headers = @{Authorization = $basicAuthValue}
-  Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/NDI%204%20SDK.exe -OutFile C:\ndi.exe
+if (${env:SDK_URL} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
+  Invoke-WebRequest ${env:SDK_URL}/NDI%204%20SDK.exe -OutFile C:\ndi.exe
   # TODO: NDI installer opens a manual in a browser and doesn't end, thus StartProcess with -Wait
   # waits infinitely. Therefore, there is a hack with Sleep (and not removint the installer)
   #Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT" -Wait -NoNewWindow

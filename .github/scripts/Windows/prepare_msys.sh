@@ -49,8 +49,8 @@ if test -d /c/AJA; then
 fi
 
 # DELTACAST
-if [ -n "$sdk_pass" ]; then
-        curl -S --user sdk:$sdk_pass https://frakira.fi.muni.cz/~xpulec/sdks/VideoMasterHD_Win.tar.xz -O
+if [ -n "$SDK_URL" ]; then
+        curl -S $SDK_URL/VideoMasterHD_Win.tar.xz -O
         tar xJf VideoMasterHD_Win.tar.xz -C /usr/local
         rm VideoMasterHD_Win.tar.xz
 fi

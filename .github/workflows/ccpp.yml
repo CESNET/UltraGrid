@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-16.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
@@ -116,7 +116,7 @@ jobs:
     env:
       altool_pass: ${{ secrets.altool_pass }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
@@ -129,10 +129,10 @@ jobs:
         path: '/var/tmp/sdks'
         key: cache-macos-sdks
     - name: Download SDKs
-      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.sdk_pass != null
+      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         mkdir /var/tmp/sdks && cd /var/tmp/sdks
-        curl -S --user sdk:$sdk_pass -O https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O https://frakira.fi.muni.cz/~xpulec/sdks/VideoMasterHD_mac.tar.xz -O https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg
+        curl -S -O $SDK_URL/m3api.tar.xz -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
@@ -181,7 +181,7 @@ jobs:
     runs-on: windows-latest
     env:
       MSYS2_PATH_TYPE: inherit
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
     
     steps:
     - uses: actions/checkout@v1
