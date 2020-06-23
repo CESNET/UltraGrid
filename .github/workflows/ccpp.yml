@@ -122,6 +122,17 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
+    - name: Cache SDKs
+      id: cache-macos-sdks
+      uses: actions/cache@v1
+      with:
+        path: '/var/tmp/sdks'
+        key: cache-macos-sdks
+    - name: Download SDKs
+      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.sdk_pass != null
+      run: |
+        mkdir /var/tmp/sdks && cd /var/tmp/sdks
+        curl -S --user sdk:$sdk_pass -O https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O https://frakira.fi.muni.cz/~xpulec/sdks/VideoMasterHD_mac.tar.xz -O https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
