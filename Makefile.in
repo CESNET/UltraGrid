@@ -220,6 +220,18 @@ Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
+Frameworks/libVideoMasterHD_SP.dylib:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/libVideoMasterHD_SP.dylib Frameworks
+
+Frameworks/VideoMasterHD_Audio.framework:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD_Audio.framework Frameworks
+
+Frameworks/VideoMasterHD.framework:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD.framework Frameworks
+
 $(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
