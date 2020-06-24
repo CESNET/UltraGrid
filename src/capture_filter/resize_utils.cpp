@@ -131,7 +131,7 @@ int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int wid
         r.x = 0;
         r.y = 0;
         r.width = target_width;
-        r.height = target_width;
+        r.height = target_height;
     } else if (in_aspect > out_aspect) {
         r.x = 0;
         r.width = target_width;
