@@ -35,7 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "host.h"
 #include "config.h"
 #include "config_unix.h"

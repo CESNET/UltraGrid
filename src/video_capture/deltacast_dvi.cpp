@@ -106,7 +106,6 @@ struct vidcap_deltacast_dvi_state {
 
 static void usage(void);
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
-static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused));
 
 static void usage(void)
 {
@@ -157,52 +156,6 @@ static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256])
                 Return = BADEEDID;
 
         return Return;
-}
-
-static const char * GetErrorDescription(ULONG CodeError)
-{
-        switch (CodeError)
-        {
-                case VHDERR_NOERROR :               return "No error";
-                case VHDERR_FATALERROR :            return "Fatal error occurred (should re-install)";
-                case VHDERR_OPERATIONFAILED :       return "Operation failed (undefined error)";
-                case VHDERR_NOTENOUGHRESOURCE :     return "Not enough resource to complete the operation";
-                case VHDERR_NOTIMPLEMENTED :        return "Not implemented yet";
-                case VHDERR_NOTFOUND :              return "Required element was not found";
-                case VHDERR_BADARG :                return "Bad argument value";
-                case VHDERR_INVALIDPOINTER :        return "Invalid pointer";
-                case VHDERR_INVALIDHANDLE :         return "Invalid handle";
-                case VHDERR_INVALIDPROPERTY :       return "Invalid property index";
-                case VHDERR_INVALIDSTREAM :         return "Invalid stream or invalid stream type";
-                case VHDERR_RESOURCELOCKED :        return "Resource is currently locked";
-                case VHDERR_BOARDNOTPRESENT :       return "Board is not available";
-                case VHDERR_INCOHERENTBOARDSTATE :  return "Incoherent board state or register value";
-                case VHDERR_INCOHERENTDRIVERSTATE : return "Incoherent driver state";
-                case VHDERR_INCOHERENTLIBSTATE :    return "Incoherent library state";
-                case VHDERR_SETUPLOCKED :           return "Configuration is locked";
-                case VHDERR_CHANNELUSED :           return "Requested channel is already used or doesn't exist";
-                case VHDERR_STREAMUSED :            return "Requested stream is already used";
-                case VHDERR_READONLYPROPERTY :      return "Property is read-only";
-                case VHDERR_OFFLINEPROPERTY :       return "Property is off-line only";
-                case VHDERR_TXPROPERTY :            return "Property is of TX streams";
-                case VHDERR_TIMEOUT :               return "Time-out occurred";
-                case VHDERR_STREAMNOTRUNNING :      return "Stream is not running";
-                case VHDERR_BADINPUTSIGNAL :        return "Bad input signal, or unsupported standard";
-                case VHDERR_BADREFERENCESIGNAL :    return "Bad genlock signal or unsupported standard";                                 
-                case VHDERR_FRAMELOCKED :           return "Frame already locked";
-                case VHDERR_FRAMEUNLOCKED :         return "Frame already unlocked";
-                case VHDERR_INCOMPATIBLESYSTEM :    return "Selected video standard is incompatible with running clock system";
-                case VHDERR_ANCLINEISEMPTY :        return "ANC line is empty";
-                case VHDERR_ANCLINEISFULL :         return "ANC line is full";
-                case VHDERR_BUFFERTOOSMALL :        return "Buffer too small";
-                case VHDERR_BADANC :                return "Received ANC aren't standard";
-                case VHDERR_BADCONFIG :             return "Invalid configuration";
-                case VHDERR_FIRMWAREMISMATCH :      return "The loaded firmware is not compatible with the installed driver";
-                case VHDERR_LIBRARYMISMATCH :       return "The loaded VideomasterHD library is not compatible with the installed driver";
-                case VHDERR_FAILSAFE :              return "The fail safe firmware is loaded. You need to upgrade your firmware";
-                case VHDERR_RXPROPERTY :            return "Property is of RX streams";
-                default:                            return "Unknown code error";
-        }
 }
 
 static struct vidcap_type *
@@ -403,7 +356,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_INPUT_CS,(ULONG*)&InputCS);
                         else
                                 printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08" PRIX32 " (%s)\n", Result,
-                                                GetErrorDescription(Result));
+                                                delta_get_error_description(Result));
                 }
 
                 if (Result == VHDERR_NOERROR) {
@@ -411,7 +364,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DV_SP_PIXEL_CLOCK,&PxlClk);
                         else
                                 printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08" PRIX32 " (%s)\n", Result,
-                                                GetErrorDescription(Result));
+                                                delta_get_error_description(Result));
                 }
 
                 if(Result == VHDERR_NOERROR)
