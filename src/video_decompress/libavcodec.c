@@ -53,6 +53,7 @@
 #ifdef HAVE_SWSCALE
 #include <libswscale/swscale.h>
 #endif // defined HAVE_SWSCALE
+#include <limits.h>
 
 #ifndef AV_PIX_FMT_FLAG_HWACCEL
 #define AV_PIX_FMT_FLAG_HWACCEL PIX_FMT_HWACCEL
@@ -146,20 +147,36 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #endif // defined HAVE_SWSCALE
 }
 
+ADD_TO_PARAM("lavd-thread-count",
+                "* lavd-thread-count=<thread_count>\n");
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
+        int thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
+        const char *thread_count_opt = get_commandline_param("lavd-thread-count");
+        if (thread_count_opt != NULL) {
+                char *endptr = NULL;
+                errno = 0;
+                long val = strtol(thread_count_opt, &endptr, 0);
+                if (errno == 0 && thread_count_opt[0] != '\0' && *endptr == '\0' && val >= 0 && val <= INT_MAX) {
+                        thread_count = val;
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count: %s\n", thread_count_opt);
+                }
+        }
         // zero should mean count equal to the number of virtual cores
         if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
                 if(!broken_h264_mt_decoding) {
-                        s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
+                        s->codec_ctx->thread_count = thread_count;
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
                         s->broken_h264_mt_decoding_workaroud_active = false;
                 } else {
                         s->broken_h264_mt_decoding_workaroud_active = true;
                 }
         } else {
+                if (thread_count > 0) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Codec doesn't support slice-based multithreading but requesting %d threads.\n", thread_count);
+                }
 #if 0
-                log_msg(LOG_LEVEL_WARNING, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
