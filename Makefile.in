@@ -650,7 +650,7 @@ gui-bundle: $(GUI_BUNDLE)/Contents/libs
 ## uv-qt rebuild which breaks fixed links by macdeployqt)
 osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
-	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
+	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
