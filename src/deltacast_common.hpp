@@ -1,9 +1,9 @@
 /**
- * @file   deltacast_common.h
+ * @file   deltacast_common.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #define DELTACAST_COMMON_H
 
 #include <cinttypes>
+#include <iostream>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -62,7 +63,19 @@
 #include <VideoMasterHD_Sdi_Audio.h>
 #endif
 
+#include "debug.h"
+#include "rang.hpp"
 #include "types.h"
+
+#if defined VHD_DV_SP_INPUT_CS // (VideoMasterHD 6.14)
+#define DELTA_DVI_DEPRECATED 1
+#endif
+
+// compat
+#ifdef DELTA_DVI_DEPRECATED
+#define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
+#define VHD_BOARDTYPE_HDKEY VHD_BOARDTYPE_HDKEY_DEPRECATED
+#endif
 
 struct deltacast_frame_mode_t {
 	int              mode;
@@ -156,6 +169,85 @@ static std::unordered_map<ULONG, std::string> board_type_map = {
         { VHD_BOARDTYPE_HDMI, "HDMI board type"},
 };
 
+/**
+ * GetErrorDescription from SDK
+ */
+static const char *delta_get_error_description(ULONG CodeError) __attribute__((unused));
+static const char *delta_get_error_description(ULONG CodeError)
+{
+   switch (CodeError)
+   {
+   case VHDERR_NOERROR:                              return "No error";
+   case VHDERR_FATALERROR:                           return "Fatal error occurred (should re-install)";
+   case VHDERR_OPERATIONFAILED:                      return "Operation failed (undefined error)";
+   case VHDERR_NOTENOUGHRESOURCE:                    return "Not enough resource to complete the operation";
+   case VHDERR_NOTIMPLEMENTED:                       return "Not implemented yet";
+   case VHDERR_NOTFOUND:                             return "Required element was not found";
+   case VHDERR_BADARG:                               return "Bad argument value";
+   case VHDERR_INVALIDPOINTER:                       return "Invalid pointer";
+   case VHDERR_INVALIDHANDLE:                        return "Invalid handle";
+   case VHDERR_INVALIDPROPERTY:                      return "Invalid property index";
+   case VHDERR_INVALIDSTREAM:                        return "Invalid stream or invalid stream type";
+   case VHDERR_RESOURCELOCKED:                       return "Resource is currently locked";
+   case VHDERR_BOARDNOTPRESENT:                      return "Board is not available";
+   case VHDERR_INCOHERENTBOARDSTATE:                 return "Incoherent board state or register value";
+   case VHDERR_INCOHERENTDRIVERSTATE:                return "Incoherent driver state";
+   case VHDERR_INCOHERENTLIBSTATE:                   return "Incoherent library state";
+   case VHDERR_SETUPLOCKED:                          return "Configuration is locked";
+   case VHDERR_CHANNELUSED:                          return "Requested channel is already used or doesn't exist";
+   case VHDERR_STREAMUSED:                           return "Requested stream is already used";
+   case VHDERR_READONLYPROPERTY:                     return "Property is read-only";
+   case VHDERR_OFFLINEPROPERTY:                      return "Property is off-line only";
+   case VHDERR_TXPROPERTY:                           return "Property is of TX streams";
+   case VHDERR_TIMEOUT:                              return "Time-out occurred";
+   case VHDERR_STREAMNOTRUNNING:                     return "Stream is not running";
+   case VHDERR_BADINPUTSIGNAL:                       return "Bad input signal, or unsupported standard";
+   case VHDERR_BADREFERENCESIGNAL:                   return "Bad genlock signal or unsupported standard";
+   case VHDERR_FRAMELOCKED:                          return "Frame already locked";
+   case VHDERR_FRAMEUNLOCKED:                        return "Frame already unlocked";
+   case VHDERR_INCOMPATIBLESYSTEM:                   return "Selected video standard is incompatible with running clock system";
+   case VHDERR_ANCLINEISEMPTY:                       return "ANC line is empty";
+   case VHDERR_ANCLINEISFULL:                        return "ANC line is full";
+   case VHDERR_BUFFERTOOSMALL:                       return "Buffer too small";
+   case VHDERR_BADANC:                               return "Received ANC aren't standard";
+   case VHDERR_BADCONFIG:                            return "Invalid configuration";
+   case VHDERR_FIRMWAREMISMATCH:                     return "The loaded firmware is not compatible with the installed driver";
+   case VHDERR_LIBRARYMISMATCH:                      return "The loaded VideomasterHD library is not compatible with the installed driver";
+   case VHDERR_FAILSAFE:                             return "The fail safe firmware is loaded. You need to upgrade your firmware";
+   case VHDERR_RXPROPERTY:                           return "Property is of RX streams";
+   case VHDERR_ALREADYINITIALIZED:                   return "Already initialized";
+   case VHDERR_NOTINITIALIZED:                       return "Not initialized";
+   case VHDERR_CROSSTHREAD:                          return "Cross-thread";
+   case VHDERR_INCOHERENTDATA:                       return "Incoherent data";
+   case VHDERR_BADSIZE:                              return "Bad size";
+   case VHDERR_WAKEUP:                               return "Wake up";
+   case VHDERR_DEVICE_REMOVED:                       return "Device removed";
+   case VHDERR_LTCSOURCEUNLOCKED:                    return "LTC source unlocked";
+   case VHDERR_INVALIDACCESSRIGHT:                   return "Invalid access right";
+   case VHDERR_LICENSERESTRICTION:                   return "Not allowed by the provided license";
+   case VHDERR_SOFTWAREPROTECTION_FAILURE:           return "Error occured in the software protection module";
+   case VHDERR_SOFTWAREPROTECTION_IDNOTFOUND:        return "Host ID cannot be found";
+   case VHDERR_SOFTWAREPROTECTION_BADLICENSEINFO:    return "invalid provided License";
+   case VHDERR_SOFTWAREPROTECTION_UNAUTHORIZEDHOST:  return "Host unauthorized";
+   case VHDERR_SOFTWAREPROTECTION_STREAMSTARTED:     return "License providing requires all stream to be stopped";
+   case VHDERR_INVALIDCAPABILITY:                                    return "Invalid capability index";
+#ifdef DELTA_DVI_DEPRECATED
+   case VHDERR_DEPRECATED:                                         return "Symbol is deprecated";
+#endif
+   default:                                          return "Unknown code error";
+   }
+}
+
+static auto delta_format_version(uint32_t version, bool long_out) -> std::string
+{
+        using namespace std::string_literals;
+        std::string out = std::to_string(version >> 24U) + "."s + std::to_string((version >> 16U) & 0xFFU);
+        if (long_out) {
+                out += std::to_string((version >> 8U) & 0xFFU) + "."s + std::to_string(version & 0xFFU);
+        }
+        return out;
+}
+
 static void print_available_delta_boards() {
         ULONG             Result,DllVersion,NbBoards;
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
@@ -165,30 +257,46 @@ static void print_available_delta_boards() {
                                 Result);
                 return;
         }
+        std::cout << "\t\tAPI version: " << delta_format_version(DllVersion, false) << "\n";
         if (NbBoards == 0) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] No DELTA board detected, exiting...\n");
                 return;
         }
 
-        printf("\nAvailable cards:\n");
+        std::cout << "\n\t\tAvailable cards:\n";
         /* Query DELTA boards information */
         for (ULONG i = 0; i < NbBoards; i++)
         {
-                ULONG BoardType;
+                ULONG BoardType = 0U;
+                ULONG DriverVersion = 0U;
                 HANDLE            BoardHandle = NULL;
                 ULONG Result = VHD_OpenBoardHandle(i,&BoardHandle,NULL,0);
-                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-                if (Result == VHDERR_NOERROR)
-                {
-                        std::string board{"Unknown board type"};
-                        auto it = board_type_map.find(BoardType);
-                        if (it != board_type_map.end()) {
-                                board = it->second;
-                        }
-                        printf("\t\tBoard %" PRIu32 ": %s\n", i, board.c_str());
-                        VHD_CloseBoardHandle(BoardHandle);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR) << "[DELTACAST] Unable to open board " << i << ": " << delta_get_error_description(Result) << "\n";
+                        continue;
                 }
+                Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR) << "[DELTACAST] Unable to get board " << i << " type: " << delta_get_error_description(Result) << "\n";
+                        continue;
+                }
+                Result = VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_DRIVER_VERSION, &DriverVersion);
+                if (Result != VHDERR_NOERROR) {
+                        LOG(LOG_LEVEL_ERROR) << "[DELTACAST] Unable to get board " << i << " version: " << delta_get_error_description(Result) << "\n";
+                }
+
+                std::string board{"Unknown board type"};
+                auto it = board_type_map.find(BoardType);
+                if (it != board_type_map.end()) {
+                        board = it->second;
+                }
+                std::cout << "\t\t\tBoard " << rang::style::bold << i << rang::style::reset << ": " << rang::style::bold << board << rang::style::reset << " (driver: " << delta_format_version(DriverVersion, false) << ")\n";
+                if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
+                        LOG(LOG_LEVEL_WARNING) << "[DELTACAST] API and driver version mismatch: " << delta_format_version(DllVersion, true) << " vs " << delta_format_version(DriverVersion, true) << "\n";
+                }
+                VHD_CloseBoardHandle(BoardHandle);
         }
+        std::cout << "\n";
 }
 
 [[gnu::unused]] static bool delta_set_nb_channels(ULONG BrdId, HANDLE BoardHandle, ULONG RequestedRx, ULONG RequestedTx) {

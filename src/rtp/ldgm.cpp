@@ -237,7 +237,7 @@ ldgm::ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
 bool ldgm::decode(char *frame, int size, char **out, int *out_size, const map<int, int> &packets) {
         char *decoded;
         decoded = m_coding_session->decode_frame(frame, size, out_size, packets);
-        if (decoded) {
+        if (*out_size > 0) {
                 *out = decoded;
                 return true;
         } else {

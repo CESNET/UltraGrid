@@ -48,6 +48,13 @@ if test -d /c/AJA; then
         data/scripts/build_aja_lib_win64.sh
 fi
 
+# DELTACAST
+if [ -n "$SDK_URL" ]; then
+        curl -S $SDK_URL/VideoMasterHD_Win.tar.xz -O
+        tar xJf VideoMasterHD_Win.tar.xz -C /usr/local
+        rm VideoMasterHD_Win.tar.xz
+fi
+
 # Install live555
 cd /c/live555
 make install

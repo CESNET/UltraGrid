@@ -49,8 +49,11 @@
 #include "audio/audio.h"
 #include "module.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#define MOD_NAME "[switcher] "
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
@@ -59,22 +62,23 @@ static void show_help()
 {
         printf("switcher capture\n");
         printf("Usage\n");
-        printf("\t--control-port <port> -t switcher[:excl_init] -t <dev1_config> -t <dev2_config> ....]\n");
+        printf("\t--control-port <port> -t switcher[:excl_init][:fallback] -t <dev1_config> -t <dev2_config> ....]\n");
         printf("\t\t<devn_config> is a configuration of device to be switched\n");
         printf("\t\t<port> specifies port which should be used to control switching\n");
         printf("\t\texcl_init - devices will be initialized after switching to and deinitialized after switching to another\n");
-
+        printf("\t\tfallback - in case that capture doesn't return a frame (in time), capture from next available device(s)\n");
 }
 
 struct vidcap_switcher_state {
         struct module       mod;
         struct vidcap     **devices;
-        int                 devices_cnt;
+        unsigned int        devices_cnt;
 
-        int                 selected_device;
+        unsigned int        selected_device;
 
         struct vidcap_params *params;
         bool                excl_init;
+        bool                fallback;
 };
 
 
@@ -94,7 +98,7 @@ vidcap_switcher_probe(bool verbose, void (**deleter)(void *))
 }
 
 static void vidcap_switcher_register_keyboard_ctl(struct vidcap_switcher_state *s) {
-        for (int i = 0; i < MIN(s->devices_cnt, 10); ++i) {
+        for (unsigned int i = 0U; i < MIN(s->devices_cnt, 10); ++i) {
                 struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
                 sprintf(m->text, "map %d capture.data %d#switch to video input %d", i + 1, i, i + 1);
                 struct response *r = send_message_sync(get_root_module(&s->mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
@@ -132,8 +136,19 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                                 return VIDCAP_INIT_NOERR;
                         } else if (strcmp(item, "excl_init") == 0) {
                                 s->excl_init = true;
+                        } else if (strcmp(item, "fallback") == 0) {
+                                s->fallback = true;
                         } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
-                                s->selected_device = atoi(item + strlen("select="));
+                                char *val_s = item + strlen("select=");
+                                char *endptr = NULL;;
+                                errno = 0;
+                                long val = strtol(val_s, &endptr, 0);
+                                if (errno != 0 || *val_s == '\0' || *endptr != '\0' || val < 0 || val > UINT_MAX) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value: %s\n", val_s);
+                                        free(tmp);
+                                        goto error;
+                                }
+                                s->selected_device = val;
                         } else {
                                 fprintf(stderr, "[switcher] Unknown initialization option!\n");
                                 show_help();
@@ -144,6 +159,11 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                         cfg = NULL;
                 }
                 free(tmp);
+        }
+
+        if (s->excl_init && s->fallback) {
+                fprintf(stderr, MOD_NAME "Options \"excl_init\" and \"fallback\" are mutualy incompatible!\n");
+                goto error;
         }
 
         s->devices_cnt = 0;
@@ -162,7 +182,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
         tmp = params;
-        for (int i = 0; i < s->devices_cnt; ++i) {
+        for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
                 if (!s->excl_init || i == s->selected_device) {
@@ -189,8 +209,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
 
 error:
         if(s->devices) {
-                int i;
-                for (i = 0u; i < s->devices_cnt; ++i) {
+                for (unsigned int i = 0U; i < s->devices_cnt; ++i) {
                         if(s->devices[i]) {
                                  vidcap_done(s->devices[i]);
                         }
@@ -208,8 +227,7 @@ vidcap_switcher_done(void *state)
 	assert(s != NULL);
 
 	if (s != NULL) {
-                int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
+		for (unsigned int i = 0U; i < s->devices_cnt; ++i) {
                         if (!s->excl_init || i == s->selected_device) {
                                 vidcap_done(s->devices[i]);
                         }
@@ -229,10 +247,18 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
                 struct msg_universal *msg_univ = (struct msg_universal *) msg;
-                int new_selected_device = atoi(msg_univ->text);
+                char *endptr = NULL;
+                errno = 0;
+                long val = strtol(msg_univ->text, &endptr, 0);
+                if (errno != 0 || val < 0 || val > UINT_MAX || msg_univ->text[0] == '\0' || *endptr != '\0') {
+                        log_msg(LOG_LEVEL_ERROR, "[switcher] Cannot switch to device %s. Wrong value.\n", msg_univ->text);
+                        free_message(msg, new_response(RESPONSE_BAD_REQUEST, NULL));
+                        continue;
+                }
+                unsigned int new_selected_device = val;
                 struct response *r;
 
-                if (new_selected_device >= 0 && new_selected_device < s->devices_cnt){
+                if (new_selected_device < s->devices_cnt){
                         log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %d.\n", new_selected_device);
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
@@ -252,9 +278,22 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
         }
 
         frame = vidcap_grab(s->devices[s->selected_device], &audio_frame);
-        *audio = audio_frame;;
+        *audio = audio_frame;
 
-	return frame;
+        if (frame || !s->fallback) {
+                return frame;
+        }
+        // if frame was not returned but we have a fallback behavior, try also other devices
+        for (unsigned int i = (s->selected_device + 1U) % s->devices_cnt;
+                        i != s->selected_device;
+                        i = (s->selected_device + 1U) % s->devices_cnt) {
+                frame = vidcap_grab(s->devices[i], &audio_frame);
+                *audio = audio_frame;
+                if (frame != NULL) {
+                        break;
+                }
+        }
+        return frame;
 }
 
 static const struct video_capture_info vidcap_switcher_info = {

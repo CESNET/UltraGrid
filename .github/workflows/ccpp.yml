@@ -45,14 +45,14 @@ jobs:
       if: steps.checkout.conclusion != 'skipped' && env.VERSION == 'continuous'
       run: |
         sudo apt install jq
-        URL=$(curl -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
+        URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
         REQ=PATCH
         if [ $URL = null ]; then # release doesn't yet exist
           REQ=POST
           URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
         fi
         DATE=$(date -Iminutes)
-        curl -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
+        curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
         {
           "tag_name": "continuous", "name": "continuous builds",
           "body": "Last update $DATE\n\nCurrent builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds occasionally. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-16.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
@@ -116,12 +116,23 @@ jobs:
     env:
       altool_pass: ${{ secrets.altool_pass }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
       with:
         submodules: true
+    - name: Cache SDKs
+      id: cache-macos-sdks
+      uses: actions/cache@v1
+      with:
+        path: '/var/tmp/sdks'
+        key: cache-macos-sdks
+    - name: Download SDKs
+      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
+      run: |
+        mkdir /var/tmp/sdks && cd /var/tmp/sdks
+        curl -S -O $SDK_URL/m3api.tar.xz -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
@@ -170,7 +181,7 @@ jobs:
     runs-on: windows-latest
     env:
       MSYS2_PATH_TYPE: inherit
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
     
     steps:
     - uses: actions/checkout@v1

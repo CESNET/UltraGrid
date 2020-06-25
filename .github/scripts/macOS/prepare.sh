@@ -26,15 +26,13 @@ mkdir $TEMP_INST
 cd $TEMP_INST
 
 # Install XIMEA
-if [ -n "$sdk_pass" ]; then
-        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/m3api.tar.xz -O
-        sudo tar xJf m3api.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
+if [ -f /var/tmp/sdks/m3api.tar.xz ]; then
+        sudo tar xJf /var/tmp/sdks/m3api.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
 fi
 
 # Install AJA
-if [ -n "$sdk_pass" ]; then
-        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkmac.zip -O
-        unzip ntv2sdkmac.zip -d /tmp
+if [ -f /var/tmp/sdks/ntv2sdkmac.zip ]; then
+        unzip /var/tmp/sdks/ntv2sdkmac.zip -d /tmp
         mv /tmp/ntv2sdk* $AJA_INST
         cd $AJA_INST/ajalibraries/ajantv2/build
         xcodebuild -project ajantv2.xcodeproj
@@ -44,11 +42,14 @@ if [ -n "$sdk_pass" ]; then
         cd $TEMP_INST
 fi
 
+# DELTACAST
+if [ -f /var/tmp/sdks/VideoMasterHD_mac.tar.xz ]; then
+        sudo tar xJf /var/tmp/sdks/VideoMasterHD_mac.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
+fi
+
 # Install NDI
-if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
-        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Apple.pkg -O
-        sudo installer -pkg NDISDK_Apple.pkg -target /
-        rm NDISDK_Apple.pkg
+if [ -f /var/tmp/sdks/NDISDK_Apple.pkg  ]; then
+        sudo installer -pkg /var/tmp/sdks/NDISDK_Apple.pkg -target /
         sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
         cd /Library/NDI/lib/x64
         sudo ln -s libndi.?.dylib libndi.dylib

@@ -119,8 +119,7 @@ private:
 };
 
 #define LOG(level) \
-if (level > log_level) ; \
-else Logger(level).Get()
+if (level <= log_level) Logger(level).Get()
 
 #endif
 

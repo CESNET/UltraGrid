@@ -1,12 +1,8 @@
 #Set-PSDebug -Trace 1
 
 # Build AJA
-if (${env:sdk_pass}) {
-  $pair = "sdk:${env:sdk_pass}"
-  $encodedCreds = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($pair))
-  $basicAuthValue = "Basic $encodedCreds"
-  $Headers = @{Authorization = $basicAuthValue}
-  Invoke-WebRequest -Headers $Headers https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdkwin.zip -OutFile aja.zip
+if (${env:SDK_URL}) {
+  Invoke-WebRequest ${env:SDK_URL}/ntv2sdkwin.zip -OutFile aja.zip
   Expand-Archive -LiteralPath 'aja.zip' -DestinationPath 'C:\'
   Remove-Item aja.zip
   mv c:\ntv2sdk* c:\AJA

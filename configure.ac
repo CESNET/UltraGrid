@@ -997,18 +997,12 @@ if test $system = Linux -o $system = Windows
 then
         AC_LANG_PUSH(C++)
 
-	if test $system = Windows; then
-		HEADER_SUBDIR="Header"
-	else
-		HEADER_SUBDIR="Include"
-	fi
-
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS_SAVE=$CXXFLAGS
-                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
+                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
                 CPPFLAGS_SAVE=$CPPFLAGS
-                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
+                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
         fi
 
 	if test $system = Windows; then
@@ -1073,6 +1067,7 @@ else # OS X
 	if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
 		deltacast_found=yes
 		DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
+                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/libVideoMasterHD_SP.dylib Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
 	fi
 fi
 
@@ -1080,7 +1075,7 @@ if test $deltacast_req != no -a $deltacast_found = yes
 then
 	if test -n "$DELTACAST_PATH"
 	then
-		DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
+		DELTACAST_INC="-I$DELTACAST_PATH/Include"
 	fi
 	DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
 	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"

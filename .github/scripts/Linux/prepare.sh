@@ -38,8 +38,8 @@ cd package
 sudo ./install
 
 # Install AJA
-if [ -n "$sdk_pass" ]; then
-        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/ntv2sdklinux.zip -O
+if [ -n "$SDK_URL" ]; then
+        curl -S $SDK_URL/ntv2sdklinux.zip -O
         unzip ntv2sdklinux.zip -d /var/tmp
         mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
         cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
@@ -48,8 +48,8 @@ if [ -n "$sdk_pass" ]; then
 fi
 
 # Install NDI
-if [ -n "$sdk_pass" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
-        curl --netrc-file <(cat <<<"machine frakira.fi.muni.cz login sdk password $sdk_pass") https://frakira.fi.muni.cz/~xpulec/sdks/NDISDK_Linux.tar.gz -O
+if [ -n "$SDK_URL" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
+        curl -S $SDK_URL/NDISDK_Linux.tar.gz -O
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include

@@ -43,7 +43,7 @@
 
 #include "host.h"
 #include "debug.h"
-#include "deltacast_common.h"
+#include "deltacast_common.hpp"
 #include "lib_common.h"
 #include "tv.h"
 #include "video.h"

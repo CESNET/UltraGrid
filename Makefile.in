@@ -221,6 +221,18 @@ Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
+Frameworks/libVideoMasterHD_SP.dylib:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/libVideoMasterHD_SP.dylib Frameworks
+
+Frameworks/VideoMasterHD_Audio.framework:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD_Audio.framework Frameworks
+
+Frameworks/VideoMasterHD.framework:
+	$(MKDIR_P) Frameworks
+	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD.framework Frameworks
+
 $(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
@@ -588,8 +600,7 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 	done
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -R data/redists/VideoMasterHD.framework $(BUNDLE)/Contents/Frameworks
-	$(CP) -R data/redists/VideoMasterHD_Audio.framework $(BUNDLE)/Contents/Frameworks
+	$(CP) -R data/redists/VideoMasterHD/* $(BUNDLE)/Contents/Frameworks
 	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	for n in $(BUNDLE)/Contents/MacOS/*; \
 		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \

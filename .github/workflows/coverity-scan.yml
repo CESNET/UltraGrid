@@ -9,7 +9,7 @@ jobs:
   Coverity:
     runs-on: ubuntu-latest
     env:
-      sdk_pass: ${{ secrets.sdk_pass }}
+      SDK_URL: ${{ secrets.SDK_URL }}
       coverity_token: ${{ secrets.coverity_token }}
 
     steps:
@@ -39,7 +39,7 @@ jobs:
     - name: Submit the result to Coverity Scan
       run: |
         tar caf ultragrid.tar.xz cov-int
-        curl --form token=$coverity_token \
+        curl -S --form token=$coverity_token \
           --form email=pulec@cesnet.cz \
           --form file=@ultragrid.tar.xz \
           --form version="$(date +%F)" \
