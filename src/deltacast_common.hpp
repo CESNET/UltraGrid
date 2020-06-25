@@ -1,5 +1,5 @@
 /**
- * @file   deltacast_common.h
+ * @file   deltacast_common.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -65,9 +65,15 @@
 #include "debug.h"
 #include "types.h"
 
+#if defined VHD_DV_SP_INPUT_CS // (VideoMasterHD 6.14)
+#define DELTA_DVI_DEPRECATED 1
+#endif
+
 // compat
+#ifdef DELTA_DVI_DEPRECATED
 #define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
 #define VHD_BOARDTYPE_HDKEY VHD_BOARDTYPE_HDKEY_DEPRECATED
+#endif
 
 struct deltacast_frame_mode_t {
 	int              mode;

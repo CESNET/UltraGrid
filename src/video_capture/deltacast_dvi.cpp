@@ -93,6 +93,7 @@ struct vidcap_deltacast_dvi_state {
 #define BADEEDID 1
 
 // compat
+#if defined DELTA_DVI_DEPRECATED
 #define VHD_DV_EEDID_DVIA VHD_DV_EEDID_DVIA_DEPRECATED
 #define VHD_DV_MODE_DVI_A VHD_DV_MODE_DVI_A_DEPRECATED
 #define VHD_DV_MODE_ANALOG_COMPONENT_VIDEO VHD_DV_MODE_ANALOG_COMPONENT_VIDEO_DEPRECATED
@@ -100,6 +101,7 @@ struct vidcap_deltacast_dvi_state {
 #define VHD_DV_DVI_A_STANDARD VHD_DV_STANDARD
 #define VHD_DV_DVIA_STD_DMT VHD_DV_STD_DMT
 #define VHD_PresetDviAStreamProperties VHD_PresetTimingStreamProperties
+#endif // defined DELTA_DVI_DEPRECATED
 
 
 static void usage(void);
@@ -304,7 +306,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                            standard. Manual setting or overriding of these properties is allowed
                            Resolution, refresh rate and graphic timing standard can be auto-detect
                            with VHD_DetectDviAFormat function */
-#if ! defined VHD_DV_SP_INPUT_CS // (VideoMasterHD < 6.14)
+#if ! defined DELTA_DVI_DEPRECATED
                         Result = VHD_DetectDviAFormat(s->StreamHandle,&DviAStd,&Width,&Height,&RefreshRate,
                                         &Interlaced_B);
 #else
