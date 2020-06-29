@@ -64,7 +64,7 @@
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"

@@ -839,7 +839,8 @@ static auto codec_list_to_str(const codec_t *codecs) {
 ADD_TO_PARAM("decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified pixel format for decoding (eg. v210). This overrides automatic\n"
-                "  choice. The pixel format must be supported by the video display.\n");
+                "  choice. The pixel format must be supported by the video display. Use 'help' to see\n"
+                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n");
 /**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
@@ -870,8 +871,13 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         if (get_commandline_param("decoder-use-codec")) {
                 const char *codec_str = get_commandline_param("decoder-use-codec");
                 codec_t req_codec = get_codec_from_name(codec_str);
+                if ("help"s == codec_str) {
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(static_cast<codec_t *>(decoder->native_codecs)) << "\n";
+                        return false;
+                }
                 if (req_codec == VIDEO_CODEC_NONE) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong decoder codec spec: %s.\n", codec_str);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(static_cast<codec_t *>(decoder->native_codecs)) << "\n";
                         return false;
                 }
                 bool found = false;
@@ -885,7 +891,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 }
                 if (!found) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Display doesn't support requested codec: %s.\n", codec_str);
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(static_cast<codec_t *>(decoder->native_codecs)) << "\n";
                         return false;
                 }
         }

@@ -36,7 +36,11 @@
  */
 
 #include <cstdlib>
+#include <exception>
 #include <stdexcept>
+
+class ug_no_error : public std::exception {
+};
 
 class ug_runtime_error : public std::runtime_error {
 public:

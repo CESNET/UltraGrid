@@ -86,7 +86,7 @@
 #include "playback.h"
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/net.h"
@@ -1436,6 +1436,8 @@ int main(int argc, char *argv[])
                         mainloop(mainloop_udata);
                 }
                 display_join(uv.display_device);
+        } catch (ug_no_error const &e) {
+                exit_uv(0);
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());

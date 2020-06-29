@@ -72,6 +72,7 @@
 #include "video_display.h"
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
+#include "ug_runtime_error.hpp"
 #include "utils/worker.h"
 
 #include <chrono>
@@ -87,6 +88,11 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         m_display_device = (struct display *) params.at("display_device").ptr;
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
+
+        if (get_commandline_param("decoder-use-codec") != nullptr && "help"s == get_commandline_param("decoder-use-codec")) {
+                destroy_video_decoder(new_video_decoder(m_display_device));
+                throw ug_no_error();
+        }
 
         m_control = (struct control_state *) get_module(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), "control");
 }
