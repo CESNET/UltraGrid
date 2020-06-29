@@ -88,6 +88,7 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 return nullptr;
                         }
                 } else if (strstr(item, "rgb_shift=") != nullptr) {
+                        item += strlen("rgb_shift=");
                         size_t len;
                         s->rgb_shift[0] = stoi(item, &len);
                         item += len + 1;
