@@ -337,8 +337,9 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+
 #ifdef SHARED_DECODER
-        struct vcodec_state *shared_decoder = new_decoder(uv);
+        struct vcodec_state *shared_decoder = new_video_decoder(m_display_device);
         if(shared_decoder == NULL) {
                 fprintf(stderr, "Unable to create decoder!\n");
                 exit_uv(1);
@@ -495,7 +496,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         }
 
 #ifdef SHARED_DECODER
-        destroy_decoder(shared_decoder);
+        destroy_video_decoder(shared_decoder);
 #else
         /* Because decoders work asynchronously we need to make sure
          * that display won't be called */
