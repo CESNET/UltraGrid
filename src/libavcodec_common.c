@@ -1699,7 +1699,7 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
                 uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        *dst++ = (src_cb[0] + src_cb[0]) / 2 >> 2;
+                        *dst++ = (src_cb[0] + src_cb[1]) / 2 >> 2;
                         *dst++ = *src_y++ >> 2;
                         *dst++ = (src_cr[0] + src_cr[1]) / 2 >> 2;
                         *dst++ = *src_y++ >> 2;
@@ -1767,33 +1767,51 @@ static inline void yuv422p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * 
         yuv422p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
-static void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
-{
-        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
-        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
-        char *uyvy = tmp;
-        yuv444p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
-        for (int i = 0; i < height; i++) {
-                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
-                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(width, UYVY);
-                dst_buffer += pitch;
-        }
-        free(tmp);
-}
 
 static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; y++) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        int cb = (*src_cb++ >> 2) - 128;
+                        int cr = (*src_cr++ >> 2) - 128;
+                        int y = (*src_y++ >> 2) << 16;
+                        int r = 75700 * cr;
+                        int g = -26864 * cb - 38050 * cr;
+                        int b = 133176 * cb;
+                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                }
+        }
 }
 
 static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        for (int y = 0; y < height; y++) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        int cb = (*src_cb++ >> 2) - 128;
+                        int cr = (*src_cr++ >> 2) - 128;
+                        int y = (*src_y++ >> 2) << 16;
+                        int r = 75700 * cr;
+                        int g = -26864 * cb - 38050 * cr;
+                        int b = 133176 * cb;
+			*dst++ = (MIN(MAX(r + y, 0), (1<<24) - 1) >> 16) << rgb_shift[0] | (MIN(MAX(g + y, 0), (1<<24) - 1) >> 16) << rgb_shift[1] |
+                                (MIN(MAX(b + y, 0), (1<<24) - 1) >> 16) << rgb_shift[2];
+                }
+        }
 }
 
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
