@@ -1555,7 +1555,7 @@ void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned char *
                 int gshift, int bshift) {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
         uint32_t *dst32 = (uint32_t *)(void *) dst;
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 8; x += 8) {
                 register int y1, y2, u ,v;
                 u = *src++;
                 y1 = *src++;
