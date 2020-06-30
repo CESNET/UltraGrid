@@ -62,7 +62,7 @@ BuildRequires:  cppunit-devel
 #####################################################
 # > ndi
 #####################################################
-#%define build_ndi 1
+#define build_ndi 1
 #####################################################
 # < ndi
 #####################################################
@@ -171,8 +171,7 @@ BuildRequires: libva-vdpau-driver, vaapi-intel-driver
 %endif
 
 
-Conflicts:	ultragrid-core, ultragrid
-Provides:	ultragrid
+Conflicts:	ultragrid-nightly
 Requires:	jack-audio-connection-kit
 
 %description
