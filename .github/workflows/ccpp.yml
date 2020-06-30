@@ -76,6 +76,17 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
+    - name: Cache FFmpeg
+      id: cache-ffmpeg
+      uses: actions/cache@v1
+      with:
+        path: '/var/tmp/ffmpeg'
+        key: cache-ffmpeg-3
+    - name: Build FFmpeg
+      if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+      run: .github/scripts/Linux/download_build_ffmpeg.sh
+    - name: Install FFmpeg
+      run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
       run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --enable-jack-transport=force --with-live555=/usr/local $NDI"
     - name: make
