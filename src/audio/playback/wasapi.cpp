@@ -46,7 +46,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/hresult.h"
 
 #define DEFAULT_WASAPI_BUFLEN_MS 67

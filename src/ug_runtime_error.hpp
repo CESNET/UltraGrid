@@ -1,5 +1,5 @@
 /**
- * @file   ug_runtime_error.h
+ * @file   ug_runtime_error.hpp
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
