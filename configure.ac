@@ -2462,7 +2462,7 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is auto; disabled in modular build)]
+[  --enable-jack-transport[=force] enable JACK transport (default is auto; disabled in modular build, can be forced)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
@@ -2481,7 +2481,7 @@ if test $FOUND_JACK_L = no; then
                                                  [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
 fi
 
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a $build_libraries = no
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a \( $build_libraries = no -o $jack_trans_req = force \)
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
     JACK_TRANS_LIB="$JACK_LIB"
