@@ -2071,7 +2071,6 @@ fi
 # 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
 # 4) default CUDA path
 
-CUDA_COMPUTE_ARGS=""
 CUDA_COMPILER=""
 
 CUDA_INC=
@@ -2155,21 +2154,7 @@ AC_ARG_WITH(cuda-compiler,
               [CUDA_COMPILER="$withval"],
               [])
 
-HOST_CC_REPORT=" ("
-case "$CUDA_COMPILER" in
-	*nvcc*)
-		CUDA_COMPUTE_ARGS="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35"
-		;;
-	*clang*)
-		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
-		;;
-	"")
-		;;
-	*)
-		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
-		;;
-esac
-HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
+HOST_CC_REPORT=" ("$(basename "$CUDA_COMPILER")
 
 # CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
@@ -2196,7 +2181,6 @@ AC_SUBST(CUDA_PATH)
 AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
-AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
