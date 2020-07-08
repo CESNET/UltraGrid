@@ -11,7 +11,7 @@ CFLAGS        = @CFLAGS@ $(COMMON_FLAGS) -Werror=implicit-function-declaration -
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
 CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
-CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
+CUDA_FLAGS    = @CUDA_FLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
