@@ -59,7 +59,7 @@ if [ -n "$appimage_key" ]; then
         gpg --import key
 fi
 
-wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
+wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
 ./appimagetool --sign --comp gzip -u "zsync|https://github.com/${GITHUB_REPOSITORY-CESNET/UltraGrid}/releases/download/nightly/UltraGrid-nightly-x86_64.AppImage.zsync" $APPDIR $APPNAME
 )
 
