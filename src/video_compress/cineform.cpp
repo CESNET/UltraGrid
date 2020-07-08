@@ -121,7 +121,7 @@ static void cineform_compress_done(struct module *mod){
 
 static void usage() {
         printf("Cineform encoder usage:\n");
-        printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]*\n");
+        printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]\n");
         printf("\t\t<quality> specifies encode quality, range 1-6 (default: 4)\n");
         printf("\t\t<num_threads> specifies number of threads for encoding \n");
         printf("\t\t<pool_size> specifies the size of encoding pool \n");
