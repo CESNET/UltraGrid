@@ -1033,7 +1033,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         return false;
                 }
                 if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_av_to_ug_codec(codec->id)) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Codec and encoder don't match!\n");
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Encoder \"" << s->backend << "\" doesn't encode requested codec!\n";
                         return false;
 
                 }
