@@ -884,6 +884,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 for (size_t i = 0; i < decoder->native_count; ++i) {
                         if (decoder->native_codecs[i] == req_codec) {
                                 decoder->native_codecs[0] = req_codec;
+                                decoder->native_codecs[1] = VIDEO_CODEC_NONE;
                                 decoder->native_count = 1;
                                 found = true;
                                 break;
