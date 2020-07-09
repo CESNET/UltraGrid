@@ -59,10 +59,6 @@ struct dump_display_state {
                 string dirname;
                 time_t now = time(NULL);
                 dirname = "dump." + to_string(now);
-                if (platform_mkdir(dirname.c_str()) == -1) {
-                        perror("mkdir");
-                        throw string("Unable to create directory!");
-                }
                 e = export_init(NULL, dirname.c_str(), true);
         }
         ~dump_display_state() {
