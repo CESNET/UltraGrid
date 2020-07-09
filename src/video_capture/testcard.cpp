@@ -174,6 +174,26 @@ private:
         uint32_t color;
 };
 
+class image_pattern_gradient : public image_pattern {
+public:
+        explicit image_pattern_gradient(uint32_t c) : color(c) {}
+        static constexpr uint32_t red = 0xFFU;
+private:
+        void fill() override {
+                auto *ptr = reinterpret_cast<uint32_t *>(data.data());
+                for (int j = 0; j < height; j += 1) {
+                        uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
+                        uint8_t g = sin(static_cast<double>(j) / height * M_PI) * ((color >> 8) & 0xFFU);
+                        uint8_t b = sin(static_cast<double>(j) / height * M_PI) * ((color >> 16) & 0xFFU);
+                        uint32_t val = (0xFFU << 24U) | (b << 16) | (g << 8) | r;
+                        for (int i = 0; i < width; i += 1) {
+                                *ptr++ = val;
+                        }
+                }
+        }
+        uint32_t color;
+};
+
 class image_pattern_noise : public image_pattern {
         void fill() override {
                 for_each(data.begin(), data.end(), [](unsigned char & c) { c = rand() % 0xff; });
@@ -185,6 +205,13 @@ unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
                 return make_unique<image_pattern_bars>();
         } else if (strcmp(pattern, "blank") == 0) {
                 return make_unique<image_pattern_blank>();
+        } else if (strstr(pattern, "gradient") != nullptr) {
+                uint32_t color = image_pattern_gradient::red;
+                if (strstr(pattern, "gradient=") != nullptr) {
+                        auto val = string(pattern).substr("gradient="s.length());
+                        color = stol(val, nullptr, 0);
+                }
+                return make_unique<image_pattern_gradient>(color);
         } else if (strcmp(pattern, "noise") == 0) {
                 return make_unique<image_pattern_noise>();
         } else if (strstr(pattern, "0x") == pattern) {
