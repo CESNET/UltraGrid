@@ -202,8 +202,6 @@ static void show_help() {
         CoUninitialize();
 }
 
-#undef THROW_IF_FAILED
-#define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; delete s; s = nullptr; break; } } while(0)
 static void * audio_cap_wasapi_init(const char *cfg)
 {
         wchar_t deviceID[1024] = L"";
