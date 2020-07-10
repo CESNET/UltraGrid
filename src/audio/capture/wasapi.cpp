@@ -327,6 +327,10 @@ static void * audio_cap_wasapi_init(const char *cfg)
 
         } catch (ug_runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                if (audio_capture_channels != DEFAULT_AUDIO_CAPTURE_CHANNELS) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Maybe wrong number of channels? Default: "
+                                << DEFAULT_AUDIO_CAPTURE_CHANNELS << ", requested: " << audio_capture_channels << "\n";
+                }
                 CoUninitialize();
                 delete s;
                 s = nullptr;
