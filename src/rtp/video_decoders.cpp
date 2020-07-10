@@ -1070,7 +1070,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
         codec_t out_codec = VIDEO_CODEC_NONE;
 
         /* first check if the codec is natively supported */
-        for (auto &out_codec : decoder->native_codecs) {
+        for (auto &codec : decoder->native_codecs) {
                 if(desc.color_spec == out_codec) {
                         if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
@@ -1086,6 +1086,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                         vc_copylineRGBA : vc_copylineRGB;
                         }
 
+                        out_codec = codec;
                         goto after_linedecoder_lookup;
                 }
         }
