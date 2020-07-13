@@ -272,9 +272,7 @@ public:
                 }
                 LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
-                deckLinkInput->DisableVideoInput();
-                deckLinkInput->StopStreams();
-                deckLinkInput->FlushStreams();
+                deckLinkInput->PauseStreams();
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
                         CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
@@ -289,6 +287,7 @@ public:
                                         audio_capture_channels == 1 ? 2 : audio_capture_channels); // BMD isn't able to grab single channel
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
+                        deckLinkInput->FlushStreams();
                         deckLinkInput->StartStreams();
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";\
