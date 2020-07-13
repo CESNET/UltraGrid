@@ -92,7 +92,9 @@ static struct video_frame *display_dump_getf(void *state)
 {
         auto s = (dump_display_state *) state;
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
-                s->f->tiles[i].data_len = s->max_tile_data_len;
+                if (is_codec_opaque(s->f->color_spec)) {
+                        s->f->tiles[i].data_len = s->max_tile_data_len;
+                }
         }
         return s->f;
 }
@@ -150,10 +152,13 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         dump_display_state *s = (dump_display_state *) state;
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
-        s->max_tile_data_len = 4 * desc.width * desc.height;
+        s->f->decoder_overrides_data_len = TRUE;
+        s->max_tile_data_len = MIN(8 * desc.width * desc.height, 1000000UL);
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
-                s->f->tiles[i].data_len = s->max_tile_data_len;
                 s->f->tiles[i].data = (char *) malloc(s->f->tiles[i].data_len);
+                if (is_codec_opaque(desc.color_spec)) {
+                        s->f->tiles[i].data_len = s->max_tile_data_len;
+                }
         }
         s->f->callbacks.data_deleter = vf_data_deleter;
 
