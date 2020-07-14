@@ -319,7 +319,7 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080pNotPsF={true|false}][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square]\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
         cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
@@ -346,6 +346,7 @@ static void show_help(bool full)
                                 style::bold << "\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
                 cout << style::bold << "\tHDMI3DPacking" << style::reset << " can be:\n" <<
 				style::bold << "\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
+                cout << style::bold << "\tUse1080PsF[=true|false]" << style::reset << " flag tells whether to use a progressive frame (default) instead of PsF on output\n";
                 cout << style::bold << "\tprofile=<P>\n" << style::reset;
                 cout << "\t\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
                         << style::bold << "1dhd" << style::reset << ", "
@@ -958,13 +959,15 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "conversion=",
                                         strlen("conversion=")) == 0) {
                         *conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
-                } else if (strncasecmp(ptr, "Use1080pNotPsF=",
-                                        strlen("Use1080pNotPsF=")) == 0) {
-                        const char *levels = ptr + strlen("Use1080pNotPsF=");
-                        if (strcasecmp(levels, "false") == 0) {
-                                *use1080psf = true;
+                } else if (strstr(ptr, "Use1080pNotPsF=") == ptr
+                                || strstr(ptr, "Use1080PsF") == ptr) {
+                        if (strstr(ptr, "Use1080pNotPsF=") == ptr) { // compat
+                                *use1080psf = strcasecmp(ptr + strlen("Use1080pNotPsF="), "false") == 0;
                         } else {
-                                *use1080psf = false;
+                                *use1080psf = true;
+                                if (strcasecmp(ptr + strlen("Use1080PsF"), "=false") == 0) {
+                                        *use1080psf = false;
+                                }
                         }
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
