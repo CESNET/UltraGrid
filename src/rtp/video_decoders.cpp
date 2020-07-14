@@ -1071,9 +1071,9 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
 
         /* first check if the codec is natively supported */
         for (auto &codec : decoder->native_codecs) {
-                if(desc.color_spec == out_codec) {
-                        if((out_codec == DXT1 || out_codec == DXT1_YUV ||
-                                        out_codec == DXT5)
+                if (desc.color_spec == codec) {
+                        if ((desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV ||
+                                        desc.color_spec == DXT5)
                                         && decoder->video_mode != VIDEO_NORMAL)
                                 continue; /// DXT1 it is a exception, see @ref vdec_note1
 
@@ -1081,7 +1081,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                         decoder->decoder_type = LINE_DECODER;
 
                         if(desc.color_spec == RGBA || /* another exception - we may change shifts */
-                                        desc.color_spec == RGB) {
+                                        desc.color_spec == RGB) { // should RGB be also handled
                                 *decode_line = desc.color_spec == RGBA ?
                                         vc_copylineRGBA : vc_copylineRGB;
                         }
