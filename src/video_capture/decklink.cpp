@@ -252,6 +252,9 @@ public:
                         reason = "unknown";
                 }
                 LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << reason << ").\n";
+                if ((notificationEvents & (bmdVideoInputDisplayModeChanged | bmdVideoInputColorspaceChanged)) == 0U) {
+                        return S_OK;
+                }
 
                 unique_lock<mutex> lk(s->lock);
 		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
