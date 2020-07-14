@@ -173,6 +173,7 @@ struct vidcap_decklink_state {
         bool                    detect_format;
         int                     requested_bit_depth; // 8, 10 or 12
         bool                    p_not_i;
+        bool                    use1080psf = false; // capture PsF instead of progressive
 
         uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link;
@@ -450,11 +451,16 @@ decklink_help(bool full)
         cout << style::bold << "half-duplex\n" << style::reset;
         cout << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
         cout << "\n";
-        cout << style::bold << "p_not_i\n" << style::reset;
-        printf("\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n");
-        printf("\n");
 
         if (full) {
+                cout << style::bold << "p_not_i\n" << style::reset;
+                cout << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
+                cout << "\n";
+
+                cout << style::bold << "Use1080PsF[=true|false]\n" << style::reset;
+                cout << "\tIncoming signal should be treated as PsF instead of progressive (default).\n";
+                cout << "\n";
+
                 cout << style::bold << "nosig-send\n" << style::reset;
                 cout << "\tSend video even if no signal was detected (useful when video interrupts\n"
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
@@ -638,6 +644,11 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->detect_format = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
+        } else if (strstr(opt, "Use1080PsF") != nullptr) {
+                s->use1080psf = true;
+                if (strcasecmp(opt + strlen("Use1080PsF"), "=false") == 0) {
+                        s->use1080psf = false;
+                }
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
@@ -1155,6 +1166,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->link = bmdLinkConfigurationSingleLink;
                 }
                 CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
+                CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf), "Unable to set output as PsF");
 
                 // set Callback which returns frames
                 s->state[i].delegate = new VideoDelegate(s, i);
