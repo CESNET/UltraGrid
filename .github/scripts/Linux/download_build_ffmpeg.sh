@@ -4,5 +4,5 @@ git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
 ( git clone -b sdk/8.1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git && cd nv-codec-headers && make && sudo make install )
 ( git clone --depth 1 https://aomedia.googlesource.com/aom && mkdir -p aom/build && cd aom/build && cmake -DBUILD_SHARED_LIBS=1 .. && make && sudo make install )
-./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx
+./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame
 make
