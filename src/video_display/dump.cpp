@@ -45,20 +45,25 @@
 #include "debug.h"
 #include "export.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "video.h"
 #include "video_display.h"
 
 #include <chrono>
 
+using rang::fg;
+using rang::style;
 using namespace std;
 using namespace std::chrono;
 
 struct dump_display_state {
-        dump_display_state()
+        explicit dump_display_state(char const *cfg)
         {
-                string dirname;
-                time_t now = time(NULL);
-                dirname = "dump." + to_string(now);
+                string dirname = cfg;
+                if (dirname.empty()) {
+                        time_t now = time(nullptr);
+                        dirname = "dump." + to_string(now);
+                }
                 e = export_init(NULL, dirname.c_str(), true);
         }
         ~dump_display_state() {
@@ -72,9 +77,22 @@ struct dump_display_state {
         size_t max_tile_data_len = 0;
 };
 
-static void *display_dump_init(struct module *, const char *, unsigned int)
+static void usage()
 {
-        return new dump_display_state();
+        cout << "Usage:\n";
+        cout << style::bold << fg::red << "\t-d dump" << fg::reset << "[:<directory>] [--param decoder-use-codec=<c>]\n" << style::reset;
+        cout << "where\n";
+        cout << style::bold << "\t<directory>" << style::reset << " - directory to save the dumped stream\n";
+        cout << style::bold << "\t<c>" << style::reset << " - codec to use instead of the received (default), must be a way to convert\n";
+}
+
+static void *display_dump_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */)
+{
+        if ("help"s == cfg) {
+                usage();
+                return &display_init_noerr;
+        }
+        return new dump_display_state(cfg);
 }
 
 static void display_dump_run(void *)
