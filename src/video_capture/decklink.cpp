@@ -857,60 +857,60 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
         BMD_STR displayModeString = NULL;
-        char *displayModeCString;
         HRESULT result;
 
         result = displayMode->GetName(&displayModeString);
-        if (result != S_OK)
-        {
-                auto it = std::find_if(uv_to_bmd_codec_map.begin(),
-                                uv_to_bmd_codec_map.end(),
-                                [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
-                if (it == uv_to_bmd_codec_map.end()) {
-                        LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
-                        return E_FAIL;
-                }
-                *pf = it->second;
-
-                // get avarage time between frames
-                BMDTimeValue	frameRateDuration;
-                BMDTimeScale	frameRateScale;
-
-                tile->width = displayMode->GetWidth();
-                tile->height = displayMode->GetHeight();
-                s->frame->color_spec = s->codec;
-
-                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
-                s->next_frame_time = (int) (1000000 / s->frame->fps); // in microseconds
-                switch(displayMode->GetFieldDominance()) {
-                        case bmdLowerFieldFirst:
-                        case bmdUpperFieldFirst:
-                                s->frame->interlacing = INTERLACED_MERGED;
-                                break;
-                        case bmdProgressiveFrame:
-                                s->frame->interlacing = PROGRESSIVE;
-                                break;
-                        case bmdProgressiveSegmentedFrame:
-                                s->frame->interlacing = SEGMENTED_FRAME;
-                                break;
-                        case bmdUnknownFieldDominance:
-				LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
-                                s->frame->interlacing = PROGRESSIVE;
-                                break;
-                }
-
-                if (s->p_not_i) {
-                        s->frame->interlacing = PROGRESSIVE;
-                }
-
-                displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
-                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeCString,
-                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */
-                printf("Enable video input: %s\n", displayModeCString);
-                release_bmd_api_str(displayModeString);
-                free(displayModeCString);
+        if (FAILED(result)) {
+                return result;
         }
+
+        auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                        uv_to_bmd_codec_map.end(),
+                        [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
+        if (it == uv_to_bmd_codec_map.end()) {
+                LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
+                return E_FAIL;
+        }
+        *pf = it->second;
+
+        // get avarage time between frames
+        BMDTimeValue	frameRateDuration = 0;
+        BMDTimeScale	frameRateScale = 0;
+
+        tile->width = displayMode->GetWidth();
+        tile->height = displayMode->GetHeight();
+        s->frame->color_spec = s->codec;
+
+        displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+        s->frame->fps = static_cast<double>(frameRateScale) / frameRateDuration;
+        s->next_frame_time = static_cast<int>(std::chrono::microseconds::period::den / s->frame->fps); // in microseconds
+        switch(displayMode->GetFieldDominance()) {
+                case bmdLowerFieldFirst:
+                case bmdUpperFieldFirst:
+                        s->frame->interlacing = INTERLACED_MERGED;
+                        break;
+                case bmdProgressiveFrame:
+                        s->frame->interlacing = PROGRESSIVE;
+                        break;
+                case bmdProgressiveSegmentedFrame:
+                        s->frame->interlacing = SEGMENTED_FRAME;
+                        break;
+                case bmdUnknownFieldDominance:
+                        LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
+                        s->frame->interlacing = PROGRESSIVE;
+                        break;
+        }
+
+        if (s->p_not_i) {
+                s->frame->interlacing = PROGRESSIVE;
+        }
+
+        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+        LOG(LOG_LEVEL_DEBUG) << displayModeCString << " \t " << tile->width << " x " << tile->height << " \t " <<
+                s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
+        cout << "Enable video input: " << displayModeCString << "\n";
+        release_bmd_api_str(displayModeString);
+        free(displayModeCString);
 
         tile->data_len =
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
