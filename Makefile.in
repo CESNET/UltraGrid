@@ -157,7 +157,6 @@ COMMON_OBJS     = \
 		src/video_capture.o \
 		src/video_capture_params.o \
 		src/video_capture/aggregate.o \
-		src/video_capture/banner.o \
 		src/video_capture/import.o \
 		src/video_capture/null.o \
 		src/video_capture/switcher.o \
