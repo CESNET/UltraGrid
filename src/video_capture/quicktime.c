@@ -808,13 +808,11 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                         s->qt_mode->aux);
                         switch(s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF)) {
                                 case AUX_PROGRESSIVE:
+                                case AUX_SF:
                                         s->frame->interlacing = PROGRESSIVE;
                                         break;
                                 case AUX_INTERLACED:
                                         s->frame->interlacing = INTERLACED_MERGED;
-                                        break;
-                                case AUX_SF:
-                                        s->frame->interlacing = SEGMENTED_FRAME;
                                         break;
                         }
                         free(device);

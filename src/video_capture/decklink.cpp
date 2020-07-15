@@ -890,10 +890,8 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         s->frame->interlacing = INTERLACED_MERGED;
                         break;
                 case bmdProgressiveFrame:
-                        s->frame->interlacing = PROGRESSIVE;
-                        break;
                 case bmdProgressiveSegmentedFrame:
-                        s->frame->interlacing = SEGMENTED_FRAME;
+                        s->frame->interlacing = PROGRESSIVE;
                         break;
                 case bmdUnknownFieldDominance:
                         LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";

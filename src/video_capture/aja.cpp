@@ -681,11 +681,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
 
         interlacing_t interlacing;
         if (NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat)) {
-                if (NTV2_IS_PSF_VIDEO_FORMAT(mVideoFormat)) {
-                        interlacing = SEGMENTED_FRAME;
-                } else {
-                        interlacing = PROGRESSIVE;
-                }
+                interlacing = PROGRESSIVE;
         } else {
                 interlacing = INTERLACED_MERGED;
         }
