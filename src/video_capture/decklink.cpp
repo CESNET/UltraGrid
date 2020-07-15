@@ -173,7 +173,7 @@ struct vidcap_decklink_state {
         bool                    detect_format;
         int                     requested_bit_depth; // 8, 10 or 12
         bool                    p_not_i;
-        bool                    use1080psf = false; // capture PsF instead of progressive
+        int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
         uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link;
@@ -461,7 +461,7 @@ decklink_help(bool full)
                 cout << "\n";
 
                 cout << style::bold << "Use1080PsF[=true|false]\n" << style::reset;
-                cout << "\tIncoming signal should be treated as PsF instead of progressive (default).\n";
+                cout << "\tIncoming signal should be treated as PsF instead of progressive.\n";
                 cout << "\n";
 
                 cout << style::bold << "nosig-send\n" << style::reset;
@@ -648,9 +648,9 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
-                s->use1080psf = true;
+                s->use1080psf = 1;
                 if (strcasecmp(opt + strlen("Use1080PsF"), "=false") == 0) {
-                        s->use1080psf = false;
+                        s->use1080psf = 0;
                 }
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
@@ -861,7 +861,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         HRESULT result;
 
         result = displayMode->GetName(&displayModeString);
-        if (result == S_OK)
+        if (result != S_OK)
         {
                 auto it = std::find_if(uv_to_bmd_codec_map.begin(),
                                 uv_to_bmd_codec_map.end(),
@@ -1169,7 +1169,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->link = bmdLinkConfigurationSingleLink;
                 }
                 CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
-                CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf), "Unable to set output as PsF");
+                if (s->use1080psf != BMD_OPT_KEEP) {
+                        CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
+                }
 
                 // set Callback which returns frames
                 s->state[i].delegate = new VideoDelegate(s, i);
