@@ -127,6 +127,7 @@ static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *pa
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
 static void show_encoder_help(string const &name);
+static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
@@ -434,6 +435,16 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 return 1;
         }
 
+        if (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec")) {
+                auto *codec = avcodec_find_encoder_by_name(s->backend.c_str());
+                if (codec != nullptr) {
+                        print_codec_supp_pix_fmts(codec->pix_fmts);
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open encoder: " << s->backend << "\n";
+                }
+                return 1;
+        }
+
         return 0;
 }
 
@@ -587,25 +598,26 @@ fail:
 }
 #endif
 
-static void print_codec_supp_pix_fmts(const list<enum AVPixelFormat>
-                &req_pix_fmts, const enum AVPixelFormat *first) {
-        char out[1024] = MOD_NAME "Codec supported pixel formats:";
+void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
+        string out = MOD_NAME "Codec supported pixel formats:";
         if (first == nullptr) {
-                strncat(out, " (none)", sizeof out - strlen(out) - 1);
+                out += " (none)";
         }
         const enum AVPixelFormat *it = first;
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
-                strncat(out, " ", sizeof out - strlen(out) - 1);
-                strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                out += " "s + av_get_pix_fmt_name(*it++);
         }
-        fprintf(stderr, "%s\n", out);
-        out[0] = '\0';
-        strncat(out, MOD_NAME "Usable pixel formats:", sizeof out - strlen(out) - 1);
+        cerr << out << "\n";
+}
+
+void print_pix_fmts(const list<enum AVPixelFormat>
+                &req_pix_fmts, const enum AVPixelFormat *first) {
+        print_codec_supp_pix_fmts(first);
+        string out = MOD_NAME "Usable pixel formats:";
         for (auto &c : req_pix_fmts) {
-                strncat(out, " ", sizeof out - strlen(out) - 1);
-                strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
+                out += " "s + av_get_pix_fmt_name(c);
         }
-        fprintf(stderr, "%s\n", out);
+        cerr << out << "\n";
 }
 
 /**
@@ -1093,7 +1105,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
-                print_codec_supp_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
+                print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
 
 #ifdef HAVE_SWSCALE
