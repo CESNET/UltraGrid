@@ -1,17 +1,18 @@
+/**
+ * @file   video_capture/testcard.cpp
+ * @author Colin Perkins <csp@csperkins.org
+ * @author Alvaro Saurin <saurin@dcs.gla.ac.uk>
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ */
 /*
- * FILE:   video_capture/testcard.cpp
- * AUTHOR: Colin Perkins <csp@csperkins.org
- *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
- *         Martin Benes     <martinbenesh@gmail.com>
- *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *         Petr Holub       <hopet@ics.muni.cz>
- *         Milos Liska      <xliska@fi.muni.cz>
- *         Jiri Matela      <matela@ics.muni.cz>
- *         Dalibor Matura   <255899@mail.muni.cz>
- *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2018 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -47,7 +48,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ */
+/**
+ * @file
+ * @todo
+ * Do the rendering in 16 bits
  */
 
 #include "config.h"
@@ -97,12 +102,11 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 class image_pattern {
 public:
         static unique_ptr<image_pattern> create(const char *pattern) noexcept;
-        unsigned char *init(int w, int h) {
-                width = w;
-                height = h;
-                data.resize(w * h * 4);
-                fill();
-                return data.data();
+        auto init(int width, int height) {
+                auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
+                auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[width * height * 4], delarr_deleter);
+                fill(width, height, out.get());
+                return out;
         }
         virtual ~image_pattern() = default;
         image_pattern() = default;
@@ -110,23 +114,19 @@ public:
         image_pattern & operator=(const image_pattern &) = delete;
         image_pattern(image_pattern &&) = delete;
         image_pattern && operator=(image_pattern &&) = delete;
-protected:
-        int width = 0;
-        int height = 0;
-        vector<unsigned char> data;
 private:
-        virtual void fill() = 0;
+        virtual void fill(int width, int height, unsigned char *data) = 0;
 };
 
 class image_pattern_bars : public image_pattern {
-        void fill() override {
+        void fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 int rect_size = COL_NUM;
                 struct testcard_rect r{};
                 struct testcard_pixmap pixmap{};
                 pixmap.w = width;
                 pixmap.h = height;
-                pixmap.data = data.data();
+                pixmap.data = data;
                 rect_size = (width + rect_size - 1) / rect_size;
                 for (int j = 0; j < height; j += rect_size) {
                         uint32_t grey = 0xFF010101U;
@@ -166,9 +166,9 @@ public:
         explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
 
 private:
-        void fill() override {
+        void fill(int width, int height, unsigned char *data) override {
                 for (int i = 0; i < width * height; ++i) {
-                        ((uint32_t *) data.data())[i] = color;
+                        (reinterpret_cast<uint32_t *>(data))[i] = color;
                 }
         }
         uint32_t color;
@@ -179,8 +179,8 @@ public:
         explicit image_pattern_gradient(uint32_t c) : color(c) {}
         static constexpr uint32_t red = 0xFFU;
 private:
-        void fill() override {
-                auto *ptr = reinterpret_cast<uint32_t *>(data.data());
+        void fill(int width, int height, unsigned char *data) override {
+                auto *ptr = reinterpret_cast<uint32_t *>(data);
                 for (int j = 0; j < height; j += 1) {
                         uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
                         uint8_t g = sin(static_cast<double>(j) / height * M_PI) * ((color >> 8) & 0xFFU);
@@ -195,8 +195,8 @@ private:
 };
 
 class image_pattern_noise : public image_pattern {
-        void fill() override {
-                for_each(data.begin(), data.end(), [](unsigned char & c) { c = rand() % 0xff; });
+        void fill(int width, int height, unsigned char *data) override {
+                for_each(data, data + 4 * width * height, [](unsigned char & c) { c = rand() % 0xff; });
         }
 };
 
@@ -413,7 +413,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
 static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
-static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
+static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
@@ -597,50 +597,64 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (!filename) {
-                unsigned char *data = s->pattern->init(aligned_x, s->frame->tiles[0].height);
-                unique_ptr<unsigned char[]> tmp;
+                auto data = s->pattern->init(aligned_x, s->frame->tiles[0].height);
+                auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
+                auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
                 if (codec == I420 || codec == v210 || codec == UYVY || codec == YUYV) {
-                        tmp = unique_ptr<unsigned char []>(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY)]);
-                        vc_copylineRGBAtoUYVY(tmp.get(), data,
+                        auto src = move(data);
+                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY)], delarr_deleter);
+                        vc_copylineRGBAtoUYVY(data.get(), src.get(),
                                         s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
-                        data = tmp.get();
+                }
+
+                if (codec == RG48) {
+                        auto decoder = get_decoder_from_to(RGBA, codec, true);
+                        auto src = move(data);
+                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec)], delarr_deleter);
+                        size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
+                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, codec);
+                        auto *in = src.get();
+                        auto *out = data.get();
+                        for (unsigned int i = 0; i < s->frame->tiles[0].height; ++i) {
+                                decoder(out, in, dst_linesize, 0, 0, 0);
+                                in += src_linesize;
+                                out += dst_linesize;
+                        }
                 }
 
                 if (codec == I420 || codec == v210) {
-                        auto src = move(tmp);
+                        auto src = move(data);
                         if (codec == v210) {
-                                tmp = unique_ptr<unsigned char []>(tov210(data, aligned_x,
-                                                aligned_x, vf_get_tile(s->frame, 0)->height, bpp));
+                                data = decltype(data)(tov210(src.get(), aligned_x,
+                                                aligned_x, vf_get_tile(s->frame, 0)->height, bpp), free_deleter);
                         } else {
-                                tmp = unique_ptr<unsigned char []>(reinterpret_cast<unsigned char *>((toI420(s->data, s->frame->tiles[0].width, s->frame->tiles[0].height))));
+                                data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
                         }
-                        data = tmp.get();
                 }
 
                 if (codec == R12L) {
-                        auto src = move(tmp);
-                        tmp = unique_ptr<unsigned char []>(reinterpret_cast<unsigned char *>(toRGB(data, vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height)));
-                        src = move(tmp);
-                        tmp = unique_ptr<unsigned char []>(new unsigned char[s->size]);
+                        auto src = move(data);
+                        data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
+                                           vf_get_tile(s->frame, 0)->height)), free_deleter);
+                        src = move(data);
+                        data = decltype(data)(new unsigned char[s->size], delarr_deleter);
                         int dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         int src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGB);
                         for (int i = 0; i < (int) vf_get_tile(s->frame, 0)->height; ++i) {
-                                vc_copylineRGBtoR12L(tmp.get() + i * dst_linesize,
+                                vc_copylineRGBtoR12L(data.get() + i * dst_linesize,
                                                 src.get() + i * src_linesize, dst_linesize, 0, 0, 0);
                         }
-                        data = tmp.get();
                 }
 
                 if (codec == R10k) {
-                        toR10k(data, vf_get_tile(s->frame, 0)->width,
+                        toR10k(data.get(), vf_get_tile(s->frame, 0)->width,
                                         vf_get_tile(s->frame, 0)->height);
                 }
 
                 if(codec == RGB) {
-                        tmp = unique_ptr<unsigned char []>(reinterpret_cast<unsigned char *>(toRGB(data, vf_get_tile(s->frame, 0)->width,
-                                                vf_get_tile(s->frame, 0)->height)));
-                        data = tmp.get();
+                        auto src = move(data);
+                        data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
+                                                vf_get_tile(s->frame, 0)->height)), free_deleter);
                 }
 
                 if(codec == YUYV) {
@@ -651,7 +665,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
                 vf_get_tile(s->frame, 0)->data = (char *) malloc(2 * s->size);
 
-                memcpy(vf_get_tile(s->frame, 0)->data, data, s->size);
+                memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->size);
                 memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
         }
 

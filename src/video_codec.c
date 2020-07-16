@@ -109,6 +109,7 @@ static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned 
                 int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 static decoder_func_t vc_copylineUYVYtoRG48;
 static decoder_func_t vc_copylineRGBtoRG48;
+static decoder_func_t vc_copylineRGBAtoRG48;
 static decoder_func_t vc_copylineRG48toUYVY;
 
 /**
@@ -1741,6 +1742,23 @@ void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * 
         }
 }
 
+static void vc_copylineRGBAtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 6; x += 6) {
+                *dst++ = 0;
+                *dst++ = *src++;
+                *dst++ = 0;
+                *dst++ = *src++;
+                *dst++ = 0;
+                *dst++ = *src++;
+                src++;
+        }
+}
+
 static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift) {
         UNUSED(rshift);
@@ -1748,7 +1766,7 @@ static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned 
         UNUSED(bshift);
 
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 2; x += 2) {
-                dst++;
+                *dst++ = 0;
                 *dst++ = *src++;
         }
 }
@@ -2369,6 +2387,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { (decoder_t) vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { (decoder_t) vc_copylineRGBtoR12L,   RGB,   R12L, false },
+        { (decoder_t) vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
         { (decoder_t) vc_copylineRGBtoRG48,   RGB,   RG48, false },
         { (decoder_t) vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
         { (decoder_t) vc_copylineRG48toR12L,  RG48,  R12L, false },
