@@ -170,7 +170,7 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         dump_display_state *s = (dump_display_state *) state;
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
-        s->f->decoder_overrides_data_len = TRUE;
+        s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? TRUE : FALSE;
         s->max_tile_data_len = MIN(8 * desc.width * desc.height, 1000000UL);
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
                 s->f->tiles[i].data = (char *) malloc(s->f->tiles[i].data_len);
