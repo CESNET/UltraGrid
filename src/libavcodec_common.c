@@ -134,6 +134,7 @@ static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
         {BGR, AV_PIX_FMT_BGR24},
         //J2K,
         {I420, AV_PIX_FMT_YUVJ420P},
+        {RG48, AV_PIX_FMT_RGB48LE},
         {0, 0}
 };
 
