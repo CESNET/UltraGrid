@@ -73,6 +73,7 @@
 #include <stdlib.h>
 #include <chrono>
 #include <memory>
+#include <random>
 #ifdef HAVE_LIBSDL_MIXER
 #include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
@@ -195,8 +196,9 @@ private:
 };
 
 class image_pattern_noise : public image_pattern {
+        default_random_engine rand_gen;
         void fill(int width, int height, unsigned char *data) override {
-                for_each(data, data + 4 * width * height, [](unsigned char & c) { c = rand() % 0xff; });
+                for_each(data, data + 4 * width * height, [&](unsigned char & c) { c = rand_gen() % 0xff; });
         }
 };
 
