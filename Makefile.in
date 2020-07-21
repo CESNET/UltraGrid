@@ -236,7 +236,7 @@ $(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DE
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
-	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
 $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
@@ -498,7 +498,7 @@ $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ @CPPUNIT_LIBS@ -o $@
 ifeq ($(SYSTEM),Windows)
-	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
 suggest-tests:
@@ -680,7 +680,7 @@ install: all
 	$(CP) $(srcdir)/speex-1.2rc1/COPYING $(DESTDIR)$(docdir)/COPYING.speex
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
-	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
+	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
