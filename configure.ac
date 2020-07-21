@@ -1979,7 +1979,7 @@ then
                 SCREEN_CAP_OBJ="src/video_capture/screen_x11.o src/x11_common.o"
         else
                 SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
-                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }bin/screen-capture-recorder-x64.dll"
+                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }data/screen-capture-recorder-x64.dll"
         fi
         ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
 else
