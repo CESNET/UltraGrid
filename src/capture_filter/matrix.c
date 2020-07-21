@@ -78,8 +78,12 @@ static int init(struct module *parent, const char *cfg, void **state)
         char *tmp = cfg_c;
         int i = 0;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
-                if (i == 9 && strcmp(item, "no-bound-check") == 0) {
-                        s->check_bounds = false;
+                if (i == 9) {
+                        if (strcmp(item, "no-bound-check") == 0) {
+                                s->check_bounds = false;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Excess initializer given: %s\n", item);
+                        }
                         break;
                 }
                 char *endptr = NULL;
