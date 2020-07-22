@@ -67,6 +67,7 @@
 #include "video_capture.h"
 #include "video_capture/testcard_common.h"
 #include "song1.h"
+#include "utils/color_out.h"
 #include "utils/vf_split.h"
 #include <algorithm>
 #include <stdio.h>
@@ -88,6 +89,8 @@
 #define DEFAULT_FORMAT "1920:1080:50i:UYVY"
 #define MOD_NAME "[testcard] "
 
+using rang::fg;
+using rang::style;
 using namespace std;
 
 struct testcard_rect {
@@ -432,13 +435,14 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=bars|blank|noise|0x<AABBGGRR>]\n");
-                printf("\t<filename> - use file named filename instead of default bars\n");
-                printf("\tp - pan with frame\n");
-                printf("\ts - split the frames into XxY separate tiles\n");
-                printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
-                printf("\tstill - send still image\n");
-                printf("\tpattern - pattern to use\n");
+                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>]\n");
+                cout << "where\n";
+                cout << BOLD("\t<filename>") << " - use file named filename instead of default bars\n";
+                cout << BOLD("\tp") << " - pan with frame\n";
+                cout << BOLD("\ts") << " - split the frames into XxY separate tiles\n";
+                cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
+                cout << BOLD("\tstill") << " - send still image\n";
+                cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], noise, 0x<AABBGGRR>\n");
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
