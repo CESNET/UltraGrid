@@ -1765,7 +1765,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(decklink, &display_decklink_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

@@ -564,7 +564,7 @@ static const struct video_display_info display_deltacast_info = {
         display_deltacast_get_property,
         display_deltacast_put_audio_frame,
         display_deltacast_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(deltacast, &display_deltacast_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

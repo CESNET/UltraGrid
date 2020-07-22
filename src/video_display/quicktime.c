@@ -1320,7 +1320,7 @@ static const struct video_display_info display_quicktime_info = {
         display_quicktime_get_property,
         display_quicktime_put_audio_frame,
         display_quicktime_reconfigure_audio,
-        true,
+        DISPLAY_NEEDS_MAINLOOP,
 };
 
 REGISTER_MODULE(quicktime, &display_quicktime_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

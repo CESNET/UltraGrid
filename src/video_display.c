@@ -182,7 +182,13 @@ void display_done(struct display *d)
 bool display_needs_mainloop(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        return d->funcs->needs_mainloop;
+        if (d->funcs->needs_mainloop == DISPLAY_NEEDS_MAINLOOP) {
+                return true;
+        }
+        if (d->funcs->needs_mainloop == DISPLAY_DOESNT_NEED_MAINLOOP) {
+                return false;
+        }
+        return d->funcs->needs_mainloop(d);
 }
 
 #define CHECK(cmd) do { \

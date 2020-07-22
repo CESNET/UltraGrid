@@ -565,7 +565,7 @@ static const struct video_display_info display_sage_info = {
         display_sage_get_property,
         display_sage_put_audio_frame,
         display_sage_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(sage, &display_sage_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

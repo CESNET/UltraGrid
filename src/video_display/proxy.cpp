@@ -423,7 +423,7 @@ static const struct video_display_info display_proxy_info = {
         display_proxy_get_property,
         display_proxy_put_audio_frame,
         display_proxy_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
