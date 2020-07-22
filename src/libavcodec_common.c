@@ -49,6 +49,10 @@
 
 #include <stdbool.h>
 
+#ifdef HAVE_SWSCALE
+#include <libswscale/swscale.h>
+#endif // defined HAVE_SWSCALE
+
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "libavcodec_common.h"
@@ -2050,4 +2054,40 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
         };
         return av_to_uv_conversions;
 }
+
+#ifdef HAVE_SWSCALE
+/**
+* Simplified version of this: https://cpp.hotexamples.com/examples/-/-/av_opt_set_int/cpp-av_opt_set_int-function-examples.html
+*
+* @todo
+* Use more fine-grained color-space characteristics that swscale support (eg. used in the original code).
+*/
+struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags) {
+    struct SwsContext *Context = sws_alloc_context();
+    // 0 = limited range, 1 = full range
+    int SrcRange = 1;
+    int DstRange = 1;
+
+    if (!Context) {
+            return 0;
+    }
+
+    av_opt_set_int(Context, "sws_flags",  Flags, 0);
+    av_opt_set_int(Context, "srcw",       SrcW, 0);
+    av_opt_set_int(Context, "srch",       SrcH, 0);
+    av_opt_set_int(Context, "dstw",       DstW, 0);
+    av_opt_set_int(Context, "dsth",       DstH, 0);
+    av_opt_set_int(Context, "src_range",  SrcRange, 0);
+    av_opt_set_int(Context, "dst_range",  DstRange, 0);
+    av_opt_set_int(Context, "src_format", SrcFormat, 0);
+    av_opt_set_int(Context, "dst_format", DstFormat, 0);
+
+    if (sws_init_context(Context, 0, 0) < 0) {
+        sws_freeContext(Context);
+        return 0;
+    }
+
+    return Context;
+}
+#endif // defined HAVE_SWSCALE
 

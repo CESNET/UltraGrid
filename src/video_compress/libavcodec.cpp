@@ -1154,16 +1154,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         return false;
                 }
 
-                s->sws_ctx = sws_getContext(desc.width,
+                s->sws_ctx = getSwsContext(desc.width,
                                             desc.height,
                                             s->selected_pixfmt,
                                             desc.width,
                                             desc.height,
                                             s->out_pixfmt,
-                                            SWS_POINT,
-                                            NULL,
-                                            NULL,
-                                            NULL);
+                                            SWS_POINT);
                 if(!s->sws_ctx){
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
                         return false;

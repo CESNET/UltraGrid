@@ -549,12 +549,9 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert.\n");
                 sws_freeContext(sws->ctx);
                 av_frame_free(&sws->frame);
-                sws->ctx = sws_getContext(width, height, sws_in_codec,
+                sws->ctx = getSwsContext(width, height, sws_in_codec,
                                 width, height, sws_out_codec,
-                                SWS_POINT,
-                                NULL,
-                                NULL,
-                                NULL);
+                                SWS_POINT);
                 if(!sws->ctx){
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init sws context.\n");
                         return false;
