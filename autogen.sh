@@ -16,7 +16,14 @@ cuda_host_compiler_arg_present() {
         done
         echo no
 }
-if [ $(uname -o) = "Msys" -a $(cuda_host_compiler_arg_present "$@") = no ]; then
+is_win() {
+        SYS=$(uname -s)
+        if expr $SYS : "MSYS" >/dev/null; then
+                echo yes
+        fi
+        echo no
+}
+if [ $(is_win) = "yes" -a $(cuda_host_compiler_arg_present "$@") = no ]; then
         CUDA_PRESENT=$(command -v nvcc >/dev/null && echo yes || echo no)
         CL_PRESENT=$(command -v cl >/dev/null && echo yes || echo no)
         if [ $CUDA_PRESENT = yes -a $CL_PRESENT = no ]; then
