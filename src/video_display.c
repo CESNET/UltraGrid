@@ -188,7 +188,7 @@ bool display_needs_mainloop(struct display *d)
         if (d->funcs->needs_mainloop == DISPLAY_DOESNT_NEED_MAINLOOP) {
                 return false;
         }
-        return d->funcs->needs_mainloop(d);
+        return d->funcs->needs_mainloop(d->state);
 }
 
 #define CHECK(cmd) do { \

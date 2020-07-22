@@ -145,6 +145,12 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << requested_display << "!\n";
                         abort();
                 }
+                if (display_needs_mainloop(disp.real_display) && !s->common->displays.empty()) {
+                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << requested_display << " needs mainloop but is not given first!\n";
+                        free(fmt_copy);
+                        delete s;
+                        return nullptr;
+                }
 
                 s->common->displays.push_back(std::move(disp));
         }
@@ -317,6 +323,12 @@ static int display_multiplier_reconfigure_audio(void *state, int quant_samples, 
         return FALSE;
 }
 
+static auto display_multiplier_needs_mainloop(void *state)
+{
+        auto s = static_cast<struct state_multiplier *>(state)->common;
+        return !s->displays.empty() && display_needs_mainloop(s->displays[0].real_display);
+}
+
 static const struct video_display_info display_multiplier_info = {
         [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
                 UNUSED(deleter);
@@ -332,7 +344,7 @@ static const struct video_display_info display_multiplier_info = {
         display_multiplier_get_property,
         display_multiplier_put_audio_frame,
         display_multiplier_reconfigure_audio,
-        DISPLAY_NEEDS_MAINLOOP,
+        display_multiplier_needs_mainloop,
 };
 
 REGISTER_MODULE(multiplier, &display_multiplier_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
