@@ -806,7 +806,7 @@ static const struct video_display_info display_sdl_info = {
         display_sdl_get_property,
         display_sdl_put_audio_frame,
         display_sdl_reconfigure_audio,
-        true,
+        DISPLAY_NEEDS_MAINLOOP,
 };
 
 REGISTER_MODULE(sdl, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

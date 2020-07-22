@@ -714,7 +714,7 @@ static const struct video_display_info display_conference_info = {
         display_conference_get_property,
         display_conference_put_audio_frame,
         display_conference_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(conference, &display_conference_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

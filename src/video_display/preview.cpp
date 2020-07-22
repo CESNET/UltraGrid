@@ -289,7 +289,7 @@ static const struct video_display_info display_preview_info = {
         display_preview_get_property,
         display_preview_put_audio_frame,
         display_preview_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(preview, &display_preview_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

@@ -91,6 +91,10 @@
 
 #include "types.h"
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -135,7 +139,11 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 10
+#define VIDEO_DISPLAY_ABI_VERSION 11
+
+typedef bool (*display_needs_mainloop_t)(void *);
+#define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
+#define DISPLAY_NEEDS_MAINLOOP ((display_needs_mainloop_t) 0x01)
 
 struct video_display_info {
         void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
@@ -149,7 +157,7 @@ struct video_display_info {
         void                    (*put_audio_frame) (void *state, struct audio_frame *frame);
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
                         int sample_rate);
-        bool                    needs_mainloop;
+        display_needs_mainloop_t needs_mainloop;
 };
 
 /* 
