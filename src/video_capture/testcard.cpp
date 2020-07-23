@@ -198,6 +198,26 @@ private:
         uint32_t color;
 };
 
+class image_pattern_gradient2 : public image_pattern {
+private:
+        static constexpr unsigned int alpha{0xFFU};
+        static constexpr unsigned int black{0xFFU};
+        static constexpr unsigned int rshift{0U};
+        static constexpr unsigned int gshift{8U};
+        static constexpr unsigned int bshift{16U};
+        static constexpr unsigned int ashift{24U};
+        void fill(int width, int height, unsigned char *data) override {
+                auto *ptr = reinterpret_cast<unsigned int *>(data);
+                for (int j = 0; j < height; j += 1) {
+                        for (int i = 0; i < width; i += 1) {
+                                unsigned int gray = i * black / width;
+                                uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
+                                *ptr++ = val;
+                        }
+                }
+        }
+};
+
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
         void fill(int width, int height, unsigned char *data) override {
@@ -210,6 +230,8 @@ unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
                 return make_unique<image_pattern_bars>();
         } else if (strcmp(pattern, "blank") == 0) {
                 return make_unique<image_pattern_blank>();
+        } else if (strcmp(pattern, "gradient2") == 0) {
+                return make_unique<image_pattern_gradient2>();
         } else if (strstr(pattern, "gradient") != nullptr) {
                 uint32_t color = image_pattern_gradient::red;
                 if (strstr(pattern, "gradient=") != nullptr) {
@@ -442,7 +464,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ts") << " - split the frames into XxY separate tiles\n";
                 cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << " - send still image\n";
-                cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], noise, 0x<AABBGGRR>\n");
+                cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
