@@ -797,36 +797,11 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         }
 
         if(!state->still_image) {
-                vf_get_tile(state->frame, 0)->data += state->frame_linesize;
+                vf_get_tile(state->frame, 0)->data += state->frame_linesize + state->pan;
         }
         if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
                 vf_get_tile(state->frame, 0)->data = state->data;
 
-        /*char line[state->frame.src_linesize * 2 + state->pan];
-          unsigned int i;
-          memcpy(line, state->frame.data,
-          state->frame.src_linesize * 2 + state->pan);
-          for (i = 0; i < state->frame.height - 3; i++) {
-          memcpy(state->frame.data + i * state->frame.src_linesize,
-          state->frame.data + (i + 2) * state->frame.src_linesize +
-          state->pan, state->frame.src_linesize);
-          }
-          memcpy(state->frame.data + i * state->frame.src_linesize,
-          state->frame.data + (i + 2) * state->frame.src_linesize +
-          state->pan, state->frame.src_linesize - state->pan);
-          memcpy(state->frame.data +
-          (state->frame.height - 2) * state->frame.src_linesize - state->pan,
-          line, state->frame.src_linesize * 2 + state->pan);
-#ifdef USE_EPILEPSY
-if(!(state->count % 2)) {
-unsigned int *p = state->frame.data;
-for(i=0; i < state->frame.src_linesize*state->frame.height/4; i++) {
-         *p = *p ^ 0x00ffffffL;
-         p++;
-         }
-         }
-#endif
-*/
         if (state->tiled) {
                 /* update tile data instead */
                 int i;
