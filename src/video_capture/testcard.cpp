@@ -444,7 +444,7 @@ static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NON
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
-static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
+static auto parse_format(char *fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
         desc.interlacing = PROGRESSIVE;
@@ -453,19 +453,24 @@ static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
         tmp = strtok_r(fmt, ":", save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return false;
+                return video_desc{};
         }
-        desc.width = atoi(tmp);
+        desc.width = max<long long>(strtol(tmp, nullptr, 0), 0);
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return false;
+                return video_desc{};
         }
-        desc.height = atoi(tmp);
+        desc.height = max<long long>(strtol(tmp, nullptr, 0), 0);
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return false;
+                return video_desc{};
+        }
+
+        if (desc.width * desc.height == 0) {
+                fprintf(stderr, "Wrong dimensions for testcard.\n");
+                return video_desc{};
         }
 
         char *endptr;
@@ -476,7 +481,7 @@ static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
                                 desc.interlacing != SEGMENTED_FRAME &&
                                 desc.interlacing != INTERLACED_MERGED) { // tff or bff
                         log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
-                        return false;
+                        return video_desc{};
                 }
                 if (desc.interlacing == INTERLACED_MERGED) {
                         desc.fps /= 2;
@@ -486,13 +491,13 @@ static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return false;
+                return video_desc{};
         }
 
         desc.color_spec = get_codec_from_name(tmp);
         if (desc.color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
-                return false;
+                return video_desc{};
         }
         {
                 const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
@@ -507,18 +512,11 @@ static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
                 }
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
-                        return false;
+                        return video_desc{};
                 }
         }
 
-        s->still_image = FALSE;
-
-        s->frame = vf_alloc_desc(desc);
-
-        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
-        s->size = s->frame->tiles[0].data_len;
-
-        return true;
+        return desc;
 }
 
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
@@ -555,9 +553,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 fmt = strdup(DEFAULT_FORMAT);
         }
 
-        if (!parse_format(s, fmt, &save_ptr)) {
+        struct video_desc desc = parse_format(fmt, &save_ptr);
+        if (!desc) {
                 goto error;
         }
+
+        s->still_image = FALSE;
+        s->frame = vf_alloc_desc(desc);
+        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
+        s->size = s->frame->tiles[0].data_len;
 
         filename = NULL;
 
