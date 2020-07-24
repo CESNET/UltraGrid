@@ -88,6 +88,7 @@
                 audio_capture_channels * BUFFER_SEC)
 #define MOD_NAME "[testcard] "
 constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
+constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 
 using rang::fg;
 using rang::style;
@@ -108,7 +109,6 @@ public:
         static unique_ptr<image_pattern> create(const char *pattern) noexcept;
         auto init(int width, int height) {
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                constexpr size_t headroom = 128; // v210 headroom
                 size_t data_len = width * height * 4 + headroom;
                 auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
                 fill(width, height, out.get());
@@ -624,17 +624,16 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height);
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV) {
-                        auto src = move(data);
-                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY)], delarr_deleter);
-                        vc_copylineRGBAtoUYVY(data.get(), src.get(),
-                                        s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
-                }
 
-                if (s->frame->color_spec == RG48) {
-                        auto decoder = get_decoder_from_to(RGBA, s->frame->color_spec, true);
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV || s->frame->color_spec == RG48
+                                || s->frame->color_spec == RGB) {
+                        codec_t codec_to = s->frame->color_spec;
+                        if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV) {
+                                codec_to = UYVY;
+                        }
+                        auto decoder = get_decoder_from_to(RGBA, codec_to, true);
                         auto src = move(data);
-                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec)], delarr_deleter);
+                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec_to) + headroom], delarr_deleter);
                         size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
                         size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         auto *in = src.get();
@@ -673,12 +672,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 if (s->frame->color_spec == R10k) {
                         toR10k(data.get(), vf_get_tile(s->frame, 0)->width,
                                         vf_get_tile(s->frame, 0)->height);
-                }
-
-                if(s->frame->color_spec == RGB) {
-                        auto src = move(data);
-                        data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
-                                                vf_get_tile(s->frame, 0)->height)), free_deleter);
                 }
 
                 if(s->frame->color_spec == YUYV) {
