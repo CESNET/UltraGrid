@@ -86,8 +86,8 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
-#define DEFAULT_FORMAT "1920:1080:50i:UYVY"
 #define MOD_NAME "[testcard] "
+constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
 
 using rang::fg;
 using rang::style;
@@ -444,27 +444,28 @@ static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NON
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
-static auto parse_format(char *fmt, char **save_ptr) {
+static auto parse_format(char **fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
         desc.interlacing = PROGRESSIVE;
         char *tmp;
 
-        tmp = strtok_r(fmt, ":", save_ptr);
+        tmp = strtok_r(*fmt, ":", save_ptr);
+        *fmt = nullptr;
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
                 return video_desc{};
         }
         desc.width = max<long long>(strtol(tmp, nullptr, 0), 0);
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
                 return video_desc{};
         }
         desc.height = max<long long>(strtol(tmp, nullptr, 0), 0);
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
                 return video_desc{};
         }
 
@@ -490,7 +491,7 @@ static auto parse_format(char *fmt, char **save_ptr) {
 
         tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
                 return video_desc{};
         }
 
@@ -547,13 +548,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
+        char *ptr = fmt;
 
-        if (strlen(fmt) == 0) {
-                free(fmt);
-                fmt = strdup(DEFAULT_FORMAT);
-        }
-
-        struct video_desc desc = parse_format(fmt, &save_ptr);
+        struct video_desc desc = [&]{ return strlen(ptr) == 0 || !isdigit(ptr[0]) ? default_format : parse_format(&ptr, &save_ptr);}();
         if (!desc) {
                 goto error;
         }
@@ -565,7 +562,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         filename = NULL;
 
-        tmp = strtok_r(NULL, ":", &save_ptr);
+        tmp = strtok_r(ptr, ":", &save_ptr);
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
