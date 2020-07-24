@@ -442,18 +442,108 @@ static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NON
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
+static auto parse_format(struct testcard_state *s, char *fmt, int *aligned_x, double *bpp, char **save_ptr) {
+        codec_t codec = RGBA;
+        struct video_desc desc{};
+        desc.tile_count = 1;
+        desc.interlacing = PROGRESSIVE;
+        char *tmp;
+        int h_align = 0;
+
+        tmp = strtok_r(fmt, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                return false;
+        }
+        desc.width = atoi(tmp);
+        tmp = strtok_r(nullptr, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                return false;
+        }
+        desc.height = atoi(tmp);
+        tmp = strtok_r(nullptr, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                return false;
+        }
+
+        char *endptr;
+        desc.fps = strtod(tmp, &endptr);
+        if (endptr[0] != '\0') { // optional interlacing suffix
+                desc.interlacing = get_interlacing_from_suffix(endptr);
+                if (desc.interlacing != PROGRESSIVE &&
+                                desc.interlacing != SEGMENTED_FRAME &&
+                                desc.interlacing != INTERLACED_MERGED) { // tff or bff
+                        log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
+                        return false;
+                }
+                if (desc.interlacing == INTERLACED_MERGED) {
+                        desc.fps /= 2;
+                }
+        }
+
+        tmp = strtok_r(nullptr, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+                return false;
+        }
+
+        codec = get_codec_from_name(tmp);
+        if (codec == VIDEO_CODEC_NONE) {
+                fprintf(stderr, "Unknown codec '%s'\n", tmp);
+                return false;
+        }
+        {
+                const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
+                bool supported = false;
+                for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
+                        const codec_t *it = sets[i];
+                        while (*it != VIDEO_CODEC_NONE) {
+                                if (codec == *it++) {
+                                        supported = true;
+                                }
+                        }
+                }
+                if (!supported) {
+                        log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
+                        return false;
+                }
+        }
+        h_align = get_halign(codec);
+        *bpp = get_bpp(codec);
+
+        desc.color_spec = codec;
+        s->still_image = FALSE;
+
+        if (*bpp == 0) {
+                fprintf(stderr, "Unsupported codec '%s'\n", tmp);
+                return false;
+        }
+
+        s->frame = vf_alloc_desc(desc);
+
+        *aligned_x = vf_get_tile(s->frame, 0)->width;
+        if (h_align) {
+                *aligned_x = (*aligned_x + h_align - 1) / h_align * h_align;
+        }
+
+        s->frame_linesize = *aligned_x * *bpp;
+        s->size = s->frame->tiles[0].data_len;
+
+        return true;
+}
+
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = nullptr;
         char *filename;
         const char *strip_fmt = NULL;
         FILE *in = NULL;
-        codec_t codec = RGBA;
-        int aligned_x;
         char *save_ptr = NULL;
-        struct video_desc desc{};
-        desc.tile_count = 1;
-        desc.interlacing = PROGRESSIVE;
+        char *tmp;
+        int aligned_x;
+        double bpp = 0;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
@@ -474,95 +564,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
-        char *tmp;
-        int h_align = 0;
-        double bpp = 0;
 
         if (strlen(fmt) == 0) {
                 free(fmt);
                 fmt = strdup(DEFAULT_FORMAT);
         }
 
-        tmp = strtok_r(fmt, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
+        if (!parse_format(s, fmt, &aligned_x, &bpp, &save_ptr)) {
                 goto error;
         }
-        desc.width = atoi(tmp);
-        tmp = strtok_r(NULL, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
-        }
-        desc.height = atoi(tmp);
-        tmp = strtok_r(NULL, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
-        }
-
-        char *endptr;
-        desc.fps = strtod(tmp, &endptr);
-        if (endptr[0] != '\0') { // optional interlacing suffix
-                desc.interlacing = get_interlacing_from_suffix(endptr);
-                if (desc.interlacing != PROGRESSIVE &&
-                                desc.interlacing != SEGMENTED_FRAME &&
-                                desc.interlacing != INTERLACED_MERGED) { // tff or bff
-                        log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
-                        goto error;
-                }
-                if (desc.interlacing == INTERLACED_MERGED) {
-                        desc.fps /= 2;
-                }
-        }
-
-        tmp = strtok_r(NULL, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
-        }
-
-        codec = get_codec_from_name(tmp);
-        if (codec == VIDEO_CODEC_NONE) {
-                fprintf(stderr, "Unknown codec '%s'\n", tmp);
-                goto error;
-        }
-        {
-                const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
-                bool supported = false;
-                for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
-                        const codec_t *it = sets[i];
-                        while (*it != VIDEO_CODEC_NONE) {
-                                if (codec == *it++) {
-                                        supported = true;
-                                }
-                        }
-                }
-                if (!supported) {
-                        log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
-                        goto error;
-                }
-        }
-        h_align = get_halign(codec);
-        bpp = get_bpp(codec);
-
-        desc.color_spec = codec;
-        s->still_image = FALSE;
-
-        if(bpp == 0) {
-                fprintf(stderr, "Unsupported codec '%s'\n", tmp);
-                goto error;
-        }
-
-        s->frame = vf_alloc_desc(desc);
-
-        aligned_x = vf_get_tile(s->frame, 0)->width;
-        if (h_align) {
-                aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
-        }
-
-        s->frame_linesize = aligned_x * bpp;
-        s->size = s->frame->tiles[0].data_len;
 
         filename = NULL;
 
@@ -628,19 +638,19 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 auto data = s->pattern->init(aligned_x, s->frame->tiles[0].height);
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                if (codec == I420 || codec == v210 || codec == UYVY || codec == YUYV) {
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV) {
                         auto src = move(data);
                         data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY)], delarr_deleter);
                         vc_copylineRGBAtoUYVY(data.get(), src.get(),
                                         s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
                 }
 
-                if (codec == RG48) {
-                        auto decoder = get_decoder_from_to(RGBA, codec, true);
+                if (s->frame->color_spec == RG48) {
+                        auto decoder = get_decoder_from_to(RGBA, s->frame->color_spec, true);
                         auto src = move(data);
-                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec)], delarr_deleter);
+                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec)], delarr_deleter);
                         size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
-                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, codec);
+                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         auto *in = src.get();
                         auto *out = data.get();
                         for (unsigned int i = 0; i < s->frame->tiles[0].height; ++i) {
@@ -650,9 +660,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         }
                 }
 
-                if (codec == I420 || codec == v210) {
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210) {
                         auto src = move(data);
-                        if (codec == v210) {
+                        if (s->frame->color_spec == v210) {
                                 data = decltype(data)(tov210(src.get(), aligned_x,
                                                 aligned_x, vf_get_tile(s->frame, 0)->height, bpp), free_deleter);
                         } else {
@@ -660,7 +670,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         }
                 }
 
-                if (codec == R12L) {
+                if (s->frame->color_spec == R12L) {
                         auto src = move(data);
                         data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height)), free_deleter);
@@ -674,18 +684,18 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         }
                 }
 
-                if (codec == R10k) {
+                if (s->frame->color_spec == R10k) {
                         toR10k(data.get(), vf_get_tile(s->frame, 0)->width,
                                         vf_get_tile(s->frame, 0)->height);
                 }
 
-                if(codec == RGB) {
+                if(s->frame->color_spec == RGB) {
                         auto src = move(data);
                         data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
                                                 vf_get_tile(s->frame, 0)->height)), free_deleter);
                 }
 
-                if(codec == YUYV) {
+                if(s->frame->color_spec == YUYV) {
                         for (int i = 0; i < s->size; i += 2) {
                                 swap(data[i], data[i + 1]);
                         }
@@ -697,8 +707,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
         }
 
-        if (!s->still_image && codec_is_planar(codec)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(codec));
+        if (!s->still_image && codec_is_planar(s->frame->color_spec)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(s->frame->color_spec));
                 s->still_image = true;
         }
 
