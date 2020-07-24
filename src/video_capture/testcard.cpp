@@ -649,8 +649,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         auto src = move(data);
                         if (s->frame->color_spec == v210) {
                                 data = decltype(data)(tov210(src.get(), s->frame->tiles[0].width,
-                                                get_aligned_length(s->frame->tiles[0].width, s->frame->color_spec),
-                                                vf_get_tile(s->frame, 0)->height, get_bpp(s->frame->color_spec)), free_deleter);
+                                                vf_get_tile(s->frame, 0)->height), free_deleter);
                         } else {
                                 data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
                         }

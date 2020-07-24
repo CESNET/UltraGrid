@@ -68,8 +68,10 @@ const int rect_colors[] = {
         0xffff00ff
 };
 
-unsigned char *tov210(unsigned char *in, unsigned int width,
-                      unsigned int aligned_x, unsigned int height, double bpp)
+/**
+ * Converts UYVY to v210
+ */
+unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int height)
 {
         struct {
                 unsigned a:10;
@@ -79,9 +81,9 @@ unsigned char *tov210(unsigned char *in, unsigned int width,
         } *p;
         unsigned int i, j;
 
-        unsigned int linesize = aligned_x * bpp;
+        unsigned int linesize = vc_get_linesize(width, v210);
 
-        unsigned char *dst = (unsigned char *)malloc(aligned_x * height * bpp);
+        unsigned char *dst = (unsigned char *)malloc(linesize * height);
         unsigned char *src;
         unsigned char *ret = dst;
 
