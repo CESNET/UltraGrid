@@ -256,7 +256,6 @@ unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
 
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
-        int size;
         int pan;
         char *data {nullptr};
         std::chrono::steady_clock::time_point t0;
@@ -557,8 +556,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         s->still_image = FALSE;
         s->frame = vf_alloc_desc(desc);
+        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
         s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
-        s->size = s->frame->tiles[0].data_len;
 
         filename = NULL;
 
@@ -578,12 +577,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         assert(filesize >= 0);
                         fseek(in, 0L, SEEK_SET);
 
-                        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->size * 2));
-
-                        if (s->size != filesize) {
+                        if (s->frame->tiles[0].data_len != filesize) {
                                 fprintf(stderr, "Error wrong file size for selected "
                                                 "resolution and codec. File size %ld, "
-                                                "computed size %d\n", filesize, s->size);
+                                                "computed size %d\n", filesize, s->frame->tiles[0].data_len);
                                 goto error;
                         }
 
@@ -594,8 +591,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
                         fclose(in);
                         in = NULL;
-
-                        memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
@@ -660,7 +655,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height)), free_deleter);
                         src = move(data);
-                        data = decltype(data)(new unsigned char[s->size], delarr_deleter);
+                        data = decltype(data)(new unsigned char[s->frame->tiles[0].data_len], delarr_deleter);
                         int dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         int src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGB);
                         for (int i = 0; i < (int) vf_get_tile(s->frame, 0)->height; ++i) {
@@ -675,16 +670,16 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 }
 
                 if(s->frame->color_spec == YUYV) {
-                        for (int i = 0; i < s->size; i += 2) {
+                        for (unsigned int i = 0; i < s->frame->tiles[0].data_len; i += 2) {
                                 swap(data[i], data[i + 1]);
                         }
                 }
 
-                vf_get_tile(s->frame, 0)->data = (char *) malloc(2 * s->size);
-
-                memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->size);
-                memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
+                memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->frame->tiles[0].data_len);
         }
+
+        // duplicate the image to allow scrolling
+        memcpy(vf_get_tile(s->frame, 0)->data + vf_get_tile(s->frame, 0)->data_len, vf_get_tile(s->frame, 0)->data, vf_get_tile(s->frame, 0)->data_len);
 
         if (!s->still_image && codec_is_planar(s->frame->color_spec)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(s->frame->color_spec));
@@ -788,8 +783,9 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         if(!state->still_image) {
                 vf_get_tile(state->frame, 0)->data += state->frame_linesize + state->pan;
         }
-        if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
+        if (vf_get_tile(state->frame, 0)->data > state->data + state->frame->tiles[0].data_len) {
                 vf_get_tile(state->frame, 0)->data = state->data;
+        }
 
         if (state->tiled) {
                 /* update tile data instead */
