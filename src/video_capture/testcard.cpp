@@ -108,7 +108,9 @@ public:
         static unique_ptr<image_pattern> create(const char *pattern) noexcept;
         auto init(int width, int height) {
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[width * height * 4], delarr_deleter);
+                constexpr size_t headroom = 128; // v210 headroom
+                size_t data_len = width * height * 4 + headroom;
+                auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
                 fill(width, height, out.get());
                 return out;
         }
@@ -442,13 +444,11 @@ static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NON
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
-static auto parse_format(struct testcard_state *s, char *fmt, int *aligned_x, double *bpp, char **save_ptr) {
-        codec_t codec = RGBA;
+static auto parse_format(struct testcard_state *s, char *fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
         desc.interlacing = PROGRESSIVE;
         char *tmp;
-        int h_align = 0;
 
         tmp = strtok_r(fmt, ":", save_ptr);
         if (!tmp) {
@@ -489,8 +489,8 @@ static auto parse_format(struct testcard_state *s, char *fmt, int *aligned_x, do
                 return false;
         }
 
-        codec = get_codec_from_name(tmp);
-        if (codec == VIDEO_CODEC_NONE) {
+        desc.color_spec = get_codec_from_name(tmp);
+        if (desc.color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
                 return false;
         }
@@ -500,7 +500,7 @@ static auto parse_format(struct testcard_state *s, char *fmt, int *aligned_x, do
                 for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
                         const codec_t *it = sets[i];
                         while (*it != VIDEO_CODEC_NONE) {
-                                if (codec == *it++) {
+                                if (desc.color_spec == *it++) {
                                         supported = true;
                                 }
                         }
@@ -510,25 +510,12 @@ static auto parse_format(struct testcard_state *s, char *fmt, int *aligned_x, do
                         return false;
                 }
         }
-        h_align = get_halign(codec);
-        *bpp = get_bpp(codec);
 
-        desc.color_spec = codec;
         s->still_image = FALSE;
-
-        if (*bpp == 0) {
-                fprintf(stderr, "Unsupported codec '%s'\n", tmp);
-                return false;
-        }
 
         s->frame = vf_alloc_desc(desc);
 
-        *aligned_x = vf_get_tile(s->frame, 0)->width;
-        if (h_align) {
-                *aligned_x = (*aligned_x + h_align - 1) / h_align * h_align;
-        }
-
-        s->frame_linesize = *aligned_x * *bpp;
+        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
         s->size = s->frame->tiles[0].data_len;
 
         return true;
@@ -542,8 +529,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         FILE *in = NULL;
         char *save_ptr = NULL;
         char *tmp;
-        int aligned_x;
-        double bpp = 0;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
@@ -570,7 +555,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 fmt = strdup(DEFAULT_FORMAT);
         }
 
-        if (!parse_format(s, fmt, &aligned_x, &bpp, &save_ptr)) {
+        if (!parse_format(s, fmt, &save_ptr)) {
                 goto error;
         }
 
@@ -592,7 +577,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         assert(filesize >= 0);
                         fseek(in, 0L, SEEK_SET);
 
-                        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->size * bpp * 2));
+                        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->size * 2));
 
                         if (s->size != filesize) {
                                 fprintf(stderr, "Error wrong file size for selected "
@@ -635,7 +620,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (!filename) {
-                auto data = s->pattern->init(aligned_x, s->frame->tiles[0].height);
+                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height);
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
                 if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV) {
@@ -663,8 +648,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 if (s->frame->color_spec == I420 || s->frame->color_spec == v210) {
                         auto src = move(data);
                         if (s->frame->color_spec == v210) {
-                                data = decltype(data)(tov210(src.get(), aligned_x,
-                                                aligned_x, vf_get_tile(s->frame, 0)->height, bpp), free_deleter);
+                                data = decltype(data)(tov210(src.get(), s->frame->tiles[0].width,
+                                                get_aligned_length(s->frame->tiles[0].width, s->frame->color_spec),
+                                                vf_get_tile(s->frame, 0)->height, get_bpp(s->frame->color_spec)), free_deleter);
                         } else {
                                 data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
                         }
@@ -715,7 +701,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         s->last_frame_time = std::chrono::steady_clock::now();
 
         printf("Testcard capture set to %dx%d, bpp %f\n", vf_get_tile(s->frame, 0)->width,
-                        vf_get_tile(s->frame, 0)->height, bpp);
+                        vf_get_tile(s->frame, 0)->height, get_bpp(s->frame->color_spec));
 
         if(strip_fmt != NULL) {
                 if(configure_tiling(s, strip_fmt) != 0) {
