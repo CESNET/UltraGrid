@@ -302,6 +302,7 @@ struct state_decklink {
         uint32_t            profile_req; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
+        BMDVideoOutputConversionMode conversion_mode{bmdNoVideoOutputConversion};
 
         buffer_pool_t       buffer_pool;
 
@@ -751,7 +752,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                                         "Quad-link SDI Square Division Quad Split mode");
                 }
 
-                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, supportedFlags, nullptr, &supported),
+                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, s->conversion_mode, supportedFlags, nullptr, &supported),
                                 "DoesSupportVideoMode");
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
@@ -871,7 +872,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 string cardId[],
                 BMDVideo3DPackingFormat *HDMI3DPacking,
                 int *audio_consumer_levels,
-                BMDVideoOutputConversionMode *conversion_mode,
                 int *use1080psf) {
         if (strlen(fmt) == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Card number unset, using first found (see -d decklink:help)!\n";
@@ -958,7 +958,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         }
                 } else if (strncasecmp(ptr, "conversion=",
                                         strlen("conversion=")) == 0) {
-                        *conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
+                        s->conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
                 } else if (strstr(ptr, "Use1080pNotPsF=") == ptr
                                 || strstr(ptr, "Use1080PsF") == ptr) {
                         if (strstr(ptr, "Use1080pNotPsF=") == ptr) { // compat
@@ -1006,7 +1006,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-        BMDVideoOutputConversionMode conversion_mode = (BMDVideoOutputConversionMode) BMD_OPT_DEFAULT;
         int use1080psf = BMD_OPT_KEEP;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1028,7 +1027,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->devices_cnt = 1;
         s->low_latency = true;
 
-        if (!settings_init(s, fmt, cardId, &HDMI3DPacking, &audio_consumer_levels, &conversion_mode, &use1080psf)) {
+        if (!settings_init(s, fmt, cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
                 return NULL;
         }
@@ -1153,7 +1152,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                BMD_CONFIG_SET_INT(conversion_mode, BMDVideoOutputConversionMode, bmdDeckLinkConfigVideoOutputConversionMode, "conversion mode");
+                BMD_CONFIG_SET_INT(s->conversion_mode, BMDVideoOutputConversionMode, bmdDeckLinkConfigVideoOutputConversionMode, "conversion mode");
 
 		if (use1080psf != BMD_OPT_KEEP) {
                         result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf != 0);
@@ -1327,7 +1326,7 @@ static bool decklink_display_supports_codec(IDeckLinkOutput *deckLinkOutput, BMD
 
         while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK) {
                 BMD_BOOL supported;
-                HRESULT res = deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdSupportedVideoModeDefault, nullptr, &supported);
+                HRESULT res = deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, deckLinkDisplayMode->GetDisplayMode(), pf, bmdNoVideoOutputConversion, bmdSupportedVideoModeDefault, nullptr, &supported);
                 deckLinkDisplayMode->Release();
                 if (res != S_OK) {
                         CALL_AND_CHECK(res, "DoesSupportVideoMode");

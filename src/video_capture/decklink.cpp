@@ -1012,7 +1012,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         s->connection = bmdVideoConnectionUnspecified;
         s->enable_flags = 0;
         s->audio_consumer_levels = -1;
-        s->conversion_mode = (BMDVideoInputConversionMode) 0;
+        s->conversion_mode = bmdNoVideoInputConversion;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
@@ -1225,8 +1225,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                                 BMDPixelFormat pf = it->second;
-                                BMD_BOOL supported;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
+                                bool supported;
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
                                 if (supported) {
                                         break;
                                 }
@@ -1287,8 +1287,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->enable_flags |=  bmdVideoInputEnableFormatDetection;
                 }
 
-                BMD_BOOL supported;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
+                bool supported;
+                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
 
                 if (!supported) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
