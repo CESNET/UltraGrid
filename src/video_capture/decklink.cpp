@@ -171,7 +171,7 @@ struct vidcap_decklink_state {
         struct timeval          t0;
 
         bool                    detect_format;
-        int                     requested_bit_depth; // 8, 10 or 12
+        unsigned int            requested_bit_depth; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i;
         int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
@@ -188,6 +188,9 @@ static void print_input_modes (IDeckLink* deckLink);
 class VideoDelegate : public IDeckLinkInputCallback {
 private:
 	int32_t                       mRefCount{};
+        static constexpr BMDDetectedVideoInputFormatFlags csMask{bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInputRGB444};
+        static constexpr BMDDetectedVideoInputFormatFlags bitDepthMask{bmdDetectedVideoInput8BitDepth | bmdDetectedVideoInput10BitDepth | bmdDetectedVideoInput12BitDepth};
+        BMDDetectedVideoInputFormatFlags configuredCsBitDepth{};
 
 public:
         int	                      newFrameReady{};
@@ -228,7 +231,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
                         BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
-                        BMDDetectedVideoInputFormatFlags flags) override {
+                        BMDDetectedVideoInputFormatFlags flags) noexcept override {
                 BMDPixelFormat pf;
                 HRESULT result;
 
@@ -256,24 +259,36 @@ public:
                         return S_OK;
                 }
 
-                unique_lock<mutex> lk(s->lock);
 		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
 			LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D detected but not enabled! Please supply a \"3D\" parameter.\n";
 			return E_FAIL;
 		}
-                if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
-                        unordered_map<int, codec_t> m = {{8, UYVY}, {10, v210}, {12, v210}};
-                        if (s->requested_bit_depth == 12) {
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Using 10-bit YCbCr.\n";
-                        }
-                        s->codec = m.at(s->requested_bit_depth);
-                } else if ((flags & bmdDetectedVideoInputRGB444) != 0u) {
-                        unordered_map<int, codec_t> m = {{8, RGBA}, {10, R10k}, {12, R12L}};
-                        s->codec = m.at(s->requested_bit_depth);
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
-                        abort();
+                BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
+                if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
+                        csBitDepth |= bmdDetectedVideoInput8BitDepth;
                 }
+                if (s->requested_bit_depth != 0) {
+                        csBitDepth = (flags & csMask) | s->requested_bit_depth;
+                }
+                unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput8BitDepth, UYVY},
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput10BitDepth, v210},
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth, v210}, // weird
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth, RGBA},
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
+                };
+                if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) { // only CS change which was already performed
+                        return S_OK;
+                }
+                if (csBitDepth == (bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth)) {
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Using 10-bit YCbCr.\n";
+                }
+
+                unique_lock<mutex> lk(s->lock);
+                s->codec = m.at(csBitDepth);
+                configuredCsBitDepth = csBitDepth;
+
                 LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->PauseStreams();
@@ -697,7 +712,7 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
 static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
         // defaults
-        s->codec = UYVY;
+        s->codec = VIDEO_CODEC_NONE;
         s->devices_cnt = 1;
         s->state.resize(s->devices_cnt);
         s->state[0].device_id = "0";
@@ -1032,9 +1047,16 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 		}
 	}
 
-        s->requested_bit_depth = get_bits_per_component(s->codec);
-        assert(s->requested_bit_depth == 8 || s->requested_bit_depth == 10
-                        || s->requested_bit_depth == 12);
+        switch (get_bits_per_component(s->codec)) {
+        case 0: s->requested_bit_depth = 0; break;
+        case 8: s->requested_bit_depth = bmdDetectedVideoInput8BitDepth; break;
+        case 10: s->requested_bit_depth = bmdDetectedVideoInput10BitDepth; break;
+        case 12: s->requested_bit_depth = bmdDetectedVideoInput12BitDepth; break;
+        default: abort();
+        }
+        if (s->codec == VIDEO_CODEC_NONE) {
+                s->codec = UYVY; // default one
+        }
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
