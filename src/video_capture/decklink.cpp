@@ -251,7 +251,8 @@ public:
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) noexcept override {
                 LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents) << ").\n";
-                if ((notificationEvents & (bmdVideoInputDisplayModeChanged | bmdVideoInputColorspaceChanged)) == 0U) { // only field dominance changed - ignore
+                notificationEvents &= ~bmdVideoInputFieldDominanceChanged; // ignore field dominance change
+                if (notificationEvents == 0U) {
                         return S_OK;
                 }
 
