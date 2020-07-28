@@ -277,8 +277,9 @@ public:
                 if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) { // only CS change which was already performed
                         return S_OK;
                 }
-                if (csBitDepth == (bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth)) {
-                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Using 10-bit YCbCr.\n";
+                if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
+                        const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Capturing detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
                 }
 
                 unique_lock<mutex> lk(s->lock);
@@ -832,7 +833,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].id,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].id,
-                                                "{\"modeOpt\":\"connection=%s:mode=%s\"}",
+                                                R"({"modeOpt":"connection=%s:mode=%s:codec=UYVY"})",
                                                 c.c_str(), get<1>(m).c_str());
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].name,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].name,
