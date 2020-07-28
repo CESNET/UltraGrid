@@ -228,34 +228,30 @@ public:
 		}
         	return newRefValue;
 	}
+        static auto getNotificationEventsStr(BMDVideoInputFormatChangedEvents notificationEvents) noexcept {
+                string reason{};
+                map<BMDDetectedVideoInputFormatFlags, string> m{
+                        { bmdVideoInputDisplayModeChanged, "display mode"s },
+                        { bmdVideoInputFieldDominanceChanged, "field dominance"s },
+                        { bmdVideoInputColorspaceChanged, "color space"s },
+                };
+                for (auto &i : m) {
+                        if ((notificationEvents & i.first) != 0U) {
+                                if (!reason.empty()) {
+                                        reason += ", "s;
+                                }
+                                reason += i.second;
+                        }
+                }
+                return reason.empty() ? "unknown"s : reason;
+        }
+
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
                         BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) noexcept override {
-                BMDPixelFormat pf;
-                HRESULT result;
-
-                string reason{};
-                if ((notificationEvents & bmdVideoInputDisplayModeChanged) != 0u) {
-                        reason = "display mode";
-                }
-                if ((notificationEvents & bmdVideoInputFieldDominanceChanged) != 0u) {
-                        if (!reason.empty()) {
-                                reason += ", ";
-                        }
-                        reason += "field dominance";
-                }
-                if ((notificationEvents & bmdVideoInputColorspaceChanged) != 0u) {
-                        if (!reason.empty()) {
-                                reason += ", ";
-                        }
-                        reason += "color space";
-                }
-                if (reason.empty()) {
-                        reason = "unknown";
-                }
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << reason << ").\n";
-                if ((notificationEvents & (bmdVideoInputDisplayModeChanged | bmdVideoInputColorspaceChanged)) == 0U) {
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents) << ").\n";
+                if ((notificationEvents & (bmdVideoInputDisplayModeChanged | bmdVideoInputColorspaceChanged)) == 0U) { // only field dominance changed - ignore
                         return S_OK;
                 }
 
@@ -292,7 +288,8 @@ public:
                 LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->PauseStreams();
-                result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
+                BMDPixelFormat pf{};
+                HRESULT result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
                         CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
                         if(s->grab_audio == FALSE ||
