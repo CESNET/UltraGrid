@@ -276,6 +276,11 @@ bool encoder_state::configure_with(struct video_desc desc)
                 }
         }
 
+        if (get_bits_per_component(desc.color_spec) > 8) {
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Converting from " << get_bits_per_component(desc.color_spec) <<
+                        " to 8 bits. You may directly capture 8-bit signal to improve performance.\n";
+        }
+
         gpujpeg_set_default_parameters(&m_encoder_param);
         if (m_parent_state->m_quality != -1) {
                 m_encoder_param.quality = m_parent_state->m_quality;
