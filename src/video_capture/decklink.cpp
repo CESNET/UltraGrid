@@ -1623,7 +1623,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         }
                         */
 
-                        return NULL;
+                        frame_ready = false;
                 }
 	}
 
@@ -1635,6 +1635,8 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 s->state[i].delegate->newFrameReady = 0;
 	}
 
+        *audio = process_new_audio_packets(s); // return audio even if there is no video to avoid
+                                               //  hoarding and then dropping of audio packets
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 	lk.unlock();
 
@@ -1676,10 +1678,6 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         }
         if (count == s->devices_cnt) {
                 s->frames++;
-
-                lk.lock();
-                *audio = process_new_audio_packets(s);
-                lk.unlock();
 
                 struct timeval t;
                 gettimeofday(&t, NULL);
