@@ -3057,7 +3057,7 @@ AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 AC_CHECK_LIB($NDI_LIB, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
 
 # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
-if test $ndi_req != no -a \( \( "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes \) -o \( -n "$NDI_SDK_DIR" -a $system = Windows\) \)
+if test $ndi_req != no -a \( \( "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes \) -o \( -n "$NDI_SDK_DIR" -a $system = Windows \) \)
 then
         if test -n "$NDI_SDK_DIR" -a $system = Windows; then
                 COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
