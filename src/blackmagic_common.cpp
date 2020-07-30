@@ -354,8 +354,19 @@ uint32_t bmd_read_fourcc(const char *str) {
         return htonl(u.fourcc);
 }
 
-std::ostream &operator<<(std::ostream &output, const REFIID &iid)
+std::ostream &operator<<(std::ostream &output, REFIID iid)
 {
+#ifdef _WIN32
+        OLECHAR* guidString;
+        StringFromCLSID(iid, &guidString);
+        char buffer[128];
+        int ret = wcstombs(buffer, guidString, sizeof buffer);
+        if (ret == sizeof buffer) {
+                buffer[sizeof buffer - 1] = '\0';
+        }
+        output << buffer;
+        ::CoTaskMemFree(guidString);
+#else
         auto flags = output.flags();
         output << hex << uppercase << setfill('0') <<
                 setw(2) << static_cast<int>(iid.byte0) << setw(2) << static_cast<int>(iid.byte1) <<
@@ -367,6 +378,7 @@ std::ostream &operator<<(std::ostream &output, const REFIID &iid)
                 setw(2) << static_cast<int>(iid.byte12) << setw(2) << static_cast<int>(iid.byte13) <<
                 setw(2) << static_cast<int>(iid.byte14) << setw(2) << static_cast<int>(iid.byte15);
         output.setf(flags);
+#endif
         return output;
 }
 

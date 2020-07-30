@@ -1246,7 +1246,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                                 BMDPixelFormat pf = it->second;
-                                bool supported;
+                                BMD_BOOL supported = 0;
                                 EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
                                 if (supported) {
                                         break;
@@ -1308,7 +1308,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->enable_flags |=  bmdVideoInputEnableFormatDetection;
                 }
 
-                bool supported;
+                BMD_BOOL supported = 0;
                 EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
 
                 if (!supported) {
@@ -1624,6 +1624,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         */
 
                         frame_ready = false;
+                        break;
                 }
 	}
 

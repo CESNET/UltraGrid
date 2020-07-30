@@ -272,8 +272,8 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 // IDeckLinkVideoFrameMetadataExtensions interface
                 virtual HRESULT STDMETHODCALLTYPE GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value);
                 virtual HRESULT STDMETHODCALLTYPE GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value);
-                virtual HRESULT STDMETHODCALLTYPE GetFlag(BMDDeckLinkFrameMetadataID metadataID, bool* value);
-                virtual HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, const char** value);
+                virtual HRESULT STDMETHODCALLTYPE GetFlag(BMDDeckLinkFrameMetadataID metadataID, BMD_BOOL* value);
+                virtual HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR * value);
                 virtual HRESULT STDMETHODCALLTYPE GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* buffer, uint32_t* bufferSize);
 
 };
@@ -1597,7 +1597,11 @@ static bool operator==(const REFIID & first, const REFIID & second){
 
 HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
 {
-        CFUUIDBytes             iunknown;
+#ifdef _WIN32
+        IID                     iunknown = IID_IUnknown;
+#else
+        CFUUIDBytes             iunknown = CFUUIDGetUUIDBytes(IUnknownUUID);
+#endif
         HRESULT                 result          = S_OK;
 
         if (ppv == nullptr) {
@@ -1608,7 +1612,6 @@ HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
         *ppv = nullptr;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLinkFrame QueryInterface " << iid << "\n";
-        iunknown = CFUUIDGetUUIDBytes(IUnknownUUID);
         if (std::memcmp(&iid, &iunknown, sizeof(REFIID)) == 0) {
                 *ppv = this;
                 AddRef();
@@ -1798,14 +1801,14 @@ HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* v
         }
 }
 
-HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID /* metadataID */, bool* value)
+HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_BOOL* value)
 {
         // Not expecting GetFlag
-        *value = false;
+        *value = BMD_TRUE;
         return E_INVALIDARG;
 }
 
-HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID /* metadataID */, const char** value)
+HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_STR* value)
 {
         // Not expecting GetString
         *value = nullptr;
