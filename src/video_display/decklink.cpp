@@ -246,35 +246,33 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
 
                 /* IUnknown */
-                virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
-                virtual ULONG STDMETHODCALLTYPE AddRef();
-                virtual ULONG STDMETHODCALLTYPE Release();
+                HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
+                ULONG STDMETHODCALLTYPE AddRef() override;
+                ULONG STDMETHODCALLTYPE Release() override;
                 
                 /* IDeckLinkVideoFrame */
-                long STDMETHODCALLTYPE GetWidth (void);
-                long STDMETHODCALLTYPE GetHeight (void);
-                long STDMETHODCALLTYPE GetRowBytes (void);
-                BMDPixelFormat STDMETHODCALLTYPE GetPixelFormat (void);
-                BMDFrameFlags STDMETHODCALLTYPE GetFlags (void);
-                HRESULT STDMETHODCALLTYPE GetBytes (/* out */ void **buffer);
-                
-                HRESULT STDMETHODCALLTYPE GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode);
-                HRESULT STDMETHODCALLTYPE GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary);
-                
+                long STDMETHODCALLTYPE GetWidth (void) override;
+                long STDMETHODCALLTYPE GetHeight (void) override;
+                long STDMETHODCALLTYPE GetRowBytes (void) override;
+                BMDPixelFormat STDMETHODCALLTYPE GetPixelFormat (void) override;
+                BMDFrameFlags STDMETHODCALLTYPE GetFlags (void) override;
+                HRESULT STDMETHODCALLTYPE GetBytes (/* out */ void **buffer) override;
+                HRESULT STDMETHODCALLTYPE GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode) override;
+                HRESULT STDMETHODCALLTYPE GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary) override;
 
                 /* IDeckLinkMutableVideoFrame */
-                HRESULT STDMETHODCALLTYPE SetFlags(BMDFrameFlags);
-                HRESULT STDMETHODCALLTYPE SetTimecode(BMDTimecodeFormat, IDeckLinkTimecode*);
-                HRESULT STDMETHODCALLTYPE SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags);
-                HRESULT STDMETHODCALLTYPE SetAncillaryData(IDeckLinkVideoFrameAncillary*);
-                HRESULT STDMETHODCALLTYPE SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits);
+                HRESULT STDMETHODCALLTYPE SetFlags(BMDFrameFlags) override;
+                HRESULT STDMETHODCALLTYPE SetTimecode(BMDTimecodeFormat, IDeckLinkTimecode*) override;
+                HRESULT STDMETHODCALLTYPE SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags) override;
+                HRESULT STDMETHODCALLTYPE SetAncillaryData(IDeckLinkVideoFrameAncillary*) override;
+                HRESULT STDMETHODCALLTYPE SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits) override;
 
                 // IDeckLinkVideoFrameMetadataExtensions interface
-                virtual HRESULT STDMETHODCALLTYPE GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value);
-                virtual HRESULT STDMETHODCALLTYPE GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value);
-                virtual HRESULT STDMETHODCALLTYPE GetFlag(BMDDeckLinkFrameMetadataID metadataID, BMD_BOOL* value);
-                virtual HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR * value);
-                virtual HRESULT STDMETHODCALLTYPE GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* buffer, uint32_t* bufferSize);
+                HRESULT STDMETHODCALLTYPE GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value) override;
+                HRESULT STDMETHODCALLTYPE GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value) override;
+                HRESULT STDMETHODCALLTYPE GetFlag(BMDDeckLinkFrameMetadataID metadataID, BMD_BOOL* value) override;
+                HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR * value) override;
+                HRESULT STDMETHODCALLTYPE GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* buffer, uint32_t* bufferSize) override;
 
 };
 
@@ -290,13 +288,13 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
                 static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
                 
                 /* IUnknown */
-                HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
-                ULONG STDMETHODCALLTYPE AddRef();
-                ULONG STDMETHODCALLTYPE Release();
+                HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
+                ULONG STDMETHODCALLTYPE AddRef() override;
+                ULONG STDMETHODCALLTYPE Release() override;
 
                 /* IDeckLinkVideoFrame3DExtensions */
-                BMDVideo3DPackingFormat STDMETHODCALLTYPE Get3DPackingFormat();
-                HRESULT STDMETHODCALLTYPE GetFrameForRightEye(IDeckLinkVideoFrame**);
+                BMDVideo3DPackingFormat STDMETHODCALLTYPE Get3DPackingFormat() override;
+                HRESULT STDMETHODCALLTYPE GetFrameForRightEye(IDeckLinkVideoFrame**) override;
 };
 } // end of unnamed namespace
 
@@ -1612,13 +1610,13 @@ HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
         *ppv = nullptr;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLinkFrame QueryInterface " << iid << "\n";
-        if (std::memcmp(&iid, &iunknown, sizeof(REFIID)) == 0) {
+        if (iid == iunknown) {
                 *ppv = this;
                 AddRef();
-        } else if (std::memcmp(&iid, &IID_IDeckLinkVideoFrame, sizeof(REFIID)) == 0) {
+        } else if (iid == IID_IDeckLinkVideoFrame) {
                 *ppv = static_cast<IDeckLinkVideoFrame*>(this);
                 AddRef();
-        } else if (std::memcmp(&iid, &IID_IDeckLinkVideoFrameMetadataExtensions, sizeof(REFIID)) == 0) {
+        } else if (iid == IID_IDeckLinkVideoFrameMetadataExtensions) {
                 if (m_metadata.EOTF == static_cast<int64_t>(HDR_EOTF::NONE)) {
                         result = E_NOINTERFACE;
                 } else {
