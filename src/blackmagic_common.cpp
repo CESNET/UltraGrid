@@ -45,6 +45,7 @@
 
 #include "blackmagic_common.h"
 #include "DeckLinkAPIVersion.h"
+#include <iomanip>
 #include <unordered_map>
 
 #define MOD_NAME "[DeckLink] "
@@ -351,5 +352,21 @@ uint32_t bmd_read_fourcc(const char *str) {
         memset(u.c4, ' ', 4);
         memcpy(u.c4, str, min(strlen(str), sizeof u.c4));
         return htonl(u.fourcc);
+}
+
+std::ostream &operator<<(std::ostream &output, const REFIID &iid)
+{
+        auto flags = output.flags();
+        output << hex << uppercase << setfill('0') <<
+                setw(2) << static_cast<int>(iid.byte0) << setw(2) << static_cast<int>(iid.byte1) <<
+                setw(2) << static_cast<int>(iid.byte2) << setw(2) << static_cast<int>(iid.byte3) << "-" <<
+                setw(2) << static_cast<int>(iid.byte4) << setw(2) << static_cast<int>(iid.byte5) << "-" <<
+                setw(2) << static_cast<int>(iid.byte6) << setw(2) << static_cast<int>(iid.byte7) << "-" <<
+                setw(2) << static_cast<int>(iid.byte8) << setw(2) << static_cast<int>(iid.byte9) << "-" <<
+                setw(2) << static_cast<int>(iid.byte10) << setw(2) << static_cast<int>(iid.byte11) <<
+                setw(2) << static_cast<int>(iid.byte12) << setw(2) << static_cast<int>(iid.byte13) <<
+                setw(2) << static_cast<int>(iid.byte14) << setw(2) << static_cast<int>(iid.byte15);
+        output.setf(flags);
+        return output;
 }
 

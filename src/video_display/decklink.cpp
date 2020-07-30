@@ -195,7 +195,36 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 void STDMETHODCALLTYPE SetBCD(BMDTimecodeBCD timecode) { this->timecode = timecode; }
 };
 
-class DeckLinkFrame : public IDeckLinkMutableVideoFrame
+struct ChromaticityCoordinates
+{
+        double RedX;
+        double RedY;
+        double GreenX;
+        double GreenY;
+        double BlueX;
+        double BlueY;
+        double WhiteX;
+        double WhiteY;
+};
+
+constexpr ChromaticityCoordinates kDefaultRec2020Colorimetrics = { 0.708, 0.292, 0.170, 0.797, 0.131, 0.046, 0.3127, 0.3290 };
+constexpr double kDefaultMaxDisplayMasteringLuminance        = 1000.0;
+constexpr double kDefaultMinDisplayMasteringLuminance        = 0.0001;
+constexpr double kDefaultMaxCLL                              = 1000.0;
+constexpr double kDefaultMaxFALL                             = 50.0;
+enum class HDR_EOTF { NONE = -1, SDR = 0, HDR = 1, PQ = 2, HLG = 3 };
+
+struct HDRMetadata
+{
+        int64_t                                 EOTF{static_cast<int64_t>(HDR_EOTF::NONE)};
+        ChromaticityCoordinates referencePrimaries{kDefaultRec2020Colorimetrics};
+        double                                  maxDisplayMasteringLuminance{kDefaultMaxDisplayMasteringLuminance};
+        double                                  minDisplayMasteringLuminance{kDefaultMinDisplayMasteringLuminance};
+        double                                  maxCLL{kDefaultMaxCLL};
+        double                                  maxFALL{kDefaultMaxFALL};
+};
+
+class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFrameMetadataExtensions
 {
                 long width;
                 long height;
@@ -208,12 +237,13 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame
                 long ref;
 
                 buffer_pool_t &buffer_pool;
+                struct HDRMetadata m_metadata;
         protected:
-                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool);
+                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf);
 
         public:
                 virtual ~DeckLinkFrame();
-                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool);
+                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
 
                 /* IUnknown */
                 virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
@@ -238,17 +268,26 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame
                 HRESULT STDMETHODCALLTYPE SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags);
                 HRESULT STDMETHODCALLTYPE SetAncillaryData(IDeckLinkVideoFrameAncillary*);
                 HRESULT STDMETHODCALLTYPE SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits);
+
+                // IDeckLinkVideoFrameMetadataExtensions interface
+                virtual HRESULT STDMETHODCALLTYPE GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value);
+                virtual HRESULT STDMETHODCALLTYPE GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value);
+                virtual HRESULT STDMETHODCALLTYPE GetFlag(BMDDeckLinkFrameMetadataID metadataID, bool* value);
+                virtual HRESULT STDMETHODCALLTYPE GetString(BMDDeckLinkFrameMetadataID metadataID, const char** value);
+                virtual HRESULT STDMETHODCALLTYPE GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* buffer, uint32_t* bufferSize);
+
 };
 
 class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtensions
 {
         private:
-                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool);
+                using DeckLinkFrame::DeckLinkFrame;
+                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf);
                 unique_ptr<DeckLinkFrame> rightEye; // rightEye ref count is always >= 1 therefore deleted by owner (this class)
 
         public:
                 ~DeckLink3DFrame();
-                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool);
+                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
                 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
@@ -303,6 +342,7 @@ struct state_decklink {
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
         BMDVideoOutputConversionMode conversion_mode{bmdNoVideoOutputConversion};
+        int64_t             requested_hdr_mode{static_cast<int64_t>(HDR_EOTF::NONE)};
 
         buffer_pool_t       buffer_pool;
 
@@ -320,7 +360,7 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
         cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
@@ -355,6 +395,7 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
+                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.3)\n";
         }
         cout << style::bold << "\thalf-duplex" << style::reset
                 << " - set a profile that allows maximal number of simultaneous IOs\n";
@@ -453,11 +494,11 @@ display_decklink_getf(void *state)
                                 if (s->stereo)
                                         deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
                                                         s->vid_desc.height, linesize,
-                                                        s->pixelFormat, s->buffer_pool);
+                                                        s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
                                 else
                                         deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width,
                                                         s->vid_desc.height, linesize,
-                                                        s->pixelFormat, s->buffer_pool);
+                                                        s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
                         }
                         (*deckLinkFrames)[i] = deckLinkFrame;
 
@@ -973,6 +1014,34 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
+                } else if (strcasecmp(ptr, "hdr") == 0) {
+                        if (strcasecmp(ptr, "hdr=") == 0) {
+                                string mode{ptr + strlen("hdr=")};
+                                std::for_each(std::begin(mode), std::end(mode), [](char& c) {
+                                                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                                                });
+                                if (mode == "SDR"s) {
+                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::SDR);
+                                } else if (mode == "HDR"s) {
+                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
+                                } else if (mode == "PG"s) {
+                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::PQ);
+                                } else if (mode == "HLG"s) {
+                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HLG);
+                                } else {
+                                        try {
+                                                s->requested_hdr_mode = stoi(mode);
+                                                if (s->requested_hdr_mode < 0 || s->requested_hdr_mode > 7) {
+                                                        throw out_of_range("Value outside [0..7]");
+                                                }
+                                        } catch (exception const &e) {
+                                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong HDR mode \"" << mode << "\": " << e.what() << "\n";
+                                                return false;
+                                        }
+                                }
+                        } else {
+                                s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
+                        }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                         return false;
@@ -1526,8 +1595,39 @@ static bool operator==(const REFIID & first, const REFIID & second){
 }
 #endif
 
-HRESULT DeckLinkFrame::QueryInterface(REFIID, void**)
+HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
 {
+        CFUUIDBytes             iunknown;
+        HRESULT                 result          = S_OK;
+
+        if (ppv == nullptr) {
+                return E_INVALIDARG;
+        }
+
+        // Initialise the return result
+        *ppv = nullptr;
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLinkFrame QueryInterface " << iid << "\n";
+        iunknown = CFUUIDGetUUIDBytes(IUnknownUUID);
+        if (std::memcmp(&iid, &iunknown, sizeof(REFIID)) == 0) {
+                *ppv = this;
+                AddRef();
+        } else if (std::memcmp(&iid, &IID_IDeckLinkVideoFrame, sizeof(REFIID)) == 0) {
+                *ppv = static_cast<IDeckLinkVideoFrame*>(this);
+                AddRef();
+        } else if (std::memcmp(&iid, &IID_IDeckLinkVideoFrameMetadataExtensions, sizeof(REFIID)) == 0) {
+                if (m_metadata.EOTF == static_cast<int64_t>(HDR_EOTF::NONE)) {
+                        result = E_NOINTERFACE;
+                } else {
+                        *ppv = static_cast<IDeckLinkVideoFrameMetadataExtensions*>(this);
+                        AddRef();
+                }
+        } else {
+                result = E_NOINTERFACE;
+        }
+
+        return result;
+
         return E_NOINTERFACE;
 }
 
@@ -1545,17 +1645,18 @@ ULONG DeckLinkFrame::Release()
 	return ref;
 }
 
-DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp)
+DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf)
 	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL), ref(1l),
         buffer_pool(bp)
 {
         clear_video_buffer(reinterpret_cast<unsigned char *>(data.get()), rawBytes, rawBytes, height,
                         pf == bmdFormat8BitYUV ? UYVY : (pf == bmdFormat10BitYUV ? v210 : RGBA));
+        m_metadata.EOTF = eotf;
 }
 
-DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool)
+DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
 {
-        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool);
+        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
 }
 
 DeckLinkFrame::~DeckLinkFrame() 
@@ -1584,7 +1685,7 @@ BMDPixelFormat DeckLinkFrame::GetPixelFormat ()
 
 BMDFrameFlags DeckLinkFrame::GetFlags ()
 {
-        return bmdFrameFlagDefault;
+        return m_metadata.EOTF == static_cast<int64_t>(HDR_EOTF::NONE) ? bmdFrameFlagDefault : bmdFrameContainsHDRMetadata;
 }
 
 HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
@@ -1633,16 +1734,99 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
         return E_FAIL;
 }
 
+// IDeckLinkVideoFrameMetadataExtensions interface
+HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value)
+{
+        switch (metadataID)
+        {
+                case bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc:
+                        *value = m_metadata.EOTF;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataColorspace:
+                        // Colorspace is fixed for this sample
+                        *value = bmdColorspaceRec2020;
+                        return S_OK;
+                default:
+                        value = nullptr;
+                        return E_INVALIDARG;
+        }
+}
 
+HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value)
+{
+        switch (metadataID)
+        {
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedX:
+                        *value = m_metadata.referencePrimaries.RedX;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedY:
+                        *value = m_metadata.referencePrimaries.RedY;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenX:
+                        *value = m_metadata.referencePrimaries.GreenX;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesGreenY:
+                        *value = m_metadata.referencePrimaries.GreenY;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueX:
+                        *value = m_metadata.referencePrimaries.BlueX;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRDisplayPrimariesBlueY:
+                        *value = m_metadata.referencePrimaries.BlueY;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRWhitePointX:
+                        *value = m_metadata.referencePrimaries.WhiteX;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRWhitePointY:
+                        *value = m_metadata.referencePrimaries.WhiteY;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRMaxDisplayMasteringLuminance:
+                        *value = m_metadata.maxDisplayMasteringLuminance;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRMinDisplayMasteringLuminance:
+                        *value = m_metadata.minDisplayMasteringLuminance;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRMaximumContentLightLevel:
+                        *value = m_metadata.maxCLL;
+                        return S_OK;
+                case bmdDeckLinkFrameMetadataHDRMaximumFrameAverageLightLevel:
+                        *value = m_metadata.maxFALL;
+                        return S_OK;
+                default:
+                        value = nullptr;
+                        return E_INVALIDARG;
+        }
+}
 
-DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool)
-        : DeckLinkFrame(w, h, rb, pf, buffer_pool), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool))
+HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID /* metadataID */, bool* value)
+{
+        // Not expecting GetFlag
+        *value = false;
+        return E_INVALIDARG;
+}
+
+HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID /* metadataID */, const char** value)
+{
+        // Not expecting GetString
+        *value = nullptr;
+        return E_INVALIDARG;
+}
+
+HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID /* metadataID */, void* /* buffer */, uint32_t* bufferSize)
+{
+        *bufferSize = 0;
+        return E_INVALIDARG;
+}
+
+// 3D frame
+DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf)
+        : DeckLinkFrame(w, h, rb, pf, buffer_pool, eotf), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool, eotf))
 {
 }
 
-DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool)
+DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
 {
-        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool);
+        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
         return frame;
 }
 
@@ -1660,17 +1844,16 @@ ULONG DeckLink3DFrame::Release()
         return DeckLinkFrame::Release();
 }
 
-HRESULT DeckLink3DFrame::QueryInterface(REFIID id, void**frame)
+HRESULT DeckLink3DFrame::QueryInterface(REFIID id, void **data)
 {
-        HRESULT result = E_NOINTERFACE;
-
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLink3DFrame QueryInterface " << id << "\n";
         if(id == IID_IDeckLinkVideoFrame3DExtensions)
         {
                 this->AddRef();
-                *frame = dynamic_cast<IDeckLinkVideoFrame3DExtensions *>(this);
-                result = S_OK;
+                *data = dynamic_cast<IDeckLinkVideoFrame3DExtensions *>(this);
+                return S_OK;
         }
-        return result;
+        return DeckLinkFrame::QueryInterface(id, data);
 }
 
 BMDVideo3DPackingFormat DeckLink3DFrame::Get3DPackingFormat()
