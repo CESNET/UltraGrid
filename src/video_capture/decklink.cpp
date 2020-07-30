@@ -1176,7 +1176,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 }
 
                 if (s->conversion_mode) {
-                        EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
+                        CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
                 }
 
                 if (s->passthrough) {
