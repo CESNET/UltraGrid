@@ -129,6 +129,33 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         }
 }
 
+static void abgr_to_rgba(unsigned char *dst_buffer,
+                unsigned char *src_buffer,
+                int width, int height, int pitch)
+{
+        int linesize = vc_get_linesize(width, RGBA);
+
+        for(int i = 0; i < height; i++){
+                vc_copylineRGBA(dst_buffer, src_buffer, linesize, 16, 8, 0);
+                src_buffer += linesize;
+                dst_buffer += pitch;
+        }
+}
+
+static void bgr_to_rgb_invert(unsigned char *dst_buffer,
+                unsigned char *src_buffer,
+                int width, int height, int pitch)
+{
+        int linesize = vc_get_linesize(width, RGB);
+        src_buffer += linesize * (height - 1);
+
+        for(int i = 0; i < height; i++){
+                vc_copylineBGRtoRGB(dst_buffer, src_buffer, linesize, 0, 0, 0);
+                src_buffer -= linesize;
+                dst_buffer += pitch;
+        }
+}
+
 static const struct {
         codec_t ug_codec;
         CFHD_PixelFormat cfhd_pixfmt;
@@ -138,7 +165,10 @@ static const struct {
 } decode_codecs[] = {
         {R12L, CFHD_PIXEL_FORMAT_RG48, rg48_to_r12l},
         {UYVY, CFHD_PIXEL_FORMAT_2VUY, nullptr},
+        {R10k, CFHD_PIXEL_FORMAT_DPX0, nullptr},
         {v210, CFHD_PIXEL_FORMAT_V210, nullptr},
+        {RGB, CFHD_PIXEL_FORMAT_RG24, bgr_to_rgb_invert},
+        {RGBA, CFHD_PIXEL_FORMAT_BGRa, abgr_to_rgba},
 };
 
 static bool configure_with(struct state_cineform_decompress *s,
@@ -173,12 +203,6 @@ static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
 {
         struct state_cineform_decompress *s =
                 (struct state_cineform_decompress *) state;
-
-        assert(out_codec == UYVY ||
-                        out_codec == RGB ||
-                        out_codec == v210 ||
-                        out_codec == R12L ||
-                        out_codec == VIDEO_CODEC_NONE);
 
         s->pitch = pitch;
         s->rshift = rshift;
@@ -397,9 +421,16 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
         const struct decode_from_to dec_static[] = {
                 { CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
                 { CFHD, UYVY, UYVY, 500 },
+                { CFHD, RGBA, RGBA, 500 },
+                { CFHD, R10k, R10k, 500 },
                 { CFHD, R12L, R12L, 500 },
                 { CFHD, v210, v210, 500 },
-                { CFHD, VIDEO_CODEC_NONE, UYVY, 600 },
+                { CFHD, R10k, RGBA, 600 },
+                { CFHD, R12L, RGBA, 600 },
+                { CFHD, v210, UYVY, 600 },
+                { CFHD, VIDEO_CODEC_NONE, RGB, 700 },
+                { CFHD, VIDEO_CODEC_NONE, RGBA, 700 },
+                { CFHD, VIDEO_CODEC_NONE, UYVY, 700 },
                 { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
 
