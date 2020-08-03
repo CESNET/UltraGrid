@@ -630,7 +630,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         auto src = move(data);
                         data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec_to) + headroom], delarr_deleter);
                         size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
-                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
+                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, codec_to);
                         auto *in = src.get();
                         auto *out = data.get();
                         for (unsigned int i = 0; i < s->frame->tiles[0].height; ++i) {
