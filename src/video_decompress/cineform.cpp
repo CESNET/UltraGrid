@@ -425,6 +425,7 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
                 { CFHD, R10k, R10k, 500 },
                 { CFHD, R12L, R12L, 500 },
                 { CFHD, v210, v210, 500 },
+                { CFHD, R12L, R10k, 550 },
                 { CFHD, R10k, RGBA, 600 },
                 { CFHD, R12L, RGBA, 600 },
                 { CFHD, v210, UYVY, 600 },
